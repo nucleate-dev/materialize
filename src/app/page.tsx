@@ -1,104 +1,122 @@
 import {
-  ShieldCheckIcon,
-  BoltIcon,
-  CogIcon,
-  ChatBubbleBottomCenterIcon,
-  CloudArrowUpIcon,
-  LockClosedIcon,
+  ArrowsPointingOutIcon,
+  CodeBracketIcon,
+  DevicePhoneMobileIcon,
+  EyeIcon,
+  PaintBrushIcon,
+  PlayIcon,
+  SparklesIcon
 } from "@heroicons/react/24/outline";
-import Image from "next/image";
-import { ProductKeys } from "@/GlobalConstants";
-import { PricingCard } from "./landing_components/Pricing";
-import Header from "./landing_components/Header";
-import { FAQItem } from "./landing_components/Faqs";
 
 export default function Home() {
   return (
-    <main className="bg-slate-50">
+    <main className="bg-black overflow-hidden">
       <Header />
       <HeroSection />
       <FeaturesSection />
-      <PricingSection />
-      <TestimonialSection />
-      <FAQSection />
-      <footer className="bg-gray-800 text-white text-center p-4">
-        <p>&copy; 2024 MyApp. All rights reserved.</p>
-      </footer>
     </main>
+  );
+}
+
+function Header() {
+  return (
+    <header className="relative z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
+      <div className="container mx-auto px-6 py-4">
+        <nav className="flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-white rounded-lg flex items-center justify-center">
+              <SparklesIcon className="w-5 h-5 text-black" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Materialize
+            </span>
+          </div>
+
+          {/* Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            <a href="#features" className="text-gray-300 hover:text-white transition-colors">
+              Features
+            </a>
+            <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">
+              Pricing
+            </a>
+            <a href="#about" className="text-gray-300 hover:text-white transition-colors">
+              About
+            </a>
+          </div>
+
+          {/* CTA Button */}
+          <button className="bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-lg shadow-gray-500/25 hover:shadow-gray-500/40">
+            Get started
+          </button>
+        </nav>
+      </div>
+    </header>
   );
 }
 
 function HeroSection() {
   return (
-    <section className="relative bg-gradient-to-b from-gray-900 to-gray-800 py-24">
-      <div className="container mx-auto text-center px-4 sm:px-6 lg:px-8">
-        {/* Title */}
-        <h1 className="text-5xl font-extraboldleading-tight mb-6">
-          Shaping a world with <br /> reimagination.
-        </h1>
-        {/* Subtitle */}
-        <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-10">
-          Lorem ipsum dolor sit amet consectetur adipisicing elit. Odio incidunt
-          nam itaque sed eius modi error totam sit illum. Voluptas doloribus
-          asperiores quaerat aperiam. Quidem harum omnis beatae ipsum soluta!
-        </p>
-        {/* Buttons */}
-        <div className="flex justify-center space-x-4 mb-12">
-          <a
-            href="#pricing"
-            className="inline-block px-8 py-3 text-base font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
-          >
-            Get started
-          </a>
-          <a
-            href="#features"
-            className="inline-block px-8 py-3 text-base font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg"
-          >
-            Learn more
-          </a>
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Background Gradients */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-gray-500/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gray-500/10 rounded-full blur-3xl"></div>
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-conic from-gray-500/5 via-transparent to-gray-500/5 rounded-full blur-2xl"></div>
+
+      {/* Grid Pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:100px_100px]"></div>
+
+      <div className="relative z-10 container mx-auto px-6 text-center">
+        {/* Badge */}
+        <div className="inline-flex items-center px-4 py-2 mt-8 mb-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full">
+          <span className="text-sm text-gray-300">Speed of Thought Prototyping</span>
         </div>
-        {/* Features Section */}
-        {/* Logos Section */}
-        <div className="mt-16 text-center">
-          {/* Trusted by Heading */}
-          <h4 className="text-lg font-semibold text-gray-300">Trusted by</h4>
-          <div className="mt-8 flex justify-center items-center space-x-20 opacity-70">
-            <Image
-              src="https://logo.clearbit.com/microsoft.com"
-              alt="Microsoft"
-              className="h-10"
-              height={40}
-              width={40}
-            />
-            <Image
-              src="https://logo.clearbit.com/airbnb.com"
-              alt="Airbnb"
-              className="h-10"
-              height={40}
-              width={40}
-            />
-            <Image
-              src="https://logo.clearbit.com/google.com"
-              alt="Google"
-              className="h-10"
-              height={40}
-              width={40}
-            />
-            <Image
-              src="https://logo.clearbit.com/netflix.com"
-              alt="Netflix"
-              className="h-10"
-              height={40}
-              width={40}
-            />
-            <Image
-              src="https://logo.clearbit.com/cloud.google.com"
-              alt="Google Cloud"
-              className="h-10"
-              height={40}
-              width={40}
-            />
+
+        {/* Main Heading */}
+        <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight">
+          <span className="block bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent relative">
+            Materialize
+            <div className="absolute inset-0 bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent opacity-50 blur-sm"></div>
+          </span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-xl md:text-2xl text-gray-400 max-w-4xl mx-auto mb-12 leading-relaxed">
+          Materialize helps you prototype your ideas, workshop new designs, and build out high-quality user flows at the speed of thought. Start with an infinite canvas to protoshop React and React Native components fast and connect them directly to your app.
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <button className="group relative px-8 py-4 bg-gradient-to-r from-gray-600 to-gray-800 text-white font-semibold rounded-xl shadow-2xl shadow-gray-500/25 hover:shadow-gray-500/40 transition-all duration-300 hover:scale-105">
+            <span className="relative z-10">Get started</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          </button>
+        </div>
+
+        {/* Demo Video Placeholder */}
+        <div className="relative max-w-6xl mx-auto">
+          <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
+            {/* Video Player Mock */}
+            <div className="aspect-video bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+              <div className="w-20 h-20 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/20 hover:bg-white/20 transition-colors cursor-pointer group">
+                <PlayIcon className="w-8 h-8 text-white ml-1 group-hover:scale-110 transition-transform" />
+              </div>
+            </div>
+
+            {/* Floating UI Elements */}
+            <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-2">
+              <span className="text-white text-sm font-medium">● Infinite Canvas</span>
+            </div>
+
+            <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-xl border border-white/10 rounded-lg px-4 py-2">
+              <span className="text-gray-300 text-sm">React + React Native</span>
+            </div>
           </div>
+
+          {/* Glow Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-500/10 to-gray-500/10 rounded-2xl blur-3xl -z-10 scale-105"></div>
         </div>
       </div>
     </section>
@@ -106,239 +124,103 @@ function HeroSection() {
 }
 
 function FeaturesSection() {
-  return (
-    <section id="features" className="py-20 bg-gray-50">
-      <div className="container mx-auto text-center">
-        <h2 className="text-4xl font-bold mb-12">Why Choose Us?</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
-          <FeatureCard
-            icon={<ShieldCheckIcon className="w-12 h-12 text-purple-500" />}
-            title="Advanced Security"
-            description="Your data is safe with our top-notch security systems."
-          />
-          <FeatureCard
-            icon={<BoltIcon className="w-12 h-12 text-purple-500" />}
-            title="Fast Performance"
-            description="Experience blazing fast performance with our optimized platform."
-          />
-          <FeatureCard
-            icon={<CogIcon className="w-12 h-12 text-purple-500" />}
-            title="Customizable"
-            description="Easily customize features to fit your specific needs."
-          />
-          <FeatureCard
-            icon={
-              <ChatBubbleBottomCenterIcon className="w-12 h-12 text-purple-500" />
-            }
-            title="24/7 Support"
-            description="Our support team is available anytime to assist you."
-          />
-          <FeatureCard
-            icon={<CloudArrowUpIcon className="w-12 h-12 text-purple-500" />}
-            title="Cloud Integration"
-            description="Seamlessly integrate with all your favorite cloud services."
-          />
-          <FeatureCard
-            icon={<LockClosedIcon className="w-12 h-12 text-purple-500" />}
-            title="Privacy Focused"
-            description="We prioritize privacy with our end-to-end encryption."
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: JSX.Element;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="p-6 bg-white rounded-lg shadow-lg text-center hover:shadow-xl transition-shadow duration-300">
-      <div className="mb-4 flex justify-center">{icon}</div>
-      <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
-    </div>
-  );
-}
-
-function PricingSection() {
-  return (
-    <section id="pricing" className="py-20 bg-gray-50">
-      <div className="container mx-auto text-center">
-        <h2 className="text-4xl font-bold mb-12">Our Pricing</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          <PricingCard
-            title="Basic Plan"
-            price="$99"
-            features={["Feature 1", "Feature 2", "Feature 3"]}
-            popular={false}
-            productKey={ProductKeys.BASE_SUBSCRIPTION}
-          />
-          <PricingCard
-            title="Pro Plan"
-            price="$129"
-            features={["Feature 1", "Feature 2", "Feature 3", "Feature 4"]}
-            popular={true} // Mark this plan as the most popular
-            productKey={ProductKeys.PRO_SUBSCRIPTION}
-          />
-          <PricingCard
-            title="Premium Plan"
-            price="$250"
-            features={[
-              "Feature 1",
-              "Feature 2",
-              "Feature 3",
-              "Feature 4",
-              "Feature 5",
-            ]}
-            popular={false}
-            productKey={ProductKeys.PRO_SUBSCRIPTION}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TestimonialSection() {
-  const testimonials = [
+  const features = [
     {
-      name: "Daniella Doe",
-      role: "Mobile Dev",
-      image: "https://randomuser.me/api/portraits/women/1.jpg",
-      testimony:
-        "Lorem ipsum dolor sit amet consectetur adipisicing elit. Illum aliquid quo eum quae quos illo earum ipsam.",
+      icon: <ArrowsPointingOutIcon className="w-8 h-8" />,
+      title: "Infinite Canvas & Flow Branching",
+      description: "Compare 5–10 UX ideas side-by-side in one space—no file/version sprawl, faster convergence.",
+      gradient: "from-gray-400 to-gray-600"
     },
     {
-      name: "Yanick Doe",
-      role: "Developer",
-      image: "https://randomuser.me/api/portraits/men/1.jpg",
-      testimony:
-        "Lorem ipsum dolor sit amet consectetur, adipisicing elit. Architecto laboriosam deleniti aperiam ab veniam sint.",
+      icon: <PaintBrushIcon className="w-8 h-8" />,
+      title: "Taste-Trained AI Variants",
+      description: "One click produces polished, best-practice screens (onboarding, checkout, empty states) so you skip blank-canvas lag.",
+      gradient: "from-gray-500 to-gray-700"
     },
     {
-      name: "Andy Doe",
-      role: "Manager",
-      image: "https://randomuser.me/api/portraits/men/2.jpg",
-      testimony:
-        "Lorem ipsum dolor sit amet consectetur, adipisicing elit. Architecto laboriosam deleniti aperiam ab veniam sint.",
+      icon: <EyeIcon className="w-8 h-8" />,
+      title: "Dive-In Component Editing",
+      description: "Double-click to tweak props, layout, or copy with instant live re-render—stay in creative flow.",
+      gradient: "from-gray-600 to-gray-800"
     },
     {
-      name: "Jane Doe",
-      role: "Marketing",
-      image: "https://randomuser.me/api/portraits/women/2.jpg",
-      testimony:
-        "Lorem ipsum dolor sit amet laboriosam deleniti aperiam ab veniam sint non cumque quis tempore cupiditate.",
+      icon: <DevicePhoneMobileIcon className="w-8 h-8" />,
+      title: "React + React Native Preview",
+      description: "Prototype web and mobile flows together; reuse patterns and decide platform nuances early.",
+      gradient: "from-gray-700 to-gray-900"
     },
     {
-      name: "Jane Doe",
-      role: "Mobile Dev",
-      image: "https://randomuser.me/api/portraits/women/3.jpg",
-      testimony:
-        "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Architecto laboriosam deleniti aperiam ab veniam sint.",
-    },
-    {
-      name: "Yanny Doe",
-      role: "Mobile Dev",
-      image: "https://randomuser.me/api/portraits/men/3.jpg",
-      testimony:
-        "Lorem ipsum dolor sit amet consectetur, adipisicing elit. Architecto laboriosam deleniti aperiam ab veniam sint.",
-    },
+      icon: <CodeBracketIcon className="w-8 h-8" />,
+      title: "One-Click Code Export",
+      description: "Output clean JSX / RN Web or open a sandbox—eliminates hand-off rebuild time and accelerates implementation.",
+      gradient: "from-gray-800 to-white"
+    }
   ];
 
   return (
-    <section id="testimonials" className="py-20 bg-gray-900">
-      <div className="container mx-auto px-4">
-        <h2 className="text-4xl font-bold text-center mb-12">
-          We have some fans.
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <TestimonialCard key={index} testimonial={testimonial} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+    <section className="relative py-32 bg-gradient-to-b from-black to-gray-900">
+      {/* Background Effects */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(75,85,99,0.1),transparent_70%)]"></div>
 
-function TestimonialCard({
-  testimonial,
-}: {
-  testimonial: { name: string; role: string; image: string; testimony: string };
-}) {
-  return (
-    <div className="p-6 bg-gray-800 rounded-xl shadow-lg">
-      <div className="flex items-center mb-4">
-        <Image
-          src={testimonial.image}
-          alt={testimonial.name}
-          className="rounded-full mr-4"
-          height={48}
-          width={48}
-        />
-        <div>
-          <h3 className="text-lg font-semibold">{testimonial.name}</h3>
-          <p className="text-sm text-gray-400">{testimonial.role}</p>
-        </div>
-      </div>
-      <p className="text-gray-300">{testimonial.testimony}</p>
-    </div>
-  );
-}
-
-function FAQSection() {
-  const faqs = [
-    {
-      question: "What is MyApp?",
-      answer:
-        "MyApp is a complete dev starter pack designed to help developers build apps quickly and efficiently with pre-built templates and features.",
-    },
-    {
-      question: "How does billing work?",
-      answer:
-        "We offer both one-time payments and subscription options, allowing you to choose the best plan that fits your needs.",
-    },
-    {
-      question: "Can I cancel my subscription?",
-      answer:
-        "Yes, you can cancel your subscription at any time from your account dashboard without any additional charges.",
-    },
-    {
-      question: "Do you offer customer support?",
-      answer:
-        "Yes, we provide 24/7 customer support. You can contact us via email or our live chat support.",
-    },
-    {
-      question: "Is there a free trial available?",
-      answer:
-        "Yes, we offer a 14-day free trial so you can explore all the features before committing to a subscription plan.",
-    },
-  ];
-
-  return (
-    <section id="faq" className="py-20 bg-gray-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-800">
-            Frequently Asked Questions
+      <div className="relative z-10 container mx-auto px-6">
+        {/* Section Header */}
+        <div className="text-center mb-20">
+          <h2 className="text-5xl md:text-6xl font-bold mb-6">
+            <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Materialize's Core
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-gray-400 to-white bg-clip-text text-transparent">
+              Features & Capabilities
+            </span>
           </h2>
-          <p className="text-lg text-gray-600 mt-4">
-            Here are some of the most common questions we receive.
+          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+            Build high-quality user flows at the speed of thought with infinite canvas prototyping.
           </p>
         </div>
-        <div className="max-w-4xl mx-auto divide-y divide-slate-300">
-          {faqs.map((faq, index) => (
-            <FAQItem key={index} question={faq.question} answer={faq.answer} />
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          {features.map((feature, index) => (
+            <FeatureCard key={index} {...feature} />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function FeatureCard({ icon, title, description, gradient }: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  gradient: string;
+}) {
+  return (
+    <div className="group relative">
+      {/* Card Background */}
+      <div className="relative bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/10 rounded-2xl p-8 hover:border-white/20 transition-all duration-300">
+        {/* Icon */}
+        <div className={`inline-flex p-3 bg-gradient-to-r ${gradient} rounded-xl mb-6 shadow-lg`}>
+          <div className="text-white">
+            {icon}
+          </div>
+        </div>
+
+        {/* Content */}
+        <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-gray-100 transition-colors">
+          {title}
+        </h3>
+        <p className="text-gray-400 text-lg leading-relaxed group-hover:text-gray-300 transition-colors">
+          {description}
+        </p>
+
+        {/* Hover Glow */}
+        <div className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity duration-300 pointer-events-none`}></div>
+      </div>
+
+      {/* Background Glow */}
+      <div className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-10 rounded-2xl blur-xl transition-opacity duration-300 -z-10 scale-105`}></div>
+    </div>
   );
 }
