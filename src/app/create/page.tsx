@@ -11,18 +11,18 @@ import { SandpackCodeEditor, SandpackLayout, SandpackPreview, SandpackProvider }
 //   ssr: false,
 // });
 
-const code = `function App() {
-  return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold text-blue-600">Hello World!</h1>
-      <p className="mt-4 text-gray-600">
-        Edit this component in the editor and see the live preview!
-      </p>
-    </div>
-  );
-}
+// const code = `function App() {
+//   return (
+//     <div className="p-4">
+//       <h1 className="text-2xl font-bold text-blue-600">Hello World!</h1>
+//       <p className="mt-4 text-gray-600">
+//         Edit this component in the editor and see the live preview!
+//       </p>
+//     </div>
+//   );
+// }
 
-export default App;`;
+// export default App;`;
 
 export default function CreatePage() {
   // const [code, setCode] = useState(defaultCode);
