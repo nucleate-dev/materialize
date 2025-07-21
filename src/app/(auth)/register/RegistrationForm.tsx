@@ -119,28 +119,10 @@ export default function RegistrationForm() {
         return;
       }
 
-      // Create a user in your database with their unique user ID
-      // ALTERNATIVE: save a serverless fx call by using a trigger on your authentication table in postgresql
-      const registrationResponse = await fetch(
-        "/api/registration/register-user",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            phoneNumber,
-            email,
-            firstName,
-            lastName,
-            userId: authResponse.data.user?.id,
-          }),
-        }
-      );
-      if (registrationResponse.status === 200 && authResponse.data.session) {
+      if (authResponse.data.session) {
         router.push("/auth/callback");
-      } else if (registrationResponse.status === 200) {
-        setShowSuccessState(true);
       } else {
-        setShowErrorModal(true);
-        setErrorMessage("There was an error");
+        setShowSuccessState(true);
       }
     },
     [email, firstName, lastName, password, phoneNumber, router]
