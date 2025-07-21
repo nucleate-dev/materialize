@@ -29,6 +29,7 @@
     "react-dom": "^18",
     "react-jvectormap": "^0.0.16",
     "react-monaco-editor": "^0.59.0",
+    "react-runner": "^1.0.5",
     "resend": "^4.0.0",
     "snack-sdk": "^6.5.0",
     "stripe": "^16.12.0",

@@ -1,6 +1,9 @@
 "use client";
 
-import { Sandpack } from "@codesandbox/sandpack-react";
+import { SandpackCodeEditor, SandpackLayout, SandpackPreview, SandpackProvider } from "@codesandbox/sandpack-react";
+
+
+
 // import dynamic from "next/dynamic";
 // import { useState } from "react";
 
@@ -29,21 +32,19 @@ export default function CreatePage() {
   // };
 
   return (
-    <div>
-      <Sandpack
-        template="react"
-        files={{
-          "/App.js": code,
-        }}
-        options={{
-          showNavigator: false,
-          showTabs: false,
-          showLineNumbers: true,
-          editorHeight: "100vh",
-          layout: "preview",
-        }}
-        theme="light"
-      />
-    </div >
+    <SandpackProvider template="react"
+      options={{ bundlerURL: "https://sandpack-bundler.codesandbox.io" }}
+    >
+      <SandpackLayout>
+        <SandpackCodeEditor
+          showTabs
+          showLineNumbers={false}
+          showInlineErrors
+          wrapContent
+          closableTabs
+        />
+        <SandpackPreview />
+      </SandpackLayout>
+    </SandpackProvider>
   );
 }
