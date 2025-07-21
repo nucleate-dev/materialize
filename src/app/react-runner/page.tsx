@@ -1,11 +1,11 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import Editor from '@monaco-editor/react'
-import { useRunner } from 'react-runner'
+import Editor from '@monaco-editor/react';
+import { useState } from 'react';
+import { useRunner } from 'react-runner';
 
 const initialCode = `function Demo() {
-  const [count, setCount] = useState(0)
+  const [count, setCount] = React.useState(0)
   
   return (
     <div className="p-4 bg-white rounded-lg shadow-lg">
@@ -31,22 +31,22 @@ const initialCode = `function Demo() {
   )
 }
 
-export default Demo`
+export default Demo`;
 
 export default function ReactRunnerPage() {
-  const [code, setCode] = useState(initialCode)
-  
+  const [code, setCode] = useState(initialCode);
+
   const scope = {
     useState: useState,
-  }
-  
-  const { element, error } = useRunner({ code, scope })
+  };
+
+  const { element, error } = useRunner({ code, scope });
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6 text-gray-800">React Runner Playground</h1>
-        
+
         <div className="grid grid-cols-2 gap-6 h-[calc(100vh-200px)]">
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="bg-gray-800 text-white px-4 py-2 text-sm font-medium">
@@ -67,7 +67,7 @@ export default function ReactRunnerPage() {
               }}
             />
           </div>
-          
+
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="bg-blue-600 text-white px-4 py-2 text-sm font-medium">
               Live Preview
@@ -88,7 +88,7 @@ export default function ReactRunnerPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-blue-800 mb-2">💡 Tips:</h3>
           <ul className="text-sm text-blue-700 space-y-1">
@@ -100,5 +100,5 @@ export default function ReactRunnerPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
