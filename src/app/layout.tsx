@@ -16,9 +16,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-black">
       <CSPostHogProvider>
-        <body className={inter.className}>{children}</body>
+        <body className={`${inter.className} bg-black`}>{children}</body>
       </CSPostHogProvider>
     </html>
   );
