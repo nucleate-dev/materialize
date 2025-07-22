@@ -8,7 +8,7 @@ import Loader from "./components/common/Loader";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import RequireAuth from "./RequireAuth";
-import WithPaywall from "./Paywall";
+// import WithPaywall from "./Paywall";
 
 export default function RootLayout({
   children,
@@ -26,7 +26,7 @@ export default function RootLayout({
     <html lang="en">
       <body suppressHydrationWarning={true}>
         <RequireAuth />
-        <WithPaywall>
+        {/* <WithPaywall> */}
           <div className="dark:bg-boxdark-2 dark:text-bodydark">
             {loading ? (
               <Loader />
@@ -52,7 +52,7 @@ export default function RootLayout({
               </div>
             )}
           </div>
-        </WithPaywall>
+        {/* </WithPaywall> */}
       </body>
     </html>
   );
