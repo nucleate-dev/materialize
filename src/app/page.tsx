@@ -1,5 +1,6 @@
 "use client";
 import PremiumHeader from "@/components/PremiumHeader";
+import Link from "next/link";
 import {
   ArrowRightIcon,
   ArrowsPointingOutIcon,
@@ -70,12 +71,15 @@ function HeroSection() {
 
         {/* Enhanced CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-20">
-          <button className="group relative px-10 py-4 bg-white text-black font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50">
+          <Link
+            href="/register"
+            className="group relative px-10 py-4 bg-white text-black font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
+          >
             <span className="flex items-center gap-2">
               Get started free
               <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </span>
-          </button>
+          </Link>
           <button className="group px-8 py-4 bg-white/10 text-white font-semibold rounded-2xl border border-white/20 backdrop-blur-xl transition-all duration-300 hover:bg-white/20 hover:scale-105">
             <span className="flex items-center gap-2">
               <PlayIcon className="w-5 h-5" />
