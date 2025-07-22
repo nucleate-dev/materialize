@@ -233,12 +233,9 @@ function ComponentDemo() {
             Input Component
           </div>
           <div className="bg-white/5 rounded-2xl p-6 border border-white/10 backdrop-blur-sm">
-            <Link
-              href="/register"
-              className="px-6 py-3 bg-blue-500 text-white rounded-xl font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
-            >
+            <button className="px-6 py-3 bg-blue-500 text-white rounded-xl font-medium shadow-lg hover:shadow-blue-500/25 transition-all duration-300">
               Get Started
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -291,12 +288,9 @@ function ComponentDemo() {
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative">
               <div className="text-xs font-semibold text-gray-300 mb-4 uppercase tracking-wider">{variant.style}</div>
-              <Link
-                href="/register"
-                className={`px-6 py-3 rounded-xl transition-all duration-300 w-full relative overflow-hidden ${variant.classes}`}
-              >
+              <button className={`px-6 py-3 rounded-xl transition-all duration-300 w-full relative overflow-hidden ${variant.classes}`}>
                 Get Started
-              </Link>
+              </button>
             </div>
           </div>
         ))}
