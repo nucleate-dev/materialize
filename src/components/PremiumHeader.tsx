@@ -33,14 +33,19 @@ export default function PremiumHeader() {
             </a>
           </div>
 
-          {/* CTA Button */}
-          <Link
-            href="/register"
-            className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
-          >
-            <span className="relative z-10">Get started</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </Link>
+          {/* CTA Buttons */}
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/login"
+              className="px-6 py-3 rounded-xl border border-white/20 text-white/80 backdrop-blur-xl transition-all duration-300 hover:text-white hover:bg-white/10 hover:scale-105"
+            >
+              Sign in
+            </Link>
+            <button className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50">
+              <span className="relative z-10">Get started</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            </button>
+          </div>
         </nav>
       </div>
     </header>
