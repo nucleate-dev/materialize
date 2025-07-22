@@ -1,5 +1,6 @@
 "use client";
 import { SparklesIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 
 export default function PremiumHeader() {
   return (
@@ -33,10 +34,13 @@ export default function PremiumHeader() {
           </div>
 
           {/* CTA Button */}
-          <button className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50">
+          <Link
+            href="/register"
+            className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
+          >
             <span className="relative z-10">Get started</span>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </button>
+          </Link>
         </nav>
       </div>
     </header>
