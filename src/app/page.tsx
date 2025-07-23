@@ -1,6 +1,5 @@
 "use client";
 import PremiumHeader from "@/components/PremiumHeader";
-import Link from "next/link";
 import {
   ArrowRightIcon,
   ArrowsPointingOutIcon,
@@ -17,10 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useState } from "react";
 
-// export const metadata = {
-//   title: "Materialize",
-//   description: "Materialize helps you prototype your ideas, workshop new designs, and build out high-quality user flows at the speed of thought."
-// };
+
 
 export default function Home() {
   return (
@@ -71,15 +67,17 @@ function HeroSection() {
 
         {/* Enhanced CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-20">
-          <Link
-            href="/register"
+          <a
+            href="https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header"
+            target="_blank"
+            rel="noopener noreferrer"
             className="group relative px-10 py-4 bg-white text-black font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
           >
             <span className="flex items-center gap-2">
-              Get started free
+              Join Waitlist
               <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </span>
-          </Link>
+          </a>
           <button className="group px-8 py-4 bg-white/10 text-white font-semibold rounded-2xl border border-white/20 backdrop-blur-xl transition-all duration-300 hover:bg-white/20 hover:scale-105">
             <span className="flex items-center gap-2">
               <PlayIcon className="w-5 h-5" />
