@@ -169,6 +169,7 @@ export default function CanvasPage() {
         return;
       }
       setDocuments(data || []);
+      console.log("Fetched canvas documents", data);
     }
 
     fetchDocuments();
@@ -188,6 +189,7 @@ export default function CanvasPage() {
         return;
       }
       setSessionInfo(data);
+      console.log("Fetched canvas session", data);
     }
     if (user) {
       fetchSession();
