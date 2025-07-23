@@ -5,7 +5,7 @@ import {
   PaperAirplaneIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/database.types";
@@ -16,6 +16,9 @@ import {
   // DEFAULT_EMBED_DEFINITIONS,
   // DefaultEmbedDefinitionType,
   Tldraw,
+  serializeTldrawJson,
+  Editor,
+  TLStoreSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
 
@@ -134,9 +137,6 @@ export default function CanvasPage() {
   const { user, userIsLoading } = useUser();
   const params = useParams<{ canvas_id: string }>();
   const canvasId = params?.canvas_id;
-  if (!canvasId || userIsLoading) {
-    return <Loader />;
-  }
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [messages, setMessages] = useState([
     {
@@ -151,6 +151,8 @@ export default function CanvasPage() {
   const [documents, setDocuments] = useState<
     Database["public"]["Tables"]["canvas_documents"]["Row"][]
   >([]);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [loadedFromDB, setLoadedFromDB] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<
     Database["public"]["Tables"]["canvas_sessions"]["Row"] | null
   >(null);
@@ -199,10 +201,69 @@ export default function CanvasPage() {
   }, [documents]);
 
   useEffect(() => {
+    if (editor && documents.length > 0 && !loadedFromDB) {
+      try {
+        const snapshot = documents[0]
+          .document_data as unknown as TLStoreSnapshot;
+        if (snapshot) {
+          editor.loadSnapshot(snapshot);
+          setLoadedFromDB(true);
+        }
+      } catch (err) {
+        console.error("Error loading snapshot", err);
+      }
+    }
+  }, [editor, documents, loadedFromDB]);
+
+  useEffect(() => {
     if (sessionInfo) {
       console.log("Fetched canvas session", sessionInfo);
     }
   }, [sessionInfo]);
+
+  const persistDocument = useCallback(
+    async (currentEditor: Editor) => {
+      if (!canvasId) return;
+      const serialized = await serializeTldrawJson(currentEditor);
+      const json = JSON.parse(serialized) as TLStoreSnapshot;
+      const schemaVersion = String(json.schema.schemaVersion ?? "");
+      if (documents[0]) {
+        await supabase
+          .from("canvas_documents")
+          .update({ document_data: json, schema_version: schemaVersion })
+          .eq("id", documents[0].id);
+      } else {
+        const { data } = await supabase
+          .from("canvas_documents")
+          .insert({
+            canvas_id: canvasId,
+            document_data: json,
+            schema_version: schemaVersion,
+          })
+          .select()
+          .single();
+        if (data) {
+          setDocuments([data]);
+        }
+      }
+    },
+    [canvasId, documents]
+  );
+
+  const debounce = (fn: (...args: unknown[]) => void, delay: number) => {
+    let t: ReturnType<typeof setTimeout>;
+    return (...args: unknown[]) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), delay);
+    };
+  };
+
+  useEffect(() => {
+    if (!editor) return;
+    const save = debounce(() => persistDocument(editor), 1000);
+    const remove = editor.store.listen(() => save(), { scope: "document" });
+    return () => remove();
+  }, [editor, persistDocument]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
@@ -229,6 +290,10 @@ export default function CanvasPage() {
     }, 1000);
   };
 
+  if (!canvasId || userIsLoading) {
+    return <Loader />;
+  }
+
   return (
     <div className="h-screen bg-black flex flex-col">
       <div className="flex-1 flex relative">
@@ -237,7 +302,7 @@ export default function CanvasPage() {
           className={`flex-1 transition-all duration-500 ease-out ${isChatOpen ? "mr-96" : "mr-0"}`}
         >
           <div className="h-full w-full">
-            <Tldraw />
+            <Tldraw persistenceKey={canvasId} onMount={(e) => setEditor(e)} />
           </div>
         </div>
 
