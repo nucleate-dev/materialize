@@ -6,15 +6,32 @@ import ProjectThumbnail from "../components/ProjectThumbnail";
 import { supabase } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";
+import { Database } from "@/lib/database.types";
+import { useEffect } from "react";
+
+// Utility to format date as relative time
+function formatRelativeTime(dateString: string | null | undefined): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // seconds
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+  return date.toLocaleDateString();
+}
 
 function NewProjectModal({
   open,
   onClose,
   user,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   user: User | null;
+  onCreated: () => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -44,6 +61,7 @@ function NewProjectModal({
         return;
       }
       if (canvas) {
+        onCreated();
         onClose();
       }
     } catch (error) {
@@ -169,33 +187,46 @@ export default function Projects() {
   // const router = useRouter();
   const { user } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
+  const [canvases, setCanvases] = useState<
+    Database["public"]["Tables"]["canvases"]["Row"][]
+  >([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample project data
-  const sampleProjects = [
-    {
-      id: 1,
-      name: "E-commerce Mobile App",
-      thumbnailUrl:
-        "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop&crop=center",
-      lastModified: "2 hours ago",
-    },
-    {
-      id: 2,
-      name: "Dashboard Redesign",
-      thumbnailUrl:
-        "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800&h=600&fit=crop&crop=center",
-      lastModified: "1 day ago",
-    },
-  ];
+  // Move fetchCanvases outside useEffect so it can be called after creation
+  const fetchCanvases = async (userId: string) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("canvases")
+      .select("*")
+      .eq("owner_id", userId)
+      .order("updated_at", { ascending: false });
+    if (error) {
+      console.error("Error fetching canvases:", error);
+      setCanvases([]);
+    } else {
+      setCanvases(data || []);
+    }
+    setLoading(false);
+  };
 
-  const handleProjectClick = (projectId: number) => {
+  useEffect(() => {
+    if (user) {
+      fetchCanvases(user.id);
+    }
+  }, [user]);
+
+  const handleProjectClick = (projectId: string) => {
     console.log(`Opening project ${projectId}`);
     // TODO: Navigate to project canvas
   };
 
-  // New: open modal instead of creating immediately
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
+
+  // Callback to refetch canvases after creation
+  const handleCanvasCreated = () => {
+    fetchCanvases(user?.id ?? "");
+  };
 
   return (
     <div className="mx-auto max-w-screen-2xl">
@@ -242,54 +273,60 @@ export default function Projects() {
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}
+        onCreated={handleCanvasCreated}
       />
 
       {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {sampleProjects.map((project) => (
-          <ProjectThumbnail
-            key={project.id}
-            projectName={project.name}
-            thumbnailUrl={project.thumbnailUrl}
-            lastModified={project.lastModified}
-            onClick={() => handleProjectClick(project.id)}
-          />
-        ))}
-      </div>
-
-      {/* Empty State (when no projects) */}
-      {sampleProjects.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
-            <svg
-              className="w-12 h-12 text-body dark:text-bodydark2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
+        {loading ? (
+          <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-300">
+            Loading...
           </div>
-          <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-            No projects yet
-          </h3>
-          <p className="text-body dark:text-bodydark mb-6 max-w-md">
-            Create your first infinite canvas to start prototyping and designing
-            at the speed of thought.
-          </p>
-          <button
-            onClick={handleOpenModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-          >
-            Create First Project
-          </button>
-        </div>
-      )}
+        ) : canvases.length > 0 ? (
+          canvases.map((canvas) => (
+            <ProjectThumbnail
+              key={canvas.id}
+              projectName={canvas.name}
+              thumbnailUrl={canvas.thumbnail_url}
+              lastModified={formatRelativeTime(
+                canvas.updated_at || canvas.created_at
+              )}
+              onClick={() => handleProjectClick(canvas.id)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
+              <svg
+                className="w-12 h-12 text-body dark:text-bodydark2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
+              No projects yet
+            </h3>
+            <p className="text-body dark:text-bodydark mb-6 max-w-md">
+              Create your first infinite canvas to start prototyping and
+              designing at the speed of thought.
+            </p>
+            <button
+              onClick={handleOpenModal}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
+            >
+              Create First Project
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
