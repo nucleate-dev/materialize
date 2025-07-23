@@ -5,7 +5,12 @@ import {
   PaperAirplaneIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { supabase } from "@/GlobalConstants";
+import { Database } from "@/lib/database.types";
+import Loader from "@/app/dashboard/components/common/Loader";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   // CustomEmbedDefinition,
   // DEFAULT_EMBED_DEFINITIONS,
@@ -126,6 +131,12 @@ import "tldraw/tldraw.css";
 // ];
 
 export default function CanvasPage() {
+  const { user, userIsLoading } = useUser();
+  const params = useParams<{ canvas_id: string }>();
+  const canvasId = params?.canvas_id;
+  if (!canvasId || userIsLoading) {
+    return <Loader />;
+  }
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [messages, setMessages] = useState([
     {
@@ -137,6 +148,61 @@ export default function CanvasPage() {
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [currentEmbedUrl, setCurrentEmbedUrl] = useState("https://google.com");
+  const [documents, setDocuments] = useState<
+    Database["public"]["Tables"]["canvas_documents"]["Row"][]
+  >([]);
+  const [sessionInfo, setSessionInfo] = useState<
+    Database["public"]["Tables"]["canvas_sessions"]["Row"] | null
+  >(null);
+
+  useEffect(() => {
+    async function fetchDocuments() {
+      if (!canvasId) return;
+      const { data, error } = await supabase
+        .from("canvas_documents")
+        .select("*")
+        .eq("canvas_id", canvasId);
+      if (error) {
+        console.error("Error fetching canvas documents:", error);
+        return;
+      }
+      setDocuments(data || []);
+    }
+
+    fetchDocuments();
+  }, [canvasId]);
+
+  useEffect(() => {
+    async function fetchSession() {
+      if (!canvasId || !user) return;
+      const { data, error } = await supabase
+        .from("canvas_sessions")
+        .select("*")
+        .eq("canvas_id", canvasId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching canvas session:", error);
+        return;
+      }
+      setSessionInfo(data);
+    }
+    if (user) {
+      fetchSession();
+    }
+  }, [canvasId, user]);
+
+  useEffect(() => {
+    if (documents.length > 0) {
+      console.log("Fetched canvas documents", documents);
+    }
+  }, [documents]);
+
+  useEffect(() => {
+    if (sessionInfo) {
+      console.log("Fetched canvas session", sessionInfo);
+    }
+  }, [sessionInfo]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
