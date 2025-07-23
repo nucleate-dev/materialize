@@ -137,9 +137,6 @@ export default function CanvasPage() {
   const { user, userIsLoading } = useUser();
   const params = useParams<{ canvas_id: string }>();
   const canvasId = params?.canvas_id;
-  if (!canvasId || userIsLoading) {
-    return <Loader />;
-  }
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [messages, setMessages] = useState([
     {
@@ -206,7 +203,8 @@ export default function CanvasPage() {
   useEffect(() => {
     if (editor && documents.length > 0 && !loadedFromDB) {
       try {
-        const snapshot = documents[0].document_data as unknown as TLStoreSnapshot;
+        const snapshot = documents[0]
+          .document_data as unknown as TLStoreSnapshot;
         if (snapshot) {
           editor.loadSnapshot(snapshot);
           setLoadedFromDB(true);
@@ -292,6 +290,10 @@ export default function CanvasPage() {
     }, 1000);
   };
 
+  if (!canvasId || userIsLoading) {
+    return <Loader />;
+  }
+
   return (
     <div className="h-screen bg-black flex flex-col">
       <div className="flex-1 flex relative">
@@ -300,10 +302,7 @@ export default function CanvasPage() {
           className={`flex-1 transition-all duration-500 ease-out ${isChatOpen ? "mr-96" : "mr-0"}`}
         >
           <div className="h-full w-full">
-            <Tldraw
-              persistenceKey={canvasId}
-              onMount={(e) => setEditor(e)}
-            />
+            <Tldraw persistenceKey={canvasId} onMount={(e) => setEditor(e)} />
           </div>
         </div>
 
