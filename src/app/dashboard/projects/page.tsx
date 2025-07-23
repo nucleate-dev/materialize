@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 // import { useRouter } from "next/navigation";
-import ProjectThumbnail from "../components/ProjectThumbnail";
+import CanvasThumbnail from "../components/ProjectThumbnail";
 import { supabase } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";
 import { Database } from "@/lib/database.types";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -191,6 +192,7 @@ export default function Projects() {
     Database["public"]["Tables"]["canvases"]["Row"][]
   >([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   // Move fetchCanvases outside useEffect so it can be called after creation
   const fetchCanvases = async (userId: string) => {
@@ -215,9 +217,9 @@ export default function Projects() {
     }
   }, [user]);
 
-  const handleProjectClick = (projectId: string) => {
-    console.log(`Opening project ${projectId}`);
-    // TODO: Navigate to project canvas
+  const handleCanvasClick = (canvasId: string) => {
+    console.log(`Opening canvas ${canvasId}`);
+    router.push(`/canvas/${canvasId}`);
   };
 
   const handleOpenModal = () => setModalOpen(true);
@@ -235,14 +237,14 @@ export default function Projects() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              Projects
+              Canvases
             </h1>
             <p className="text-body dark:text-bodydark">
               Your infinite canvases for rapid prototyping and design
             </p>
           </div>
 
-          {/* New Project Button */}
+          {/* New Canvas Button */}
           <button
             onClick={handleOpenModal}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
@@ -263,12 +265,12 @@ export default function Projects() {
                 strokeLinejoin="round"
               />
             </svg>
-            New Project
+            New Canvas
           </button>
         </div>
       </div>
 
-      {/* Modal for new project */}
+      {/* Modal for new canvas */}
       <NewProjectModal
         open={modalOpen}
         onClose={handleCloseModal}
@@ -276,7 +278,7 @@ export default function Projects() {
         onCreated={handleCanvasCreated}
       />
 
-      {/* Projects Grid */}
+      {/* Canvases Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {loading ? (
           <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-300">
@@ -284,14 +286,14 @@ export default function Projects() {
           </div>
         ) : canvases.length > 0 ? (
           canvases.map((canvas) => (
-            <ProjectThumbnail
+            <CanvasThumbnail
               key={canvas.id}
-              projectName={canvas.name}
+              canvasName={canvas.name}
               thumbnailUrl={canvas.thumbnail_url}
               lastModified={formatRelativeTime(
                 canvas.updated_at || canvas.created_at
               )}
-              onClick={() => handleProjectClick(canvas.id)}
+              onClick={() => handleCanvasClick(canvas.id)}
             />
           ))
         ) : (
@@ -312,7 +314,7 @@ export default function Projects() {
               </svg>
             </div>
             <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-              No projects yet
+              No canvases yet
             </h3>
             <p className="text-body dark:text-bodydark mb-6 max-w-md">
               Create your first infinite canvas to start prototyping and
@@ -322,7 +324,7 @@ export default function Projects() {
               onClick={handleOpenModal}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
             >
-              Create First Project
+              Create First Canvas
             </button>
           </div>
         )}

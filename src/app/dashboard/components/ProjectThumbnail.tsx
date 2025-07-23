@@ -4,14 +4,14 @@ import React from "react";
 import Image from "next/image";
 
 interface ProjectThumbnailProps {
-  projectName: string;
+  canvasName: string;
   thumbnailUrl: string | null;
   lastModified?: string;
   onClick?: () => void;
 }
 
-const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
-  projectName,
+const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
+  canvasName,
   thumbnailUrl,
   lastModified,
   onClick,
@@ -28,7 +28,7 @@ const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
           {thumbnailUrl ? (
             <Image
               src={thumbnailUrl}
-              alt={projectName}
+              alt={canvasName}
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -89,16 +89,16 @@ const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 dark:bg-boxdark/90 rounded-lg px-4 py-2 backdrop-blur-sm">
               <span className="text-sm font-medium text-body dark:text-bodydark">
-                Open Project
+                Open Canvas
               </span>
             </div>
           </div>
         </div>
 
-        {/* Project Info */}
+        {/* Canvas Info */}
         <div className="p-4">
           <h3 className="font-semibold text-black dark:text-white text-lg leading-tight mb-1 group-hover:text-primary transition-colors duration-200">
-            {projectName}
+            {canvasName}
           </h3>
           {lastModified && (
             <p className="text-sm text-body dark:text-bodydark2">
@@ -107,7 +107,7 @@ const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
           )}
         </div>
 
-        {/* Corner Badge for Project Type */}
+        {/* Corner Badge for Canvas Type */}
         <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-md px-2 py-1">
           <span className="text-xs font-medium text-white">Canvas</span>
         </div>
@@ -116,4 +116,4 @@ const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
   );
 };
 
-export default ProjectThumbnail;
+export default CanvasThumbnail;
