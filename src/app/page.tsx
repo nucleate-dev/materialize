@@ -60,9 +60,9 @@ function HeroSection() {
 
         {/* Animated Subtitle */}
         <p className="text-xl md:text-2xl text-gray-300 max-w-5xl mx-auto mb-16 leading-relaxed">
-          Prototype your ideas, workshop new designs, and build high-quality user flows at the
+          Prototype your ideas, workshop new designs, and build high-quality React Native components at the
           <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent font-semibold"> speed of thought</span>.
-          Start with an infinite canvas to rapidly create React and React Native components.
+          Start with an infinite canvas to rapidly create React Native screens and components.
         </p>
 
         {/* Enhanced CTA Buttons */}
@@ -108,7 +108,7 @@ function HeroSection() {
             </div>
 
             <div className="absolute top-6 right-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
-              <span className="text-white text-sm font-semibold">React + React Native</span>
+              <span className="text-white text-sm font-semibold">React Native</span>
             </div>
 
             <div className="absolute bottom-6 left-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
@@ -130,18 +130,18 @@ function UserFlowsSection() {
   const flows = [
     {
       id: 0,
-      title: "Fast Component Prototyping",
-      subtitle: "One component → 5-10 design variants",
-      description: "Input a single component and instantly generate multiple polished design variations. Compare styles, layouts, and approaches side-by-side.",
+      title: "Prototype React Native Components",
+      subtitle: "New screens in minutes",
+      description: "Quickly experiment with React Native components and screen layouts. Generate multiple design variants and iterate fast.",
       icon: <BoltIcon className="w-8 h-8" />,
       features: ["AI-powered style variations", "Instant visual comparison", "Best practice patterns", "One-click refinement"],
       demo: "component-demo"
     },
     {
       id: 1,
-      title: "End-to-End Flow Design",
-      subtitle: "Visualize complete user journeys",
-      description: "Map out entire user flows on an infinite canvas. Edit screens visually, with code, or natural language. Export directly to GitHub.",
+      title: "Visualize User Flows",
+      subtitle: "Create & update UX journeys",
+      description: "Easily create, update and visualize React Native user flows. Drag and connect screens to map your entire app.",
       icon: <ArrowsPointingOutIcon className="w-8 h-8" />,
       features: ["Infinite canvas layout", "Multi-modal editing", "Flow connections", "GitHub integration"],
       demo: "flow-demo"
@@ -524,8 +524,8 @@ function FeaturesSection() {
     },
     {
       icon: <DevicePhoneMobileIcon className="w-8 h-8" />,
-      title: "React + React Native Preview",
-      description: "Prototype web and mobile flows together; reuse patterns and decide platform nuances early.",
+      title: "React Native Preview",
+      description: "Instantly preview your React Native components across platforms and iterate without leaving the canvas.",
       gradient: "from-orange-500 to-red-500"
     },
     {
