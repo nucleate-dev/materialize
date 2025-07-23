@@ -159,37 +159,40 @@ export default function CanvasPage() {
 
         {/* Chat Window */}
         <div className={`fixed right-0 top-0 transition-all duration-500 ease-out ${isChatOpen ? 'w-96 translate-x-0' : 'w-96 translate-x-full'}`} style={{ top: '73px', height: 'calc(100vh - 73px)' }}>
-          {/* Glassmorphism Background */}
-          <div className="h-full relative bg-gradient-to-b from-white/95 via-gray-50/90 to-white/95 dark:from-gray-900/95 dark:via-gray-800/90 dark:to-gray-900/95 backdrop-blur-xl border-l border-black/10 dark:border-white/10 shadow-2xl dark:shadow-black/50 flex flex-col">
-            {/* Animated Background Pattern */}
-            <div className="absolute inset-0 opacity-5 dark:opacity-10">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 animate-pulse"></div>
+          {/* Ultra Dark Glassmorphism Background */}
+          <div className="h-full relative bg-gradient-to-b from-white/95 via-gray-50/90 to-white/95 dark:from-black/95 dark:via-slate-900/95 dark:to-black/95 backdrop-blur-xl border-l border-black/10 dark:border-slate-700/40 shadow-2xl dark:shadow-black/80 flex flex-col">
+            {/* Dark Mode Animated Background Pattern */}
+            <div className="absolute inset-0 opacity-5 dark:opacity-30">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 dark:from-blue-600 dark:via-purple-600 dark:to-pink-600 animate-pulse"></div>
             </div>
             
-            {/* Sexy gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 dark:to-white/5 pointer-events-none"></div>
+            {/* Enhanced Dark Mode Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 dark:to-purple-900/20 pointer-events-none"></div>
             
-            {/* Chat Header */}
-            <div className="relative flex-shrink-0 p-6 border-b border-black/10 dark:border-white/20 bg-gradient-to-r from-white/80 to-gray-50/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-sm">
+            {/* Additional Dark Mode Depth Layer */}
+            <div className="absolute inset-0 dark:bg-gradient-to-br dark:from-slate-900/50 dark:via-transparent dark:to-slate-800/50 pointer-events-none"></div>
+            
+            {/* Ultra Dark Chat Header */}
+            <div className="relative flex-shrink-0 p-6 border-b border-black/10 dark:border-slate-600/50 bg-gradient-to-r from-white/80 to-gray-50/80 dark:from-slate-800/90 dark:to-slate-900/90 backdrop-blur-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25 dark:shadow-blue-500/40 ring-1 ring-white/20 dark:ring-white/10">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 shadow-lg shadow-blue-500/25 dark:shadow-blue-600/60 ring-1 ring-white/20 dark:ring-blue-400/30">
                     <SparklesIcon className="w-5 h-5 text-white drop-shadow-sm" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-gray-900 dark:text-white drop-shadow-sm">
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-slate-100 drop-shadow-sm">
                       Canvas Assistant
                     </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                    <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
                       AI-powered design companion ✨
                     </p>
                   </div>
                 </div>
                 
-                {/* Close Button */}
+                {/* Ultra Dark Close Button */}
                 <button
                   onClick={() => setIsChatOpen(!isChatOpen)}
-                  className="p-2.5 rounded-xl transition-all duration-300 hover:scale-110 hover:rotate-90 text-gray-600 hover:text-gray-900 hover:bg-black/10 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10 ring-1 ring-transparent hover:ring-black/10 dark:hover:ring-white/10"
+                  className="p-2.5 rounded-xl transition-all duration-300 hover:scale-110 hover:rotate-90 text-gray-600 hover:text-gray-900 hover:bg-black/10 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-700/50 ring-1 ring-transparent hover:ring-black/10 dark:hover:ring-slate-500/50"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -197,12 +200,12 @@ export default function CanvasPage() {
                 </button>
               </div>
 
-              {/* URL Control Section */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-black/5 to-black/10 dark:from-white/5 dark:to-white/10 border border-black/10 dark:border-white/20 shadow-inner backdrop-blur-sm">
-                <label className="flex items-center gap-2 text-sm font-semibold mb-4 text-gray-700 dark:text-gray-200">
+              {/* Ultra Dark URL Control Section */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-black/5 to-black/10 dark:from-slate-800/80 dark:to-slate-900/80 border border-black/10 dark:border-slate-600/40 shadow-inner backdrop-blur-sm">
+                <label className="flex items-center gap-2 text-sm font-semibold mb-4 text-gray-700 dark:text-slate-200">
                   <span className="text-base">🌐</span>
                   Embed URL
-                  <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 dark:from-blue-400 dark:to-purple-400 rounded-full animate-pulse"></div>
                 </label>
                 <div className="space-y-3">
                   <input
@@ -210,7 +213,7 @@ export default function CanvasPage() {
                     value={currentEmbedUrl}
                     onChange={(e) => setCurrentEmbedUrl(e.target.value)}
                     placeholder="https://google.com"
-                    className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-300 focus:scale-[1.02] bg-white/90 dark:bg-white/10 text-gray-900 dark:text-white border border-black/20 dark:border-white/30 focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-white/15 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 shadow-sm hover:shadow-md font-mono"
+                    className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-300 focus:scale-[1.02] bg-white/90 dark:bg-slate-800/90 text-gray-900 dark:text-slate-100 border border-black/20 dark:border-slate-600/50 focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-slate-700/90 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/50 shadow-sm hover:shadow-md dark:shadow-lg font-mono"
                   />
                   <button
                     onClick={() => {
@@ -221,7 +224,7 @@ export default function CanvasPage() {
                         timestamp: new Date()
                       }]);
                     }}
-                    className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-400/40 transform-gpu"
+                    className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 dark:from-blue-600 dark:via-purple-600 dark:to-pink-600 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-600/60 transform-gpu"
                   >
                     <span className="flex items-center justify-center gap-2">
                       Update & Notify
@@ -232,8 +235,8 @@ export default function CanvasPage() {
               </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 p-6 space-y-4 overflow-y-auto scrollbar-thin scrollbar-track-black/5 scrollbar-thumb-black/20 hover:scrollbar-thumb-black/30 dark:scrollbar-track-white/5 dark:scrollbar-thumb-white/20 dark:hover:scrollbar-thumb-white/30" style={{ minHeight: 0 }}>
+            {/* Ultra Dark Messages Area */}
+            <div className="flex-1 p-6 space-y-4 overflow-y-auto scrollbar-thin scrollbar-track-black/5 scrollbar-thumb-black/20 hover:scrollbar-thumb-black/30 dark:scrollbar-track-slate-800/50 dark:scrollbar-thumb-slate-600/50 dark:hover:scrollbar-thumb-slate-500/70" style={{ minHeight: 0 }}>
               {messages.map((message, index) => (
                 <div
                   key={message.id}
@@ -241,31 +244,31 @@ export default function CanvasPage() {
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className={`max-w-[85%] group ${message.sender === 'user' ? 'mr-2' : 'ml-2'}`}>
-                    {/* Message Bubble */}
+                    {/* Ultra Dark Message Bubble */}
                     <div
                       className={`p-4 rounded-2xl relative transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
                         message.sender === 'user'
-                          ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-400/30 ring-1 ring-white/20'
-                          : 'bg-white/90 dark:bg-gray-800/90 text-gray-900 dark:text-white border border-black/10 dark:border-white/20 backdrop-blur-sm shadow-sm dark:shadow-lg hover:bg-white dark:hover:bg-gray-800/95'
+                          ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-600/50 ring-1 ring-white/20 dark:ring-blue-400/30'
+                          : 'bg-white/90 dark:bg-slate-800/95 text-gray-900 dark:text-slate-100 border border-black/10 dark:border-slate-600/50 backdrop-blur-sm shadow-sm dark:shadow-lg hover:bg-white dark:hover:bg-slate-700/95'
                       }`}
                     >
                       {/* Message bubble tail */}
                       <div className={`absolute w-3 h-3 transform rotate-45 ${
                         message.sender === 'user' 
-                          ? '-right-1 top-4 bg-gradient-to-br from-blue-500 to-purple-600'
-                          : '-left-1 top-4 bg-white/90 dark:bg-gray-800/90 border-l border-t border-black/10 dark:border-white/20'
+                          ? '-right-1 top-4 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700'
+                          : '-left-1 top-4 bg-white/90 dark:bg-slate-800/95 border-l border-t border-black/10 dark:border-slate-600/50'
                       }`}></div>
                       
-                      {/* Subtle inner glow for user messages */}
+                      {/* Enhanced inner glow for user messages */}
                       {message.sender === 'user' && (
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent dark:from-white/5 dark:to-blue-900/20 pointer-events-none"></div>
                       )}
                       
                       <p className="text-sm leading-relaxed relative z-10">{message.text}</p>
                       <p className={`text-xs mt-2 font-medium relative z-10 ${
                         message.sender === 'user' 
-                          ? 'text-white/80' 
-                          : 'text-gray-500 dark:text-gray-400'
+                          ? 'text-white/80 dark:text-white/70' 
+                          : 'text-gray-500 dark:text-slate-400'
                       }`}>
                         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -275,18 +278,18 @@ export default function CanvasPage() {
               ))}
             </div>
 
-            {/* Message Input - Ultra Enhanced */}
-            <div className="relative flex-shrink-0 p-6 border-t border-black/10 dark:border-white/20 bg-gradient-to-br from-white/70 via-gray-50/60 to-white/70 dark:from-gray-800/70 dark:via-gray-900/60 dark:to-gray-800/70 backdrop-blur-lg">
-              {/* Subtle animated background pattern */}
-              <div className="absolute inset-0 opacity-20 dark:opacity-30 pointer-events-none">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
+            {/* Ultra Dark Message Input */}
+            <div className="relative flex-shrink-0 p-6 border-t border-black/10 dark:border-slate-600/50 bg-gradient-to-br from-white/70 via-gray-50/60 to-white/70 dark:from-slate-900/90 dark:via-black/80 dark:to-slate-900/90 backdrop-blur-lg">
+              {/* Enhanced dark mode animated background pattern */}
+              <div className="absolute inset-0 opacity-20 dark:opacity-40 pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-600/20 dark:via-purple-600/20 dark:to-pink-600/20 animate-pulse"></div>
               </div>
               
               <div className="relative flex gap-4 items-end">
-                {/* Enhanced Input Container */}
+                {/* Ultra Dark Input Container */}
                 <div className="flex-1 relative group">
-                  {/* Input background blur effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/60 to-gray-100/60 dark:from-white/5 dark:to-white/10 rounded-2xl blur-sm transform scale-105 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                  {/* Enhanced dark mode input background blur effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/60 to-gray-100/60 dark:from-slate-700/40 dark:to-slate-800/60 rounded-2xl blur-sm transform scale-105 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
                   
                   <input
                     type="text"
@@ -294,22 +297,22 @@ export default function CanvasPage() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Ask about your design... ✨"
-                    className="relative w-full px-5 py-4 pr-14 rounded-2xl text-sm font-medium transition-all duration-500 focus:scale-[1.02] transform-gpu bg-white/95 dark:bg-white/10 text-gray-900 dark:text-white border-2 border-black/10 dark:border-white/20 focus:border-blue-500/70 dark:focus:border-blue-400/70 focus:bg-white dark:focus:bg-white/15 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/30 shadow-lg dark:shadow-xl hover:shadow-xl dark:hover:shadow-2xl backdrop-blur-xl hover:border-blue-500/30 dark:hover:border-blue-400/30"
+                    className="relative w-full px-5 py-4 pr-14 rounded-2xl text-sm font-medium transition-all duration-500 focus:scale-[1.02] transform-gpu bg-white/95 dark:bg-slate-800/95 text-gray-900 dark:text-slate-100 border-2 border-black/10 dark:border-slate-600/60 focus:border-blue-500/70 dark:focus:border-blue-400/70 focus:bg-white dark:focus:bg-slate-700/95 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/50 shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50 backdrop-blur-xl hover:border-blue-500/30 dark:hover:border-blue-400/50"
                   />
                   
-                  {/* Enhanced input decoration with glow */}
+                  {/* Enhanced dark mode input decoration with glow */}
                   <div className="absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 group-hover:scale-110">
                     <div className="relative">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
-                      <SparklesIcon className="relative w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors duration-300" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 dark:from-blue-400 dark:to-purple-400 rounded-full blur-sm opacity-0 group-hover:opacity-50 dark:group-hover:opacity-70 transition-opacity duration-300"></div>
+                      <SparklesIcon className="relative w-5 h-5 text-gray-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors duration-300" />
                     </div>
                   </div>
                 </div>
                 
-                {/* Ultra Enhanced Send Button */}
+                {/* Ultra Dark Enhanced Send Button */}
                 <div className="relative">
                   {newMessage.trim() && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur-lg opacity-60 animate-pulse"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 dark:from-blue-600 dark:via-purple-600 dark:to-pink-600 rounded-2xl blur-lg opacity-60 dark:opacity-80 animate-pulse"></div>
                   )}
                   
                   <button
@@ -317,13 +320,13 @@ export default function CanvasPage() {
                     disabled={!newMessage.trim()}
                     className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${
                       newMessage.trim()
-                        ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-400/50 dark:hover:shadow-blue-400/70 ring-2 ring-white/20 dark:ring-white/10 hover:ring-white/30 dark:hover:ring-white/20'
-                        : 'bg-gradient-to-br from-black/5 to-black/10 dark:from-white/5 dark:to-white/10 text-gray-400 dark:text-gray-500 cursor-not-allowed shadow-inner border border-black/10 dark:border-white/10'
+                        ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50'
+                        : 'bg-gradient-to-br from-black/5 to-black/10 dark:from-slate-800/50 dark:to-slate-900/50 text-gray-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-black/10 dark:border-slate-600/30'
                     }`}
                   >
-                    {/* Button inner glow */}
+                    {/* Enhanced dark mode button inner glow */}
                     {newMessage.trim() && (
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent pointer-events-none"></div>
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent dark:from-white/10 dark:to-blue-900/20 pointer-events-none"></div>
                     )}
                     
                     <PaperAirplaneIcon className={`relative w-6 h-6 transition-transform duration-300 ${
@@ -335,8 +338,8 @@ export default function CanvasPage() {
                 </div>
               </div>
               
-              {/* Typing indicator placeholder (for future enhancement) */}
-              <div className="absolute bottom-1 left-6 text-xs text-gray-500 dark:text-gray-400 font-medium opacity-0 transition-opacity duration-300">
+              {/* Enhanced dark mode typing indicator placeholder */}
+              <div className="absolute bottom-1 left-6 text-xs text-gray-500 dark:text-slate-500 font-medium opacity-0 transition-opacity duration-300">
                 {/* AI is typing... */}
               </div>
             </div>
