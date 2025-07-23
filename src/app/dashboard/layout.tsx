@@ -27,7 +27,7 @@ export default function RootLayout({
       <body suppressHydrationWarning={true}>
         <RequireAuth />
         {/* <WithPaywall> */}
-        <div className="dark:bg-boxdark-2 dark:text-bodydark">
+        <div className="dark:bg-boxdark-2 bg-gray-2 dark:text-bodydark">
           {loading ? (
             <Loader />
           ) : (
@@ -42,7 +42,7 @@ export default function RootLayout({
                   sidebarOpen={sidebarOpen}
                   setSidebarOpen={setSidebarOpen}
                 />
-                <main className="bg-gray-2 dark:bg-slate-800">
+                <main>
                   <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
                     {children}
                   </div>
