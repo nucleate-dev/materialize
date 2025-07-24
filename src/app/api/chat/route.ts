@@ -9,6 +9,7 @@ IMPORTANT: You have access to the following packages without needing to install 
 - expo-linear-gradient
 - react-native-vector-icons
 - react-native-safe-area-context
+- expo-router
 
 IMPORTANT: Instead of providing complete code files, you should use structured edit operations to make precise changes. This saves tokens and allows for more targeted modifications.
 
@@ -76,6 +77,7 @@ IMPORTANT: You have access to the following packages without needing to install 
 - expo-linear-gradient
 - react-native-vector-icons
 - react-native-safe-area-context
+- expo-router
 
 When the user asks for changes, you should provide the complete updated file content rather than granular edits.
 
