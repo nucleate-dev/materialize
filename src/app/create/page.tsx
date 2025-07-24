@@ -15,6 +15,7 @@ export default function CreatePage() {
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(getDefaultSnackFiles());
   const [isChatView, setIsChatView] = useState(true);
   const [mainAppCode, setMainAppCode] = useState(snackFiles['App.js']?.contents || '');
+  const [useGranularEdits, setUseGranularEdits] = useState(true);
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   const handleSendMessage = async (content: string) => {
@@ -119,6 +120,14 @@ export default function CreatePage() {
     }
   };
 
+  const handleApplyWithToggle = (result: CodeExtractionResult, editResult: EditOperationResult) => {
+    if (useGranularEdits && editResult.hasOperations) {
+      handleApplyEditOperations(editResult);
+    } else if (result.hasCode) {
+      handleApplyCode(result);
+    }
+  };
+
   const handleFilesChange = (files: SnackFiles) => {
     setSnackFiles(files);
     if (files['App.js']) {
@@ -181,8 +190,9 @@ export default function CreatePage() {
             <ChatWindow
               messages={messages}
               onSendMessage={handleSendMessage}
-              onApplyCode={handleApplyCode}
-              onApplyEditOperations={handleApplyEditOperations}
+              onApplyWithToggle={handleApplyWithToggle}
+              useGranularEdits={useGranularEdits}
+              onToggleGranularEdits={setUseGranularEdits}
               isLoading={isLoading}
             />
           ) : (

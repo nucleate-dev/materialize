@@ -8,16 +8,18 @@ import { extractEditOperationsFromMessage, logEditOperations } from '../utils/ed
 interface ChatWindowProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
-  onApplyCode: (result: CodeExtractionResult) => void;
-  onApplyEditOperations: (result: EditOperationResult) => void;
+  onApplyWithToggle: (result: CodeExtractionResult, editResult: EditOperationResult) => void;
+  useGranularEdits: boolean;
+  onToggleGranularEdits: (value: boolean) => void;
   isLoading: boolean;
 }
 
 export default function ChatWindow({ 
   messages, 
   onSendMessage, 
-  onApplyCode, 
-  onApplyEditOperations,
+  onApplyWithToggle,
+  useGranularEdits,
+  onToggleGranularEdits,
   isLoading 
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState('');
@@ -48,19 +50,15 @@ export default function ChatWindow({
   };
 
   const handleApplyCode = (message: string) => {
-    // First try to extract edit operations (new granular approach)
     const editResult = extractEditOperationsFromMessage(message);
+    const codeResult = extractCodeFromMessage(message);
+    
     if (editResult.hasOperations) {
       logEditOperations(editResult.operations);
-      onApplyEditOperations(editResult);
-      return;
     }
-
-    // Fallback to old code extraction method for backward compatibility
-    const codeResult = extractCodeFromMessage(message);
-    if (codeResult.hasCode) {
-      onApplyCode(codeResult);
-    }
+    
+    // Use the toggle-aware handler
+    onApplyWithToggle(codeResult, editResult);
   };
 
   const renderMessage = (message: ChatMessage) => {
@@ -101,7 +99,7 @@ export default function ChatWindow({
               onClick={() => handleApplyCode(message.content)}
               className="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
             >
-              {editResult.hasOperations 
+              {useGranularEdits && editResult.hasOperations
                 ? `Apply Changes (${editResult.operations.length} operation${editResult.operations.length !== 1 ? 's' : ''})`
                 : `Apply Code (${codeResult.codeBlocks.length} file${codeResult.codeBlocks.length !== 1 ? 's' : ''})`
               }
@@ -139,8 +137,42 @@ export default function ChatWindow({
     <div className="flex flex-col h-full bg-white border-r">
       {/* Header */}
       <div className="border-b p-4 bg-gray-50">
-        <h2 className="text-lg font-semibold text-gray-900">React Native Assistant</h2>
-        <p className="text-sm text-gray-600">Ask me to create or modify React Native code</p>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold text-gray-900">React Native Assistant</h2>
+          
+          {/* Edit Mode Toggle */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Edit mode:</span>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => onToggleGranularEdits(true)}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  useGranularEdits
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Granular
+              </button>
+              <button
+                onClick={() => onToggleGranularEdits(false)}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  !useGranularEdits
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Full File
+              </button>
+            </div>
+          </div>
+        </div>
+        <p className="text-sm text-gray-600">
+          Ask me to create or modify React Native code
+          {useGranularEdits 
+            ? ' (using precise edits)' 
+            : ' (returning full updated files)'}
+        </p>
       </div>
 
       {/* Messages */}

@@ -83,16 +83,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     // Convert messages to Gemini format
-    const chatHistory = messages.slice(0, -1).map((msg: { role: string; content: string }) => ({
+    const chatHistory = messages.slice(0, -1).map((msg: { role: string; content: string; }) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }],
     }));
 
     const lastMessage = messages[messages.length - 1];
-    
+
     // Include current code context in the user's message if available
     let messageWithContext = lastMessage.content;
     if (currentCode && currentCode.trim()) {
@@ -104,7 +104,7 @@ ${currentCode}
 
 User request: ${lastMessage.content}`;
     }
-    
+
     const chat = model.startChat({
       history: [
         {
@@ -123,15 +123,15 @@ User request: ${lastMessage.content}`;
     const response = result.response;
     const text = response.text();
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       content: text,
-      role: 'assistant' 
+      role: 'assistant'
     });
 
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Internal server error',
         details: process.env.NODE_ENV === 'development' ? error : undefined
       },
