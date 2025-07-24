@@ -12,9 +12,12 @@ import {
   CodeExtractionResult,
   EditOperationResult,
   SnackFiles,
-} from "@/types/chat";
-import { updateSnackFiles } from "@/utils/codeExtractor";
-import { EditProcessor, EditProcessorResult } from "@/utils/editProcessor";
+} from "@/lib/types/chat";
+import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
+import {
+  EditProcessor,
+  EditProcessorResult,
+} from "@/lib/utils/code/editProcessor";
 
 export default function CreatePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

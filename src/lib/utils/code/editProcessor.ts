@@ -1,4 +1,4 @@
-import { EditOperation, SnackFile, SnackFiles } from '../types/chat';
+import { EditOperation, SnackFile, SnackFiles } from "@/lib/types/chat";
 
 export interface EditProcessorResult {
   success: boolean;
@@ -22,8 +22,11 @@ export class EditProcessor {
       try {
         this.applyOperation(operation);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        errors.push(`Failed to apply operation "${operation.description}": ${errorMessage}`);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        errors.push(
+          `Failed to apply operation "${operation.description}": ${errorMessage}`
+        );
         success = false;
       }
     }
@@ -31,7 +34,7 @@ export class EditProcessor {
     return {
       success,
       updatedFiles: this.files,
-      errors
+      errors,
     };
   }
 
@@ -39,17 +42,17 @@ export class EditProcessor {
     const { type, target, content, newFileName } = operation;
 
     switch (type) {
-      case 'replace':
-        this.handleReplace(target, content || '');
+      case "replace":
+        this.handleReplace(target, content || "");
         break;
-      case 'insert':
-        this.handleInsert(target, content || '');
+      case "insert":
+        this.handleInsert(target, content || "");
         break;
-      case 'delete':
+      case "delete":
         this.handleDelete(target);
         break;
-      case 'move':
-        this.handleMove(target, newFileName || '');
+      case "move":
+        this.handleMove(target, newFileName || "");
         break;
       default:
         throw new Error(`Unknown operation type: ${type}`);
@@ -58,25 +61,35 @@ export class EditProcessor {
 
   private handleReplace(target: EditTarget, content: string): void {
     const file = this.getFile(target.file);
-    const lines = file.contents.split('\n');
+    const lines = file.contents.split("\n");
 
     if (target.pattern) {
       // Pattern-based replacement
-      const regex = new RegExp(target.pattern, 'gm');
+      const regex = new RegExp(target.pattern, "gm");
       file.contents = file.contents.replace(regex, content);
     } else if (target.functionName) {
       // Function-level replacement
-      file.contents = this.replaceFunctionOrComponent(file.contents, target.functionName, content, 'function');
+      file.contents = this.replaceFunctionOrComponent(
+        file.contents,
+        target.functionName,
+        content,
+        "function"
+      );
     } else if (target.componentName) {
       // Component-level replacement
-      file.contents = this.replaceFunctionOrComponent(file.contents, target.componentName, content, 'component');
+      file.contents = this.replaceFunctionOrComponent(
+        file.contents,
+        target.componentName,
+        content,
+        "component"
+      );
     } else if (target.startLine !== undefined && target.endLine !== undefined) {
       // Line-based replacement
       const startIdx = Math.max(0, target.startLine - 1);
       const endIdx = Math.min(lines.length, target.endLine);
 
       lines.splice(startIdx, endIdx - startIdx, content);
-      file.contents = lines.join('\n');
+      file.contents = lines.join("\n");
     } else {
       // Replace entire file
       file.contents = content;
@@ -87,15 +100,15 @@ export class EditProcessor {
 
   private handleInsert(target: EditTarget, content: string): void {
     const file = this.getFile(target.file);
-    const lines = file.contents.split('\n');
+    const lines = file.contents.split("\n");
 
     if (target.startLine !== undefined) {
       const insertIdx = Math.max(0, target.startLine - 1);
       lines.splice(insertIdx, 0, content);
-      file.contents = lines.join('\n');
+      file.contents = lines.join("\n");
     } else {
       // Append to end of file
-      file.contents += '\n' + content;
+      file.contents += "\n" + content;
     }
 
     this.files[target.file] = file;
@@ -105,12 +118,12 @@ export class EditProcessor {
     if (target.startLine !== undefined && target.endLine !== undefined) {
       // Delete specific lines
       const file = this.getFile(target.file);
-      const lines = file.contents.split('\n');
+      const lines = file.contents.split("\n");
       const startIdx = Math.max(0, target.startLine - 1);
       const endIdx = Math.min(lines.length, target.endLine);
 
       lines.splice(startIdx, endIdx - startIdx);
-      file.contents = lines.join('\n');
+      file.contents = lines.join("\n");
       this.files[target.file] = file;
     } else {
       // Delete entire file
@@ -120,7 +133,7 @@ export class EditProcessor {
 
   private handleMove(target: EditTarget, newFileName: string): void {
     if (!newFileName) {
-      throw new Error('New filename required for move operation');
+      throw new Error("New filename required for move operation");
     }
 
     const file = this.getFile(target.file);
@@ -131,24 +144,47 @@ export class EditProcessor {
   private getFile(fileName: string): SnackFile {
     if (!this.files[fileName]) {
       // Create new file if it doesn't exist
-      this.files[fileName] = { contents: '', type: 'CODE' };
+      this.files[fileName] = { contents: "", type: "CODE" };
     }
     return this.files[fileName];
   }
 
-  private replaceFunctionOrComponent(content: string, name: string, newContent: string, type: 'function' | 'component'): string {
+  private replaceFunctionOrComponent(
+    content: string,
+    name: string,
+    newContent: string,
+    type: "function" | "component"
+  ): string {
     // Regex patterns for function and component detection
     const patterns = {
       function: [
-        new RegExp(`(function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`, 'gm'),
-        new RegExp(`(const\\s+${name}\\s*=\\s*\\([^)]*\\)\\s*=>\\s*\\{)([\\s\\S]*?)(\\n\\})`, 'gm'),
-        new RegExp(`(const\\s+${name}\\s*=\\s*function\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`, 'gm')
+        new RegExp(
+          `(function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`,
+          "gm"
+        ),
+        new RegExp(
+          `(const\\s+${name}\\s*=\\s*\\([^)]*\\)\\s*=>\\s*\\{)([\\s\\S]*?)(\\n\\})`,
+          "gm"
+        ),
+        new RegExp(
+          `(const\\s+${name}\\s*=\\s*function\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`,
+          "gm"
+        ),
       ],
       component: [
-        new RegExp(`(export\\s+default\\s+function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`, 'gm'),
-        new RegExp(`(const\\s+${name}\\s*=\\s*\\([^)]*\\)\\s*=>\\s*\\{)([\\s\\S]*?)(\\n\\})`, 'gm'),
-        new RegExp(`(function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`, 'gm')
-      ]
+        new RegExp(
+          `(export\\s+default\\s+function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`,
+          "gm"
+        ),
+        new RegExp(
+          `(const\\s+${name}\\s*=\\s*\\([^)]*\\)\\s*=>\\s*\\{)([\\s\\S]*?)(\\n\\})`,
+          "gm"
+        ),
+        new RegExp(
+          `(function\\s+${name}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\})`,
+          "gm"
+        ),
+      ],
     };
 
     for (const pattern of patterns[type]) {
@@ -160,13 +196,13 @@ export class EditProcessor {
     }
 
     // If no match found, append the new content
-    return content + '\n\n' + newContent;
+    return content + "\n\n" + newContent;
   }
 }
 
 // Helper function to create edit operations
 export function createEditOperation(
-  type: EditOperation['type'],
+  type: EditOperation["type"],
   file: string,
   description: string,
   content?: string,

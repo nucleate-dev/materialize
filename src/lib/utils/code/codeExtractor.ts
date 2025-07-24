@@ -1,4 +1,4 @@
-import { CodeBlock, CodeExtractionResult, SnackFiles } from "@/types/chat";
+import { CodeBlock, CodeExtractionResult, SnackFiles } from "@/lib/types/chat";
 
 export function extractCodeFromMessage(message: string): CodeExtractionResult {
   const codeBlocks: CodeBlock[] = [];

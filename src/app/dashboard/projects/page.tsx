@@ -6,7 +6,7 @@ import CanvasThumbnail from "../components/ProjectThumbnail";
 import { supabase } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";
-import { Database } from "@/lib/database.types";
+import { Database } from "@/lib/types/database.types";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 

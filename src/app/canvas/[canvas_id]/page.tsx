@@ -8,7 +8,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/GlobalConstants";
-import { Database } from "@/lib/database.types";
+import { Database } from "@/lib/types/database.types";
 import Loader from "@/app/dashboard/components/common/Loader";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {

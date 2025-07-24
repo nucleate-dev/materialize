@@ -1,4 +1,4 @@
-import { SnackFiles } from '../types/chat';
+import { SnackFiles } from "../lib/types/chat";
 
 export const DEFAULT_APP_CODE = `import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
@@ -739,25 +739,25 @@ const styles = StyleSheet.create({
 });`;
 
 export const getDefaultSnackFiles = (): SnackFiles => ({
-  'App.js': {
+  "App.js": {
     contents: DEFAULT_APP_CODE,
-    type: 'CODE',
+    type: "CODE",
   },
 });
 
 export const DEFAULT_DEPENDENCIES = {
-  'react-native': { version: '0.76.1' },
-  'react': { version: '18.2.0' },
-  'expo': { version: '~52.0.0' },
-  'expo-linear-gradient': {
-    version: '8.2.1'
+  "react-native": { version: "0.76.1" },
+  react: { version: "18.2.0" },
+  expo: { version: "~52.0.0" },
+  "expo-linear-gradient": {
+    version: "8.2.1",
   },
-  'react-native-vector-icons': {
-    version: '7.1.0'
+  "react-native-vector-icons": {
+    version: "7.1.0",
   },
-  'react-native-safe-area-context': {
-    version: '4.12.0'
+  "react-native-safe-area-context": {
+    version: "4.12.0",
   },
-  '@expo/vector-icons': { version: '13.0.0' },
-  'expo-router': { version: '4.19.0' },
+  "@expo/vector-icons": { version: "13.0.0" },
+  "expo-router": { version: "4.19.0" },
 };
