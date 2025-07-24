@@ -77,10 +77,15 @@ function isReactNativeCode(code: string): boolean {
   // If it contains multiple indicators or looks like a complete component, it's likely React Native
   const matchCount = reactNativeIndicators.filter(indicator => code.includes(indicator)).length;
   
-  // More lenient: if it has at least 2 indicators or contains JSX-like syntax, consider it React Native
-  return matchCount >= 2 || 
+  // More lenient: if it has at least 1 indicator or contains JSX-like syntax, consider it valid code
+  // This is less restrictive to ensure code blocks aren't filtered out when useGranularEdits is false
+  return matchCount >= 1 || 
          code.includes('<') && code.includes('>') ||
-         code.includes('export default') && code.includes('return');
+         code.includes('export default') ||
+         code.includes('function ') ||
+         code.includes('const ') ||
+         code.includes('import ') ||
+         code.trim().length > 20; // Include any substantial code block
 }
 
 function cleanupCode(code: string): string {
