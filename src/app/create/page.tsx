@@ -1,9 +1,9 @@
 'use client';
 
 import Editor from '@monaco-editor/react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import ChatWindow from '../../components/ChatWindow';
-import ExpoSnackViewer from '../../components/ExpoSnackViewer';
+import ExpoSnackViewer, { ExpoSnackViewerRef } from '../../components/ExpoSnackViewer';
 import { getDefaultSnackFiles } from '../../templates/defaultApp';
 import { ChatMessage, CodeExtractionResult, EditOperationResult, SnackFiles } from '../../types/chat';
 import { updateSnackFiles } from '../../utils/codeExtractor';
@@ -15,6 +15,7 @@ export default function CreatePage() {
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(getDefaultSnackFiles());
   const [isChatView, setIsChatView] = useState(true);
   const [mainAppCode, setMainAppCode] = useState(snackFiles['App.js']?.contents || '');
+  const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessage = {
@@ -95,6 +96,11 @@ export default function CreatePage() {
         if (processorResult.updatedFiles['App.js']) {
           setMainAppCode(processorResult.updatedFiles['App.js'].contents);
         }
+        
+        // Force refresh the snack viewer after applying operations
+        setTimeout(() => {
+          snackViewerRef.current?.forceRefresh();
+        }, 300);
         
         console.log('Edit operations applied successfully');
       } else {
@@ -207,6 +213,7 @@ export default function CreatePage() {
       {/* Expo Snack Viewer - 60% width */}
       <div className="w-3/5 min-w-[500px]">
         <ExpoSnackViewer
+          ref={snackViewerRef}
           files={snackFiles}
           onFilesChange={handleFilesChange}
         />
