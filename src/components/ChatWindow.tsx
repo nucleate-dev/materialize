@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, CodeExtractionResult } from '../types/chat';
+import { ChatMessage, CodeExtractionResult, EditOperationResult } from '../types/chat';
 import { extractCodeFromMessage } from '../utils/codeExtractor';
+import { extractEditOperationsFromMessage, logEditOperations } from '../utils/editExtractor';
 
 interface ChatWindowProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   onApplyCode: (result: CodeExtractionResult) => void;
+  onApplyEditOperations: (result: EditOperationResult) => void;
   isLoading: boolean;
 }
 
@@ -15,6 +17,7 @@ export default function ChatWindow({
   messages, 
   onSendMessage, 
   onApplyCode, 
+  onApplyEditOperations,
   isLoading 
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState('');
@@ -45,23 +48,38 @@ export default function ChatWindow({
   };
 
   const handleApplyCode = (message: string) => {
-    const result = extractCodeFromMessage(message);
-    if (result.hasCode) {
-      onApplyCode(result);
+    // First try to extract edit operations (new granular approach)
+    const editResult = extractEditOperationsFromMessage(message);
+    if (editResult.hasOperations) {
+      logEditOperations(editResult.operations);
+      onApplyEditOperations(editResult);
+      return;
+    }
+
+    // Fallback to old code extraction method for backward compatibility
+    const codeResult = extractCodeFromMessage(message);
+    if (codeResult.hasCode) {
+      onApplyCode(codeResult);
     }
   };
 
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === 'user';
+    
+    // Try edit operations first, then fallback to code extraction
+    const editResult = extractEditOperationsFromMessage(message.content);
     const codeResult = extractCodeFromMessage(message.content);
+    
+    const hasApplicableContent = editResult.hasOperations || codeResult.hasCode;
 
     // Debug logging to help identify issues
-    if (!isUser && message.content.includes('```')) {
-      console.log('Message contains code blocks:', {
+    if (!isUser && (message.content.includes('```') || message.content.includes('['))) {
+      console.log('Message analysis:', {
+        hasEditOps: editResult.hasOperations,
+        editOpsCount: editResult.operations.length,
         hasCode: codeResult.hasCode,
         codeBlocksCount: codeResult.codeBlocks.length,
-        codeBlocks: codeResult.codeBlocks,
-        messageContent: message.content
+        messageContent: message.content.substring(0, 200) + '...'
       });
     }
 
@@ -75,22 +93,37 @@ export default function ChatWindow({
           }`}
         >
           <div className="whitespace-pre-wrap break-words">
-            {message.content}
+            {editResult.hasOperations ? editResult.message : message.content}
           </div>
           
-          {!isUser && codeResult.hasCode && (
+          {!isUser && hasApplicableContent && (
             <button
               onClick={() => handleApplyCode(message.content)}
               className="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
             >
-              Apply Code ({codeResult.codeBlocks.length} file{codeResult.codeBlocks.length !== 1 ? 's' : ''})
+              {editResult.hasOperations 
+                ? `Apply Changes (${editResult.operations.length} operation${editResult.operations.length !== 1 ? 's' : ''})`
+                : `Apply Code (${codeResult.codeBlocks.length} file${codeResult.codeBlocks.length !== 1 ? 's' : ''})`
+              }
             </button>
+          )}
+
+          {/* Show operation details for edit operations */}
+          {!isUser && editResult.hasOperations && (
+            <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <div className="font-medium mb-1">Operations:</div>
+              {editResult.operations.map((op, index) => (
+                <div key={index} className="mb-1">
+                  • {op.type.toUpperCase()}: {op.description}
+                </div>
+              ))}
+            </div>
           )}
           
           {/* Debug info for messages with code blocks */}
-          {!isUser && message.content.includes('```') && !codeResult.hasCode && (
+          {!isUser && (message.content.includes('```') || message.content.includes('[')) && !hasApplicableContent && (
             <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
-              Debug: Code block detected but not recognized as React Native code
+              Debug: Content detected but not recognized as React Native code or edit operations
             </div>
           )}
         </div>

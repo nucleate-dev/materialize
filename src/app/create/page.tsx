@@ -5,8 +5,9 @@ import { useState } from 'react';
 import ChatWindow from '../../components/ChatWindow';
 import ExpoSnackViewer from '../../components/ExpoSnackViewer';
 import { getDefaultSnackFiles } from '../../templates/defaultApp';
-import { ChatMessage, CodeExtractionResult, SnackFiles } from '../../types/chat';
+import { ChatMessage, CodeExtractionResult, EditOperationResult, SnackFiles } from '../../types/chat';
 import { updateSnackFiles } from '../../utils/codeExtractor';
+import { EditProcessor, EditProcessorResult } from '../../utils/editProcessor';
 
 export default function CreatePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -80,6 +81,38 @@ export default function CreatePage() {
     }
   };
 
+  const handleApplyEditOperations = (result: EditOperationResult) => {
+    if (result.hasOperations) {
+      console.log('Applying edit operations:', result.operations);
+      
+      const processor = new EditProcessor(snackFiles);
+      const processorResult: EditProcessorResult = processor.applyOperations(result.operations);
+      
+      if (processorResult.success) {
+        setSnackFiles(processorResult.updatedFiles);
+        
+        // Update the main app code if App.js was modified
+        if (processorResult.updatedFiles['App.js']) {
+          setMainAppCode(processorResult.updatedFiles['App.js'].contents);
+        }
+        
+        console.log('Edit operations applied successfully');
+      } else {
+        console.error('Failed to apply edit operations:', processorResult.errors);
+        
+        // Show error message to user
+        const errorMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `Failed to apply changes:\n${processorResult.errors.join('\n')}`,
+          timestamp: new Date(),
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    }
+  };
+
   const handleFilesChange = (files: SnackFiles) => {
     setSnackFiles(files);
     if (files['App.js']) {
@@ -143,6 +176,7 @@ export default function CreatePage() {
               messages={messages}
               onSendMessage={handleSendMessage}
               onApplyCode={handleApplyCode}
+              onApplyEditOperations={handleApplyEditOperations}
               isLoading={isLoading}
             />
           ) : (
