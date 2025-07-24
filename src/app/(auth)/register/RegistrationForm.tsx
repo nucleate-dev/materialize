@@ -1,19 +1,18 @@
 "use client";
 
-import { TextField } from "@/components/Fields";
-import { ChangeEvent, FormEvent, useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
-import RegistrationAccountCreatedEmailVerificationPending from "./RegistrationAccountCreatedEmailVerificationPending";
-import ErrorModal from "@/components/ErrorModal";
-import Link from "next/link";
 import { Button } from "@/components/Button";
-import { OAuthSignInButton } from "../AuthComponents";
-import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
+import ErrorModal from "@/components/ErrorModal";
+import { TextField } from "@/components/Fields";
 import {
   isValidEmailInput,
-  isValidPassword,
-  isValidUSPhoneNumber,
+  isValidPassword
 } from "@/lib/utils/auth/AuthFormValidationUtils";
+import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ChangeEvent, FormEvent, useCallback, useState } from "react";
+import { OAuthSignInButton } from "../AuthComponents";
+import RegistrationAccountCreatedEmailVerificationPending from "./RegistrationAccountCreatedEmailVerificationPending";
 
 export default function RegistrationForm() {
   // Declare state variables
@@ -21,13 +20,11 @@ export default function RegistrationForm() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    phoneNumber: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
   const [formErrors, setFormErrors] = useState({
-    phoneNumberError: "",
     emailError: "",
     passwordError: "",
     confirmPasswordError: "",
@@ -35,9 +32,9 @@ export default function RegistrationForm() {
   const [showSuccessState, setShowSuccessState] = useState<boolean>(false);
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const { email, password, firstName, lastName, phoneNumber, confirmPassword } =
+  const { email, password, firstName, lastName, confirmPassword } =
     formData;
-  const { emailError, passwordError, phoneNumberError, confirmPasswordError } =
+  const { emailError, passwordError, confirmPasswordError } =
     formErrors;
 
   const handleChange = useCallback(
@@ -57,19 +54,6 @@ export default function RegistrationForm() {
           setFormErrors({
             ...formErrors,
             emailError: "Please enter a valid email",
-          });
-        }
-      } else if (name === "phoneNumber") {
-        if (!isValidUSPhoneNumber(value)) {
-          setFormErrors({
-            ...formErrors,
-            phoneNumberError:
-              "Please enter a valid 10-digit phone number with area code",
-          });
-        } else {
-          setFormErrors({
-            ...formErrors,
-            phoneNumberError: "",
           });
         }
       } else if (name === "password") {
@@ -111,7 +95,6 @@ export default function RegistrationForm() {
         password,
         firstName,
         lastName,
-        phoneNumber,
       });
       if (authResponse.error) {
         setShowErrorModal(true);
@@ -125,7 +108,7 @@ export default function RegistrationForm() {
         setShowSuccessState(true);
       }
     },
-    [email, firstName, lastName, password, phoneNumber, router]
+    [email, firstName, lastName, password, router]
   );
 
   if (showSuccessState) {
@@ -173,15 +156,6 @@ export default function RegistrationForm() {
           value={email}
           onChange={handleChange}
           error={emailError}
-        />
-        <TextField
-          label="Phone #"
-          name="phoneNumber"
-          type="tel"
-          required
-          value={phoneNumber}
-          onChange={handleChange}
-          error={phoneNumberError}
         />
         <TextField
           label="Password"
