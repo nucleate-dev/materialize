@@ -1,6 +1,6 @@
 "use client";
 
-import Loader from "./components/common/Loader";
+import Loader from "../../components/dashboard/Loader";
 import { ProductKeys } from "@/GlobalConstants";
 import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import { PricingCard } from "../landing_components/Pricing";

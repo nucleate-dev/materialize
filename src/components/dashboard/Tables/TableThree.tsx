@@ -1,4 +1,4 @@
-import { Package } from "../../types/package";
+import { Package } from "../../../app/dashboard/types/package";
 
 const packageData: Package[] = [
   {
@@ -68,8 +68,8 @@ const TableThree = () => {
                       packageItem.status === "Paid"
                         ? "text-success bg-success"
                         : packageItem.status === "Unpaid"
-                        ? "text-danger bg-danger"
-                        : "text-warning bg-warning"
+                          ? "text-danger bg-danger"
+                          : "text-warning bg-warning"
                     }`}
                   >
                     {packageItem.status}

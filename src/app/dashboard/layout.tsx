@@ -4,9 +4,9 @@ import "./globals.css";
 import "./data-tables-css.css";
 import "./satoshi.css";
 import { useState, useEffect } from "react";
-import Loader from "./components/common/Loader";
-import Sidebar from "./components/Sidebar";
-import Header from "./components/Header";
+import Loader from "../../components/dashboard/Loader";
+import Sidebar from "../../components/dashboard/Sidebar";
+import Header from "../../components/dashboard/Header";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
 

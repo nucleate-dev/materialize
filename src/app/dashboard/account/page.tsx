@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Breadcrumb from "../components/Breadcrumbs/Breadcrumb";
+import Breadcrumb from "@/components/dashboard/Breadcrumbs/Breadcrumb";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { ProductKeys, supabase } from "@/GlobalConstants";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";

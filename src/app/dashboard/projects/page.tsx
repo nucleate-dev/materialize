@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 // import { useRouter } from "next/navigation";
-import CanvasThumbnail from "../components/ProjectThumbnail";
+import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { supabase } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";

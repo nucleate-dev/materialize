@@ -1,4 +1,4 @@
-import { BRAND } from "../../types/brand";
+import { BRAND } from "../../../app/dashboard/types/brand";
 import Image from "next/image";
 
 const brandData: BRAND[] = [
