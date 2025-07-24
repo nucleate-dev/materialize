@@ -70,7 +70,7 @@ Always be helpful, concise, and provide working code that users can immediately 
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages } = await request.json();
+    const { messages, currentCode } = await request.json();
 
     if (!process.env.GOOGLE_AI_API_KEY) {
       return NextResponse.json(
@@ -96,6 +96,18 @@ export async function POST(request: NextRequest) {
 
     const lastMessage = messages[messages.length - 1];
     
+    // Include current code context in the user's message if available
+    let messageWithContext = lastMessage.content;
+    if (currentCode && currentCode.trim()) {
+      messageWithContext = `Current code in the app:
+
+\`\`\`javascript
+${currentCode}
+\`\`\`
+
+User request: ${lastMessage.content}`;
+    }
+    
     const chat = model.startChat({
       history: [
         {
@@ -110,7 +122,7 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    const result = await chat.sendMessage(lastMessage.content);
+    const result = await chat.sendMessage(messageWithContext);
     const response = result.response;
     const text = response.text();
 

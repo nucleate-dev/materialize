@@ -97,7 +97,7 @@ function cleanupCode(code: string): string {
   }
   
   // Collect React Native components that need importing
-  const rnComponents = [];
+  const rnComponents: string[] = [];
   const componentChecks = [
     { component: 'View', pattern: '<View' },
     { component: 'Text', pattern: '<Text' },
