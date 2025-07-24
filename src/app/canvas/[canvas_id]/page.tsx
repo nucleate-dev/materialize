@@ -216,6 +216,7 @@ export default function CanvasPage() {
               onMount={(e: Editor) => {
                 editor.current = e;
               }}
+              inferDarkMode={true}
             />
           </div>
         </div>
