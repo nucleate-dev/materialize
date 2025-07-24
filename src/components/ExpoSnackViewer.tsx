@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { SnackListenerSubscription, SnackState } from 'snack-sdk';
 import { Snack } from 'snack-sdk';
 import { DEFAULT_DEPENDENCIES, getDefaultSnackFiles } from '../templates/defaultApp';
@@ -15,14 +15,45 @@ interface ExpoSnackViewerProps {
   onFilesChange?: (files: SnackFiles) => void;
 }
 
-export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewerProps) {
+export interface ExpoSnackViewerRef {
+  forceRefresh: () => void;
+}
+
+type PreviewMode = 'web' | 'mobile';
+
+const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(({ files, onFilesChange }, ref) => {
   const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
   const [snackState, setSnackState] = useState<SnackState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('mobile');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Ref for the iframe's contentWindow
   const webPreviewRef = useRef<Window | null>(null);
+
+  // Force refresh method
+  const forceRefresh = useCallback(() => {
+    if (snack && snackState?.webPreviewURL) {
+      // Method 1: Try iframe refresh
+      const iframe = document.querySelector('iframe[title="React Native Preview"], iframe[title="React Native Web Preview"]') as HTMLIFrameElement;
+      if (iframe) {
+        const currentSrc = iframe.src;
+        iframe.src = 'about:blank';
+        setTimeout(() => {
+          iframe.src = currentSrc;
+        }, 100);
+      }
+
+      // Method 2: Update refresh key to force React re-render
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [snack, snackState?.webPreviewURL]);
+
+  // Expose forceRefresh method to parent
+  useImperativeHandle(ref, () => ({
+    forceRefresh
+  }), [forceRefresh]);
 
   useEffect(() => {
     let snackSDK: SnackWithSubscriptions | null = null;
@@ -82,7 +113,7 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
 
       try {
         setError(null);
-        await snack.updateFiles(files);
+        snack.updateFiles(files);
       } catch (err) {
         console.error('Failed to update Snack files:', err);
         setError(err instanceof Error ? err.message : 'Failed to update code');
@@ -92,7 +123,7 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
     if (files) {
       updateSnackFiles();
     }
-  }, [files, snack]);
+  }, [files, snack, forceRefresh]);
 
   const snackUrl = snackState?.url;
   const webPreviewURL = snackState?.webPreviewURL;
@@ -110,6 +141,10 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
     }
   };
 
+  const handleModeChange = (mode: PreviewMode) => {
+    setPreviewMode(mode);
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
@@ -119,21 +154,48 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
             <h2 className="text-lg font-semibold text-gray-900">Live Preview</h2>
             <p className="text-sm text-gray-600">Powered by Expo Snack</p>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={handleRefresh}
-              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
-              disabled={isLoading || !webPreviewURL}
-            >
-              Refresh
-            </button>
-            <button
-              onClick={handleReset}
-              className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
-              disabled={isLoading}
-            >
-              Reset
-            </button>
+          <div className="flex items-center space-x-4">
+            {/* Mode Selector */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Mode:</span>
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => handleModeChange('mobile')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === 'mobile'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  Mobile
+                </button>
+                <button
+                  onClick={() => handleModeChange('web')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === 'web'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  Web
+                </button>
+              </div>
+            </div>
+
+            <div className="flex space-x-2">
+              <button
+                onClick={handleRefresh}
+                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+                disabled={isLoading || !webPreviewURL}
+              >
+                Refresh
+              </button>
+              <button
+                onClick={handleReset}
+                className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
+                disabled={isLoading}
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
 
@@ -184,7 +246,7 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
               <p className="text-gray-600">Setting up your React Native preview...</p>
             </div>
           </div>
-        ) : (
+        ) : previewMode === 'mobile' ? (
           /* --- START: Mobile device frame --- */
           <div className="relative mx-auto border-gray-800 bg-gray-800 border-[10px] rounded-[2.5rem] h-[600px] w-[300px] shadow-xl">
             <div className="w-[140px] h-[18px] bg-gray-800 top-0 rounded-b-[1rem] left-1/2 -translate-x-1/2 absolute"></div>
@@ -193,6 +255,7 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
             <div className="h-[64px] w-[3px] bg-gray-800 absolute -right-[13px] top-[132px] rounded-r-lg"></div>
             <div className="rounded-[2rem] overflow-hidden w-full h-full bg-white">
               <iframe
+                key={`mobile-${refreshKey}`}
                 ref={(c) => (webPreviewRef.current = c?.contentWindow ?? null)}
                 className="w-full h-full"
                 title="React Native Preview"
@@ -202,6 +265,29 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
             </div>
           </div>
           /* --- END: Mobile device frame --- */
+        ) : (
+          /* --- START: Web preview --- */
+          <div className="w-full h-full max-w-4xl mx-auto">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden h-full">
+              <div className="bg-gray-100 px-4 py-2 border-b flex items-center space-x-2">
+                <div className="flex space-x-1">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                </div>
+                <span className="text-sm text-gray-600 ml-2">Web Preview</span>
+              </div>
+              <iframe
+                key={`web-${refreshKey}`}
+                ref={(c) => (webPreviewRef.current = c?.contentWindow ?? null)}
+                className="w-full h-full min-h-[500px]"
+                title="React Native Web Preview"
+                src={webPreviewURL}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+              />
+            </div>
+          </div>
+          /* --- END: Web preview --- */
         )}
       </div>
 
@@ -214,4 +300,8 @@ export default function ExpoSnackViewer({ files, onFilesChange }: ExpoSnackViewe
       </div>
     </div>
   );
-}
+});
+
+ExpoSnackViewer.displayName = 'ExpoSnackViewer';
+
+export default ExpoSnackViewer;

@@ -1,12 +1,13 @@
 'use client';
 
 import Editor from '@monaco-editor/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import ChatWindow from '../../components/ChatWindow';
-import ExpoSnackViewer from '../../components/ExpoSnackViewer';
+import ExpoSnackViewer, { ExpoSnackViewerRef } from '../../components/ExpoSnackViewer';
 import { getDefaultSnackFiles } from '../../templates/defaultApp';
-import { ChatMessage, CodeExtractionResult, SnackFiles } from '../../types/chat';
+import { ChatMessage, CodeExtractionResult, EditOperationResult, SnackFiles } from '../../types/chat';
 import { updateSnackFiles } from '../../utils/codeExtractor';
+import { EditProcessor, EditProcessorResult } from '../../utils/editProcessor';
 
 export default function CreatePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -14,6 +15,8 @@ export default function CreatePage() {
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(getDefaultSnackFiles());
   const [isChatView, setIsChatView] = useState(true);
   const [mainAppCode, setMainAppCode] = useState(snackFiles['App.js']?.contents || '');
+  const [useGranularEdits, setUseGranularEdits] = useState(true);
+  const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessage = {
@@ -35,6 +38,7 @@ export default function CreatePage() {
         body: JSON.stringify({
           messages: [...messages, userMessage],
           currentCode: mainAppCode,
+          useGranularEdit: useGranularEdits,
         }),
       });
 
@@ -43,7 +47,7 @@ export default function CreatePage() {
       }
 
       const data = await response.json();
-
+      console.log('data', data);
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -71,7 +75,8 @@ export default function CreatePage() {
   const handleApplyCode = (result: CodeExtractionResult) => {
     if (result.hasCode) {
       const newFiles = updateSnackFiles(snackFiles, result.codeBlocks);
-      setSnackFiles(newFiles);
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
 
       // Update the main app code if it was modified
       if (newFiles['App.js']) {
@@ -80,8 +85,50 @@ export default function CreatePage() {
     }
   };
 
+  const handleApplyEditOperations = (result: EditOperationResult) => {
+    if (result.hasOperations) {
+      console.log('Applying edit operations:', result.operations);
+
+      const processor = new EditProcessor(snackFiles);
+      const processorResult: EditProcessorResult = processor.applyOperations(result.operations);
+
+      if (processorResult.success) {
+        // Create a deep copy to ensure React detects the change
+        setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
+
+        // Update the main app code if App.js was modified
+        if (processorResult.updatedFiles['App.js']) {
+          setMainAppCode(processorResult.updatedFiles['App.js'].contents);
+        }
+
+        console.log('Edit operations applied successfully');
+      } else {
+        console.error('Failed to apply edit operations:', processorResult.errors);
+
+        // Show error message to user
+        const errorMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `Failed to apply changes:\n${processorResult.errors.join('\n')}`,
+          timestamp: new Date(),
+        };
+
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    }
+  };
+
+  const handleApplyWithToggle = (result: CodeExtractionResult, editResult: EditOperationResult) => {
+    if (useGranularEdits && editResult.hasOperations) {
+      handleApplyEditOperations(editResult);
+    } else if (result.hasCode) {
+      handleApplyCode(result);
+    }
+  };
+
   const handleFilesChange = (files: SnackFiles) => {
-    setSnackFiles(files);
+    // Create a deep copy to ensure React detects the change
+    setSnackFiles(JSON.parse(JSON.stringify(files)));
     if (files['App.js']) {
       setMainAppCode(files['App.js'].contents);
     }
@@ -99,7 +146,8 @@ export default function CreatePage() {
           contents: value,
         },
       };
-      setSnackFiles(updatedFiles);
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(updatedFiles)));
     }
   };
 
@@ -117,8 +165,8 @@ export default function CreatePage() {
               <button
                 onClick={() => setIsChatView(true)}
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 Chat
@@ -126,8 +174,8 @@ export default function CreatePage() {
               <button
                 onClick={() => setIsChatView(false)}
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 Code
@@ -142,7 +190,9 @@ export default function CreatePage() {
             <ChatWindow
               messages={messages}
               onSendMessage={handleSendMessage}
-              onApplyCode={handleApplyCode}
+              onApplyWithToggle={handleApplyWithToggle}
+              useGranularEdits={useGranularEdits}
+              onToggleGranularEdits={setUseGranularEdits}
               isLoading={isLoading}
             />
           ) : (
@@ -173,6 +223,7 @@ export default function CreatePage() {
       {/* Expo Snack Viewer - 60% width */}
       <div className="w-3/5 min-w-[500px]">
         <ExpoSnackViewer
+          ref={snackViewerRef}
           files={snackFiles}
           onFilesChange={handleFilesChange}
         />
