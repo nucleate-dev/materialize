@@ -72,6 +72,9 @@ function isReactNativeCode(code: string): boolean {
     'backgroundColor:',
     'style={',
     'styles.',
+    'expo-linear-gradient',
+    'react-native-vector-icons',
+    'react-native-safe-area-context',
   ];
 
   // If it contains multiple indicators or looks like a complete component, it's likely React Native

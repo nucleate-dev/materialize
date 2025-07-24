@@ -5,6 +5,11 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
 const SYSTEM_PROMPT = `You are a React Native development assistant. Your role is to help users create, modify, and understand React Native code using granular edit operations.
 
+IMPORTANT: You have access to the following packages without needing to install them:
+- expo-linear-gradient
+- react-native-vector-icons
+- react-native-safe-area-context
+
 IMPORTANT: Instead of providing complete code files, you should use structured edit operations to make precise changes. This saves tokens and allows for more targeted modifications.
 
 Available Edit Operations:
@@ -66,6 +71,11 @@ To add a counter to your app, I'll make these changes:
 Always provide edit operations in JSON array format, and be helpful and precise with your modifications.`;
 
 const FULL_FILE_SYSTEM_PROMPT = `You are a React Native development assistant. Your role is to help users create, modify, and understand React Native code.
+
+IMPORTANT: You have access to the following packages without needing to install them:
+- expo-linear-gradient
+- react-native-vector-icons
+- react-native-safe-area-context
 
 When the user asks for changes, you should provide the complete updated file content rather than granular edits.
 
@@ -165,7 +175,7 @@ User request: ${lastMessage.content}`;
     }
 
     const selectedSystemPrompt = useGranularEdit ? SYSTEM_PROMPT : FULL_FILE_SYSTEM_PROMPT;
-    const modelResponse = useGranularEdit 
+    const modelResponse = useGranularEdit
       ? 'I understand. I\'m ready to help you with React Native development using granular edit operations. I\'ll provide structured JSON operations for precise code modifications.'
       : 'I understand. I\'m ready to help you with React Native development. I\'ll provide complete, updated file content when making changes.';
 
