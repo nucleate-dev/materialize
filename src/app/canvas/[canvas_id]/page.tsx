@@ -5,7 +5,7 @@ import {
   PaperAirplaneIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/database.types";
@@ -16,9 +16,9 @@ import {
   // DEFAULT_EMBED_DEFINITIONS,
   // DefaultEmbedDefinitionType,
   Tldraw,
-  serializeTldrawJson,
   Editor,
   TLStoreSnapshot,
+  // TLEditorSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
 
@@ -151,15 +151,17 @@ export default function CanvasPage() {
   const [documents, setDocuments] = useState<
     Database["public"]["Tables"]["canvas_documents"]["Row"][]
   >([]);
-  const [editor, setEditor] = useState<Editor | null>(null);
+  const editor = useRef<Editor | null>(null);
   const [loadedFromDB, setLoadedFromDB] = useState(false);
-  const [sessionInfo, setSessionInfo] = useState<
-    Database["public"]["Tables"]["canvas_sessions"]["Row"] | null
-  >(null);
+  // const [_sessionInfo, setSessionInfo] = useState<
+  //   Database["public"]["Tables"]["canvas_sessions"]["Row"] | null
+  // >(null);
 
   useEffect(() => {
     async function fetchDocuments() {
-      if (!canvasId) return;
+      console.log("Fetching documents for canvas:", canvasId);
+      // // Reset loaded flag when canvas changes
+      // setLoadedFromDB(false);
       const { data, error } = await supabase
         .from("canvas_documents")
         .select("*")
@@ -169,104 +171,144 @@ export default function CanvasPage() {
         return;
       }
       setDocuments(data || []);
-      console.log("Fetched canvas documents", data);
+      console.log("Fetched canvas documents: ", data);
     }
 
-    fetchDocuments();
-  }, [canvasId]);
-
-  useEffect(() => {
     async function fetchSession() {
-      if (!canvasId || !user) return;
       const { data, error } = await supabase
         .from("canvas_sessions")
         .select("*")
         .eq("canvas_id", canvasId)
-        .eq("user_id", user.id)
+        .eq("user_id", user?.id)
         .maybeSingle();
       if (error) {
         console.error("Error fetching canvas session:", error);
         return;
       }
-      setSessionInfo(data);
-      console.log("Fetched canvas session", data);
+      // setSessionInfo(data);
+      console.log("Fetched canvas session: ", data);
     }
-    if (user) {
+
+    if (user?.id && canvasId) {
+      fetchDocuments();
       fetchSession();
     }
   }, [canvasId, user]);
 
   useEffect(() => {
-    if (documents.length > 0) {
-      console.log("Fetched canvas documents", documents);
-    }
-  }, [documents]);
-
-  useEffect(() => {
-    if (editor && documents.length > 0 && !loadedFromDB) {
+    if (editor.current && documents.length > 0 && !loadedFromDB) {
       try {
-        const snapshot = documents[0]
-          .document_data as unknown as TLStoreSnapshot;
-        if (snapshot) {
-          editor.loadSnapshot(snapshot);
-          setLoadedFromDB(true);
+        const documentData = documents[0].document_data;
+        if (documentData && typeof documentData === "object") {
+          // Ensure the data has the correct structure for a TLStoreSnapshot
+          const snapshot = documentData as unknown as TLStoreSnapshot;
+          console.log("Attempting to load snapshot:", snapshot);
+
+          // Check if snapshot has required properties - be more flexible
+          console.log("Document data keys:", Object.keys(documentData));
+          const hasStore = snapshot.store;
+          const hasSchema = snapshot.schema;
+
+          console.log("Has store/records:", !!hasStore);
+          console.log("Has schema:", !!hasSchema);
+
+          if (hasStore) {
+            try {
+              editor.current.loadSnapshot(snapshot);
+              setLoadedFromDB(true);
+              console.log("Successfully loaded snapshot from database");
+            } catch (loadError) {
+              console.error("Error calling loadSnapshot:", loadError);
+            }
+          } else {
+            console.warn("Snapshot missing required properties:", {
+              hasStore: !!hasStore,
+              hasSchema: !!hasSchema,
+              actualKeys: Object.keys(snapshot),
+            });
+          }
+        } else {
+          console.warn("Document data is not valid:", documentData);
         }
       } catch (err) {
-        console.error("Error loading snapshot", err);
+        console.error("Error loading snapshot:", err);
       }
     }
   }, [editor, documents, loadedFromDB]);
 
-  useEffect(() => {
-    if (sessionInfo) {
-      console.log("Fetched canvas session", sessionInfo);
-    }
-  }, [sessionInfo]);
+  // ------------------ Persistence functions -----------------------------------------------------------
+  const saveCanvasDocument = useCallback(async () => {
+    if (!editor.current || !canvasId) return;
 
-  const persistDocument = useCallback(
-    async (currentEditor: Editor) => {
-      if (!canvasId) return;
-      const serialized = await serializeTldrawJson(currentEditor);
-      const json = JSON.parse(serialized) as TLStoreSnapshot;
-      const schemaVersion = String(json.schema.schemaVersion ?? "");
-      if (documents[0]) {
-        await supabase
+    try {
+      const snapshot = editor.current.getSnapshot();
+
+      console.log("Saving canvas document...", { canvasId });
+
+      if (documents.length > 0) {
+        // Update existing document
+        const { error } = await supabase
           .from("canvas_documents")
-          .update({ document_data: json, schema_version: schemaVersion })
+          .update({
+            document_data: snapshot,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", documents[0].id);
+
+        if (error) {
+          console.error("Error updating canvas document:", error);
+        } else {
+          console.log("Canvas document updated successfully");
+        }
       } else {
-        const { data } = await supabase
+        // Create new document
+        const { data, error } = await supabase
           .from("canvas_documents")
           .insert({
             canvas_id: canvasId,
-            document_data: json,
-            schema_version: schemaVersion,
+            document_data: snapshot,
           })
           .select()
           .single();
-        if (data) {
+
+        if (error) {
+          console.error("Error creating canvas document:", error);
+        } else if (data) {
+          console.log("Canvas document created successfully:", data.id);
           setDocuments([data]);
         }
       }
-    },
-    [canvasId, documents]
-  );
+    } catch (error) {
+      console.error("Error in saveCanvasDocument:", error);
+    }
+  }, [canvasId, documents, editor]);
 
-  const debounce = (fn: (...args: unknown[]) => void, delay: number) => {
-    let t: ReturnType<typeof setTimeout>;
-    return (...args: unknown[]) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), delay);
-    };
-  };
-
+  // Auto-save setup with proper debouncing
   useEffect(() => {
-    if (!editor) return;
-    const save = debounce(() => persistDocument(editor), 1000);
-    const remove = editor.store.listen(() => save(), { scope: "document" });
-    return () => remove();
-  }, [editor, persistDocument]);
+    if (!editor.current) return;
 
+    let timeoutId: NodeJS.Timeout;
+    const debouncedSave = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        saveCanvasDocument();
+      }, 1000); // Save after 1 second of inactivity
+    };
+
+    const cleanup = editor.current.store.listen(
+      () => {
+        debouncedSave();
+      },
+      { scope: "document" }
+    );
+
+    return () => {
+      clearTimeout(timeoutId);
+      cleanup();
+    };
+  }, [saveCanvasDocument]);
+
+  // ----------------- MESSAGE HANDLING -----------------------------------------------------------
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
 
@@ -304,7 +346,11 @@ export default function CanvasPage() {
           className={`flex-1 transition-all duration-500 ease-out ${isChatOpen ? "mr-96" : "mr-0"}`}
         >
           <div className="h-full w-full">
-            <Tldraw persistenceKey={canvasId} onMount={(e) => setEditor(e)} />
+            <Tldraw
+              onMount={(e: Editor) => {
+                editor.current = e;
+              }}
+            />
           </div>
         </div>
 
