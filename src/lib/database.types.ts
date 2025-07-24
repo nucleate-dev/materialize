@@ -14,41 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      canvas_documents: {
-        Row: {
-          canvas_id: string | null
-          created_at: string | null
-          document_data: Json
-          id: string
-          schema_version: string
-          updated_at: string | null
-        }
-        Insert: {
-          canvas_id?: string | null
-          created_at?: string | null
-          document_data: Json
-          id?: string
-          schema_version: string
-          updated_at?: string | null
-        }
-        Update: {
-          canvas_id?: string | null
-          created_at?: string | null
-          document_data?: Json
-          id?: string
-          schema_version?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "canvas_documents_canvas_id_fkey"
-            columns: ["canvas_id"]
-            isOneToOne: false
-            referencedRelation: "canvases"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       canvas_sessions: {
         Row: {
           canvas_id: string
@@ -89,6 +54,7 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          document_data: Json | null
           id: string
           is_public: boolean | null
           name: string
@@ -99,6 +65,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          document_data?: Json | null
           id?: string
           is_public?: boolean | null
           name?: string
@@ -109,6 +76,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          document_data?: Json | null
           id?: string
           is_public?: boolean | null
           name?: string

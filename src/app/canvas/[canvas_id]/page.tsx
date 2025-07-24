@@ -18,7 +18,6 @@ import {
   TLSessionStateSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import { v4 as uuidv4 } from "uuid";
 
 export default function CanvasPage() {
   const { user, userIsLoading } = useUser();
@@ -35,9 +34,8 @@ export default function CanvasPage() {
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [currentEmbedUrl, setCurrentEmbedUrl] = useState("https://google.com");
-  const [documents, setDocuments] = useState<
-    Database["public"]["Tables"]["canvas_documents"]["Row"][]
-  >([]);
+  const [canvas, setCanvas] =
+    useState<Database["public"]["Tables"]["canvases"]["Row"]>();
   const editor = useRef<Editor | null>(null);
   const [loadedFromDB, setLoadedFromDB] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<
@@ -45,17 +43,18 @@ export default function CanvasPage() {
   >(null);
 
   useEffect(() => {
-    async function fetchDocuments() {
+    async function fetchCanvas() {
       const { data, error } = await supabase
-        .from("canvas_documents")
+        .from("canvases")
         .select("*")
-        .eq("canvas_id", canvasId);
+        .eq("id", canvasId)
+        .single();
       if (error) {
         console.error("Error fetching canvas documents:", error);
         return;
       }
-      setDocuments(data || []);
-      console.log("Fetched canvas documents: ", data);
+      setCanvas(data);
+      console.log("Fetched canvas document: ", data);
     }
     async function fetchSession() {
       const { data, error } = await supabase
@@ -73,24 +72,23 @@ export default function CanvasPage() {
     }
 
     if (canvasId && user?.id) {
-      fetchDocuments();
+      fetchCanvas();
       fetchSession();
     }
-  }, [canvasId, user, setDocuments, setSessionInfo]);
+  }, [canvasId, user, setCanvas, setSessionInfo]);
 
   useEffect(() => {
     if (
       !(
         editor.current &&
-        documents.length > 0 &&
+        canvas?.document_data != null &&
         !loadedFromDB &&
         sessionInfo != null
       )
     ) {
       return;
     }
-    const documentData = documents[0]
-      .document_data as unknown as TLStoreSnapshot;
+    const documentData = canvas.document_data as unknown as TLStoreSnapshot;
     const sessionData =
       sessionInfo.session_data as unknown as TLSessionStateSnapshot;
     // Ensure the data has the correct structure for a TLStoreSnapshot
@@ -106,7 +104,7 @@ export default function CanvasPage() {
     } catch (loadError) {
       console.error("Error calling loadSnapshot:", loadError);
     }
-  }, [editor, documents, sessionInfo, loadedFromDB]);
+  }, [editor, canvas, sessionInfo, loadedFromDB]);
 
   // ------------------ Persistence functions -----------------------------------------------------------
   const saveCanvasDocument = useCallback(async () => {
@@ -114,34 +112,14 @@ export default function CanvasPage() {
 
     const snapshot = editor.current.getSnapshot();
 
-    // fetch documents from db again in case new document rows were created since mount
-    const { data, error: documentRefetchError } = await supabase
-      .from("canvas_documents")
-      .select("*")
-      .eq("canvas_id", canvasId);
-    if (documentRefetchError) {
-      console.error("Error refetching canvas documents:", documentRefetchError);
-      return;
-    }
-    const documentsRefetched = data || [];
-
     // save document to db
-    const documentId =
-      documentsRefetched.length > 0 ? documentsRefetched[0].id : uuidv4();
     const { error: documentUploadError } = await supabase
-      .from("canvas_documents")
-      .upsert(
-        {
-          id: documentId,
-          canvas_id: canvasId,
-          document_data: snapshot.document, // or full snapshot
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "id", // or whatever your unique constraint is
-          ignoreDuplicates: false,
-        }
-      );
+      .from("canvases")
+      .update({
+        document_data: snapshot.document, // or full snapshot
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", canvasId);
     if (documentUploadError) {
       console.error("Error updating canvas document:", documentUploadError);
     } else {
@@ -169,7 +147,7 @@ export default function CanvasPage() {
         console.log("Canvas document updated successfully");
       }
     }
-  }, [canvasId, documents, editor]);
+  }, [canvasId, canvas, editor]);
 
   // Auto-save setup with proper debouncing
   useEffect(() => {
