@@ -18,9 +18,11 @@ import {
   Tldraw,
   Editor,
   TLStoreSnapshot,
+  TLSessionStateSnapshot,
   // TLEditorSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
+import { v4 as uuidv4 } from "uuid";
 
 // Custom embed definition for Google and other websites
 // const customWebsiteEmbed: CustomEmbedDefinition = {
@@ -153,15 +155,12 @@ export default function CanvasPage() {
   >([]);
   const editor = useRef<Editor | null>(null);
   const [loadedFromDB, setLoadedFromDB] = useState(false);
-  // const [_sessionInfo, setSessionInfo] = useState<
-  //   Database["public"]["Tables"]["canvas_sessions"]["Row"] | null
-  // >(null);
+  const [sessionInfo, setSessionInfo] = useState<
+    Database["public"]["Tables"]["canvas_sessions"]["Row"] | null
+  >(null);
 
   useEffect(() => {
     async function fetchDocuments() {
-      console.log("Fetching documents for canvas:", canvasId);
-      // // Reset loaded flag when canvas changes
-      // setLoadedFromDB(false);
       const { data, error } = await supabase
         .from("canvas_documents")
         .select("*")
@@ -173,7 +172,6 @@ export default function CanvasPage() {
       setDocuments(data || []);
       console.log("Fetched canvas documents: ", data);
     }
-
     async function fetchSession() {
       const { data, error } = await supabase
         .from("canvas_sessions")
@@ -185,101 +183,106 @@ export default function CanvasPage() {
         console.error("Error fetching canvas session:", error);
         return;
       }
-      // setSessionInfo(data);
+      setSessionInfo(data);
       console.log("Fetched canvas session: ", data);
     }
 
-    if (user?.id && canvasId) {
+    if (canvasId && user?.id) {
       fetchDocuments();
       fetchSession();
     }
-  }, [canvasId, user]);
+  }, [canvasId, user, setDocuments, setSessionInfo]);
 
   useEffect(() => {
-    if (editor.current && documents.length > 0 && !loadedFromDB) {
-      try {
-        const documentData = documents[0].document_data;
-        if (documentData && typeof documentData === "object") {
-          // Ensure the data has the correct structure for a TLStoreSnapshot
-          const snapshot = documentData as unknown as TLStoreSnapshot;
-          console.log("Attempting to load snapshot:", snapshot);
-
-          // Check if snapshot has required properties - be more flexible
-          console.log("Document data keys:", Object.keys(documentData));
-          const hasStore = snapshot.store;
-          const hasSchema = snapshot.schema;
-
-          console.log("Has store/records:", !!hasStore);
-          console.log("Has schema:", !!hasSchema);
-
-          if (hasStore) {
-            try {
-              editor.current.loadSnapshot(snapshot);
-              setLoadedFromDB(true);
-              console.log("Successfully loaded snapshot from database");
-            } catch (loadError) {
-              console.error("Error calling loadSnapshot:", loadError);
-            }
-          } else {
-            console.warn("Snapshot missing required properties:", {
-              hasStore: !!hasStore,
-              hasSchema: !!hasSchema,
-              actualKeys: Object.keys(snapshot),
-            });
-          }
-        } else {
-          console.warn("Document data is not valid:", documentData);
-        }
-      } catch (err) {
-        console.error("Error loading snapshot:", err);
-      }
+    if (
+      !(
+        editor.current &&
+        documents.length > 0 &&
+        !loadedFromDB &&
+        sessionInfo != null
+      )
+    ) {
+      return;
     }
-  }, [editor, documents, loadedFromDB]);
+    const documentData = documents[0]
+      .document_data as unknown as TLStoreSnapshot;
+    const sessionData =
+      sessionInfo.session_data as unknown as TLSessionStateSnapshot;
+    // Ensure the data has the correct structure for a TLStoreSnapshot
+    const snapshot = {
+      document: documentData,
+      session: sessionData,
+    };
+
+    try {
+      editor.current.loadSnapshot(snapshot);
+      setLoadedFromDB(true);
+      console.log("Successfully loaded snapshot from database");
+    } catch (loadError) {
+      console.error("Error calling loadSnapshot:", loadError);
+    }
+  }, [editor, documents, sessionInfo, loadedFromDB]);
 
   // ------------------ Persistence functions -----------------------------------------------------------
   const saveCanvasDocument = useCallback(async () => {
     if (!editor.current || !canvasId) return;
 
-    try {
-      const snapshot = editor.current.getSnapshot();
+    const snapshot = editor.current.getSnapshot();
 
-      console.log("Saving canvas document...", { canvasId });
+    // fetch documents from db again in case new document rows were created since mount
+    const { data, error: documentRefetchError } = await supabase
+      .from("canvas_documents")
+      .select("*")
+      .eq("canvas_id", canvasId);
+    if (documentRefetchError) {
+      console.error("Error refetching canvas documents:", documentRefetchError);
+      return;
+    }
+    const documentsRefetched = data || [];
 
-      if (documents.length > 0) {
-        // Update existing document
-        const { error } = await supabase
-          .from("canvas_documents")
-          .update({
-            document_data: snapshot,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", documents[0].id);
-
-        if (error) {
-          console.error("Error updating canvas document:", error);
-        } else {
-          console.log("Canvas document updated successfully");
+    // save document to db
+    const documentId =
+      documentsRefetched.length > 0 ? documentsRefetched[0].id : uuidv4();
+    const { error: documentUploadError } = await supabase
+      .from("canvas_documents")
+      .upsert(
+        {
+          id: documentId,
+          canvas_id: canvasId,
+          document_data: snapshot.document, // or full snapshot
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id", // or whatever your unique constraint is
+          ignoreDuplicates: false,
         }
-      } else {
-        // Create new document
-        const { data, error } = await supabase
-          .from("canvas_documents")
-          .insert({
+      );
+    if (documentUploadError) {
+      console.error("Error updating canvas document:", documentUploadError);
+    } else {
+      console.log("Canvas document updated successfully");
+    }
+
+    if (user != null) {
+      const { error: sessionUploadError } = await supabase
+        .from("canvas_sessions")
+        .upsert(
+          {
             canvas_id: canvasId,
-            document_data: snapshot,
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error("Error creating canvas document:", error);
-        } else if (data) {
-          console.log("Canvas document created successfully:", data.id);
-          setDocuments([data]);
-        }
+            user_id: user.id,
+            session_data: snapshot.session,
+            last_accessed: new Date().toISOString(),
+          },
+          {
+            onConflict: "canvas_id,user_id",
+            ignoreDuplicates: false,
+          }
+        );
+      if (sessionUploadError) {
+        console.error("Error updating canvas document:", sessionUploadError);
+      } else {
+        console.log("Canvas document updated successfully");
       }
-    } catch (error) {
-      console.error("Error in saveCanvasDocument:", error);
     }
   }, [canvasId, documents, editor]);
 

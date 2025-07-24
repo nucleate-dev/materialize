@@ -35,7 +35,8 @@
     "resend": "^4.0.0",
     "snack-sdk": "^6.5.0",
     "stripe": "^16.12.0",
-    "tldraw": "^3.14.2"
+    "tldraw": "^3.14.2",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.7",
