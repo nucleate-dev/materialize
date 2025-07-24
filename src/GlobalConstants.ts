@@ -29,3 +29,8 @@ export const SubscriptionStatuses = Object.freeze({
   PAST_DUE: "past_due",
   CANCELED: "canceled",
 });
+
+
+// FLAGS
+
+export const APPLY_CODE_IMMEDIATELY = true;

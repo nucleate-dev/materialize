@@ -1,5 +1,6 @@
 'use client';
 
+import { APPLY_CODE_IMMEDIATELY } from '@/GlobalConstants';
 import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage, CodeExtractionResult, EditOperationResult } from '../types/chat';
 import { extractCodeFromMessage } from '../utils/codeExtractor';
@@ -33,6 +34,27 @@ export default function ChatWindow({
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  // Auto-apply code when APPLY_CODE_IMMEDIATELY is true
+  useEffect(() => {
+    if (!APPLY_CODE_IMMEDIATELY) return;
+
+    // Get the last message
+    const lastMessage = messages[messages.length - 1];
+
+    // Only process assistant messages (not user messages)
+    if (!lastMessage || lastMessage.role === 'user') return;
+
+    // Check if this message has applicable content
+    const editResult = extractEditOperationsFromMessage(lastMessage.content);
+    const codeResult = extractCodeFromMessage(lastMessage.content);
+    const hasApplicableContent = editResult.hasOperations || codeResult.hasCode;
+
+    if (hasApplicableContent) {
+      // Apply the code automatically
+      handleApplyCode(lastMessage.content);
+    }
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -90,16 +112,16 @@ export default function ChatWindow({
     // Hide code blocks - show only text before first code block
     const parts = messageContent.split('```');
     const textBeforeCode = parts[0].trim();
-    const codeBlockCount = Math.floor((parts.length - 1) / 2);
+    // const codeBlockCount = Math.floor((parts.length - 1) / 2);
 
     return (
       <div>
         <div className="whitespace-pre-wrap break-words">{textBeforeCode}</div>
-        {codeBlockCount > 0 && (
+        {/* {codeBlockCount > 0 && (
           <div className="mt-2 p-2 bg-gray-50 border rounded text-sm text-gray-600">
             📝 {codeBlockCount} code block{codeBlockCount !== 1 ? 's' : ''}
           </div>
-        )}
+        )} */}
       </div>
     );
   };
@@ -128,8 +150,8 @@ export default function ChatWindow({
       <div key={message.id} className={`mb-4 ${isUser ? 'text-right' : 'text-left'}`}>
         <div
           className={`inline-block max-w-[80%] rounded-lg px-4 py-2 ${isUser
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-900 border'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-900 border'
             }`}
         >
           {renderMessageContent(message, editResult)}
@@ -144,7 +166,7 @@ export default function ChatWindow({
             </button>
           )}
 
-          {!isUser && hasApplicableContent && (
+          {!APPLY_CODE_IMMEDIATELY && !isUser && hasApplicableContent && (
             <button
               onClick={() => handleApplyCode(message.content)}
               className="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
@@ -197,8 +219,8 @@ export default function ChatWindow({
               <button
                 onClick={() => onToggleGranularEdits(true)}
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors ${useGranularEdits
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 Granular
@@ -206,8 +228,8 @@ export default function ChatWindow({
               <button
                 onClick={() => onToggleGranularEdits(false)}
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors ${!useGranularEdits
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 Full File
