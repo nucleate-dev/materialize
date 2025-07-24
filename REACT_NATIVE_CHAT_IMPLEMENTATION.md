@@ -113,15 +113,22 @@ The system consists of several interconnected components that work together to p
 **Purpose**: Utility functions for parsing and processing AI-generated code
 **Key Functions**:
 - `extractCodeFromMessage()`: Parses markdown code blocks from AI responses
-- `isReactNativeCode()`: Validates if code is React Native compatible
-- `cleanupCode()`: Ensures proper imports and formatting
+- `isReactNativeCode()`: Enhanced validation with lenient pattern matching for React Native compatibility
+- `cleanupCode()`: Intelligent import detection and automatic insertion of missing React Native components
 - `updateSnackFiles()`: Updates Snack file structure with new code
+
+**Enhanced Features**:
+- **Lenient Code Detection**: Accepts code with 2+ React Native indicators or JSX syntax
+- **Smart Import Handling**: Automatically detects and imports View, Text, StyleSheet, TouchableOpacity, etc.
+- **Pattern Recognition**: Recognizes React patterns like useState, backgroundColor, style props
 
 **Code Detection Logic**:
 - Regex-based markdown code block parsing
 - Language detection (JavaScript/TypeScript)
-- React Native component validation
-- Automatic import insertion
+- Enhanced React Native component validation with lenient pattern matching
+- Automatic import insertion for React Native components
+- JSX syntax detection for improved code recognition
+- Multi-indicator validation (requires 2+ React Native patterns or JSX syntax)
 
 #### `/src/templates/defaultApp.ts`
 **Purpose**: Default React Native application template
@@ -208,10 +215,14 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 1. **Snack SDK Connection Issues**: Handled with retry logic and user feedback
 2. **Code Parsing Errors**: Robust regex patterns with fallback mechanisms
 3. **API Rate Limits**: Error messages guide users to wait and retry
-4. **Invalid React Native Code**: Validation prevents applying non-RN code
+4. **Apply Code Button Not Appearing**: Enhanced code detection with lenient validation and debug indicators
+5. **Missing Imports**: Automatic import detection and insertion for React Native components
+6. **Invalid React Native Code**: Validation prevents applying non-RN code
 
 ### Debugging Features
 - Console logging for Snack SDK events
+- Console logging for code detection and extraction
+- Visual debug indicators for unrecognized code blocks
 - Error states displayed in UI
 - Loading indicators for all async operations
 
@@ -245,6 +256,49 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 - Monitor Snack SDK connection success rates
 - Log and analyze code parsing accuracy
 - User engagement metrics and session duration
+
+## Troubleshooting
+
+### Apply Code Button Issues
+
+**Problem**: Apply Code button doesn't appear when AI provides React Native code
+**Symptoms**: 
+- AI response contains code in markdown blocks
+- No "Apply Code" button visible
+- Debug message shows "Code block detected but not recognized as React Native code"
+
+**Solutions**:
+1. **Check browser console** for detailed code detection logs
+2. **Verify code contains React Native patterns** like:
+   - JSX syntax (`<View>`, `<Text>`)
+   - React imports or component exports
+   - React Native component names
+   - Style-related keywords (`backgroundColor`, `style={`)
+3. **Code must have 2+ indicators** or contain JSX syntax to be recognized
+4. **Manual workaround**: Copy code manually to the Code Editor tab
+
+**Recent Improvements** (v2024.1):
+- Enhanced pattern recognition for simple modifications
+- Automatic import detection and insertion
+- Lenient validation criteria
+- Visual debug indicators
+- Console logging for troubleshooting
+
+**Example Working Patterns**:
+```javascript
+// ✅ Recognized - has JSX + export
+export default function Counter() {
+  return <View><Text>Hello</Text></View>;
+}
+
+// ✅ Recognized - has multiple indicators
+const styles = StyleSheet.create({
+  container: { backgroundColor: 'red' }
+});
+
+// ❌ Not recognized - insufficient patterns
+console.log('hello world');
+```
 
 ---
 

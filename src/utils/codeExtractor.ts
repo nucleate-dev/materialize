@@ -54,26 +54,78 @@ function isReactNativeCode(code: string): boolean {
     'from \'react\'',
     'import React',
     'export default',
+    // JSX patterns
+    '<View',
+    '<Text',
+    '<TouchableOpacity',
+    '<ScrollView',
+    '<FlatList',
+    '<Image',
+    '<TextInput',
+    // Common React patterns that indicate this is likely React/React Native code
+    'useState',
+    'useEffect',
+    'function ',
+    'const ',
+    '=> {',
+    'return (',
+    'backgroundColor:',
+    'style={',
+    'styles.',
   ];
   
-  return reactNativeIndicators.some(indicator => code.includes(indicator));
+  // If it contains multiple indicators or looks like a complete component, it's likely React Native
+  const matchCount = reactNativeIndicators.filter(indicator => code.includes(indicator)).length;
+  
+  // More lenient: if it has at least 2 indicators or contains JSX-like syntax, consider it React Native
+  return matchCount >= 2 || 
+         code.includes('<') && code.includes('>') ||
+         code.includes('export default') && code.includes('return');
 }
 
 function cleanupCode(code: string): string {
   // Remove any leading/trailing whitespace
   let cleaned = code.trim();
   
+  // Check if this looks like a React component that needs imports
+  const needsReactImport = !cleaned.includes('import React') && 
+                          (cleaned.includes('export default') || cleaned.includes('function ') || cleaned.includes('const '));
+  
   // Ensure proper imports for React Native
-  if (!cleaned.includes('import React') && cleaned.includes('export default')) {
+  if (needsReactImport) {
     cleaned = `import React from 'react';\n${cleaned}`;
   }
   
-  // Add StyleSheet import if styles are used but not imported
-  if (cleaned.includes('StyleSheet.create') && !cleaned.includes('StyleSheet')) {
-    cleaned = cleaned.replace(
-      'import React from \'react\';',
-      'import React from \'react\';\nimport { StyleSheet } from \'react-native\';'
-    );
+  // Collect React Native components that need importing
+  const rnComponents = [];
+  const componentChecks = [
+    { component: 'View', pattern: '<View' },
+    { component: 'Text', pattern: '<Text' },
+    { component: 'TouchableOpacity', pattern: '<TouchableOpacity' },
+    { component: 'ScrollView', pattern: '<ScrollView' },
+    { component: 'FlatList', pattern: '<FlatList' },
+    { component: 'Image', pattern: '<Image' },
+    { component: 'TextInput', pattern: '<TextInput' },
+    { component: 'StyleSheet', pattern: 'StyleSheet.create' },
+  ];
+  
+  componentChecks.forEach(({ component, pattern }) => {
+    if (cleaned.includes(pattern) && !cleaned.includes(`import.*${component}`)) {
+      rnComponents.push(component);
+    }
+  });
+  
+  // Add React Native imports if needed
+  if (rnComponents.length > 0 && !cleaned.includes('from \'react-native\'')) {
+    const importLine = `import { ${rnComponents.join(', ')} } from 'react-native';`;
+    if (cleaned.includes('import React from \'react\';')) {
+      cleaned = cleaned.replace(
+        'import React from \'react\';',
+        `import React from 'react';\n${importLine}`
+      );
+    } else {
+      cleaned = `${importLine}\n${cleaned}`;
+    }
   }
   
   return cleaned;

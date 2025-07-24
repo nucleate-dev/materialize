@@ -55,6 +55,16 @@ export default function ChatWindow({
     const isUser = message.role === 'user';
     const codeResult = extractCodeFromMessage(message.content);
 
+    // Debug logging to help identify issues
+    if (!isUser && message.content.includes('```')) {
+      console.log('Message contains code blocks:', {
+        hasCode: codeResult.hasCode,
+        codeBlocksCount: codeResult.codeBlocks.length,
+        codeBlocks: codeResult.codeBlocks,
+        messageContent: message.content
+      });
+    }
+
     return (
       <div key={message.id} className={`mb-4 ${isUser ? 'text-right' : 'text-left'}`}>
         <div
@@ -75,6 +85,13 @@ export default function ChatWindow({
             >
               Apply Code ({codeResult.codeBlocks.length} file{codeResult.codeBlocks.length !== 1 ? 's' : ''})
             </button>
+          )}
+          
+          {/* Debug info for messages with code blocks */}
+          {!isUser && message.content.includes('```') && !codeResult.hasCode && (
+            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+              Debug: Code block detected but not recognized as React Native code
+            </div>
           )}
         </div>
         
