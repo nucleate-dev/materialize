@@ -8,9 +8,9 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to React Native!</Text>
+      <Text style={styles.title}>Welcome to Materialize!</Text>
       <Text style={styles.subtitle}>
-        This is a live preview powered by Expo Snack
+        This is a live preview
       </Text>
       
       <View style={styles.counterContainer}>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage, CodeExtractionResult, EditOperationResult } from '../types/chat';
 import { extractCodeFromMessage } from '../utils/codeExtractor';
 import { extractEditOperationsFromMessage, logEditOperations } from '../utils/editExtractor';
@@ -14,15 +14,16 @@ interface ChatWindowProps {
   isLoading: boolean;
 }
 
-export default function ChatWindow({ 
-  messages, 
-  onSendMessage, 
+export default function ChatWindow({
+  messages,
+  onSendMessage,
   onApplyWithToggle,
   useGranularEdits,
   onToggleGranularEdits,
-  isLoading 
+  isLoading
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState('');
+  const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -52,22 +53,64 @@ export default function ChatWindow({
   const handleApplyCode = (message: string) => {
     const editResult = extractEditOperationsFromMessage(message);
     const codeResult = extractCodeFromMessage(message);
-    
+
     if (editResult.hasOperations) {
       logEditOperations(editResult.operations);
     }
-    
+
     // Use the toggle-aware handler
     onApplyWithToggle(codeResult, editResult);
   };
 
+  const toggleCodeVisibility = (messageId: string) => {
+    setExpandedCodeBlocks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const renderMessageContent = (message: ChatMessage, editResult: EditOperationResult) => {
+    const messageContent = editResult.hasOperations ? editResult.message : message.content;
+    const isCodeVisible = expandedCodeBlocks.has(message.id);
+    const hasCodeBlocks = messageContent.includes('```');
+
+    if (!hasCodeBlocks) {
+      return <div className="whitespace-pre-wrap break-words">{messageContent}</div>;
+    }
+
+    if (isCodeVisible) {
+      return <div className="whitespace-pre-wrap break-words">{messageContent}</div>;
+    }
+
+    // Hide code blocks - show only text before first code block
+    const parts = messageContent.split('```');
+    const textBeforeCode = parts[0].trim();
+    const codeBlockCount = Math.floor((parts.length - 1) / 2);
+
+    return (
+      <div>
+        <div className="whitespace-pre-wrap break-words">{textBeforeCode}</div>
+        {codeBlockCount > 0 && (
+          <div className="mt-2 p-2 bg-gray-50 border rounded text-sm text-gray-600">
+            📝 {codeBlockCount} code block{codeBlockCount !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === 'user';
-    
+
     // Try edit operations first, then fallback to code extraction
     const editResult = extractEditOperationsFromMessage(message.content);
     const codeResult = extractCodeFromMessage(message.content);
-    
+
     const hasApplicableContent = editResult.hasOperations || codeResult.hasCode;
 
     // Debug logging to help identify issues
@@ -84,16 +127,23 @@ export default function ChatWindow({
     return (
       <div key={message.id} className={`mb-4 ${isUser ? 'text-right' : 'text-left'}`}>
         <div
-          className={`inline-block max-w-[80%] rounded-lg px-4 py-2 ${
-            isUser
+          className={`inline-block max-w-[80%] rounded-lg px-4 py-2 ${isUser
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-900 border'
-          }`}
+            }`}
         >
-          <div className="whitespace-pre-wrap break-words">
-            {editResult.hasOperations ? editResult.message : message.content}
-          </div>
-          
+          {renderMessageContent(message, editResult)}
+
+          {/* Show/Hide Code Toggle */}
+          {!isUser && message.content.includes('```') && (
+            <button
+              onClick={() => toggleCodeVisibility(message.id)}
+              className="mt-2 mr-2 bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
+            >
+              {expandedCodeBlocks.has(message.id) ? 'Hide Code' : 'Show Code'}
+            </button>
+          )}
+
           {!isUser && hasApplicableContent && (
             <button
               onClick={() => handleApplyCode(message.content)}
@@ -117,7 +167,7 @@ export default function ChatWindow({
               ))}
             </div>
           )}
-          
+
           {/* Debug info for messages with code blocks */}
           {!isUser && (message.content.includes('```') || message.content.includes('[')) && !hasApplicableContent && (
             <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
@@ -125,7 +175,7 @@ export default function ChatWindow({
             </div>
           )}
         </div>
-        
+
         <div className={`text-xs text-gray-500 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
           {message.timestamp.toLocaleTimeString()}
         </div>
@@ -139,28 +189,26 @@ export default function ChatWindow({
       <div className="border-b p-4 bg-gray-50">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-gray-900">React Native Assistant</h2>
-          
+
           {/* Edit Mode Toggle */}
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Edit mode:</span>
             <div className="flex items-center space-x-1">
               <button
                 onClick={() => onToggleGranularEdits(true)}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  useGranularEdits
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${useGranularEdits
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                  }`}
               >
                 Granular
               </button>
               <button
                 onClick={() => onToggleGranularEdits(false)}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  !useGranularEdits
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${!useGranularEdits
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                  }`}
               >
                 Full File
               </button>
@@ -169,8 +217,8 @@ export default function ChatWindow({
         </div>
         <p className="text-sm text-gray-600">
           Ask me to create or modify React Native code
-          {useGranularEdits 
-            ? ' (using precise edits)' 
+          {useGranularEdits
+            ? ' (using precise edits)'
             : ' (returning full updated files)'}
         </p>
       </div>
@@ -186,9 +234,9 @@ export default function ChatWindow({
             </p>
           </div>
         )}
-        
+
         {messages.map(renderMessage)}
-        
+
         {isLoading && (
           <div className="text-left">
             <div className="inline-block bg-gray-100 rounded-lg px-4 py-2 border">
@@ -203,7 +251,7 @@ export default function ChatWindow({
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
