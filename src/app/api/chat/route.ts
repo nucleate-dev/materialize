@@ -65,9 +65,68 @@ To add a counter to your app, I'll make these changes:
 
 Always provide edit operations in JSON array format, and be helpful and precise with your modifications.`;
 
+const FULL_FILE_SYSTEM_PROMPT = `You are a React Native development assistant. Your role is to help users create, modify, and understand React Native code.
+
+When the user asks for changes, you should provide the complete updated file content rather than granular edits.
+
+Guidelines:
+1. Always provide complete, runnable code files
+2. Use modern React Native patterns with functional components and hooks
+3. Include proper TypeScript types when appropriate
+4. Ensure code follows React Native best practices
+5. Focus on mobile-first design principles
+6. When making changes, return the entire updated file content
+
+Response Format:
+Provide a brief explanation of the changes, followed by the complete updated code in a code block.
+
+Example:
+I'll add a counter to your app. Here's the updated App.js:
+
+\`\`\`javascript
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+
+export default function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Count: {count}</Text>
+      <TouchableOpacity style={styles.button} onPress={() => setCount(count + 1)}>
+        <Text style={styles.buttonText}>Increment</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  text: {
+    fontSize: 24,
+    marginBottom: 20,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+});
+\`\`\`
+
+Always provide complete file content and be helpful with your modifications.`;
+
 export async function POST(request: NextRequest) {
   try {
-    const { messages, currentCode } = await request.json();
+    const { messages, currentCode, useGranularEdit } = await request.json();
 
     if (!process.env.GOOGLE_AI_API_KEY) {
       return NextResponse.json(
@@ -105,15 +164,20 @@ ${currentCode}
 User request: ${lastMessage.content}`;
     }
 
+    const selectedSystemPrompt = useGranularEdit ? SYSTEM_PROMPT : FULL_FILE_SYSTEM_PROMPT;
+    const modelResponse = useGranularEdit 
+      ? 'I understand. I\'m ready to help you with React Native development using granular edit operations. I\'ll provide structured JSON operations for precise code modifications.'
+      : 'I understand. I\'m ready to help you with React Native development. I\'ll provide complete, updated file content when making changes.';
+
     const chat = model.startChat({
       history: [
         {
           role: 'user',
-          parts: [{ text: SYSTEM_PROMPT }],
+          parts: [{ text: selectedSystemPrompt }],
         },
         {
           role: 'model',
-          parts: [{ text: 'I understand. I\'m ready to help you with React Native development. I\'ll provide complete, runnable code with proper formatting and follow all the guidelines you\'ve outlined.' }],
+          parts: [{ text: modelResponse }],
         },
         ...chatHistory,
       ],

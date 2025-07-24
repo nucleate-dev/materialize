@@ -38,6 +38,7 @@ export default function CreatePage() {
         body: JSON.stringify({
           messages: [...messages, userMessage],
           currentCode: mainAppCode,
+          useGranularEdit: useGranularEdits,
         }),
       });
 

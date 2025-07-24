@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { SnackListenerSubscription, SnackState } from 'snack-sdk';
 import { Snack } from 'snack-sdk';
 import { DEFAULT_DEPENDENCIES, getDefaultSnackFiles } from '../templates/defaultApp';
@@ -44,7 +44,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(({ 
           iframe.src = currentSrc;
         }, 100);
       }
-      
+
       // Method 2: Update refresh key to force React re-render
       setRefreshKey(prev => prev + 1);
     }
@@ -114,11 +114,6 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(({ 
       try {
         setError(null);
         snack.updateFiles(files);
-        
-        // Force refresh after a short delay to ensure files are updated
-        setTimeout(() => {
-          forceRefresh();
-        }, 300);
       } catch (err) {
         console.error('Failed to update Snack files:', err);
         setError(err instanceof Error ? err.message : 'Failed to update code');
@@ -167,8 +162,8 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(({ 
                 <button
                   onClick={() => handleModeChange('mobile')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === 'mobile'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                     }`}
                 >
                   Mobile
@@ -176,8 +171,8 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(({ 
                 <button
                   onClick={() => handleModeChange('web')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === 'web'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                     }`}
                 >
                   Web
