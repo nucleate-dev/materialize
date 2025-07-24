@@ -1,27 +1,8 @@
 "use client";
 
 import { useState } from "react";
-// import { useRouter } from "next/navigation";
-import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
-import { supabase } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";
-import { Database } from "@/lib/types/database.types";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
-// Utility to format date as relative time
-function formatRelativeTime(dateString: string | null | undefined): string {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // seconds
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
-  return date.toLocaleDateString();
-}
 
 function NewProjectModal({
   open,
@@ -35,7 +16,6 @@ function NewProjectModal({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -44,30 +24,21 @@ function NewProjectModal({
     setTouched(true);
     if (!name.trim() || !user) return;
     setIsCreating(true);
+    
     try {
-      const { data: canvas, error } = await supabase
-        .from("canvases")
-        .insert({
-          owner_id: user.id,
-          name,
-          description,
-          thumbnail_url:
-            "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop&crop=center",
-        })
-        .select()
-        .single();
-      if (error) {
-        console.error("Error creating canvas:", error);
-        // TODO: Show error toast/notification
-        return;
-      }
-      if (canvas) {
-        onCreated();
-        onClose();
-      }
+      // TODO: Add project creation logic here
+      console.log("Creating project:", name);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reset form
+      setName("");
+      setTouched(false);
+      onCreated();
+      onClose();
     } catch (error) {
-      console.error("Error creating canvas:", error);
-      // TODO: Show error toast/notification
+      console.error("Error creating project:", error);
     } finally {
       setIsCreating(false);
     }
@@ -97,20 +68,20 @@ function NewProjectModal({
           </svg>
         </button>
         <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white text-center">
-          Create New Canvas
+          Create New Project
         </h2>
         <p className="mb-6 text-gray-500 dark:text-gray-300 text-center">
-          Give your canvas a name and description to get started.
+          Give your project a name to get started.
         </p>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              Canvas Name <span className="text-red-500">*</span>
+              Project Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white ${touched && !name.trim() ? "border-red-500 ring-red-200" : ""}`}
-              placeholder="e.g. Marketing Plan"
+              placeholder="e.g. Website Redesign"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -121,18 +92,6 @@ function NewProjectModal({
                 Name is required.
               </span>
             )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              Description
-            </label>
-            <textarea
-              className="w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white resize-none min-h-[60px]"
-              placeholder="Describe your canvas (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={256}
-            />
           </div>
           <button
             type="submit"
@@ -161,7 +120,7 @@ function NewProjectModal({
                 ></path>
               </svg>
             )}
-            {isCreating ? "Creating..." : "Create Canvas"}
+            {isCreating ? "Creating..." : "Create Project"}
           </button>
         </form>
       </div>
@@ -184,50 +143,17 @@ function NewProjectModal({
   );
 }
 
-export default function Projects() {
-  // const router = useRouter();
+export default function ProjectsPage() {
   const { user } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
-  const [canvases, setCanvases] = useState<
-    Database["public"]["Tables"]["canvases"]["Row"][]
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  // Move fetchCanvases outside useEffect so it can be called after creation
-  const fetchCanvases = async (userId: string) => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("canvases")
-      .select("*")
-      .eq("owner_id", userId)
-      .order("updated_at", { ascending: false });
-    if (error) {
-      console.error("Error fetching canvases:", error);
-      setCanvases([]);
-    } else {
-      setCanvases(data || []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchCanvases(user.id);
-    }
-  }, [user]);
-
-  const handleCanvasClick = (canvasId: string) => {
-    console.log(`Opening canvas ${canvasId}`);
-    router.push(`/canvas/${canvasId}`);
-  };
+  const [projects] = useState([]); // Empty array for now
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
 
-  // Callback to refetch canvases after creation
-  const handleCanvasCreated = () => {
-    fetchCanvases(user?.id ?? "");
+  const handleProjectCreated = () => {
+    // TODO: Refetch projects when functionality is added
+    console.log("Project created successfully");
   };
 
   return (
@@ -237,14 +163,14 @@ export default function Projects() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              Canvases
+              All projects
             </h1>
             <p className="text-body dark:text-bodydark">
-              Your infinite canvases for rapid prototyping and design
+              Manage and organize your projects
             </p>
           </div>
 
-          {/* New Canvas Button */}
+          {/* New Project Button */}
           <button
             onClick={handleOpenModal}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
@@ -265,37 +191,24 @@ export default function Projects() {
                 strokeLinejoin="round"
               />
             </svg>
-            New Canvas
+            New Project
           </button>
         </div>
       </div>
 
-      {/* Modal for new canvas */}
+      {/* Modal for new project */}
       <NewProjectModal
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}
-        onCreated={handleCanvasCreated}
+        onCreated={handleProjectCreated}
       />
 
-      {/* Canvases Grid */}
+      {/* Projects Grid - Empty State */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {loading ? (
-          <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-300">
-            Loading...
-          </div>
-        ) : canvases.length > 0 ? (
-          canvases.map((canvas) => (
-            <CanvasThumbnail
-              key={canvas.id}
-              canvasName={canvas.name}
-              thumbnailUrl={canvas.thumbnail_url}
-              lastModified={formatRelativeTime(
-                canvas.updated_at || canvas.created_at
-              )}
-              onClick={() => handleCanvasClick(canvas.id)}
-            />
-          ))
+        {projects.length > 0 ? (
+          // TODO: Render project cards when projects exist
+          <div>Projects will be displayed here</div>
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
             <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
@@ -309,22 +222,21 @@ export default function Projects() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={1.5}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                 />
               </svg>
             </div>
             <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-              No canvases yet
+              No projects yet
             </h3>
             <p className="text-body dark:text-bodydark mb-6 max-w-md">
-              Create your first infinite canvas to start prototyping and
-              designing at the speed of thought.
+              Create your first project to start organizing your work and managing tasks effectively.
             </p>
             <button
               onClick={handleOpenModal}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
             >
-              Create First Canvas
+              Create First Project
             </button>
           </div>
         )}
