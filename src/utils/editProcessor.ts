@@ -1,4 +1,4 @@
-import { EditOperation, SnackFiles, SnackFile } from '../types/chat';
+import { EditOperation, SnackFile, SnackFiles } from '../types/chat';
 
 export interface EditProcessorResult {
   success: boolean;
@@ -10,7 +10,8 @@ export class EditProcessor {
   private files: SnackFiles;
 
   constructor(files: SnackFiles) {
-    this.files = { ...files };
+    // Create a deep copy of the files
+    this.files = JSON.parse(JSON.stringify(files));
   }
 
   applyOperations(operations: EditOperation[]): EditProcessorResult {
@@ -73,7 +74,7 @@ export class EditProcessor {
       // Line-based replacement
       const startIdx = Math.max(0, target.startLine - 1);
       const endIdx = Math.min(lines.length, target.endLine);
-      
+
       lines.splice(startIdx, endIdx - startIdx, content);
       file.contents = lines.join('\n');
     } else {
@@ -107,7 +108,7 @@ export class EditProcessor {
       const lines = file.contents.split('\n');
       const startIdx = Math.max(0, target.startLine - 1);
       const endIdx = Math.min(lines.length, target.endLine);
-      
+
       lines.splice(startIdx, endIdx - startIdx);
       file.contents = lines.join('\n');
       this.files[target.file] = file;

@@ -1,7 +1,7 @@
 'use client';
 
 import Editor from '@monaco-editor/react';
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import ChatWindow from '../../components/ChatWindow';
 import ExpoSnackViewer, { ExpoSnackViewerRef } from '../../components/ExpoSnackViewer';
 import { getDefaultSnackFiles } from '../../templates/defaultApp';
@@ -46,7 +46,7 @@ export default function CreatePage() {
       }
 
       const data = await response.json();
-
+      console.log('data', data);
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -74,7 +74,8 @@ export default function CreatePage() {
   const handleApplyCode = (result: CodeExtractionResult) => {
     if (result.hasCode) {
       const newFiles = updateSnackFiles(snackFiles, result.codeBlocks);
-      setSnackFiles(newFiles);
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
 
       // Update the main app code if it was modified
       if (newFiles['App.js']) {
@@ -86,27 +87,23 @@ export default function CreatePage() {
   const handleApplyEditOperations = (result: EditOperationResult) => {
     if (result.hasOperations) {
       console.log('Applying edit operations:', result.operations);
-      
+
       const processor = new EditProcessor(snackFiles);
       const processorResult: EditProcessorResult = processor.applyOperations(result.operations);
-      
+
       if (processorResult.success) {
-        setSnackFiles(processorResult.updatedFiles);
-        
+        // Create a deep copy to ensure React detects the change
+        setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
+
         // Update the main app code if App.js was modified
         if (processorResult.updatedFiles['App.js']) {
           setMainAppCode(processorResult.updatedFiles['App.js'].contents);
         }
-        
-        // Force refresh the snack viewer after applying operations
-        setTimeout(() => {
-          snackViewerRef.current?.forceRefresh();
-        }, 300);
-        
+
         console.log('Edit operations applied successfully');
       } else {
         console.error('Failed to apply edit operations:', processorResult.errors);
-        
+
         // Show error message to user
         const errorMessage: ChatMessage = {
           id: Date.now().toString(),
@@ -114,7 +111,7 @@ export default function CreatePage() {
           content: `Failed to apply changes:\n${processorResult.errors.join('\n')}`,
           timestamp: new Date(),
         };
-        
+
         setMessages(prev => [...prev, errorMessage]);
       }
     }
@@ -129,7 +126,8 @@ export default function CreatePage() {
   };
 
   const handleFilesChange = (files: SnackFiles) => {
-    setSnackFiles(files);
+    // Create a deep copy to ensure React detects the change
+    setSnackFiles(JSON.parse(JSON.stringify(files)));
     if (files['App.js']) {
       setMainAppCode(files['App.js'].contents);
     }
@@ -147,7 +145,8 @@ export default function CreatePage() {
           contents: value,
         },
       };
-      setSnackFiles(updatedFiles);
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(updatedFiles)));
     }
   };
 
@@ -165,8 +164,8 @@ export default function CreatePage() {
               <button
                 onClick={() => setIsChatView(true)}
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 Chat
@@ -174,8 +173,8 @@ export default function CreatePage() {
               <button
                 onClick={() => setIsChatView(false)}
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 Code

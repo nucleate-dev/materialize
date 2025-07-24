@@ -2,25 +2,25 @@ import { CodeBlock, CodeExtractionResult, SnackFiles } from '../types/chat';
 
 export function extractCodeFromMessage(message: string): CodeExtractionResult {
   const codeBlocks: CodeBlock[] = [];
-  
+
   // Regex to match code blocks with optional language specification
   const codeBlockRegex = /```(?:(javascript|js|typescript|ts|jsx|tsx))?\n([\s\S]*?)```/g;
-  
+
   let match;
   while ((match = codeBlockRegex.exec(message)) !== null) {
     const language = match[1];
     const code = match[2].trim();
-    
+
     if (code) {
       // Determine language, default to javascript if not specified
       let detectedLanguage: 'javascript' | 'typescript' = 'javascript';
-      
+
       if (language === 'typescript' || language === 'ts' || language === 'tsx') {
         detectedLanguage = 'typescript';
       } else if (language === 'javascript' || language === 'js' || language === 'jsx' || !language) {
         detectedLanguage = 'javascript';
       }
-      
+
       // Try to detect if it's a React Native component
       if (isReactNativeCode(code)) {
         codeBlocks.push({
@@ -31,7 +31,7 @@ export function extractCodeFromMessage(message: string): CodeExtractionResult {
       }
     }
   }
-  
+
   return {
     hasCode: codeBlocks.length > 0,
     codeBlocks,
@@ -73,34 +73,34 @@ function isReactNativeCode(code: string): boolean {
     'style={',
     'styles.',
   ];
-  
+
   // If it contains multiple indicators or looks like a complete component, it's likely React Native
   const matchCount = reactNativeIndicators.filter(indicator => code.includes(indicator)).length;
-  
+
   // More lenient: if it has at least 1 indicator or contains JSX-like syntax, consider it valid code
   // This is less restrictive to ensure code blocks aren't filtered out when useGranularEdits is false
-  return matchCount >= 1 || 
-         code.includes('<') && code.includes('>') ||
-         code.includes('export default') ||
-         code.includes('function ') ||
-         code.includes('const ') ||
-         code.includes('import ') ||
-         code.trim().length > 20; // Include any substantial code block
+  return matchCount >= 1 ||
+    code.includes('<') && code.includes('>') ||
+    code.includes('export default') ||
+    code.includes('function ') ||
+    code.includes('const ') ||
+    code.includes('import ') ||
+    code.trim().length > 20; // Include any substantial code block
 }
 
 function cleanupCode(code: string): string {
   // Remove any leading/trailing whitespace
   let cleaned = code.trim();
-  
+
   // Check if this looks like a React component that needs imports
-  const needsReactImport = !cleaned.includes('import React') && 
-                          (cleaned.includes('export default') || cleaned.includes('function ') || cleaned.includes('const '));
-  
+  const needsReactImport = !cleaned.includes('import React') &&
+    (cleaned.includes('export default') || cleaned.includes('function ') || cleaned.includes('const '));
+
   // Ensure proper imports for React Native
   if (needsReactImport) {
     cleaned = `import React from 'react';\n${cleaned}`;
   }
-  
+
   // Collect React Native components that need importing
   const rnComponents: string[] = [];
   const componentChecks = [
@@ -113,13 +113,13 @@ function cleanupCode(code: string): string {
     { component: 'TextInput', pattern: '<TextInput' },
     { component: 'StyleSheet', pattern: 'StyleSheet.create' },
   ];
-  
+
   componentChecks.forEach(({ component, pattern }) => {
     if (cleaned.includes(pattern) && !cleaned.includes(`import.*${component}`)) {
       rnComponents.push(component);
     }
   });
-  
+
   // Add React Native imports if needed
   if (rnComponents.length > 0 && !cleaned.includes('from \'react-native\'')) {
     const importLine = `import { ${rnComponents.join(', ')} } from 'react-native';`;
@@ -132,7 +132,7 @@ function cleanupCode(code: string): string {
       cleaned = `${importLine}\n${cleaned}`;
     }
   }
-  
+
   return cleaned;
 }
 
@@ -144,15 +144,16 @@ function getFileNameFromCode(code: string, language: 'javascript' | 'typescript'
     const extension = language === 'typescript' ? 'tsx' : 'js';
     return `${componentName}.${extension}`;
   }
-  
+
   // Default filename
   const extension = language === 'typescript' ? 'tsx' : 'js';
   return `App.${extension}`;
 }
 
 export function updateSnackFiles(currentFiles: SnackFiles, codeBlocks: CodeBlock[]): SnackFiles {
-  const newFiles = { ...currentFiles };
-  
+  // Create a deep copy of the current files
+  const newFiles = JSON.parse(JSON.stringify(currentFiles));
+
   codeBlocks.forEach((block) => {
     const fileName = block.fileName || 'App.js';
     newFiles[fileName] = {
@@ -160,6 +161,6 @@ export function updateSnackFiles(currentFiles: SnackFiles, codeBlocks: CodeBlock
       type: 'CODE',
     };
   });
-  
+
   return newFiles;
 }
