@@ -2,6 +2,11 @@
 
 import React from "react";
 import Image from "next/image";
+import {
+  RocketLaunchIcon,
+  CalendarIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 
 interface ProjectThumbnailProps {
   projectName?: string;
@@ -21,98 +26,93 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
   const displayName = projectName || canvasName || "Untitled";
   return (
     <div
-      className="group cursor-pointer transition-all duration-200 hover:scale-[1.02]"
+      className="group cursor-pointer transition-all duration-500 hover:scale-105 transform-gpu"
       onClick={onClick}
     >
-      {/* Thumbnail Container */}
-      <div className="relative bg-white dark:bg-boxdark rounded-xl border border-stroke dark:border-strokedark overflow-hidden shadow-2 hover:shadow-4 transition-all duration-300">
-        {/* Image Container */}
-        <div className="relative aspect-[4/3] bg-gray-100 dark:bg-meta-4 overflow-hidden flex items-center justify-center">
+      {/* Enhanced Glassmorphism Container */}
+      <div className="relative bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-strokedark/30 overflow-hidden shadow-2xl dark:shadow-black/20 hover:shadow-3xl dark:hover:shadow-black/30 transition-all duration-500">
+        {/* Inner glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
+        
+        {/* Animated Background Orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-10 -right-10 w-20 h-20 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-full blur-2xl animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="absolute -bottom-10 -left-10 w-16 h-16 bg-gradient-to-tr from-meta-5/10 to-meta-3/10 dark:from-meta-5/20 dark:to-meta-3/20 rounded-full blur-xl animate-pulse delay-1000 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        </div>
+        {/* Enhanced Image Container */}
+        <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-meta-4 dark:to-boxdark-2 overflow-hidden flex items-center justify-center">
           {thumbnailUrl ? (
-            <Image
-              src={thumbnailUrl}
-              alt={displayName}
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
+            <>
+              <Image
+                src={thumbnailUrl}
+                alt={displayName}
+                fill
+                className="object-cover transition-all duration-500 group-hover:scale-110"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
+              {/* Image overlay gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            </>
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-blue-200/30 to-primary/20 dark:from-meta-4 dark:via-primary/10 dark:to-meta-4">
-              <svg
-                width="56"
-                height="56"
-                viewBox="0 0 56 56"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="mb-2"
-              >
-                <rect
-                  width="56"
-                  height="56"
-                  rx="16"
-                  fill="url(#paint0_linear)"
-                />
-                <g opacity="0.7">
-                  <path
-                    d="M18 38V36C18 33.7909 19.7909 32 22 32H34C36.2091 32 38 33.7909 38 36V38"
-                    stroke="#3C50E0"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle
-                    cx="28"
-                    cy="24"
-                    r="6"
-                    stroke="#3C50E0"
-                    strokeWidth="2"
-                  />
-                </g>
-                <defs>
-                  <linearGradient
-                    id="paint0_linear"
-                    x1="0"
-                    y1="0"
-                    x2="56"
-                    y2="56"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop stopColor="#E0E7FF" />
-                    <stop offset="1" stopColor="#3C50E0" stopOpacity="0.15" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <span className="text-base font-semibold text-primary/80 dark:text-primary/60">
-                No Thumbnail
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-secondary/5 to-meta-5/10 dark:from-primary/20 dark:via-secondary/10 dark:to-meta-5/20">
+              <div className="relative mb-4">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-2xl blur-lg animate-pulse"></div>
+                <div className="relative p-4 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-2xl border border-primary/20 dark:border-secondary/30">
+                  <RocketLaunchIcon className="w-12 h-12 text-primary dark:text-secondary" />
+                </div>
+              </div>
+              <span className="text-lg font-bold text-primary dark:text-secondary mb-1">
+                Ready to Build
+              </span>
+              <span className="text-sm font-medium text-body dark:text-bodydark opacity-75">
+                No preview yet ✨
               </span>
             </div>
           )}
 
-          {/* Hover Overlay */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 dark:bg-boxdark/90 rounded-lg px-4 py-2 backdrop-blur-sm">
-              <span className="text-sm font-medium text-body dark:text-bodydark">
-                {projectName ? "Open Project" : "Open Canvas"}
-              </span>
+          {/* Enhanced Hover Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center">
+            <div className="transform translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500 bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-2xl px-6 py-3 border border-white/20 dark:border-strokedark/30 shadow-xl">
+              <div className="flex items-center gap-3">
+                <ArrowTopRightOnSquareIcon className="w-5 h-5 text-primary dark:text-secondary" />
+                <span className="font-bold text-black dark:text-white">
+                  {projectName ? "Open Project" : "Open Canvas"}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Canvas Info */}
-        <div className="p-4">
-          <h3 className="font-semibold text-black dark:text-white text-lg leading-tight mb-1 group-hover:text-primary transition-colors duration-200">
-            {displayName}
-          </h3>
+        {/* Enhanced Info Section */}
+        <div className="relative z-10 p-6">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="font-bold text-black dark:text-white text-xl leading-tight group-hover:text-primary dark:group-hover:text-secondary transition-colors duration-300 flex-1 mr-3">
+              {displayName}
+            </h3>
+            {/* Modern Type Badge */}
+            <div className="flex-shrink-0 px-3 py-1 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 backdrop-blur-sm rounded-xl border border-primary/20 dark:border-secondary/30">
+              <span className="text-xs font-bold text-primary dark:text-secondary uppercase tracking-wide">
+                {projectName ? "Project" : "Canvas"}
+              </span>
+            </div>
+          </div>
+          
           {lastModified && (
-            <p className="text-sm text-body dark:text-bodydark2">
-              Modified {lastModified}
-            </p>
+            <div className="flex items-center gap-2 text-sm text-body dark:text-bodydark">
+              <CalendarIcon className="w-4 h-4" />
+              <span className="font-medium">Modified {lastModified}</span>
+            </div>
           )}
-        </div>
-
-        {/* Corner Badge for Canvas/Project Type */}
-        <div className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm rounded-md px-2 py-1">
-          <span className="text-xs font-medium text-white">{projectName ? "Project" : "Canvas"}</span>
+          
+          {/* Progress indicator line */}
+          <div className="mt-4 pt-4 border-t border-stroke/20 dark:border-strokedark/20">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-meta-3 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-body dark:text-bodydark opacity-75">
+                Ready to launch
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
