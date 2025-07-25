@@ -158,6 +158,11 @@ export default function ChatWindow({
               <CodeBracketIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               <span className="font-medium">Code available</span>
               <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
+              {APPLY_CODE_IMMEDIATELY && (
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                  (Auto-applied to preview)
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -228,7 +233,7 @@ export default function ChatWindow({
                     </button>
                   )}
 
-                  {/* Apply Code Button */}
+                  {/* Apply Code Button or Auto-Applied Indicator */}
                   {!APPLY_CODE_IMMEDIATELY && hasApplicableContent && (
                     <button
                       onClick={() => handleApplyCode(message.content)}
@@ -239,6 +244,14 @@ export default function ChatWindow({
                         ? `Apply Changes (${editResult.operations.length})`
                         : `Apply Code (${codeResult.codeBlocks.length})`}
                     </button>
+                  )}
+
+                  {/* Auto-Applied Indicator */}
+                  {APPLY_CODE_IMMEDIATELY && hasApplicableContent && (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 dark:from-green-600 dark:to-emerald-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-green-500/25 dark:shadow-green-600/40 ring-1 ring-white/20">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      Code Auto-Applied
+                    </div>
                   )}
                 </div>
               )}

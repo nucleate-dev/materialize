@@ -755,9 +755,6 @@ export const DEFAULT_DEPENDENCIES = {
   "react-native-vector-icons": {
     version: "7.1.0",
   },
-  "react-native-safe-area-context": {
-    version: "4.12.0",
-  },
   "@expo/vector-icons": { version: "13.0.0" },
   "expo-router": { version: "4.19.0" },
 };

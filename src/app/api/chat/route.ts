@@ -8,7 +8,6 @@ const SYSTEM_PROMPT = `You are a React Native development assistant. Your role i
 IMPORTANT: You have access to the following packages without needing to install them:
 - expo-linear-gradient
 - react-native-vector-icons
-- react-native-safe-area-context
 - expo-router
 
 IMPORTANT: Instead of providing complete code files, you should use structured edit operations to make precise changes. This saves tokens and allows for more targeted modifications.
@@ -76,7 +75,6 @@ const FULL_FILE_SYSTEM_PROMPT = `You are a React Native development assistant. Y
 IMPORTANT: You have access to the following packages without needing to install them:
 - expo-linear-gradient
 - react-native-vector-icons
-- react-native-safe-area-context
 - expo-router
 
 When the user asks for changes, you should provide the complete updated file content rather than granular edits.

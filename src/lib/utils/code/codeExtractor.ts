@@ -84,7 +84,6 @@ function isReactNativeCode(code: string): boolean {
     "styles.",
     "expo-linear-gradient",
     "react-native-vector-icons",
-    "react-native-safe-area-context",
     "expo-router",
   ];
 
