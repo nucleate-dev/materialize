@@ -8,7 +8,6 @@ import { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  PlusIcon,
   XMarkIcon,
   SparklesIcon,
   RocketLaunchIcon,
@@ -77,7 +76,7 @@ function NewProjectModal({
       <div className="relative bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-black/20 border border-white/20 dark:border-strokedark/30 p-8 w-full max-w-lg mx-4 animate-fadeInUp overflow-hidden">
         {/* Inner glow effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
-        
+
         {/* Animated Background Orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-10 -right-10 w-20 h-20 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-full blur-2xl animate-pulse"></div>
@@ -121,13 +120,15 @@ function NewProjectModal({
               {/* Enhanced Input Container */}
               <div className="relative overflow-hidden rounded-2xl">
                 {/* Animated border gradient */}
-                <div className={`absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm ${
-                  touched && !name.trim() 
-                    ? "bg-gradient-to-r from-red-500/30 to-red-600/30 opacity-100" 
-                    : "bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                }`}></div>
+                <div
+                  className={`absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm ${
+                    touched && !name.trim()
+                      ? "bg-gradient-to-r from-red-500/30 to-red-600/30 opacity-100"
+                      : "bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                  }`}
+                ></div>
                 <div className="absolute inset-[1px] bg-white/90 dark:bg-boxdark/90 rounded-2xl"></div>
-                
+
                 <input
                   type="text"
                   className="relative w-full px-6 py-4 text-lg font-medium bg-transparent text-black dark:text-white placeholder-body/60 dark:placeholder-bodydark/60 border-0 focus:outline-none focus:ring-0 transition-all duration-300"
@@ -146,7 +147,7 @@ function NewProjectModal({
               )}
             </div>
           </div>
-          
+
           {/* Create Button */}
           <button
             type="submit"

@@ -2,23 +2,20 @@ import Link from "next/link";
 import DropdownUser from "./DropdownUser";
 import Image from "next/image";
 import { useSidebar } from "@/hooks/useSidebar";
-import { 
-  MagnifyingGlassIcon,
-  Bars3Icon 
-} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, Bars3Icon } from "@heroicons/react/24/outline";
 
 const Header = () => {
   const { sidebarOpen, setSidebarOpen } = useSidebar();
-  
+
   return (
     <header className="sticky top-0 z-999 w-full relative">
       {/* Enhanced Glassmorphism Background with Gradient */}
       <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-gray-2/85 to-whiter/90 dark:from-boxdark/90 dark:via-boxdark-2/85 dark:to-meta-4/90 backdrop-blur-xl"></div>
-      
+
       {/* Multi-layered Border System */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-stroke/60 to-transparent dark:via-strokedark/60"></div>
       <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/20 via-secondary/30 to-meta-5/20 dark:from-primary/30 dark:via-secondary/40 dark:to-meta-5/30 blur-sm"></div>
-      
+
       {/* Enhanced Shadow */}
       <div className="absolute -bottom-6 left-0 right-0 h-6 bg-gradient-to-b from-black/5 to-transparent dark:from-black/12 dark:to-transparent pointer-events-none"></div>
 
@@ -26,14 +23,14 @@ const Header = () => {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-10 -right-20 w-32 h-32 bg-gradient-to-br from-primary/8 to-secondary/8 dark:from-primary/15 dark:to-secondary/15 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -top-10 -left-20 w-24 h-24 bg-gradient-to-tr from-meta-5/8 to-meta-3/8 dark:from-meta-5/15 dark:to-meta-3/15 rounded-full blur-2xl animate-pulse delay-1000"></div>
-        <div 
+        <div
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-r from-primary/3 via-secondary/3 to-meta-5/3 dark:from-primary/8 dark:via-secondary/8 dark:to-meta-5/8 rounded-full blur-2xl animate-spin"
-          style={{ animationDuration: '20s' }}
+          style={{ animationDuration: "20s" }}
         ></div>
       </div>
 
       {/* Header Content */}
-      <div className="relative z-10 flex flex-grow items-center justify-between px-6 py-4 md:px-8 2xl:px-12">
+      <div className="relative z-10 flex flex-grow items-center justify-between px-6 py-1 md:px-8 2xl:px-12">
         {/* Left Section - Mobile Menu & Logo */}
         <div className="flex items-center gap-4 lg:hidden">
           {/* Modern Mobile Toggle Button */}
@@ -72,9 +69,9 @@ const Header = () => {
               {/* Animated border gradient */}
               <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 rounded-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 blur-sm"></div>
               <div className="absolute inset-[1px] bg-white/80 dark:bg-boxdark/80 rounded-2xl backdrop-blur-sm"></div>
-              
+
               {/* Search Icon */}
-              <button 
+              <button
                 type="submit"
                 className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-1 rounded-lg transition-all duration-300 hover:scale-110 group/icon"
               >
@@ -86,7 +83,7 @@ const Header = () => {
               <input
                 type="text"
                 placeholder="Search projects, whiteboards... ✨"
-                className="relative w-full pl-14 pr-6 py-4 text-base font-medium bg-transparent text-black dark:text-white placeholder-body/50 dark:placeholder-bodydark/50 border-0 focus:outline-none focus:ring-0 transition-all duration-300"
+                className="relative w-full pl-14 pr-6 py-3 text-base font-medium bg-transparent text-black dark:text-white placeholder-body/50 dark:placeholder-bodydark/50 border-0 focus:outline-none focus:ring-0 transition-all duration-300"
               />
 
               {/* Search Enhancement Indicator */}
@@ -102,12 +99,11 @@ const Header = () => {
 
         {/* Right Section - User */}
         <div className="flex items-center gap-3 2xsm:gap-6">
-
           {/* User Dropdown */}
           <div className="relative group">
             {/* Enhanced background glow */}
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-lg"></div>
-            <div className="relative p-1 bg-white/40 dark:bg-boxdark/40 rounded-2xl border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm group-hover:bg-white/60 dark:group-hover:bg-boxdark/60 transition-all duration-300">
+            <div className="relative py-2 px-4 bg-white/40 dark:bg-boxdark/40 rounded-2xl border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm group-hover:bg-white/60 dark:group-hover:bg-boxdark/60 transition-all duration-300">
               <DropdownUser />
             </div>
           </div>
