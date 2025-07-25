@@ -100,6 +100,38 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
       <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
         {/* <!-- Sidebar Menu --> */}
         <nav className="mt-5 py-4 px-4 lg:mt-9 lg:px-6">
+          {/* <!-- New Chat Button --> */}
+          <div className="mb-6">
+            <Link
+              href="/dashboard"
+              className={`group relative flex items-center justify-center gap-3 rounded-xl py-3 px-4 font-semibold text-white duration-300 ease-in-out transition-all ${
+                pathname === "/dashboard"
+                  ? "bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25"
+                  : "bg-gradient-to-r from-graydark to-meta-4 hover:from-primary/90 hover:to-primary/70 hover:shadow-md hover:shadow-primary/20"
+              }`}
+            >
+              <svg
+                className="fill-current"
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M15.7499 2.9812H14.2874V2.36245C14.2874 2.02495 14.0062 1.71558 13.6405 1.71558C13.2749 1.71558 12.9937 1.99683 12.9937 2.36245V2.9812H4.97803V2.36245C4.97803 2.02495 4.69678 1.71558 4.33115 1.71558C3.96553 1.71558 3.68428 1.99683 3.68428 2.36245V2.9812H2.2499C1.29365 2.9812 0.478027 3.7687 0.478027 4.75308V14.5406C0.478027 15.4968 1.26553 16.3125 2.2499 16.3125H15.7499C16.7062 16.3125 17.5218 15.525 17.5218 14.5406V4.72495C17.5218 3.7687 16.7062 2.9812 15.7499 2.9812Z"
+                  fill="currentColor"
+                  opacity="0.3"
+                />
+                <path
+                  d="M9 12.75C9.41421 12.75 9.75 12.4142 9.75 12V9.75H12C12.4142 9.75 12.75 9.41421 12.75 9C12.75 8.58579 12.4142 8.25 12 8.25H9.75V6C9.75 5.58579 9.41421 5.25 9 5.25C8.58579 5.25 8.25 5.58579 8.25 6V8.25H6C5.58579 8.25 5.25 8.58579 5.25 9C5.25 9.41421 5.58579 9.75 6 9.75H8.25V12C8.25 12.4142 8.58579 12.75 9 12.75Z"
+                  fill="currentColor"
+                />
+              </svg>
+              New chat +
+            </Link>
+          </div>
+
           {/* <!-- Menu Group --> */}
           <div>
             {/* <h3 className="mb-4 ml-4 text-sm font-semibold text-bodydark2">

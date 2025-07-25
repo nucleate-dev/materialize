@@ -1,0 +1,258 @@
+"use client";
+
+import Editor from "@monaco-editor/react";
+import { useRef, useState } from "react";
+import ChatWindow from "@/components/ChatWindow";
+import ExpoSnackViewer, {
+  ExpoSnackViewerRef,
+} from "@/components/ExpoSnackViewer";
+import { getDefaultSnackFiles } from "@/templates/defaultApp";
+import {
+  ChatMessage,
+  CodeExtractionResult,
+  EditOperationResult,
+  SnackFiles,
+} from "@/lib/types/chat";
+import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
+import {
+  EditProcessor,
+  EditProcessorResult,
+} from "@/lib/utils/code/editProcessor";
+
+export default function CreatePage() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [snackFiles, setSnackFiles] = useState<SnackFiles>(
+    getDefaultSnackFiles()
+  );
+  const [isChatView, setIsChatView] = useState(true);
+  const [mainAppCode, setMainAppCode] = useState(
+    snackFiles["App.js"]?.contents || ""
+  );
+  const [useGranularEdits, setUseGranularEdits] = useState(true);
+  const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
+
+  const handleSendMessage = async (content: string) => {
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+          currentCode: mainAppCode,
+          useGranularEdit: useGranularEdits,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("data", data);
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.content,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Error sending message:", error);
+
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content:
+          "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApplyCode = (result: CodeExtractionResult) => {
+    if (result.hasCode) {
+      const newFiles = updateSnackFiles(snackFiles, result.codeBlocks);
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
+
+      // Update the main app code if it was modified
+      if (newFiles["App.js"]) {
+        setMainAppCode(newFiles["App.js"].contents);
+      }
+    }
+  };
+
+  const handleApplyEditOperations = (result: EditOperationResult) => {
+    if (result.hasOperations) {
+      console.log("Applying edit operations:", result.operations);
+
+      const processor = new EditProcessor(snackFiles);
+      const processorResult: EditProcessorResult = processor.applyOperations(
+        result.operations
+      );
+
+      if (processorResult.success) {
+        // Create a deep copy to ensure React detects the change
+        setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
+
+        // Update the main app code if App.js was modified
+        if (processorResult.updatedFiles["App.js"]) {
+          setMainAppCode(processorResult.updatedFiles["App.js"].contents);
+        }
+
+        console.log("Edit operations applied successfully");
+      } else {
+        console.error(
+          "Failed to apply edit operations:",
+          processorResult.errors
+        );
+
+        // Show error message to user
+        const errorMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Failed to apply changes:\n${processorResult.errors.join("\n")}`,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, errorMessage]);
+      }
+    }
+  };
+
+  const handleApplyWithToggle = (
+    result: CodeExtractionResult,
+    editResult: EditOperationResult
+  ) => {
+    if (useGranularEdits && editResult.hasOperations) {
+      handleApplyEditOperations(editResult);
+    } else if (result.hasCode) {
+      handleApplyCode(result);
+    }
+  };
+
+  const handleFilesChange = (files: SnackFiles) => {
+    // Create a deep copy to ensure React detects the change
+    setSnackFiles(JSON.parse(JSON.stringify(files)));
+    if (files["App.js"]) {
+      setMainAppCode(files["App.js"].contents);
+    }
+  };
+
+  const handleCodeChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setMainAppCode(value);
+
+      // Update the snack files with the new code
+      const updatedFiles = {
+        ...snackFiles,
+        "App.js": {
+          ...snackFiles["App.js"],
+          contents: value,
+        },
+      };
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(updatedFiles)));
+    }
+  };
+
+  return (
+    <div className="h-screen flex bg-gray-100">
+      {/* Left Panel - 40% width */}
+      <div className="w-2/5 min-w-[400px] flex flex-col">
+        {/* Toggle Header */}
+        <div className="bg-white border-b border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800">
+              {isChatView ? "AI Assistant" : "Code Editor"}
+            </h2>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setIsChatView(true)}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  isChatView
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => setIsChatView(false)}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  !isChatView
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Code
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-hidden">
+          {isChatView ? (
+            <ChatWindow
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              onApplyWithToggle={handleApplyWithToggle}
+              useGranularEdits={useGranularEdits}
+              onToggleGranularEdits={setUseGranularEdits}
+              isLoading={isLoading}
+            />
+          ) : (
+            <div className="h-full">
+              <Editor
+                height="100%"
+                defaultLanguage="javascript"
+                value={mainAppCode}
+                onChange={handleCodeChange}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: "on",
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: "on",
+                  folding: true,
+                  lineDecorationsWidth: 10,
+                  lineNumbersMinChars: 3,
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Expo Snack Viewer - 60% width */}
+      <div className="w-3/5 min-w-[500px]">
+        <ExpoSnackViewer
+          ref={snackViewerRef}
+          files={snackFiles}
+          onFilesChange={handleFilesChange}
+        />
+      </div>
+    </div>
+  );
+}

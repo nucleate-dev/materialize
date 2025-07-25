@@ -24,14 +24,14 @@ function NewProjectModal({
     setTouched(true);
     if (!name.trim() || !user) return;
     setIsCreating(true);
-    
+
     try {
       // TODO: Add project creation logic here
       console.log("Creating project:", name);
-      
+
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Reset form
       setName("");
       setTouched(false);
@@ -230,7 +230,8 @@ export default function ProjectsPage() {
               No projects yet
             </h3>
             <p className="text-body dark:text-bodydark mb-6 max-w-md">
-              Create your first project to start organizing your work and managing tasks effectively.
+              Create your first project to start prototyping your ideas at the
+              speed of thought.
             </p>
             <button
               onClick={handleOpenModal}
