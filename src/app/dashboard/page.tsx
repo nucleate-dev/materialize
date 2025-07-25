@@ -36,27 +36,33 @@ export default function DashboardPage() {
     {
       icon: DevicePhoneMobileIcon,
       title: "Social Media App",
-      description: "Create a modern social media feed with posts, likes, and comments",
-      prompt: "Build a social media mobile app with a clean feed interface, post creation, and user interactions"
+      description:
+        "Create a modern social media feed with posts, likes, and comments",
+      prompt:
+        "Build a social media mobile app with a clean feed interface, post creation, and user interactions",
     },
     {
       icon: PaintBrushIcon,
       title: "E-commerce Store",
-      description: "Design a shopping app with product listings and cart functionality",
-      prompt: "Create an e-commerce mobile app with product catalog, shopping cart, and checkout flow"
+      description:
+        "Design a shopping app with product listings and cart functionality",
+      prompt:
+        "Create an e-commerce mobile app with product catalog, shopping cart, and checkout flow",
     },
     {
       icon: CommandLineIcon,
       title: "Productivity Tool",
       description: "Build a task management app with to-dos and reminders",
-      prompt: "Design a productivity app with task lists, reminders, and progress tracking"
+      prompt:
+        "Design a productivity app with task lists, reminders, and progress tracking",
     },
     {
       icon: RocketLaunchIcon,
       title: "Fitness Tracker",
       description: "Create a health app with workout tracking and statistics",
-      prompt: "Build a fitness tracking app with workout logging, progress charts, and goal setting"
-    }
+      prompt:
+        "Build a fitness tracking app with workout logging, progress charts, and goal setting",
+    },
   ];
 
   return (
@@ -65,7 +71,10 @@ export default function DashboardPage() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/20 to-secondary/20 dark:from-primary/10 dark:to-secondary/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-meta-5/20 to-meta-3/20 dark:from-meta-5/10 dark:to-meta-3/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-primary/10 via-secondary/10 to-meta-5/10 dark:from-primary/5 dark:via-secondary/5 dark:to-meta-5/5 rounded-full blur-3xl animate-spin" style={{ animationDuration: '20s' }}></div>
+        <div
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-primary/10 via-secondary/10 to-meta-5/10 dark:from-primary/5 dark:via-secondary/5 dark:to-meta-5/5 rounded-full blur-3xl animate-spin"
+          style={{ animationDuration: "20s" }}
+        ></div>
       </div>
 
       <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 py-6 overflow-y-auto">
@@ -84,10 +93,10 @@ export default function DashboardPage() {
               Dream App
             </span>
           </h1>
-          
+
           <p className="text-xl text-body dark:text-bodydark mb-8 leading-relaxed max-w-2xl mx-auto">
-            Describe your mobile app idea and watch it come to life with AI-powered development. 
-            From concept to code in seconds.
+            Describe your mobile app idea and watch it come to life with
+            AI-powered development. From concept to code in seconds.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm font-medium text-body dark:text-bodydark2">
@@ -112,7 +121,7 @@ export default function DashboardPage() {
           <div className="relative bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-black/20 border border-white/20 dark:border-strokedark/30 p-8 md:p-12">
             {/* Inner glow effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
-            
+
             <form onSubmit={handleSubmit} className="relative z-10">
               <div className="relative group">
                 {/* Input Container with Enhanced Styling */}
@@ -120,7 +129,7 @@ export default function DashboardPage() {
                   {/* Animated border gradient */}
                   <div className="absolute inset-0 bg-gradient-to-r from-primary via-secondary to-meta-5 rounded-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 blur-sm"></div>
                   <div className="absolute inset-[1px] bg-white dark:bg-boxdark rounded-2xl"></div>
-                  
+
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
@@ -201,7 +210,7 @@ export default function DashboardPage() {
               >
                 {/* Hover gradient effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                
+
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="p-2 bg-gradient-to-br from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-lg group-hover:scale-110 transition-transform duration-300">
@@ -209,11 +218,11 @@ export default function DashboardPage() {
                     </div>
                     <ArrowRightIcon className="w-4 h-4 text-body/40 dark:text-bodydark/40 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[-10px] group-hover:translate-x-0" />
                   </div>
-                  
+
                   <h4 className="font-semibold text-black dark:text-white mb-2 group-hover:text-primary dark:group-hover:text-secondary transition-colors duration-300">
                     {example.title}
                   </h4>
-                  
+
                   <p className="text-sm text-body dark:text-bodydark leading-relaxed">
                     {example.description}
                   </p>
@@ -227,14 +236,14 @@ export default function DashboardPage() {
         <div className="mt-16 text-center">
           <p className="text-body/60 dark:text-bodydark/60 text-sm">
             Need inspiration? Check out our{" "}
-            <button 
+            <button
               onClick={() => router.push("/dashboard/projects")}
               className="text-primary dark:text-secondary hover:underline font-medium"
             >
               project gallery
             </button>{" "}
             or browse{" "}
-            <button 
+            <button
               onClick={() => router.push("/dashboard/whiteboards")}
               className="text-primary dark:text-secondary hover:underline font-medium"
             >

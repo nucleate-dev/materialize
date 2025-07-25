@@ -182,7 +182,7 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="h-screen flex bg-gray-100">
+    <div className="flex bg-gray-100 overflow-hidden -m-4 md:-m-6 2xl:-m-10 h-[calc(100vh-73px)]">
       {/* Left Panel - 40% width */}
       <div className="w-2/5 min-w-[400px] flex flex-col">
         {/* Toggle Header */}
