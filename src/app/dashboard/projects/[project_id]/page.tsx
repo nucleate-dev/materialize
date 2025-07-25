@@ -2,7 +2,12 @@
 
 import Editor from "@monaco-editor/react";
 import { useRef, useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { useSidebar } from "@/hooks/useSidebar";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { supabase } from "@/GlobalConstants";
+import { Database } from "@/lib/types/database.types";
+import Loader from "@/components/dashboard/Loader";
 import ChatWindow from "@/components/ChatWindow";
 import ExpoSnackViewer, {
   ExpoSnackViewerRef,
@@ -20,15 +25,126 @@ import {
   EditProcessorResult,
 } from "@/lib/utils/code/editProcessor";
 
+type Project = Database["public"]["Tables"]["projects"]["Row"];
+type ProjectChatSession =
+  Database["public"]["Tables"]["project_chat_sessions"]["Row"];
+type ProjectChatMessage =
+  Database["public"]["Tables"]["project_chat_messages"]["Row"];
+
 export default function CreatePage() {
+  const { user, userIsLoading } = useUser();
+  const params = useParams<{ project_id: string }>();
+  const projectId = params?.project_id;
   const { setSidebarExpanded } = useSidebar();
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [project, setProject] = useState<Project | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [projectChatSession, setProjectChatSession] =
+    useState<ProjectChatSession | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [chatMessages, setChatMessages] = useState<ProjectChatMessage[]>([]);
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
     setSidebarExpanded(false);
   }, [setSidebarExpanded]);
+
+  // Fetch project data
+  useEffect(() => {
+    async function fetchProject() {
+      if (!projectId) return;
+
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", projectId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching project:", error);
+        return;
+      }
+
+      setProject(data);
+      console.log("Fetched project:", data);
+    }
+
+    async function fetchProjectChatSessionAndMessages() {
+      if (!projectId || !user?.id) return;
+
+      // fetch or create project chat session
+      const { data, error } = await supabase
+        .from("project_chat_sessions")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching project chat session:", error);
+        return;
+      }
+
+      let chatSession = data;
+      if (!chatSession) {
+        // No session found, create one
+        const { data: newSession, error: createError } = await supabase
+          .from("project_chat_sessions")
+          .insert({ project_id: projectId, user_id: user.id })
+          .select()
+          .single();
+        if (createError) {
+          console.error("Error creating project chat session:", createError);
+          return;
+        }
+        chatSession = newSession;
+        setProjectChatSession(newSession);
+        console.log("Created new project chat session:", chatSession);
+      } else {
+        setProjectChatSession(chatSession);
+        console.log("Fetched project chat session:", chatSession);
+      }
+
+      // Then fetch the messages for this session
+      const { data: messagesData, error: messagesError } = await supabase
+        .from("project_chat_messages")
+        .select("*")
+        .eq("chat_session_id", chatSession.id)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      if (messagesError) {
+        console.error("Error fetching chat messages:", messagesError);
+        return;
+      }
+
+      // Reverse to get chronological order (oldest first)
+      setChatMessages(messagesData?.reverse() || []);
+      console.log("Fetched chat messages:", messagesData);
+    }
+
+    if (projectId && user?.id) {
+      fetchProject();
+      fetchProjectChatSessionAndMessages();
+    }
+  }, [projectId, user]);
+
+  // Convert database messages to ChatMessage format
+  //   useEffect(() => {
+  //     if (chatMessages.length > 0 && !loadedFromDB) {
+  //       const convertedMessages: ChatMessage[] = chatMessages.map((msg) => ({
+  //         id: msg.id,
+  //         role: msg.role as "user" | "assistant",
+  //         content: msg.content,
+  //         timestamp: new Date(msg.created_at || ""),
+  //       }));
+
+  //       setMessages(convertedMessages);
+  //       setLoadedFromDB(true);
+  //       console.log("Converted and loaded messages from database");
+  //     }
+  //   }, [chatMessages, loadedFromDB]);
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(
     getDefaultSnackFiles()
   );
@@ -180,6 +296,10 @@ export default function CreatePage() {
       setSnackFiles(JSON.parse(JSON.stringify(updatedFiles)));
     }
   };
+
+  if (!projectId || userIsLoading) {
+    return <Loader />;
+  }
 
   return (
     <div className="flex bg-gray-100 overflow-hidden -m-4 md:-m-6 2xl:-m-10 h-[calc(100vh-73px)]">
