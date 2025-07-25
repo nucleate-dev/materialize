@@ -8,8 +8,28 @@ import Loader from "../../components/dashboard/Loader";
 import Sidebar from "../../components/dashboard/Sidebar";
 import Header from "../../components/dashboard/Header";
 import RequireAuth from "./RequireAuth";
-import { SidebarProvider } from "@/hooks/useSidebar";
+import { SidebarProvider, useSidebar } from "@/hooks/useSidebar";
 // import WithPaywall from "./Paywall";
+
+function DashboardContent({ children }: { children: React.ReactNode }) {
+  const { sidebarExpanded } = useSidebar();
+  
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      {/* <!-- ===== Content Area Start ===== --> */}
+      <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-300 ease-linear">
+        <Header />
+        <main className="flex-1">
+          <div className="transition-all duration-300 ease-linear p-4 md:p-6 2xl:p-10 max-w-none">
+            {children}
+          </div>
+        </main>
+      </div>
+      {/* <!-- ===== Content Area End ===== --> */}
+    </div>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -32,19 +52,7 @@ export default function RootLayout({
             {loading ? (
               <Loader />
             ) : (
-              <div className="flex h-screen overflow-hidden">
-                <Sidebar />
-                {/* <!-- ===== Content Area Start ===== --> */}
-                <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
-                  <Header />
-                  <main>
-                    <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-                      {children}
-                    </div>
-                  </main>
-                </div>
-                {/* <!-- ===== Content Area End ===== --> */}
-              </div>
+              <DashboardContent>{children}</DashboardContent>
             )}
           </div>
           {/* </WithPaywall> */}
