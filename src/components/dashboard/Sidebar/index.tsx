@@ -77,31 +77,33 @@ const Sidebar = () => {
     >
       {/* Enhanced Glassmorphism Background with Borders & Shadows */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-gray-2/85 to-whiter/90 dark:from-boxdark/90 dark:via-boxdark-2/85 dark:to-meta-4/90 backdrop-blur-xl"></div>
-      
+
       {/* Multi-layered Border System */}
       <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-stroke/60 to-transparent dark:via-strokedark/60"></div>
       <div className="absolute top-0 right-0 bottom-0 w-[2px] bg-gradient-to-b from-primary/20 via-secondary/30 to-meta-5/20 dark:from-primary/30 dark:via-secondary/40 dark:to-meta-5/30 blur-sm"></div>
-      
+
       {/* Premium Shadow System */}
       <div className="absolute -right-8 top-0 bottom-0 w-8 bg-gradient-to-r from-black/5 to-transparent dark:from-black/20 dark:to-transparent pointer-events-none"></div>
       <div className="absolute -right-12 top-0 bottom-0 w-12 bg-gradient-to-r from-primary/5 via-secondary/3 to-transparent dark:from-primary/10 dark:via-secondary/6 dark:to-transparent blur-xl pointer-events-none"></div>
-      
+
       {/* Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-20 -left-20 w-40 h-40 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-20 -right-20 w-32 h-32 bg-gradient-to-tr from-meta-5/10 to-meta-3/10 dark:from-meta-5/20 dark:to-meta-3/20 rounded-full blur-2xl animate-pulse delay-1000"></div>
-        <div 
+        <div
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-gradient-to-r from-primary/5 via-secondary/5 to-meta-5/5 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-5/10 rounded-full blur-2xl animate-spin"
-          style={{ animationDuration: '20s' }}
+          style={{ animationDuration: "20s" }}
         ></div>
       </div>
 
       {/* Sidebar Content */}
       <div className="relative z-10 h-full flex flex-col">
         {/* Header Section */}
-        <div className={`flex items-center gap-3 px-6 py-6 lg:py-8 ${
-          sidebarExpanded ? "justify-between" : "justify-center"
-        }`}>
+        <div
+          className={`flex items-center gap-3 px-6 py-6 lg:py-8 ${
+            sidebarExpanded ? "justify-between" : "justify-center"
+          }`}
+        >
           {/* Logo Section - Only when expanded */}
           {sidebarExpanded && (
             <div className="flex items-center justify-center">
@@ -172,16 +174,20 @@ const Sidebar = () => {
 
               {/* Button content */}
               <div className="relative flex items-center gap-4">
-                <div className={`p-2 rounded-xl transition-all duration-300 ${
-                  pathname === "/dashboard"
-                    ? "bg-white/20 dark:bg-white/10"
-                    : "bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
-                }`}>
-                  <SparklesIcon className={`w-5 h-5 transition-all duration-300 ${
+                <div
+                  className={`p-2 rounded-xl transition-all duration-300 ${
                     pathname === "/dashboard"
-                      ? "text-white"
-                      : "text-primary dark:text-secondary group-hover:text-primary dark:group-hover:text-secondary"
-                  }`} />
+                      ? "bg-white/20 dark:bg-white/10"
+                      : "bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
+                  }`}
+                >
+                  <SparklesIcon
+                    className={`w-5 h-5 transition-all duration-300 ${
+                      pathname === "/dashboard"
+                        ? "text-white"
+                        : "text-primary dark:text-secondary group-hover:text-primary dark:group-hover:text-secondary"
+                    }`}
+                  />
                 </div>
                 {sidebarExpanded && (
                   <span className="relative font-semibold">New chat +</span>
@@ -213,19 +219,23 @@ const Sidebar = () => {
               >
                 {/* Hover gradient effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                
+
                 <div className="relative flex items-center gap-4">
                   {/* Icon container */}
-                  <div className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
-                    item.active
-                      ? "bg-primary/10 dark:bg-secondary/20"
-                      : "bg-stroke/20 dark:bg-strokedark/30 group-hover:bg-primary/10 dark:group-hover:bg-secondary/20"
-                  }`}>
-                    <item.icon className={`w-5 h-5 transition-colors duration-300 ${
+                  <div
+                    className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
                       item.active
-                        ? "text-primary dark:text-secondary"
-                        : "text-body dark:text-bodydark group-hover:text-primary dark:group-hover:text-secondary"
-                    }`} />
+                        ? "bg-primary/10 dark:bg-secondary/20"
+                        : "bg-stroke/20 dark:bg-strokedark/30 group-hover:bg-primary/10 dark:group-hover:bg-secondary/20"
+                    }`}
+                  >
+                    <item.icon
+                      className={`w-5 h-5 transition-colors duration-300 ${
+                        item.active
+                          ? "text-primary dark:text-secondary"
+                          : "text-body dark:text-bodydark group-hover:text-primary dark:group-hover:text-secondary"
+                      }`}
+                    />
                   </div>
 
                   {/* Label */}
@@ -251,7 +261,7 @@ const Sidebar = () => {
             {sidebarExpanded ? (
               <div className="text-center">
                 <p className="text-xs text-body/60 dark:text-bodydark/60 mb-2">
-                  Powered by AI ✨
+                  Powered by Materialize AI ✨
                 </p>
                 <div className="flex items-center justify-center gap-2 text-xs font-medium text-body dark:text-bodydark">
                   <div className="w-2 h-2 bg-meta-3 rounded-full animate-pulse"></div>
