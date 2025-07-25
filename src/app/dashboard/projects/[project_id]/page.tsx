@@ -1,7 +1,8 @@
 "use client";
 
 import Editor from "@monaco-editor/react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { useSidebar } from "@/hooks/useSidebar";
 import ChatWindow from "@/components/ChatWindow";
 import ExpoSnackViewer, {
   ExpoSnackViewerRef,
@@ -20,8 +21,14 @@ import {
 } from "@/lib/utils/code/editProcessor";
 
 export default function CreatePage() {
+  const { setSidebarExpanded } = useSidebar();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Automatically collapse sidebar when page opens
+  useEffect(() => {
+    setSidebarExpanded(false);
+  }, [setSidebarExpanded]);
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(
     getDefaultSnackFiles()
   );
