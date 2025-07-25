@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";
+import { supabase } from "@/GlobalConstants";
+import { Database } from "@/lib/types/database.types";
+import { useRouter } from "next/navigation";
+import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
+
+type Project = Database["public"]["Tables"]["projects"]["Row"];
 
 function NewProjectModal({
   open,
@@ -13,7 +19,7 @@ function NewProjectModal({
   open: boolean;
   onClose: () => void;
   user: User | null;
-  onCreated: () => void;
+  onCreated: (projectId: string) => void;
 }) {
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -26,16 +32,29 @@ function NewProjectModal({
     setIsCreating(true);
 
     try {
-      // TODO: Add project creation logic here
-      console.log("Creating project:", name);
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          name: name.trim(),
+          creator_id: user.id,
+          owner_id: user.id,
+          description: null,
+          project_context: null,
+          thumbnail_url: null,
+          visibility: "SELF" as const,
+        })
+        .select()
+        .single();
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (error) {
+        console.error("Error creating project:", error);
+        throw error;
+      }
 
       // Reset form
       setName("");
       setTouched(false);
-      onCreated();
+      onCreated(data.id);
       onClose();
     } catch (error) {
       console.error("Error creating project:", error);
@@ -145,15 +164,45 @@ function NewProjectModal({
 
 export default function ProjectsPage() {
   const { user } = useUser();
+  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
-  const [projects] = useState([]); // Empty array for now
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchProjects = async () => {
+    if (!user?.id) return;
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .or(`creator_id.eq.${user.id},owner_id.eq.${user.id}`)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching projects:", error);
+        return;
+      }
+
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, [user?.id]);
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
 
-  const handleProjectCreated = () => {
-    // TODO: Refetch projects when functionality is added
-    console.log("Project created successfully");
+  const handleProjectCreated = (projectId: string) => {
+    fetchProjects(); // Refetch projects after creation
+    router.push(`/dashboard/projects/${projectId}`);
   };
 
   return (
@@ -204,44 +253,61 @@ export default function ProjectsPage() {
         onCreated={handleProjectCreated}
       />
 
-      {/* Projects Grid - Empty State */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {projects.length > 0 ? (
-          // TODO: Render project cards when projects exist
-          <div>Projects will be displayed here</div>
-        ) : (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
-              <svg
-                className="w-12 h-12 text-body dark:text-bodydark2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+      {/* Projects Grid */}
+      {isLoading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {projects.length > 0 ? (
+            projects.map((project) => (
+              <ProjectThumbnail
+                key={project.id}
+                projectName={project.name}
+                thumbnailUrl={project.thumbnail_url}
+                lastModified={
+                  project.updated_at
+                    ? new Date(project.updated_at).toLocaleDateString()
+                    : new Date(project.created_at!).toLocaleDateString()
+                }
+                onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
+                <svg
+                  className="w-12 h-12 text-body dark:text-bodydark2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
+                No projects yet
+              </h3>
+              <p className="text-body dark:text-bodydark mb-6 max-w-md">
+                Create your first project to start prototyping your ideas at the
+                speed of thought.
+              </p>
+              <button
+                onClick={handleOpenModal}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
+                Create First Project
+              </button>
             </div>
-            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-              No projects yet
-            </h3>
-            <p className="text-body dark:text-bodydark mb-6 max-w-md">
-              Create your first project to start prototyping your ideas at the
-              speed of thought.
-            </p>
-            <button
-              onClick={handleOpenModal}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-            >
-              Create First Project
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
