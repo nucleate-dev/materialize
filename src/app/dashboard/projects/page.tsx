@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { User } from "@supabase/supabase-js";
+import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
+import { useEffect, useState } from "react";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
 
@@ -99,7 +99,7 @@ function NewProjectModal({
             </label>
             <input
               type="text"
-              className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white ${touched && !name.trim() ? "border-red-500 ring-red-200" : ""}`}
+              className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary transition-all bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${touched && !name.trim() ? "border-red-500 ring-red-200" : ""}`}
               placeholder="e.g. Website Redesign"
               value={name}
               onChange={(e) => setName(e.target.value)}
