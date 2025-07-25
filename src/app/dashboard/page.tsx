@@ -66,7 +66,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-2 via-whiter to-gray-3 dark:from-boxdark-2 dark:via-boxdark dark:to-meta-4 relative overflow-hidden">
+    <div className="h-full min-h-full bg-gradient-to-br from-gray-2 via-whiter to-gray-3 dark:from-boxdark-2 dark:via-boxdark dark:to-meta-4 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/20 to-secondary/20 dark:from-primary/10 dark:to-secondary/10 rounded-full blur-3xl animate-pulse"></div>
@@ -77,7 +77,7 @@ export default function DashboardPage() {
         ></div>
       </div>
 
-      <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 py-6 overflow-y-auto">
+      <div className="relative z-10 flex flex-col items-center justify-center h-full overflow-hidden">
         {/* Header Section */}
         <div className="text-center mb-12 max-w-4xl">
           <div className="flex items-center justify-center mb-6 relative">

@@ -18,8 +18,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       {/* <!-- ===== Content Area Start ===== --> */}
       <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-300 ease-linear">
         <Header />
-        <main className="flex-1">
-          <div className="transition-all duration-300 ease-linear p-4 md:p-6 2xl:p-10 max-w-none">
+        <main className="flex-1 flex flex-col">
+          <div className="transition-all duration-300 ease-linear max-w-none flex-1">
             {children}
           </div>
         </main>
