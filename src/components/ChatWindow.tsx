@@ -5,14 +5,8 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ChatMessage,
   CodeExtractionResult,
-  EditOperation,
-  EditOperationResult,
 } from "@/lib/types/chat";
 import { extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
-import {
-  extractEditOperationsFromMessage,
-  logEditOperations,
-} from "@/lib/utils/code/editExtractor";
 import {
   extractExecutionPlan,
   logPlanningExtraction,
@@ -31,23 +25,16 @@ import {
 interface ChatWindowProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
-  onApplyWithToggle: (
-    result: CodeExtractionResult,
-    editResult: EditOperationResult
-  ) => void;
-  onExecutePlannedOperation: (operationId: string, operations: EditOperation[]) => Promise<void>;
-  useGranularEdits: boolean;
-  onToggleGranularEdits: (value: boolean) => void;
+  onApplyCode: (result: CodeExtractionResult) => void;
+  onExecutePlannedOperation: (operationId: string, operations: any[]) => Promise<void>;
   isLoading: boolean;
 }
 
 export default function ChatWindow({
   messages,
   onSendMessage,
-  onApplyWithToggle,
+  onApplyCode,
   onExecutePlannedOperation,
-  useGranularEdits,
-  onToggleGranularEdits,
   isLoading,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState("");
@@ -119,13 +106,12 @@ export default function ChatWindow({
     if (!lastMessage || lastMessage.role === "user") return;
 
     // Check if this message has applicable content
-    const editResult = extractEditOperationsFromMessage(lastMessage.content);
     const codeResult = extractCodeFromMessage(lastMessage.content);
-    const hasApplicableContent = editResult.hasOperations || codeResult.hasCode;
+    const hasApplicableContent = codeResult.hasCode;
 
     if (hasApplicableContent) {
       // Apply the code automatically
-      handleApplyCode(lastMessage.content);
+      onApplyCode(codeResult);
     }
   }, [messages]);
 
@@ -145,15 +131,8 @@ export default function ChatWindow({
   };
 
   const handleApplyCode = (message: string) => {
-    const editResult = extractEditOperationsFromMessage(message);
     const codeResult = extractCodeFromMessage(message);
-
-    if (editResult.hasOperations) {
-      logEditOperations(editResult.operations);
-    }
-
-    // Use the toggle-aware handler
-    onApplyWithToggle(codeResult, editResult);
+    onApplyCode(codeResult);
   };
 
   const toggleCodeVisibility = (messageId: string) => {
@@ -262,12 +241,9 @@ export default function ChatWindow({
   };
 
   const renderMessageContent = (
-    message: ChatMessage,
-    editResult: EditOperationResult
+    message: ChatMessage
   ) => {
-    const messageContent = editResult.hasOperations
-      ? editResult.message
-      : message.content;
+    const messageContent = message.content;
     const isCodeVisible = expandedCodeBlocks.has(message.id);
     const hasCodeBlocks = messageContent.includes("```");
 
@@ -317,12 +293,15 @@ export default function ChatWindow({
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === "user";
 
-    // Try edit operations first, then fallback to code extraction
-    const editResult = extractEditOperationsFromMessage(message.content);
+    // Extract code from message
     const codeResult = extractCodeFromMessage(message.content);
     const planData = planningData.get(message.id);
 
-    const hasApplicableContent = editResult.hasOperations || codeResult.hasCode;
+    const hasApplicableContent = codeResult.hasCode;
+    
+    // Determine message type
+    const isPlanningMessage = !isUser && message.content.includes('EXECUTION_PLAN');
+    const isExecutionMessage = !isUser && message.content.includes('EXECUTION_STEP');
 
     return (
       <div
@@ -335,6 +314,10 @@ export default function ChatWindow({
             className={`relative p-5 rounded-3xl transition-all duration-300 hover:scale-[1.02] transform-gpu ${
               isUser
                 ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-xl shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30"
+                : isPlanningMessage
+                ? "bg-gradient-to-br from-blue-50/95 via-indigo-50/95 to-blue-100/95 dark:from-blue-900/95 dark:via-indigo-900/95 dark:to-blue-800/95 text-slate-900 dark:text-slate-100 border border-blue-200/70 dark:border-blue-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
+                : isExecutionMessage
+                ? "bg-gradient-to-br from-green-50/95 via-emerald-50/95 to-green-100/95 dark:from-green-900/95 dark:via-emerald-900/95 dark:to-green-800/95 text-slate-900 dark:text-slate-100 border border-green-200/70 dark:border-green-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
                 : "bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:bg-white dark:hover:bg-slate-700/95 hover:shadow-xl dark:hover:shadow-slate-900/50"
             }`}
           >
@@ -353,6 +336,19 @@ export default function ChatWindow({
             )}
 
             <div className="relative z-10">
+              {/* Message Type Badge */}
+              {!isUser && (isPlanningMessage || isExecutionMessage) && (
+                <div className="mb-3">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                    isPlanningMessage 
+                      ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
+                      : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
+                  }`}>
+                    {isPlanningMessage ? "📋 Planning Phase" : "⚡ Code Implementation"}
+                  </span>
+                </div>
+              )}
+
               {/* Planning Summary at the top (more prominent) */}
               {!isUser && planData && planData.hasPlan && (
                 <div className="mb-4">
@@ -396,7 +392,7 @@ export default function ChatWindow({
                 </div>
               )}
 
-              {renderMessageContent(message, planData ? { hasOperations: false, operations: [], message: planData.message } : editResult)}
+              {renderMessageContent(message)}
 
               {/* Detailed Planning View */}
               {!isUser && planData && planData.hasPlan && (
@@ -439,9 +435,7 @@ export default function ChatWindow({
                       className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-green-700 text-white rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-green-700 dark:hover:from-emerald-700 dark:hover:to-green-800 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl shadow-emerald-500/25 dark:shadow-emerald-600/40 ring-1 ring-white/20"
                     >
                       <PlayIcon className="w-4 h-4" />
-                      {useGranularEdits && editResult.hasOperations
-                        ? `Apply Changes (${editResult.operations.length})`
-                        : `Apply Code (${codeResult.codeBlocks.length})`}
+                      Apply Code ({codeResult.codeBlocks.length})
                     </button>
                   )}
 
@@ -455,37 +449,6 @@ export default function ChatWindow({
                 </div>
               )}
 
-              {/* Operation Details */}
-              {!isUser && editResult.hasOperations && (
-                <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/50 dark:border-amber-700/30 backdrop-blur-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 dark:from-amber-600 dark:to-orange-600">
-                      <SparklesIcon className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="font-semibold text-amber-800 dark:text-amber-200 text-sm">
-                      Operations Preview
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {editResult.operations.map((op: EditOperation, index: number) => (
-                      <div
-                        key={index}
-                        className="flex items-start gap-3 text-sm text-amber-700 dark:text-amber-300"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 dark:from-amber-500 dark:to-orange-500 flex items-center justify-center text-white text-xs font-bold mt-0.5 flex-shrink-0">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <span className="font-medium uppercase text-xs tracking-wide text-amber-600 dark:text-amber-400">
-                            {op.type}
-                          </span>
-                          <p className="mt-1 leading-relaxed">{op.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Debug Info */}
               {!isUser &&
@@ -546,47 +509,10 @@ export default function ChatWindow({
             </div>
           </div>
 
-          {/* Edit Mode Toggle */}
-          <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              Edit mode:
-            </span>
-            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => onToggleGranularEdits(true)}
-                className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                  useGranularEdits
-                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                }`}
-              >
-                {useGranularEdits && (
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-white/20 to-transparent pointer-events-none"></div>
-                )}
-                <span className="relative">Granular</span>
-              </button>
-              <button
-                onClick={() => onToggleGranularEdits(false)}
-                className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                  !useGranularEdits
-                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                }`}
-              >
-                {!useGranularEdits && (
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-white/20 to-transparent pointer-events-none"></div>
-                )}
-                <span className="relative">Full File</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
           Ask me to create or modify React Native code
-          <span className="inline-flex items-center gap-1 ml-2 px-3 py-1 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded-full text-xs font-medium">
-            {useGranularEdits ? "🎯 Precise edits" : "📄 Full files"}
-          </span>
         </p>
       </div>
 

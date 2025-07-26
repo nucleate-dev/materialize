@@ -12,17 +12,11 @@ import { useSidebar } from "@/hooks/useSidebar";
 import {
   ChatMessage,
   CodeExtractionResult,
-  EditOperation,
-  EditOperationResult,
   SnackFiles,
 } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
-import {
-  EditProcessor,
-  EditProcessorResult,
-} from "@/lib/utils/code/editProcessor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -163,7 +157,7 @@ export default function CreatePage() {
   const [mainAppCode, setMainAppCode] = useState(
     snackFiles[defaultFile]?.contents || ""
   );
-  const [useGranularEdits, setUseGranularEdits] = useState(true);
+  const [pendingPlanExecution, setPendingPlanExecution] = useState<ChatMessage | null>(null);
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   const handleSendMessage = async (content: string) => {
@@ -178,7 +172,8 @@ export default function CreatePage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      // Phase 1: Get the planning response
+      const planningResponse = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -186,24 +181,61 @@ export default function CreatePage() {
         body: JSON.stringify({
           messages: [...messages, userMessage],
           currentCode: mainAppCode,
-          useGranularEdit: useGranularEdits,
+          phase: "planning",
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!planningResponse.ok) {
+        throw new Error(`HTTP error! status: ${planningResponse.status}`);
       }
 
-      const data = await response.json();
-      console.log("data", data);
-      const assistantMessage: ChatMessage = {
+      const planningData = await planningResponse.json();
+      console.log("Planning data:", planningData);
+      
+      const planningMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.content,
+        content: planningData.content,
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, planningMessage]);
+      
+      // Check if the response contains an execution plan
+      if (planningData.content.includes('EXECUTION_PLAN')) {
+        setPendingPlanExecution(planningMessage);
+        
+        // Phase 2: Get the execution response automatically
+        const executionResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: [...messages, userMessage, planningMessage],
+            currentCode: mainAppCode,
+            phase: "execution",
+          }),
+        });
+
+        if (!executionResponse.ok) {
+          throw new Error(`HTTP error! status: ${executionResponse.status}`);
+        }
+
+        const executionData = await executionResponse.json();
+        console.log("Execution data:", executionData);
+        
+        const executionMessage: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          role: "assistant",
+          content: executionData.content,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, executionMessage]);
+        setPendingPlanExecution(null);
+      }
+      
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -216,6 +248,7 @@ export default function CreatePage() {
       };
 
       setMessages((prev) => [...prev, errorMessage]);
+      setPendingPlanExecution(null);
     } finally {
       setIsLoading(false);
     }
@@ -234,78 +267,15 @@ export default function CreatePage() {
     }
   };
 
-  const handleApplyEditOperations = (result: EditOperationResult) => {
-    if (result.hasOperations) {
-      console.log("Applying edit operations:", result.operations);
 
-      const processor = new EditProcessor(snackFiles);
-      const processorResult: EditProcessorResult = processor.applyOperations(
-        result.operations
-      );
-
-      if (processorResult.success) {
-        // Create a deep copy to ensure React detects the change
-        setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
-
-        // Update the main app code if the selected file was modified
-        if (processorResult.updatedFiles[selectedFile]) {
-          setMainAppCode(processorResult.updatedFiles[selectedFile].contents);
-        }
-
-        console.log("Edit operations applied successfully");
-      } else {
-        console.error(
-          "Failed to apply edit operations:",
-          processorResult.errors
-        );
-
-        // Show error message to user
-        const errorMessage: ChatMessage = {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `Failed to apply changes:\n${processorResult.errors.join("\n")}`,
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, errorMessage]);
-      }
-    }
-  };
-
-  const handleApplyWithToggle = (
-    result: CodeExtractionResult,
-    editResult: EditOperationResult
-  ) => {
-    if (useGranularEdits && editResult.hasOperations) {
-      handleApplyEditOperations(editResult);
-    } else if (result.hasCode) {
-      handleApplyCode(result);
-    }
-  };
 
   const handleExecutePlannedOperation = async (
     operationId: string,
-    operations: EditOperation[]
+    operations: any[]
   ): Promise<void> => {
-    console.log(`Executing planned operation ${operationId} with ${operations.length} edit operations`);
-
-    const processor = new EditProcessor(snackFiles);
-    const processorResult: EditProcessorResult = processor.applyOperations(operations);
-
-    if (processorResult.success) {
-      // Create a deep copy to ensure React detects the change
-      setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
-
-      // Update the main app code if the selected file was modified
-      if (processorResult.updatedFiles[selectedFile]) {
-        setMainAppCode(processorResult.updatedFiles[selectedFile].contents);
-      }
-
-      console.log(`Planned operation ${operationId} executed successfully`);
-    } else {
-      console.error(`Failed to execute planned operation ${operationId}:`, processorResult.errors);
-      throw new Error(`Failed to execute operation: ${processorResult.errors.join(", ")}`);
-    }
+    console.log(`Executing planned operation ${operationId}`);
+    // This is now handled automatically by the two-message flow
+    // The execution message will contain code blocks that can be applied
   };
 
   const handleFilesChange = (files: SnackFiles) => {
@@ -389,10 +359,8 @@ export default function CreatePage() {
             <ChatWindow
               messages={messages}
               onSendMessage={handleSendMessage}
-              onApplyWithToggle={handleApplyWithToggle}
+              onApplyCode={handleApplyCode}
               onExecutePlannedOperation={handleExecutePlannedOperation}
-              useGranularEdits={useGranularEdits}
-              onToggleGranularEdits={setUseGranularEdits}
               isLoading={isLoading}
             />
           ) : (

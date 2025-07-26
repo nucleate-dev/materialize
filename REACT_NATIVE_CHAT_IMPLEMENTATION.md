@@ -9,8 +9,7 @@ The implementation creates a split-screen interface where users can:
 - Receive React Native code suggestions and explanations
 - **🆕 View AI execution plans** before any code changes are made
 - **🆕 Execute operations progressively** with real-time progress tracking
-- Apply granular code changes using structured edit operations
-- Apply legacy full-code blocks for backward compatibility
+- Apply full-code blocks for code modifications
 - **🆕 Work with multi-file projects** using proper expo-router structure
 - See live updates in an Expo Snack preview
 - Iterate on React Native components in real-time
@@ -23,7 +22,7 @@ The implementation creates a split-screen interface where users can:
 - **Auto-Approval**: Plans are automatically approved for seamless workflow
 - **Multi-File Support**: Proper expo-router structure with components/, app/, utils/
 - **Visual Planning**: Inline expandable UI showing planned operations
-- **Backward Compatible**: Still supports granular edits and full-code responses
+- **Code Application**: Supports full-code responses
 
 ## Architecture
 
@@ -74,17 +73,14 @@ User Input → AI Creates Plan → Planning Extractor → Planning UI (Auto-Expa
                               Multi-File Updates → Expo Snack → Live Preview
 ```
 
-### **Legacy Flows (Still Supported)**
+### **Code Application Flow**
 
 ```
-AI Response → Edit Extractor → Edit Operations → Edit Processor → Updated Files
-     │              │               │                 │              │
-     │              ├─ JSON Parse   ├─ replace         ├─ Line-based │
-     │              ├─ Validate     ├─ insert          ├─ Pattern    │
-     │              └─ Fallback     ├─ delete          ├─ Function   │
-     │                              └─ move            └─ Component  │
-     │                                                               │
-     └─ Legacy: Code Blocks ────────────────────────────────────────┘
+AI Response → Code Extractor → Code Blocks → File Updates → Updated Files
+     │              │               │              │              │
+     │              ├─ Parse         ├─ Validate     ├─ Update     │
+     │              ├─ Validate      ├─ Clean        ├─ Import     │
+     │              └─ Extract       └─ Apply        └─ Apply      │
 ```
 
 ## File Structure and Descriptions
@@ -105,10 +101,9 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 ```typescript
 - handleSendMessage(): Processes user input and calls AI API
 - handleApplyCode(): Extracts legacy code blocks and updates preview
-- handleApplyEditOperations(): Processes granular edit operations
 - handleExecutePlannedOperation(): 🆕 NEW - Executes individual planned operations
 - handleFilesChange(): Manages file updates from the preview component
-- handleApplyWithToggle(): Intelligent routing between granular/legacy modes
+- handleApplyCode(): Applies code blocks to the preview
 ```
 
 #### `/src/components/ChatWindow.tsx`
@@ -118,9 +113,8 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 - **🆕 Planning UI integration**: Inline expandable planning views
 - **🆕 Progressive execution**: Step-by-step operation execution
 - **🆕 Real-time progress tracking**: Visual status indicators for each operation
-- Dual detection: Edit operations + legacy code blocks
-- Smart Apply buttons: Shows operation count and type
-- Operation preview: Visual summary of planned changes
+- Code block detection and application
+- Smart Apply buttons for code blocks
 - Auto-scrolling to latest messages
 - Loading states and typing indicators
 
@@ -131,7 +125,6 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 - **🆕 Inline planning views with expand/collapse**
 - **🆕 Operation progress indicators**
 - **🆕 Step-by-step execution buttons**
-- Edit operation summaries
 - Enhanced debugging information
 - Responsive design with proper spacing
 
@@ -202,18 +195,15 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 **Purpose**: TypeScript interfaces and types for the entire system
 **Key Types**:
 - `ChatMessage`: Structure for chat messages
-- `CodeBlock`: Represents extracted code blocks (legacy)
+- `CodeBlock`: Represents extracted code blocks
 - `SnackFile`: File format compatible with Snack SDK
 - `SnackFiles`: Collection of files for Snack
-- `CodeExtractionResult`: Result of code parsing (legacy)
-- **🆕 `EditOperation`**: Structure for granular edit instructions
-- **🆕 `EditTarget`**: Targeting options (lines, patterns, functions, components)
-- **🆕 `EditOperationResult`**: Result of edit operation parsing
+- `CodeExtractionResult`: Result of code parsing
 - **🆕 `ToolCall`**: AI tool use interface
 - **🆕 `AIResponse`**: Structured AI response format
 
-#### `/src/utils/codeExtractor.ts` (Legacy Support)
-**Purpose**: Utility functions for parsing and processing AI-generated code (backward compatibility)
+#### `/src/utils/codeExtractor.ts`
+**Purpose**: Utility functions for parsing and processing AI-generated code
 **Key Functions**:
 - `extractCodeFromMessage()`: Parses markdown code blocks from AI responses
 - `isReactNativeCode()`: Enhanced validation with lenient pattern matching for React Native compatibility
@@ -225,19 +215,6 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 - **Smart Import Handling**: Automatically detects and imports View, Text, StyleSheet, TouchableOpacity, etc.
 - **Pattern Recognition**: Recognizes React patterns like useState, backgroundColor, style props
 
-#### **🆕 `/src/utils/editExtractor.ts`** (New Primary System)
-**Purpose**: Extract and validate structured edit operations from AI responses
-**Key Functions**:
-- `extractEditOperationsFromMessage()`: Parses JSON edit operations from AI responses
-- `isValidEditOperation()`: Validates edit operation structure and types
-- `validateEditOperations()`: Batch validation with error reporting
-- `logEditOperations()`: Debug utility for development
-
-**Features**:
-- **JSON Parsing**: Extracts JSON arrays from mixed-content messages
-- **Schema Validation**: Ensures operations have required fields and valid types
-- **Error Handling**: Graceful fallback to legacy code extraction
-- **Debug Support**: Comprehensive logging for troubleshooting
 
 #### **🆕 `/src/lib/utils/code/planningExtractor.ts`** (New Planning System)
 **Purpose**: Extract and validate AI-generated execution plans and steps
@@ -256,28 +233,6 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 - **Error Handling**: Graceful fallback when planning data is invalid
 - **Debug Support**: Comprehensive logging for troubleshooting
 
-#### **🆕 `/src/lib/utils/code/editProcessor.ts`** (Enhanced Core Edit Engine)
-**Purpose**: Apply granular edit operations to file structures with expo-router support
-**Key Classes & Functions**:
-- `EditProcessor`: Main class for applying edit operations
-- `applyOperations()`: Batch apply multiple operations with rollback on failure
-- `normalizeExpoRouterPath()`: **🆕 NEW** - Smart file path organization
-- `getFileType()`: **🆕 NEW** - Automatic file type detection
-
-**Operation Types**:
-- **Replace**: Line-based, pattern-based, function-level, component-level
-- **Insert**: At specific lines, append to file, **🆕 new file creation**
-- **Delete**: Specific lines or entire files
-- **Move**: Rename/move files with content preservation
-
-**🆕 Enhanced Features**:
-- **Expo Router Integration**: Automatic path normalization for proper structure
-- **Multi-File Creation**: Support for creating files in components/, app/, utils/
-- **Smart File Organization**: Components go to components/, screens to app/
-- **Function/Component Targeting**: Smart regex-based code detection
-- **Pattern Matching**: Support for complex regex replacements
-- **Error Recovery**: Detailed error reporting with context
-- **Atomic Operations**: All-or-nothing batch processing
 
 #### `/src/templates/defaultApp.ts`
 **Purpose**: Comprehensive React Native application template with expo-router
@@ -342,12 +297,7 @@ User Input → ChatWindow → CreatePage → API Route → Gemini AI (Planning P
                      ... (Progressive Execution with Visual Progress)
 ```
 
-### **2. Enhanced Granular Processing Pipeline (Still Supported)**
-```
-AI Response → extractEditOperationsFromMessage() → EditOperation[] → EditProcessor.applyOperations() → Multi-File SnackFiles → Expo Snack → Live Preview
-```
-
-### **3. Legacy Code Processing Pipeline (Backward Compatibility)**
+### **2. Code Processing Pipeline**
 ```
 AI Response → extractCodeFromMessage() → CodeBlock[] → updateSnackFiles() → SnackFiles → Expo Snack → Live Preview
 ```
@@ -358,7 +308,6 @@ AI Response → extractCodeFromMessage() → CodeBlock[] → updateSnackFiles() 
 - **🆕 Operation Progress**: Real-time status updates for individual operations
 - **Snack Files**: Enhanced multi-file management in CreatePage
 - **🆕 Execution State**: Current executing operation tracking
-- **Edit Operations**: Parsed in ChatWindow, processed in CreatePage
 - **Loading States**: Distributed across components for optimal UX
 
 ## 🆕 **Planning System (v3.0)**
@@ -426,92 +375,6 @@ For each planned operation, the AI provides detailed edit operations:
 | **User Control** | Apply/Don't Apply | Visibility into each planned change |
 | **Multi-File Support** | Limited | Native multi-file project support |
 
-## **Edit Operations System (Enhanced v3.0)**
-
-### Overview
-The enhanced Edit Operations System now works seamlessly with the Planning System, supporting multi-file operations and proper expo-router file organization while maintaining all previous capabilities.
-
-### Operation Types
-
-#### 1. **Replace Operations**
-```json
-{
-  "type": "replace",
-  "target": {
-    "file": "app/_layout.tsx", 
-    "functionName": "renderHomeScreen"  // Replace entire function
-  },
-  "content": "const renderHomeScreen = () => (...)",
-  "description": "Replace Home screen rendering with new layout"
-}
-```
-
-**Targeting Options**:
-- **Line-based**: `startLine` and `endLine` for specific line ranges
-- **Pattern-based**: `pattern` with regex for flexible matching
-- **Function-level**: `functionName` to replace specific functions
-- **Component-level**: `componentName` to replace React components
-- **Entire file**: No additional targeting replaces the whole file
-
-#### 2. **Insert Operations**
-```json
-{
-  "type": "insert",
-  "target": {
-    "file": "App.js",
-    "startLine": 10
-  },
-  "content": "const [count, setCount] = useState(0);",
-  "description": "Add state variable after imports"
-}
-```
-
-#### 3. **Delete Operations**
-```json
-{
-  "type": "delete",
-  "target": {
-    "file": "OldComponent.js"  // Delete entire file
-  },
-  "description": "Remove unused component file"
-}
-```
-
-#### 4. **Move Operations**
-```json
-{
-  "type": "move",
-  "target": {
-    "file": "components/Card.js"
-  },
-  "newFileName": "components/FeatureCard.js",
-  "description": "Rename Card component to FeatureCard for better semantics"
-}
-```
-
-### Benefits Over Legacy System
-
-| Aspect | Legacy (Full Files) | New (Edit Operations) |
-|--------|-------------------|---------------------|
-| **Token Usage** | High (entire files) | Low (only changes) |
-| **Precision** | File-level only | Line/function/component level |
-| **Error Prone** | Can break unrelated code | Isolated changes |
-| **Debugging** | Limited visibility | Clear operation logging |
-| **Scalability** | Poor for large files | Excellent for any file size |
-
-### Error Handling
-- **Validation**: All operations validated before application
-- **Atomic Processing**: All operations succeed or all fail
-- **Detailed Errors**: Specific error messages with context
-- **Fallback**: Automatic fallback to legacy system if needed
-
-### AI Prompt Engineering
-The system teaches the AI to:
-1. **Prefer granular edits** over full file replacements
-2. **Use structured JSON** format for reliability
-3. **Target specific code sections** for precision
-4. **Provide clear descriptions** for each operation
-5. **Maintain backward compatibility** when needed
 
 ## Technical Specifications
 
@@ -565,8 +428,7 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 - "Rename currentScreen to activeTab" *(triggers refactoring operation planning)*
 - "Add a new Features tab to the navigation" *(triggers navigation modification planning)*
 
-#### **Legacy Examples (Still Supported)**
-- Direct edit operations without planning (when AI doesn't use planning format)
+#### **Code Block Examples**
 - Traditional code block responses (full backward compatibility)
 
 ## Error Handling
@@ -580,16 +442,7 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 4. **File Path Conflicts**: Smart resolution for conflicting file paths
 5. **Progressive Failure Recovery**: Individual operation failures don't affect others
 
-#### **Edit Operations Errors (Enhanced)**
-1. **Invalid JSON Format**: Graceful parsing with fallback to legacy system
-2. **Missing Required Fields**: Detailed validation messages with field names
-3. **Unsupported Operation Types**: Clear error with supported types list
-4. **Target Not Found**: Specific error when function/component doesn't exist
-5. **Pattern Match Failures**: Regex validation with helpful suggestions
-6. **🆕 Multi-File Conflicts**: Detection and resolution of file path conflicts
-7. **🆕 Expo Router Validation**: Ensures proper file organization
-
-#### **Legacy System Errors (Still Supported)**
+#### **System Errors**
 1. **Snack SDK Connection Issues**: Handled with retry logic and user feedback
 2. **Code Parsing Errors**: Robust regex patterns with fallback mechanisms
 3. **API Rate Limits**: Error messages guide users to wait and retry
@@ -602,17 +455,13 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 - **🆕 Progressive Execution Tracking**: Real-time logs for each operation execution
 - **🆕 Visual Progress Indicators**: UI shows current operation status and progress
 - **🆕 File Organization Validation**: Logs for expo-router path normalization
-- **Operation Logging**: Detailed console logs for each edit operation
-- **Visual Operation Preview**: UI shows planned changes before application
-- **Atomic Error Recovery**: Failed operations don't affect successful ones
-- **Enhanced Debug Messages**: More context about why operations failed
-- **Multi-System Support**: Clear indication of which system is being used (Planning/Edit/Legacy)
-- **Legacy Features**: All previous debugging capabilities maintained
+- **Enhanced Debug Messages**: More context about code application
+- **Code Application Support**: Clear indication of code block processing
 
 ## Future Enhancements
 
 ### 🆕 **Next-Generation Improvements (v4.0 Roadmap)**
-1. **✅ Multi-File Operations**: COMPLETED - Edit operations across multiple files in single request
+1. **✅ Multi-File Operations**: COMPLETED - Code application across multiple files
 2. **✅ Planning System**: COMPLETED - Two-phase planning with execution visibility
 3. **✅ Progressive Execution**: COMPLETED - Step-by-step operation execution
 4. **Undo/Redo System**: Granular operation history with selective rollback
@@ -636,8 +485,7 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 - User authentication and project management
 - Rate limiting and usage tracking
 - Caching for frequently requested code patterns
-- **✅ Edit operation batching** COMPLETED - for better performance
-- **✅ Operation conflict detection** COMPLETED - for concurrent edits
+- **✅ Code application batching** COMPLETED - for better performance
 - **🆕 Planning persistence** - Save and restore execution plans
 - **🆕 Multi-user planning** - Collaborative planning sessions
 
@@ -654,8 +502,8 @@ The new system is **100% backward compatible**. No changes are required to exist
 
 #### **Optimization Opportunities**
 1. **Update AI Prompts**: Train your AI models to prefer planning-first approach
-2. **Enhanced Error Handling**: Leverage new detailed error messages and progressive failure recovery
-3. **Performance Monitoring**: Use new operation logging and planning insights
+2. **Enhanced Error Handling**: Leverage detailed error messages and progressive failure recovery
+3. **Performance Monitoring**: Use planning insights and code application logging
 4. **🆕 Multi-File Projects**: Take advantage of proper expo-router file organization
 5. **🆕 Progress Tracking**: Implement custom progress handlers for your use case
 
@@ -664,15 +512,14 @@ The interface remains identical, but with enhanced capabilities:
 - **Same Chat Experience**: No learning curve
 - **🆕 Planning Visibility**: See exactly what the AI plans to do before it happens
 - **🆕 Progressive Feedback**: Watch operations execute step-by-step
-- **Better Performance**: Faster responses due to reduced token usage
-- **More Precise Changes**: Operations target exactly what needs to change
+- **Better Performance**: Faster responses with optimized code application
 - **🆕 Multi-File Projects**: Proper file organization for complex apps
 - **Enhanced Feedback**: Better visibility into what changes are being made
 
 ### **Migration Timeline**
 - **✅ Phase 1 (COMPLETED)**: Planning system implemented alongside existing systems
 - **Phase 2 (Current)**: AI models trained to prefer planning-first approach
-- **Phase 3 (Future)**: Planning becomes primary, edit operations as fallback
+- **Phase 3 (Future)**: Planning becomes primary, code blocks as fallback
 - **Phase 4 (Long-term)**: Full ecosystem with planning templates and collaboration
 
 ## Maintenance Notes
@@ -758,7 +605,7 @@ console.log('hello world');
 ✅ **Superior UX**: Better visual feedback and error handling  
 
 ### **Technical Excellence**
-- **🆕 Three-Tier Architecture**: Planning → Edit Operations → Legacy fallback
+- **🆕 Two-Tier Architecture**: Planning → Code Application
 - **🆕 Expo Router Integration**: Smart file organization and path normalization
 - **🆕 Progressive State Management**: Real-time operation status tracking
 - **Robust Architecture**: Multi-system approach with elegant fallback mechanisms
