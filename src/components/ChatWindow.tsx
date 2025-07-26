@@ -246,7 +246,40 @@ export default function ChatWindow({
     const messageContent = message.content;
     const isCodeVisible = expandedCodeBlocks.has(message.id);
     const hasCodeBlocks = messageContent.includes("```");
+    
+    // Determine message type
+    const isPlanningMessage = message.content.includes('EXECUTION_PLAN');
+    const isExecutionMessage = message.content.includes('EXECUTION_STEP');
 
+    // For planning messages, don't show any content - the plan UI handles everything
+    if (isPlanningMessage) {
+      return null;
+    }
+
+    // For execution messages, show a clean implementation message
+    if (isExecutionMessage) {
+      return (
+        <div className="text-slate-700 dark:text-slate-300">
+          <p className="font-medium">Ready to implement the planned changes.</p>
+          {hasCodeBlocks && (
+            <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700/30 rounded-xl text-sm">
+              <div className="flex items-center gap-2">
+                <CodeBracketIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+                <span className="font-medium text-green-800 dark:text-green-200">Code ready to apply</span>
+                <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-pulse"></div>
+                {APPLY_CODE_IMMEDIATELY && (
+                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                    (Auto-applied to preview)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // For regular messages, show content as before
     if (!hasCodeBlocks) {
       return (
         <div className="whitespace-pre-wrap break-words leading-relaxed">
