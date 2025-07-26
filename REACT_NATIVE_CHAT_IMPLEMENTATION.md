@@ -280,20 +280,40 @@ AI Response → Edit Extractor → Edit Operations → Edit Processor → Update
 - **Atomic Operations**: All-or-nothing batch processing
 
 #### `/src/templates/defaultApp.ts`
-**Purpose**: Default React Native application template
+**Purpose**: Comprehensive React Native application template with expo-router
 **Key Features**:
-- Complete starter React Native component
-- Demonstrates basic React Native patterns
-- Includes interactive elements (counter, buttons)
-- Proper styling with StyleSheet
+- **Multi-screen tab navigation app** with Home, Explore, and Profile screens
+- **Expo Router integration** with proper file-based routing structure
+- **Interactive elements**: Counter, feature cards, settings list, profile UI
+- **Complete component library**: Button, Card components included
+- **Theme system**: Centralized colors, typography, and spacing
+- **Professional UI patterns**: Tab bars, icons, cards, lists, avatars
+- **Real-world app structure** demonstrating production-ready patterns
 - Compatible with Expo Snack requirements
 
-**Default Dependencies**:
+**Multi-File Structure**:
 ```typescript
 {
-  'react-native': { version: '0.76.1' },
-  'react': { version: '18.2.0' },
-  'expo': { version: '~52.0.0' }
+  "App.js": "ExpoRoot entry point with expo-router context",
+  "app/_layout.tsx": "Main app component with tab navigation system", 
+  "components/Button.js": "Reusable button component with styling",
+  "components/Card.js": "Card component with shadow and styling",
+  "styles/theme.js": "Centralized theme configuration",
+  "README.md": "Project documentation and setup instructions",
+  "package.json": "Dependencies and scripts configuration"
+}
+```
+
+**Default Dependencies** (Latest Versions):
+```typescript
+{
+  'react': { version: '19.0.0' },
+  'react-native': { version: '0.79.1' },
+  'expo': { version: '^53.0.4' },
+  'expo-router': { version: '~5.0.3' },
+  '@expo/vector-icons': { version: '^14.1.0' },
+  // Plus 25+ additional production-ready dependencies
+  // including expo-image, expo-haptics, react-query, etc.
 }
 ```
 
@@ -418,11 +438,11 @@ The enhanced Edit Operations System now works seamlessly with the Planning Syste
 {
   "type": "replace",
   "target": {
-    "file": "App.js",
-    "componentName": "Counter"  // Replace entire component
+    "file": "app/_layout.tsx", 
+    "functionName": "renderHomeScreen"  // Replace entire function
   },
-  "content": "export default function Counter() { ... }",
-  "description": "Replace Counter component with new implementation"
+  "content": "const renderHomeScreen = () => (...)",
+  "description": "Replace Home screen rendering with new layout"
 }
 ```
 
@@ -462,10 +482,10 @@ The enhanced Edit Operations System now works seamlessly with the Planning Syste
 {
   "type": "move",
   "target": {
-    "file": "App.js"
+    "file": "components/Card.js"
   },
-  "newFileName": "Counter.js",
-  "description": "Rename App.js to Counter.js"
+  "newFileName": "components/FeatureCard.js",
+  "description": "Rename Card component to FeatureCard for better semantics"
 }
 ```
 
@@ -520,11 +540,13 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 ```
 
 ### Usage Instructions
-1. Navigate to `/create` in your application
+1. Navigate to `/dashboard/projects/[project_id]` in your application
 2. Start chatting with the AI about React Native development
-3. When AI provides code examples, click "Apply Code" buttons
-4. View live updates in the preview panel
-5. Use "Refresh" to reload preview or "Reset" to return to default template
+3. **Default app loads** with Home, Explore, and Profile tabs for immediate testing
+4. When AI provides code examples, click "Apply Code" buttons or execute planning operations
+5. **View live updates** in the expo-router preview with proper tab navigation
+6. **Multi-file changes** are applied across App.js, app/_layout.tsx, components/, and styles/
+7. Use "Refresh" to reload preview or "Reset" to return to the comprehensive default template
 
 ### Example Chat Prompts
 
@@ -536,11 +558,12 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 - "Add user profile management" *(triggers planning for profile screen, edit components, validation)*
 
 #### **Planning-Aware Simple Changes (v3.0)**
-- "Change the background color to red" *(triggers simple single-step plan)*
-- "Add a useState hook for counter" *(triggers precise planning and insertion)*
-- "Replace the Counter component with a TodoList" *(triggers component replacement planning)*
-- "Remove the unused Button import" *(triggers cleanup operation planning)*
-- "Rename handlePress to handleIncrement" *(triggers refactoring operation planning)*
+- "Change the tab bar background color to red" *(triggers simple single-step plan)*
+- "Add a useState hook to the Home screen" *(triggers precise planning and insertion)*
+- "Replace the Profile screen with a Settings screen" *(triggers component replacement planning)*
+- "Remove the unused imports from components" *(triggers cleanup operation planning)*
+- "Rename currentScreen to activeTab" *(triggers refactoring operation planning)*
+- "Add a new Features tab to the navigation" *(triggers navigation modification planning)*
 
 #### **Legacy Examples (Still Supported)**
 - Direct edit operations without planning (when AI doesn't use planning format)
@@ -695,14 +718,22 @@ The interface remains identical, but with enhanced capabilities:
 
 **Example Working Patterns**:
 ```javascript
-// ✅ Recognized - has JSX + export
-export default function Counter() {
-  return <View><Text>Hello</Text></View>;
-}
+// ✅ Recognized - has JSX + export (Home screen component)
+const renderHomeScreen = () => (
+  <ScrollView style={styles.container}>
+    <Text style={styles.title}>Welcome to Materialize!</Text>
+  </ScrollView>
+);
 
-// ✅ Recognized - has multiple indicators
+// ✅ Recognized - has multiple indicators (Tab navigation)
+<TouchableOpacity 
+  style={[styles.tab, currentScreen === 'home' && styles.activeTab]} 
+  onPress={() => setCurrentScreen('home')}
+>
+
+// ✅ Recognized - StyleSheet patterns
 const styles = StyleSheet.create({
-  container: { backgroundColor: 'red' }
+  tabBar: { backgroundColor: '#ffffff' }
 });
 
 // ❌ Not recognized - insufficient patterns
