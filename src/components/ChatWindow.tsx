@@ -14,6 +14,12 @@ import {
   logEditOperations,
 } from "@/lib/utils/code/editExtractor";
 import {
+  extractExecutionPlan,
+  logPlanningExtraction,
+  PlanningExtractionResult,
+} from "@/lib/utils/code/planningExtractor";
+import PlanningView from "./PlanningView";
+import {
   SparklesIcon,
   PaperAirplaneIcon,
   CodeBracketIcon,
@@ -29,6 +35,7 @@ interface ChatWindowProps {
     result: CodeExtractionResult,
     editResult: EditOperationResult
   ) => void;
+  onExecutePlannedOperation: (operationId: string, operations: EditOperation[]) => Promise<void>;
   useGranularEdits: boolean;
   onToggleGranularEdits: (value: boolean) => void;
   isLoading: boolean;
@@ -38,6 +45,7 @@ export default function ChatWindow({
   messages,
   onSendMessage,
   onApplyWithToggle,
+  onExecutePlannedOperation,
   useGranularEdits,
   onToggleGranularEdits,
   isLoading,
@@ -46,6 +54,13 @@ export default function ChatWindow({
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
     new Set()
   );
+  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(
+    new Set()
+  );
+  const [planningData, setPlanningData] = useState<Map<string, PlanningExtractionResult>>(
+    new Map()
+  );
+  const [currentExecutingOperation, setCurrentExecutingOperation] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,6 +70,26 @@ export default function ChatWindow({
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  // Extract planning data from messages
+  useEffect(() => {
+    const newPlanningData = new Map<string, PlanningExtractionResult>();
+    
+    messages.forEach((message) => {
+      if (message.role === "assistant") {
+        const planningResult = extractExecutionPlan(message.content);
+        if (planningResult.hasPlan) {
+          newPlanningData.set(message.id, planningResult);
+          logPlanningExtraction(planningResult);
+          
+          // Auto-expand plans for visibility
+          setExpandedPlans(prev => new Set([...prev, message.id]));
+        }
+      }
+    });
+    
+    setPlanningData(newPlanningData);
   }, [messages]);
 
   // Auto-apply code when APPLY_CODE_IMMEDIATELY is true
@@ -117,6 +152,96 @@ export default function ChatWindow({
     });
   };
 
+  const togglePlanVisibility = (messageId: string) => {
+    setExpandedPlans((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleExecutePlannedStep = async (operationId: string) => {
+    const message = messages.find(msg => {
+      const planData = planningData.get(msg.id);
+      return planData?.operations.some(op => op.id === operationId);
+    });
+
+    if (!message) return;
+
+    const planData = planningData.get(message.id);
+    if (!planData) return;
+
+    // Find the operation
+    const operation = planData.operations.find(op => op.id === operationId);
+    if (!operation) return;
+
+    // Get execution steps for this operation
+    const stepOperations = planData.executionSteps[operationId];
+    if (!stepOperations) {
+      console.warn(`No execution steps found for operation ${operationId}`);
+      return;
+    }
+
+    setCurrentExecutingOperation(operationId);
+
+    try {
+      // Update operation status to in_progress
+      setPlanningData(prev => {
+        const newMap = new Map(prev);
+        const messageData = newMap.get(message.id);
+        if (messageData) {
+          const updatedOperations = messageData.operations.map(op =>
+            op.id === operationId ? { ...op, status: "in_progress" as const } : op
+          );
+          newMap.set(message.id, { ...messageData, operations: updatedOperations });
+        }
+        return newMap;
+      });
+
+      // Execute the planned operation
+      await onExecutePlannedOperation(operationId, stepOperations);
+
+      // Update operation status to completed
+      setPlanningData(prev => {
+        const newMap = new Map(prev);
+        const messageData = newMap.get(message.id);
+        if (messageData) {
+          const updatedOperations = messageData.operations.map(op =>
+            op.id === operationId ? { ...op, status: "completed" as const } : op
+          );
+          newMap.set(message.id, { ...messageData, operations: updatedOperations });
+        }
+        return newMap;
+      });
+
+    } catch (error) {
+      console.error(`Error executing operation ${operationId}:`, error);
+      
+      // Update operation status to error
+      setPlanningData(prev => {
+        const newMap = new Map(prev);
+        const messageData = newMap.get(message.id);
+        if (messageData) {
+          const updatedOperations = messageData.operations.map(op =>
+            op.id === operationId ? { 
+              ...op, 
+              status: "error" as const,
+              error: error instanceof Error ? error.message : "Unknown error"
+            } : op
+          );
+          newMap.set(message.id, { ...messageData, operations: updatedOperations });
+        }
+        return newMap;
+      });
+    } finally {
+      setCurrentExecutingOperation(null);
+    }
+  };
+
   const renderMessageContent = (
     message: ChatMessage,
     editResult: EditOperationResult
@@ -176,6 +301,7 @@ export default function ChatWindow({
     // Try edit operations first, then fallback to code extraction
     const editResult = extractEditOperationsFromMessage(message.content);
     const codeResult = extractCodeFromMessage(message.content);
+    const planData = planningData.get(message.id);
 
     const hasApplicableContent = editResult.hasOperations || codeResult.hasCode;
 
@@ -208,7 +334,18 @@ export default function ChatWindow({
             )}
 
             <div className="relative z-10">
-              {renderMessageContent(message, editResult)}
+              {renderMessageContent(message, planData ? { hasOperations: false, operations: [], message: planData.message } : editResult)}
+
+              {/* Planning View */}
+              {!isUser && planData && planData.hasPlan && (
+                <PlanningView
+                  operations={planData.operations}
+                  isExpanded={expandedPlans.has(message.id)}
+                  onToggleExpanded={() => togglePlanVisibility(message.id)}
+                  onExecuteStep={handleExecutePlannedStep}
+                  currentExecutingId={currentExecutingOperation}
+                />
+              )}
 
               {/* Action Buttons Container */}
               {!isUser && (

@@ -1,6 +1,5 @@
 "use client";
 
-import Editor from "@monaco-editor/react";
 import { useRef, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useSidebar } from "@/hooks/useSidebar";
@@ -9,6 +8,8 @@ import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import Loader from "@/components/dashboard/Loader";
 import ChatWindow from "@/components/ChatWindow";
+import FileTree from "@/components/FileTree";
+import CodeEditor from "@/components/CodeEditor";
 import ExpoSnackViewer, {
   ExpoSnackViewerRef,
 } from "@/components/ExpoSnackViewer";
@@ -16,6 +17,7 @@ import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import {
   ChatMessage,
   CodeExtractionResult,
+  EditOperation,
   EditOperationResult,
   SnackFiles,
 } from "@/lib/types/chat";
@@ -149,6 +151,7 @@ export default function CreatePage() {
     getDefaultSnackFiles()
   );
   const [isChatView, setIsChatView] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<string>("App.js");
   const [mainAppCode, setMainAppCode] = useState(
     snackFiles["App.js"]?.contents || ""
   );
@@ -272,23 +275,61 @@ export default function CreatePage() {
     }
   };
 
+  const handleExecutePlannedOperation = async (
+    operationId: string, 
+    operations: EditOperation[]
+  ): Promise<void> => {
+    console.log(`Executing planned operation ${operationId} with ${operations.length} edit operations`);
+
+    const processor = new EditProcessor(snackFiles);
+    const processorResult: EditProcessorResult = processor.applyOperations(operations);
+
+    if (processorResult.success) {
+      // Create a deep copy to ensure React detects the change
+      setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
+
+      // Update the main app code if App.js was modified
+      if (processorResult.updatedFiles["App.js"]) {
+        setMainAppCode(processorResult.updatedFiles["App.js"].contents);
+      }
+
+      console.log(`Planned operation ${operationId} executed successfully`);
+    } else {
+      console.error(`Failed to execute planned operation ${operationId}:`, processorResult.errors);
+      throw new Error(`Failed to execute operation: ${processorResult.errors.join(", ")}`);
+    }
+  };
+
   const handleFilesChange = (files: SnackFiles) => {
     // Create a deep copy to ensure React detects the change
     setSnackFiles(JSON.parse(JSON.stringify(files)));
-    if (files["App.js"]) {
+    
+    // Update the main app code based on selected file
+    if (files[selectedFile]) {
+      setMainAppCode(files[selectedFile].contents);
+    } else if (files["App.js"]) {
+      // Fallback to App.js if selected file doesn't exist
+      setSelectedFile("App.js");
       setMainAppCode(files["App.js"].contents);
     }
   };
 
+  const handleFileSelect = (filePath: string) => {
+    setSelectedFile(filePath);
+    if (snackFiles[filePath]) {
+      setMainAppCode(snackFiles[filePath].contents);
+    }
+  };
+
   const handleCodeChange = (value: string | undefined) => {
-    if (value !== undefined) {
+    if (value !== undefined && selectedFile) {
       setMainAppCode(value);
 
-      // Update the snack files with the new code
+      // Update the snack files with the new code for the selected file
       const updatedFiles = {
         ...snackFiles,
-        "App.js": {
-          ...snackFiles["App.js"],
+        [selectedFile]: {
+          ...snackFiles[selectedFile],
           contents: value,
         },
       };
@@ -343,30 +384,30 @@ export default function CreatePage() {
               messages={messages}
               onSendMessage={handleSendMessage}
               onApplyWithToggle={handleApplyWithToggle}
+              onExecutePlannedOperation={handleExecutePlannedOperation}
               useGranularEdits={useGranularEdits}
               onToggleGranularEdits={setUseGranularEdits}
               isLoading={isLoading}
             />
           ) : (
-            <div className="h-full">
-              <Editor
-                height="100%"
-                defaultLanguage="javascript"
-                value={mainAppCode}
-                onChange={handleCodeChange}
-                theme="vs-dark"
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: "on",
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  wordWrap: "on",
-                  folding: true,
-                  lineDecorationsWidth: 10,
-                  lineNumbersMinChars: 3,
-                }}
-              />
+            <div className="h-full flex">
+              {/* File Explorer - 30% width */}
+              <div className="w-1/3 min-w-[200px] max-w-[300px]">
+                <FileTree
+                  files={snackFiles}
+                  selectedFile={selectedFile}
+                  onFileSelect={handleFileSelect}
+                />
+              </div>
+              
+              {/* Code Editor - 70% width */}
+              <div className="flex-1">
+                <CodeEditor
+                  value={mainAppCode}
+                  onChange={handleCodeChange}
+                  fileName={selectedFile}
+                />
+              </div>
             </div>
           )}
         </div>

@@ -60,7 +60,8 @@ export class EditProcessor {
   }
 
   private handleReplace(target: EditTarget, content: string): void {
-    const file = this.getFile(target.file);
+    const normalizedPath = this.normalizeExpoRouterPath(target.file);
+    const file = this.getFile(normalizedPath);
     const lines = file.contents.split("\n");
 
     if (target.pattern) {
@@ -95,11 +96,20 @@ export class EditProcessor {
       file.contents = content;
     }
 
-    this.files[target.file] = file;
+    this.files[normalizedPath] = file;
   }
 
   private handleInsert(target: EditTarget, content: string): void {
-    const file = this.getFile(target.file);
+    const normalizedPath = this.normalizeExpoRouterPath(target.file);
+    const file = this.getFile(normalizedPath);
+    
+    // Handle new file creation
+    if (file.contents.trim() === "") {
+      file.contents = content;
+      this.files[normalizedPath] = file;
+      return;
+    }
+
     const lines = file.contents.split("\n");
 
     if (target.startLine !== undefined) {
@@ -111,23 +121,25 @@ export class EditProcessor {
       file.contents += "\n" + content;
     }
 
-    this.files[target.file] = file;
+    this.files[normalizedPath] = file;
   }
 
   private handleDelete(target: EditTarget): void {
+    const normalizedPath = this.normalizeExpoRouterPath(target.file);
+    
     if (target.startLine !== undefined && target.endLine !== undefined) {
       // Delete specific lines
-      const file = this.getFile(target.file);
+      const file = this.getFile(normalizedPath);
       const lines = file.contents.split("\n");
       const startIdx = Math.max(0, target.startLine - 1);
       const endIdx = Math.min(lines.length, target.endLine);
 
       lines.splice(startIdx, endIdx - startIdx);
       file.contents = lines.join("\n");
-      this.files[target.file] = file;
+      this.files[normalizedPath] = file;
     } else {
       // Delete entire file
-      delete this.files[target.file];
+      delete this.files[normalizedPath];
     }
   }
 
@@ -136,17 +148,61 @@ export class EditProcessor {
       throw new Error("New filename required for move operation");
     }
 
-    const file = this.getFile(target.file);
-    this.files[newFileName] = { ...file };
-    delete this.files[target.file];
+    const oldNormalizedPath = this.normalizeExpoRouterPath(target.file);
+    const newNormalizedPath = this.normalizeExpoRouterPath(newFileName);
+    
+    const file = this.getFile(oldNormalizedPath);
+    this.files[newNormalizedPath] = { ...file };
+    delete this.files[oldNormalizedPath];
   }
 
   private getFile(fileName: string): SnackFile {
     if (!this.files[fileName]) {
       // Create new file if it doesn't exist
-      this.files[fileName] = { contents: "", type: "CODE" };
+      this.files[fileName] = { 
+        contents: "", 
+        type: this.getFileType(fileName) 
+      };
     }
     return this.files[fileName];
+  }
+
+  private getFileType(fileName: string): "CODE" | "ASSET" {
+    const assetExtensions = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".json"];
+    const extension = fileName.toLowerCase().substring(fileName.lastIndexOf("."));
+    return assetExtensions.includes(extension) ? "ASSET" : "CODE";
+  }
+
+  /**
+   * Normalize file paths for expo-router structure
+   * Ensures proper directory structure is represented in Snack
+   */
+  private normalizeExpoRouterPath(filePath: string): string {
+    // If it's already a full path or starts with known folders, keep as is
+    if (filePath.includes("/") && (
+      filePath.startsWith("app/") || 
+      filePath.startsWith("components/") || 
+      filePath.startsWith("utils/") || 
+      filePath.startsWith("screens/")
+    )) {
+      return filePath;
+    }
+
+    // For app directory files (screens/routes)
+    if (filePath.endsWith(".js") || filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
+      // If it looks like a route file, put it in app/
+      if (filePath.match(/^[a-zA-Z0-9_-]+\.(js|tsx|ts)$/) && !filePath.includes("component")) {
+        return `app/${filePath}`;
+      }
+      
+      // If it looks like a component, put it in components/
+      if (filePath.toLowerCase().includes("component") || filePath.match(/^[A-Z]/)) {
+        return `components/${filePath}`;
+      }
+    }
+
+    // Default: return as-is
+    return filePath;
   }
 
   private replaceFunctionOrComponent(

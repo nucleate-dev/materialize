@@ -743,6 +743,148 @@ export const getDefaultSnackFiles = (): SnackFiles => ({
     contents: DEFAULT_APP_CODE,
     type: "CODE",
   },
+  "package.json": {
+    contents: JSON.stringify({
+      "name": "materialize-project",
+      "version": "1.0.0",
+      "main": "App.js",
+      "scripts": {
+        "start": "expo start",
+        "android": "expo start --android",
+        "ios": "expo start --ios",
+        "web": "expo start --web"
+      },
+      "dependencies": DEFAULT_DEPENDENCIES,
+      "private": true
+    }, null, 2),
+    type: "CODE",
+  },
+  "components/Button.js": {
+    contents: `import React from 'react';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+
+export default function Button({ title, onPress, style, textStyle }) {
+  return (
+    <TouchableOpacity style={[styles.button, style]} onPress={onPress}>
+      <Text style={[styles.text, textStyle]}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});`,
+    type: "CODE",
+  },
+  "components/Card.js": {
+    contents: `import React from 'react';
+import { View, StyleSheet } from 'react-native';
+
+export default function Card({ children, style }) {
+  return (
+    <View style={[styles.card, style]}>
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, y: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginVertical: 8,
+  },
+});`,
+    type: "CODE",
+  },
+  "styles/theme.js": {
+    contents: `export const colors = {
+  primary: '#007AFF',
+  secondary: '#5AC8FA',
+  success: '#34C759',
+  warning: '#FF9500',
+  danger: '#FF3B30',
+  background: '#F2F2F7',
+  surface: '#FFFFFF',
+  text: {
+    primary: '#000000',
+    secondary: '#3C3C43',
+    tertiary: '#8E8E93',
+  },
+  border: '#C6C6C8',
+};
+
+export const typography = {
+  h1: { fontSize: 32, fontWeight: 'bold' },
+  h2: { fontSize: 24, fontWeight: 'bold' },
+  h3: { fontSize: 20, fontWeight: '600' },
+  body: { fontSize: 16, fontWeight: 'normal' },
+  caption: { fontSize: 12, fontWeight: 'normal' },
+};
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};`,
+    type: "CODE",
+  },
+  "README.md": {
+    contents: `# Materialize Project
+
+This is a React Native project created with Materialize.
+
+## Getting Started
+
+1. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. Start the development server:
+   \`\`\`bash
+   npm start
+   \`\`\`
+
+3. Open the Expo app on your phone and scan the QR code.
+
+## Project Structure
+
+- \`App.js\` - Main application component
+- \`components/\` - Reusable UI components
+- \`styles/\` - Theme and styling configuration
+
+## Features
+
+- Live preview with Expo Snack
+- AI-powered code generation
+- Real-time updates
+- Component library
+
+Built with ❤️ using Materialize
+`,
+    type: "CODE",
+  },
 });
 
 export const DEFAULT_DEPENDENCIES = {
