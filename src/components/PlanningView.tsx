@@ -129,7 +129,7 @@ export default function PlanningView({
             <PlayIcon className="w-4 h-4 text-white" />
           </div>
           <span className="font-semibold text-indigo-800 dark:text-indigo-200 text-sm">
-            Execution Plan
+            Detailed View
           </span>
           {isExpanded ? (
             <ChevronDownIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
@@ -237,7 +237,7 @@ export default function PlanningView({
                       )}
                     </div>
 
-                    {/* Execute Button */}
+                    {/* Execute Button or Status */}
                     {operation.status === "pending" && !isExecuting && (
                       <button
                         onClick={() => handleExecuteOperation(operation.id)}
@@ -245,6 +245,25 @@ export default function PlanningView({
                       >
                         Execute
                       </button>
+                    )}
+                    
+                    {/* Success indicator with clearer message */}
+                    {operation.status === "completed" && (
+                      <div className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5">
+                        <CheckCircleIcon className="w-3 h-3" />
+                        {operation.type === "create" && `Created ${operation.filePath}`}
+                        {operation.type === "modify" && `Updated ${operation.filePath}`}
+                        {operation.type === "delete" && `Deleted ${operation.filePath}`}
+                        {operation.type === "move" && `Moved to ${operation.newFilePath || operation.filePath}`}
+                      </div>
+                    )}
+                    
+                    {/* Executing indicator */}
+                    {isExecuting && (
+                      <div className="px-3 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5">
+                        <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                        Executing...
+                      </div>
                     )}
                   </div>
                 </div>

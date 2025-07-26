@@ -18,7 +18,7 @@ import {
   logPlanningExtraction,
   PlanningExtractionResult,
 } from "@/lib/utils/code/planningExtractor";
-import PlanningView from "./PlanningView";
+import PlanningView, { PlannedOperation } from "./PlanningView";
 import {
   SparklesIcon,
   PaperAirplaneIcon,
@@ -54,6 +54,22 @@ export default function ChatWindow({
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
     new Set()
   );
+
+  // Helper function for operation colors (same as PlanningView)
+  const getOperationColor = (type: PlannedOperation["type"]) => {
+    switch (type) {
+      case "create":
+        return "from-green-500 to-emerald-600";
+      case "modify":
+        return "from-blue-500 to-blue-600";
+      case "delete":
+        return "from-red-500 to-red-600";
+      case "move":
+        return "from-purple-500 to-purple-600";
+      default:
+        return "from-gray-500 to-gray-600";
+    }
+  };
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(
     new Set()
   );
@@ -218,6 +234,9 @@ export default function ChatWindow({
         return newMap;
       });
 
+      // Show a success message based on operation type
+      console.log(`✅ ${operation.type === "create" ? "Created" : operation.type === "modify" ? "Updated" : operation.type === "delete" ? "Deleted" : "Moved"} ${operation.filePath}`);
+
     } catch (error) {
       console.error(`Error executing operation ${operationId}:`, error);
       
@@ -334,9 +353,52 @@ export default function ChatWindow({
             )}
 
             <div className="relative z-10">
+              {/* Planning Summary at the top (more prominent) */}
+              {!isUser && planData && planData.hasPlan && (
+                <div className="mb-4">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/90 to-indigo-50/90 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200/60 dark:border-blue-700/40 backdrop-blur-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 dark:from-blue-600 dark:to-indigo-600 shadow-sm">
+                        <PlayIcon className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-blue-900 dark:text-blue-100 text-base">
+                          📋 This is the plan:
+                        </h4>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                          {planData.operations.length} step{planData.operations.length !== 1 ? 's' : ''} planned for execution
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Compact plan overview */}
+                    <div className="space-y-2">
+                      {planData.operations.map((operation, index) => (
+                        <div key={operation.id} className="flex items-center gap-3 text-sm">
+                          <div className={`w-6 h-6 rounded-full bg-gradient-to-r ${getOperationColor(operation.type)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                            {index + 1}
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-medium text-blue-800 dark:text-blue-200 uppercase text-xs tracking-wide">
+                              {operation.type}
+                            </span>
+                            <span className="text-blue-700 dark:text-blue-300 ml-2">
+                              {operation.title}
+                            </span>
+                          </div>
+                          <code className="px-2 py-1 bg-blue-100 dark:bg-blue-800/50 rounded text-xs text-blue-700 dark:text-blue-300">
+                            {operation.filePath}
+                          </code>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {renderMessageContent(message, planData ? { hasOperations: false, operations: [], message: planData.message } : editResult)}
 
-              {/* Planning View */}
+              {/* Detailed Planning View */}
               {!isUser && planData && planData.hasPlan && (
                 <PlanningView
                   operations={planData.operations}
