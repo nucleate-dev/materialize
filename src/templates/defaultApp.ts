@@ -1,80 +1,15 @@
 import { SnackFiles } from "../lib/types/chat";
 
-export const DEFAULT_APP_CODE = `import { Slot } from 'expo-router';
-
-export default function RootLayout() {
-  return <Slot />;
-}`;
-
-export const getDefaultSnackFiles = (): SnackFiles => ({
-  "app/_layout.tsx": {
-    contents: DEFAULT_APP_CODE,
-    type: "CODE",
-  },
-  "app/(tabs)/_layout.tsx": {
-    contents: `import { Tabs } from 'expo-router';
+export const DEFAULT_APP_CODE = `import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function TabLayout() {
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
-        tabBarStyle: {
-          backgroundColor: '#ffffff',
-          borderTopColor: '#E5E5EA',
-        },
-        headerStyle: {
-          backgroundColor: '#007AFF',
-        },
-        headerTintColor: '#ffffff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
-  );
-}`,
-    type: "CODE",
-  },
-  "app/(tabs)/index.tsx": {
-    contents: `import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-
-export default function HomeScreen() {
+export default function App() {
+  const [currentScreen, setCurrentScreen] = React.useState('home');
   const [count, setCount] = React.useState(0);
 
-  return (
-    <View style={styles.container}>
+  const renderHomeScreen = () => (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Welcome to Materialize!</Text>
       <Text style={styles.subtitle}>
         This is a live preview with Expo Router
@@ -98,19 +33,150 @@ export default function HomeScreen() {
 
       <Text style={styles.instructions}>
         Chat with the AI to modify this code and see live updates!
-        Navigate between tabs to explore the app structure.
+        Navigate between screens using the bottom navigation.
       </Text>
+    </ScrollView>
+  );
+
+  const renderExploreScreen = () => (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <Text style={styles.title}>Explore Features</Text>
+      <Text style={styles.subtitle}>
+        Discover what makes this app special
+      </Text>
+
+      <View style={styles.featuresContainer}>
+        {[
+          { title: 'File-based Routing', description: 'Navigate between screens using Expo Router file structure.', icon: '🗂️' },
+          { title: 'Tab Navigation', description: 'Bottom tab navigation with custom icons and styling.', icon: '📱' },
+          { title: 'Component Library', description: 'Pre-built components for rapid development.', icon: '🧩' },
+          { title: 'Live Preview', description: 'Real-time updates as you chat with the AI assistant.', icon: '⚡' },
+        ].map((feature, index) => (
+          <View key={index} style={styles.featureCard}>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureIcon}>{feature.icon}</Text>
+              <View style={styles.featureText}>
+                <Text style={styles.featureTitle}>{feature.title}</Text>
+                <Text style={styles.featureDescription}>{feature.description}</Text>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
+  const renderProfileScreen = () => (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <Ionicons name="person" size={48} color="#007AFF" />
+        </View>
+        <Text style={styles.name}>Demo User</Text>
+        <Text style={styles.email}>demo@materialize.app</Text>
+      </View>
+
+      <View style={styles.settingsContainer}>
+        <Text style={styles.sectionTitle}>Settings</Text>
+        {[
+          { title: 'Account Settings', icon: 'settings-outline' as const },
+          { title: 'Notifications', icon: 'notifications-outline' as const },
+          { title: 'Privacy', icon: 'lock-closed-outline' as const },
+          { title: 'Help & Support', icon: 'help-circle-outline' as const },
+          { title: 'About', icon: 'information-circle-outline' as const },
+        ].map((setting, index) => (
+          <TouchableOpacity key={index} style={styles.settingCard}>
+            <View style={styles.settingItem}>
+              <Ionicons name={setting.icon} size={24} color="#007AFF" style={styles.settingIcon} />
+              <Text style={styles.settingTitle}>{setting.title}</Text>
+              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
+  const renderContent = () => {
+    switch (currentScreen) {
+      case 'home':
+        return renderHomeScreen();
+      case 'explore':
+        return renderExploreScreen();
+      case 'profile':
+        return renderProfileScreen();
+      default:
+        return renderHomeScreen();
+    }
+  };
+
+  return (
+    <View style={styles.appContainer}>
+      <View style={styles.content}>
+        {renderContent()}
+      </View>
+      
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, currentScreen === 'home' && styles.activeTab]} 
+          onPress={() => setCurrentScreen('home')}
+        >
+          <Ionicons 
+            name="home" 
+            size={24} 
+            color={currentScreen === 'home' ? '#007AFF' : '#8E8E93'} 
+            style={styles.tabIcon} 
+          />
+          <Text style={[styles.tabLabel, currentScreen === 'home' && styles.activeTabLabel]}>Home</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, currentScreen === 'explore' && styles.activeTab]} 
+          onPress={() => setCurrentScreen('explore')}
+        >
+          <Ionicons 
+            name="compass" 
+            size={24} 
+            color={currentScreen === 'explore' ? '#007AFF' : '#8E8E93'} 
+            style={styles.tabIcon} 
+          />
+          <Text style={[styles.tabLabel, currentScreen === 'explore' && styles.activeTabLabel]}>Explore</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, currentScreen === 'profile' && styles.activeTab]} 
+          onPress={() => setCurrentScreen('profile')}
+        >
+          <Ionicons 
+            name="person" 
+            size={24} 
+            color={currentScreen === 'profile' ? '#007AFF' : '#8E8E93'} 
+            style={styles.tabIcon} 
+          />
+          <Text style={[styles.tabLabel, currentScreen === 'profile' && styles.activeTabLabel]}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  appContainer: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+  },
+  content: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f0f0f0',
+  },
+  contentContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
+    minHeight: '100%',
   },
   title: {
     fontSize: 24,
@@ -156,83 +222,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-});`,
-    type: "CODE",
-  },
-  "app/(tabs)/explore.tsx": {
-    contents: `import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import Card from '../../components/Card';
-
-export default function ExploreScreen() {
-  const features = [
-    {
-      title: 'File-based Routing',
-      description: 'Navigate between screens using Expo Router file structure.',
-      icon: '🗂️',
-    },
-    {
-      title: 'Tab Navigation',
-      description: 'Bottom tab navigation with custom icons and styling.',
-      icon: '📱',
-    },
-    {
-      title: 'Component Library',
-      description: 'Pre-built components for rapid development.',
-      icon: '🧩',
-    },
-    {
-      title: 'Live Preview',
-      description: 'Real-time updates as you chat with the AI assistant.',
-      icon: '⚡',
-    },
-  ];
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Explore Features</Text>
-      <Text style={styles.subtitle}>
-        Discover what makes this app special
-      </Text>
-
-      {features.map((feature, index) => (
-        <Card key={index} style={styles.featureCard}>
-          <View style={styles.featureContent}>
-            <Text style={styles.featureIcon}>{feature.icon}</Text>
-            <View style={styles.featureText}>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureDescription}>{feature.description}</Text>
-            </View>
-          </View>
-        </Card>
-      ))}
-    </ScrollView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
-  content: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-    textAlign: 'center',
+  featuresContainer: {
+    width: '100%',
   },
   featureCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, y: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   featureContent: {
     flexDirection: 'row',
@@ -256,67 +258,6 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
   },
-});`,
-    type: "CODE",
-  },
-  "app/(tabs)/profile.tsx": {
-    contents: `import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Card from '../../components/Card';
-
-export default function ProfileScreen() {
-  const handleSettingPress = (setting: string) => {
-    Alert.alert('Setting Pressed', \`You pressed: \${setting}\`);
-  };
-
-  const settings = [
-    { title: 'Account Settings', icon: 'person-outline' as const },
-    { title: 'Notifications', icon: 'notifications-outline' as const },
-    { title: 'Privacy', icon: 'lock-closed-outline' as const },
-    { title: 'Help & Support', icon: 'help-circle-outline' as const },
-    { title: 'About', icon: 'information-circle-outline' as const },
-  ];
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={48} color="#007AFF" />
-        </View>
-        <Text style={styles.name}>Demo User</Text>
-        <Text style={styles.email}>demo@materialize.app</Text>
-      </View>
-
-      <View style={styles.settingsContainer}>
-        <Text style={styles.sectionTitle}>Settings</Text>
-        {settings.map((setting, index) => (
-          <Card key={index} style={styles.settingCard}>
-            <TouchableOpacity
-              style={styles.settingItem}
-              onPress={() => handleSettingPress(setting.title)}
-            >
-              <Ionicons
-                name={setting.icon}
-                size={24}
-                color="#007AFF"
-                style={styles.settingIcon}
-              />
-              <Text style={styles.settingTitle}>{setting.title}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
-            </TouchableOpacity>
-          </Card>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
   header: {
     alignItems: 'center',
     padding: 32,
@@ -331,6 +272,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
+
   name: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -351,8 +293,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   settingCard: {
-    marginBottom: 8,
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 0,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, y: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   settingItem: {
     flexDirection: 'row',
@@ -367,14 +316,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-});`,
+
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderTopColor: '#E5E5EA',
+    borderTopWidth: 1,
+    paddingBottom: 20,
+    paddingTop: 10,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  activeTab: {
+    // Active state styling
+  },
+  tabIcon: {
+    marginBottom: 4,
+  },
+  tabLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+  },
+  activeTabLabel: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+});`;
+
+export const getDefaultSnackFiles = (): SnackFiles => ({
+  "App.js": {
+    contents: `import { ExpoRoot } from "expo-router";
+import Head from "expo-router/head";
+
+export default function ExpoRouterApp() {
+  return (
+    <Head.Provider>
+      <ExpoRoot context={require.context("./app", true)} location="/" />
+    </Head.Provider>
+  );
+}`,
+    type: "CODE",
+  },
+  "app/_layout.tsx": {
+    contents: DEFAULT_APP_CODE,
     type: "CODE",
   },
   "package.json": {
     contents: JSON.stringify({
       "name": "materialize-project",
       "version": "1.0.0",
-      "main": "expo-router/entry",
+      "main": "App.js",
       "scripts": {
         "start": "expo start",
         "android": "expo start --android",
@@ -497,7 +491,8 @@ This is a React Native project created with Materialize.
 
 ## Project Structure
 
-- \`App.js\` - Main application component
+- \`App.js\` - Main app entry point with ExpoRoot
+- \`app/_layout.tsx\` - Root layout component with tab navigation
 - \`components/\` - Reusable UI components
 - \`styles/\` - Theme and styling configuration
 
@@ -507,6 +502,7 @@ This is a React Native project created with Materialize.
 - AI-powered code generation
 - Real-time updates
 - Component library
+- Custom tab navigation
 
 Built with ❤️ using Materialize
 `,
@@ -515,20 +511,35 @@ Built with ❤️ using Materialize
 });
 
 export const DEFAULT_DEPENDENCIES = {
-  "react-native": { version: "0.76.1" },
-  react: { version: "18.2.0" },
-  expo: { version: "~52.0.0" },
-  "expo-linear-gradient": {
-    version: "8.2.1",
-  },
-  "react-native-vector-icons": {
-    version: "7.1.0",
-  },
-  "@expo/vector-icons": { version: "13.0.0" },
-  "expo-router": { version: "4.19.0" },
-  "expo-linking": { version: "7.0.0" },
-  "expo-constants": { version: "17.0.0" },
-  "expo-status-bar": { version: "2.0.0" },
-  "react-native-safe-area-context": { version: "4.12.0" },
-  "react-native-screens": { version: "4.3.0" },
+  "@expo/vector-icons": { version: "^14.1.0" },
+  "@nkzw/create-context-hook": { version: "^1.1.0" },
+  "@react-native-async-storage/async-storage": { version: "2.1.2" },
+  "@tanstack/react-query": { version: "^5.83.0" },
+  "expo": { version: "^53.0.4" },
+  "expo-blur": { version: "~14.1.4" },
+  "expo-constants": { version: "~17.1.4" },
+  "expo-font": { version: "~13.3.0" },
+  "expo-haptics": { version: "~14.1.4" },
+  "expo-image": { version: "~2.1.6" },
+  "expo-image-picker": { version: "~16.1.4" },
+  "expo-linear-gradient": { version: "~14.1.4" },
+  "expo-linking": { version: "~7.1.4" },
+  "expo-location": { version: "~18.1.4" },
+  "expo-router": { version: "~5.0.3" },
+  "expo-splash-screen": { version: "~0.30.7" },
+  "expo-status-bar": { version: "~2.2.3" },
+  "expo-symbols": { version: "~0.4.4" },
+  "expo-system-ui": { version: "~5.0.6" },
+  "expo-web-browser": { version: "~14.1.6" },
+  "lucide-react-native": { version: "^0.475.0" },
+  "nativewind": { version: "^4.1.23" },
+  "react": { version: "19.0.0" },
+  "react-dom": { version: "19.0.0" },
+  "react-native": { version: "0.79.1" },
+  "react-native-gesture-handler": { version: "~2.24.0" },
+  "react-native-safe-area-context": { version: "5.3.0" },
+  "react-native-screens": { version: "~4.10.0" },
+  "react-native-svg": { version: "15.11.2" },
+  "react-native-web": { version: "^0.20.0" },
+  "zustand": { version: "^5.0.2" }
 };

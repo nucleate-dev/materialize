@@ -10,11 +10,11 @@ import {
 } from "react";
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
+import { SnackFiles } from "../lib/types/chat";
 import {
   DEFAULT_DEPENDENCIES,
   getDefaultSnackFiles,
 } from "../templates/defaultApp";
-import { SnackFiles } from "../lib/types/chat";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];
@@ -188,21 +188,19 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                 <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => handleModeChange("mobile")}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      previewMode === "mobile"
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === "mobile"
                         ? "bg-white text-gray-900 shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
-                    }`}
+                      }`}
                   >
                     Mobile
                   </button>
                   <button
                     onClick={() => handleModeChange("web")}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      previewMode === "web"
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === "web"
                         ? "bg-white text-gray-900 shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
-                    }`}
+                      }`}
                   >
                     Web
                   </button>
@@ -349,7 +347,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         {/* File Info */}
         <div className="border-t p-3 bg-white">
           <div className="text-xs text-gray-500">
-            Files: {Object.keys(files).join(", ") || "App.js"}
+            Files: {Object.keys(files).join(", ")}
             {snackUrl && (
               <span className="ml-2">• Connected to Expo Snack</span>
             )}

@@ -1,19 +1,14 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { useSidebar } from "@/hooks/useSidebar";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { supabase } from "@/GlobalConstants";
-import { Database } from "@/lib/types/database.types";
-import Loader from "@/components/dashboard/Loader";
 import ChatWindow from "@/components/ChatWindow";
-import FileTree from "@/components/FileTree";
 import CodeEditor from "@/components/CodeEditor";
+import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer, {
   ExpoSnackViewerRef,
 } from "@/components/ExpoSnackViewer";
-import { getDefaultSnackFiles } from "@/templates/defaultApp";
+import FileTree from "@/components/FileTree";
+import { supabase } from "@/GlobalConstants";
+import { useSidebar } from "@/hooks/useSidebar";
 import {
   ChatMessage,
   CodeExtractionResult,
@@ -21,11 +16,16 @@ import {
   EditOperationResult,
   SnackFiles,
 } from "@/lib/types/chat";
+import { Database } from "@/lib/types/database.types";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
 import {
   EditProcessor,
   EditProcessorResult,
 } from "@/lib/utils/code/editProcessor";
+import { getDefaultSnackFiles } from "@/templates/defaultApp";
+import { useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
 type ProjectChatSession =
@@ -35,7 +35,7 @@ type ProjectChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ project_id: string }>();
+  const params = useParams<{ project_id: string; }>();
   const projectId = params?.project_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -147,13 +147,21 @@ export default function CreatePage() {
   //       console.log("Converted and loaded messages from database");
   //     }
   //   }, [chatMessages, loadedFromDB]);
+  // Define the default file to show in the editor
+  const defaultFile = "app/_layout.tsx";
+
+  // Initialize SnackFiles state as before
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(
     getDefaultSnackFiles()
   );
   const [isChatView, setIsChatView] = useState(true);
-  const [selectedFile, setSelectedFile] = useState<string>("App.js");
+
+  // Set the selected file to a file that actually exists
+  const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
+
+  // Set the editor code to the contents of that existing file
   const [mainAppCode, setMainAppCode] = useState(
-    snackFiles["App.js"]?.contents || ""
+    snackFiles[defaultFile]?.contents || ""
   );
   const [useGranularEdits, setUseGranularEdits] = useState(true);
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
@@ -219,9 +227,9 @@ export default function CreatePage() {
       // Create a deep copy to ensure React detects the change
       setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
 
-      // Update the main app code if it was modified
-      if (newFiles["App.js"]) {
-        setMainAppCode(newFiles["App.js"].contents);
+      // Update the main app code if the selected file was modified
+      if (newFiles[selectedFile]) {
+        setMainAppCode(newFiles[selectedFile].contents);
       }
     }
   };
@@ -239,9 +247,9 @@ export default function CreatePage() {
         // Create a deep copy to ensure React detects the change
         setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
 
-        // Update the main app code if App.js was modified
-        if (processorResult.updatedFiles["App.js"]) {
-          setMainAppCode(processorResult.updatedFiles["App.js"].contents);
+        // Update the main app code if the selected file was modified
+        if (processorResult.updatedFiles[selectedFile]) {
+          setMainAppCode(processorResult.updatedFiles[selectedFile].contents);
         }
 
         console.log("Edit operations applied successfully");
@@ -276,7 +284,7 @@ export default function CreatePage() {
   };
 
   const handleExecutePlannedOperation = async (
-    operationId: string, 
+    operationId: string,
     operations: EditOperation[]
   ): Promise<void> => {
     console.log(`Executing planned operation ${operationId} with ${operations.length} edit operations`);
@@ -288,9 +296,9 @@ export default function CreatePage() {
       // Create a deep copy to ensure React detects the change
       setSnackFiles(JSON.parse(JSON.stringify(processorResult.updatedFiles)));
 
-      // Update the main app code if App.js was modified
-      if (processorResult.updatedFiles["App.js"]) {
-        setMainAppCode(processorResult.updatedFiles["App.js"].contents);
+      // Update the main app code if the selected file was modified
+      if (processorResult.updatedFiles[selectedFile]) {
+        setMainAppCode(processorResult.updatedFiles[selectedFile].contents);
       }
 
       console.log(`Planned operation ${operationId} executed successfully`);
@@ -303,14 +311,14 @@ export default function CreatePage() {
   const handleFilesChange = (files: SnackFiles) => {
     // Create a deep copy to ensure React detects the change
     setSnackFiles(JSON.parse(JSON.stringify(files)));
-    
+
     // Update the main app code based on selected file
     if (files[selectedFile]) {
       setMainAppCode(files[selectedFile].contents);
-    } else if (files["App.js"]) {
-      // Fallback to App.js if selected file doesn't exist
-      setSelectedFile("App.js");
-      setMainAppCode(files["App.js"].contents);
+    } else if (files[defaultFile]) {
+      // Fallback to default file if selected file doesn't exist
+      setSelectedFile(defaultFile);
+      setMainAppCode(files[defaultFile].contents);
     }
   };
 
@@ -355,21 +363,19 @@ export default function CreatePage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setIsChatView(true)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  isChatView
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setIsChatView(false)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  !isChatView
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
               >
                 Code
               </button>
@@ -399,7 +405,7 @@ export default function CreatePage() {
                   onFileSelect={handleFileSelect}
                 />
               </div>
-              
+
               {/* Code Editor - 70% width */}
               <div className="flex-1">
                 <CodeEditor

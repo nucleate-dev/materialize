@@ -158,7 +158,10 @@ export function updateSnackFiles(currentFiles: SnackFiles, codeBlocks: CodeBlock
   const newFiles = JSON.parse(JSON.stringify(currentFiles));
 
   codeBlocks.forEach((block) => {
-    const fileName = block.fileName || 'App.js';
+    const fileName = block.fileName;
+    if (!fileName) {
+      return;
+    }
     newFiles[fileName] = {
       contents: block.code,
       type: 'CODE',
