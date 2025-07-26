@@ -1,7 +1,6 @@
 "use client";
 
 import { APPLY_CODE_IMMEDIATELY } from "@/GlobalConstants";
-import React, { useEffect, useRef, useState } from "react";
 import {
   ChatMessage,
   CodeExtractionResult,
@@ -12,15 +11,16 @@ import {
   logPlanningExtraction,
   PlanningExtractionResult,
 } from "@/lib/utils/code/planningExtractor";
-import PlanningView, { PlannedOperation } from "./PlanningView";
 import {
-  SparklesIcon,
-  PaperAirplaneIcon,
   CodeBracketIcon,
   EyeIcon,
   EyeSlashIcon,
+  PaperAirplaneIcon,
   PlayIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
+import React, { useEffect, useRef, useState } from "react";
+import PlanningView, { PlannedOperation } from "./PlanningView";
 
 interface ChatWindowProps {
   messages: ChatMessage[];
@@ -78,20 +78,20 @@ export default function ChatWindow({
   // Extract planning data from messages
   useEffect(() => {
     const newPlanningData = new Map<string, PlanningExtractionResult>();
-    
+
     messages.forEach((message) => {
       if (message.role === "assistant") {
         const planningResult = extractExecutionPlan(message.content);
         if (planningResult.hasPlan) {
           newPlanningData.set(message.id, planningResult);
           logPlanningExtraction(planningResult);
-          
+
           // Auto-expand plans for visibility
           setExpandedPlans(prev => new Set([...prev, message.id]));
         }
       }
     });
-    
+
     setPlanningData(newPlanningData);
   }, [messages]);
 
@@ -107,7 +107,7 @@ export default function ChatWindow({
 
     // Check if this message has applicable content
     const codeResult = extractCodeFromMessage(lastMessage.content);
-    const hasApplicableContent = codeResult.hasCode;
+    const hasApplicableContent = true;
 
     if (hasApplicableContent) {
       // Apply the code automatically
@@ -218,15 +218,15 @@ export default function ChatWindow({
 
     } catch (error) {
       console.error(`Error executing operation ${operationId}:`, error);
-      
+
       // Update operation status to error
       setPlanningData(prev => {
         const newMap = new Map(prev);
         const messageData = newMap.get(message.id);
         if (messageData) {
           const updatedOperations = messageData.operations.map(op =>
-            op.id === operationId ? { 
-              ...op, 
+            op.id === operationId ? {
+              ...op,
               status: "error" as const,
               error: error instanceof Error ? error.message : "Unknown error"
             } : op
@@ -298,7 +298,7 @@ export default function ChatWindow({
     const planData = planningData.get(message.id);
 
     const hasApplicableContent = codeResult.hasCode;
-    
+
     // Determine message type
     const isPlanningMessage = !isUser && message.content.includes('EXECUTION_PLAN');
     const isExecutionMessage = !isUser && message.content.includes('EXECUTION_STEP');
@@ -311,23 +311,21 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`relative p-5 rounded-3xl transition-all duration-300 hover:scale-[1.02] transform-gpu ${
-              isUser
-                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-xl shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30"
-                : isPlanningMessage
+            className={`relative p-5 rounded-3xl transition-all duration-300 hover:scale-[1.02] transform-gpu ${isUser
+              ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-xl shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30"
+              : isPlanningMessage
                 ? "bg-gradient-to-br from-blue-50/95 via-indigo-50/95 to-blue-100/95 dark:from-blue-900/95 dark:via-indigo-900/95 dark:to-blue-800/95 text-slate-900 dark:text-slate-100 border border-blue-200/70 dark:border-blue-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
                 : isExecutionMessage
-                ? "bg-gradient-to-br from-green-50/95 via-emerald-50/95 to-green-100/95 dark:from-green-900/95 dark:via-emerald-900/95 dark:to-green-800/95 text-slate-900 dark:text-slate-100 border border-green-200/70 dark:border-green-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
-                : "bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:bg-white dark:hover:bg-slate-700/95 hover:shadow-xl dark:hover:shadow-slate-900/50"
-            }`}
+                  ? "bg-gradient-to-br from-green-50/95 via-emerald-50/95 to-green-100/95 dark:from-green-900/95 dark:via-emerald-900/95 dark:to-green-800/95 text-slate-900 dark:text-slate-100 border border-green-200/70 dark:border-green-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
+                  : "bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:bg-white dark:hover:bg-slate-700/95 hover:shadow-xl dark:hover:shadow-slate-900/50"
+              }`}
           >
             {/* Message bubble tail */}
             <div
-              className={`absolute w-4 h-4 transform rotate-45 ${
-                isUser
-                  ? "-right-2 top-6 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
-                  : "-left-2 top-6 bg-white/95 dark:bg-slate-800/95 border-l border-t border-slate-200/50 dark:border-slate-600/30"
-              }`}
+              className={`absolute w-4 h-4 transform rotate-45 ${isUser
+                ? "-right-2 top-6 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
+                : "-left-2 top-6 bg-white/95 dark:bg-slate-800/95 border-l border-t border-slate-200/50 dark:border-slate-600/30"
+                }`}
             ></div>
 
             {/* Enhanced inner glow for user messages */}
@@ -339,11 +337,10 @@ export default function ChatWindow({
               {/* Message Type Badge */}
               {!isUser && (isPlanningMessage || isExecutionMessage) && (
                 <div className="mb-3">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                    isPlanningMessage 
-                      ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
-                      : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
-                  }`}>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isPlanningMessage
+                    ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
+                    : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
+                    }`}>
                     {isPlanningMessage ? "📋 Planning Phase" : "⚡ Code Implementation"}
                   </span>
                 </div>
@@ -366,7 +363,7 @@ export default function ChatWindow({
                         </p>
                       </div>
                     </div>
-                    
+
                     {/* Compact plan overview */}
                     <div className="space-y-2">
                       {planData.operations.map((operation, index) => (
@@ -449,29 +446,12 @@ export default function ChatWindow({
                 </div>
               )}
 
-
-              {/* Debug Info */}
-              {!isUser &&
-                (message.content.includes("```") ||
-                  message.content.includes("[")) &&
-                !hasApplicableContent && (
-                  <div className="mt-4 p-3 rounded-xl bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200/50 dark:border-red-700/30 text-red-700 dark:text-red-300 text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="font-medium">
-                        Debug: Content detected but not recognized as applicable code
-                      </span>
-                    </div>
-                  </div>
-                )}
-
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${
-                  isUser
-                    ? "text-white/70 dark:text-white/60"
-                    : "text-slate-500 dark:text-slate-400"
-                }`}
+                className={`text-xs mt-3 font-medium ${isUser
+                  ? "text-white/70 dark:text-white/60"
+                  : "text-slate-500 dark:text-slate-400"
+                  }`}
               >
                 {message.timestamp.toLocaleTimeString([], {
                   hour: "2-digit",
@@ -551,11 +531,11 @@ export default function ChatWindow({
                 <div className="flex items-center gap-3">
                   <div className="flex space-x-2">
                     <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-bounce"></div>
-                    <div 
+                    <div
                       className="w-3 h-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-bounce"
                       style={{ animationDelay: "0.1s" }}
                     ></div>
-                    <div 
+                    <div
                       className="w-3 h-3 bg-gradient-to-r from-pink-500 to-blue-500 rounded-full animate-bounce"
                       style={{ animationDelay: "0.2s" }}
                     ></div>
@@ -616,11 +596,10 @@ export default function ChatWindow({
             <button
               type="submit"
               disabled={!inputValue.trim() || isLoading}
-              className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${
-                inputValue.trim()
-                  ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
-                  : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
-              }`}
+              className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${inputValue.trim()
+                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
+                : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
+                }`}
             >
               {/* Button inner glow */}
               {inputValue.trim() && (
@@ -628,11 +607,10 @@ export default function ChatWindow({
               )}
 
               <PaperAirplaneIcon
-                className={`relative w-6 h-6 transition-transform duration-300 ${
-                  inputValue.trim()
-                    ? "hover:translate-x-0.5 hover:-translate-y-0.5"
-                    : ""
-                }`}
+                className={`relative w-6 h-6 transition-transform duration-300 ${inputValue.trim()
+                  ? "hover:translate-x-0.5 hover:-translate-y-0.5"
+                  : ""
+                  }`}
               />
             </button>
           </div>
