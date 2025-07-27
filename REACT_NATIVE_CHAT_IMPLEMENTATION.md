@@ -10,7 +10,7 @@ The implementation creates a split-screen interface where users can:
 - **🆕 View AI execution plans** before any code changes are made
 - **🆕 Execute operations progressively** with real-time progress tracking
 - Apply full-code blocks for code modifications
-- **🆕 Work with multi-file projects** using proper expo-router structure
+- **🆕 Work with multi-file projects** using traditional React Native structure
 - See live updates in an Expo Snack preview
 - Iterate on React Native components in real-time
 
@@ -20,7 +20,7 @@ The implementation creates a split-screen interface where users can:
 - **Planning Phase**: AI creates execution plan before any code changes
 - **Progressive Execution**: Operations executed one-by-one with progress tracking
 - **Auto-Approval**: Plans are automatically approved for seamless workflow
-- **Multi-File Support**: Proper expo-router structure with components/, app/, utils/
+- **Multi-File Support**: Traditional React Native structure with components/, utils/
 - **Visual Planning**: Inline expandable UI showing planned operations
 - **Code Application**: Supports full-code responses
 
@@ -143,7 +143,7 @@ AI Response → Code Extractor → Code Blocks → File Updates → Updated File
 - Uses `webPreviewRef` for iframe integration
 - Manages Snack state and subscriptions
 - Handles file updates via `updateFiles()` method
-- **🆕 Supports expo-router file structure**: app/, components/, utils/
+- **🆕 Supports traditional file structure**: App.js, components/, utils/
 - **🆕 Real-time multi-file synchronization**
 - Provides copy-to-clipboard functionality for Snack URLs
 
@@ -178,7 +178,7 @@ AI Response → Code Extractor → Code Blocks → File Updates → Updated File
 **🆕 System Prompt Highlights (v3.0)**:
 - **Two-Phase Approach**: ALWAYS start with **EXECUTION_PLAN** before code changes
 - **Planning Format**: Structured JSON planning with operation descriptions
-- **Expo Router Integration**: Proper file organization (app/, components/, utils/)
+- **Traditional Navigation**: Proper file organization (App.js, components/, utils/)
 - **Progressive Execution**: Break complex tasks into logical steps
 - **Step Details**: Provide **EXECUTION_STEP_X** with detailed edit operations
 - **Multi-File Support**: Create components in appropriate directories
@@ -235,10 +235,10 @@ AI Response → Code Extractor → Code Blocks → File Updates → Updated File
 
 
 #### `/src/templates/defaultApp.ts`
-**Purpose**: Comprehensive React Native application template with expo-router
+**Purpose**: Comprehensive React Native application template with traditional navigation
 **Key Features**:
 - **Multi-screen tab navigation app** with Home, Explore, and Profile screens
-- **Expo Router integration** with proper file-based routing structure
+- **Traditional React Native navigation** with manual tab switching
 - **Interactive elements**: Counter, feature cards, settings list, profile UI
 - **Complete component library**: Button, Card components included
 - **Theme system**: Centralized colors, typography, and spacing
@@ -249,8 +249,7 @@ AI Response → Code Extractor → Code Blocks → File Updates → Updated File
 **Multi-File Structure**:
 ```typescript
 {
-  "App.js": "ExpoRoot entry point with expo-router context",
-  "app/_layout.tsx": "Main app component with tab navigation system", 
+  "App.js": "Main app component with tab navigation system", 
   "components/Button.js": "Reusable button component with styling",
   "components/Card.js": "Card component with shadow and styling",
   "styles/theme.js": "Centralized theme configuration",
@@ -265,7 +264,6 @@ AI Response → Code Extractor → Code Blocks → File Updates → Updated File
   'react': { version: '19.0.0' },
   'react-native': { version: '0.79.1' },
   'expo': { version: '^53.0.4' },
-  'expo-router': { version: '~5.0.3' },
   '@expo/vector-icons': { version: '^14.1.0' },
   // Plus 25+ additional production-ready dependencies
   // including expo-image, expo-haptics, react-query, etc.
@@ -369,7 +367,7 @@ For each planned operation, the AI provides detailed edit operations:
 | Aspect | Previous (Direct Edit) | New (Planning-First) |
 |--------|----------------------|---------------------|
 | **Transparency** | Limited visibility | Full plan visibility before execution |
-| **File Organization** | Ad-hoc | Proper expo-router structure (app/, components/) |
+| **File Organization** | Ad-hoc | Proper traditional structure (App.js, components/) |
 | **Progress Tracking** | All-or-nothing | Step-by-step with visual progress |
 | **Error Recovery** | Full rollback | Individual step failure isolation |
 | **User Control** | Apply/Don't Apply | Visibility into each planned change |
@@ -407,14 +405,14 @@ GOOGLE_AI_API_KEY=your_gemini_api_key_here
 2. Start chatting with the AI about React Native development
 3. **Default app loads** with Home, Explore, and Profile tabs for immediate testing
 4. When AI provides code examples, click "Apply Code" buttons or execute planning operations
-5. **View live updates** in the expo-router preview with proper tab navigation
-6. **Multi-file changes** are applied across App.js, app/_layout.tsx, components/, and styles/
+5. **View live updates** in the traditional React Native preview with proper tab navigation
+6. **Multi-file changes** are applied across App.js, components/, and styles/
 7. Use "Refresh" to reload preview or "Reset" to return to the comprehensive default template
 
 ### Example Chat Prompts
 
 #### 🆕 **Optimized for Planning System (v3.0)**
-- "Create a todo list app with navigation" *(triggers multi-file planning with app/, components/)*
+- "Create a todo list app with navigation" *(triggers multi-file planning with App.js, components/)*
 - "Add a login flow with authentication" *(triggers planning for screens, components, and utils)*
 - "Create a shopping cart with product components" *(triggers organized multi-component planning)*
 - "Build a photo gallery with image upload" *(triggers planning for screens, components, and file handling)*

@@ -79,11 +79,11 @@ export default function App() {
       <View style={styles.settingsContainer}>
         <Text style={styles.sectionTitle}>Settings</Text>
         {[
-          { title: 'Account Settings', icon: 'settings-outline' as const },
-          { title: 'Notifications', icon: 'notifications-outline' as const },
-          { title: 'Privacy', icon: 'lock-closed-outline' as const },
-          { title: 'Help & Support', icon: 'help-circle-outline' as const },
-          { title: 'About', icon: 'information-circle-outline' as const },
+          { title: 'Account Settings', icon: 'settings-outline' },
+          { title: 'Notifications', icon: 'notifications-outline' },
+          { title: 'Privacy', icon: 'lock-closed-outline' },
+          { title: 'Help & Support', icon: 'help-circle-outline' },
+          { title: 'About', icon: 'information-circle-outline' },
         ].map((setting, index) => (
           <TouchableOpacity key={index} style={styles.settingCard}>
             <View style={styles.settingItem}>
@@ -348,19 +348,6 @@ const styles = StyleSheet.create({
 
 export const getDefaultSnackFiles = (): SnackFiles => ({
   "App.js": {
-    contents: `import { ExpoRoot } from "expo-router";
-import Head from "expo-router/head";
-
-export default function ExpoRouterApp() {
-  return (
-    <Head.Provider>
-      <ExpoRoot context={require.context("./app", true)} location="/" />
-    </Head.Provider>
-  );
-}`,
-    type: "CODE",
-  },
-  "app/_layout.tsx": {
     contents: DEFAULT_APP_CODE,
     type: "CODE",
   },
@@ -491,8 +478,7 @@ This is a React Native project created with Materialize.
 
 ## Project Structure
 
-- \`App.js\` - Main app entry point with ExpoRoot
-- \`app/_layout.tsx\` - Root layout component with tab navigation
+- \`App.js\` - Main app entry point with tab navigation
 - \`components/\` - Reusable UI components
 - \`styles/\` - Theme and styling configuration
 
@@ -502,7 +488,7 @@ This is a React Native project created with Materialize.
 - AI-powered code generation
 - Real-time updates
 - Component library
-- Custom tab navigation
+- Traditional React Native tab navigation
 
 Built with ❤️ using Materialize
 `,
@@ -525,7 +511,6 @@ export const DEFAULT_DEPENDENCIES = {
   "expo-linear-gradient": { version: "~14.1.4" },
   "expo-linking": { version: "~7.1.4" },
   "expo-location": { version: "~18.1.4" },
-  "expo-router": { version: "~5.0.3" },
   "expo-splash-screen": { version: "~0.30.7" },
   "expo-status-bar": { version: "~2.2.3" },
   "expo-symbols": { version: "~0.4.4" },

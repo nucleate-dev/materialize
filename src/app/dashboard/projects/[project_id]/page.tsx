@@ -16,7 +16,7 @@ import {
 } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
+import { updateSnackFiles, extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -157,7 +157,6 @@ export default function CreatePage() {
   const [mainAppCode, setMainAppCode] = useState(
     snackFiles[defaultFile]?.contents || ""
   );
-  const [pendingPlanExecution, setPendingPlanExecution] = useState<ChatMessage | null>(null);
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   const handleSendMessage = async (content: string) => {
@@ -203,7 +202,6 @@ export default function CreatePage() {
 
       // Check if the response contains an execution plan
       if (planningData.content.includes('EXECUTION_PLAN')) {
-        setPendingPlanExecution(planningMessage);
 
         // Phase 2: Get the execution response automatically
         const executionResponse = await fetch("/api/chat", {
@@ -233,7 +231,12 @@ export default function CreatePage() {
         };
 
         setMessages((prev) => [...prev, executionMessage]);
-        setPendingPlanExecution(null);
+
+        // Auto-apply the execution code immediately
+        const codeResult = extractCodeFromMessage(executionData.content);
+        if (codeResult.hasCode) {
+          handleApplyCode(codeResult);
+        }
       }
 
     } catch (error) {
@@ -248,7 +251,6 @@ export default function CreatePage() {
       };
 
       setMessages((prev) => [...prev, errorMessage]);
-      setPendingPlanExecution(null);
     } finally {
       setIsLoading(false);
     }

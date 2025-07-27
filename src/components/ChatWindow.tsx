@@ -86,8 +86,6 @@ export default function ChatWindow({
           newPlanningData.set(message.id, planningResult);
           logPlanningExtraction(planningResult);
 
-          // Auto-expand plans for visibility
-          setExpandedPlans(prev => new Set([...prev, message.id]));
         }
       }
     });
@@ -246,7 +244,7 @@ export default function ChatWindow({
     const messageContent = message.content;
     const isCodeVisible = expandedCodeBlocks.has(message.id);
     const hasCodeBlocks = messageContent.includes("```");
-    
+
     // Determine message type
     const isPlanningMessage = message.content.includes('EXECUTION_PLAN');
     const isExecutionMessage = message.content.includes('EXECUTION_STEP');
