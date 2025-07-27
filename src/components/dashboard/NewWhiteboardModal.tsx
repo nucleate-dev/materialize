@@ -2,11 +2,12 @@
 
 import { supabase } from "@/GlobalConstants";
 import { User } from "@supabase/supabase-js";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   XMarkIcon,
-  SparklesIcon,
   PaintBrushIcon,
+  ChevronDownIcon,
+  FolderIcon,
 } from "@heroicons/react/24/outline";
 
 interface NewWhiteboardModalProps {
@@ -28,27 +29,78 @@ export default function NewWhiteboardModal({
   const [description, setDescription] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string | null>(
+    projectId || null
+  );
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch user's projects
+  useEffect(() => {
+    if (open && user) {
+      fetchProjects();
+    }
+  }, [open, user]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsProjectDropdownOpen(false);
+      }
+    };
+
+    if (isProjectDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isProjectDropdownOpen]);
+
+  const fetchProjects = async () => {
+    if (!user) return;
+
+    setIsLoadingProjects(true);
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name")
+        .eq("owner_id", user.id)
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching projects:", error);
+        return;
+      }
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
     if (!name.trim() || !user) return;
     setIsCreating(true);
-    
+
     try {
-      const { data: canvas, error } = await supabase
-        .from("canvases")
-        .insert({
-          owner_id: user.id,
-          project_id: projectId || null,
-          name: name.trim(),
-          description,
-          thumbnail_url:
-            "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop&crop=center",
-        })
-        .select()
-        .single();
-      
+      const { error } = await supabase.from("canvases").insert({
+        owner_id: user.id,
+        project_id: selectedProject,
+        name: name.trim(),
+        description,
+        thumbnail_url:
+          "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop&crop=center",
+      });
+
       if (error) {
         console.error("Error creating canvas:", error);
         throw error;
@@ -57,6 +109,7 @@ export default function NewWhiteboardModal({
       // Reset form
       setName("");
       setDescription("");
+      setSelectedProject(projectId || null);
       setTouched(false);
       onCreated();
       onClose();
@@ -109,7 +162,7 @@ export default function NewWhiteboardModal({
             Create your infinite canvas for prototyping and design ✨
           </p>
         </div>
-        
+
         {/* Form Section */}
         <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
           <div>
@@ -166,6 +219,123 @@ export default function NewWhiteboardModal({
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={256}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Project Dropdown */}
+          <div>
+            <label className="block text-sm font-semibold text-black dark:text-white mb-3">
+              Project
+            </label>
+            <div className="relative group" ref={dropdownRef}>
+              {/* Enhanced Dropdown Container */}
+              <div className="relative overflow-hidden rounded-2xl">
+                {/* Animated border gradient */}
+                <div className="absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"></div>
+                <div className="absolute inset-[1px] bg-white/90 dark:bg-boxdark/90 rounded-2xl"></div>
+
+                <button
+                  type="button"
+                  className="relative w-full px-6 py-4 text-lg font-medium bg-transparent text-left border-0 focus:outline-none focus:ring-0 transition-all duration-300 flex items-center justify-between"
+                  onClick={() =>
+                    setIsProjectDropdownOpen(!isProjectDropdownOpen)
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <FolderIcon className="w-5 h-5 text-primary dark:text-primary" />
+                    <span
+                      className={
+                        selectedProject
+                          ? "text-black dark:text-white"
+                          : "text-body/60 dark:text-bodydark/60"
+                      }
+                    >
+                      {selectedProject
+                        ? projects.find((p) => p.id === selectedProject)
+                            ?.name || "Select Project"
+                        : "No project selected"}
+                    </span>
+                  </div>
+                  <ChevronDownIcon
+                    className={`w-5 h-5 text-body dark:text-bodydark transition-transform duration-300 ${
+                      isProjectDropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isProjectDropdownOpen && (
+                  <div className="fixed left-0 right-0 mt-2 z-[60] bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden" style={{
+                    top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 8 : 0,
+                    left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().left : 0,
+                    width: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().width : 'auto'
+                  }}>
+                    <div className="py-2">
+                      {/* No Project Option */}
+                      <button
+                        type="button"
+                        className="w-full px-6 py-3 text-left hover:bg-white/50 dark:hover:bg-boxdark/50 transition-colors duration-200 flex items-center gap-3"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          setIsProjectDropdownOpen(false);
+                        }}
+                      >
+                        <div className="w-5 h-5 rounded border-2 border-stroke dark:border-strokedark flex items-center justify-center">
+                          {!selectedProject && (
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          )}
+                        </div>
+                        <span className="text-body dark:text-bodydark font-medium">
+                          No project
+                        </span>
+                      </button>
+
+                      {/* Loading State */}
+                      {isLoadingProjects && (
+                        <div className="px-6 py-3 flex items-center gap-3">
+                          <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                          <span className="text-body dark:text-bodydark">
+                            Loading projects...
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Project Options */}
+                      {!isLoadingProjects &&
+                        projects.map((project) => (
+                          <button
+                            key={project.id}
+                            type="button"
+                            className="w-full px-6 py-3 text-left hover:bg-white/50 dark:hover:bg-boxdark/50 transition-colors duration-200 flex items-center gap-3"
+                            onClick={() => {
+                              setSelectedProject(project.id);
+                              setIsProjectDropdownOpen(false);
+                            }}
+                          >
+                            <div className="w-5 h-5 rounded border-2 border-stroke dark:border-strokedark flex items-center justify-center">
+                              {selectedProject === project.id && (
+                                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                              )}
+                            </div>
+                            <FolderIcon className="w-4 h-4 text-primary dark:text-primary" />
+                            <span className="text-black dark:text-white font-medium">
+                              {project.name}
+                            </span>
+                          </button>
+                        ))}
+
+                      {/* Empty State */}
+                      {!isLoadingProjects && projects.length === 0 && (
+                        <div className="px-6 py-3 text-center">
+                          <span className="text-body dark:text-bodydark text-sm">
+                            No projects found
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -21,7 +21,7 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
-import PlanningView, { PlannedOperation } from "./PlanningView";
+import PlanningView from "./PlanningView";
 
 interface ChatWindowProps {
   messages: ChatMessage[];
@@ -47,20 +47,20 @@ export default function ChatWindow({
   );
 
   // Helper function for operation colors (same as PlanningView)
-  const getOperationColor = (type: PlannedOperation["type"]) => {
-    switch (type) {
-      case "create":
-        return "from-green-500 to-emerald-600";
-      case "modify":
-        return "from-blue-500 to-blue-600";
-      case "delete":
-        return "from-red-500 to-red-600";
-      case "move":
-        return "from-purple-500 to-purple-600";
-      default:
-        return "from-gray-500 to-gray-600";
-    }
-  };
+  // const getOperationColor = (type: PlannedOperation["type"]) => {
+  //   switch (type) {
+  //     case "create":
+  //       return "from-green-500 to-emerald-600";
+  //     case "modify":
+  //       return "from-blue-500 to-blue-600";
+  //     case "delete":
+  //       return "from-red-500 to-red-600";
+  //     case "move":
+  //       return "from-purple-500 to-purple-600";
+  //     default:
+  //       return "from-gray-500 to-gray-600";
+  //   }
+  // };
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
   const [planningData, setPlanningData] = useState<
     Map<string, PlanningExtractionResult>
@@ -89,7 +89,6 @@ export default function ChatWindow({
         if (planningResult.hasPlan) {
           newPlanningData.set(message.id, planningResult);
           logPlanningExtraction(planningResult);
-
         }
       }
     });
@@ -238,11 +237,11 @@ export default function ChatWindow({
           const updatedOperations = messageData.operations.map((op) =>
             op.id === operationId
               ? {
-                ...op,
-                status: "error" as const,
-                error:
-                  error instanceof Error ? error.message : "Unknown error",
-              }
+                  ...op,
+                  status: "error" as const,
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : op
           );
           newMap.set(message.id, {
@@ -352,29 +351,31 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`relative p-5 rounded-2xl transition-all duration-200 ${isUser
-              ? "bg-blue-600 dark:bg-blue-700 text-white shadow-sm"
-              : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
-              }`}
+            className={`relative p-5 rounded-2xl transition-all duration-200 ${
+              isUser
+                ? "bg-blue-600 dark:bg-blue-700 text-white shadow-sm"
+                : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
+            }`}
           >
             {/* Message bubble tail */}
             <div
-              className={`absolute w-4 h-4 transform rotate-45 ${isUser
-                ? "-right-2 top-6 bg-blue-600 dark:bg-blue-700"
-                : "-left-2 top-6 bg-white dark:bg-slate-800 border-l border-t border-slate-200 dark:border-slate-700"
-                }`}
+              className={`absolute w-4 h-4 transform rotate-45 ${
+                isUser
+                  ? "-right-2 top-6 bg-blue-600 dark:bg-blue-700"
+                  : "-left-2 top-6 bg-white dark:bg-slate-800 border-l border-t border-slate-200 dark:border-slate-700"
+              }`}
             ></div>
-
 
             <div className="relative z-10">
               {/* Message Type Badge */}
               {!isUser && (isPlanningMessage || isExecutionMessage) && (
                 <div className="mb-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isPlanningMessage
-                      ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
-                      : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
-                      }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                      isPlanningMessage
+                        ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
+                        : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
+                    }`}
                   >
                     {isPlanningMessage
                       ? "📋 Planning Phase"
@@ -477,16 +478,16 @@ export default function ChatWindow({
                       Apply Code ({codeResult.codeBlocks.length})
                     </button>
                   )}
-
                 </div>
               )}
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${isUser
-                  ? "text-white/70 dark:text-white/60"
-                  : "text-slate-500 dark:text-slate-400"
-                  }`}
+                className={`text-xs mt-3 font-medium ${
+                  isUser
+                    ? "text-white/70 dark:text-white/60"
+                    : "text-slate-500 dark:text-slate-400"
+                }`}
               >
                 {message.timestamp.toLocaleTimeString([], {
                   hour: "2-digit",
@@ -632,10 +633,11 @@ export default function ChatWindow({
             <button
               type="submit"
               disabled={!inputValue.trim() || isLoading}
-              className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${inputValue.trim()
-                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
-                : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
-                }`}
+              className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${
+                inputValue.trim()
+                  ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
+                  : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
+              }`}
             >
               {/* Button inner glow */}
               {inputValue.trim() && (
@@ -643,10 +645,11 @@ export default function ChatWindow({
               )}
 
               <PaperAirplaneIcon
-                className={`relative w-6 h-6 transition-transform duration-300 ${inputValue.trim()
-                  ? "hover:translate-x-0.5 hover:-translate-y-0.5"
-                  : ""
-                  }`}
+                className={`relative w-6 h-6 transition-transform duration-300 ${
+                  inputValue.trim()
+                    ? "hover:translate-x-0.5 hover:-translate-y-0.5"
+                    : ""
+                }`}
               />
             </button>
           </div>
