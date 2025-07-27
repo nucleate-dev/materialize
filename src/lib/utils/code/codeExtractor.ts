@@ -185,10 +185,16 @@ export function updateSnackFiles(
   const newFiles = JSON.parse(JSON.stringify(currentFiles));
 
   codeBlocks.forEach((block, index) => {
-    // Use planned file path if available, otherwise fall back to extracted filename
-    const filePath = plannedFilePaths && plannedFilePaths[index]
-      ? plannedFilePaths[index]
-      : block.fileName;
+    let filePath: string | undefined;
+
+    // If we have planned file paths, only create files for those that have planned paths
+    if (plannedFilePaths && plannedFilePaths[index]) {
+      filePath = plannedFilePaths[index];
+    } else if (!plannedFilePaths) {
+      // Only use extracted filename if no planned paths are provided at all
+      filePath = block.fileName;
+    }
+    // If we have planned paths but this index doesn't have one, skip this code block
 
     if (!filePath) {
       return;

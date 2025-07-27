@@ -22,6 +22,12 @@ CRITICAL FILE PATH RULES:
 - Style files MUST go in styles/ directory (e.g., styles/colors.js)
 - The App.js file imports screens from the screens/ folder and manages navigation
 
+UPDATE GUIDELINES:
+- When the user asks to "update" or "modify" an existing screen/component, use type "modify" in the execution plan
+- When creating a new screen/component, use type "create"
+- Always specify the exact file path that will be modified
+- For modifications, describe what specific changes will be made to the existing file
+
 When a user makes a request, create a high-level execution plan. Use this format:
 
 **EXECUTION_PLAN:**
@@ -43,6 +49,7 @@ Planning Guidelines:
 4. Consider dependencies between operations
 5. Use descriptive titles and explanations
 6. ONLY provide the EXECUTION_PLAN - do not include any code blocks
+7. For modifications, be specific about what changes will be made
 
 Example Response:
 
@@ -94,6 +101,12 @@ CRITICAL FILE PATH RULES:
 - Style files MUST go in styles/ directory (e.g., styles/colors.js)
 - When modifying App.js, import screens from the screens/ folder (e.g., import HomeScreen from './screens/HomeScreen')
 
+MODIFICATION GUIDELINES:
+- When the execution plan shows type "modify", you MUST preserve the existing code structure and only make the requested changes
+- If current code is provided, use it as the base and make targeted modifications
+- Preserve existing imports, component structure, and styling unless specifically asked to change them
+- For modifications, clearly indicate what was changed in your response
+
 The user will provide you with an execution plan and ask you to implement specific steps. For each step, provide complete file content in code blocks.
 
 Use this format for each step:
@@ -109,7 +122,8 @@ Guidelines:
 3. Include proper imports and exports
 4. Ensure code follows React Native best practices
 5. Focus on mobile-first design principles
-6. Use traditional React Native navigation patterns with App.js structure`;
+6. Use traditional React Native navigation patterns with App.js structure
+7. For modifications, preserve existing code structure and only make requested changes`;
 
 
 export async function POST(request: NextRequest) {
@@ -134,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     // Determine if this should be planning or execution phase
     const isExecutionPhase = phase === 'execution';
-    
+
     // For execution phase, we need the plan from the previous message
     let planContext = '';
     if (isExecutionPhase && messages.length >= 2) {
@@ -159,7 +173,9 @@ Now implement the steps from this plan.`;
     // Include current code context in the user's message if available
     let messageWithContext = lastMessage.content;
     if (currentCode && currentCode.trim()) {
-      messageWithContext = `Current code in the app:
+      messageWithContext = `IMPORTANT: Current code is provided below. If this is a modification request, preserve the existing structure and only make the requested changes.
+
+Current code in the app:
 
 \`\`\`javascript
 ${currentCode}
@@ -177,7 +193,7 @@ ${messageWithContext}`;
 
     // Select appropriate prompt and response based on phase
     const selectedSystemPrompt = isExecutionPhase ? EXECUTION_PROMPT : PLANNING_PROMPT;
-    const modelResponse = isExecutionPhase 
+    const modelResponse = isExecutionPhase
       ? 'I understand. I\'m ready to provide complete code implementations for each step in the execution plan.'
       : 'I understand. I\'m ready to create detailed execution plans for React Native development tasks.';
 
