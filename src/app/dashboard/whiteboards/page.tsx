@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 // import { useRouter } from "next/navigation";
 import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { supabase } from "@/GlobalConstants";
@@ -23,7 +23,7 @@ function formatRelativeTime(dateString: string | null | undefined): string {
   return date.toLocaleDateString();
 }
 
-function NewProjectModal({
+function NewWhiteboardModal({
   open,
   onClose,
   user,
@@ -97,15 +97,15 @@ function NewProjectModal({
           </svg>
         </button>
         <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white text-center">
-          Create New Canvas
+          Create New Whiteboard
         </h2>
         <p className="mb-6 text-gray-500 dark:text-gray-300 text-center">
-          Give your canvas a name and description to get started.
+          Give your whiteboard a name and description to get started.
         </p>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              Canvas Name <span className="text-red-500">*</span>
+              Whiteboard Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -184,7 +184,7 @@ function NewProjectModal({
   );
 }
 
-export default function Projects() {
+export default function WhiteboardsPage() {
   // const router = useRouter();
   const { user } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
@@ -195,21 +195,24 @@ export default function Projects() {
   const router = useRouter();
 
   // Move fetchCanvases outside useEffect so it can be called after creation
-  const fetchCanvases = async (userId: string) => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("canvases")
-      .select("*")
-      .eq("owner_id", userId)
-      .order("updated_at", { ascending: false });
-    if (error) {
-      console.error("Error fetching canvases:", error);
-      setCanvases([]);
-    } else {
-      setCanvases(data || []);
-    }
-    setLoading(false);
-  };
+  const fetchCanvases = useCallback(
+    async (userId: string) => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("canvases")
+        .select("*")
+        .eq("owner_id", userId)
+        .order("updated_at", { ascending: false });
+      if (error) {
+        console.error("Error fetching canvases:", error);
+        setCanvases([]);
+      } else {
+        setCanvases(data || []);
+      }
+      setLoading(false);
+    },
+    [setLoading, setCanvases]
+  );
 
   useEffect(() => {
     if (user) {
@@ -237,7 +240,7 @@ export default function Projects() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              Canvases
+              Whiteboards
             </h1>
             <p className="text-body dark:text-bodydark">
               Your infinite canvases for rapid prototyping and design
@@ -265,13 +268,13 @@ export default function Projects() {
                 strokeLinejoin="round"
               />
             </svg>
-            New Canvas
+            New Whiteboard
           </button>
         </div>
       </div>
 
       {/* Modal for new canvas */}
-      <NewProjectModal
+      <NewWhiteboardModal
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}
@@ -314,7 +317,7 @@ export default function Projects() {
               </svg>
             </div>
             <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-              No canvases yet
+              No whiteboards yet
             </h3>
             <p className="text-body dark:text-bodydark mb-6 max-w-md">
               Create your first infinite canvas to start prototyping and
@@ -324,7 +327,7 @@ export default function Projects() {
               onClick={handleOpenModal}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
             >
-              Create First Canvas
+              Create First Whiteboard
             </button>
           </div>
         )}
