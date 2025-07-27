@@ -3,21 +3,30 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useSidebar } from "@/hooks/useSidebar";
+import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   SparklesIcon,
   RocketLaunchIcon,
   Square3Stack3DIcon,
   FolderIcon,
-  UserIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   Bars3Icon,
+  Cog6ToothIcon,
+  ArrowLeftStartOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 
 const Sidebar = () => {
   const pathname = usePathname();
   const { sidebarOpen, sidebarExpanded, setSidebarOpen, setSidebarExpanded } =
     useSidebar();
+
+  // Auto-collapse sidebar when on individual project page
+  useEffect(() => {
+    if (pathname?.match(/^\/dashboard\/projects\/[^/]+$/)) {
+      setSidebarExpanded(false);
+    }
+  }, [pathname, setSidebarExpanded]);
 
   const trigger = useRef<HTMLButtonElement | null>(null);
   const sidebar = useRef<HTMLElement | null>(null);
@@ -66,12 +75,6 @@ const Sidebar = () => {
       icon: Square3Stack3DIcon,
       label: "Whiteboards",
       active: pathname?.includes("whiteboards"),
-    },
-    {
-      href: "/dashboard/account",
-      icon: UserIcon,
-      label: "Account",
-      active: pathname?.includes("account"),
     },
   ];
 
@@ -262,8 +265,83 @@ const Sidebar = () => {
           </nav>
         </div>
 
-        {/* Footer Section */}
-        <div className="px-4 lg:px-6 pb-6">
+        {/* Account & System Section */}
+        <div className="px-4 lg:px-6 pb-6 space-y-4">
+          {/* Account Settings & Logout */}
+          <div className="space-y-2">
+            {/* Account Settings */}
+            <Link
+              href="/dashboard/account"
+              className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 ${
+                sidebarExpanded ? "" : "justify-center"
+              } ${
+                pathname?.includes("account")
+                  ? "bg-white/80 dark:bg-boxdark/80 text-primary dark:text-secondary border border-primary/20 dark:border-secondary/20 shadow-lg dark:shadow-2xl backdrop-blur-xl"
+                  : "text-body dark:text-bodydark hover:bg-white/50 dark:hover:bg-boxdark/50 hover:text-black dark:hover:text-white border border-transparent hover:border-stroke/30 dark:hover:border-strokedark/40 backdrop-blur-sm hover:scale-105"
+              }`}
+              title={!sidebarExpanded ? "Account Settings" : ""}
+            >
+              {/* Hover gradient effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+              <div className="relative flex items-center gap-4">
+                {/* Icon container */}
+                <div
+                  className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
+                    pathname?.includes("account")
+                      ? "bg-primary/10 dark:bg-secondary/20"
+                      : "bg-stroke/20 dark:bg-strokedark/30 group-hover:bg-primary/10 dark:group-hover:bg-secondary/20"
+                  }`}
+                >
+                  <Cog6ToothIcon
+                    className={`w-5 h-5 transition-colors duration-300 ${
+                      pathname?.includes("account")
+                        ? "text-primary dark:text-secondary"
+                        : "text-body dark:text-bodydark group-hover:text-primary dark:group-hover:text-secondary"
+                    }`}
+                  />
+                </div>
+
+                {/* Label */}
+                {sidebarExpanded && (
+                  <span className="relative font-medium">Account Settings</span>
+                )}
+              </div>
+
+              {/* Active indicator */}
+              {pathname?.includes("account") && (
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                  <div className="w-2 h-2 bg-primary dark:bg-secondary rounded-full animate-pulse"></div>
+                </div>
+              )}
+            </Link>
+
+            {/* Logout */}
+            <button
+              onClick={logout}
+              className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 w-full text-left ${
+                sidebarExpanded ? "" : "justify-center"
+              } text-body dark:text-bodydark hover:bg-red-50/50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 border border-transparent hover:border-red-200/30 dark:hover:border-red-800/40 backdrop-blur-sm hover:scale-105`}
+              title={!sidebarExpanded ? "Logout" : ""}
+            >
+              {/* Hover gradient effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-red-600/5 dark:from-red-500/10 dark:to-red-600/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+              <div className="relative flex items-center gap-4">
+                {/* Icon container */}
+                <div className="p-2 rounded-xl transition-all duration-300 group-hover:scale-110 bg-stroke/20 dark:bg-strokedark/30 group-hover:bg-red-100/50 dark:group-hover:bg-red-900/30">
+                  <ArrowLeftStartOnRectangleIcon className="w-5 h-5 transition-colors duration-300 text-body dark:text-bodydark group-hover:text-red-600 dark:group-hover:text-red-400" />
+                </div>
+
+                {/* Label */}
+                {sidebarExpanded && (
+                  <span className="relative font-medium">Logout</span>
+                )}
+              </div>
+            </button>
+          </div>
+
+          {/* Status Footer */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-white/60 to-gray-50/60 dark:from-boxdark/60 dark:to-meta-4/60 border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm">
             {sidebarExpanded ? (
               <div className="text-center">

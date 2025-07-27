@@ -6,7 +6,6 @@ import "./satoshi.css";
 import { useEffect, useState } from "react";
 import Loader from "../../components/dashboard/Loader";
 import Sidebar from "../../components/dashboard/Sidebar";
-import Header from "../../components/dashboard/Header";
 import RequireAuth from "./RequireAuth";
 import { SidebarProvider } from "@/hooks/useSidebar";
 // import WithPaywall from "./Paywall";
@@ -17,7 +16,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <Sidebar />
       {/* <!-- ===== Content Area Start ===== --> */}
       <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-300 ease-linear">
-        <Header />
+        {/* <Header /> */}
         <main className="flex-1 flex flex-col">
           <div className="transition-all duration-300 ease-linear max-w-none flex-1">
             {children}
