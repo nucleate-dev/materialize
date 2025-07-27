@@ -29,7 +29,7 @@ type ProjectChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ project_id: string; }>();
+  const params = useParams<{ project_id: string }>();
   const projectId = params?.project_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -157,7 +157,9 @@ export default function CreatePage() {
   const [mainAppCode, setMainAppCode] = useState(
     snackFiles[defaultFile]?.contents || ""
   );
-  const [pendingPlanExecution, setPendingPlanExecution] = useState<ChatMessage | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [pendingPlanExecution, setPendingPlanExecution] =
+    useState<ChatMessage | null>(null);
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   const handleSendMessage = async (content: string) => {
@@ -202,7 +204,7 @@ export default function CreatePage() {
       setMessages((prev) => [...prev, planningMessage]);
 
       // Check if the response contains an execution plan
-      if (planningData.content.includes('EXECUTION_PLAN')) {
+      if (planningData.content.includes("EXECUTION_PLAN")) {
         setPendingPlanExecution(planningMessage);
 
         // Phase 2: Get the execution response automatically
@@ -235,7 +237,6 @@ export default function CreatePage() {
         setMessages((prev) => [...prev, executionMessage]);
         setPendingPlanExecution(null);
       }
-
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -267,10 +268,8 @@ export default function CreatePage() {
     }
   };
 
-
-
   const handleExecutePlannedOperation = async (
-    operationId: string,
+    operationId: string
   ): Promise<void> => {
     console.log(`Executing planned operation ${operationId}`);
     // This is now handled automatically by the two-message flow
@@ -332,19 +331,21 @@ export default function CreatePage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setIsChatView(true)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  isChatView
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setIsChatView(false)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  !isChatView
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
               >
                 Code
               </button>

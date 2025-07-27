@@ -1,13 +1,18 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { ChevronRightIcon, ChevronDownIcon, DocumentIcon, FolderIcon, FolderOpenIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronRightIcon,
+  ChevronDownIcon,
+  FolderIcon,
+  FolderOpenIcon,
+} from "@heroicons/react/24/outline";
 import { SnackFiles } from "@/lib/types/chat";
 
 interface FileNode {
   name: string;
   path: string;
-  type: 'file' | 'folder';
+  type: "file" | "folder";
   children?: FileNode[];
   content?: string;
 }
@@ -18,41 +23,47 @@ interface FileTreeProps {
   onFileSelect: (filePath: string) => void;
 }
 
-const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }) => {
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([''])); // Root is expanded by default
+const FileTree: React.FC<FileTreeProps> = ({
+  files,
+  selectedFile,
+  onFileSelect,
+}) => {
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set([""])
+  ); // Root is expanded by default
 
   // Convert flat files object to tree structure
   const fileTree = useMemo(() => {
     const root: FileNode = {
-      name: '',
-      path: '',
-      type: 'folder',
-      children: []
+      name: "",
+      path: "",
+      type: "folder",
+      children: [],
     };
 
-    Object.keys(files).forEach(filePath => {
-      const parts = filePath.split('/');
+    Object.keys(files).forEach((filePath) => {
+      const parts = filePath.split("/");
       let currentNode = root;
 
       // Create folder structure
       for (let i = 0; i < parts.length - 1; i++) {
         const folderName = parts[i];
-        const folderPath = parts.slice(0, i + 1).join('/');
-        
+        const folderPath = parts.slice(0, i + 1).join("/");
+
         if (!currentNode.children) {
           currentNode.children = [];
         }
 
         let folderNode = currentNode.children.find(
-          child => child.name === folderName && child.type === 'folder'
+          (child) => child.name === folderName && child.type === "folder"
         );
 
         if (!folderNode) {
           folderNode = {
             name: folderName,
             path: folderPath,
-            type: 'folder',
-            children: []
+            type: "folder",
+            children: [],
           };
           currentNode.children.push(folderNode);
         }
@@ -69,8 +80,8 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
       currentNode.children.push({
         name: fileName,
         path: filePath,
-        type: 'file',
-        content: files[filePath].contents
+        type: "file",
+        content: files[filePath].contents,
       });
     });
 
@@ -79,7 +90,7 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
       if (node.children) {
         node.children.sort((a, b) => {
           if (a.type !== b.type) {
-            return a.type === 'folder' ? -1 : 1;
+            return a.type === "folder" ? -1 : 1;
           }
           return a.name.localeCompare(b.name);
         });
@@ -92,7 +103,7 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
   }, [files]);
 
   const toggleFolder = (folderPath: string) => {
-    setExpandedFolders(prev => {
+    setExpandedFolders((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(folderPath)) {
         newSet.delete(folderPath);
@@ -104,25 +115,25 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
   };
 
   const getFileIcon = (fileName: string) => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    
+    const ext = fileName.split(".").pop()?.toLowerCase();
+
     switch (ext) {
-      case 'js':
-      case 'jsx':
-        return '📄';
-      case 'ts':
-      case 'tsx':
-        return '🔷';
-      case 'json':
-        return '📋';
-      case 'md':
-        return '📝';
-      case 'css':
-        return '🎨';
-      case 'html':
-        return '🌐';
+      case "js":
+      case "jsx":
+        return "📄";
+      case "ts":
+      case "tsx":
+        return "🔷";
+      case "json":
+        return "📋";
+      case "md":
+        return "📝";
+      case "css":
+        return "🎨";
+      case "html":
+        return "🌐";
       default:
-        return '📄';
+        return "📄";
     }
   };
 
@@ -130,12 +141,12 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
     const isExpanded = expandedFolders.has(node.path);
     const isSelected = selectedFile === node.path;
 
-    if (node.type === 'folder') {
+    if (node.type === "folder") {
       return (
         <div key={node.path}>
           <div
             className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-              depth > 0 ? `ml-${depth * 4}` : ''
+              depth > 0 ? `ml-${depth * 4}` : ""
             }`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
             onClick={() => toggleFolder(node.path)}
@@ -156,7 +167,7 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
           </div>
           {isExpanded && node.children && (
             <div>
-              {node.children.map(child => renderNode(child, depth + 1))}
+              {node.children.map((child) => renderNode(child, depth + 1))}
             </div>
           )}
         </div>
@@ -166,17 +177,19 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
         <div
           key={node.path}
           className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-            isSelected ? 'bg-blue-100 dark:bg-blue-900' : ''
+            isSelected ? "bg-blue-100 dark:bg-blue-900" : ""
           }`}
           style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}
         >
           <span className="mr-2 text-sm">{getFileIcon(node.name)}</span>
-          <span className={`text-sm ${
-            isSelected 
-              ? 'text-blue-700 dark:text-blue-300 font-medium' 
-              : 'text-gray-700 dark:text-gray-300'
-          }`}>
+          <span
+            className={`text-sm ${
+              isSelected
+                ? "text-blue-700 dark:text-blue-300 font-medium"
+                : "text-gray-700 dark:text-gray-300"
+            }`}
+          >
             {node.name}
           </span>
         </div>
@@ -197,7 +210,7 @@ const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onFileSelect }
       <div className="flex-1 overflow-y-auto">
         {fileTree.length > 0 ? (
           <div className="py-2">
-            {fileTree.map(node => renderNode(node, 0))}
+            {fileTree.map((node) => renderNode(node, 0))}
           </div>
         ) : (
           <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">

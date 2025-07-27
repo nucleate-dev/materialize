@@ -1,12 +1,12 @@
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: Date;
 }
 
 export interface CodeBlock {
-  language: 'javascript' | 'typescript';
+  language: "javascript" | "typescript";
   code: string;
   fileName?: string;
 }
@@ -19,7 +19,7 @@ export interface CodeExtractionResult {
 
 export interface SnackFile {
   contents: string;
-  type: 'CODE';
+  type: "CODE" | "ASSET";
 }
 
 export interface SnackFiles {
@@ -44,7 +44,7 @@ export interface EditTarget {
 }
 
 export interface EditOperation {
-  type: 'replace' | 'insert' | 'delete' | 'move';
+  type: "replace" | "insert" | "delete" | "move";
   target: EditTarget;
   content?: string;
   description: string;
@@ -59,7 +59,7 @@ export interface EditOperationResult {
 
 // Tool use interface for AI responses
 export interface ToolCall {
-  type: 'edit_code';
+  type: "edit_code";
   operation: EditOperation;
 }
 
