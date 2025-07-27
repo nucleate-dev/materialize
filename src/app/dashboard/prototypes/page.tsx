@@ -205,7 +205,10 @@ export default function PrototypesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchPrototypes = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -226,11 +229,11 @@ export default function PrototypesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [setIsLoading, setPrototypes]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchPrototypes();
-  }, [user?.id]);
+  }, [fetchPrototypes]);
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
