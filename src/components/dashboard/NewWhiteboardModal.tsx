@@ -3,6 +3,11 @@
 import { supabase } from "@/GlobalConstants";
 import { User } from "@supabase/supabase-js";
 import { useState } from "react";
+import {
+  XMarkIcon,
+  SparklesIcon,
+  PaintBrushIcon,
+} from "@heroicons/react/24/outline";
 
 interface NewWhiteboardModalProps {
   open: boolean;
@@ -29,31 +34,34 @@ export default function NewWhiteboardModal({
     setTouched(true);
     if (!name.trim() || !user) return;
     setIsCreating(true);
+    
     try {
       const { data: canvas, error } = await supabase
         .from("canvases")
         .insert({
           owner_id: user.id,
           project_id: projectId || null,
-          name,
+          name: name.trim(),
           description,
           thumbnail_url:
             "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop&crop=center",
         })
         .select()
         .single();
+      
       if (error) {
         console.error("Error creating canvas:", error);
-        // TODO: Show error toast/notification
-        return;
+        throw error;
       }
-      if (canvas) {
-        onCreated();
-        onClose();
-      }
+
+      // Reset form
+      setName("");
+      setDescription("");
+      setTouched(false);
+      onCreated();
+      onClose();
     } catch (error) {
       console.error("Error creating canvas:", error);
-      // TODO: Show error toast/notification
     } finally {
       setIsCreating(false);
     }
@@ -62,107 +70,149 @@ export default function NewWhiteboardModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 w-full max-w-md relative animate-fadeInUp">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xl transition-all duration-300">
+      {/* Glassmorphism Modal Container */}
+      <div className="relative bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-black/20 border border-white/20 dark:border-strokedark/30 p-8 w-full max-w-lg mx-4 animate-fadeInUp overflow-hidden">
+        {/* Inner glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
+
+        {/* Animated Background Orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-10 -right-10 w-20 h-20 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-full blur-2xl animate-pulse"></div>
+          <div className="absolute -bottom-10 -left-10 w-16 h-16 bg-gradient-to-tr from-meta-5/10 to-meta-3/10 dark:from-meta-5/20 dark:to-meta-3/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        </div>
+
+        {/* Close Button */}
         <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors"
+          className="absolute top-6 right-6 p-2 rounded-xl bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110 z-50"
           onClick={onClose}
           aria-label="Close"
+          type="button"
         >
-          <svg
-            width="24"
-            height="24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+          <XMarkIcon className="w-5 h-5 text-body dark:text-bodydark hover:text-red-500 dark:hover:text-red-400 transition-colors duration-300" />
         </button>
-        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white text-center">
-          Create New Whiteboard
-        </h2>
-        <p className="mb-6 text-gray-500 dark:text-gray-300 text-center">
-          Give your whiteboard a name and description to get started.
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-5">
+
+        {/* Header Section */}
+        <div className="relative z-10 text-center mb-8">
+          <div className="flex items-center justify-center mb-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-5/10 rounded-full blur-2xl animate-pulse"></div>
+              <div className="relative p-4 bg-gradient-to-br from-primary to-secondary dark:from-primary dark:to-secondary rounded-2xl shadow-2xl shadow-primary/25 dark:shadow-primary/40 ring-1 ring-white/20 dark:ring-primary/30">
+                <PaintBrushIcon className="w-8 h-8 text-white drop-shadow-lg" />
+              </div>
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold mb-3 text-black dark:text-white">
+            Create New Whiteboard
+          </h2>
+          <p className="text-body dark:text-bodydark leading-relaxed">
+            Create your infinite canvas for prototyping and design ✨
+          </p>
+        </div>
+        
+        {/* Form Section */}
+        <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+            <label className="block text-sm font-semibold text-black dark:text-white mb-3">
               Whiteboard Name <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white ${touched && !name.trim() ? "border-red-500 ring-red-200" : ""}`}
-              placeholder="e.g. Marketing Plan"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              maxLength={64}
-            />
-            {touched && !name.trim() && (
-              <span className="text-xs text-red-500 mt-1 block">
-                Name is required.
-              </span>
-            )}
+            <div className="relative group">
+              {/* Enhanced Input Container */}
+              <div className="relative overflow-hidden rounded-2xl">
+                {/* Animated border gradient */}
+                <div
+                  className={`absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm ${
+                    touched && !name.trim()
+                      ? "bg-gradient-to-r from-red-500/30 to-red-600/30 opacity-100"
+                      : "bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                  }`}
+                ></div>
+                <div className="absolute inset-[1px] bg-white/90 dark:bg-boxdark/90 rounded-2xl"></div>
+
+                <input
+                  type="text"
+                  className="relative w-full px-6 py-4 text-lg font-medium bg-transparent text-black dark:text-white placeholder-body/60 dark:placeholder-bodydark/60 border-0 focus:outline-none focus:ring-0 transition-all duration-300"
+                  placeholder="e.g. Marketing Brainstorm ✨"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                  maxLength={64}
+                />
+              </div>
+              {touched && !name.trim() && (
+                <div className="mt-3 flex items-center gap-2 text-red-500 text-sm font-medium">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  <span>Whiteboard name is required</span>
+                </div>
+              )}
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+            <label className="block text-sm font-semibold text-black dark:text-white mb-3">
               Description
             </label>
-            <textarea
-              className="w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary transition-all bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white resize-none min-h-[60px]"
-              placeholder="Describe your canvas (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={256}
-            />
+            <div className="relative group">
+              {/* Enhanced Textarea Container */}
+              <div className="relative overflow-hidden rounded-2xl">
+                {/* Animated border gradient */}
+                <div className="absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"></div>
+                <div className="absolute inset-[1px] bg-white/90 dark:bg-boxdark/90 rounded-2xl"></div>
+
+                <textarea
+                  className="relative w-full px-6 py-4 text-lg font-medium bg-transparent text-black dark:text-white placeholder-body/60 dark:placeholder-bodydark/60 border-0 focus:outline-none focus:ring-0 transition-all duration-300 resize-none min-h-[80px]"
+                  placeholder="Describe your infinite canvas (optional)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={256}
+                />
+              </div>
+            </div>
           </div>
+
+          {/* Create Button */}
           <button
             type="submit"
             disabled={isCreating || !name.trim()}
-            className="w-full py-3 rounded-lg bg-primary text-white font-semibold shadow-md hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2"
+            className={`relative group w-full p-4 rounded-2xl transition-all duration-500 transform-gpu ${
+              name.trim() && !isCreating
+                ? "bg-gradient-to-r from-primary via-secondary to-meta-5 hover:from-primary/90 hover:via-secondary/90 hover:to-meta-5/90 text-white shadow-2xl shadow-primary/40 hover:shadow-primary/60 dark:shadow-primary/60 dark:hover:shadow-primary/80 scale-100 hover:scale-105 ring-2 ring-white/30 dark:ring-primary/30 hover:ring-white/50 dark:hover:ring-primary/50"
+                : "bg-stroke/50 dark:bg-strokedark/50 text-body/40 dark:text-bodydark/40 cursor-not-allowed scale-95"
+            }`}
           >
-            {isCreating && (
-              <svg
-                className="animate-spin h-5 w-5 mr-2 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
+            {/* Button glow effect */}
+            {name.trim() && !isCreating && (
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary/30 to-secondary/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             )}
-            {isCreating ? "Creating..." : "Create Canvas"}
+
+            <div className="relative flex items-center justify-center gap-3">
+              {isCreating ? (
+                <>
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="font-bold text-lg">Creating Canvas...</span>
+                </>
+              ) : (
+                <>
+                  <PaintBrushIcon className="w-6 h-6 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <span className="font-bold text-lg">Create Whiteboard</span>
+                </>
+              )}
+            </div>
           </button>
         </form>
       </div>
       <style jsx>{`
         .animate-fadeInUp {
-          animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         @keyframes fadeInUp {
           from {
             opacity: 0;
-            transform: translateY(40px);
+            transform: translateY(60px) scale(0.95);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
           }
         }
       `}</style>
