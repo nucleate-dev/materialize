@@ -275,7 +275,6 @@ export default function ChatWindow({
     if (isExecutionMessage) {
       return (
         <div className="text-slate-700 dark:text-slate-300">
-          <p className="font-medium">Ready to implement the planned changes.</p>
           {hasCodeBlocks && (
             <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm">
               <div className="flex items-center gap-2">
@@ -284,11 +283,6 @@ export default function ChatWindow({
                   Code ready to apply
                 </span>
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                {APPLY_CODE_IMMEDIATELY && (
-                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    (Auto-applied to preview)
-                  </span>
-                )}
               </div>
             </div>
           )}
@@ -328,11 +322,6 @@ export default function ChatWindow({
               <CodeBracketIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               <span className="font-medium">Code available</span>
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              {APPLY_CODE_IMMEDIATELY && (
-                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                  (Auto-applied to preview)
-                </span>
-              )}
             </div>
           </div>
         )}
@@ -364,15 +353,15 @@ export default function ChatWindow({
           {/* Message Bubble */}
           <div
             className={`relative p-5 rounded-2xl transition-all duration-200 ${isUser
-                ? "bg-blue-600 dark:bg-blue-700 text-white shadow-sm"
-                : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
+              ? "bg-blue-600 dark:bg-blue-700 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
               }`}
           >
             {/* Message bubble tail */}
             <div
               className={`absolute w-4 h-4 transform rotate-45 ${isUser
-                  ? "-right-2 top-6 bg-blue-600 dark:bg-blue-700"
-                  : "-left-2 top-6 bg-white dark:bg-slate-800 border-l border-t border-slate-200 dark:border-slate-700"
+                ? "-right-2 top-6 bg-blue-600 dark:bg-blue-700"
+                : "-left-2 top-6 bg-white dark:bg-slate-800 border-l border-t border-slate-200 dark:border-slate-700"
                 }`}
             ></div>
 
@@ -383,8 +372,8 @@ export default function ChatWindow({
                 <div className="mb-3">
                   <span
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isPlanningMessage
-                        ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
-                        : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
+                      ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
+                      : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
                       }`}
                   >
                     {isPlanningMessage
@@ -495,8 +484,8 @@ export default function ChatWindow({
               {/* Timestamp */}
               <div
                 className={`text-xs mt-3 font-medium ${isUser
-                    ? "text-white/70 dark:text-white/60"
-                    : "text-slate-500 dark:text-slate-400"
+                  ? "text-white/70 dark:text-white/60"
+                  : "text-slate-500 dark:text-slate-400"
                   }`}
               >
                 {message.timestamp.toLocaleTimeString([], {
@@ -644,8 +633,8 @@ export default function ChatWindow({
               type="submit"
               disabled={!inputValue.trim() || isLoading}
               className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${inputValue.trim()
-                  ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
-                  : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
+                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
+                : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
                 }`}
             >
               {/* Button inner glow */}
@@ -655,8 +644,8 @@ export default function ChatWindow({
 
               <PaperAirplaneIcon
                 className={`relative w-6 h-6 transition-transform duration-300 ${inputValue.trim()
-                    ? "hover:translate-x-0.5 hover:-translate-y-0.5"
-                    : ""
+                  ? "hover:translate-x-0.5 hover:-translate-y-0.5"
+                  : ""
                   }`}
               />
             </button>
