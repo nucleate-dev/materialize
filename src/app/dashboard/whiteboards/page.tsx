@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
 import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
+import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Database } from "@/lib/types/database.types";
@@ -138,36 +139,10 @@ export default function WhiteboardsPage() {
             />
           ))
         ) : (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
-              <svg
-                className="w-12 h-12 text-body dark:text-bodydark2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-              No whiteboards yet
-            </h3>
-            <p className="text-body dark:text-bodydark mb-6 max-w-md">
-              Create your first infinite canvas to start prototyping and
-              designing at the speed of thought.
-            </p>
-            <button
-              onClick={handleOpenModal}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-            >
-              Create First Whiteboard
-            </button>
-          </div>
+          <EmptyState
+            type="whiteboards"
+            onButtonClick={handleOpenModal}
+          />
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import NewProjectModal from "@/components/dashboard/NewProjectModal";
+import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -126,36 +127,10 @@ export default function ProjectsPage() {
               />
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
-                <svg
-                  className="w-12 h-12 text-body dark:text-bodydark2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-                No projects yet
-              </h3>
-              <p className="text-body dark:text-bodydark mb-6 max-w-md">
-                Create your first project to start prototyping your ideas at the
-                speed of thought.
-              </p>
-              <button
-                onClick={handleOpenModal}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-              >
-                Create First Project
-              </button>
-            </div>
+            <EmptyState
+              type="projects"
+              onButtonClick={handleOpenModal}
+            />
           )}
         </div>
       )}
