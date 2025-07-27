@@ -9,6 +9,7 @@ interface NewWhiteboardModalProps {
   onClose: () => void;
   user: User | null;
   onCreated: () => void;
+  projectId?: string;
 }
 
 export default function NewWhiteboardModal({
@@ -16,6 +17,7 @@ export default function NewWhiteboardModal({
   onClose,
   user,
   onCreated,
+  projectId,
 }: NewWhiteboardModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -32,6 +34,7 @@ export default function NewWhiteboardModal({
         .from("canvases")
         .insert({
           owner_id: user.id,
+          project_id: projectId || null,
           name,
           description,
           thumbnail_url:
