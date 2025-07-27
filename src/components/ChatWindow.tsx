@@ -499,13 +499,6 @@ export default function ChatWindow({
                     </button>
                   )}
 
-                  {/* Auto-Applied Indicator */}
-                  {APPLY_CODE_IMMEDIATELY && hasApplicableContent && (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 dark:from-green-600 dark:to-emerald-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-green-500/25 dark:shadow-green-600/40 ring-1 ring-white/20">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                      Code Auto-Applied
-                    </div>
-                  )}
                 </div>
               )}
 
