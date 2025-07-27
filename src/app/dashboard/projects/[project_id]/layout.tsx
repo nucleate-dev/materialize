@@ -8,7 +8,7 @@ export default function ProjectLayout({
   return (
     <div className="h-full flex flex-col">
       <ProjectsHeader />
-      <div className="flex-1 overflow-auto p-6">{children}</div>
+      <div className="flex-1 overflow-auto p-12">{children}</div>
     </div>
   );
 }

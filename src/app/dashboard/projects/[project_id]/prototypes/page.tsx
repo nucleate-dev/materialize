@@ -10,6 +10,7 @@ import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+type Project = Database["public"]["Tables"]["projects"]["Row"];
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -30,10 +31,11 @@ export default function ProjectPrototypesPage() {
   const router = useRouter();
   const projectId = params?.project_id as string;
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const fetchPrototypes = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!projectId) {
       setIsLoading(false);
       return;
@@ -41,28 +43,41 @@ export default function ProjectPrototypesPage() {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("prototypes")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("updated_at", { ascending: false });
+      // Fetch project details and prototypes in parallel
+      const [projectResult, prototypesResult] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("id", projectId)
+          .single(),
+        supabase
+          .from("prototypes")
+          .select("*")
+          .eq("project_id", projectId)
+          .order("updated_at", { ascending: false })
+      ]);
 
-      if (error) {
-        console.error("Error fetching prototypes:", error);
-        return;
+      if (projectResult.error) {
+        console.error("Error fetching project:", projectResult.error);
+      } else {
+        setProject(projectResult.data);
       }
 
-      setPrototypes(data || []);
+      if (prototypesResult.error) {
+        console.error("Error fetching prototypes:", prototypesResult.error);
+      } else {
+        setPrototypes(prototypesResult.data || []);
+      }
     } catch (error) {
-      console.error("Error fetching prototypes:", error);
+      console.error("Error fetching data:", error);
     } finally {
       setIsLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
-    fetchPrototypes();
-  }, [fetchPrototypes]);
+    fetchData();
+  }, [fetchData]);
 
   const handlePrototypeClick = (prototypeId: string) => {
     router.push(`/dashboard/prototypes/${prototypeId}`);
@@ -72,7 +87,7 @@ export default function ProjectPrototypesPage() {
   const handleCloseModal = () => setModalOpen(false);
 
   const handlePrototypeCreated = (prototypeId: string) => {
-    fetchPrototypes(); // Refetch prototypes after creation
+    fetchData(); // Refetch data after creation
     router.push(`/dashboard/prototypes/${prototypeId}`);
   };
 
@@ -87,6 +102,16 @@ export default function ProjectPrototypesPage() {
   if (prototypes.length === 0) {
     return (
       <>
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+            Prototypes for {project?.name || "Project"}
+          </h1>
+          <p className="text-body dark:text-bodydark">
+            Manage and organize prototypes within this project
+          </p>
+        </div>
+
         <EmptyState
           type="prototypes"
           title="This project has no prototypes"
@@ -109,6 +134,44 @@ export default function ProjectPrototypesPage() {
 
   return (
     <>
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+              Prototypes for {project?.name || "Project"}
+            </h1>
+            <p className="text-body dark:text-bodydark">
+              Manage and organize prototypes within this project
+            </p>
+          </div>
+
+          {/* New Prototype Button */}
+          <button
+            onClick={handleOpenModal}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
+          >
+            <svg
+              className="fill-current"
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 4V16M4 10H16"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            New Prototype
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {prototypes.map((prototype) => (
           <ProjectThumbnail

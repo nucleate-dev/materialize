@@ -10,6 +10,7 @@ import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 
 type Canvas = Database["public"]["Tables"]["canvases"]["Row"];
+type Project = Database["public"]["Tables"]["projects"]["Row"];
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -30,10 +31,11 @@ export default function ProjectWhiteboardsPage() {
   const router = useRouter();
   const projectId = params?.project_id as string;
   const [canvases, setCanvases] = useState<Canvas[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const fetchCanvases = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!projectId) {
       setIsLoading(false);
       return;
@@ -41,28 +43,41 @@ export default function ProjectWhiteboardsPage() {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("canvases")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("updated_at", { ascending: false });
+      // Fetch project details and canvases in parallel
+      const [projectResult, canvasesResult] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("*")
+          .eq("id", projectId)
+          .single(),
+        supabase
+          .from("canvases")
+          .select("*")
+          .eq("project_id", projectId)
+          .order("updated_at", { ascending: false })
+      ]);
 
-      if (error) {
-        console.error("Error fetching canvases:", error);
-        return;
+      if (projectResult.error) {
+        console.error("Error fetching project:", projectResult.error);
+      } else {
+        setProject(projectResult.data);
       }
 
-      setCanvases(data || []);
+      if (canvasesResult.error) {
+        console.error("Error fetching canvases:", canvasesResult.error);
+      } else {
+        setCanvases(canvasesResult.data || []);
+      }
     } catch (error) {
-      console.error("Error fetching canvases:", error);
+      console.error("Error fetching data:", error);
     } finally {
       setIsLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
-    fetchCanvases();
-  }, [fetchCanvases]);
+    fetchData();
+  }, [fetchData]);
 
   const handleCanvasClick = (canvasId: string) => {
     router.push(`/canvas/${canvasId}`);
@@ -72,7 +87,7 @@ export default function ProjectWhiteboardsPage() {
   const handleCloseModal = () => setModalOpen(false);
 
   const handleCanvasCreated = () => {
-    fetchCanvases(); // Refetch canvases after creation
+    fetchData(); // Refetch data after creation
   };
 
   if (isLoading) {
@@ -86,6 +101,16 @@ export default function ProjectWhiteboardsPage() {
   if (canvases.length === 0) {
     return (
       <>
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+            Whiteboards for {project?.name || "Project"}
+          </h1>
+          <p className="text-body dark:text-bodydark">
+            Manage and organize whiteboards within this project
+          </p>
+        </div>
+
         <EmptyState
           type="whiteboards"
           title="This project has no whiteboards"
@@ -108,6 +133,44 @@ export default function ProjectWhiteboardsPage() {
 
   return (
     <>
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+              Whiteboards for {project?.name || "Project"}
+            </h1>
+            <p className="text-body dark:text-bodydark">
+              Manage and organize whiteboards within this project
+            </p>
+          </div>
+
+          {/* New Whiteboard Button */}
+          <button
+            onClick={handleOpenModal}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
+          >
+            <svg
+              className="fill-current"
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 4V16M4 10H16"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            New Whiteboard
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {canvases.map((canvas) => (
           <ProjectThumbnail
