@@ -14,22 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      canvas_documents: {
+        Row: {
+          canvas_id: string | null
+          created_at: string | null
+          document_data: Json
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          canvas_id?: string | null
+          created_at?: string | null
+          document_data: Json
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          canvas_id?: string | null
+          created_at?: string | null
+          document_data?: Json
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_documents_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canvas_sessions: {
         Row: {
           canvas_id: string
-          last_accessed: string | null
+          last_accessed: string
           session_data: Json
           user_id: string
         }
         Insert: {
           canvas_id: string
-          last_accessed?: string | null
+          last_accessed?: string
           session_data: Json
           user_id: string
         }
         Update: {
           canvas_id?: string
-          last_accessed?: string | null
+          last_accessed?: string
           session_data?: Json
           user_id?: string
         }
@@ -54,35 +86,35 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
-          document_data: Json | null
           id: string
-          is_public: boolean | null
           name: string
-          owner_id: string | null
+          owner_id: string
+          project_id: string | null
           thumbnail_url: string | null
           updated_at: string | null
+          visibility: Database["public"]["Enums"]["visibility_level"] | null
         }
         Insert: {
           created_at?: string | null
           description?: string | null
-          document_data?: Json | null
           id?: string
-          is_public?: boolean | null
           name?: string
-          owner_id?: string | null
+          owner_id: string
+          project_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
         Update: {
           created_at?: string | null
           description?: string | null
-          document_data?: Json | null
           id?: string
-          is_public?: boolean | null
           name?: string
-          owner_id?: string | null
+          owner_id?: string
+          project_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
         }
         Relationships: [
           {
@@ -90,6 +122,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -145,91 +184,9 @@ export type Database = {
           },
         ]
       }
-      project_chat_messages: {
-        Row: {
-          chat_session_id: string | null
-          content: string
-          created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["chat_role"]
-          user_id: string | null
-        }
-        Insert: {
-          chat_session_id?: string | null
-          content: string
-          created_at?: string | null
-          id?: string
-          role: Database["public"]["Enums"]["chat_role"]
-          user_id?: string | null
-        }
-        Update: {
-          chat_session_id?: string | null
-          content?: string
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["chat_role"]
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_chat_messages_chat_session_id_fkey"
-            columns: ["chat_session_id"]
-            isOneToOne: false
-            referencedRelation: "project_chat_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_chat_messages_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_chat_sessions: {
-        Row: {
-          chat_context: Json | null
-          created_at: string | null
-          id: string
-          project_id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          chat_context?: Json | null
-          created_at?: string | null
-          id?: string
-          project_id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          chat_context?: Json | null
-          created_at?: string | null
-          id?: string
-          project_id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_chat_sessions_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_chat_sessions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       projects: {
         Row: {
           created_at: string | null
-          creator_id: string | null
           description: string | null
           id: string
           name: string
@@ -241,7 +198,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          creator_id?: string | null
           description?: string | null
           id?: string
           name?: string
@@ -253,7 +209,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          creator_id?: string | null
           description?: string | null
           id?: string
           name?: string
@@ -265,17 +220,135 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "projects_creator_id_fkey"
-            columns: ["creator_id"]
+            foreignKeyName: "projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prototype_chat_messages: {
+        Row: {
+          chat_session_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["chat_role"]
+        }
+        Insert: {
+          chat_session_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["chat_role"]
+        }
+        Update: {
+          chat_session_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["chat_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_chat_messages_chat_session_id_fkey"
+            columns: ["chat_session_id"]
+            isOneToOne: false
+            referencedRelation: "prototype_chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prototype_chat_sessions: {
+        Row: {
+          chat_context: Json | null
+          created_at: string | null
+          id: string
+          prototype_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          chat_context?: Json | null
+          created_at?: string | null
+          id?: string
+          prototype_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          chat_context?: Json | null
+          created_at?: string | null
+          id?: string
+          prototype_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_chat_sessions_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prototype_chat_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prototypes: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          owner_id: string | null
+          project_id: string | null
+          prototype_context: Json | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          visibility: Database["public"]["Enums"]["visibility_level"] | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          project_id?: string | null
+          prototype_context?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          project_id?: string | null
+          prototype_context?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototypes_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "projects_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: "prototypes_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

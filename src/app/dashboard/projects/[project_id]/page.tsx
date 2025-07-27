@@ -16,7 +16,7 @@ import {
 } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { updateSnackFiles, extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
+import { extractCodeFromMessage, updateSnackFiles } from "@/lib/utils/code/codeExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -238,7 +238,6 @@ export default function CreatePage() {
           handleApplyCode(codeResult);
         }
       }
-
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -269,10 +268,8 @@ export default function CreatePage() {
     }
   };
 
-
-
   const handleExecutePlannedOperation = async (
-    operationId: string,
+    operationId: string
   ): Promise<void> => {
     console.log(`Executing planned operation ${operationId}`);
     // This is now handled automatically by the two-message flow
@@ -335,8 +332,8 @@ export default function CreatePage() {
               <button
                 onClick={() => setIsChatView(true)}
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
               >
                 Chat
@@ -344,8 +341,8 @@ export default function CreatePage() {
               <button
                 onClick={() => setIsChatView(false)}
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
               >
                 Code

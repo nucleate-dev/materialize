@@ -4,6 +4,7 @@ import { APPLY_CODE_IMMEDIATELY } from "@/GlobalConstants";
 import {
   ChatMessage,
   CodeExtractionResult,
+  EditOperation,
 } from "@/lib/types/chat";
 import { extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
 import {
@@ -26,7 +27,10 @@ interface ChatWindowProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   onApplyCode: (result: CodeExtractionResult) => void;
-  onExecutePlannedOperation: (operationId: string, operations: any[]) => Promise<void>;
+  onExecutePlannedOperation: (
+    operationId: string,
+    operations: EditOperation[]
+  ) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -57,13 +61,13 @@ export default function ChatWindow({
         return "from-gray-500 to-gray-600";
     }
   };
-  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(
-    new Set()
-  );
-  const [planningData, setPlanningData] = useState<Map<string, PlanningExtractionResult>>(
-    new Map()
-  );
-  const [currentExecutingOperation, setCurrentExecutingOperation] = useState<string | null>(null);
+  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
+  const [planningData, setPlanningData] = useState<
+    Map<string, PlanningExtractionResult>
+  >(new Map());
+  const [currentExecutingOperation, setCurrentExecutingOperation] = useState<
+    string | null
+  >(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -158,9 +162,9 @@ export default function ChatWindow({
   };
 
   const handleExecutePlannedStep = async (operationId: string) => {
-    const message = messages.find(msg => {
+    const message = messages.find((msg) => {
       const planData = planningData.get(msg.id);
-      return planData?.operations.some(op => op.id === operationId);
+      return planData?.operations.some((op) => op.id === operationId);
     });
 
     if (!message) return;
@@ -169,7 +173,7 @@ export default function ChatWindow({
     if (!planData) return;
 
     // Find the operation
-    const operation = planData.operations.find(op => op.id === operationId);
+    const operation = planData.operations.find((op) => op.id === operationId);
     if (!operation) return;
 
     // Get execution steps for this operation
@@ -183,14 +187,19 @@ export default function ChatWindow({
 
     try {
       // Update operation status to in_progress
-      setPlanningData(prev => {
+      setPlanningData((prev) => {
         const newMap = new Map(prev);
         const messageData = newMap.get(message.id);
         if (messageData) {
-          const updatedOperations = messageData.operations.map(op =>
-            op.id === operationId ? { ...op, status: "in_progress" as const } : op
+          const updatedOperations = messageData.operations.map((op) =>
+            op.id === operationId
+              ? { ...op, status: "in_progress" as const }
+              : op
           );
-          newMap.set(message.id, { ...messageData, operations: updatedOperations });
+          newMap.set(message.id, {
+            ...messageData,
+            operations: updatedOperations,
+          });
         }
         return newMap;
       });
@@ -199,37 +208,47 @@ export default function ChatWindow({
       await onExecutePlannedOperation(operationId, stepOperations);
 
       // Update operation status to completed
-      setPlanningData(prev => {
+      setPlanningData((prev) => {
         const newMap = new Map(prev);
         const messageData = newMap.get(message.id);
         if (messageData) {
-          const updatedOperations = messageData.operations.map(op =>
+          const updatedOperations = messageData.operations.map((op) =>
             op.id === operationId ? { ...op, status: "completed" as const } : op
           );
-          newMap.set(message.id, { ...messageData, operations: updatedOperations });
+          newMap.set(message.id, {
+            ...messageData,
+            operations: updatedOperations,
+          });
         }
         return newMap;
       });
 
       // Show a success message based on operation type
-      console.log(`✅ ${operation.type === "create" ? "Created" : operation.type === "modify" ? "Updated" : operation.type === "delete" ? "Deleted" : "Moved"} ${operation.filePath}`);
-
+      console.log(
+        `✅ ${operation.type === "create" ? "Created" : operation.type === "modify" ? "Updated" : operation.type === "delete" ? "Deleted" : "Moved"} ${operation.filePath}`
+      );
     } catch (error) {
       console.error(`Error executing operation ${operationId}:`, error);
 
       // Update operation status to error
-      setPlanningData(prev => {
+      setPlanningData((prev) => {
         const newMap = new Map(prev);
         const messageData = newMap.get(message.id);
         if (messageData) {
-          const updatedOperations = messageData.operations.map(op =>
-            op.id === operationId ? {
-              ...op,
-              status: "error" as const,
-              error: error instanceof Error ? error.message : "Unknown error"
-            } : op
+          const updatedOperations = messageData.operations.map((op) =>
+            op.id === operationId
+              ? {
+                ...op,
+                status: "error" as const,
+                error:
+                  error instanceof Error ? error.message : "Unknown error",
+              }
+              : op
           );
-          newMap.set(message.id, { ...messageData, operations: updatedOperations });
+          newMap.set(message.id, {
+            ...messageData,
+            operations: updatedOperations,
+          });
         }
         return newMap;
       });
@@ -238,16 +257,14 @@ export default function ChatWindow({
     }
   };
 
-  const renderMessageContent = (
-    message: ChatMessage
-  ) => {
+  const renderMessageContent = (message: ChatMessage) => {
     const messageContent = message.content;
     const isCodeVisible = expandedCodeBlocks.has(message.id);
     const hasCodeBlocks = messageContent.includes("```");
 
     // Determine message type
-    const isPlanningMessage = message.content.includes('EXECUTION_PLAN');
-    const isExecutionMessage = message.content.includes('EXECUTION_STEP');
+    const isPlanningMessage = message.content.includes("EXECUTION_PLAN");
+    const isExecutionMessage = message.content.includes("EXECUTION_STEP");
 
     // For planning messages, don't show any content - the plan UI handles everything
     if (isPlanningMessage) {
@@ -263,7 +280,9 @@ export default function ChatWindow({
             <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700/30 rounded-xl text-sm">
               <div className="flex items-center gap-2">
                 <CodeBracketIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="font-medium text-green-800 dark:text-green-200">Code ready to apply</span>
+                <span className="font-medium text-green-800 dark:text-green-200">
+                  Code ready to apply
+                </span>
                 <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-pulse"></div>
                 {APPLY_CODE_IMMEDIATELY && (
                   <span className="text-xs text-green-600 dark:text-green-400 font-medium">
@@ -331,8 +350,10 @@ export default function ChatWindow({
     const hasApplicableContent = codeResult.hasCode;
 
     // Determine message type
-    const isPlanningMessage = !isUser && message.content.includes('EXECUTION_PLAN');
-    const isExecutionMessage = !isUser && message.content.includes('EXECUTION_STEP');
+    const isPlanningMessage =
+      !isUser && message.content.includes("EXECUTION_PLAN");
+    const isExecutionMessage =
+      !isUser && message.content.includes("EXECUTION_STEP");
 
     return (
       <div
@@ -343,19 +364,19 @@ export default function ChatWindow({
           {/* Message Bubble */}
           <div
             className={`relative p-5 rounded-3xl transition-all duration-300 hover:scale-[1.02] transform-gpu ${isUser
-              ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-xl shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30"
-              : isPlanningMessage
-                ? "bg-gradient-to-br from-blue-50/95 via-indigo-50/95 to-blue-100/95 dark:from-blue-900/95 dark:via-indigo-900/95 dark:to-blue-800/95 text-slate-900 dark:text-slate-100 border border-blue-200/70 dark:border-blue-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
-                : isExecutionMessage
-                  ? "bg-gradient-to-br from-green-50/95 via-emerald-50/95 to-green-100/95 dark:from-green-900/95 dark:via-emerald-900/95 dark:to-green-800/95 text-slate-900 dark:text-slate-100 border border-green-200/70 dark:border-green-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
-                  : "bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:bg-white dark:hover:bg-slate-700/95 hover:shadow-xl dark:hover:shadow-slate-900/50"
+                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-xl shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30"
+                : isPlanningMessage
+                  ? "bg-gradient-to-br from-blue-50/95 via-indigo-50/95 to-blue-100/95 dark:from-blue-900/95 dark:via-indigo-900/95 dark:to-blue-800/95 text-slate-900 dark:text-slate-100 border border-blue-200/70 dark:border-blue-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
+                  : isExecutionMessage
+                    ? "bg-gradient-to-br from-green-50/95 via-emerald-50/95 to-green-100/95 dark:from-green-900/95 dark:via-emerald-900/95 dark:to-green-800/95 text-slate-900 dark:text-slate-100 border border-green-200/70 dark:border-green-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
+                    : "bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:bg-white dark:hover:bg-slate-700/95 hover:shadow-xl dark:hover:shadow-slate-900/50"
               }`}
           >
             {/* Message bubble tail */}
             <div
               className={`absolute w-4 h-4 transform rotate-45 ${isUser
-                ? "-right-2 top-6 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
-                : "-left-2 top-6 bg-white/95 dark:bg-slate-800/95 border-l border-t border-slate-200/50 dark:border-slate-600/30"
+                  ? "-right-2 top-6 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
+                  : "-left-2 top-6 bg-white/95 dark:bg-slate-800/95 border-l border-t border-slate-200/50 dark:border-slate-600/30"
                 }`}
             ></div>
 
@@ -368,11 +389,15 @@ export default function ChatWindow({
               {/* Message Type Badge */}
               {!isUser && (isPlanningMessage || isExecutionMessage) && (
                 <div className="mb-3">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isPlanningMessage
-                    ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
-                    : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
-                    }`}>
-                    {isPlanningMessage ? "📋 Planning Phase" : "⚡ Code Implementation"}
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isPlanningMessage
+                        ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
+                        : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
+                      }`}
+                  >
+                    {isPlanningMessage
+                      ? "📋 Planning Phase"
+                      : "⚡ Code Implementation"}
                   </span>
                 </div>
               )}
@@ -390,7 +415,9 @@ export default function ChatWindow({
                           📋 This is the plan:
                         </h4>
                         <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                          {planData.operations.length} step{planData.operations.length !== 1 ? 's' : ''} planned for execution
+                          {planData.operations.length} step
+                          {planData.operations.length !== 1 ? "s" : ""} planned
+                          for execution
                         </p>
                       </div>
                     </div>
@@ -398,8 +425,13 @@ export default function ChatWindow({
                     {/* Compact plan overview */}
                     <div className="space-y-2">
                       {planData.operations.map((operation, index) => (
-                        <div key={operation.id} className="flex items-center gap-3 text-sm">
-                          <div className={`w-6 h-6 rounded-full bg-gradient-to-r ${getOperationColor(operation.type)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                        <div
+                          key={operation.id}
+                          className="flex items-center gap-3 text-sm"
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full bg-gradient-to-r ${getOperationColor(operation.type)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}
+                          >
                             {index + 1}
                           </div>
                           <div className="flex-1">
@@ -480,8 +512,8 @@ export default function ChatWindow({
               {/* Timestamp */}
               <div
                 className={`text-xs mt-3 font-medium ${isUser
-                  ? "text-white/70 dark:text-white/60"
-                  : "text-slate-500 dark:text-slate-400"
+                    ? "text-white/70 dark:text-white/60"
+                    : "text-slate-500 dark:text-slate-400"
                   }`}
               >
                 {message.timestamp.toLocaleTimeString([], {
@@ -519,7 +551,6 @@ export default function ChatWindow({
               </p>
             </div>
           </div>
-
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -541,12 +572,14 @@ export default function ChatWindow({
               👋 Welcome to your AI Assistant!
             </h3>
             <p className="text-lg text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto leading-relaxed">
-              Ask me to create React Native components, screens, or modify existing code.
+              Ask me to create React Native components, screens, or modify
+              existing code.
             </p>
             <div className="space-y-3 max-w-lg mx-auto">
               <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-700/50 rounded-2xl border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-sm">
                 <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                  💡 Try: "Create a todo list component" or "Add a red background to the view"
+                  💡 Try: "Create a todo list component" or "Add a red
+                  background to the view"
                 </p>
               </div>
             </div>
@@ -628,8 +661,8 @@ export default function ChatWindow({
               type="submit"
               disabled={!inputValue.trim() || isLoading}
               className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${inputValue.trim()
-                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
-                : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
+                  ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
+                  : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
                 }`}
             >
               {/* Button inner glow */}
@@ -639,8 +672,8 @@ export default function ChatWindow({
 
               <PaperAirplaneIcon
                 className={`relative w-6 h-6 transition-transform duration-300 ${inputValue.trim()
-                  ? "hover:translate-x-0.5 hover:-translate-y-0.5"
-                  : ""
+                    ? "hover:translate-x-0.5 hover:-translate-y-0.5"
+                    : ""
                   }`}
               />
             </button>
