@@ -49,10 +49,10 @@ const Sidebar = () => {
 
   const menuItems = [
     {
-      href: "/dashboard/projects",
+      href: "/dashboard/prototypes",
       icon: RocketLaunchIcon,
-      label: "Projects",
-      active: pathname?.includes("projects"),
+      label: "Prototypes",
+      active: pathname?.includes("prototypes"),
     },
     {
       href: "/dashboard/whiteboards",
