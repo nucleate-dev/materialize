@@ -191,7 +191,7 @@ export default function CreatePage() {
 
       const planningData = await planningResponse.json();
       console.log("Planning data:", planningData);
-      
+
       const planningMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -200,11 +200,11 @@ export default function CreatePage() {
       };
 
       setMessages((prev) => [...prev, planningMessage]);
-      
+
       // Check if the response contains an execution plan
       if (planningData.content.includes('EXECUTION_PLAN')) {
         setPendingPlanExecution(planningMessage);
-        
+
         // Phase 2: Get the execution response automatically
         const executionResponse = await fetch("/api/chat", {
           method: "POST",
@@ -224,7 +224,7 @@ export default function CreatePage() {
 
         const executionData = await executionResponse.json();
         console.log("Execution data:", executionData);
-        
+
         const executionMessage: ChatMessage = {
           id: (Date.now() + 2).toString(),
           role: "assistant",
@@ -235,7 +235,7 @@ export default function CreatePage() {
         setMessages((prev) => [...prev, executionMessage]);
         setPendingPlanExecution(null);
       }
-      
+
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -271,7 +271,6 @@ export default function CreatePage() {
 
   const handleExecutePlannedOperation = async (
     operationId: string,
-    operations: any[]
   ): Promise<void> => {
     console.log(`Executing planned operation ${operationId}`);
     // This is now handled automatically by the two-message flow

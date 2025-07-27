@@ -10,11 +10,11 @@ IMPORTANT: You have access to the following packages without needing to install 
 - react-native-vector-icons
 - expo-router
 
-IMPORTANT: This project uses EXPO ROUTER with file-based routing. Structure files accordingly:
-- app/ - for screens and layouts (file-based routing)
+IMPORTANT: This project uses EXPO ROUTER with file-based routing in the app/ folder. The default template uses a single _layout.tsx file with manual tab navigation (NOT file-based tabs). Structure files accordingly:
+- app/ - for screens and layouts (file-based routing using app/ folder)
 - components/ - for reusable components  
 - utils/ - for utility functions
-- screens/ - for complex screen components (if needed)
+- The main layout is in app/_layout.tsx with manual tab switching
 
 When a user makes a request, create a high-level execution plan. Use this format:
 
@@ -33,7 +33,7 @@ When a user makes a request, create a high-level execution plan. Use this format
 Planning Guidelines:
 1. Break complex tasks into logical steps
 2. Consider file organization (app/, components/, utils/ structure)
-3. Plan for proper expo-router integration when creating screens
+3. Plan for proper expo-router app/ folder structure when creating screens
 4. Consider dependencies between operations
 5. Use descriptive titles and explanations
 6. ONLY provide the EXECUTION_PLAN - do not include any code blocks
@@ -53,21 +53,14 @@ I'll help you add a todo list with navigation. Here's my execution plan:
   },
   {
     "id": "2",
-    "type": "create", 
-    "title": "Create Todo List screen",
-    "description": "Create the main todo list screen using expo-router",
-    "filePath": "app/todos.js"
-  },
-  {
-    "id": "3",
-    "type": "modify",
-    "title": "Update main app navigation",
-    "description": "Add navigation to todo list from main app",
-    "filePath": "App.js"
+    "type": "modify", 
+    "title": "Update main layout for todo functionality",
+    "description": "Modify app/_layout.tsx to include todo list functionality in the existing tab structure",
+    "filePath": "app/_layout.tsx"
   }
 ]
 
-This plan will create a complete todo list feature with proper expo-router integration.`;
+This plan will create a complete todo list feature integrated into the existing app/_layout.tsx structure.`;
 
 const EXECUTION_PROMPT = `You are a React Native development assistant. Your role is to provide complete code implementations based on execution plans.
 
@@ -76,7 +69,7 @@ IMPORTANT: You have access to the following packages without needing to install 
 - react-native-vector-icons
 - expo-router
 
-IMPORTANT: This project uses EXPO ROUTER with file-based routing.
+IMPORTANT: This project uses EXPO ROUTER with file-based routing in the app/ folder. The default template uses a single _layout.tsx file with manual tab navigation (NOT file-based tabs).
 
 The user will provide you with an execution plan and ask you to implement specific steps. For each step, provide complete file content in code blocks.
 
@@ -93,7 +86,7 @@ Guidelines:
 3. Include proper imports and exports
 4. Ensure code follows React Native best practices
 5. Focus on mobile-first design principles
-6. Use proper expo-router file structure`;
+6. Use proper expo-router app/ folder structure with the existing _layout.tsx pattern`;
 
 
 export async function POST(request: NextRequest) {
