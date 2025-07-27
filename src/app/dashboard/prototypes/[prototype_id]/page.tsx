@@ -16,7 +16,10 @@ import {
 } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { extractCodeFromMessage, updateSnackFiles } from "@/lib/utils/code/codeExtractor";
+import {
+  extractCodeFromMessage,
+  updateSnackFiles,
+} from "@/lib/utils/code/codeExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -29,8 +32,8 @@ type PrototypeChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ project_id: string; }>();
-  const projectId = params?.project_id;
+  const params = useParams<{ prototype_id: string }>();
+  const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -53,12 +56,12 @@ export default function CreatePage() {
   // Fetch project data
   useEffect(() => {
     async function fetchPrototype() {
-      if (!projectId) return;
+      if (!prototypeId) return;
 
       const { data, error } = await supabase
         .from("prototypes")
         .select("*")
-        .eq("id", projectId)
+        .eq("id", prototypeId)
         .single();
 
       if (error) {
@@ -71,13 +74,13 @@ export default function CreatePage() {
     }
 
     async function fetchPrototypeChatSessionAndMessages() {
-      if (!projectId || !user?.id) return;
+      if (!prototypeId || !user?.id) return;
 
       // fetch or create project chat session
       const { data, error } = await supabase
         .from("prototype_chat_sessions")
         .select("*")
-        .eq("prototype_id", projectId)
+        .eq("prototype_id", prototypeId)
         .eq("user_id", user.id)
         .maybeSingle();
       if (error) {
@@ -90,7 +93,7 @@ export default function CreatePage() {
         // No session found, create one
         const { data: newSession, error: createError } = await supabase
           .from("prototype_chat_sessions")
-          .insert({ prototype_id: projectId, user_id: user.id })
+          .insert({ prototype_id: prototypeId, user_id: user.id })
           .select()
           .single();
         if (createError) {
@@ -122,12 +125,12 @@ export default function CreatePage() {
       console.log("Fetched chat messages:", messagesData);
     }
 
-    if (projectId && user?.id) {
+    if (prototypeId && user?.id) {
       fetchPrototype();
       fetchPrototypeChatSessionAndMessages();
     }
   }, [
-    projectId,
+    prototypeId,
     user,
     setPrototype,
     setPrototypeChatSession,
@@ -209,8 +212,7 @@ export default function CreatePage() {
       setMessages((prev) => [...prev, planningMessage]);
 
       // Check if the response contains an execution plan
-      if (planningData.content.includes('EXECUTION_PLAN')) {
-
+      if (planningData.content.includes("EXECUTION_PLAN")) {
         // Phase 2: Get the execution response automatically
         const executionResponse = await fetch("/api/chat", {
           method: "POST",
@@ -322,7 +324,7 @@ export default function CreatePage() {
     }
   };
 
-  if (!projectId || userIsLoading) {
+  if (!prototypeId || userIsLoading) {
     return <Loader />;
   }
 
@@ -339,19 +341,21 @@ export default function CreatePage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setIsChatView(true)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  isChatView
                     ? "bg-blue-600 text-white"
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                }`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setIsChatView(false)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  !isChatView
                     ? "bg-blue-600 text-white"
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                }`}
               >
                 Code
               </button>
