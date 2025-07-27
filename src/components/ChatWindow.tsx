@@ -275,20 +275,14 @@ export default function ChatWindow({
     if (isExecutionMessage) {
       return (
         <div className="text-slate-700 dark:text-slate-300">
-          <p className="font-medium">Ready to implement the planned changes.</p>
           {hasCodeBlocks && (
-            <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700/30 rounded-xl text-sm">
+            <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm">
               <div className="flex items-center gap-2">
                 <CodeBracketIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
                 <span className="font-medium text-green-800 dark:text-green-200">
                   Code ready to apply
                 </span>
-                <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-pulse"></div>
-                {APPLY_CODE_IMMEDIATELY && (
-                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    (Auto-applied to preview)
-                  </span>
-                )}
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
             </div>
           )}
@@ -323,16 +317,11 @@ export default function ChatWindow({
           {textBeforeCode}
         </div>
         {parts.length > 1 && (
-          <div className="mt-3 p-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-700/50 border border-slate-200 dark:border-slate-600/30 rounded-xl text-sm text-slate-600 dark:text-slate-300 backdrop-blur-sm">
+          <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-2">
               <CodeBracketIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               <span className="font-medium">Code available</span>
-              <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
-              {APPLY_CODE_IMMEDIATELY && (
-                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                  (Auto-applied to preview)
-                </span>
-              )}
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
             </div>
           </div>
         )}
@@ -363,27 +352,19 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`relative p-5 rounded-3xl transition-all duration-300 hover:scale-[1.02] transform-gpu ${isUser
-                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-xl shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30"
-                : isPlanningMessage
-                  ? "bg-gradient-to-br from-blue-50/95 via-indigo-50/95 to-blue-100/95 dark:from-blue-900/95 dark:via-indigo-900/95 dark:to-blue-800/95 text-slate-900 dark:text-slate-100 border border-blue-200/70 dark:border-blue-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
-                  : isExecutionMessage
-                    ? "bg-gradient-to-br from-green-50/95 via-emerald-50/95 to-green-100/95 dark:from-green-900/95 dark:via-emerald-900/95 dark:to-green-800/95 text-slate-900 dark:text-slate-100 border border-green-200/70 dark:border-green-700/50 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50"
-                    : "bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border border-slate-200/50 dark:border-slate-600/30 backdrop-blur-xl shadow-lg dark:shadow-2xl hover:bg-white dark:hover:bg-slate-700/95 hover:shadow-xl dark:hover:shadow-slate-900/50"
+            className={`relative p-5 rounded-2xl transition-all duration-200 ${isUser
+              ? "bg-blue-600 dark:bg-blue-700 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
               }`}
           >
             {/* Message bubble tail */}
             <div
               className={`absolute w-4 h-4 transform rotate-45 ${isUser
-                  ? "-right-2 top-6 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
-                  : "-left-2 top-6 bg-white/95 dark:bg-slate-800/95 border-l border-t border-slate-200/50 dark:border-slate-600/30"
+                ? "-right-2 top-6 bg-blue-600 dark:bg-blue-700"
+                : "-left-2 top-6 bg-white dark:bg-slate-800 border-l border-t border-slate-200 dark:border-slate-700"
                 }`}
             ></div>
 
-            {/* Enhanced inner glow for user messages */}
-            {isUser && (
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent dark:from-white/5 dark:to-blue-900/20 pointer-events-none"></div>
-            )}
 
             <div className="relative z-10">
               {/* Message Type Badge */}
@@ -391,8 +372,8 @@ export default function ChatWindow({
                 <div className="mb-3">
                   <span
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${isPlanningMessage
-                        ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
-                        : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
+                      ? "bg-blue-100 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700"
+                      : "bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700"
                       }`}
                   >
                     {isPlanningMessage
@@ -405,9 +386,9 @@ export default function ChatWindow({
               {/* Planning Summary at the top (more prominent) */}
               {!isUser && planData && planData.hasPlan && (
                 <div className="mb-4">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/90 to-indigo-50/90 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200/60 dark:border-blue-700/40 backdrop-blur-sm">
+                  <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 dark:from-blue-600 dark:to-indigo-600 shadow-sm">
+                      <div className="p-2 rounded-lg bg-blue-600 dark:bg-blue-700">
                         <PlayIcon className="w-5 h-5 text-white" />
                       </div>
                       <div>
@@ -429,9 +410,7 @@ export default function ChatWindow({
                           key={operation.id}
                           className="flex items-center gap-3 text-sm"
                         >
-                          <div
-                            className={`w-6 h-6 rounded-full bg-gradient-to-r ${getOperationColor(operation.type)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}
-                          >
+                          <div className="w-6 h-6 rounded-full bg-blue-600 dark:bg-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                             {index + 1}
                           </div>
                           <div className="flex-1">
@@ -472,7 +451,7 @@ export default function ChatWindow({
                   {message.content.includes("```") && (
                     <button
                       onClick={() => toggleCodeVisibility(message.id)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium hover:from-slate-200 hover:to-slate-300 dark:hover:from-slate-600 dark:hover:to-slate-500 transition-all duration-300 hover:scale-105 shadow-sm hover:shadow-md border border-slate-300/50 dark:border-slate-500/30"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors border border-slate-300 dark:border-slate-600"
                     >
                       {expandedCodeBlocks.has(message.id) ? (
                         <>
@@ -492,7 +471,7 @@ export default function ChatWindow({
                   {!APPLY_CODE_IMMEDIATELY && hasApplicableContent && (
                     <button
                       onClick={() => handleApplyCode(message.content)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-green-700 text-white rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-green-700 dark:hover:from-emerald-700 dark:hover:to-green-800 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl shadow-emerald-500/25 dark:shadow-emerald-600/40 ring-1 ring-white/20"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg text-sm font-semibold hover:bg-green-700 dark:hover:bg-green-800 transition-colors"
                     >
                       <PlayIcon className="w-4 h-4" />
                       Apply Code ({codeResult.codeBlocks.length})
@@ -505,8 +484,8 @@ export default function ChatWindow({
               {/* Timestamp */}
               <div
                 className={`text-xs mt-3 font-medium ${isUser
-                    ? "text-white/70 dark:text-white/60"
-                    : "text-slate-500 dark:text-slate-400"
+                  ? "text-white/70 dark:text-white/60"
+                  : "text-slate-500 dark:text-slate-400"
                   }`}
               >
                 {message.timestamp.toLocaleTimeString([], {
@@ -654,8 +633,8 @@ export default function ChatWindow({
               type="submit"
               disabled={!inputValue.trim() || isLoading}
               className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${inputValue.trim()
-                  ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
-                  : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
+                ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
+                : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
                 }`}
             >
               {/* Button inner glow */}
@@ -665,8 +644,8 @@ export default function ChatWindow({
 
               <PaperAirplaneIcon
                 className={`relative w-6 h-6 transition-transform duration-300 ${inputValue.trim()
-                    ? "hover:translate-x-0.5 hover:-translate-y-0.5"
-                    : ""
+                  ? "hover:translate-x-0.5 hover:-translate-y-0.5"
+                  : ""
                   }`}
               />
             </button>
