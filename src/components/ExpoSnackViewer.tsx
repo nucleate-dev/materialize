@@ -39,6 +39,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     const [error, setError] = useState<string | null>(null);
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
+    const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -170,6 +171,38 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       setPreviewMode(mode);
     };
 
+    const handleMouseDown = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startWidth = mobileSize.width;
+      const startHeight = mobileSize.height;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        
+        const newWidth = Math.max(250, Math.min(500, startWidth + deltaX));
+        const newHeight = Math.max(400, Math.min(800, startHeight + deltaY));
+        
+        setMobileSize({ width: newWidth, height: newHeight });
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'se-resize';
+      document.body.style.userSelect = 'none';
+    };
+
     return (
       <div className="flex flex-col h-full bg-gray-50">
         {/* Header */}
@@ -294,23 +327,82 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               </div>
             </div>
           ) : previewMode === "mobile" ? (
-            /* --- START: Mobile device frame --- */
-            <div className="relative mx-auto border-gray-800 bg-gray-800 border-[10px] rounded-[2.5rem] h-[600px] w-[300px] shadow-xl">
-              <div className="w-[140px] h-[18px] bg-gray-800 top-0 rounded-b-[1rem] left-1/2 -translate-x-1/2 absolute"></div>
-              <div className="h-[46px] w-[3px] bg-gray-800 absolute -left-[13px] top-[62px] rounded-l-lg"></div>
-              <div className="h-[46px] w-[3px] bg-gray-800 absolute -left-[13px] top-[114px] rounded-l-lg"></div>
-              <div className="h-[64px] w-[3px] bg-gray-800 absolute -right-[13px] top-[132px] rounded-r-lg"></div>
-              <div className="rounded-[2rem] overflow-hidden w-full h-full bg-white">
-                <iframe
-                  key={`mobile-${refreshKey}`}
-                  ref={(c) =>
-                    (webPreviewRef.current = c?.contentWindow ?? null)
-                  }
-                  className="w-full h-full"
-                  title="React Native Preview"
-                  src={webPreviewURL}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                />
+            /* --- START: iPhone 15 Pro device frame --- */
+            <div 
+              id="mobile-frame"
+              className="relative mx-auto select-none"
+              style={{ 
+                width: mobileSize.width + 16, 
+                height: mobileSize.height + 16 
+              }}
+            >
+              {/* iPhone 15 Pro frame with titanium-like appearance */}
+              <div 
+                className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
+                style={{
+                  width: mobileSize.width + 16,
+                  height: mobileSize.height + 16,
+                  borderRadius: '2.5rem',
+                  border: '1px solid #1f2937',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                {/* Dynamic Island */}
+                <div 
+                  className="absolute bg-black rounded-full"
+                  style={{
+                    width: mobileSize.width * 0.4,
+                    height: '24px',
+                    top: '6px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    borderRadius: '12px'
+                  }}
+                ></div>
+                
+                {/* Volume buttons */}
+                <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
+                <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
+                <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
+                
+                {/* Power button */}
+                <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
+                
+                {/* Screen area */}
+                <div 
+                  className="absolute bg-black overflow-hidden"
+                  style={{
+                    width: mobileSize.width,
+                    height: mobileSize.height,
+                    top: '8px',
+                    left: '8px',
+                    borderRadius: '2.2rem',
+                    boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                  }}
+                >
+                  <iframe
+                    key={`mobile-${refreshKey}`}
+                    ref={(c) =>
+                      (webPreviewRef.current = c?.contentWindow ?? null)
+                    }
+                    className="w-full h-full"
+                    title="React Native Preview"
+                    src={webPreviewURL}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                  />
+                </div>
+                
+                {/* Resize handle */}
+                <div 
+                  className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
+                  onMouseDown={handleMouseDown}
+                >
+                  <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
+                      <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z"/>
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (

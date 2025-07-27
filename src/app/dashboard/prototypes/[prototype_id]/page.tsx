@@ -20,6 +20,7 @@ import {
   extractCodeFromMessage,
   updateSnackFiles,
 } from "@/lib/utils/code/codeExtractor";
+import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -32,7 +33,7 @@ type PrototypeChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -213,6 +214,12 @@ export default function CreatePage() {
 
       // Check if the response contains an execution plan
       if (planningData.content.includes("EXECUTION_PLAN")) {
+        // Extract planned file paths from the planning response
+        const planningResult = extractExecutionPlan(planningData.content);
+        const plannedFilePaths = planningResult.operations
+          .filter(op => op.type === "create" || op.type === "modify")
+          .map(op => op.filePath);
+
         // Phase 2: Get the execution response automatically
         const executionResponse = await fetch("/api/chat", {
           method: "POST",
@@ -242,10 +249,10 @@ export default function CreatePage() {
 
         setMessages((prev) => [...prev, executionMessage]);
 
-        // Auto-apply the execution code immediately
+        // Auto-apply the execution code immediately with planned file paths
         const codeResult = extractCodeFromMessage(executionData.content);
         if (codeResult.hasCode) {
-          handleApplyCode(codeResult);
+          handleApplyCode(codeResult, plannedFilePaths);
         }
       }
     } catch (error) {
@@ -265,9 +272,9 @@ export default function CreatePage() {
     }
   };
 
-  const handleApplyCode = (result: CodeExtractionResult) => {
+  const handleApplyCode = (result: CodeExtractionResult, plannedFilePaths?: string[]) => {
     if (result.hasCode) {
-      const newFiles = updateSnackFiles(snackFiles, result.codeBlocks);
+      const newFiles = updateSnackFiles(snackFiles, result.codeBlocks, plannedFilePaths);
       // Create a deep copy to ensure React detects the change
       setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
 
@@ -341,21 +348,19 @@ export default function CreatePage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setIsChatView(true)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  isChatView
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isChatView
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setIsChatView(false)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  !isChatView
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${!isChatView
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
               >
                 Code
               </button>

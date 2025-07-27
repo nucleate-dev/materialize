@@ -178,17 +178,22 @@ function getFileNameFromCode(
 
 export function updateSnackFiles(
   currentFiles: SnackFiles,
-  codeBlocks: CodeBlock[]
+  codeBlocks: CodeBlock[],
+  plannedFilePaths?: string[]
 ): SnackFiles {
   // Create a deep copy of the current files
   const newFiles = JSON.parse(JSON.stringify(currentFiles));
 
-  codeBlocks.forEach((block) => {
-    const fileName = block.fileName;
-    if (!fileName) {
+  codeBlocks.forEach((block, index) => {
+    // Use planned file path if available, otherwise fall back to extracted filename
+    const filePath = plannedFilePaths && plannedFilePaths[index]
+      ? plannedFilePaths[index]
+      : block.fileName;
+
+    if (!filePath) {
       return;
     }
-    newFiles[fileName] = {
+    newFiles[filePath] = {
       contents: block.code,
       type: "CODE",
     };

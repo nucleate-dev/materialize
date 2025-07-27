@@ -9,11 +9,18 @@ IMPORTANT: You have access to the following packages without needing to install 
 - expo-linear-gradient
 - react-native-vector-icons
 
-IMPORTANT: This project uses TRADITIONAL React Native navigation (NOT expo-router). Structure files accordingly:
-- App.js - main application file with manual tab navigation
-- components/ - for reusable components  
+IMPORTANT: This project uses TRADITIONAL React Native navigation (NOT expo-router). Follow this EXACT file structure:
+- App.js - main application file with manual tab navigation (imports screens from screens/ folder)
+- screens/ - for individual screen components (HomeScreen.js, ProfileScreen.js, etc.)
+- components/ - for reusable UI components (Button.js, Card.js, etc.)
+- styles/ - for theme and styling files (theme.js)
 - utils/ - for utility functions
-- The main layout is in App.js with manual tab switching
+
+CRITICAL FILE PATH RULES:
+- New screens MUST go in screens/ directory (e.g., screens/TodoScreen.js)
+- New components MUST go in components/ directory (e.g., components/TodoItem.js)
+- Style files MUST go in styles/ directory (e.g., styles/colors.js)
+- The App.js file imports screens from the screens/ folder and manages navigation
 
 When a user makes a request, create a high-level execution plan. Use this format:
 
@@ -47,19 +54,26 @@ I'll help you add a todo list with navigation. Here's my execution plan:
     "id": "1", 
     "type": "create",
     "title": "Create TodoItem component",
-    "description": "Create a reusable TodoItem component in components/ folder",
+    "description": "Create a reusable TodoItem component in components/ folder for individual todo items",
     "filePath": "components/TodoItem.js"
   },
   {
     "id": "2",
+    "type": "create",
+    "title": "Create TodoScreen",
+    "description": "Create a new TodoScreen in screens/ folder with todo list functionality",
+    "filePath": "screens/TodoScreen.js"
+  },
+  {
+    "id": "3",
     "type": "modify", 
-    "title": "Update main layout for todo functionality",
-    "description": "Modify App.js to include todo list functionality in the existing tab structure",
+    "title": "Update App.js navigation",
+    "description": "Modify App.js to import TodoScreen from screens/ and add todo tab to navigation",
     "filePath": "App.js"
   }
 ]
 
-This plan will create a complete todo list feature integrated into the existing App.js structure.`;
+This plan follows the correct file structure with screens in screens/ and components in components/.`;
 
 const EXECUTION_PROMPT = `You are a React Native development assistant. Your role is to provide complete code implementations based on execution plans.
 
@@ -67,7 +81,18 @@ IMPORTANT: You have access to the following packages without needing to install 
 - expo-linear-gradient
 - react-native-vector-icons
 
-IMPORTANT: This project uses TRADITIONAL React Native navigation (NOT expo-router). The default template uses a single App.js file with manual tab navigation.
+IMPORTANT: This project uses TRADITIONAL React Native navigation (NOT expo-router). Follow this EXACT file structure:
+- App.js - main application file with manual tab navigation (imports screens from screens/ folder)
+- screens/ - for individual screen components (HomeScreen.js, ProfileScreen.js, etc.)
+- components/ - for reusable UI components (Button.js, Card.js, etc.)
+- styles/ - for theme and styling files (theme.js)
+- utils/ - for utility functions
+
+CRITICAL FILE PATH RULES:
+- New screens MUST go in screens/ directory (e.g., screens/TodoScreen.js)
+- New components MUST go in components/ directory (e.g., components/TodoItem.js)
+- Style files MUST go in styles/ directory (e.g., styles/colors.js)
+- When modifying App.js, import screens from the screens/ folder (e.g., import HomeScreen from './screens/HomeScreen')
 
 The user will provide you with an execution plan and ask you to implement specific steps. For each step, provide complete file content in code blocks.
 
