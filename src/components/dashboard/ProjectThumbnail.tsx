@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface ProjectThumbnailProps {
-  projectName?: string;
+  prototypeName?: string;
   canvasName?: string;
   thumbnailUrl: string | null;
   lastModified?: string;
@@ -17,13 +17,13 @@ interface ProjectThumbnailProps {
 }
 
 const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
-  projectName,
+  prototypeName,
   canvasName,
   thumbnailUrl,
   lastModified,
   onClick,
 }) => {
-  const displayName = projectName || canvasName || "Untitled";
+  const displayName = prototypeName || canvasName || "Untitled";
   return (
     <div
       className="group cursor-pointer transition-all duration-500 hover:scale-105 transform-gpu"
@@ -33,7 +33,7 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
       <div className="relative bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-strokedark/30 overflow-hidden shadow-2xl dark:shadow-black/20 hover:shadow-3xl dark:hover:shadow-black/30 transition-all duration-500">
         {/* Inner glow effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
-        
+
         {/* Animated Background Orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-10 -right-10 w-20 h-20 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-full blur-2xl animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -76,7 +76,7 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
               <div className="flex items-center gap-3">
                 <ArrowTopRightOnSquareIcon className="w-5 h-5 text-primary dark:text-secondary" />
                 <span className="font-bold text-black dark:text-white">
-                  {projectName ? "Open Project" : "Open Canvas"}
+                  {prototypeName ? "Open Prototype" : "Open Canvas"}
                 </span>
               </div>
             </div>
@@ -92,18 +92,18 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
             {/* Modern Type Badge */}
             <div className="flex-shrink-0 px-3 py-1 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 backdrop-blur-sm rounded-xl border border-primary/20 dark:border-secondary/30">
               <span className="text-xs font-bold text-primary dark:text-secondary uppercase tracking-wide">
-                {projectName ? "Project" : "Canvas"}
+                {prototypeName ? "Prototype" : "Canvas"}
               </span>
             </div>
           </div>
-          
+
           {lastModified && (
             <div className="flex items-center gap-2 text-sm text-body dark:text-bodydark">
               <CalendarIcon className="w-4 h-4" />
               <span className="font-medium">Modified {lastModified}</span>
             </div>
           )}
-          
+
           {/* Progress indicator line */}
           <div className="mt-4 pt-4 border-t border-stroke/20 dark:border-strokedark/20">
             <div className="flex items-center gap-2">
