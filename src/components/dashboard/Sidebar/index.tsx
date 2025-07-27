@@ -7,6 +7,7 @@ import {
   SparklesIcon,
   RocketLaunchIcon,
   Square3Stack3DIcon,
+  FolderIcon,
   UserIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -48,6 +49,12 @@ const Sidebar = () => {
   });
 
   const menuItems = [
+    {
+      href: "/dashboard/projects",
+      icon: FolderIcon,
+      label: "Projects",
+      active: pathname?.includes("projects"),
+    },
     {
       href: "/dashboard/prototypes",
       icon: RocketLaunchIcon,

@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface ProjectThumbnailProps {
+  projectName?: string;
   prototypeName?: string;
   canvasName?: string;
   thumbnailUrl: string | null;
@@ -17,13 +18,14 @@ interface ProjectThumbnailProps {
 }
 
 const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
+  projectName,
   prototypeName,
   canvasName,
   thumbnailUrl,
   lastModified,
   onClick,
 }) => {
-  const displayName = prototypeName || canvasName || "Untitled";
+  const displayName = projectName || prototypeName || canvasName || "Untitled";
   return (
     <div
       className="group cursor-pointer transition-all duration-500 hover:scale-105 transform-gpu"
@@ -76,7 +78,7 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
               <div className="flex items-center gap-3">
                 <ArrowTopRightOnSquareIcon className="w-5 h-5 text-primary dark:text-secondary" />
                 <span className="font-bold text-black dark:text-white">
-                  {prototypeName ? "Open Prototype" : "Open Canvas"}
+                  {projectName ? "Open Project" : prototypeName ? "Open Prototype" : "Open Canvas"}
                 </span>
               </div>
             </div>
@@ -92,7 +94,7 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
             {/* Modern Type Badge */}
             <div className="flex-shrink-0 px-3 py-1 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 backdrop-blur-sm rounded-xl border border-primary/20 dark:border-secondary/30">
               <span className="text-xs font-bold text-primary dark:text-secondary uppercase tracking-wide">
-                {prototypeName ? "Prototype" : "Canvas"}
+                {projectName ? "Project" : prototypeName ? "Prototype" : "Canvas"}
               </span>
             </div>
           </div>
