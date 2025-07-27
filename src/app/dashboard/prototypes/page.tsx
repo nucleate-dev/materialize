@@ -6,16 +6,16 @@ import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   XMarkIcon,
   SparklesIcon,
   RocketLaunchIcon,
 } from "@heroicons/react/24/outline";
 
-type Project = Database["public"]["Tables"]["projects"]["Row"];
+type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
-function NewProjectModal({
+function NewPrototypeModal({
   open,
   onClose,
   user,
@@ -24,7 +24,7 @@ function NewProjectModal({
   open: boolean;
   onClose: () => void;
   user: User | null;
-  onCreated: (projectId: string) => void;
+  onCreated: (prototypeId: string) => void;
 }) {
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -38,13 +38,12 @@ function NewProjectModal({
 
     try {
       const { data, error } = await supabase
-        .from("projects")
+        .from("prototypes")
         .insert({
           name: name.trim(),
-          creator_id: user.id,
           owner_id: user.id,
           description: null,
-          project_context: null,
+          prototype_context: null,
           thumbnail_url: null,
           visibility: "SELF" as const,
         })
@@ -52,7 +51,7 @@ function NewProjectModal({
         .single();
 
       if (error) {
-        console.error("Error creating project:", error);
+        console.error("Error creating prototype:", error);
         throw error;
       }
 
@@ -62,7 +61,7 @@ function NewProjectModal({
       onCreated(data.id);
       onClose();
     } catch (error) {
-      console.error("Error creating project:", error);
+      console.error("Error creating prototype:", error);
     } finally {
       setIsCreating(false);
     }
@@ -104,7 +103,7 @@ function NewProjectModal({
             </div>
           </div>
           <h2 className="text-3xl font-bold mb-3 text-black dark:text-white">
-            Create New Project
+            Create New Prototype
           </h2>
           <p className="text-body dark:text-bodydark leading-relaxed">
             Transform your ideas into reality with AI-powered development ✨
@@ -114,7 +113,7 @@ function NewProjectModal({
         <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
           <div>
             <label className="block text-sm font-semibold text-black dark:text-white mb-3">
-              Project Name <span className="text-red-500">*</span>
+              Prototype Name <span className="text-red-500">*</span>
             </label>
             <div className="relative group">
               {/* Enhanced Input Container */}
@@ -142,7 +141,7 @@ function NewProjectModal({
               {touched && !name.trim() && (
                 <div className="mt-3 flex items-center gap-2 text-red-500 text-sm font-medium">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  <span>Project name is required</span>
+                  <span>Prototype name is required</span>
                 </div>
               )}
             </div>
@@ -172,7 +171,7 @@ function NewProjectModal({
               ) : (
                 <>
                   <RocketLaunchIcon className="w-6 h-6 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  <span className="font-bold text-lg">Launch Project</span>
+                  <span className="font-bold text-lg">Launch Prototype</span>
                 </>
               )}
             </div>
@@ -198,47 +197,47 @@ function NewProjectModal({
   );
 }
 
-export default function ProjectsPage() {
+export default function PrototypesPage() {
   const { user } = useUser();
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProjects = async () => {
+  const fetchPrototypes = useCallback(async () => {
     if (!user?.id) return;
 
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from("projects")
+        .from("prototypes")
         .select("*")
-        .or(`creator_id.eq.${user.id},owner_id.eq.${user.id}`)
-        .order("created_at", { ascending: false });
+        .eq("owner_id", user.id)
+        .order("updated_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching projects:", error);
+        console.error("Error fetching prototypes:", error);
         return;
       }
 
-      setProjects(data || []);
+      setPrototypes(data || []);
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      console.error("Error fetching prototypes:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setIsLoading, setPrototypes]);
 
   useEffect(() => {
-    fetchProjects();
+    fetchPrototypes();
   }, [user?.id]);
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
 
-  const handleProjectCreated = (projectId: string) => {
-    fetchProjects(); // Refetch projects after creation
-    router.push(`/dashboard/projects/${projectId}`);
+  const handlePrototypeCreated = (prototypeId: string) => {
+    fetchPrototypes(); // Refetch prototypes after creation
+    router.push(`/dashboard/prototypes/${prototypeId}`);
   };
 
   return (
@@ -248,14 +247,14 @@ export default function ProjectsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              All projects
+              All prototypes
             </h1>
             <p className="text-body dark:text-bodydark">
-              Manage and organize your projects
+              Manage and organize your prototypes from across all your projects
             </p>
           </div>
 
-          {/* New Project Button */}
+          {/* New Prototype Button */}
           <button
             onClick={handleOpenModal}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
@@ -276,38 +275,40 @@ export default function ProjectsPage() {
                 strokeLinejoin="round"
               />
             </svg>
-            New Project
+            New Prototype
           </button>
         </div>
       </div>
 
-      {/* Modal for new project */}
-      <NewProjectModal
+      {/* Modal for new prototype */}
+      <NewPrototypeModal
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}
-        onCreated={handleProjectCreated}
+        onCreated={handlePrototypeCreated}
       />
 
-      {/* Projects Grid */}
+      {/* Prototypes Grid */}
       {isLoading ? (
         <div className="flex justify-center py-20">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {projects.length > 0 ? (
-            projects.map((project) => (
+          {prototypes.length > 0 ? (
+            prototypes.map((prototype) => (
               <ProjectThumbnail
-                key={project.id}
-                projectName={project.name}
-                thumbnailUrl={project.thumbnail_url}
+                key={prototype.id}
+                prototypeName={prototype.name}
+                thumbnailUrl={prototype.thumbnail_url}
                 lastModified={
-                  project.updated_at
-                    ? new Date(project.updated_at).toLocaleDateString()
-                    : new Date(project.created_at!).toLocaleDateString()
+                  prototype.updated_at
+                    ? new Date(prototype.updated_at).toLocaleDateString()
+                    : new Date(prototype.created_at!).toLocaleDateString()
                 }
-                onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                onClick={() =>
+                  router.push(`/dashboard/prototypes/${prototype.id}`)
+                }
               />
             ))
           ) : (
@@ -328,17 +329,17 @@ export default function ProjectsPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-                No projects yet
+                No prototypes yet
               </h3>
               <p className="text-body dark:text-bodydark mb-6 max-w-md">
-                Create your first project to start prototyping your ideas at the
-                speed of thought.
+                Create your first prototype to start prototyping your ideas at
+                the speed of thought.
               </p>
               <button
                 onClick={handleOpenModal}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
               >
-                Create First Project
+                Create First Prototype
               </button>
             </div>
           )}

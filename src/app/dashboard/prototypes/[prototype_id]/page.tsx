@@ -21,11 +21,11 @@ import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-type Project = Database["public"]["Tables"]["projects"]["Row"];
-type ProjectChatSession =
-  Database["public"]["Tables"]["project_chat_sessions"]["Row"];
-type ProjectChatMessage =
-  Database["public"]["Tables"]["project_chat_messages"]["Row"];
+type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+type PrototypeChatSession =
+  Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
+type PrototypeChatMessage =
+  Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
@@ -36,12 +36,14 @@ export default function CreatePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [project, setProject] = useState<Project | null>(null);
+  const [prototype, setPrototype] = useState<Prototype | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [projectChatSession, setProjectChatSession] =
-    useState<ProjectChatSession | null>(null);
+  const [prototypeChatSession, setPrototypeChatSession] =
+    useState<PrototypeChatSession | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [chatMessages, setChatMessages] = useState<ProjectChatMessage[]>([]);
+  const [prototypeChatMessages, setPrototypeChatMessages] = useState<
+    PrototypeChatMessage[]
+  >([]);
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
@@ -50,11 +52,11 @@ export default function CreatePage() {
 
   // Fetch project data
   useEffect(() => {
-    async function fetchProject() {
+    async function fetchPrototype() {
       if (!projectId) return;
 
       const { data, error } = await supabase
-        .from("projects")
+        .from("prototypes")
         .select("*")
         .eq("id", projectId)
         .single();
@@ -64,18 +66,18 @@ export default function CreatePage() {
         return;
       }
 
-      setProject(data);
+      setPrototype(data);
       console.log("Fetched project:", data);
     }
 
-    async function fetchProjectChatSessionAndMessages() {
+    async function fetchPrototypeChatSessionAndMessages() {
       if (!projectId || !user?.id) return;
 
       // fetch or create project chat session
       const { data, error } = await supabase
-        .from("project_chat_sessions")
+        .from("prototype_chat_sessions")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("prototype_id", projectId)
         .eq("user_id", user.id)
         .maybeSingle();
       if (error) {
@@ -87,8 +89,8 @@ export default function CreatePage() {
       if (!chatSession) {
         // No session found, create one
         const { data: newSession, error: createError } = await supabase
-          .from("project_chat_sessions")
-          .insert({ project_id: projectId, user_id: user.id })
+          .from("prototype_chat_sessions")
+          .insert({ prototype_id: projectId, user_id: user.id })
           .select()
           .single();
         if (createError) {
@@ -96,16 +98,16 @@ export default function CreatePage() {
           return;
         }
         chatSession = newSession;
-        setProjectChatSession(newSession);
+        setPrototypeChatSession(newSession);
         console.log("Created new project chat session:", chatSession);
       } else {
-        setProjectChatSession(chatSession);
+        setPrototypeChatSession(chatSession);
         console.log("Fetched project chat session:", chatSession);
       }
 
       // Then fetch the messages for this session
       const { data: messagesData, error: messagesError } = await supabase
-        .from("project_chat_messages")
+        .from("prototype_chat_messages")
         .select("*")
         .eq("chat_session_id", chatSession.id)
         .order("created_at", { ascending: false })
@@ -116,15 +118,21 @@ export default function CreatePage() {
       }
 
       // Reverse to get chronological order (oldest first)
-      setChatMessages(messagesData?.reverse() || []);
+      setPrototypeChatMessages(messagesData?.reverse() || []);
       console.log("Fetched chat messages:", messagesData);
     }
 
     if (projectId && user?.id) {
-      fetchProject();
-      fetchProjectChatSessionAndMessages();
+      fetchPrototype();
+      fetchPrototypeChatSessionAndMessages();
     }
-  }, [projectId, user]);
+  }, [
+    projectId,
+    user,
+    setPrototype,
+    setPrototypeChatSession,
+    setPrototypeChatMessages,
+  ]);
 
   // Convert database messages to ChatMessage format
   //   useEffect(() => {
