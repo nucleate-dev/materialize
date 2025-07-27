@@ -14,6 +14,7 @@ interface NewPrototypeModalProps {
   onClose: () => void;
   user: User | null;
   onCreated: (prototypeId: string) => void;
+  projectId?: string;
 }
 
 export default function NewPrototypeModal({
@@ -21,6 +22,7 @@ export default function NewPrototypeModal({
   onClose,
   user,
   onCreated,
+  projectId,
 }: NewPrototypeModalProps) {
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -38,6 +40,7 @@ export default function NewPrototypeModal({
         .insert({
           name: name.trim(),
           owner_id: user.id,
+          project_id: projectId || null,
           description: null,
           prototype_context: null,
           thumbnail_url: null,
