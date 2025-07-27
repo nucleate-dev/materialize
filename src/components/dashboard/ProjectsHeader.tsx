@@ -1,8 +1,47 @@
+"use client";
 import { useSidebar } from "@/hooks/useSidebar";
-import { MagnifyingGlassIcon, Bars3Icon } from "@heroicons/react/24/outline";
+import {
+  Bars3Icon,
+  ClockIcon,
+  RocketLaunchIcon,
+  Square3Stack3DIcon,
+  Cog6ToothIcon,
+} from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { usePathname, useParams } from "next/navigation";
 
 export default function ProjectsHeader() {
   const { sidebarOpen, setSidebarOpen } = useSidebar();
+  const pathname = usePathname();
+  const params = useParams();
+  const projectId = params?.project_id as string;
+
+  const tabs = [
+    {
+      name: "Recent",
+      href: `/dashboard/projects/${projectId}`,
+      icon: ClockIcon,
+      active: pathname === `/dashboard/projects/${projectId}`,
+    },
+    {
+      name: "Prototypes",
+      href: `/dashboard/projects/${projectId}/prototypes`,
+      icon: RocketLaunchIcon,
+      active: pathname?.includes("/prototypes"),
+    },
+    {
+      name: "Whiteboards",
+      href: `/dashboard/projects/${projectId}/whiteboards`,
+      icon: Square3Stack3DIcon,
+      active: pathname?.includes("/whiteboards"),
+    },
+    {
+      name: "Settings",
+      href: `/dashboard/projects/${projectId}/settings`,
+      icon: Cog6ToothIcon,
+      active: pathname?.includes("/settings"),
+    },
+  ];
 
   return (
     <header className="sticky top-0 z-999 w-full">
@@ -44,40 +83,62 @@ export default function ProjectsHeader() {
           </button>
         </div>
 
-        {/* Center Section - Search Bar */}
-        <div className="hidden sm:block flex-1 max-w-2xl mx-6">
-          <form className="relative group">
-            {/* Enhanced Search Container */}
-            <div className="relative overflow-hidden rounded-2xl my-2">
-              {/* Animated border gradient */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 rounded-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 blur-sm"></div>
-              <div className="absolute inset-[1px] bg-white/80 dark:bg-boxdark/80 rounded-2xl backdrop-blur-sm"></div>
-
-              {/* Search Icon */}
-              <button
-                type="submit"
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-1 rounded-lg transition-all duration-300 hover:scale-110 group/icon"
+        {/* Center Section - Navigation Tabs */}
+        <div className="flex-1 flex justify-center">
+          <nav className="flex items-center space-x-3 p-2">
+            {tabs.map((tab, index) => (
+              <Link
+                key={tab.name}
+                href={tab.href}
+                className={`relative group flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-500 transform-gpu ${
+                  tab.active
+                    ? "bg-white dark:bg-boxdark text-black dark:text-white shadow-lg border border-stroke/20 dark:border-strokedark/20 scale-100 hover:scale-105"
+                    : "text-body dark:text-bodydark hover:bg-white/80 dark:hover:bg-boxdark/80 hover:text-black dark:hover:text-white border border-transparent hover:border-stroke/30 dark:hover:border-strokedark/40 backdrop-blur-sm hover:scale-105"
+                }`}
+                style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-lg opacity-0 group-hover/icon:opacity-100 transition-opacity duration-300"></div>
-                <MagnifyingGlassIcon className="relative w-5 h-5 text-body/60 dark:text-bodydark/60 group-hover/icon:text-primary dark:group-hover/icon:text-secondary transition-colors duration-300" />
-              </button>
+                {/* Background glow effect for active state */}
+                {tab.active && (
+                  <div className="absolute inset-0 rounded-xl bg-white/10 dark:bg-white/5 pointer-events-none"></div>
+                )}
 
-              {/* Search Input */}
-              <input
-                type="text"
-                placeholder="Search projects, whiteboards... ✨"
-                className="relative w-full pl-14 pr-6 py-3 text-base font-medium bg-transparent text-black dark:text-white placeholder-body/50 dark:placeholder-bodydark/50 border-0 focus:outline-none focus:ring-0 transition-all duration-300"
-              />
+                {/* Hover gradient effect for inactive tabs */}
+                {!tab.active && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                )}
 
-              {/* Search Enhancement Indicator */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs text-body/40 dark:text-bodydark/40">
-                <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-stroke/20 dark:bg-strokedark/30 rounded-md">
-                  <span>⌘</span>
-                  <span>K</span>
+                {/* Tab content */}
+                <div className="relative flex items-center gap-3">
+                  {/* Icon container */}
+                  <div
+                    className={`p-1.5 rounded-lg transition-all duration-300 ${
+                      tab.active
+                        ? "bg-primary/10 dark:bg-primary/20"
+                        : "bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
+                    }`}
+                  >
+                    <tab.icon
+                      className={`w-4 h-4 transition-all duration-300 ${
+                        tab.active
+                          ? "text-primary dark:text-secondary"
+                          : "text-primary dark:text-secondary group-hover:text-primary dark:group-hover:text-secondary"
+                      }`}
+                    />
+                  </div>
+
+                  {/* Label */}
+                  <span className="relative font-semibold text-sm">
+                    {tab.name}
+                  </span>
                 </div>
-              </div>
-            </div>
-          </form>
+
+                {/* Active indicator */}
+                {tab.active && (
+                  <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-primary dark:bg-secondary rounded-full animate-ping"></div>
+                )}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
     </header>
