@@ -22,13 +22,13 @@ import {
 } from "@/lib/utils/code/codeExtractor";
 import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
-import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import {
-  SparklesIcon,
   CodeBracketIcon,
   EyeIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
+import { useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -38,7 +38,7 @@ type PrototypeChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -159,7 +159,7 @@ export default function CreatePage() {
   //     }
   //   }, [chatMessages, loadedFromDB]);
   // Define the default file to show in the editor
-  const defaultFile = "app/_layout.tsx";
+  const defaultFile = "App.js";
 
   // Initialize SnackFiles state as before
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(
@@ -198,6 +198,7 @@ export default function CreatePage() {
           messages: [...messages, userMessage],
           currentCode: mainAppCode,
           phase: "planning",
+          snackFiles: snackFiles,
         }),
       });
 
@@ -235,6 +236,7 @@ export default function CreatePage() {
             messages: [...messages, userMessage, planningMessage],
             currentCode: mainAppCode,
             phase: "execution",
+            snackFiles: snackFiles,
           }),
         });
 
@@ -440,22 +442,20 @@ export default function CreatePage() {
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      isPreviewView
-                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
-                        : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                    }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${isPreviewView
+                      ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
+                      : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
+                      }`}
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     Preview
                   </button>
                   <button
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      !isPreviewView
-                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
-                        : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                    }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${!isPreviewView
+                      ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
+                      : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
+                      }`}
                   >
                     <CodeBracketIcon className="w-4 h-4 inline mr-2" />
                     Code

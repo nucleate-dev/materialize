@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Breadcrumb from "@/components/dashboard/Breadcrumbs/Breadcrumb";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { ProductKeys, supabase } from "@/GlobalConstants";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function AccountSettings() {
   const user = useUser();

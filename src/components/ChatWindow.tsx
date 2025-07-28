@@ -502,7 +502,7 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-full relative">
+    <div className="absolute inset-0 flex flex-col">
       {/* Animated Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-2/20 via-whiter/30 to-gray-3/20 dark:from-boxdark-2/20 dark:via-boxdark/30 dark:to-meta-4/20">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/2 via-secondary/2 to-meta-3/2 dark:from-primary/3 dark:via-secondary/3 dark:to-meta-3/3"></div>
@@ -531,7 +531,7 @@ export default function ChatWindow({
       </div>
 
       {/* Messages */}
-      <div className="relative flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 dark:scrollbar-track-slate-800 dark:scrollbar-thumb-slate-600 dark:hover:scrollbar-thumb-slate-500">
+      <div className="relative flex-1 min-h-0 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 dark:scrollbar-track-slate-800 dark:scrollbar-thumb-slate-600 dark:hover:scrollbar-thumb-slate-500">
         {messages.length === 0 && (
           <div className="text-center py-16">
             <div className="relative mb-8">
