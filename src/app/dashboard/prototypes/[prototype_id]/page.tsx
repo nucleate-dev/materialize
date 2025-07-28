@@ -492,7 +492,10 @@ export default function CreatePage() {
                   </div>
 
                   {/* Code Editor */}
-                  <div className="flex-1 min-h-screen overflow-y-auto">
+                  <div
+                    className="flex-1 overflow-y-auto"
+                    style={{ minHeight: "calc(100vh - 120px)" }}
+                  >
                     <div className="h-full">
                       <CodeEditor
                         value={mainAppCode}

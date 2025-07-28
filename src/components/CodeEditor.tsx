@@ -204,11 +204,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             tabCompletion: readOnly ? "off" : "on",
             wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
             scrollbar: {
-              vertical: 'auto',
-              horizontal: 'auto',
-              useShadows: false,
-              verticalHasArrows: false,
-              horizontalHasArrows: false,
+              vertical: 'visible',
+              horizontal: 'visible',
+              useShadows: true,
+              verticalHasArrows: true,
+              horizontalHasArrows: true,
+              verticalScrollbarSize: 14,
+              horizontalScrollbarSize: 14,
             },
           }}
         />
