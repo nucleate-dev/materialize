@@ -24,7 +24,7 @@ import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { SparklesIcon, CodeBracketIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon, CodeBracketIcon, EyeIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -161,7 +161,7 @@ export default function CreatePage() {
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(
     getDefaultSnackFiles()
   );
-  const [isChatView, setIsChatView] = useState(true);
+  const [isPreviewView, setIsPreviewView] = useState(true);
 
   // Set the selected file to a file that actually exists
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
@@ -345,7 +345,7 @@ export default function CreatePage() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-secondary/3 to-primary/3 dark:from-secondary/8 dark:to-primary/8 rounded-full blur-2xl animate-pulse delay-500"></div>
       </div>
 
-      {/* Left Panel - Chat/Code */}
+      {/* Left Panel - AI Assistant Chat */}
       <div className="w-2/5 min-w-[420px] flex flex-col relative z-10">
         {/* Glassmorphism Container */}
         <div className="h-full m-4 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden">
@@ -355,13 +355,59 @@ export default function CreatePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-meta-5/5 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-5/10"></div>
             
             <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg blur-sm"></div>
+                  <div className="relative p-2 bg-gradient-to-r from-primary to-secondary rounded-lg shadow-lg">
+                    <SparklesIcon className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-black dark:text-white">
+                    AI Assistant
+                  </h2>
+                  <p className="text-sm text-body dark:text-bodydark">
+                    Build with AI-powered development
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content Area with subtle inner glow */}
+          <div className="flex-1 overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
+            
+            <div className="relative h-full">
+              <ChatWindow
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                onApplyCode={handleApplyCode}
+                onExecutePlannedOperation={handleExecutePlannedOperation}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Preview/Code Toggle */}
+      <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
+        {/* Glassmorphism Container */}
+        <div className="h-full m-4 ml-0 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden">
+          {/* Enhanced Header with Toggle */}
+          <div className="relative">
+            {/* Header gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
+            
+            <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg blur-sm"></div>
-                    <div className="relative p-2 bg-gradient-to-r from-primary to-secondary rounded-lg shadow-lg">
-                      {isChatView ? (
-                        <SparklesIcon className="w-5 h-5 text-white" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-meta-3/20 to-meta-5/20 rounded-lg blur-sm"></div>
+                    <div className="relative p-2 bg-gradient-to-r from-meta-3 to-meta-5 rounded-lg shadow-lg">
+                      {isPreviewView ? (
+                        <EyeIcon className="w-5 h-5 text-white" />
                       ) : (
                         <CodeBracketIcon className="w-5 h-5 text-white" />
                       )}
@@ -369,10 +415,10 @@ export default function CreatePage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-black dark:text-white">
-                      {isChatView ? "AI Assistant" : "Code Editor"}
+                      {isPreviewView ? "Live Preview" : "Code Editor"}
                     </h2>
                     <p className="text-sm text-body dark:text-bodydark">
-                      {isChatView ? "Build with AI-powered development" : "Edit your prototype code"}
+                      {isPreviewView ? "See your changes in real-time" : "Edit your prototype files"}
                     </p>
                   </div>
                 </div>
@@ -380,21 +426,21 @@ export default function CreatePage() {
                 {/* Enhanced Toggle Buttons */}
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
-                    onClick={() => setIsChatView(true)}
+                    onClick={() => setIsPreviewView(true)}
                     className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      isChatView
-                        ? "bg-gradient-to-r from-primary to-secondary text-white shadow-lg shadow-primary/25 transform scale-105"
+                      isPreviewView
+                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
                         : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
                     }`}
                   >
-                    <SparklesIcon className="w-4 h-4 inline mr-2" />
-                    Chat
+                    <EyeIcon className="w-4 h-4 inline mr-2" />
+                    Preview
                   </button>
                   <button
-                    onClick={() => setIsChatView(false)}
+                    onClick={() => setIsPreviewView(false)}
                     className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      !isChatView
-                        ? "bg-gradient-to-r from-primary to-secondary text-white shadow-lg shadow-primary/25 transform scale-105"
+                      !isPreviewView
+                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
                         : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
                     }`}
                   >
@@ -411,18 +457,16 @@ export default function CreatePage() {
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
             
             <div className="relative h-full">
-              {isChatView ? (
-                <ChatWindow
-                  messages={messages}
-                  onSendMessage={handleSendMessage}
-                  onApplyCode={handleApplyCode}
-                  onExecutePlannedOperation={handleExecutePlannedOperation}
-                  isLoading={isLoading}
+              {isPreviewView ? (
+                <ExpoSnackViewer
+                  ref={snackViewerRef}
+                  files={snackFiles}
+                  onFilesChange={handleFilesChange}
                 />
               ) : (
                 <div className="h-full flex">
                   {/* File Explorer */}
-                  <div className="w-1/3 min-w-[200px] max-w-[300px] border-r border-white/20 dark:border-strokedark/30">
+                  <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/20 dark:border-strokedark/30">
                     <FileTree
                       files={snackFiles}
                       selectedFile={selectedFile}
@@ -440,50 +484,6 @@ export default function CreatePage() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Panel - Expo Snack Viewer */}
-      <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
-        {/* Glassmorphism Container */}
-        <div className="h-full m-4 ml-0 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden">
-          {/* Preview Header */}
-          <div className="relative">
-            {/* Header gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
-            
-            <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-meta-3/20 to-meta-5/20 rounded-lg blur-sm"></div>
-                  <div className="relative p-2 bg-gradient-to-r from-meta-3 to-meta-5 rounded-lg shadow-lg">
-                    <EyeIcon className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-black dark:text-white">
-                    Live Preview
-                  </h2>
-                  <p className="text-sm text-body dark:text-bodydark">
-                    See your changes in real-time
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Preview Content */}
-          <div className="flex-1 relative">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
-            
-            <div className="relative h-full">
-              <ExpoSnackViewer
-                ref={snackViewerRef}
-                files={snackFiles}
-                onFilesChange={handleFilesChange}
-              />
             </div>
           </div>
         </div>
