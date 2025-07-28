@@ -2,7 +2,13 @@
 
 import { supabase } from "@/GlobalConstants";
 import { User } from "@supabase/supabase-js";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from "@headlessui/react";
 import {
   XMarkIcon,
   SparklesIcon,
@@ -30,12 +36,11 @@ export default function NewPrototypeModal({
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(
-    projectId || null
-  );
-  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch user's projects
   useEffect(() => {
@@ -67,23 +72,15 @@ export default function NewPrototypeModal({
     }
   }, [open, user, setIsLoadingProjects, setProjects]);
 
-  // Close dropdown when clicking outside
+  // Set initial project selection
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsProjectDropdownOpen(false);
+    if (projectId && projects.length > 0) {
+      const project = projects.find((p) => p.id === projectId);
+      if (project) {
+        setSelectedProject(project);
       }
-    };
-
-    if (isProjectDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [isProjectDropdownOpen]);
+  }, [projectId, projects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +94,7 @@ export default function NewPrototypeModal({
         .insert({
           name: name.trim(),
           owner_id: user.id,
-          project_id: selectedProject,
+          project_id: selectedProject?.id || null,
           description: null,
           prototype_context: null,
           thumbnail_url: null,
@@ -113,7 +110,7 @@ export default function NewPrototypeModal({
 
       // Reset form
       setName("");
-      setSelectedProject(projectId || null);
+      setSelectedProject(null);
       setTouched(false);
       onCreated(data.id);
       onClose();
@@ -129,7 +126,7 @@ export default function NewPrototypeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xl transition-all duration-300">
       {/* Glassmorphism Modal Container */}
-      <div className="relative bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-black/20 border border-white/20 dark:border-strokedark/30 p-8 w-full max-w-lg mx-4 animate-fadeInUp overflow-hidden">
+      <div className="relative bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-black/20 border border-white/20 dark:border-strokedark/30 p-8 w-full max-w-lg mx-4 animate-fadeInUp">
         {/* Inner glow effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
 
@@ -209,77 +206,47 @@ export default function NewPrototypeModal({
             <label className="block text-sm font-semibold text-black dark:text-white mb-3">
               Project
             </label>
-            <div className="relative group" ref={dropdownRef}>
-              {/* Enhanced Dropdown Container */}
-              <div className="relative overflow-hidden rounded-2xl">
-                {/* Animated border gradient */}
-                <div className="absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"></div>
-                <div className="absolute inset-[1px] bg-white/90 dark:bg-boxdark/90 rounded-2xl"></div>
+            <Listbox value={selectedProject} onChange={setSelectedProject}>
+              <div className="relative group">
+                {/* Enhanced Dropdown Container */}
+                <div className="relative overflow-hidden rounded-2xl">
+                  {/* Animated border gradient */}
+                  <div className="absolute inset-0 rounded-2xl transition-opacity duration-500 blur-sm bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/30 dark:via-secondary/30 dark:to-meta-5/30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"></div>
+                  <div className="absolute inset-[1px] bg-white/90 dark:bg-boxdark/90 rounded-2xl"></div>
 
-                <button
-                  type="button"
-                  className="relative w-full px-6 py-4 text-lg font-medium bg-transparent text-left border-0 focus:outline-none focus:ring-0 transition-all duration-300 flex items-center justify-between"
-                  onClick={() =>
-                    setIsProjectDropdownOpen(!isProjectDropdownOpen)
-                  }
-                >
-                  <div className="flex items-center gap-3">
-                    <FolderIcon className="w-5 h-5 text-primary dark:text-primary" />
-                    <span
-                      className={
-                        selectedProject
-                          ? "text-black dark:text-white"
-                          : "text-body/60 dark:text-bodydark/60"
-                      }
-                    >
-                      {selectedProject
-                        ? projects.find((p) => p.id === selectedProject)
-                            ?.name || "Select Project"
-                        : "No project selected"}
-                    </span>
-                  </div>
-                  <ChevronDownIcon
-                    className={`w-5 h-5 text-body dark:text-bodydark transition-transform duration-300 ${
-                      isProjectDropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
+                  <ListboxButton className="relative w-full px-6 py-4 text-lg font-medium bg-transparent text-left border-0 focus:outline-none focus:ring-0 transition-all duration-300 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FolderIcon className="w-5 h-5 text-primary dark:text-primary" />
+                      <span
+                        className={
+                          selectedProject
+                            ? "text-black dark:text-white"
+                            : "text-body/60 dark:text-bodydark/60"
+                        }
+                      >
+                        {selectedProject?.name || "No project selected"}
+                      </span>
+                    </div>
+                    <ChevronDownIcon className="w-5 h-5 text-body dark:text-bodydark transition-transform duration-300 ui-open:rotate-180" />
+                  </ListboxButton>
 
-                {/* Dropdown Menu */}
-                {isProjectDropdownOpen && (
-                  <div
-                    className="fixed left-0 right-0 mt-2 z-[60] bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden"
-                    style={{
-                      top: dropdownRef.current
-                        ? dropdownRef.current.getBoundingClientRect().bottom + 8
-                        : 0,
-                      left: dropdownRef.current
-                        ? dropdownRef.current.getBoundingClientRect().left
-                        : 0,
-                      width: dropdownRef.current
-                        ? dropdownRef.current.getBoundingClientRect().width
-                        : "auto",
-                    }}
+                  <ListboxOptions
+                    anchor="bottom start"
+                    className="mt-2 z-[9999] bg-white/95 dark:bg-boxdark/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden transition duration-200 ease-out [--anchor-gap:8px] min-w-[var(--button-width)]"
                   >
                     <div className="py-2">
                       {/* No Project Option */}
-                      <button
-                        type="button"
-                        className="w-full px-6 py-3 text-left hover:bg-white/50 dark:hover:bg-boxdark/50 transition-colors duration-200 flex items-center gap-3"
-                        onClick={() => {
-                          setSelectedProject(null);
-                          setIsProjectDropdownOpen(false);
-                        }}
+                      <ListboxOption
+                        value={null}
+                        className="w-full px-6 py-3 text-left hover:bg-white/50 dark:hover:bg-boxdark/50 transition-colors duration-200 flex items-center gap-3 cursor-pointer ui-active:bg-white/50 ui-active:dark:bg-boxdark/50"
                       >
                         <div className="w-5 h-5 rounded border-2 border-stroke dark:border-strokedark flex items-center justify-center">
-                          {!selectedProject && (
-                            <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          )}
+                          <div className="w-2 h-2 bg-primary rounded-full ui-not-selected:hidden"></div>
                         </div>
                         <span className="text-body dark:text-bodydark font-medium">
                           No project
                         </span>
-                      </button>
+                      </ListboxOption>
 
                       {/* Loading State */}
                       {isLoadingProjects && (
@@ -294,25 +261,19 @@ export default function NewPrototypeModal({
                       {/* Project Options */}
                       {!isLoadingProjects &&
                         projects.map((project) => (
-                          <button
+                          <ListboxOption
                             key={project.id}
-                            type="button"
-                            className="w-full px-6 py-3 text-left hover:bg-white/50 dark:hover:bg-boxdark/50 transition-colors duration-200 flex items-center gap-3"
-                            onClick={() => {
-                              setSelectedProject(project.id);
-                              setIsProjectDropdownOpen(false);
-                            }}
+                            value={project}
+                            className="w-full px-6 py-3 text-left hover:bg-white/50 dark:hover:bg-boxdark/50 transition-colors duration-200 flex items-center gap-3 cursor-pointer ui-active:bg-white/50 ui-active:dark:bg-boxdark/50"
                           >
                             <div className="w-5 h-5 rounded border-2 border-stroke dark:border-strokedark flex items-center justify-center">
-                              {selectedProject === project.id && (
-                                <div className="w-2 h-2 bg-primary rounded-full"></div>
-                              )}
+                              <div className="w-2 h-2 bg-primary rounded-full ui-not-selected:hidden"></div>
                             </div>
                             <FolderIcon className="w-4 h-4 text-primary dark:text-primary" />
                             <span className="text-black dark:text-white font-medium">
                               {project.name}
                             </span>
-                          </button>
+                          </ListboxOption>
                         ))}
 
                       {/* Empty State */}
@@ -324,10 +285,10 @@ export default function NewPrototypeModal({
                         </div>
                       )}
                     </div>
-                  </div>
-                )}
+                  </ListboxOptions>
+                </div>
               </div>
-            </div>
+            </Listbox>
           </div>
 
           {/* Create Button */}
