@@ -504,13 +504,16 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full min-h-full relative">
       {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-2/50 via-whiter to-gray-3/50 dark:from-boxdark-2/50 dark:via-boxdark dark:to-meta-4/50">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-meta-3/5 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-3/10"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-2/20 via-whiter/30 to-gray-3/20 dark:from-boxdark-2/20 dark:via-boxdark/30 dark:to-meta-4/20">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/2 via-secondary/2 to-meta-3/2 dark:from-primary/3 dark:via-secondary/3 dark:to-meta-3/3"></div>
       </div>
 
       {/* Header */}
-      <div className="relative flex-shrink-0 p-6 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between mb-4">
+      <div className="relative flex-shrink-0 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+        {/* Header gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
+        
+        <div className="relative p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 shadow-lg shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30">
               <SparklesIcon className="w-6 h-6 text-white drop-shadow-sm" />
@@ -525,10 +528,6 @@ export default function ChatWindow({
             </div>
           </div>
         </div>
-
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-          Ask me to create or modify React Native code
-        </p>
       </div>
 
       {/* Messages */}
