@@ -16,10 +16,11 @@ import {
 } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
 import {
-  updateSnackFiles
-} from "@/lib/utils/code/codeExtractor";
-import { extractExecutionPlan, extractStepResult } from "@/lib/utils/code/planningExtractor";
+  extractExecutionPlan,
+  extractStepResult,
+} from "@/lib/utils/code/planningExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import {
   CodeBracketIcon,
@@ -37,7 +38,7 @@ type PrototypeChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -58,7 +59,7 @@ export default function CreatePage() {
     setSidebarExpanded(false);
   }, [setSidebarExpanded]);
 
-  // Fetch project data
+  // Fetch prototype data
   useEffect(() => {
     async function fetchPrototype() {
       if (!prototypeId) return;
@@ -70,12 +71,12 @@ export default function CreatePage() {
         .single();
 
       if (error) {
-        console.error("Error fetching project:", error);
+        console.error("Error fetching prototype:", error);
         return;
       }
 
       setPrototype(data);
-      console.log("Fetched project:", data);
+      console.log("Fetched prototype:", data);
     }
 
     async function fetchPrototypeChatSessionAndMessages() {
@@ -162,7 +163,7 @@ export default function CreatePage() {
 
   // Initialize SnackFiles state as before
   const [snackFiles, setSnackFiles] = useState<SnackFiles>(
-    getDefaultSnackFiles()
+    getDefaultSnackFiles(),
   );
   const [isPreviewView, setIsPreviewView] = useState(true);
 
@@ -171,7 +172,7 @@ export default function CreatePage() {
 
   // Set the editor code to the contents of that existing file
   const [mainAppCode, setMainAppCode] = useState(
-    snackFiles[defaultFile]?.contents || ""
+    snackFiles[defaultFile]?.contents || "",
   );
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
   const [loadingDots, setLoadingDots] = useState(0);
@@ -195,6 +196,25 @@ export default function CreatePage() {
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+
+    // Add user message to database
+    if (prototypeChatSession?.id) {
+      try {
+        const { error: insertError } = await supabase
+          .from("prototype_chat_messages")
+          .insert({
+            chat_session_id: prototypeChatSession.id,
+            content: content,
+            role: "user" as const,
+          });
+
+        if (insertError) {
+          console.error("Error inserting user message:", insertError);
+        }
+      } catch (error) {
+        console.error("Error saving user message to database:", error);
+      }
+    }
 
     try {
       // Phase 1: Get the planning response
@@ -234,7 +254,11 @@ export default function CreatePage() {
 
         if (planningResult.hasPlan && planningResult.operations.length > 0) {
           // Execute each operation step by step
-          await executeOperationsStepByStep(planningResult.operations, [...messages, userMessage, planningMessage]);
+          await executeOperationsStepByStep(planningResult.operations, [
+            ...messages,
+            userMessage,
+            planningMessage,
+          ]);
         }
       }
     } catch (error) {
@@ -263,16 +287,16 @@ export default function CreatePage() {
       filePath: string;
       newFilePath?: string;
     }>,
-    currentMessages: ChatMessage[]
+    currentMessages: ChatMessage[],
   ) => {
     // Create a single execution message that will be updated
     const executionMessageId = `execution-${Date.now()}`;
     const initialExecutionMessage: ChatMessage = {
       id: executionMessageId,
       role: "assistant",
-      content: `🔄 Executing ${operations.length} operations...\n\n${operations.map((op, index) =>
-        `${index + 1}. ${op.title} (${op.type})`
-      ).join('\n')}`,
+      content: `🔄 Executing ${operations.length} operations...\n\n${operations
+        .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
+        .join("\n")}`,
       timestamp: new Date(),
     };
 
@@ -280,29 +304,35 @@ export default function CreatePage() {
 
     let completedSteps = 0;
     let failedSteps = 0;
-    const stepResults: Array<{ title: string; status: 'success' | 'error'; message?: string; }> = [];
+    const stepResults: Array<{
+      title: string;
+      status: "success" | "error";
+      message?: string;
+    }> = [];
 
     for (let i = 0; i < operations.length; i++) {
       const operation = operations[i];
 
       try {
         // Update the execution message to show current step
-        const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations.map((op, index) => {
-          if (index < i) {
-            return `✅ ${op.title} (${op.type})`;
-          } else if (index === i) {
-            return `🔄 ${op.title} (${op.type}) - Executing${'.'.repeat(loadingDots)}`;
-          } else {
-            return `${index + 1}. ${op.title} (${op.type})`;
-          }
-        }).join('\n')}`;
+        const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations
+          .map((op, index) => {
+            if (index < i) {
+              return `✅ ${op.title} (${op.type})`;
+            } else if (index === i) {
+              return `🔄 ${op.title} (${op.type}) - Executing${".".repeat(loadingDots)}`;
+            } else {
+              return `${index + 1}. ${op.title} (${op.type})`;
+            }
+          })
+          .join("\n")}`;
 
         setMessages((prev) =>
-          prev.map(msg =>
+          prev.map((msg) =>
             msg.id === executionMessageId
               ? { ...msg, content: loadingContent }
-              : msg
-          )
+              : msg,
+          ),
         );
 
         // Execute the specific operation
@@ -351,65 +381,69 @@ export default function CreatePage() {
           completedSteps++;
           stepResults.push({
             title: operation.title,
-            status: 'success',
-            message: stepResult.message
+            status: "success",
+            message: stepResult.message,
           });
         } else {
           failedSteps++;
           stepResults.push({
             title: operation.title,
-            status: 'error',
-            message: stepData.content
+            status: "error",
+            message: stepData.content,
           });
         }
 
         // Update current messages for next iteration
-        currentMessages = [...currentMessages, {
-          id: `step-${Date.now()}-${i}`,
-          role: "assistant",
-          content: stepResult.hasResult ? `✅ Completed: ${operation.title}` : `❌ Failed: ${operation.title}`,
-          timestamp: new Date(),
-        }];
-
+        currentMessages = [
+          ...currentMessages,
+          {
+            id: `step-${Date.now()}-${i}`,
+            role: "assistant",
+            content: stepResult.hasResult
+              ? `✅ Completed: ${operation.title}`
+              : `❌ Failed: ${operation.title}`,
+            timestamp: new Date(),
+          },
+        ];
       } catch (error) {
         console.error(`Error executing step ${i + 1}:`, error);
         failedSteps++;
         stepResults.push({
           title: operation.title,
-          status: 'error',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          status: "error",
+          message: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
 
     // Update the final execution message with results
-    const finalContent = `🎉 Execution completed!\n\n${operations.map((op, index) => {
-      const result = stepResults[index];
-      if (result?.status === 'success') {
-        return `✅ ${op.title} (${op.type})`;
-      } else {
-        return `❌ ${op.title} (${op.type}) - ${result?.message || 'Failed'}`;
-      }
-    }).join('\n')}\n\n${completedSteps} completed, ${failedSteps} failed`;
+    const finalContent = `🎉 Execution completed!\n\n${operations
+      .map((op, index) => {
+        const result = stepResults[index];
+        if (result?.status === "success") {
+          return `✅ ${op.title} (${op.type})`;
+        } else {
+          return `❌ ${op.title} (${op.type}) - ${result?.message || "Failed"}`;
+        }
+      })
+      .join("\n")}\n\n${completedSteps} completed, ${failedSteps} failed`;
 
     setMessages((prev) =>
-      prev.map(msg =>
-        msg.id === executionMessageId
-          ? { ...msg, content: finalContent }
-          : msg
-      )
+      prev.map((msg) =>
+        msg.id === executionMessageId ? { ...msg, content: finalContent } : msg,
+      ),
     );
   };
 
   const handleApplyCode = (
     result: CodeExtractionResult,
-    plannedFilePaths?: string[]
+    plannedFilePaths?: string[],
   ) => {
     if (result.hasCode) {
       const newFiles = updateSnackFiles(
         snackFiles,
         result.codeBlocks,
-        plannedFilePaths
+        plannedFilePaths,
       );
       // Create a deep copy to ensure React detects the change
       setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
@@ -422,7 +456,7 @@ export default function CreatePage() {
   };
 
   const handleExecutePlannedOperation = async (
-    operationId: string
+    operationId: string,
   ): Promise<void> => {
     console.log(`Executing planned operation ${operationId}`);
     // This is now handled automatically by the step-by-step flow
@@ -563,20 +597,22 @@ export default function CreatePage() {
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${isPreviewView
-                      ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
-                      : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                      }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                      isPreviewView
+                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
+                        : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
+                    }`}
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     Preview
                   </button>
                   <button
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${!isPreviewView
-                      ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
-                      : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                      }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                      !isPreviewView
+                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
+                        : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
+                    }`}
                   >
                     <CodeBracketIcon className="w-4 h-4 inline mr-2" />
                     Code
@@ -634,4 +670,3 @@ export default function CreatePage() {
     </div>
   );
 }
-
