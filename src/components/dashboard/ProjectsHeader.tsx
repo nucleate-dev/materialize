@@ -1,11 +1,13 @@
 "use client";
 import { useSidebar } from "@/hooks/useSidebar";
+import { useProject } from "@/hooks/useProject";
 import {
   Bars3Icon,
   ClockIcon,
   RocketLaunchIcon,
   Square3Stack3DIcon,
   Cog6ToothIcon,
+  FolderIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
@@ -15,6 +17,7 @@ export default function ProjectsHeader() {
   const pathname = usePathname();
   const params = useParams();
   const projectId = params?.project_id as string;
+  const { project, isLoading } = useProject(projectId);
 
   const tabs = [
     {
@@ -67,20 +70,53 @@ export default function ProjectsHeader() {
 
       {/* Header Content */}
       <div className="relative z-10 flex flex-grow items-center justify-between px-6 py-1 md:px-8 2xl:px-12">
-        {/* Left Section - Mobile Menu & Logo */}
-        <div className="flex items-center gap-4 lg:hidden">
+        {/* Left Section - Mobile Menu & Project Name */}
+        <div className="flex items-center gap-4">
           {/* Modern Mobile Toggle Button */}
-          <button
-            aria-controls="sidebar"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSidebarOpen(!sidebarOpen);
-            }}
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110 group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <Bars3Icon className="relative w-5 h-5 text-body dark:text-bodydark transition-colors duration-300 group-hover:text-primary dark:group-hover:text-secondary" />
-          </button>
+          <div className="lg:hidden">
+            <button
+              aria-controls="sidebar"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSidebarOpen(!sidebarOpen);
+              }}
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110 group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <Bars3Icon className="relative w-5 h-5 text-body dark:text-bodydark transition-colors duration-300 group-hover:text-primary dark:group-hover:text-secondary" />
+            </button>
+          </div>
+
+          {/* Project Name Display */}
+          <div className="flex items-center gap-3">
+            {/* Project Icon Container */}
+            <div className="relative p-2.5 bg-gradient-to-br from-primary/10 via-secondary/5 to-meta-5/10 dark:from-primary/20 dark:via-secondary/10 dark:to-meta-5/20 rounded-xl border border-primary/20 dark:border-secondary/30 backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-xl blur-sm opacity-50"></div>
+              <FolderIcon className="relative w-5 h-5 text-primary dark:text-secondary" />
+            </div>
+
+            {/* Project Name & Loading State */}
+            <div className="flex flex-col justify-center min-w-0">
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-32 bg-gradient-to-r from-stroke/30 to-stroke/20 dark:from-strokedark/30 dark:to-strokedark/20 rounded-lg animate-pulse"></div>
+                </div>
+              ) : project ? (
+                <>
+                  <h1 className="text-xl font-bold text-black dark:text-white leading-tight truncate max-w-xs md:max-w-sm lg:max-w-md">
+                    {project.name}
+                  </h1>
+                  <span className="text-xs font-medium text-body dark:text-bodydark opacity-75 uppercase tracking-wide">
+                    Project
+                  </span>
+                </>
+              ) : (
+                <span className="text-lg font-semibold text-body dark:text-bodydark opacity-75">
+                  Project Not Found
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Center Section - Navigation Tabs */}
