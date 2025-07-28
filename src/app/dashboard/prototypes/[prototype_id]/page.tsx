@@ -182,6 +182,7 @@ export default function CreatePage() {
       id: executionMessageId,
       chat_session_id: prototypeChatSession?.id || "",
       role: "assistant",
+      phase: "execution",
       content: `🔄 Executing ${operations.length} operations...\n\n${operations
         .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
         .join("\n")}`,
@@ -293,6 +294,7 @@ export default function CreatePage() {
               ? `✅ Completed: ${operation.title}`
               : `❌ Failed: ${operation.title}`,
             created_at: new Date().toISOString(),
+            phase: "step_execution",
           },
         ];
       } catch (error) {
@@ -392,6 +394,7 @@ export default function CreatePage() {
           role: "assistant",
           content: planningData.content,
           created_at: new Date().toISOString(),
+          phase: "planning",
         };
 
         setPrototypeChatMessages((prev) => [...prev, planningMessage]);
@@ -420,6 +423,7 @@ export default function CreatePage() {
           content:
             "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
           created_at: new Date().toISOString(),
+          phase: "execution",
         };
 
         setPrototypeChatMessages((prev) => [...prev, errorMessage]);
