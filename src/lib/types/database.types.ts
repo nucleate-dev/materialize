@@ -299,6 +299,41 @@ export type Database = {
           },
         ]
       }
+      prototype_files: {
+        Row: {
+          contents: string
+          created_at: string | null
+          id: string
+          name: string
+          prototype_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contents: string
+          created_at?: string | null
+          id?: string
+          name: string
+          prototype_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contents?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          prototype_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_files_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototypes: {
         Row: {
           created_at: string | null
