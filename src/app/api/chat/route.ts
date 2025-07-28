@@ -1,7 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+);
 
 const PLANNING_PROMPT = `You are a React Native development assistant. Your role is to create execution plans for React Native development tasks.
 
@@ -290,8 +296,14 @@ interface SnackFiles {
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, currentCode, phase, snackFiles, stepOperation } =
-      await request.json();
+    const {
+      messages,
+      currentCode,
+      phase,
+      snackFiles,
+      stepOperation,
+      chat_session_id,
+    } = await request.json();
 
     if (!process.env.GOOGLE_AI_API_KEY) {
       return NextResponse.json(
@@ -526,15 +538,27 @@ ${messageWithContext}`;
     const response = result.response;
     const text = response.text();
 
-    return NextResponse.json({
-      content: text,
-      role: "assistant",
-      phase: isStepExecutionPhase
-        ? "step_execution"
-        : isExecutionPhase
-          ? "execution"
-          : "planning",
-    });
+    const { data: assistantResponse, error: insertError } = await supabase
+      .from("prototype_chat_messages")
+      .insert({
+        chat_session_id: chat_session_id,
+        content: text,
+        role: "assistant",
+        phase: isStepExecutionPhase
+          ? "step_execution"
+          : isExecutionPhase
+            ? "execution"
+            : "planning",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error inserting assistant response:", insertError);
+      throw new Error("Error inserting assistant response into database");
+    }
+
+    return NextResponse.json(assistantResponse);
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(

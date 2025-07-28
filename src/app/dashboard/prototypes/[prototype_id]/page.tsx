@@ -24,7 +24,8 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -41,10 +42,8 @@ export default function CreatePage() {
   const [isLoading, setIsLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototypeChatSession, setPrototypeChatSession] =
     useState<PrototypeChatSession | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
@@ -166,99 +165,6 @@ export default function CreatePage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSendMessage = async (content: string) => {
-    if (!prototypeChatSession?.id) {
-      console.error("Sending message failed: no chat session found");
-      return;
-    }
-    // const userMessage: PrototypeChatMessage = {
-    //   id: Date.now().toString(),
-    //   role: "user",
-    //   content,
-    //   timestamp: new Date(),
-    // };
-
-    const { data: userMessage, error: insertError } = await supabase
-      .from("prototype_chat_messages")
-      .insert({
-        chat_session_id: prototypeChatSession.id,
-        content: content,
-        role: "user" as const,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("Error inserting user message:", insertError);
-    }
-
-    setPrototypeChatMessages((prev) => [...prev, userMessage]);
-
-    try {
-      setIsLoading(true);
-      // Phase 1: Get the planning response
-      const planningResponse = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [...prototypeChatMessages, userMessage],
-          currentCode: mainAppCode,
-          phase: "planning",
-          snackFiles: snackFiles,
-        }),
-      });
-
-      if (!planningResponse.ok) {
-        throw new Error(`HTTP error! status: ${planningResponse.status}`);
-      }
-
-      const planningData = await planningResponse.json();
-      console.log("Planning data:", planningData);
-
-      const planningMessage: PrototypeChatMessage = {
-        id: (Date.now() + 1).toString(),
-        chat_session_id: prototypeChatSession.id,
-        role: "assistant",
-        content: planningData.content,
-        created_at: new Date().toISOString(),
-      };
-
-      setPrototypeChatMessages((prev) => [...prev, planningMessage]);
-
-      // Check if the response contains an execution plan
-      if (planningData.content.includes("EXECUTION_PLAN")) {
-        // Extract planned operations from the planning response
-        const planningResult = extractExecutionPlan(planningData.content);
-
-        if (planningResult.hasPlan && planningResult.operations.length > 0) {
-          // Execute each operation step by step
-          await executeOperationsStepByStep(planningResult.operations, [
-            ...prototypeChatMessages,
-            userMessage,
-            planningMessage,
-          ]);
-        }
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-
-      const errorMessage: PrototypeChatMessage = {
-        id: (Date.now() + 1).toString(),
-        chat_session_id: prototypeChatSession.id,
-        role: "assistant",
-        content:
-          "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
-        created_at: new Date().toISOString(),
-      };
-
-      setPrototypeChatMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const executeOperationsStepByStep = async (
     operations: Array<{
       id: string;
@@ -271,7 +177,7 @@ export default function CreatePage() {
     currentMessages: PrototypeChatMessage[],
   ) => {
     // Create a single execution message that will be updated
-    const executionMessageId = `execution-${Date.now()}`;
+    const executionMessageId = uuidv4();
     const initialExecutionMessage: PrototypeChatMessage = {
       id: executionMessageId,
       chat_session_id: prototypeChatSession?.id || "",
@@ -324,6 +230,7 @@ export default function CreatePage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            chat_session_id: prototypeChatSession?.id || "",
             messages: currentMessages,
             currentCode: mainAppCode,
             phase: "step_execution",
@@ -411,12 +318,127 @@ export default function CreatePage() {
       })
       .join("\n")}\n\n${completedSteps} completed, ${failedSteps} failed`;
 
+    // const { data: executionMessage, error: insertError } = await supabase
+    //   .from("prototype_chat_messages")
+    //   .insert({
+    //     id: executionMessageId,
+    //     chat_session_id: prototypeChatSession?.id || "",
+    //     content: finalContent,
+    //     role: "assistant",
+    //   })
+    //   .select()
+    //   .single();
+    // if (insertError) {
+    //   console.log("Error inserting execution message:", insertError);
+    // }
+
     setPrototypeChatMessages((prev) =>
       prev.map((msg) =>
         msg.id === executionMessageId ? { ...msg, content: finalContent } : msg,
       ),
     );
   };
+
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      if (!prototypeChatSession?.id) {
+        console.error("Sending message failed: no chat session found");
+        return;
+      }
+
+      const { data: userMessage, error: insertError } = await supabase
+        .from("prototype_chat_messages")
+        .insert({
+          chat_session_id: prototypeChatSession.id,
+          content: content,
+          role: "user" as const,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error inserting user message:", insertError);
+      }
+
+      setPrototypeChatMessages((prev) => [...prev, userMessage]);
+
+      try {
+        setIsLoading(true);
+        // Phase 1: Get the planning response
+        const planningResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            chat_session_id: prototypeChatSession.id,
+            messages: [...prototypeChatMessages, userMessage],
+            currentCode: mainAppCode,
+            phase: "planning",
+            snackFiles: snackFiles,
+          }),
+        });
+
+        if (!planningResponse.ok) {
+          throw new Error(`HTTP error! status: ${planningResponse.status}`);
+        }
+
+        const planningData = await planningResponse.json();
+        console.log("Planning data:", planningData);
+
+        const planningMessage: PrototypeChatMessage = {
+          id: (Date.now() + 1).toString(),
+          chat_session_id: prototypeChatSession.id,
+          role: "assistant",
+          content: planningData.content,
+          created_at: new Date().toISOString(),
+        };
+
+        setPrototypeChatMessages((prev) => [...prev, planningMessage]);
+
+        // Check if the response contains an execution plan
+        if (planningData.content.includes("EXECUTION_PLAN")) {
+          // Extract planned operations from the planning response
+          const planningResult = extractExecutionPlan(planningData.content);
+
+          if (planningResult.hasPlan && planningResult.operations.length > 0) {
+            // Execute each operation step by step
+            await executeOperationsStepByStep(planningResult.operations, [
+              ...prototypeChatMessages,
+              userMessage,
+              planningMessage,
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error("Error sending message:", error);
+
+        const errorMessage: PrototypeChatMessage = {
+          id: (Date.now() + 1).toString(),
+          chat_session_id: prototypeChatSession.id,
+          role: "assistant",
+          content:
+            "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
+          created_at: new Date().toISOString(),
+        };
+
+        setPrototypeChatMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      supabase,
+      prototypeChatSession,
+      setPrototypeChatMessages,
+      setIsLoading,
+      extractExecutionPlan,
+      executeOperationsStepByStep,
+      mainAppCode,
+      snackFiles,
+      prototypeChatMessages,
+    ],
+  );
 
   const handleApplyCode = (
     result: CodeExtractionResult,
