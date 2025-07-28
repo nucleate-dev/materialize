@@ -93,6 +93,62 @@ I'll help you add a todo list with navigation. Here's my execution plan:
 
 This plan follows the correct file structure with screens in screens/ and components in components/.`;
 
+const STEP_EXECUTION_PROMPT = `You are a React Native development assistant. Your role is to implement a single execution step from a development plan.
+
+IMPORTANT: You have access to the following packages without needing to install them:
+- expo-linear-gradient
+- react-native-vector-icons
+
+IMPORTANT: This project uses TRADITIONAL React Native navigation (NOT expo-router). Follow this EXACT file structure:
+- App.js - main application file with manual tab navigation (imports screens from screens/ folder)
+- screens/ - for individual screen components (HomeScreen.js, ProfileScreen.js, etc.)
+- components/ - for reusable UI components (Button.js, Card.js, etc.)
+- styles/ - for theme and styling files (theme.js)
+- utils/ - for utility functions
+
+CRITICAL FILE PATH RULES:
+- New screens MUST go in screens/ directory (e.g., screens/TodoScreen.js)
+- New components MUST go in components/ directory (e.g., components/TodoItem.js)
+- Style files MUST go in styles/ directory (e.g., styles/colors.js)
+- When modifying App.js, import screens from the screens/ folder (e.g., import HomeScreen from './screens/HomeScreen')
+
+CRITICAL APP.JS PROTECTION RULES:
+- App.js is the CRITICAL entry point and should ONLY be modified when absolutely necessary
+- ONLY modify App.js for: adding new navigation tabs, importing new screens, or core app structure changes
+- NEVER modify App.js for: UI components, styling, business logic, or feature implementations
+- When modifying App.js, preserve ALL existing navigation structure and only add what's necessary
+- Keep App.js minimal and focused on navigation structure only
+- If a feature can be implemented in a screen or component, do NOT modify App.js
+
+STEP EXECUTION GUIDELINES:
+- You will receive a single operation to execute
+- Provide complete, working code for the specified file
+- Use modern React Native patterns with functional components and hooks
+- Include proper imports and exports
+- Ensure code follows React Native best practices
+- Focus on mobile-first design principles
+- For modifications, preserve existing code structure and only make requested changes
+- When modifying App.js, be extremely conservative and only add what's absolutely required
+
+The user will provide you with a single operation to execute. Provide the complete file content in a code block.
+
+Use this format:
+
+**STEP_RESULT:**
+\`\`\`javascript
+// Complete file content here
+\`\`\`
+
+Guidelines:
+1. Provide complete, working code for the specified file
+2. Use modern React Native patterns with functional components and hooks
+3. Include proper imports and exports
+4. Ensure code follows React Native best practices
+5. Focus on mobile-first design principles
+6. Use traditional React Native navigation patterns with App.js structure
+7. For modifications, preserve existing code structure and only make requested changes
+8. When modifying App.js, be extremely careful and only add navigation-related changes`;
+
 const EXECUTION_PROMPT = `You are a React Native development assistant. Your role is to provide complete code implementations based on execution plans.
 
 IMPORTANT: You have access to the following packages without needing to install them:
@@ -167,7 +223,8 @@ interface SnackFiles {
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, currentCode, phase, snackFiles } = await request.json();
+    const { messages, currentCode, phase, snackFiles, stepOperation } =
+      await request.json();
 
     if (!process.env.GOOGLE_AI_API_KEY) {
       return NextResponse.json(
@@ -185,8 +242,9 @@ export async function POST(request: NextRequest) {
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // Determine if this should be planning or execution phase
+    // Determine the phase type
     const isExecutionPhase = phase === "execution";
+    const isStepExecutionPhase = phase === "step_execution";
 
     // For execution phase, we need the plan from the previous message
     let planContext = "";
@@ -226,6 +284,21 @@ Now implement the steps from this plan.`;
       }
     }
 
+    // For step execution phase, we have a specific operation to execute
+    let stepContext = "";
+    if (isStepExecutionPhase && stepOperation) {
+      stepContext = `Execute this specific operation:
+
+Operation ID: ${stepOperation.id}
+Type: ${stepOperation.type}
+Title: ${stepOperation.title}
+Description: ${stepOperation.description}
+File Path: ${stepOperation.filePath}
+${stepOperation.newFilePath ? `New File Path: ${stepOperation.newFilePath}` : ""}
+
+Provide the complete code for this operation.`;
+    }
+
     // Convert messages to Gemini format (excluding the plan message for execution phase)
     const chatHistory = messages
       .slice(0, isExecutionPhase ? -2 : -1)
@@ -239,7 +312,37 @@ Now implement the steps from this plan.`;
     // Include current code context in the user's message if available
     let messageWithContext = lastMessage.content;
 
-    if (isExecutionPhase && plannedFilePaths.length > 0 && snackFiles) {
+    if (isStepExecutionPhase && stepOperation && snackFiles) {
+      // For step execution, include the specific file being modified
+      if (stepOperation.filePath && snackFiles[stepOperation.filePath]) {
+        messageWithContext = `IMPORTANT: You are executing a ${stepOperation.type} operation on ${stepOperation.filePath}.
+
+Current file content:
+\`\`\`javascript
+${snackFiles[stepOperation.filePath].contents}
+\`\`\`
+
+${stepContext}
+
+User request: ${lastMessage.content}`;
+      } else if (currentCode && currentCode.trim()) {
+        // Fallback to current code if specific file not found
+        messageWithContext = `IMPORTANT: You are executing a ${stepOperation.type} operation.
+
+Current code in the app:
+\`\`\`javascript
+${currentCode}
+\`\`\`
+
+${stepContext}
+
+User request: ${lastMessage.content}`;
+      } else {
+        messageWithContext = `${stepContext}
+
+User request: ${lastMessage.content}`;
+      }
+    } else if (isExecutionPhase && plannedFilePaths.length > 0 && snackFiles) {
       // For execution phase, include contents of files mentioned in the plan
       const relevantFiles: string[] = [];
 
@@ -322,12 +425,22 @@ ${messageWithContext}`;
     }
 
     // Select appropriate prompt and response based on phase
-    const selectedSystemPrompt = isExecutionPhase
-      ? EXECUTION_PROMPT
-      : PLANNING_PROMPT;
-    const modelResponse = isExecutionPhase
-      ? "I understand. I'm ready to provide complete code implementations for each step in the execution plan."
-      : "I understand. I'm ready to create detailed execution plans for React Native development tasks.";
+    let selectedSystemPrompt: string;
+    let modelResponse: string;
+
+    if (isStepExecutionPhase) {
+      selectedSystemPrompt = STEP_EXECUTION_PROMPT;
+      modelResponse =
+        "I understand. I'm ready to implement the specific operation you've requested.";
+    } else if (isExecutionPhase) {
+      selectedSystemPrompt = EXECUTION_PROMPT;
+      modelResponse =
+        "I understand. I'm ready to provide complete code implementations for each step in the execution plan.";
+    } else {
+      selectedSystemPrompt = PLANNING_PROMPT;
+      modelResponse =
+        "I understand. I'm ready to create detailed execution plans for React Native development tasks.";
+    }
 
     const chat = model.startChat({
       history: [
@@ -349,7 +462,11 @@ ${messageWithContext}`;
     return NextResponse.json({
       content: text,
       role: "assistant",
-      phase: isExecutionPhase ? "execution" : "planning",
+      phase: isStepExecutionPhase
+        ? "step_execution"
+        : isExecutionPhase
+          ? "execution"
+          : "planning",
     });
   } catch (error) {
     console.error("Chat API error:", error);

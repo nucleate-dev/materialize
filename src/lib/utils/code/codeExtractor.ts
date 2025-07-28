@@ -33,11 +33,14 @@ export function extractCodeFromMessage(message: string): CodeExtractionResult {
 
       // Try to detect if it's a React Native component
       if (isReactNativeCode(code)) {
-        codeBlocks.push({
-          language: detectedLanguage,
-          code: cleanupCode(code),
-          fileName: getFileNameFromCode(code, detectedLanguage),
-        });
+        const fileName = getFileNameFromCode(code, detectedLanguage);
+        if (fileName) {
+          codeBlocks.push({
+            language: detectedLanguage,
+            code: cleanupCode(code),
+            fileName: fileName,
+          });
+        }
       }
     }
   }
@@ -162,7 +165,7 @@ function cleanupCode(code: string): string {
 function getFileNameFromCode(
   code: string,
   language: "javascript" | "typescript"
-): string {
+): string | null {
   // Try to extract component name from export default
   const exportMatch = code.match(/export default (?:function\s+)?(\w+)/);
   if (exportMatch) {
@@ -171,9 +174,8 @@ function getFileNameFromCode(
     return `${componentName}.${extension}`;
   }
 
-  // Default filename
-  const extension = language === "typescript" ? "tsx" : "js";
-  return `App.${extension}`;
+  // Return null if no filename can be determined from the code
+  return null;
 }
 
 export function updateSnackFiles(

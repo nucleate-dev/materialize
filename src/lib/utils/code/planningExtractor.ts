@@ -14,11 +14,18 @@ export interface ExecutionStepResult {
   operations: EditOperation[];
 }
 
+export interface StepResult {
+  hasResult: boolean;
+  filePath: string;
+  content: string;
+  message: string; // message with step result removed for display
+}
+
 /**
  * Extract execution plan from AI message
  */
 export function extractExecutionPlan(
-  message: string
+  message: string,
 ): PlanningExtractionResult {
   const result: PlanningExtractionResult = {
     hasPlan: false,
@@ -51,7 +58,7 @@ export function extractExecutionPlan(
               filePath: (item.filePath as string) || "unknown",
               newFilePath: item.newFilePath as string | undefined,
               status: "pending" as const,
-            })
+            }),
           );
 
           // Remove the plan from the message
@@ -67,7 +74,7 @@ export function extractExecutionPlan(
     // Extract execution steps
     const stepMatches = [
       ...message.matchAll(
-        /\*\*EXECUTION_STEP_(\d+):\*\*\s*(\[[\s\S]*?\])(?=\n\*\*EXECUTION_STEP_|\n\*\*|$)/g
+        /\*\*EXECUTION_STEP_(\d+):\*\*\s*(\[[\s\S]*?\])(?=\n\*\*EXECUTION_STEP_|\n\*\*|$)/g,
       ),
     ];
 
@@ -87,7 +94,7 @@ export function extractExecutionPlan(
       } catch (parseError) {
         console.warn(
           `Failed to parse execution step ${stepId} JSON:`,
-          parseError
+          parseError,
         );
       }
     }
@@ -103,7 +110,7 @@ export function extractExecutionPlan(
  */
 export function extractExecutionStep(
   message: string,
-  stepId: string
+  stepId: string,
 ): ExecutionStepResult {
   const result: ExecutionStepResult = {
     hasStep: false,
@@ -114,7 +121,7 @@ export function extractExecutionStep(
   try {
     const stepPattern = new RegExp(
       `\\*\\*EXECUTION_STEP_${stepId}:\\*\\*\\s*(\\[[\\s\\S]*?\\])`,
-      "g"
+      "g",
     );
     const stepMatch = message.match(stepPattern);
 
@@ -132,13 +139,49 @@ export function extractExecutionStep(
         } catch (parseError) {
           console.warn(
             `Failed to parse execution step ${stepId} JSON:`,
-            parseError
+            parseError,
           );
         }
       }
     }
   } catch (error) {
     console.error(`Error extracting execution step ${stepId}:`, error);
+  }
+
+  return result;
+}
+
+/**
+ * Extract step result from AI message
+ */
+export function extractStepResult(message: string): StepResult {
+  const result: StepResult = {
+    hasResult: false,
+    filePath: "",
+    content: "",
+    message: message,
+  };
+
+  try {
+    // Look for **STEP_RESULT:** pattern followed by a code block
+    const stepResultMatch = message.match(
+      /\*\*STEP_RESULT:\*\*\s*```(?:javascript|js)?\s*([\s\S]*?)```/,
+    );
+
+    if (stepResultMatch) {
+      result.hasResult = true;
+      result.content = stepResultMatch[1].trim();
+
+      // Remove the step result from the message
+      result.message = message
+        .replace(
+          /\*\*STEP_RESULT:\*\*\s*```(?:javascript|js)?\s*[\s\S]*?```/,
+          "",
+        )
+        .trim();
+    }
+  } catch (error) {
+    console.error("Error extracting step result:", error);
   }
 
   return result;
@@ -163,7 +206,7 @@ export function getExecutionStepIds(message: string): string[] {
  * Validate planned operation
  */
 export function isValidPlannedOperation(
-  operation: unknown
+  operation: unknown,
 ): operation is PlannedOperation {
   return (
     operation !== null &&
@@ -172,7 +215,7 @@ export function isValidPlannedOperation(
     typeof (operation as Record<string, unknown>).id === "string" &&
     "type" in operation &&
     ["create", "modify", "delete", "move"].includes(
-      (operation as Record<string, unknown>).type as string
+      (operation as Record<string, unknown>).type as string,
     ) &&
     "title" in operation &&
     typeof (operation as Record<string, unknown>).title === "string" &&
@@ -200,13 +243,13 @@ export function logPlanningExtraction(result: PlanningExtractionResult): void {
           type: op.type,
           title: op.title,
           file: op.filePath,
-        }))
+        })),
       );
     }
 
     if (Object.keys(result.executionSteps).length > 0) {
       for (const [stepId, operations] of Object.entries(
-        result.executionSteps
+        result.executionSteps,
       )) {
         console.log(`Step ${stepId} operations:`, operations.length);
       }

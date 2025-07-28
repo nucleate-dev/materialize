@@ -17,10 +17,9 @@ import {
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
-  extractCodeFromMessage,
-  updateSnackFiles,
+  updateSnackFiles
 } from "@/lib/utils/code/codeExtractor";
-import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
+import { extractExecutionPlan, extractStepResult } from "@/lib/utils/code/planningExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import {
   CodeBracketIcon,
@@ -220,46 +219,12 @@ export default function CreatePage() {
 
       // Check if the response contains an execution plan
       if (planningData.content.includes("EXECUTION_PLAN")) {
-        // Extract planned file paths from the planning response
+        // Extract planned operations from the planning response
         const planningResult = extractExecutionPlan(planningData.content);
-        const plannedFilePaths = planningResult.operations
-          .filter((op) => op.type === "create" || op.type === "modify")
-          .map((op) => op.filePath);
 
-        // Phase 2: Get the execution response automatically
-        const executionResponse = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: [...messages, userMessage, planningMessage],
-            currentCode: mainAppCode,
-            phase: "execution",
-            snackFiles: snackFiles,
-          }),
-        });
-
-        if (!executionResponse.ok) {
-          throw new Error(`HTTP error! status: ${executionResponse.status}`);
-        }
-
-        const executionData = await executionResponse.json();
-        console.log("Execution data:", executionData);
-
-        const executionMessage: ChatMessage = {
-          id: (Date.now() + 2).toString(),
-          role: "assistant",
-          content: executionData.content,
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, executionMessage]);
-
-        // Auto-apply the execution code immediately with planned file paths
-        const codeResult = extractCodeFromMessage(executionData.content);
-        if (codeResult.hasCode) {
-          handleApplyCode(codeResult, plannedFilePaths);
+        if (planningResult.hasPlan && planningResult.operations.length > 0) {
+          // Execute each operation step by step
+          await executeOperationsStepByStep(planningResult.operations, [...messages, userMessage, planningMessage]);
         }
       }
     } catch (error) {
@@ -277,6 +242,127 @@ export default function CreatePage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const executeOperationsStepByStep = async (
+    operations: Array<{
+      id: string;
+      type: "create" | "modify" | "delete" | "move";
+      title: string;
+      description: string;
+      filePath: string;
+      newFilePath?: string;
+    }>,
+    currentMessages: ChatMessage[]
+  ) => {
+    for (let i = 0; i < operations.length; i++) {
+      const operation = operations[i];
+
+      try {
+        // Add progress message
+        const progressMessage: ChatMessage = {
+          id: `progress-${Date.now()}-${i}`,
+          role: "assistant",
+          content: `🔄 Executing step ${i + 1}/${operations.length}: ${operation.title}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, progressMessage]);
+
+        // Execute the specific operation
+        const stepResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: currentMessages,
+            currentCode: mainAppCode,
+            phase: "step_execution",
+            snackFiles: snackFiles,
+            stepOperation: operation,
+          }),
+        });
+
+        if (!stepResponse.ok) {
+          throw new Error(`HTTP error! status: ${stepResponse.status}`);
+        }
+
+        const stepData = await stepResponse.json();
+        console.log(`Step ${i + 1} data:`, stepData);
+
+        // Extract the step result
+        const stepResult = extractStepResult(stepData.content);
+
+        if (stepResult.hasResult) {
+          // Apply the code changes
+          const newFiles = {
+            ...snackFiles,
+            [operation.filePath]: {
+              contents: stepResult.content,
+              type: "CODE" as const,
+            },
+          };
+
+          // Create a deep copy to ensure React detects the change
+          setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
+
+          // Update the main app code if the selected file was modified
+          if (operation.filePath === selectedFile) {
+            setMainAppCode(stepResult.content);
+          }
+
+          // Add success message
+          const successMessage: ChatMessage = {
+            id: `success-${Date.now()}-${i}`,
+            role: "assistant",
+            content: `✅ Completed: ${operation.title}\n\n${stepResult.message}`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, successMessage]);
+        } else {
+          // Add error message if no result found
+          const errorMessage: ChatMessage = {
+            id: `error-${Date.now()}-${i}`,
+            role: "assistant",
+            content: `❌ Failed to execute: ${operation.title}\n\n${stepData.content}`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        }
+
+        // Update current messages for next iteration
+        currentMessages = [...currentMessages, progressMessage];
+        if (stepResult.hasResult) {
+          currentMessages = [...currentMessages, {
+            id: `success-${Date.now()}-${i}`,
+            role: "assistant",
+            content: `✅ Completed: ${operation.title}`,
+            timestamp: new Date(),
+          }];
+        }
+
+      } catch (error) {
+        console.error(`Error executing step ${i + 1}:`, error);
+
+        // Add error message
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}-${i}`,
+          role: "assistant",
+          content: `❌ Error executing: ${operation.title}\n\n${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
+    }
+
+    // Add completion message
+    const completionMessage: ChatMessage = {
+      id: `completion-${Date.now()}`,
+      role: "assistant",
+      content: `🎉 All operations completed! Your prototype has been updated.`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, completionMessage]);
   };
 
   const handleApplyCode = (
@@ -303,8 +389,7 @@ export default function CreatePage() {
     operationId: string
   ): Promise<void> => {
     console.log(`Executing planned operation ${operationId}`);
-    // This is now handled automatically by the two-message flow
-    // The execution message will contain code blocks that can be applied
+    // This is now handled automatically by the step-by-step flow
   };
 
   const handleFilesChange = (files: SnackFiles) => {
