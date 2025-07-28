@@ -50,7 +50,7 @@ export default function WhiteboardsPage() {
       }
       setLoading(false);
     },
-    [setLoading, setCanvases]
+    [setLoading, setCanvases],
   );
 
   useEffect(() => {
@@ -133,16 +133,13 @@ export default function WhiteboardsPage() {
               canvasName={canvas.name}
               thumbnailUrl={canvas.thumbnail_url}
               lastModified={formatRelativeTime(
-                canvas.updated_at || canvas.created_at
+                canvas.updated_at || canvas.created_at,
               )}
               onClick={() => handleCanvasClick(canvas.id)}
             />
           ))
         ) : (
-          <EmptyState
-            type="whiteboards"
-            onButtonClick={handleOpenModal}
-          />
+          <EmptyState type="whiteboards" onButtonClick={handleOpenModal} />
         )}
       </div>
     </div>

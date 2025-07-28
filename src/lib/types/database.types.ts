@@ -18,21 +18,21 @@ export type Database = {
         Row: {
           canvas_id: string | null
           created_at: string | null
-          document_data: Json
+          document_data: Json | null
           id: string
           updated_at: string | null
         }
         Insert: {
           canvas_id?: string | null
           created_at?: string | null
-          document_data: Json
+          document_data?: Json | null
           id?: string
           updated_at?: string | null
         }
         Update: {
           canvas_id?: string | null
           created_at?: string | null
-          document_data?: Json
+          document_data?: Json | null
           id?: string
           updated_at?: string | null
         }
@@ -234,6 +234,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          phase: string | null
           role: Database["public"]["Enums"]["chat_role"]
         }
         Insert: {
@@ -241,6 +242,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          phase?: string | null
           role: Database["public"]["Enums"]["chat_role"]
         }
         Update: {
@@ -248,6 +250,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          phase?: string | null
           role?: Database["public"]["Enums"]["chat_role"]
         }
         Relationships: [

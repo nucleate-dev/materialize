@@ -34,8 +34,6 @@ export default function CanvasPage() {
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [currentEmbedUrl, setCurrentEmbedUrl] = useState("https://google.com");
-  // const [canvas, setCanvas] =
-  //   useState<Database["public"]["Tables"]["canvases"]["Row"]>();
   const [canvasDocument, setCanvasDocument] = useState<
     Database["public"]["Tables"]["canvas_documents"]["Row"] | null
   >(null);
@@ -46,19 +44,6 @@ export default function CanvasPage() {
   >(null);
 
   useEffect(() => {
-    // async function fetchCanvas() {
-    //   const { data, error } = await supabase
-    //     .from("canvases")
-    //     .select("*")
-    //     .eq("id", canvasId)
-    //     .single();
-    //   if (error) {
-    //     console.error("Error fetching canvas documents:", error);
-    //     return;
-    //   }
-    //   setCanvas(data);
-    //   console.log("Fetched canvas: ", data);
-    // }
     async function fetchCanvasDocument() {
       const { data, error } = await supabase
         .from("canvas_documents")
@@ -137,7 +122,8 @@ export default function CanvasPage() {
         document_data: snapshot.document,
         updated_at: new Date().toISOString(),
       })
-      .eq("canvas_id", canvasId);
+      .eq("canvas_id", canvasId)
+      .eq("id", canvasDocument?.id);
     if (documentUploadError) {
       console.error("Error updating canvas document:", documentUploadError);
     } else {
@@ -157,7 +143,7 @@ export default function CanvasPage() {
           {
             onConflict: "canvas_id,user_id",
             ignoreDuplicates: false,
-          }
+          },
         );
       if (sessionUploadError) {
         console.error("Error updating canvas document:", sessionUploadError);
@@ -183,7 +169,7 @@ export default function CanvasPage() {
       () => {
         debouncedSave();
       },
-      { scope: "document" }
+      { scope: "document" },
     );
 
     return () => {
