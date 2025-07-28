@@ -504,8 +504,8 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col h-full min-h-full relative">
       {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 via-white to-slate-100/50 dark:from-slate-900/50 dark:via-slate-800/30 dark:to-slate-900/50">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 dark:from-blue-600/10 dark:via-purple-600/10 dark:to-pink-600/10 animate-pulse"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-2/50 via-whiter to-gray-3/50 dark:from-boxdark-2/50 dark:via-boxdark dark:to-meta-4/50">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-meta-3/5 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-3/10"></div>
       </div>
 
       {/* Header */}
@@ -594,7 +594,7 @@ export default function ChatWindow({
       <div className="relative flex-shrink-0 p-6 border-t border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
         {/* Animated background */}
         <div className="absolute inset-0 opacity-30 dark:opacity-50 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-600/20 dark:via-purple-600/20 dark:to-pink-600/20 animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-secondary/10 to-meta-3/10 dark:from-primary/20 dark:via-secondary/20 dark:to-meta-3/20"></div>
         </div>
 
         <form onSubmit={handleSubmit} className="relative flex gap-4 items-end">
