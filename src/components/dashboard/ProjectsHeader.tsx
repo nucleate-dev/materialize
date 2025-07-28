@@ -126,7 +126,7 @@ export default function ProjectsHeader() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`relative group flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-500 transform-gpu ${
+                className={`relative group flex items-center gap-3 px-3 md:px-6 py-3 rounded-xl font-semibold transition-all duration-500 transform-gpu ${
                   tab.active
                     ? "bg-white dark:bg-boxdark text-black dark:text-white shadow-lg border border-stroke/20 dark:border-strokedark/20 scale-100 hover:scale-105"
                     : "text-body dark:text-bodydark hover:bg-white/80 dark:hover:bg-boxdark/80 hover:text-black dark:hover:text-white border border-transparent hover:border-stroke/30 dark:hover:border-strokedark/40 backdrop-blur-sm hover:scale-105"
@@ -162,8 +162,8 @@ export default function ProjectsHeader() {
                     />
                   </div>
 
-                  {/* Label */}
-                  <span className="relative font-semibold text-sm">
+                  {/* Label - Hidden on small screens, visible on medium+ */}
+                  <span className="relative font-semibold text-sm hidden md:inline">
                     {tab.name}
                   </span>
                 </div>
