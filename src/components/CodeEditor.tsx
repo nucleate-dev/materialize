@@ -126,8 +126,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       `declare module 'lucide-react-native' {
         export * from 'lucide-react-native';
       }`,
-      `declare module 'nativewind' {
-        export * from 'nativewind';
+      `declare module 'tamagui' {
+        export * from 'tamagui';
       }`,
       `declare module 'react-native-gesture-handler' {
         export * from 'react-native-gesture-handler';

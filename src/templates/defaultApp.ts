@@ -647,19 +647,23 @@ const styles = StyleSheet.create({
     type: "CODE",
   },
   "package.json": {
-    contents: JSON.stringify({
-      "name": "materialize-project",
-      "version": "1.0.0",
-      "main": "App.js",
-      "scripts": {
-        "start": "expo start",
-        "android": "expo start --android",
-        "ios": "expo start --ios",
-        "web": "expo start --web"
+    contents: JSON.stringify(
+      {
+        name: "materialize-project",
+        version: "1.0.0",
+        main: "App.js",
+        scripts: {
+          start: "expo start",
+          android: "expo start --android",
+          ios: "expo start --ios",
+          web: "expo start --web",
+        },
+        dependencies: DEFAULT_DEPENDENCIES,
+        private: true,
       },
-      "dependencies": DEFAULT_DEPENDENCIES,
-      "private": true
-    }, null, 2),
+      null,
+      2,
+    ),
     type: "CODE",
   },
   "components/Button.js": {
@@ -796,8 +800,9 @@ export const DEFAULT_DEPENDENCIES = {
   "@nkzw/create-context-hook": { version: "^1.1.0" },
   "@react-native-async-storage/async-storage": { version: "2.1.2" },
   "@tanstack/react-query": { version: "^5.83.0" },
-  "expo": { version: "^53.0.4" },
+  expo: { version: "^53.0.4" },
   "expo-blur": { version: "~14.1.4" },
+  tamagui: { version: "^1.132.15" },
   "expo-constants": { version: "~17.1.4" },
   "expo-font": { version: "~13.3.0" },
   "expo-haptics": { version: "~14.1.4" },
@@ -812,8 +817,7 @@ export const DEFAULT_DEPENDENCIES = {
   "expo-system-ui": { version: "~5.0.6" },
   "expo-web-browser": { version: "~14.1.6" },
   "lucide-react-native": { version: "^0.475.0" },
-  "nativewind": { version: "^4.1.23" },
-  "react": { version: "19.0.0" },
+  react: { version: "19.0.0" },
   "react-dom": { version: "19.0.0" },
   "react-native": { version: "0.79.1" },
   "react-native-gesture-handler": { version: "~2.24.0" },
@@ -821,5 +825,5 @@ export const DEFAULT_DEPENDENCIES = {
   "react-native-screens": { version: "~4.10.0" },
   "react-native-svg": { version: "15.11.2" },
   "react-native-web": { version: "^0.20.0" },
-  "zustand": { version: "^5.0.2" }
+  zustand: { version: "^5.0.2" },
 };

@@ -30,6 +30,27 @@ CRITICAL APP.JS PROTECTION RULES:
 - If a feature can be implemented in a screen or component, do NOT modify App.js
 - App.js should remain minimal and focused on navigation structure only
 
+DESIGN RULES FOR BEAUTIFUL COMPONENTS:
+- **Visual Enhancements**
+  - Use gradients sparingly for depth and visual hierarchy
+  - Apply consistent shadow patterns across similar components
+  - Example pattern:
+    \`\`\`tsx
+    <View style={styles.outerContainer}>
+      <LinearGradient
+        colors={theme.gradients.card}
+        style={styles.cardContainer}
+      >
+        {/* content */}
+      </LinearGradient>
+    </View>
+    \`\`\`
+  - Use modern, clean design principles with proper spacing and typography
+  - Implement consistent color schemes and theming
+  - Add subtle animations and transitions for better UX
+  - Use proper contrast ratios for accessibility
+  - Apply rounded corners and modern styling patterns
+
 UPDATE GUIDELINES:
 - When the user asks to "update" or "modify" an existing screen/component, use type "modify" in the execution plan
 - When creating a new screen/component, use type "create"
@@ -61,6 +82,7 @@ Planning Guidelines:
 7. For modifications, be specific about what changes will be made
 8. PRIORITIZE creating new screens/components over modifying App.js
 9. Only modify App.js when navigation structure changes are absolutely required
+10. Always plan for beautiful, modern UI components with proper styling
 
 Example Response:
 
@@ -72,14 +94,14 @@ I'll help you add a todo list with navigation. Here's my execution plan:
     "id": "1", 
     "type": "create",
     "title": "Create TodoItem component",
-    "description": "Create a reusable TodoItem component in components/ folder for individual todo items",
+    "description": "Create a reusable TodoItem component in components/ folder for individual todo items with beautiful gradient styling",
     "filePath": "components/TodoItem.js"
   },
   {
     "id": "2",
     "type": "create",
     "title": "Create TodoScreen",
-    "description": "Create a new TodoScreen in screens/ folder with todo list functionality",
+    "description": "Create a new TodoScreen in screens/ folder with todo list functionality and modern UI design",
     "filePath": "screens/TodoScreen.js"
   },
   {
@@ -120,6 +142,27 @@ CRITICAL APP.JS PROTECTION RULES:
 - Keep App.js minimal and focused on navigation structure only
 - If a feature can be implemented in a screen or component, do NOT modify App.js
 
+DESIGN RULES FOR BEAUTIFUL COMPONENTS:
+- **Visual Enhancements**
+  - Use gradients sparingly for depth and visual hierarchy
+  - Apply consistent shadow patterns across similar components
+  - Example pattern:
+    \`\`\`tsx
+    <View style={styles.outerContainer}>
+      <LinearGradient
+        colors={theme.gradients.card}
+        style={styles.cardContainer}
+      >
+        {/* content */}
+      </LinearGradient>
+    </View>
+    \`\`\`
+  - Use modern, clean design principles with proper spacing and typography
+  - Implement consistent color schemes and theming
+  - Add subtle animations and transitions for better UX
+  - Use proper contrast ratios for accessibility
+  - Apply rounded corners and modern styling patterns
+
 STEP EXECUTION GUIDELINES:
 - You will receive a single operation to execute
 - Provide complete, working code for the specified file
@@ -129,6 +172,7 @@ STEP EXECUTION GUIDELINES:
 - Focus on mobile-first design principles
 - For modifications, preserve existing code structure and only make requested changes
 - When modifying App.js, be extremely conservative and only add what's absolutely required
+- Always create beautiful, modern UI components with proper styling
 
 The user will provide you with a single operation to execute. Provide the complete file content in a code block.
 
@@ -147,7 +191,8 @@ Guidelines:
 5. Focus on mobile-first design principles
 6. Use traditional React Native navigation patterns with App.js structure
 7. For modifications, preserve existing code structure and only make requested changes
-8. When modifying App.js, be extremely careful and only add navigation-related changes`;
+8. When modifying App.js, be extremely careful and only add navigation-related changes
+9. Always implement beautiful, modern UI with proper styling and visual enhancements`;
 
 const EXECUTION_PROMPT = `You are a React Native development assistant. Your role is to provide complete code implementations based on execution plans.
 
@@ -176,6 +221,27 @@ CRITICAL APP.JS PROTECTION RULES:
 - Keep App.js minimal and focused on navigation structure only
 - If a feature can be implemented in a screen or component, do NOT modify App.js
 
+DESIGN RULES FOR BEAUTIFUL COMPONENTS:
+- **Visual Enhancements**
+  - Use gradients sparingly for depth and visual hierarchy
+  - Apply consistent shadow patterns across similar components
+  - Example pattern:
+    \`\`\`tsx
+    <View style={styles.outerContainer}>
+      <LinearGradient
+        colors={theme.gradients.card}
+        style={styles.cardContainer}
+      >
+        {/* content */}
+      </LinearGradient>
+    </View>
+    \`\`\`
+  - Use modern, clean design principles with proper spacing and typography
+  - Implement consistent color schemes and theming
+  - Add subtle animations and transitions for better UX
+  - Use proper contrast ratios for accessibility
+  - Apply rounded corners and modern styling patterns
+
 MODIFICATION GUIDELINES:
 - When the execution plan shows type "modify", you MUST preserve the existing code structure and only make the requested changes
 - If current code is provided, use it as the base and make targeted modifications
@@ -201,7 +267,8 @@ Guidelines:
 6. Use traditional React Native navigation patterns with App.js structure
 7. For modifications, preserve existing code structure and only make requested changes
 8. For now, when you are asked to modify a file, you will have to rewrite and return the entire file.
-9. When modifying App.js, be extremely careful and only add navigation-related changes`;
+9. When modifying App.js, be extremely careful and only add navigation-related changes
+10. Always create beautiful, modern UI components with proper styling and visual enhancements`;
 
 interface ExecutionPlanItem {
   id: string;
