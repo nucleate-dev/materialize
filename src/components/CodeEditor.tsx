@@ -161,18 +161,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   return (
     <div className="h-full flex flex-col">
       {fileName && (
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-3 bg-white/40 dark:bg-boxdark/40 border-b border-white/20 dark:border-strokedark/30">
           <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="text-sm font-semibold text-black dark:text-white">
               {fileName}
             </span>
             {readOnly && (
-              <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+              <span className="px-2 py-1 text-xs bg-white/60 dark:bg-boxdark/60 text-body dark:text-bodydark rounded-md font-medium">
                 Read Only
               </span>
             )}
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+          <span className="text-xs text-body dark:text-bodydark uppercase font-medium tracking-wider">
             {editorLanguage}
           </span>
         </div>

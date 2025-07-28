@@ -204,100 +204,63 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     };
 
     return (
-      <div className="flex flex-col h-full bg-gray-50">
-        {/* Header */}
-        <div className="border-b p-4 bg-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Live Preview
-              </h2>
-              <p className="text-sm text-gray-600">Powered by Expo Snack</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* Mode Selector */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Mode:</span>
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => handleModeChange("mobile")}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === "mobile"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                      }`}
-                  >
-                    Mobile
-                  </button>
-                  <button
-                    onClick={() => handleModeChange("web")}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${previewMode === "web"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                      }`}
-                  >
-                    Web
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  onClick={handleRefresh}
-                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
-                  disabled={isLoading || !webPreviewURL}
-                >
-                  Refresh
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
-                  disabled={isLoading}
-                >
-                  Reset
-                </button>
-              </div>
+      <div className="flex flex-col h-full bg-transparent">
+        {/* Compact Header with Controls */}
+        <div className="flex items-center justify-between p-3 bg-white/40 dark:bg-boxdark/40 border-b border-white/20 dark:border-strokedark/30">
+          <div className="flex items-center space-x-3">
+            {/* Mode Selector */}
+            <div className="flex bg-white/60 dark:bg-boxdark/60 rounded-lg p-1 backdrop-blur-sm">
+              <button
+                onClick={() => handleModeChange("mobile")}
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "mobile"
+                    ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
+                    : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
+                  }`}
+              >
+                Mobile
+              </button>
+              <button
+                onClick={() => handleModeChange("web")}
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "web"
+                    ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
+                    : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
+                  }`}
+              >
+                Web
+              </button>
             </div>
           </div>
 
-          {snackUrl && (
-            <div className="mt-2">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(snackUrl);
-                }}
-                className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                <span>Copy link</span>
-              </button>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleRefresh}
+              className="bg-gradient-to-r from-meta-3 to-meta-5 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+              disabled={isLoading || !webPreviewURL}
+            >
+              Refresh
+            </button>
+            <button
+              onClick={handleReset}
+              className="bg-white/60 dark:bg-boxdark/60 text-body dark:text-bodydark px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/80 dark:hover:bg-boxdark/80 transition-all duration-300 disabled:opacity-50"
+              disabled={isLoading}
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Status */}
         {(isLoading || error) && (
-          <div className="p-4 bg-white border-b">
+          <div className="p-3 bg-white/20 dark:bg-boxdark/20 border-b border-white/20 dark:border-strokedark/30">
             {isLoading && (
-              <div className="flex items-center space-x-2 text-blue-600">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm">Loading preview...</span>
+              <div className="flex items-center space-x-2 text-primary">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">Loading preview...</span>
               </div>
             )}
 
             {error && (
-              <div className="flex items-center space-x-2 text-red-600">
+              <div className="flex items-center space-x-2 text-meta-1">
                 <svg
                   className="w-4 h-4"
                   fill="currentColor"
@@ -309,14 +272,14 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                     clipRule="evenodd"
                   />
                 </svg>
-                <span className="text-sm">{error}</span>
+                <span className="text-sm font-medium">{error}</span>
               </div>
             )}
           </div>
         )}
 
         {/* Preview */}
-        <div className="flex-1 relative flex items-center justify-center bg-gray-200 p-4">
+        <div className="flex-1 relative flex items-center justify-center bg-gradient-to-br from-gray-50/50 to-gray-100/50 dark:from-boxdark/20 dark:to-meta-4/20 p-4">
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">

@@ -502,7 +502,7 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full min-h-full relative">
       {/* Animated Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 via-white to-slate-100/50 dark:from-slate-900/50 dark:via-slate-800/30 dark:to-slate-900/50">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 dark:from-blue-600/10 dark:via-purple-600/10 dark:to-pink-600/10 animate-pulse"></div>

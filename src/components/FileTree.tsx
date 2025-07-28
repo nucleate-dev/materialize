@@ -145,23 +145,21 @@ const FileTree: React.FC<FileTreeProps> = ({
       return (
         <div key={node.path}>
           <div
-            className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-              depth > 0 ? `ml-${depth * 4}` : ""
-            }`}
+            className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
             onClick={() => toggleFolder(node.path)}
           >
             {isExpanded ? (
-              <ChevronDownIcon className="h-4 w-4 text-gray-500 mr-1" />
+              <ChevronDownIcon className="h-4 w-4 text-body dark:text-bodydark mr-1" />
             ) : (
-              <ChevronRightIcon className="h-4 w-4 text-gray-500 mr-1" />
+              <ChevronRightIcon className="h-4 w-4 text-body dark:text-bodydark mr-1" />
             )}
             {isExpanded ? (
-              <FolderOpenIcon className="h-4 w-4 text-blue-500 mr-2" />
+              <FolderOpenIcon className="h-4 w-4 text-primary mr-2" />
             ) : (
-              <FolderIcon className="h-4 w-4 text-blue-500 mr-2" />
+              <FolderIcon className="h-4 w-4 text-primary mr-2" />
             )}
-            <span className="text-sm text-gray-700 dark:text-gray-300">
+            <span className="text-sm font-medium text-black dark:text-white">
               {node.name}
             </span>
           </div>
@@ -176,8 +174,8 @@ const FileTree: React.FC<FileTreeProps> = ({
       return (
         <div
           key={node.path}
-          className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-            isSelected ? "bg-blue-100 dark:bg-blue-900" : ""
+          className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200 ${
+            isSelected ? "bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20" : ""
           }`}
           style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}
@@ -186,8 +184,8 @@ const FileTree: React.FC<FileTreeProps> = ({
           <span
             className={`text-sm ${
               isSelected
-                ? "text-blue-700 dark:text-blue-300 font-medium"
-                : "text-gray-700 dark:text-gray-300"
+                ? "text-primary dark:text-primary font-semibold"
+                : "text-black dark:text-white font-medium"
             }`}
           >
             {node.name}
@@ -198,12 +196,12 @@ const FileTree: React.FC<FileTreeProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+    <div className="h-full flex flex-col bg-transparent">
+      <div className="flex items-center justify-between p-3 bg-white/40 dark:bg-boxdark/40 border-b border-white/20 dark:border-strokedark/30">
+        <h3 className="text-sm font-semibold text-black dark:text-white">
           Project Files
         </h3>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-body dark:text-bodydark font-medium">
           {Object.keys(files).length} files
         </span>
       </div>
@@ -213,7 +211,7 @@ const FileTree: React.FC<FileTreeProps> = ({
             {fileTree.map((node) => renderNode(node, 0))}
           </div>
         ) : (
-          <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+          <div className="p-4 text-center text-body dark:text-bodydark text-sm">
             No files to display
           </div>
         )}

@@ -24,7 +24,11 @@ import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { SparklesIcon, CodeBracketIcon, EyeIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
+import {
+  SparklesIcon,
+  CodeBracketIcon,
+  EyeIcon,
+} from "@heroicons/react/24/outline";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -34,7 +38,7 @@ type PrototypeChatMessage =
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -218,8 +222,8 @@ export default function CreatePage() {
         // Extract planned file paths from the planning response
         const planningResult = extractExecutionPlan(planningData.content);
         const plannedFilePaths = planningResult.operations
-          .filter(op => op.type === "create" || op.type === "modify")
-          .map(op => op.filePath);
+          .filter((op) => op.type === "create" || op.type === "modify")
+          .map((op) => op.filePath);
 
         // Phase 2: Get the execution response automatically
         const executionResponse = await fetch("/api/chat", {
@@ -273,9 +277,16 @@ export default function CreatePage() {
     }
   };
 
-  const handleApplyCode = (result: CodeExtractionResult, plannedFilePaths?: string[]) => {
+  const handleApplyCode = (
+    result: CodeExtractionResult,
+    plannedFilePaths?: string[]
+  ) => {
     if (result.hasCode) {
-      const newFiles = updateSnackFiles(snackFiles, result.codeBlocks, plannedFilePaths);
+      const newFiles = updateSnackFiles(
+        snackFiles,
+        result.codeBlocks,
+        plannedFilePaths
+      );
       // Create a deep copy to ensure React detects the change
       setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
 
@@ -353,7 +364,7 @@ export default function CreatePage() {
           <div className="relative">
             {/* Header gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-meta-5/5 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-5/10"></div>
-            
+
             <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -375,10 +386,10 @@ export default function CreatePage() {
           </div>
 
           {/* Content Area with subtle inner glow */}
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 flex flex-col overflow-hidden relative h-full">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
-            
-            <div className="relative h-full">
+
+            <div className="relative flex-1 flex flex-col">
               <ChatWindow
                 messages={messages}
                 onSendMessage={handleSendMessage}
@@ -399,7 +410,7 @@ export default function CreatePage() {
           <div className="relative">
             {/* Header gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
-            
+
             <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -418,11 +429,13 @@ export default function CreatePage() {
                       {isPreviewView ? "Live Preview" : "Code Editor"}
                     </h2>
                     <p className="text-sm text-body dark:text-bodydark">
-                      {isPreviewView ? "See your changes in real-time" : "Edit your prototype files"}
+                      {isPreviewView
+                        ? "See your changes in real-time"
+                        : "Edit your prototype files"}
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Enhanced Toggle Buttons */}
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
@@ -453,34 +466,40 @@ export default function CreatePage() {
           </div>
 
           {/* Content Area with subtle inner glow */}
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 overflow-hidden h-full">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
-            
+
             <div className="relative h-full">
               {isPreviewView ? (
-                <ExpoSnackViewer
-                  ref={snackViewerRef}
-                  files={snackFiles}
-                  onFilesChange={handleFilesChange}
-                />
+                <div className="h-full">
+                  <ExpoSnackViewer
+                    ref={snackViewerRef}
+                    files={snackFiles}
+                    onFilesChange={handleFilesChange}
+                  />
+                </div>
               ) : (
-                <div className="h-full flex">
+                <div className="max-h-[550px] flex">
                   {/* File Explorer */}
-                  <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/20 dark:border-strokedark/30">
-                    <FileTree
-                      files={snackFiles}
-                      selectedFile={selectedFile}
-                      onFileSelect={handleFileSelect}
-                    />
+                  <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/20 dark:border-strokedark/30 h-full">
+                    <div className="h-full">
+                      <FileTree
+                        files={snackFiles}
+                        selectedFile={selectedFile}
+                        onFileSelect={handleFileSelect}
+                      />
+                    </div>
                   </div>
 
                   {/* Code Editor */}
-                  <div className="flex-1">
-                    <CodeEditor
-                      value={mainAppCode}
-                      onChange={handleCodeChange}
-                      fileName={selectedFile}
-                    />
+                  <div className="flex-1 min-h-screen overflow-y-auto">
+                    <div className="h-full">
+                      <CodeEditor
+                        value={mainAppCode}
+                        onChange={handleCodeChange}
+                        fileName={selectedFile}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
