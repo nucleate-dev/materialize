@@ -174,6 +174,16 @@ export default function CreatePage() {
     snackFiles[defaultFile]?.contents || ""
   );
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
+  const [loadingDots, setLoadingDots] = useState(0);
+
+  // Animate loading dots
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLoadingDots((prev) => (prev + 1) % 4);
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSendMessage = async (content: string) => {
     const userMessage: ChatMessage = {
@@ -255,18 +265,45 @@ export default function CreatePage() {
     }>,
     currentMessages: ChatMessage[]
   ) => {
+    // Create a single execution message that will be updated
+    const executionMessageId = `execution-${Date.now()}`;
+    const initialExecutionMessage: ChatMessage = {
+      id: executionMessageId,
+      role: "assistant",
+      content: `🔄 Executing ${operations.length} operations...\n\n${operations.map((op, index) =>
+        `${index + 1}. ${op.title} (${op.type})`
+      ).join('\n')}`,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, initialExecutionMessage]);
+
+    let completedSteps = 0;
+    let failedSteps = 0;
+    const stepResults: Array<{ title: string; status: 'success' | 'error'; message?: string; }> = [];
+
     for (let i = 0; i < operations.length; i++) {
       const operation = operations[i];
 
       try {
-        // Add progress message
-        const progressMessage: ChatMessage = {
-          id: `progress-${Date.now()}-${i}`,
-          role: "assistant",
-          content: `🔄 Executing step ${i + 1}/${operations.length}: ${operation.title}`,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, progressMessage]);
+        // Update the execution message to show current step
+        const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations.map((op, index) => {
+          if (index < i) {
+            return `✅ ${op.title} (${op.type})`;
+          } else if (index === i) {
+            return `🔄 ${op.title} (${op.type}) - Executing${'.'.repeat(loadingDots)}`;
+          } else {
+            return `${index + 1}. ${op.title} (${op.type})`;
+          }
+        }).join('\n')}`;
+
+        setMessages((prev) =>
+          prev.map(msg =>
+            msg.id === executionMessageId
+              ? { ...msg, content: loadingContent }
+              : msg
+          )
+        );
 
         // Execute the specific operation
         const stepResponse = await fetch("/api/chat", {
@@ -311,58 +348,57 @@ export default function CreatePage() {
             setMainAppCode(stepResult.content);
           }
 
-          // Add success message
-          const successMessage: ChatMessage = {
-            id: `success-${Date.now()}-${i}`,
-            role: "assistant",
-            content: `✅ Completed: ${operation.title}\n\n${stepResult.message}`,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, successMessage]);
+          completedSteps++;
+          stepResults.push({
+            title: operation.title,
+            status: 'success',
+            message: stepResult.message
+          });
         } else {
-          // Add error message if no result found
-          const errorMessage: ChatMessage = {
-            id: `error-${Date.now()}-${i}`,
-            role: "assistant",
-            content: `❌ Failed to execute: ${operation.title}\n\n${stepData.content}`,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, errorMessage]);
+          failedSteps++;
+          stepResults.push({
+            title: operation.title,
+            status: 'error',
+            message: stepData.content
+          });
         }
 
         // Update current messages for next iteration
-        currentMessages = [...currentMessages, progressMessage];
-        if (stepResult.hasResult) {
-          currentMessages = [...currentMessages, {
-            id: `success-${Date.now()}-${i}`,
-            role: "assistant",
-            content: `✅ Completed: ${operation.title}`,
-            timestamp: new Date(),
-          }];
-        }
+        currentMessages = [...currentMessages, {
+          id: `step-${Date.now()}-${i}`,
+          role: "assistant",
+          content: stepResult.hasResult ? `✅ Completed: ${operation.title}` : `❌ Failed: ${operation.title}`,
+          timestamp: new Date(),
+        }];
 
       } catch (error) {
         console.error(`Error executing step ${i + 1}:`, error);
-
-        // Add error message
-        const errorMessage: ChatMessage = {
-          id: `error-${Date.now()}-${i}`,
-          role: "assistant",
-          content: `❌ Error executing: ${operation.title}\n\n${error instanceof Error ? error.message : 'Unknown error'}`,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        failedSteps++;
+        stepResults.push({
+          title: operation.title,
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
     }
 
-    // Add completion message
-    const completionMessage: ChatMessage = {
-      id: `completion-${Date.now()}`,
-      role: "assistant",
-      content: `🎉 All operations completed! Your prototype has been updated.`,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, completionMessage]);
+    // Update the final execution message with results
+    const finalContent = `🎉 Execution completed!\n\n${operations.map((op, index) => {
+      const result = stepResults[index];
+      if (result?.status === 'success') {
+        return `✅ ${op.title} (${op.type})`;
+      } else {
+        return `❌ ${op.title} (${op.type}) - ${result?.message || 'Failed'}`;
+      }
+    }).join('\n')}\n\n${completedSteps} completed, ${failedSteps} failed`;
+
+    setMessages((prev) =>
+      prev.map(msg =>
+        msg.id === executionMessageId
+          ? { ...msg, content: finalContent }
+          : msg
+      )
+    );
   };
 
   const handleApplyCode = (
@@ -598,3 +634,4 @@ export default function CreatePage() {
     </div>
   );
 }
+
