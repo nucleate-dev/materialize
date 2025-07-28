@@ -9,11 +9,7 @@ import ExpoSnackViewer, {
 import FileTree from "@/components/FileTree";
 import { supabase } from "@/GlobalConstants";
 import { useSidebar } from "@/hooks/useSidebar";
-import {
-  ChatMessage,
-  CodeExtractionResult,
-  SnackFiles,
-} from "@/lib/types/chat";
+import { CodeExtractionResult, SnackFiles } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
@@ -42,7 +38,6 @@ export default function CreatePage() {
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototype, setPrototype] = useState<Prototype | null>(null);
@@ -143,21 +138,6 @@ export default function CreatePage() {
     setPrototypeChatMessages,
   ]);
 
-  // Convert database messages to ChatMessage format
-  //   useEffect(() => {
-  //     if (chatMessages.length > 0 && !loadedFromDB) {
-  //       const convertedMessages: ChatMessage[] = chatMessages.map((msg) => ({
-  //         id: msg.id,
-  //         role: msg.role as "user" | "assistant",
-  //         content: msg.content,
-  //         timestamp: new Date(msg.created_at || ""),
-  //       }));
-
-  //       setMessages(convertedMessages);
-  //       setLoadedFromDB(true);
-  //       console.log("Converted and loaded messages from database");
-  //     }
-  //   }, [chatMessages, loadedFromDB]);
   // Define the default file to show in the editor
   const defaultFile = "App.js";
 
@@ -187,36 +167,35 @@ export default function CreatePage() {
   }, []);
 
   const handleSendMessage = async (content: string) => {
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content,
-      timestamp: new Date(),
-    };
+    if (!prototypeChatSession?.id) {
+      console.error("Sending message failed: no chat session found");
+      return;
+    }
+    // const userMessage: PrototypeChatMessage = {
+    //   id: Date.now().toString(),
+    //   role: "user",
+    //   content,
+    //   timestamp: new Date(),
+    // };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
+    const { data: userMessage, error: insertError } = await supabase
+      .from("prototype_chat_messages")
+      .insert({
+        chat_session_id: prototypeChatSession.id,
+        content: content,
+        role: "user" as const,
+      })
+      .select()
+      .single();
 
-    // Add user message to database
-    if (prototypeChatSession?.id) {
-      try {
-        const { error: insertError } = await supabase
-          .from("prototype_chat_messages")
-          .insert({
-            chat_session_id: prototypeChatSession.id,
-            content: content,
-            role: "user" as const,
-          });
-
-        if (insertError) {
-          console.error("Error inserting user message:", insertError);
-        }
-      } catch (error) {
-        console.error("Error saving user message to database:", error);
-      }
+    if (insertError) {
+      console.error("Error inserting user message:", insertError);
     }
 
+    setPrototypeChatMessages((prev) => [...prev, userMessage]);
+
     try {
+      setIsLoading(true);
       // Phase 1: Get the planning response
       const planningResponse = await fetch("/api/chat", {
         method: "POST",
@@ -224,7 +203,7 @@ export default function CreatePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage],
+          messages: [...prototypeChatMessages, userMessage],
           currentCode: mainAppCode,
           phase: "planning",
           snackFiles: snackFiles,
@@ -238,14 +217,15 @@ export default function CreatePage() {
       const planningData = await planningResponse.json();
       console.log("Planning data:", planningData);
 
-      const planningMessage: ChatMessage = {
+      const planningMessage: PrototypeChatMessage = {
         id: (Date.now() + 1).toString(),
+        chat_session_id: prototypeChatSession.id,
         role: "assistant",
         content: planningData.content,
-        timestamp: new Date(),
+        created_at: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, planningMessage]);
+      setPrototypeChatMessages((prev) => [...prev, planningMessage]);
 
       // Check if the response contains an execution plan
       if (planningData.content.includes("EXECUTION_PLAN")) {
@@ -255,7 +235,7 @@ export default function CreatePage() {
         if (planningResult.hasPlan && planningResult.operations.length > 0) {
           // Execute each operation step by step
           await executeOperationsStepByStep(planningResult.operations, [
-            ...messages,
+            ...prototypeChatMessages,
             userMessage,
             planningMessage,
           ]);
@@ -264,15 +244,16 @@ export default function CreatePage() {
     } catch (error) {
       console.error("Error sending message:", error);
 
-      const errorMessage: ChatMessage = {
+      const errorMessage: PrototypeChatMessage = {
         id: (Date.now() + 1).toString(),
+        chat_session_id: prototypeChatSession.id,
         role: "assistant",
         content:
           "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
-        timestamp: new Date(),
+        created_at: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, errorMessage]);
+      setPrototypeChatMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -287,20 +268,21 @@ export default function CreatePage() {
       filePath: string;
       newFilePath?: string;
     }>,
-    currentMessages: ChatMessage[],
+    currentMessages: PrototypeChatMessage[],
   ) => {
     // Create a single execution message that will be updated
     const executionMessageId = `execution-${Date.now()}`;
-    const initialExecutionMessage: ChatMessage = {
+    const initialExecutionMessage: PrototypeChatMessage = {
       id: executionMessageId,
+      chat_session_id: prototypeChatSession?.id || "",
       role: "assistant",
       content: `🔄 Executing ${operations.length} operations...\n\n${operations
         .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
         .join("\n")}`,
-      timestamp: new Date(),
+      created_at: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, initialExecutionMessage]);
+    setPrototypeChatMessages((prev) => [...prev, initialExecutionMessage]);
 
     let completedSteps = 0;
     let failedSteps = 0;
@@ -327,7 +309,7 @@ export default function CreatePage() {
           })
           .join("\n")}`;
 
-        setMessages((prev) =>
+        setPrototypeChatMessages((prev) =>
           prev.map((msg) =>
             msg.id === executionMessageId
               ? { ...msg, content: loadingContent }
@@ -399,10 +381,11 @@ export default function CreatePage() {
           {
             id: `step-${Date.now()}-${i}`,
             role: "assistant",
+            chat_session_id: prototypeChatSession?.id || "",
             content: stepResult.hasResult
               ? `✅ Completed: ${operation.title}`
               : `❌ Failed: ${operation.title}`,
-            timestamp: new Date(),
+            created_at: new Date().toISOString(),
           },
         ];
       } catch (error) {
@@ -428,7 +411,7 @@ export default function CreatePage() {
       })
       .join("\n")}\n\n${completedSteps} completed, ${failedSteps} failed`;
 
-    setMessages((prev) =>
+    setPrototypeChatMessages((prev) =>
       prev.map((msg) =>
         msg.id === executionMessageId ? { ...msg, content: finalContent } : msg,
       ),
@@ -548,7 +531,7 @@ export default function CreatePage() {
 
             <div className="relative flex-1 flex flex-col">
               <ChatWindow
-                messages={messages}
+                messages={prototypeChatMessages}
                 onSendMessage={handleSendMessage}
                 onApplyCode={handleApplyCode}
                 onExecutePlannedOperation={handleExecutePlannedOperation}

@@ -1,11 +1,7 @@
 "use client";
 
 import { APPLY_CODE_IMMEDIATELY } from "@/GlobalConstants";
-import {
-  ChatMessage,
-  CodeExtractionResult,
-  EditOperation,
-} from "@/lib/types/chat";
+import { CodeExtractionResult, EditOperation } from "@/lib/types/chat";
 import { extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
 import {
   extractExecutionPlan,
@@ -22,14 +18,18 @@ import {
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
 import PlanningView from "./PlanningView";
+import { Database } from "@/lib/types/database.types";
+
+type PrototypeChatMessage =
+  Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 
 interface ChatWindowProps {
-  messages: ChatMessage[];
+  messages: PrototypeChatMessage[];
   onSendMessage: (message: string) => void;
   onApplyCode: (result: CodeExtractionResult) => void;
   onExecutePlannedOperation: (
     operationId: string,
-    operations: EditOperation[]
+    operations: EditOperation[],
   ) => Promise<void>;
   isLoading: boolean;
 }
@@ -43,7 +43,7 @@ export default function ChatWindow({
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState("");
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   // Helper function for operation colors (same as PlanningView)
@@ -193,7 +193,7 @@ export default function ChatWindow({
           const updatedOperations = messageData.operations.map((op) =>
             op.id === operationId
               ? { ...op, status: "in_progress" as const }
-              : op
+              : op,
           );
           newMap.set(message.id, {
             ...messageData,
@@ -212,7 +212,9 @@ export default function ChatWindow({
         const messageData = newMap.get(message.id);
         if (messageData) {
           const updatedOperations = messageData.operations.map((op) =>
-            op.id === operationId ? { ...op, status: "completed" as const } : op
+            op.id === operationId
+              ? { ...op, status: "completed" as const }
+              : op,
           );
           newMap.set(message.id, {
             ...messageData,
@@ -224,7 +226,7 @@ export default function ChatWindow({
 
       // Show a success message based on operation type
       console.log(
-        `✅ ${operation.type === "create" ? "Created" : operation.type === "modify" ? "Updated" : operation.type === "delete" ? "Deleted" : "Moved"} ${operation.filePath}`
+        `✅ ${operation.type === "create" ? "Created" : operation.type === "modify" ? "Updated" : operation.type === "delete" ? "Deleted" : "Moved"} ${operation.filePath}`,
       );
     } catch (error) {
       console.error(`Error executing operation ${operationId}:`, error);
@@ -242,7 +244,7 @@ export default function ChatWindow({
                   error:
                     error instanceof Error ? error.message : "Unknown error",
                 }
-              : op
+              : op,
           );
           newMap.set(message.id, {
             ...messageData,
@@ -256,7 +258,7 @@ export default function ChatWindow({
     }
   };
 
-  const renderMessageContent = (message: ChatMessage) => {
+  const renderMessageContent = (message: PrototypeChatMessage) => {
     const messageContent = message.content;
     const isCodeVisible = expandedCodeBlocks.has(message.id);
     const hasCodeBlocks = messageContent.includes("```");
@@ -328,7 +330,7 @@ export default function ChatWindow({
     );
   };
 
-  const renderMessage = (message: ChatMessage) => {
+  const renderMessage = (message: PrototypeChatMessage) => {
     const isUser = message.role === "user";
 
     // Extract code from message
@@ -489,7 +491,7 @@ export default function ChatWindow({
                     : "text-slate-500 dark:text-slate-400"
                 }`}
               >
-                {message.timestamp.toLocaleTimeString([], {
+                {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
@@ -512,7 +514,7 @@ export default function ChatWindow({
       <div className="relative flex-shrink-0 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
         {/* Header gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
-        
+
         <div className="relative p-6">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 shadow-lg shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30">

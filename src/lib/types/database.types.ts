@@ -232,21 +232,21 @@ export type Database = {
         Row: {
           chat_session_id: string | null
           content: string
-          created_at: string | null
+          created_at: string
           id: string
           role: Database["public"]["Enums"]["chat_role"]
         }
         Insert: {
           chat_session_id?: string | null
           content: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           role: Database["public"]["Enums"]["chat_role"]
         }
         Update: {
           chat_session_id?: string | null
           content?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["chat_role"]
         }
