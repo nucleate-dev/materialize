@@ -5,11 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/GlobalConstants";
-import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-
-type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type Canvas = Database["public"]["Tables"]["canvases"]["Row"];
 
 // Union type for recent items
 type RecentItem = {
@@ -35,7 +30,6 @@ function formatRelativeTime(dateString: string | null | undefined): string {
 }
 
 export default function ProjectPage() {
-  const { user } = useUser();
   const params = useParams();
   const router = useRouter();
   const projectId = params?.project_id as string;
@@ -73,14 +67,16 @@ export default function ProjectPage() {
       }
 
       // Transform data to unified format
-      const prototypes: RecentItem[] = (prototypesResult.data || []).map((p) => ({
-        id: p.id,
-        name: p.name,
-        thumbnail_url: p.thumbnail_url,
-        updated_at: p.updated_at,
-        created_at: p.created_at,
-        type: "prototype" as const,
-      }));
+      const prototypes: RecentItem[] = (prototypesResult.data || []).map(
+        (p) => ({
+          id: p.id,
+          name: p.name,
+          thumbnail_url: p.thumbnail_url,
+          updated_at: p.updated_at,
+          created_at: p.created_at,
+          type: "prototype" as const,
+        }),
+      );
 
       const canvases: RecentItem[] = (canvasesResult.data || []).map((c) => ({
         id: c.id,
@@ -91,13 +87,34 @@ export default function ProjectPage() {
         type: "canvas" as const,
       }));
 
-      // Combine and sort by updated_at (most recent first)
-      const allItems = [...prototypes, ...canvases];
-      allItems.sort((a, b) => {
-        const dateA = new Date(a.updated_at || a.created_at || 0);
-        const dateB = new Date(b.updated_at || b.created_at || 0);
-        return dateB.getTime() - dateA.getTime();
-      });
+      // Merge two sorted arrays efficiently (O(n) time)
+      const allItems: RecentItem[] = [];
+      let i = 0, j = 0;
+      
+      // Helper function to get comparable date
+      const getDate = (item: RecentItem) => new Date(item.updated_at || item.created_at || 0).getTime();
+      
+      // Merge the two sorted arrays
+      while (i < prototypes.length && j < canvases.length) {
+        if (getDate(prototypes[i]) >= getDate(canvases[j])) {
+          allItems.push(prototypes[i]);
+          i++;
+        } else {
+          allItems.push(canvases[j]);
+          j++;
+        }
+      }
+      
+      // Add remaining items
+      while (i < prototypes.length) {
+        allItems.push(prototypes[i]);
+        i++;
+      }
+      
+      while (j < canvases.length) {
+        allItems.push(canvases[j]);
+        j++;
+      }
 
       setRecentItems(allItems);
     } catch (error) {
@@ -142,20 +159,26 @@ export default function ProjectPage() {
             recentItems.map((item) => (
               <ProjectThumbnail
                 key={`${item.type}-${item.id}`}
-                prototypeName={item.type === "prototype" ? item.name : undefined}
+                prototypeName={
+                  item.type === "prototype" ? item.name : undefined
+                }
                 canvasName={item.type === "canvas" ? item.name : undefined}
                 thumbnailUrl={item.thumbnail_url}
-                lastModified={formatRelativeTime(item.updated_at || item.created_at)}
+                lastModified={formatRelativeTime(
+                  item.updated_at || item.created_at,
+                )}
                 onClick={() => handleItemClick(item)}
               />
             ))
           ) : (
             <div className="col-span-full">
               <EmptyState
-                type="recent"
+                type="prototypes"
                 title="No recent activity"
                 description="Create your first prototype or whiteboard to get started"
-                onButtonClick={() => router.push(`/dashboard/projects/${projectId}/prototypes`)}
+                onButtonClick={() =>
+                  router.push(`/dashboard/projects/${projectId}/prototypes`)
+                }
                 buttonText="Create Prototype"
               />
             </div>
