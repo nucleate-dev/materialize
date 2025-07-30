@@ -166,7 +166,7 @@ export default function ChatWindow({
       // Apply the code automatically
       onApplyCode(codeResult);
     }
-  }, [messages, onApplyCode]);
+  }, [messages]); // Remove onApplyCode from dependencies to prevent infinite loop
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
