@@ -1,13 +1,17 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createClient } from "@supabase/supabase-js";
+import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
 );
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY ?? "";
+
+const google = createGoogleGenerativeAI({
+  apiKey: GOOGLE_AI_API_KEY,
+});
 
 const PLANNING_PROMPT = `You are a React Native development assistant. Your role is to create execution plans for React Native development tasks.
 
@@ -294,6 +298,9 @@ interface SnackFiles {
   [filePath: string]: SnackFile;
 }
 
+// Allow longer response times for AI generation
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -305,7 +312,7 @@ export async function POST(request: NextRequest) {
       chat_session_id,
     } = await request.json();
 
-    if (!process.env.GOOGLE_AI_API_KEY) {
+    if (!GOOGLE_AI_API_KEY) {
       return NextResponse.json(
         { error: "Google AI API key not configured" },
         { status: 500 },
@@ -318,8 +325,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Determine the phase type
     const isExecutionPhase = phase === "execution";
@@ -378,12 +383,12 @@ ${stepOperation.newFilePath ? `New File Path: ${stepOperation.newFilePath}` : ""
 Provide the complete code for this operation.`;
     }
 
-    // Convert messages to Gemini format (excluding the plan message for execution phase)
+    // Convert messages to AI SDK format (excluding the plan message for execution phase)
     const chatHistory = messages
       .slice(0, isExecutionPhase ? -2 : -1)
       .map((msg: { role: string; content: string }) => ({
-        role: msg.role === "assistant" ? "model" : "user",
-        parts: [{ text: msg.content }],
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
       }));
 
     const lastMessage = messages[messages.length - 1];
@@ -503,40 +508,31 @@ User request: ${lastMessage.content}`;
 ${messageWithContext}`;
     }
 
-    // Select appropriate prompt and response based on phase
+    // Select appropriate prompt based on phase
     let selectedSystemPrompt: string;
-    let modelResponse: string;
 
     if (isStepExecutionPhase) {
       selectedSystemPrompt = STEP_EXECUTION_PROMPT;
-      modelResponse =
-        "I understand. I'm ready to implement the specific operation you've requested.";
     } else if (isExecutionPhase) {
       selectedSystemPrompt = EXECUTION_PROMPT;
-      modelResponse =
-        "I understand. I'm ready to provide complete code implementations for each step in the execution plan.";
     } else {
       selectedSystemPrompt = PLANNING_PROMPT;
-      modelResponse =
-        "I understand. I'm ready to create detailed execution plans for React Native development tasks.";
     }
 
-    const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: [{ text: selectedSystemPrompt }],
-        },
-        {
-          role: "model",
-          parts: [{ text: modelResponse }],
-        },
+    // Use generateText with the AI SDK
+    const result = await generateText({
+      model: google("gemini-2.5-flash"),
+      system: selectedSystemPrompt,
+      messages: [
         ...chatHistory,
+        {
+          role: "user" as const,
+          content: messageWithContext,
+        },
       ],
     });
-    const result = await chat.sendMessage(messageWithContext);
-    const response = result.response;
-    const text = response.text();
+
+    const text = result.text;
 
     const { data: assistantResponse, error: insertError } = await supabase
       .from("prototype_chat_messages")
