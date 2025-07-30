@@ -23,6 +23,8 @@ export default function Home() {
     <main className="bg-black overflow-hidden">
       <PremiumHeader />
       <HeroSection />
+      <RapidPrototypingSection />
+      <FlowVisualizationSection />
       <UserFlowsSection />
       <FeaturesSection />
       <FloatingElements />
@@ -118,6 +120,50 @@ function HeroSection() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PhoneMockup({ label }: { label: string }) {
+  return (
+    <div className="relative w-40 sm:w-48 md:w-56 aspect-[9/19] bg-black rounded-[2.5rem] border-4 border-gray-700 shadow-xl flex items-center justify-center overflow-hidden">
+      {/* notch */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-black rounded-b-xl"></div>
+      <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-300 text-sm">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function RapidPrototypingSection() {
+  return (
+    <section className="relative py-32 bg-gradient-to-b from-gray-900 to-black text-center">
+      <div className="container mx-auto px-6">
+        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">Rapid Prototyping</h2>
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">Quickly build paywalls and iterate in seconds.</p>
+        <div className="flex justify-center gap-6">
+          <PhoneMockup label="Paywall 1" />
+          <PhoneMockup label="Paywall 2" />
+          <PhoneMockup label="Paywall 3" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FlowVisualizationSection() {
+  return (
+    <section className="relative py-32 bg-gradient-to-b from-black to-gray-900 text-center">
+      <div className="container mx-auto px-6">
+        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">Visualize &amp; Tweak Your Flows Quickly</h2>
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">See your 3 step paywall flow at a glance.</p>
+        <div className="flex justify-center gap-6">
+          <PhoneMockup label="Step 1" />
+          <PhoneMockup label="Step 2" />
+          <PhoneMockup label="Step 3" />
         </div>
       </div>
     </section>
