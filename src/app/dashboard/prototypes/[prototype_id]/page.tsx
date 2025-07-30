@@ -583,12 +583,15 @@ export default function CreatePage() {
 
             <div className="relative flex-1 flex flex-col">
               <ChatWindow
+                // Legacy props for backward compatibility
                 messages={prototypeChatMessages}
                 onSendMessage={handleSendMessage}
+                isLoading={isLoading}
+                
+                // Preserved functionality
                 onApplyCode={handleApplyCode}
                 onExecutePlannedOperation={handleExecutePlannedOperation}
                 onClearChat={handleClearChat}
-                isLoading={isLoading}
               />
             </div>
           </div>

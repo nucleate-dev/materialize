@@ -26,26 +26,56 @@ type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 
 interface ChatWindowProps {
-  messages: PrototypeChatMessage[];
-  onSendMessage: (message: string) => void;
+  // Legacy props for backward compatibility - will be removed after full migration
+  messages?: PrototypeChatMessage[];
+  onSendMessage?: (message: string) => void;
+  isLoading?: boolean;
+  
+  // New props for AI SDK integration
+  currentCode?: string;
+  phase?: 'planning' | 'execution' | 'step_execution';
+  snackFiles?: Record<string, { contents: string; type: 'CODE' | 'ASSET' }>;
+  stepOperation?: {
+    id: string;
+    type: 'create' | 'modify' | 'delete' | 'move';
+    title: string;
+    description: string;
+    filePath: string;
+    newFilePath?: string;
+  };
+  chatSessionId?: string;
+  
+  // Preserved functionality
   onApplyCode: (result: CodeExtractionResult) => void;
   onExecutePlannedOperation: (
     operationId: string,
     operations: EditOperation[],
   ) => Promise<void>;
   onClearChat: () => void;
-  isLoading: boolean;
 }
 
 export default function ChatWindow({
-  messages,
-  onSendMessage,
+  // Legacy props
+  messages: legacyMessages = [],
+  onSendMessage: legacyOnSendMessage,
+  isLoading: legacyIsLoading = false,
+  
+  // Preserved functionality
   onApplyCode,
   onExecutePlannedOperation,
   onClearChat,
-  isLoading,
 }: ChatWindowProps) {
-  const [inputValue, setInputValue] = useState("");
+  // Legacy input state for custom message handling
+  const [input, setInput] = useState('');
+
+  // Use legacy messages
+  const messages = legacyMessages;
+  const isLoading = legacyIsLoading;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  };
+  
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
     new Set(),
   );
@@ -98,7 +128,24 @@ export default function ChatWindow({
       }
     });
 
-    setPlanningData(newPlanningData);
+    // Only update if the data has actually changed
+    setPlanningData((prevData) => {
+      // Compare if the data is different
+      if (prevData.size !== newPlanningData.size) {
+        return newPlanningData;
+      }
+      
+      // Check if any values are different
+      for (const [key, value] of newPlanningData) {
+        const prevValue = prevData.get(key);
+        if (!prevValue || JSON.stringify(prevValue) !== JSON.stringify(value)) {
+          return newPlanningData;
+        }
+      }
+      
+      // No changes, return previous data to prevent re-render
+      return prevData;
+    });
   }, [messages]);
 
   // Auto-apply code when APPLY_CODE_IMMEDIATELY is true
@@ -113,19 +160,22 @@ export default function ChatWindow({
 
     // Check if this message has applicable content
     const codeResult = extractCodeFromMessage(lastMessage.content);
-    const hasApplicableContent = true;
+    const hasApplicableContent = codeResult.hasCode;
 
     if (hasApplicableContent) {
       // Apply the code automatically
       onApplyCode(codeResult);
     }
-  }, [messages]);
+  }, [messages, onApplyCode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim() && !isLoading) {
-      onSendMessage(inputValue.trim());
-      setInputValue("");
+    if (input.trim() && !isLoading) {
+      // Always use the legacy implementation for now since it has the custom phase logic
+      if (legacyOnSendMessage) {
+        legacyOnSendMessage(input.trim());
+        setInput(''); // Clear input after sending
+      }
     }
   };
 
@@ -509,6 +559,7 @@ export default function ChatWindow({
   };
 
   const handleClearConfirm = () => {
+    // Call legacy clear function
     onClearChat();
     setShowClearConfirmation(false);
   };
@@ -633,8 +684,8 @@ export default function ChatWindow({
 
             <textarea
               ref={textareaRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              value={input}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Ask me to create or modify React Native code... ✨"
               className="relative w-full px-6 py-4 pr-16 rounded-2xl text-sm font-medium transition-all duration-500 focus:scale-[1.02] transform-gpu bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border-2 border-slate-200/50 dark:border-slate-600/60 focus:border-blue-500/70 dark:focus:border-blue-400/70 focus:bg-white dark:focus:bg-slate-700/95 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/50 shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50 backdrop-blur-xl hover:border-blue-500/30 dark:hover:border-blue-400/50 resize-none"
@@ -654,27 +705,27 @@ export default function ChatWindow({
 
           {/* Send Button */}
           <div className="relative">
-            {inputValue.trim() && (
+            {input.trim() && (
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 dark:from-blue-600 dark:via-purple-600 dark:to-pink-600 rounded-2xl blur-lg opacity-60 dark:opacity-80 animate-pulse"></div>
             )}
 
             <button
               type="submit"
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!input.trim() || isLoading}
               className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${
-                inputValue.trim()
+                input.trim()
                   ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
                   : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-900/50 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-slate-200 dark:border-slate-600/30"
               }`}
             >
               {/* Button inner glow */}
-              {inputValue.trim() && (
+              {input.trim() && (
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent dark:from-white/10 dark:to-blue-900/20 pointer-events-none"></div>
               )}
 
               <PaperAirplaneIcon
                 className={`relative w-6 h-6 transition-transform duration-300 ${
-                  inputValue.trim()
+                  input.trim()
                     ? "hover:translate-x-0.5 hover:-translate-y-0.5"
                     : ""
                 }`}
