@@ -1,3 +1,4 @@
+import { Database } from "@/lib/types/database.types";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
@@ -289,13 +290,10 @@ interface ExecutionPlanItem {
   newFilePath?: string;
 }
 
-interface SnackFile {
-  contents: string;
-  type: "CODE" | "ASSET";
-}
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
-interface SnackFiles {
-  [filePath: string]: SnackFile;
+interface PrototypeFiles {
+  [filePath: string]: PrototypeFile;
 }
 
 // Allow longer response times for AI generation
@@ -460,7 +458,7 @@ User request: ${lastMessage.content}`;
       // For planning phase, include all available files to help with planning
       const allFiles: string[] = [];
 
-      Object.entries(snackFiles as SnackFiles).forEach(
+      Object.entries(snackFiles as PrototypeFiles).forEach(
         ([filePath, fileData]) => {
           if (fileData.contents) {
             allFiles.push(
