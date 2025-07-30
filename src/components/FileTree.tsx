@@ -7,7 +7,7 @@ import {
   FolderIcon,
   FolderOpenIcon,
 } from "@heroicons/react/24/outline";
-import { SnackFiles } from "@/lib/types/chat";
+import { Database } from "@/lib/types/database.types";
 
 interface FileNode {
   name: string;
@@ -18,7 +18,7 @@ interface FileNode {
 }
 
 interface FileTreeProps {
-  files: SnackFiles;
+  files: Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]>;
   selectedFile?: string;
   onFileSelect: (filePath: string) => void;
 }
@@ -29,7 +29,7 @@ const FileTree: React.FC<FileTreeProps> = ({
   onFileSelect,
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set([""])
+    new Set([""]),
   ); // Root is expanded by default
 
   // Convert flat files object to tree structure
@@ -55,7 +55,7 @@ const FileTree: React.FC<FileTreeProps> = ({
         }
 
         let folderNode = currentNode.children.find(
-          (child) => child.name === folderName && child.type === "folder"
+          (child) => child.name === folderName && child.type === "folder",
         );
 
         if (!folderNode) {
@@ -175,7 +175,9 @@ const FileTree: React.FC<FileTreeProps> = ({
         <div
           key={node.path}
           className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200 ${
-            isSelected ? "bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20" : ""
+            isSelected
+              ? "bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20"
+              : ""
           }`}
           style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}

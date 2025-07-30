@@ -361,7 +361,7 @@ export function getDefaultPrototypeFiles(
   }));
 }
 
-export const getDefaultSnackFiles = (): SnackFiles => ({
+const getDefaultSnackFiles = (): SnackFiles => ({
   "App.js": {
     contents: `import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';

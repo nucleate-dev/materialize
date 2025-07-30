@@ -9,7 +9,7 @@ import ExpoSnackViewer, {
 import FileTree from "@/components/FileTree";
 import { supabase } from "@/GlobalConstants";
 import { useSidebar } from "@/hooks/useSidebar";
-import { CodeExtractionResult, SnackFiles } from "@/lib/types/chat";
+import { CodeExtractionResult } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
@@ -17,7 +17,6 @@ import {
   extractExecutionPlan,
   extractStepResult,
 } from "@/lib/utils/code/planningExtractor";
-import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import {
   CodeBracketIcon,
   EyeIcon,
@@ -26,6 +25,7 @@ import {
 import { useParams } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -35,12 +35,14 @@ type PrototypeChatMessage =
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function CreatePage() {
+  const router = useRouter();
   const { user, userIsLoading } = useUser();
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isPreviewView, setIsPreviewView] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [prototypeChatSession, setPrototypeChatSession] =
@@ -48,10 +50,19 @@ export default function CreatePage() {
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototypeFiles, setPrototypeFiles] = useState<
     Record<string, PrototypeFile>
   >({});
+
+  // Set the selected file to a file that actually exists
+  const defaultFile = "App.js";
+  const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
+  // Set the editor code to the contents of that existing file
+  const [mainAppCode, setMainAppCode] = useState(
+    prototypeFiles[defaultFile]?.contents || "",
+  );
+  const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
+  const [loadingDots, setLoadingDots] = useState(0);
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
@@ -71,6 +82,7 @@ export default function CreatePage() {
 
       if (error) {
         console.error("Error fetching prototype:", error);
+        router.push("/dashboard");
         return;
       }
 
@@ -154,6 +166,7 @@ export default function CreatePage() {
       );
 
       setPrototypeFiles(filesDict);
+      setMainAppCode(filesDict[defaultFile]?.contents || "");
       console.log("Fetched prototype files:", filesDict);
     }
 
@@ -169,25 +182,6 @@ export default function CreatePage() {
     setPrototypeChatSession,
     setPrototypeChatMessages,
   ]);
-
-  // Define the default file to show in the editor
-  const defaultFile = "App.js";
-
-  // Initialize SnackFiles state as before
-  const [snackFiles, setSnackFiles] = useState<SnackFiles>(
-    getDefaultSnackFiles(),
-  );
-  const [isPreviewView, setIsPreviewView] = useState(true);
-
-  // Set the selected file to a file that actually exists
-  const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
-
-  // Set the editor code to the contents of that existing file
-  const [mainAppCode, setMainAppCode] = useState(
-    snackFiles[defaultFile]?.contents || "",
-  );
-  const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
-  const [loadingDots, setLoadingDots] = useState(0);
 
   // Animate loading dots
   useEffect(() => {
@@ -268,7 +262,7 @@ export default function CreatePage() {
             messages: currentMessages,
             currentCode: mainAppCode,
             phase: "step_execution",
-            snackFiles: snackFiles,
+            snackFiles: prototypeFiles,
             stepOperation: operation,
           }),
         });
@@ -286,7 +280,7 @@ export default function CreatePage() {
         if (stepResult.hasResult) {
           // Apply the code changes
           const newFiles = {
-            ...snackFiles,
+            ...prototypeFiles,
             [operation.filePath]: {
               contents: stepResult.content,
               type: "CODE" as const,
@@ -294,7 +288,7 @@ export default function CreatePage() {
           };
 
           // Create a deep copy to ensure React detects the change
-          setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
+          setPrototypeFiles(JSON.parse(JSON.stringify(newFiles)));
 
           // Update the main app code if the selected file was modified
           if (operation.filePath === selectedFile) {
@@ -396,7 +390,7 @@ export default function CreatePage() {
             messages: [...prototypeChatMessages, userMessage],
             currentCode: mainAppCode,
             phase: "planning",
-            snackFiles: snackFiles,
+            snackFiles: prototypeFiles,
           }),
         });
 
@@ -458,7 +452,7 @@ export default function CreatePage() {
       extractExecutionPlan,
       executeOperationsStepByStep,
       mainAppCode,
-      snackFiles,
+      prototypeFiles,
       prototypeChatMessages,
     ],
   );
@@ -469,12 +463,12 @@ export default function CreatePage() {
   ) => {
     if (result.hasCode) {
       const newFiles = updateSnackFiles(
-        snackFiles,
+        prototypeFiles,
         result.codeBlocks,
         plannedFilePaths,
       );
       // Create a deep copy to ensure React detects the change
-      setSnackFiles(JSON.parse(JSON.stringify(newFiles)));
+      setPrototypeFiles(JSON.parse(JSON.stringify(newFiles)));
 
       // Update the main app code if the selected file was modified
       if (newFiles[selectedFile]) {
@@ -516,24 +510,24 @@ export default function CreatePage() {
     }
   }, [prototypeChatSession, supabase]);
 
-  const handleFilesChange = (files: SnackFiles) => {
-    // Create a deep copy to ensure React detects the change
-    setSnackFiles(JSON.parse(JSON.stringify(files)));
+  // const handleFilesChange = (files: SnackFiles) => {
+  //   // Create a deep copy to ensure React detects the change
+  //   setPrototypeFiles(JSON.parse(JSON.stringify(files)));
 
-    // Update the main app code based on selected file
-    if (files[selectedFile]) {
-      setMainAppCode(files[selectedFile].contents);
-    } else if (files[defaultFile]) {
-      // Fallback to default file if selected file doesn't exist
-      setSelectedFile(defaultFile);
-      setMainAppCode(files[defaultFile].contents);
-    }
-  };
+  //   // Update the main app code based on selected file
+  //   if (files[selectedFile]) {
+  //     setMainAppCode(files[selectedFile].contents);
+  //   } else if (files[defaultFile]) {
+  //     // Fallback to default file if selected file doesn't exist
+  //     setSelectedFile(defaultFile);
+  //     setMainAppCode(files[defaultFile].contents);
+  //   }
+  // };
 
   const handleFileSelect = (filePath: string) => {
     setSelectedFile(filePath);
-    if (snackFiles[filePath]) {
-      setMainAppCode(snackFiles[filePath].contents);
+    if (prototypeFiles[filePath]) {
+      setMainAppCode(prototypeFiles[filePath].contents);
     }
   };
 
@@ -543,14 +537,14 @@ export default function CreatePage() {
 
       // Update the snack files with the new code for the selected file
       const updatedFiles = {
-        ...snackFiles,
+        ...prototypeFiles,
         [selectedFile]: {
-          ...snackFiles[selectedFile],
+          ...prototypeFiles[selectedFile],
           contents: value,
         },
       };
       // Create a deep copy to ensure React detects the change
-      setSnackFiles(JSON.parse(JSON.stringify(updatedFiles)));
+      setPrototypeFiles(JSON.parse(JSON.stringify(updatedFiles)));
     }
   };
 
@@ -606,7 +600,6 @@ export default function CreatePage() {
                 messages={prototypeChatMessages}
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
-                
                 // Preserved functionality
                 onApplyCode={handleApplyCode}
                 onExecutePlannedOperation={handleExecutePlannedOperation}
@@ -689,8 +682,7 @@ export default function CreatePage() {
                 <div className="h-full">
                   <ExpoSnackViewer
                     ref={snackViewerRef}
-                    files={snackFiles}
-                    onFilesChange={handleFilesChange}
+                    files={prototypeFiles}
                   />
                 </div>
               ) : (
@@ -699,7 +691,7 @@ export default function CreatePage() {
                   <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/20 dark:border-strokedark/30 h-full">
                     <div className="h-full">
                       <FileTree
-                        files={snackFiles}
+                        files={prototypeFiles}
                         selectedFile={selectedFile}
                         onFileSelect={handleFileSelect}
                       />

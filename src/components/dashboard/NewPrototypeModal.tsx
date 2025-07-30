@@ -16,7 +16,7 @@ import {
   ChevronDownIcon,
   FolderIcon,
 } from "@heroicons/react/24/outline";
-import { getDefaultSnackFiles } from "@/templates/defaultApp";
+import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -111,7 +111,7 @@ export default function NewPrototypeModal({
 
       const { error: prototypeFilesInsertError } = await supabase
         .from("prototype_files")
-        .insert(getDefaultSnackFiles());
+        .insert(getDefaultPrototypeFiles(data.id));
       if (prototypeFilesInsertError) {
         console.error(
           "Error creating default prototype files:",

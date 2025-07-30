@@ -10,19 +10,15 @@ import {
 } from "react";
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
-import { SnackFiles } from "../lib/types/chat";
-import {
-  DEFAULT_DEPENDENCIES,
-  getDefaultSnackFiles,
-} from "../templates/defaultApp";
+import { DEFAULT_DEPENDENCIES } from "../templates/defaultApp";
+import { Database } from "@/lib/types/database.types";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];
 }
 
 interface ExpoSnackViewerProps {
-  files: SnackFiles;
-  onFilesChange?: (files: SnackFiles) => void;
+  files: Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]>;
 }
 
 export interface ExpoSnackViewerRef {
@@ -32,7 +28,7 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files, onFilesChange }, ref) => {
+  ({ files }, ref) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +45,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       if (snack && snackState?.webPreviewURL) {
         // Method 1: Try iframe refresh
         const iframe = document.querySelector(
-          'iframe[title="React Native Preview"], iframe[title="React Native Web Preview"]'
+          'iframe[title="React Native Preview"], iframe[title="React Native Web Preview"]',
         ) as HTMLIFrameElement;
         if (iframe) {
           const currentSrc = iframe.src;
@@ -70,7 +66,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       () => ({
         forceRefresh,
       }),
-      [forceRefresh]
+      [forceRefresh],
     );
 
     useEffect(() => {
@@ -81,8 +77,16 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
           setIsLoading(true);
           setError(null);
 
-          const initialFiles =
-            Object.keys(files).length > 0 ? files : getDefaultSnackFiles();
+          const initialFiles = Object.entries(files).reduce(
+            (acc, [fileName, file]) => {
+              acc[fileName] = {
+                type: "CODE" as const,
+                contents: file.contents,
+              };
+              return acc;
+            },
+            {} as Record<string, { type: "CODE"; contents: string }>,
+          );
 
           snackSDK = new Snack({
             files: initialFiles,
@@ -112,7 +116,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         } catch (err) {
           console.error("Failed to initialize Snack:", err);
           setError(
-            err instanceof Error ? err.message : "Failed to initialize Snack"
+            err instanceof Error ? err.message : "Failed to initialize Snack",
           );
           setIsLoading(false);
         }
@@ -137,11 +141,21 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         try {
           setError(null);
-          snack.updateFiles(files);
+          const snackFiles = Object.entries(files).reduce(
+            (acc, [fileName, file]) => {
+              acc[fileName] = {
+                type: "CODE" as const,
+                contents: file.contents,
+              };
+              return acc;
+            },
+            {} as Record<string, { type: "CODE"; contents: string }>,
+          );
+          snack.updateFiles(snackFiles);
         } catch (err) {
           console.error("Failed to update Snack files:", err);
           setError(
-            err instanceof Error ? err.message : "Failed to update code"
+            err instanceof Error ? err.message : "Failed to update code",
           );
         }
       };
@@ -160,13 +174,6 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       }
     };
 
-    const handleReset = () => {
-      const defaultFiles = getDefaultSnackFiles();
-      if (onFilesChange) {
-        onFilesChange(defaultFiles);
-      }
-    };
-
     const handleModeChange = (mode: PreviewMode) => {
       setPreviewMode(mode);
     };
@@ -174,7 +181,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     const handleMouseDown = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       const startX = e.clientX;
       const startY = e.clientY;
       const startWidth = mobileSize.width;
@@ -183,24 +190,24 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const deltaX = moveEvent.clientX - startX;
         const deltaY = moveEvent.clientY - startY;
-        
+
         const newWidth = Math.max(250, Math.min(500, startWidth + deltaX));
         const newHeight = Math.max(400, Math.min(800, startHeight + deltaY));
-        
+
         setMobileSize({ width: newWidth, height: newHeight });
       };
 
       const handleMouseUp = () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
       };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'se-resize';
-      document.body.style.userSelect = 'none';
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "se-resize";
+      document.body.style.userSelect = "none";
     };
 
     return (
@@ -212,19 +219,21 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
             <div className="flex bg-white/60 dark:bg-boxdark/60 rounded-lg p-1 backdrop-blur-sm">
               <button
                 onClick={() => handleModeChange("mobile")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "mobile"
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${
+                  previewMode === "mobile"
                     ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
                     : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
-                  }`}
+                }`}
               >
                 Mobile
               </button>
               <button
                 onClick={() => handleModeChange("web")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "web"
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${
+                  previewMode === "web"
                     ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
                     : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
-                  }`}
+                }`}
               >
                 Web
               </button>
@@ -238,13 +247,6 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               disabled={isLoading || !webPreviewURL}
             >
               Refresh
-            </button>
-            <button
-              onClick={handleReset}
-              className="bg-white/60 dark:bg-boxdark/60 text-body dark:text-bodydark px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/80 dark:hover:bg-boxdark/80 transition-all duration-300 disabled:opacity-50"
-              disabled={isLoading}
-            >
-              Reset
             </button>
           </div>
         </div>
@@ -291,56 +293,57 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
             </div>
           ) : previewMode === "mobile" ? (
             /* --- START: iPhone 15 Pro device frame --- */
-            <div 
+            <div
               id="mobile-frame"
               className="relative mx-auto select-none"
-              style={{ 
-                width: mobileSize.width + 16, 
-                height: mobileSize.height + 16 
+              style={{
+                width: mobileSize.width + 16,
+                height: mobileSize.height + 16,
               }}
             >
               {/* iPhone 15 Pro frame with titanium-like appearance */}
-              <div 
+              <div
                 className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
                 style={{
                   width: mobileSize.width + 16,
                   height: mobileSize.height + 16,
-                  borderRadius: '2.5rem',
-                  border: '1px solid #1f2937',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                  borderRadius: "2.5rem",
+                  border: "1px solid #1f2937",
+                  boxShadow:
+                    "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                 }}
               >
                 {/* Dynamic Island */}
-                <div 
+                <div
                   className="absolute bg-black rounded-full"
                   style={{
                     width: mobileSize.width * 0.4,
-                    height: '24px',
-                    top: '6px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    borderRadius: '12px'
+                    height: "24px",
+                    top: "6px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    borderRadius: "12px",
                   }}
                 ></div>
-                
+
                 {/* Volume buttons */}
                 <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
                 <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
                 <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
-                
+
                 {/* Power button */}
                 <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
-                
+
                 {/* Screen area */}
-                <div 
+                <div
                   className="absolute bg-black overflow-hidden"
                   style={{
                     width: mobileSize.width,
                     height: mobileSize.height,
-                    top: '8px',
-                    left: '8px',
-                    borderRadius: '2.2rem',
-                    boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                    top: "8px",
+                    left: "8px",
+                    borderRadius: "2.2rem",
+                    boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
                   }}
                 >
                   <iframe
@@ -354,15 +357,20 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                     sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
                   />
                 </div>
-                
+
                 {/* Resize handle */}
-                <div 
+                <div
                   className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
                   onMouseDown={handleMouseDown}
                 >
                   <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
-                      <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z"/>
+                    <svg
+                      width="8"
+                      height="8"
+                      viewBox="0 0 8 8"
+                      fill="currentColor"
+                    >
+                      <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z" />
                     </svg>
                   </div>
                 </div>
@@ -410,7 +418,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ExpoSnackViewer.displayName = "ExpoSnackViewer";

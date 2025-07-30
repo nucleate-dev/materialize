@@ -1,4 +1,5 @@
-import { CodeBlock, CodeExtractionResult, SnackFiles } from "@/lib/types/chat";
+import { CodeBlock, CodeExtractionResult } from "@/lib/types/chat";
+import { Database } from "@/lib/types/database.types";
 
 export function extractCodeFromMessage(message: string): CodeExtractionResult {
   const codeBlocks: CodeBlock[] = [];
@@ -92,7 +93,7 @@ function isReactNativeCode(code: string): boolean {
 
   // If it contains multiple indicators or looks like a complete component, it's likely React Native
   const matchCount = reactNativeIndicators.filter((indicator) =>
-    code.includes(indicator)
+    code.includes(indicator),
   ).length;
 
   // More lenient: if it has at least 1 indicator or contains JSX-like syntax, consider it valid code
@@ -152,7 +153,7 @@ function cleanupCode(code: string): string {
     if (cleaned.includes("import React from 'react';")) {
       cleaned = cleaned.replace(
         "import React from 'react';",
-        `import React from 'react';\n${importLine}`
+        `import React from 'react';\n${importLine}`,
       );
     } else {
       cleaned = `${importLine}\n${cleaned}`;
@@ -164,7 +165,7 @@ function cleanupCode(code: string): string {
 
 function getFileNameFromCode(
   code: string,
-  language: "javascript" | "typescript"
+  language: "javascript" | "typescript",
 ): string | null {
   // Try to extract component name from export default
   const exportMatch = code.match(/export default (?:function\s+)?(\w+)/);
@@ -179,10 +180,13 @@ function getFileNameFromCode(
 }
 
 export function updateSnackFiles(
-  currentFiles: SnackFiles,
+  currentFiles: Record<
+    string,
+    Database["public"]["Tables"]["prototype_files"]["Row"]
+  >,
   codeBlocks: CodeBlock[],
-  plannedFilePaths?: string[]
-): SnackFiles {
+  plannedFilePaths?: string[],
+): Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]> {
   // Create a deep copy of the current files
   const newFiles = JSON.parse(JSON.stringify(currentFiles));
 
