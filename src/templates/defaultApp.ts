@@ -1,3 +1,4 @@
+import { Database } from "@/lib/types/database.types";
 import { SnackFiles } from "../lib/types/chat";
 
 export const DEFAULT_APP_CODE = `import React from 'react';
@@ -345,6 +346,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });`;
+
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+
+export function getDefaultPrototypeFiles(
+  prototypeId: string,
+): Partial<PrototypeFile>[] {
+  const snackFiles = getDefaultSnackFiles();
+
+  return Object.entries(snackFiles).map(([fileName, fileData]) => ({
+    prototype_id: prototypeId,
+    name: fileName,
+    contents: fileData.contents,
+  }));
+}
 
 export const getDefaultSnackFiles = (): SnackFiles => ({
   "App.js": {

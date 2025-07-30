@@ -32,6 +32,7 @@ type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function CreatePage() {
   const { user, userIsLoading } = useUser();
@@ -47,6 +48,10 @@ export default function CreatePage() {
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [prototypeFiles, setPrototypeFiles] = useState<
+    Record<string, PrototypeFile>
+  >({});
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
@@ -125,9 +130,37 @@ export default function CreatePage() {
       console.log("Fetched chat messages:", messagesData);
     }
 
+    async function fetchPrototypeFiles() {
+      if (!prototypeId) return;
+
+      const { data, error } = await supabase
+        .from("prototype_files")
+        .select("*")
+        .eq("prototype_id", prototypeId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching prototype files:", error);
+        return;
+      }
+
+      // Convert array to dictionary mapping name to PrototypeFile object
+      const filesDict = (data || []).reduce(
+        (acc, file) => {
+          acc[file.name] = file;
+          return acc;
+        },
+        {} as Record<string, PrototypeFile>,
+      );
+
+      setPrototypeFiles(filesDict);
+      console.log("Fetched prototype files:", filesDict);
+    }
+
     if (prototypeId && user?.id) {
       fetchPrototype();
       fetchPrototypeChatSessionAndMessages();
+      fetchPrototypeFiles();
     }
   }, [
     prototypeId,
@@ -319,20 +352,6 @@ export default function CreatePage() {
         }
       })
       .join("\n")}\n\n${completedSteps} completed, ${failedSteps} failed`;
-
-    // const { data: executionMessage, error: insertError } = await supabase
-    //   .from("prototype_chat_messages")
-    //   .insert({
-    //     id: executionMessageId,
-    //     chat_session_id: prototypeChatSession?.id || "",
-    //     content: finalContent,
-    //     role: "assistant",
-    //   })
-    //   .select()
-    //   .single();
-    // if (insertError) {
-    //   console.log("Error inserting execution message:", insertError);
-    // }
 
     setPrototypeChatMessages((prev) =>
       prev.map((msg) =>
