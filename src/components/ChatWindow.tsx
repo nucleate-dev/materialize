@@ -15,6 +15,8 @@ import {
   PaperAirplaneIcon,
   PlayIcon,
   SparklesIcon,
+  TrashIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
 import PlanningView from "./PlanningView";
@@ -31,6 +33,7 @@ interface ChatWindowProps {
     operationId: string,
     operations: EditOperation[],
   ) => Promise<void>;
+  onClearChat: () => void;
   isLoading: boolean;
 }
 
@@ -39,6 +42,7 @@ export default function ChatWindow({
   onSendMessage,
   onApplyCode,
   onExecutePlannedOperation,
+  onClearChat,
   isLoading,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState("");
@@ -68,6 +72,7 @@ export default function ChatWindow({
   const [currentExecutingOperation, setCurrentExecutingOperation] = useState<
     string | null
   >(null);
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -503,6 +508,15 @@ export default function ChatWindow({
     );
   };
 
+  const handleClearConfirm = () => {
+    onClearChat();
+    setShowClearConfirmation(false);
+  };
+
+  const handleClearCancel = () => {
+    setShowClearConfirmation(false);
+  };
+
   return (
     <div className="absolute inset-0 flex flex-col">
       {/* Animated Background */}
@@ -516,18 +530,31 @@ export default function ChatWindow({
         <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
 
         <div className="relative p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 shadow-lg shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30">
-              <SparklesIcon className="w-6 h-6 text-white drop-shadow-sm" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 shadow-lg shadow-blue-500/25 dark:shadow-blue-600/40 ring-1 ring-white/20 dark:ring-blue-400/30">
+                <SparklesIcon className="w-6 h-6 text-white drop-shadow-sm" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 drop-shadow-sm">
+                  React Native Assistant
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                  AI-powered code companion ✨
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 drop-shadow-sm">
-                React Native Assistant
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                AI-powered code companion ✨
-              </p>
-            </div>
+            
+            {messages.length > 0 && (
+              <button
+                onClick={() => setShowClearConfirmation(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors border border-red-200 dark:border-red-800/50 group"
+                title="Clear chat"
+              >
+                <TrashIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                Clear Chat
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -656,6 +683,56 @@ export default function ChatWindow({
           </div>
         </form>
       </div>
+
+      {/* Confirmation Modal */}
+      {showClearConfirmation && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full mx-4 animate-in zoom-in-95 fade-in duration-200">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-red-100 dark:bg-red-900/30">
+                    <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                    Clear Chat
+                  </h3>
+                </div>
+                <button
+                  onClick={handleClearCancel}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <XMarkIcon className="w-5 h-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                Are you sure you want to clear all chat messages? This action cannot be undone and will permanently delete your conversation history.
+              </p>
+
+              {/* Modal Actions */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleClearCancel}
+                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearConfirm}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-red-500/25"
+                >
+                  Clear Chat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

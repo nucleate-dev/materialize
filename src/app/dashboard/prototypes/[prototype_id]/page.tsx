@@ -471,6 +471,32 @@ export default function CreatePage() {
     // This is now handled automatically by the step-by-step flow
   };
 
+  const handleClearChat = useCallback(async () => {
+    if (!prototypeChatSession?.id) {
+      console.error("Clear chat failed: no chat session found");
+      return;
+    }
+
+    try {
+      // Delete all messages for this chat session
+      const { error } = await supabase
+        .from("prototype_chat_messages")
+        .delete()
+        .eq("chat_session_id", prototypeChatSession.id);
+
+      if (error) {
+        console.error("Error clearing chat messages:", error);
+        return;
+      }
+
+      // Clear the local state
+      setPrototypeChatMessages([]);
+      console.log("Chat cleared successfully");
+    } catch (error) {
+      console.error("Error clearing chat:", error);
+    }
+  }, [prototypeChatSession, supabase]);
+
   const handleFilesChange = (files: SnackFiles) => {
     // Create a deep copy to ensure React detects the change
     setSnackFiles(JSON.parse(JSON.stringify(files)));
@@ -561,6 +587,7 @@ export default function CreatePage() {
                 onSendMessage={handleSendMessage}
                 onApplyCode={handleApplyCode}
                 onExecutePlannedOperation={handleExecutePlannedOperation}
+                onClearChat={handleClearChat}
                 isLoading={isLoading}
               />
             </div>
