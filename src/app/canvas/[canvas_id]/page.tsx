@@ -111,9 +111,11 @@ export default function CanvasPage() {
 
   // ------------------ Persistence functions -----------------------------------------------------------
   const saveCanvasDocument = useCallback(async () => {
+    console.log("Saving canvas document");
     if (!editor.current || !canvasId) return;
-
+    console.log("Saving canvas document 2");
     const snapshot = editor.current.getSnapshot();
+    console.log("Snapshot:", snapshot);
 
     // save document to db
     const { error: documentUploadError } = await supabase
@@ -151,7 +153,7 @@ export default function CanvasPage() {
         console.log("Canvas document updated successfully");
       }
     }
-  }, [canvasId, editor]);
+  }, [canvasId, editor, canvasDocument, user]);
 
   // Auto-save setup with proper debouncing
   useEffect(() => {
@@ -176,7 +178,7 @@ export default function CanvasPage() {
       clearTimeout(timeoutId);
       cleanup();
     };
-  }, [saveCanvasDocument]);
+  }, [saveCanvasDocument, editor]);
 
   // ----------------- MESSAGE HANDLING -----------------------------------------------------------
   const handleSendMessage = () => {
