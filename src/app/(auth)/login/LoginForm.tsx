@@ -81,7 +81,7 @@ export default function LoginForm() {
       />
       <form
         action="#"
-        className="mt-4 grid grid-cols-1 gap-y-4"
+        className="mt-4 grid grid-cols-1 gap-y-4 px-4"
         onSubmit={handleSubmit}
       >
         <TextField
@@ -105,7 +105,7 @@ export default function LoginForm() {
         <div>
           <Button type="submit" value="Sign in" />
         </div>
-        <div className="col-span-full grid grid-cols-4 gap-4">
+        <div className="col-span-full grid grid-cols-2 sm:grid-cols-4 gap-4">
           {/* add or remove OAuth buttons here as desired. The second parameter is the redirect URL */}
           <OAuthSignInButton
             onClick={async () => {

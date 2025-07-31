@@ -127,7 +127,7 @@ export default function RegistrationForm() {
       <form
         onSubmit={handleSubmit}
         action="#"
-        className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4"
+        className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 px-4"
       >
         <TextField
           label="First name"
@@ -180,7 +180,7 @@ export default function RegistrationForm() {
         <div className="col-span-full">
           <Button type="submit" value="Create Account" />
         </div>
-        <div className="col-span-full grid grid-cols-4 gap-4">
+        <div className="col-span-full grid grid-cols-2 sm:grid-cols-4 gap-4">
           {/* add or remove OAuth buttons here as desired. The second parameter is the redirect URL */}
           <OAuthSignInButton
             onClick={async () => {
