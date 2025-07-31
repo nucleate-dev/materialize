@@ -2,348 +2,60 @@ import { Database } from "@/lib/types/database.types";
 import { SnackFiles } from "../lib/types/chat";
 
 export const DEFAULT_APP_CODE = `import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { colors, typography } from './styles/theme';
 
-export default function App() {
-  const [currentScreen, setCurrentScreen] = React.useState('home');
-  const [count, setCount] = React.useState(0);
+const Stack = createNativeStackNavigator();
 
-  const renderHomeScreen = () => (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>Welcome to Materialize!</Text>
-      <Text style={styles.subtitle}>
-        This is a live preview with Expo Router
-      </Text>
-
-      <View style={styles.counterContainer}>
-        <Text style={styles.counterText}>Count: {count}</Text>
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => setCount(count + 1)}
-        >
-          <Text style={styles.buttonText}>Increment</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.button, styles.resetButton]} 
-          onPress={() => setCount(0)}
-        >
-          <Text style={styles.buttonText}>Reset</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.instructions}>
-        Chat with the AI to modify this code and see live updates!
-        Navigate between screens using the bottom navigation.
-      </Text>
-    </ScrollView>
-  );
-
-  const renderExploreScreen = () => (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>Explore Features</Text>
-      <Text style={styles.subtitle}>
-        Discover what makes this app special
-      </Text>
-
-      <View style={styles.featuresContainer}>
-        {[
-          { title: 'File-based Routing', description: 'Navigate between screens using Expo Router file structure.', icon: '🗂️' },
-          { title: 'Tab Navigation', description: 'Bottom tab navigation with custom icons and styling.', icon: '📱' },
-          { title: 'Component Library', description: 'Pre-built components for rapid development.', icon: '🧩' },
-          { title: 'Live Preview', description: 'Real-time updates as you chat with the AI assistant.', icon: '⚡' },
-        ].map((feature, index) => (
-          <View key={index} style={styles.featureCard}>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureIcon}>{feature.icon}</Text>
-              <View style={styles.featureText}>
-                <Text style={styles.featureTitle}>{feature.title}</Text>
-                <Text style={styles.featureDescription}>{feature.description}</Text>
-              </View>
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
-  );
-
-  const renderProfileScreen = () => (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={48} color="#007AFF" />
-        </View>
-        <Text style={styles.name}>Demo User</Text>
-        <Text style={styles.email}>demo@materialize.app</Text>
-      </View>
-
-      <View style={styles.settingsContainer}>
-        <Text style={styles.sectionTitle}>Settings</Text>
-        {[
-          { title: 'Account Settings', icon: 'settings-outline' },
-          { title: 'Notifications', icon: 'notifications-outline' },
-          { title: 'Privacy', icon: 'lock-closed-outline' },
-          { title: 'Help & Support', icon: 'help-circle-outline' },
-          { title: 'About', icon: 'information-circle-outline' },
-        ].map((setting, index) => (
-          <TouchableOpacity key={index} style={styles.settingCard}>
-            <View style={styles.settingItem}>
-              <Ionicons name={setting.icon} size={24} color="#007AFF" style={styles.settingIcon} />
-              <Text style={styles.settingTitle}>{setting.title}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
-  );
-
-  const renderContent = () => {
-    switch (currentScreen) {
-      case 'home':
-        return renderHomeScreen();
-      case 'explore':
-        return renderExploreScreen();
-      case 'profile':
-        return renderProfileScreen();
-      default:
-        return renderHomeScreen();
-    }
-  };
-
+function HomeScreen() {
   return (
-    <View style={styles.appContainer}>
-      <View style={styles.content}>
-        {renderContent()}
-      </View>
-      
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, currentScreen === 'home' && styles.activeTab]} 
-          onPress={() => setCurrentScreen('home')}
-        >
-          <Ionicons 
-            name="home" 
-            size={24} 
-            color={currentScreen === 'home' ? '#007AFF' : '#8E8E93'} 
-            style={styles.tabIcon} 
-          />
-          <Text style={[styles.tabLabel, currentScreen === 'home' && styles.activeTabLabel]}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, currentScreen === 'explore' && styles.activeTab]} 
-          onPress={() => setCurrentScreen('explore')}
-        >
-          <Ionicons 
-            name="compass" 
-            size={24} 
-            color={currentScreen === 'explore' ? '#007AFF' : '#8E8E93'} 
-            style={styles.tabIcon} 
-          />
-          <Text style={[styles.tabLabel, currentScreen === 'explore' && styles.activeTabLabel]}>Explore</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, currentScreen === 'profile' && styles.activeTab]} 
-          onPress={() => setCurrentScreen('profile')}
-        >
-          <Ionicons 
-            name="person" 
-            size={24} 
-            color={currentScreen === 'profile' ? '#007AFF' : '#8E8E93'} 
-            style={styles.tabIcon} 
-          />
-          <Text style={[styles.tabLabel, currentScreen === 'profile' && styles.activeTabLabel]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <Text style={styles.messageText}>
+        Chat with the window on the left to update me!
+      </Text>
     </View>
   );
 }
 
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: colors.surface,
+          },
+          headerTintColor: colors.text.primary,
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{ title: 'Materialize App' }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
 const styles = StyleSheet.create({
-  appContainer: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
-  content: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
-  contentContainer: {
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    minHeight: '100%',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+  messageText: {
+    ...typography.h2,
+    color: colors.text.primary,
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  counterContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  counterText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginVertical: 5,
-  },
-  resetButton: {
-    backgroundColor: '#8E8E93',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  instructions: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  featuresContainer: {
-    width: '100%',
-  },
-  featureCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, y: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  featureContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  featureText: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  header: {
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#ffffff',
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E5F3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 16,
-    color: '#666',
-  },
-  settingsContainer: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  settingCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 0,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, y: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  settingIcon: {
-    marginRight: 16,
-  },
-  settingTitle: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderTopColor: '#E5E5EA',
-    borderTopWidth: 1,
-    paddingBottom: 20,
-    paddingTop: 10,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  activeTab: {
-    // Active state styling
-  },
-  tabIcon: {
-    marginBottom: 4,
-  },
-  tabLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  activeTabLabel: {
-    color: '#007AFF',
-    fontWeight: '600',
+    lineHeight: 32,
   },
 });`;
 
@@ -361,302 +73,63 @@ export function getDefaultPrototypeFiles(
   }));
 }
 
-const getDefaultSnackFiles = (): SnackFiles => ({
+export const getDefaultSnackFiles = (): SnackFiles => ({
   "App.js": {
     contents: `import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import HomeScreen from './screens/HomeScreen';
-import ProfileScreen from './screens/ProfileScreen';
+import { View, Text, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { colors, typography } from './styles/theme';
 
-export default function App() {
-  const [currentScreen, setCurrentScreen] = React.useState('home');
+const Stack = createNativeStackNavigator();
 
-  const renderContent = () => {
-    switch (currentScreen) {
-      case 'home':
-        return <HomeScreen />;
-      case 'profile':
-        return <ProfileScreen />;
-      default:
-        return <HomeScreen />;
-    }
-  };
-
+function HomeScreen() {
   return (
-    <View style={styles.appContainer}>
-      <View style={styles.content}>
-        {renderContent()}
-      </View>
-      
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, currentScreen === 'home' && styles.activeTab]} 
-          onPress={() => setCurrentScreen('home')}
-        >
-          <Ionicons 
-            name="home" 
-            size={24} 
-            color={currentScreen === 'home' ? '#007AFF' : '#8E8E93'} 
-            style={styles.tabIcon} 
-          />
-          <Text style={[styles.tabLabel, currentScreen === 'home' && styles.activeTabLabel]}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, currentScreen === 'profile' && styles.activeTab]} 
-          onPress={() => setCurrentScreen('profile')}
-        >
-          <Ionicons 
-            name="person" 
-            size={24} 
-            color={currentScreen === 'profile' ? '#007AFF' : '#8E8E93'} 
-            style={styles.tabIcon} 
-          />
-          <Text style={[styles.tabLabel, currentScreen === 'profile' && styles.activeTabLabel]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <Text style={styles.messageText}>
+        Chat with the window on the left to update me!
+      </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  appContainer: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
-  content: {
-    flex: 1,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderTopColor: '#E5E5EA',
-    borderTopWidth: 1,
-    paddingBottom: 20,
-    paddingTop: 10,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  activeTab: {
-    // Active state styling
-  },
-  tabIcon: {
-    marginBottom: 4,
-  },
-  tabLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  activeTabLabel: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-});`,
-    type: "CODE",
-  },
-  "screens/HomeScreen.js": {
-    contents: `import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-
-export default function HomeScreen() {
-  const [count, setCount] = React.useState(0);
-
+export default function App() {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>Welcome to Materialize!</Text>
-      <Text style={styles.subtitle}>
-        This is a live preview with Expo Router
-      </Text>
-
-      <View style={styles.counterContainer}>
-        <Text style={styles.counterText}>Count: {count}</Text>
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => setCount(count + 1)}
-        >
-          <Text style={styles.buttonText}>Increment</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.button, styles.resetButton]} 
-          onPress={() => setCount(0)}
-        >
-          <Text style={styles.buttonText}>Reset</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.instructions}>
-        Chat with the AI to modify this code and see live updates!
-        Navigate between screens using the bottom navigation.
-      </Text>
-    </ScrollView>
+    <NavigationContainer>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: colors.surface,
+          },
+          headerTintColor: colors.text.primary,
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{ title: 'Materialize App' }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
-  contentContainer: {
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    minHeight: '100%',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+  messageText: {
+    ...typography.h2,
+    color: colors.text.primary,
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  counterContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  counterText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginVertical: 5,
-  },
-  resetButton: {
-    backgroundColor: '#8E8E93',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  instructions: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-});`,
-    type: "CODE",
-  },
-  "screens/ProfileScreen.js": {
-    contents: `import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
-export default function ProfileScreen() {
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={48} color="#007AFF" />
-        </View>
-        <Text style={styles.name}>Demo User</Text>
-        <Text style={styles.email}>demo@materialize.app</Text>
-      </View>
-
-      <View style={styles.settingsContainer}>
-        <Text style={styles.sectionTitle}>Settings</Text>
-        {[
-          { title: 'Account Settings', icon: 'settings-outline' },
-          { title: 'Notifications', icon: 'notifications-outline' },
-          { title: 'Privacy', icon: 'lock-closed-outline' },
-          { title: 'Help & Support', icon: 'help-circle-outline' },
-          { title: 'About', icon: 'information-circle-outline' },
-        ].map((setting, index) => (
-          <TouchableOpacity key={index} style={styles.settingCard}>
-            <View style={styles.settingItem}>
-              <Ionicons name={setting.icon} size={24} color="#007AFF" style={styles.settingIcon} />
-              <Text style={styles.settingTitle}>{setting.title}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-  },
-  contentContainer: {
-    padding: 0,
-    minHeight: '100%',
-  },
-  header: {
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#ffffff',
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E5F3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 16,
-    color: '#666',
-  },
-  settingsContainer: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  settingCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 0,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, y: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  settingIcon: {
-    marginRight: 16,
-  },
-  settingTitle: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
+    lineHeight: 32,
   },
 });`,
     type: "CODE",
@@ -812,7 +285,6 @@ Built with ❤️ using Materialize
 
 export const DEFAULT_DEPENDENCIES = {
   "@expo/vector-icons": { version: "^14.1.0" },
-  "@nkzw/create-context-hook": { version: "^1.1.0" },
   "@react-native-async-storage/async-storage": { version: "2.1.2" },
   "@tanstack/react-query": { version: "^5.83.0" },
   expo: { version: "^53.0.4" },
@@ -835,6 +307,9 @@ export const DEFAULT_DEPENDENCIES = {
   react: { version: "19.0.0" },
   "react-dom": { version: "19.0.0" },
   "react-native": { version: "0.79.1" },
+  "@react-navigation/native-stack": { version: "7.2.1" },
+  "@react-navigation/native": { version: "7.0.14" },
+  "@react-navigation/bottom-tabs": { version: "7.4.4" },
   "react-native-gesture-handler": { version: "~2.24.0" },
   "react-native-safe-area-context": { version: "5.3.0" },
   "react-native-screens": { version: "~4.10.0" },
