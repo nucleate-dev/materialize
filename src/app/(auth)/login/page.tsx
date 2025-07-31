@@ -5,7 +5,7 @@ import React from "react";
 
 export default function Login() {
   return (
-    <div className="w-full min-h-screen grid place-items-center bg-white">
+    <div className="w-full min-h-screen grid place-items-center bg-white px-4">
       <div className="max-w-md w-full">
         <div className="flex flex-row justify-between">
           <h2 className="text-lg font-semibold text-black">
