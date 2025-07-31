@@ -19,6 +19,7 @@ interface SnackWithSubscriptions extends Snack {
 
 interface ExpoSnackViewerProps {
   files: Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]>;
+  onResetToDefault?: () => void;
 }
 
 export interface ExpoSnackViewerRef {
@@ -28,7 +29,7 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files }, ref) => {
+  ({ files, onResetToDefault }, ref) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -241,6 +242,14 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              onClick={onResetToDefault}
+              className="bg-gradient-to-r from-meta-1 to-meta-6 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+              disabled={isLoading}
+              title="Reset to default app"
+            >
+              Reset
+            </button>
             <button
               onClick={handleRefresh}
               className="bg-gradient-to-r from-meta-3 to-meta-5 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
