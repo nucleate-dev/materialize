@@ -13,6 +13,7 @@ import { CodeExtractionResult } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
+import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import {
   extractExecutionPlan,
   extractStepResult,
@@ -22,10 +23,9 @@ import {
   EyeIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { useParams } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { v4 as uuidv4 } from "uuid";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -37,7 +37,7 @@ type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -192,6 +192,54 @@ export default function CreatePage() {
     return () => clearInterval(interval);
   }, []);
 
+  const saveUpdatedFilesToDatabase = async (
+    updatedFiles: Record<string, PrototypeFile>,
+  ) => {
+    if (!prototypeId) return;
+
+    for (const [filePath, fileData] of Object.entries(updatedFiles)) {
+      try {
+        // Check if file exists
+        const { data: existingFile } = await supabase
+          .from("prototype_files")
+          .select("id")
+          .eq("prototype_id", prototypeId)
+          .eq("name", filePath)
+          .maybeSingle();
+
+        if (existingFile) {
+          // Update existing file
+          const { error } = await supabase
+            .from("prototype_files")
+            .update({
+              contents: fileData.contents,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingFile.id);
+
+          if (error) {
+            console.error(`Error updating file ${filePath}:`, error);
+          }
+        } else {
+          // Create new file
+          const { error } = await supabase
+            .from("prototype_files")
+            .insert({
+              prototype_id: prototypeId,
+              name: filePath,
+              contents: fileData.contents,
+            });
+
+          if (error) {
+            console.error(`Error creating file ${filePath}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`Error saving file ${filePath}:`, error);
+      }
+    }
+  };
+
   const executeOperationsStepByStep = async (
     operations: Array<{
       id: string;
@@ -264,6 +312,7 @@ export default function CreatePage() {
             phase: "step_execution",
             snackFiles: prototypeFiles,
             stepOperation: operation,
+            prototype_id: prototypeId,
           }),
         });
 
@@ -293,6 +342,11 @@ export default function CreatePage() {
           // Update the main app code if the selected file was modified
           if (operation.filePath === selectedFile) {
             setMainAppCode(stepResult.content);
+          }
+
+          // Save updated files to database if returned from API
+          if (stepData.updatedFiles) {
+            await saveUpdatedFilesToDatabase(stepData.updatedFiles);
           }
 
           completedSteps++;
@@ -354,6 +408,86 @@ export default function CreatePage() {
     );
   };
 
+  const handleResetToDefault = useCallback(async () => {
+    if (!prototypeId) {
+      console.error("Reset failed: no prototype ID");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Get default app files
+      const defaultSnackFiles = getDefaultSnackFiles();
+      
+      // Convert SnackFiles to PrototypeFile format
+      const defaultPrototypeFiles: Record<string, PrototypeFile> = {};
+      
+      for (const [fileName, fileData] of Object.entries(defaultSnackFiles)) {
+        defaultPrototypeFiles[fileName] = {
+          id: '', // Will be set by database
+          prototype_id: prototypeId,
+          name: fileName,
+          contents: fileData.contents,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      // Delete all existing files for this prototype
+      const { error: deleteError } = await supabase
+        .from("prototype_files")
+        .delete()
+        .eq("prototype_id", prototypeId);
+
+      if (deleteError) {
+        console.error("Error deleting existing files:", deleteError);
+        return;
+      }
+
+      // Insert new default files
+      const filesToInsert = Object.values(defaultPrototypeFiles).map(file => ({
+        prototype_id: file.prototype_id,
+        name: file.name,
+        contents: file.contents,
+      }));
+
+      const { data: newFiles, error: insertError } = await supabase
+        .from("prototype_files")
+        .insert(filesToInsert)
+        .select();
+
+      if (insertError) {
+        console.error("Error inserting default files:", insertError);
+        return;
+      }
+
+      // Update local state with new files
+      const newFilesDict = (newFiles || []).reduce(
+        (acc, file) => {
+          acc[file.name] = file;
+          return acc;
+        },
+        {} as Record<string, PrototypeFile>,
+      );
+
+      setPrototypeFiles(newFilesDict);
+      setSelectedFile("App.js");
+      setMainAppCode(newFilesDict["App.js"]?.contents || "");
+
+      // Force refresh the preview
+      if (snackViewerRef.current) {
+        snackViewerRef.current.forceRefresh();
+      }
+
+      console.log("Successfully reset to default app");
+    } catch (error) {
+      console.error("Error resetting to default:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [prototypeId, supabase, snackViewerRef]);
+
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!prototypeChatSession?.id) {
@@ -391,6 +525,7 @@ export default function CreatePage() {
             currentCode: mainAppCode,
             phase: "planning",
             snackFiles: prototypeFiles,
+            prototype_id: prototypeId,
           }),
         });
 
@@ -411,6 +546,11 @@ export default function CreatePage() {
         };
 
         setPrototypeChatMessages((prev) => [...prev, planningMessage]);
+
+        // Save updated files to database if returned from planning API
+        if (planningData.updatedFiles) {
+          await saveUpdatedFilesToDatabase(planningData.updatedFiles);
+        }
 
         // Check if the response contains an execution plan
         if (planningData.content.includes("EXECUTION_PLAN")) {
@@ -648,22 +788,20 @@ export default function CreatePage() {
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      isPreviewView
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${isPreviewView
                         ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
                         : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                    }`}
+                      }`}
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     Preview
                   </button>
                   <button
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      !isPreviewView
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${!isPreviewView
                         ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
                         : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                    }`}
+                      }`}
                   >
                     <CodeBracketIcon className="w-4 h-4 inline mr-2" />
                     Code
@@ -683,6 +821,7 @@ export default function CreatePage() {
                   <ExpoSnackViewer
                     ref={snackViewerRef}
                     files={prototypeFiles}
+                    onResetToDefault={handleResetToDefault}
                   />
                 </div>
               ) : (
