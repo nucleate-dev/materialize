@@ -1,23 +1,19 @@
 "use client";
 
-import ChatWindow from "@/components/ChatWindow";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer, {
   ExpoSnackViewerRef,
 } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
+import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import { supabase } from "@/GlobalConstants";
 import { useSidebar } from "@/hooks/useSidebar";
+import { useFileSystem } from "@/hooks/useFileSystem";
 import { CodeExtractionResult } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
-import { getDefaultSnackFiles } from "@/templates/defaultApp";
-import {
-  extractExecutionPlan,
-  extractStepResult,
-} from "@/lib/utils/code/planningExtractor";
 import {
   CodeBracketIcon,
   EyeIcon,
@@ -25,7 +21,6 @@ import {
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession =
@@ -50,19 +45,11 @@ export default function CreatePage() {
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
-  const [prototypeFiles, setPrototypeFiles] = useState<
-    Record<string, PrototypeFile>
-  >({});
-
-  // Set the selected file to a file that actually exists
+  
+  // Initialize FileSystem hook
   const defaultFile = "App.js";
-  const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
-  // Set the editor code to the contents of that existing file
-  const [mainAppCode, setMainAppCode] = useState(
-    prototypeFiles[defaultFile]?.contents || "",
-  );
+  const fileSystem = useFileSystem(prototypeId, defaultFile);
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
-  const [loadingDots, setLoadingDots] = useState(0);
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
@@ -142,38 +129,10 @@ export default function CreatePage() {
       console.log("Fetched chat messages:", messagesData);
     }
 
-    async function fetchPrototypeFiles() {
-      if (!prototypeId) return;
-
-      const { data, error } = await supabase
-        .from("prototype_files")
-        .select("*")
-        .eq("prototype_id", prototypeId)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        console.error("Error fetching prototype files:", error);
-        return;
-      }
-
-      // Convert array to dictionary mapping name to PrototypeFile object
-      const filesDict = (data || []).reduce(
-        (acc, file) => {
-          acc[file.name] = file;
-          return acc;
-        },
-        {} as Record<string, PrototypeFile>,
-      );
-
-      setPrototypeFiles(filesDict);
-      setMainAppCode(filesDict[defaultFile]?.contents || "");
-      console.log("Fetched prototype files:", filesDict);
-    }
-
     if (prototypeId && user?.id) {
       fetchPrototype();
       fetchPrototypeChatSessionAndMessages();
-      fetchPrototypeFiles();
+      fileSystem.loadFilesFromDatabase(prototypeId);
     }
   }, [
     prototypeId,
@@ -183,234 +142,8 @@ export default function CreatePage() {
     setPrototypeChatMessages,
   ]);
 
-  // Animate loading dots
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLoadingDots((prev) => (prev + 1) % 4);
-    }, 500);
 
-    return () => clearInterval(interval);
-  }, []);
 
-  const saveUpdatedFilesToDatabase = async (
-    updatedFiles: Record<string, PrototypeFile>,
-  ) => {
-    if (!prototypeId) return;
-
-    for (const [filePath, fileData] of Object.entries(updatedFiles)) {
-      try {
-        // Check if file exists
-        const { data: existingFile } = await supabase
-          .from("prototype_files")
-          .select("id")
-          .eq("prototype_id", prototypeId)
-          .eq("name", filePath)
-          .maybeSingle();
-
-        if (existingFile) {
-          // Update existing file
-          const { error } = await supabase
-            .from("prototype_files")
-            .update({
-              contents: fileData.contents,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingFile.id);
-
-          if (error) {
-            console.error(`Error updating file ${filePath}:`, error);
-          }
-        } else {
-          // Create new file
-          const { error } = await supabase.from("prototype_files").insert({
-            prototype_id: prototypeId,
-            name: filePath,
-            contents: fileData.contents,
-          });
-
-          if (error) {
-            console.error(`Error creating file ${filePath}:`, error);
-          }
-        }
-      } catch (error) {
-        console.error(`Error saving file ${filePath}:`, error);
-      }
-    }
-  };
-
-  const executeOperationsStepByStep = async (
-    operations: Array<{
-      id: string;
-      type: "create" | "modify" | "delete" | "move";
-      title: string;
-      description: string;
-      filePath: string;
-      newFilePath?: string;
-    }>,
-    currentMessages: PrototypeChatMessage[],
-  ) => {
-    // Create a single execution message that will be updated
-    const executionMessageId = uuidv4();
-    const initialExecutionMessage: PrototypeChatMessage = {
-      id: executionMessageId,
-      chat_session_id: prototypeChatSession?.id || "",
-      role: "assistant",
-      phase: "execution",
-      content: `🔄 Executing ${operations.length} operations...\n\n${operations
-        .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
-        .join("\n")}`,
-      created_at: new Date().toISOString(),
-    };
-
-    setPrototypeChatMessages((prev) => [...prev, initialExecutionMessage]);
-
-    let completedSteps = 0;
-    let failedSteps = 0;
-    const stepResults: Array<{
-      title: string;
-      status: "success" | "error";
-      message?: string;
-    }> = [];
-
-    for (let i = 0; i < operations.length; i++) {
-      const operation = operations[i];
-
-      try {
-        // Update the execution message to show current step
-        const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations
-          .map((op, index) => {
-            if (index < i) {
-              return `✅ ${op.title} (${op.type})`;
-            } else if (index === i) {
-              return `🔄 ${op.title} (${op.type}) - Executing${".".repeat(loadingDots)}`;
-            } else {
-              return `${index + 1}. ${op.title} (${op.type})`;
-            }
-          })
-          .join("\n")}`;
-
-        setPrototypeChatMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === executionMessageId
-              ? { ...msg, content: loadingContent }
-              : msg,
-          ),
-        );
-
-        // Execute the specific operation
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session?.access_token) {
-          throw new Error("No access token available");
-        }
-
-        const stepResponse = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.session.access_token}`,
-          },
-          body: JSON.stringify({
-            chat_session_id: prototypeChatSession?.id || "",
-            messages: currentMessages,
-            currentCode: mainAppCode,
-            phase: "step_execution",
-            snackFiles: prototypeFiles,
-            stepOperation: operation,
-            prototype_id: prototypeId,
-          }),
-        });
-
-        if (!stepResponse.ok) {
-          throw new Error(`HTTP error! status: ${stepResponse.status}`);
-        }
-
-        const stepData = await stepResponse.json();
-        console.log(`Step ${i + 1} data:`, stepData);
-
-        // Extract the step result
-        const stepResult = extractStepResult(stepData.content);
-
-        if (stepResult.hasResult) {
-          // Apply the code changes
-          const newFiles = {
-            ...prototypeFiles,
-            [operation.filePath]: {
-              contents: stepResult.content,
-              type: "CODE" as const,
-            },
-          };
-
-          // Create a deep copy to ensure React detects the change
-          setPrototypeFiles(JSON.parse(JSON.stringify(newFiles)));
-
-          // Update the main app code if the selected file was modified
-          if (operation.filePath === selectedFile) {
-            setMainAppCode(stepResult.content);
-          }
-
-          // Save updated files to database if returned from API
-          if (stepData.updatedFiles) {
-            await saveUpdatedFilesToDatabase(stepData.updatedFiles);
-          }
-
-          completedSteps++;
-          stepResults.push({
-            title: operation.title,
-            status: "success",
-            message: stepResult.message,
-          });
-        } else {
-          failedSteps++;
-          stepResults.push({
-            title: operation.title,
-            status: "error",
-            message: stepData.content,
-          });
-        }
-
-        // Update current messages for next iteration
-        currentMessages = [
-          ...currentMessages,
-          {
-            id: `step-${Date.now()}-${i}`,
-            role: "assistant",
-            chat_session_id: prototypeChatSession?.id || "",
-            content: stepResult.hasResult
-              ? `✅ Completed: ${operation.title}`
-              : `❌ Failed: ${operation.title}`,
-            created_at: new Date().toISOString(),
-            phase: "step_execution",
-          },
-        ];
-      } catch (error) {
-        console.error(`Error executing step ${i + 1}:`, error);
-        failedSteps++;
-        stepResults.push({
-          title: operation.title,
-          status: "error",
-          message: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-    }
-
-    // Update the final execution message with results
-    const finalContent = `🎉 Execution completed!\n\n${operations
-      .map((op, index) => {
-        const result = stepResults[index];
-        if (result?.status === "success") {
-          return `✅ ${op.title} (${op.type})`;
-        } else {
-          return `❌ ${op.title} (${op.type}) - ${result?.message || "Failed"}`;
-        }
-      })
-      .join("\n")}\n\n${completedSteps} completed, ${failedSteps} failed`;
-
-    setPrototypeChatMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === executionMessageId ? { ...msg, content: finalContent } : msg,
-      ),
-    );
-  };
 
   const handleResetToDefault = useCallback(async () => {
     if (!prototypeId) {
@@ -418,69 +151,10 @@ export default function CreatePage() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // Get default app files
-      const defaultSnackFiles = getDefaultSnackFiles();
-
-      // Convert SnackFiles to PrototypeFile format
-      const defaultPrototypeFiles: Record<string, PrototypeFile> = {};
-
-      for (const [fileName, fileData] of Object.entries(defaultSnackFiles)) {
-        defaultPrototypeFiles[fileName] = {
-          id: "", // Will be set by database
-          prototype_id: prototypeId,
-          name: fileName,
-          contents: fileData.contents,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      }
-
-      // Delete all existing files for this prototype
-      const { error: deleteError } = await supabase
-        .from("prototype_files")
-        .delete()
-        .eq("prototype_id", prototypeId);
-
-      if (deleteError) {
-        console.error("Error deleting existing files:", deleteError);
-        return;
-      }
-
-      // Insert new default files
-      const filesToInsert = Object.values(defaultPrototypeFiles).map(
-        (file) => ({
-          prototype_id: file.prototype_id,
-          name: file.name,
-          contents: file.contents,
-        }),
-      );
-
-      const { data: newFiles, error: insertError } = await supabase
-        .from("prototype_files")
-        .insert(filesToInsert)
-        .select();
-
-      if (insertError) {
-        console.error("Error inserting default files:", insertError);
-        return;
-      }
-
-      // Update local state with new files
-      const newFilesDict = (newFiles || []).reduce(
-        (acc, file) => {
-          acc[file.name] = file;
-          return acc;
-        },
-        {} as Record<string, PrototypeFile>,
-      );
-
-      setPrototypeFiles(newFilesDict);
-      setSelectedFile("App.js");
-      setMainAppCode(newFilesDict["App.js"]?.contents || "");
-
+      await fileSystem.resetToDefault(prototypeId);
+      
       // Force refresh the preview
       if (snackViewerRef.current) {
         snackViewerRef.current.forceRefresh();
@@ -492,124 +166,8 @@ export default function CreatePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [prototypeId, supabase, snackViewerRef]);
+  }, [prototypeId, fileSystem, snackViewerRef]);
 
-  const handleSendMessage = useCallback(
-    async (content: string) => {
-      if (!prototypeChatSession?.id) {
-        console.error("Sending message failed: no chat session found");
-        return;
-      }
-
-      const { data: userMessage, error: insertError } = await supabase
-        .from("prototype_chat_messages")
-        .insert({
-          chat_session_id: prototypeChatSession.id,
-          content: content,
-          role: "user" as const,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error("Error inserting user message:", insertError);
-      }
-
-      setPrototypeChatMessages((prev) => [...prev, userMessage]);
-
-      try {
-        setIsLoading(true);
-        
-        // Get access token for authentication
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session?.access_token) {
-          throw new Error("No access token available");
-        }
-
-        // Phase 1: Get the planning response
-        const planningResponse = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.session.access_token}`,
-          },
-          body: JSON.stringify({
-            chat_session_id: prototypeChatSession.id,
-            messages: [...prototypeChatMessages, userMessage],
-            currentCode: mainAppCode,
-            phase: "planning",
-            snackFiles: prototypeFiles,
-            prototype_id: prototypeId,
-          }),
-        });
-
-        if (!planningResponse.ok) {
-          throw new Error(`HTTP error! status: ${planningResponse.status}`);
-        }
-
-        const planningData = await planningResponse.json();
-        console.log("Planning data:", planningData);
-
-        const planningMessage: PrototypeChatMessage = {
-          id: (Date.now() + 1).toString(),
-          chat_session_id: prototypeChatSession.id,
-          role: "assistant",
-          content: planningData.content,
-          created_at: new Date().toISOString(),
-          phase: "planning",
-        };
-
-        setPrototypeChatMessages((prev) => [...prev, planningMessage]);
-
-        // Save updated files to database if returned from planning API
-        if (planningData.updatedFiles) {
-          await saveUpdatedFilesToDatabase(planningData.updatedFiles);
-        }
-
-        // Check if the response contains an execution plan
-        if (planningData.content.includes("EXECUTION_PLAN")) {
-          // Extract planned operations from the planning response
-          const planningResult = extractExecutionPlan(planningData.content);
-
-          if (planningResult.hasPlan && planningResult.operations.length > 0) {
-            // Execute each operation step by step
-            await executeOperationsStepByStep(planningResult.operations, [
-              ...prototypeChatMessages,
-              userMessage,
-              planningMessage,
-            ]);
-          }
-        }
-      } catch (error) {
-        console.error("Error sending message:", error);
-
-        const errorMessage: PrototypeChatMessage = {
-          id: (Date.now() + 1).toString(),
-          chat_session_id: prototypeChatSession.id,
-          role: "assistant",
-          content:
-            "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
-          created_at: new Date().toISOString(),
-          phase: "execution",
-        };
-
-        setPrototypeChatMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      supabase,
-      prototypeChatSession,
-      setPrototypeChatMessages,
-      setIsLoading,
-      extractExecutionPlan,
-      executeOperationsStepByStep,
-      mainAppCode,
-      prototypeFiles,
-      prototypeChatMessages,
-    ],
-  );
 
   const handleApplyCode = (
     result: CodeExtractionResult,
@@ -617,17 +175,11 @@ export default function CreatePage() {
   ) => {
     if (result.hasCode) {
       const newFiles = updateSnackFiles(
-        prototypeFiles,
+        fileSystem.state.files,
         result.codeBlocks,
         plannedFilePaths,
       );
-      // Create a deep copy to ensure React detects the change
-      setPrototypeFiles(JSON.parse(JSON.stringify(newFiles)));
-
-      // Update the main app code if the selected file was modified
-      if (newFiles[selectedFile]) {
-        setMainAppCode(newFiles[selectedFile].contents);
-      }
+      fileSystem.setFiles(newFiles);
     }
   };
 
@@ -662,7 +214,7 @@ export default function CreatePage() {
     } catch (error) {
       console.error("Error clearing chat:", error);
     }
-  }, [prototypeChatSession, supabase]);
+  }, [prototypeChatSession]);
 
   // const handleFilesChange = (files: SnackFiles) => {
   //   // Create a deep copy to ensure React detects the change
@@ -679,26 +231,12 @@ export default function CreatePage() {
   // };
 
   const handleFileSelect = (filePath: string) => {
-    setSelectedFile(filePath);
-    if (prototypeFiles[filePath]) {
-      setMainAppCode(prototypeFiles[filePath].contents);
-    }
+    fileSystem.selectFile(filePath);
   };
 
   const handleCodeChange = (value: string | undefined) => {
-    if (value !== undefined && selectedFile) {
-      setMainAppCode(value);
-
-      // Update the snack files with the new code for the selected file
-      const updatedFiles = {
-        ...prototypeFiles,
-        [selectedFile]: {
-          ...prototypeFiles[selectedFile],
-          contents: value,
-        },
-      };
-      // Create a deep copy to ensure React detects the change
-      setPrototypeFiles(JSON.parse(JSON.stringify(updatedFiles)));
+    if (value !== undefined && fileSystem.state.selectedFile) {
+      fileSystem.updateFileContent(fileSystem.state.selectedFile, value);
     }
   };
 
@@ -749,12 +287,26 @@ export default function CreatePage() {
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
 
             <div className="relative flex-1 flex flex-col">
-              <ChatWindow
-                // Legacy props for backward compatibility
+              <PrototypeChatWindow
+                // Chat session and messages
+                chatSession={prototypeChatSession}
                 messages={prototypeChatMessages}
-                onSendMessage={handleSendMessage}
+                onMessagesUpdate={setPrototypeChatMessages}
+                
+                // File system integration
+                files={fileSystem.state.files}
+                selectedFile={fileSystem.state.selectedFile}
+                onFilesUpdate={fileSystem.applyFileUpdates}
+                onFileContentUpdate={fileSystem.updateFileContent}
+                
+                // Prototype context
+                prototypeId={prototypeId!}
+                
+                // Loading state
                 isLoading={isLoading}
-                // Preserved functionality
+                setIsLoading={setIsLoading}
+                
+                // Legacy props for backward compatibility
                 onApplyCode={handleApplyCode}
                 onExecutePlannedOperation={handleExecutePlannedOperation}
                 onClearChat={handleClearChat}
@@ -836,7 +388,7 @@ export default function CreatePage() {
                 <div className="h-full">
                   <ExpoSnackViewer
                     ref={snackViewerRef}
-                    files={prototypeFiles}
+                    files={fileSystem.state.files}
                     onResetToDefault={handleResetToDefault}
                   />
                 </div>
@@ -846,8 +398,8 @@ export default function CreatePage() {
                   <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/20 dark:border-strokedark/30 h-full">
                     <div className="h-full">
                       <FileTree
-                        files={prototypeFiles}
-                        selectedFile={selectedFile}
+                        files={fileSystem.state.files}
+                        selectedFile={fileSystem.state.selectedFile}
                         onFileSelect={handleFileSelect}
                       />
                     </div>
@@ -860,9 +412,9 @@ export default function CreatePage() {
                   >
                     <div className="h-full">
                       <CodeEditor
-                        value={mainAppCode}
+                        value={fileSystem.getSelectedFileContent()}
                         onChange={handleCodeChange}
-                        fileName={selectedFile}
+                        fileName={fileSystem.state.selectedFile}
                       />
                     </div>
                   </div>
