@@ -152,7 +152,6 @@ export default function CreatePage() {
                 files={fileSystem.state.files}
                 selectedFile={fileSystem.state.selectedFile}
                 onFilesUpdate={fileSystem.applyFileUpdates}
-                onFileContentUpdate={fileSystem.updateFileContent}
                 // Loading state
                 isLoading={isLoading}
                 setIsLoading={setIsLoading}

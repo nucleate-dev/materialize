@@ -4,10 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { CodeExtractionResult } from "@/lib/types/chat";
-import {
-  extractExecutionPlan,
-  extractStepResult,
-} from "@/lib/utils/code/planningExtractor";
 import { v4 as uuidv4 } from "uuid";
 import ChatWindow from "@/components/ChatWindow";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -25,7 +21,6 @@ export interface PrototypeChatWindowProps {
   files: Record<string, PrototypeFile>;
   selectedFile: string;
   onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
-  onFileContentUpdate: (filePath: string, content: string) => void;
 
   // Loading state
   isLoading: boolean;
@@ -43,7 +38,6 @@ export default function PrototypeChatWindow({
   files,
   selectedFile,
   onFilesUpdate,
-  onFileContentUpdate,
   prototypeId,
   isLoading,
   setIsLoading,
@@ -118,7 +112,7 @@ export default function PrototypeChatWindow({
     }
   }, [prototypeId, userId]);
 
-  // Animate loading dots only when executing operations
+  // Animate loading dots only while executing operations
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -137,178 +131,234 @@ export default function PrototypeChatWindow({
     };
   }, [isExecutingOperations]);
 
-  // Execute operations step by step
-  const executeOperationsStepByStep = useCallback(
-    async (
-      operations: Array<{
+  // Handle streaming execution updates
+  const processStreamingResponse = useCallback(
+    async (response: Response) => {
+      if (!response.body) {
+        throw new Error("No response body for streaming");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let executionMessageId: string | null = null;
+      let operations: Array<{
         id: string;
         type: "create" | "modify" | "delete" | "move";
         title: string;
         description: string;
         filePath: string;
         newFilePath?: string;
-      }>,
-      currentMessages: PrototypeChatMessage[],
-    ) => {
-      // Create a single execution message that will be updated
-      const executionMessageId = uuidv4();
-      const initialExecutionMessage: PrototypeChatMessage = {
-        id: executionMessageId,
-        chat_session_id: prototypeChatSession?.id || "",
-        role: "assistant",
-        phase: "execution",
-        content: `🔄 Executing ${operations.length} operations...\n\n${operations
-          .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
-          .join("\n")}`,
-        created_at: new Date().toISOString(),
-      };
-
-      setIsExecutingOperations(true); // Start animation
-      let currentMessagesState = [...currentMessages, initialExecutionMessage];
-      setPrototypeChatMessages(currentMessagesState);
-
-      let completedSteps = 0;
-      let failedSteps = 0;
-      const stepResults: Array<{
-        title: string;
-        status: "success" | "error";
-        message?: string;
       }> = [];
 
-      for (let i = 0; i < operations.length; i++) {
-        const operation = operations[i];
+      try {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        try {
-          // Update the execution message to show current step
-          const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations
-            .map((op, index) => {
-              if (index < i) {
-                return `✅ ${op.title} (${op.type})`;
-              } else if (index === i) {
-                return `🔄 ${op.title} (${op.type}) - Executing${".".repeat(loadingDots)}`;
-              } else {
-                return `${index + 1}. ${op.title} (${op.type})`;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                switch (data.type) {
+                  case "planning": {
+                    // Add planning message to UI
+                    setPrototypeChatMessages((prev) => [
+                      ...prev,
+                      {
+                        id: data.messageId || uuidv4(),
+                        chat_session_id: prototypeChatSession?.id || "",
+                        role: "assistant",
+                        phase: "planning",
+                        content: data.content,
+                        created_at: new Date().toISOString(),
+                      },
+                    ]);
+
+                    // Save updated files from planning
+                    if (data.updatedFiles) {
+                      onFilesUpdate(data.updatedFiles);
+                    }
+                    break;
+                  }
+
+                  case "execution_start": {
+                    operations = data.operations;
+                    executionMessageId = uuidv4();
+
+                    const initialExecutionMessage: PrototypeChatMessage = {
+                      id: executionMessageId,
+                      chat_session_id: prototypeChatSession?.id || "",
+                      role: "assistant",
+                      phase: "execution",
+                      content: `🔄 Executing ${operations.length} operations...\n\n${operations
+                        .map(
+                          (op, index) =>
+                            `${index + 1}. ${op.title} (${op.type})`,
+                        )
+                        .join("\n")}`,
+                      created_at: new Date().toISOString(),
+                    };
+
+                    setIsExecutingOperations(true);
+                    setPrototypeChatMessages((prev) => [
+                      ...prev,
+                      initialExecutionMessage,
+                    ]);
+                    break;
+                  }
+
+                  case "step_start":
+                    if (executionMessageId) {
+                      const stepIndex = data.stepIndex;
+                      const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations
+                        .map((op, index) => {
+                          if (index < stepIndex) {
+                            return `✅ ${op.title} (${op.type})`;
+                          } else if (index === stepIndex) {
+                            return `🔄 ${op.title} (${op.type}) - Executing${".".repeat(loadingDots)}`;
+                          } else {
+                            return `${index + 1}. ${op.title} (${op.type})`;
+                          }
+                        })
+                        .join("\n")}`;
+
+                      setPrototypeChatMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === executionMessageId
+                            ? { ...msg, content: loadingContent }
+                            : msg,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case "step_complete": {
+                    const { stepIndex, result, success } = data;
+
+                    if (success && result.updatedFiles) {
+                      onFilesUpdate(result.updatedFiles);
+                    }
+
+                    // Update the execution message to show completion
+                    if (executionMessageId) {
+                      const updatedContent = `🔄 Executing ${operations.length} operations...\n\n${operations
+                        .map((op, index) => {
+                          if (index <= stepIndex) {
+                            return success
+                              ? `✅ ${op.title} (${op.type})`
+                              : `❌ ${op.title} (${op.type})`;
+                          } else {
+                            return `${index + 1}. ${op.title} (${op.type})`;
+                          }
+                        })
+                        .join("\n")}`;
+
+                      setPrototypeChatMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === executionMessageId
+                            ? { ...msg, content: updatedContent }
+                            : msg,
+                        ),
+                      );
+                    }
+                    break;
+                  }
+
+                  case "step_error":
+                    console.error(
+                      `Step ${data.stepIndex + 1} failed:`,
+                      data.error,
+                    );
+
+                    // Update the execution message to show error
+                    if (executionMessageId) {
+                      const errorContent = `🔄 Executing ${operations.length} operations...\n\n${operations
+                        .map((op, index) => {
+                          if (index < data.stepIndex) {
+                            return `✅ ${op.title} (${op.type})`;
+                          } else if (index === data.stepIndex) {
+                            return `❌ ${op.title} (${op.type}) - ${data.error}`;
+                          } else {
+                            return `${index + 1}. ${op.title} (${op.type})`;
+                          }
+                        })
+                        .join("\n")}`;
+
+                      setPrototypeChatMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === executionMessageId
+                            ? { ...msg, content: errorContent }
+                            : msg,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case "execution_complete":
+                    setIsExecutingOperations(false);
+
+                    // Save final updated files
+                    if (data.updatedFiles) {
+                      onFilesUpdate(data.updatedFiles);
+                    }
+
+                    // Update final execution message
+                    if (executionMessageId) {
+                      const completedCount = operations.length; // All operations assumed completed
+
+                      const finalContent = `🎉 Execution completed!\n\n${operations
+                        .map((op) => `✅ ${op.title} (${op.type})`)
+                        .join("\n")}\n\n${completedCount} completed`;
+
+                      setPrototypeChatMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === executionMessageId
+                            ? { ...msg, content: finalContent }
+                            : msg,
+                        ),
+                      );
+                    }
+                    break;
+
+                  case "error": {
+                    console.error("Streaming error:", data.error);
+                    setIsExecutingOperations(false);
+                    setIsLoading(false);
+
+                    const errorMessage: PrototypeChatMessage = {
+                      id: uuidv4(),
+                      chat_session_id: prototypeChatSession?.id || "",
+                      role: "assistant",
+                      content: `Sorry, I encountered an error: ${data.error}`,
+                      created_at: new Date().toISOString(),
+                      phase: "execution",
+                    };
+
+                    setPrototypeChatMessages((prev) => [...prev, errorMessage]);
+                    break;
+                  }
+                }
+              } catch (parseError) {
+                console.error("Error parsing streaming data:", parseError);
               }
-            })
-            .join("\n")}`;
-
-          currentMessagesState = currentMessagesState.map((msg) =>
-            msg.id === executionMessageId
-              ? { ...msg, content: loadingContent }
-              : msg,
-          );
-          setPrototypeChatMessages(currentMessagesState);
-
-          // Execute the specific operation
-          const { data: session } = await supabase.auth.getSession();
-          if (!session.session?.access_token) {
-            throw new Error("No access token available");
-          }
-
-          const stepResponse = await fetch("/api/chat", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.session.access_token}`,
-            },
-            body: JSON.stringify({
-              chat_session_id: prototypeChatSession?.id || "",
-              messages: currentMessages,
-              currentCode: files[selectedFile]?.contents || "",
-              phase: "step_execution",
-              snackFiles: files,
-              stepOperation: operation,
-              prototype_id: prototypeId,
-            }),
-          });
-
-          if (!stepResponse.ok) {
-            throw new Error(`HTTP error! status: ${stepResponse.status}`);
-          }
-
-          const stepData = await stepResponse.json();
-          console.log(`Step ${i + 1} data:`, stepData);
-
-          // Extract the step result
-          const stepResult = extractStepResult(stepData.content);
-
-          if (stepResult.hasResult) {
-            // Update file content via callback
-            onFileContentUpdate(operation.filePath, stepResult.content);
-
-            // Save updated files to database if returned from API
-            if (stepData.updatedFiles) {
-              // Let parent handle database saving
-              onFilesUpdate(stepData.updatedFiles);
             }
-
-            completedSteps++;
-            stepResults.push({
-              title: operation.title,
-              status: "success",
-              message: stepResult.message,
-            });
-          } else {
-            failedSteps++;
-            stepResults.push({
-              title: operation.title,
-              status: "error",
-              message: stepData.content,
-            });
           }
-
-          // Update current messages for next iteration
-          currentMessages = [
-            ...currentMessages,
-            {
-              id: `step-${Date.now()}-${i}`,
-              role: "assistant",
-              chat_session_id: prototypeChatSession?.id || "",
-              content: stepResult.hasResult
-                ? `✅ Completed: ${operation.title}`
-                : `❌ Failed: ${operation.title}`,
-              created_at: new Date().toISOString(),
-              phase: "step_execution",
-            },
-          ];
-        } catch (error) {
-          console.error(`Error executing step ${i + 1}:`, error);
-          failedSteps++;
-          stepResults.push({
-            title: operation.title,
-            status: "error",
-            message: error instanceof Error ? error.message : "Unknown error",
-          });
         }
+      } finally {
+        reader.releaseLock();
       }
-
-      // Update the final execution message with results
-      const finalContent = `🎉 Execution completed!\n\n${operations
-        .map((op, index) => {
-          const result = stepResults[index];
-          if (result?.status === "success") {
-            return `✅ ${op.title} (${op.type})`;
-          } else {
-            return `❌ ${op.title} (${op.type}) - ${result?.message || "Failed"}`;
-          }
-        })
-        .join("\n")}\n\n${completedSteps} completed, ${failedSteps} failed`;
-
-      currentMessagesState = currentMessagesState.map((msg) =>
-        msg.id === executionMessageId ? { ...msg, content: finalContent } : msg,
-      );
-      setPrototypeChatMessages(currentMessagesState);
-      setIsExecutingOperations(false); // Stop animation
     },
     [
-      prototypeChatMessages,
-      prototypeChatMessages,
-      files,
-      selectedFile,
-      setPrototypeChatMessages,
+      prototypeChatSession,
       onFilesUpdate,
-      onFileContentUpdate,
-      prototypeId,
+      setPrototypeChatMessages,
+      setIsExecutingOperations,
+      setIsLoading,
       loadingDots,
     ],
   );
@@ -347,11 +397,12 @@ export default function PrototypeChatWindow({
           throw new Error("No access token available");
         }
 
-        // Phase 1: Get the planning response
-        const planningResponse = await fetch("/api/chat", {
+        // Make a single streaming request that handles both planning and execution
+        const streamingResponse = await fetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "text/stream", // Signal that we want streaming
             Authorization: `Bearer ${session.session.access_token}`,
           },
           body: JSON.stringify({
@@ -364,52 +415,17 @@ export default function PrototypeChatWindow({
           }),
         });
 
-        if (!planningResponse.ok) {
-          throw new Error(`HTTP error! status: ${planningResponse.status}`);
+        if (!streamingResponse.ok) {
+          throw new Error(`HTTP error! status: ${streamingResponse.status}`);
         }
 
-        const planningData = await planningResponse.json();
-        console.log("Planning data:", planningData);
-
-        const planningMessage: PrototypeChatMessage = {
-          id: (Date.now() + 1).toString(),
-          chat_session_id: prototypeChatSession?.id || "",
-          role: "assistant",
-          content: planningData.content,
-          created_at: new Date().toISOString(),
-          phase: "planning",
-        };
-
-        setPrototypeChatMessages([
-          ...prototypeChatMessages,
-          userMessage,
-          planningMessage,
-        ]);
-
-        // Save updated files to database if returned from planning API
-        if (planningData.updatedFiles) {
-          onFilesUpdate(planningData.updatedFiles);
-        }
-
-        // Check if the response contains an execution plan
-        if (planningData.content.includes("EXECUTION_PLAN")) {
-          // Extract planned operations from the planning response
-          const planningResult = extractExecutionPlan(planningData.content);
-
-          if (planningResult.hasPlan && planningResult.operations.length > 0) {
-            // Execute each operation step by step
-            await executeOperationsStepByStep(planningResult.operations, [
-              ...prototypeChatMessages,
-              userMessage,
-              planningMessage,
-            ]);
-          }
-        }
+        // Process the streaming response
+        await processStreamingResponse(streamingResponse);
       } catch (error) {
         console.error("Error sending message:", error);
 
         const errorMessage: PrototypeChatMessage = {
-          id: (Date.now() + 1).toString(),
+          id: uuidv4(),
           chat_session_id: prototypeChatSession?.id || "",
           role: "assistant",
           content:
@@ -435,8 +451,7 @@ export default function PrototypeChatWindow({
       files,
       selectedFile,
       prototypeId,
-      onFilesUpdate,
-      executeOperationsStepByStep,
+      processStreamingResponse,
     ],
   );
 

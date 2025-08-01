@@ -5,6 +5,9 @@ import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import { 
+  extractExecutionPlan,
+} from "@/lib/utils/code/planningExtractor";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -420,6 +423,221 @@ interface PrototypeFiles {
 // Allow longer response times for AI generation
 export const maxDuration = 60;
 
+// Helper function to execute a single step
+async function executeStep(
+  operation: {
+    id: string;
+    type: "create" | "modify" | "delete" | "move";
+    title: string;
+    description: string;
+    filePath: string;
+    newFilePath?: string;
+  },
+  fileManager: FileManager,
+  messages: { role: string; content: string }[],
+  snackFiles: PrototypeFiles | null,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _prototype_id: string
+) {
+  const executionContext = `
+EXECUTING STEP: ${operation.id}
+Type: ${operation.type}
+File: ${operation.filePath}
+Task: ${operation.title}
+Description: ${operation.description}
+
+Execute this step using the available tools.`;
+
+  // Force discovery before creation for screens
+  let context = executionContext;
+  if (operation.type === "create" && operation.filePath.includes("Screen")) {
+    context += `
+
+MANDATORY: Before creating this screen, you MUST:
+1. Use list_files to see all existing components
+2. Use read_file to examine similar existing screens for import patterns
+3. Only use imports that you've verified exist
+4. If needed components don't exist, create a basic implementation or note the dependency`;
+  }
+
+  const lastMessage = messages[messages.length - 1];
+  let userMessage = `${context}\n\nOriginal request: ${lastMessage.content}`;
+
+  // Always inject project context
+  const projectContext = getProjectContext(snackFiles);
+  if (projectContext) {
+    userMessage += projectContext;
+  }
+
+  // Use AI SDK with tool support
+  let response = await generateText({
+    model: google("gemini-2.5-flash"),
+    system: EXECUTION_PROMPT,
+    tools: {
+      list_files: {
+        description: "List all files in the project to understand structure",
+        parameters: z.object({}),
+      },
+      read_file: {
+        description: "Read the contents of a specific file in the project",
+        parameters: z.object({
+          filePath: z.string().describe("The file path to read"),
+        }),
+      },
+      write_file: {
+        description: "Write or update a file in the project",
+        parameters: z.object({
+          filePath: z.string().describe("The file path to write to"),
+          contents: z.string().describe("The complete file contents"),
+          operation: z
+            .enum(["create", "modify"])
+            .describe("Create or modify operation"),
+        }),
+      },
+    },
+    messages: [
+      ...messages
+        .slice(0, -1)
+        .map((msg: { role: string; content: string }) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        })),
+      {
+        role: "user" as const,
+        content: userMessage,
+      },
+    ],
+  });
+
+  let finalResponse = response.text;
+  let toolCallsMade = 0;
+
+  // Handle tool calls iteratively
+  while (response.toolCalls && response.toolCalls.length > 0) {
+    toolCallsMade += response.toolCalls.length;
+    console.log(
+      `🔄 Processing ${response.toolCalls.length} tool calls for step ${operation.id}`,
+    );
+
+    const toolResults = [];
+    let hasWriteOperation = false;
+
+    // Execute each tool call
+    for (const toolCall of response.toolCalls) {
+      try {
+        const result = await fileManager.handleToolCall({
+          function: {
+            name: toolCall.toolName,
+            arguments: toolCall.args,
+          },
+        });
+
+        if (toolCall.toolName === "write_file") {
+          hasWriteOperation = true;
+        }
+
+        toolResults.push({
+          toolCallId: toolCall.toolCallId,
+          result: JSON.stringify(result),
+        });
+      } catch (error) {
+        console.error(`❌ Tool call failed: ${toolCall.toolName}`, error);
+        toolResults.push({
+          toolCallId: toolCall.toolCallId,
+          result: JSON.stringify({
+            error: error instanceof Error ? error.message : "Unknown error",
+          }),
+        });
+      }
+    }
+
+    // Check if step is complete
+    const isStepComplete =
+      hasWriteOperation ||
+      finalResponse.toLowerCase().includes("step complete") ||
+      finalResponse.toLowerCase().includes("completed successfully");
+
+    if (isStepComplete) {
+      console.log(`✅ Step completed: ${operation.id} - ${operation.title}`);
+      finalResponse += `\n\n✅ Step completed: ${operation.title}`;
+      break;
+    }
+
+    // Prevent infinite loops
+    if (toolCallsMade >= 25) {
+      console.log("⚠️ Step execution taking too long, forcing completion");
+      finalResponse += `\n\n⚠️ Step execution reached maximum attempts. Current progress saved.`;
+      break;
+    }
+
+    // Continue the conversation with tool results
+    const toolResultsText = toolResults
+      .map((tr) => `Tool ${tr.toolCallId}: ${tr.result}`)
+      .join("\n");
+
+    let continuationMessage = `Tool results:\n${toolResultsText}\n\nBased on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.`;
+    const projectContextContinuation = getProjectContext(snackFiles);
+    if (projectContextContinuation) {
+      continuationMessage += projectContextContinuation;
+    }
+
+    response = await generateText({
+      model: google("gemini-2.5-flash"),
+      system: EXECUTION_PROMPT,
+      tools: {
+        list_files: {
+          description: "List all files in the project to understand structure",
+          parameters: z.object({}),
+        },
+        read_file: {
+          description: "Read the contents of a specific file in the project",
+          parameters: z.object({
+            filePath: z.string().describe("The file path to read"),
+          }),
+        },
+        write_file: {
+          description: "Write or update a file in the project",
+          parameters: z.object({
+            filePath: z.string().describe("The file path to write to"),
+            contents: z.string().describe("The complete file contents"),
+            operation: z
+              .enum(["create", "modify"])
+              .describe("Create or modify operation"),
+          }),
+        },
+      },
+      messages: [
+        ...messages
+          .slice(0, -1)
+          .map((msg: { role: string; content: string }) => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+          })),
+        {
+          role: "user" as const,
+          content: userMessage,
+        },
+        {
+          role: "assistant" as const,
+          content: finalResponse,
+        },
+        {
+          role: "user" as const,
+          content: continuationMessage,
+        },
+      ],
+    });
+
+    finalResponse = response.text;
+  }
+
+  return {
+    content: finalResponse,
+    updatedFiles: fileManager.getFinalState(),
+    hasResult: finalResponse.includes("✅ Step completed") || finalResponse.includes("Successfully"),
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     // JWT Token validation
@@ -481,44 +699,52 @@ export async function POST(request: NextRequest) {
     // Initialize file manager with prototype_id for database persistence
     const fileManager = new FileManager(snackFiles, prototype_id);
 
-    // Determine phase
-    const isExecutionPhase =
-      phase === "execution" || phase === "step_execution";
-    const selectedPrompt = isExecutionPhase
-      ? EXECUTION_PROMPT
-      : PLANNING_PROMPT;
+    // Handle legacy step execution (still needed for backward compatibility)
+    if (phase === "step_execution" && stepOperation) {
+      const stepResult = await executeStep(
+        stepOperation,
+        fileManager,
+        messages,
+        snackFiles,
+        prototype_id
+      );
 
-    // For execution phase, include step context
-    let executionContext = "";
-    if (isExecutionPhase && stepOperation) {
-      executionContext = `
-EXECUTING STEP: ${stepOperation.id}
-Type: ${stepOperation.type}
-File: ${stepOperation.filePath}
-Task: ${stepOperation.title}
-Description: ${stepOperation.description}
+      // Save step result to database
+      const { data: assistantResponse, error: insertError } = await supabase
+        .from("prototype_chat_messages")
+        .insert({
+          chat_session_id: chat_session_id,
+          content: stepResult.content,
+          role: "assistant",
+          phase: "execution",
+        })
+        .select()
+        .single();
 
-Execute this step using the available tools.`;
-
-      // Force discovery before creation for screens
-      if (
-        stepOperation.type === "create" &&
-        stepOperation.filePath.includes("Screen")
-      ) {
-        executionContext += `
-
-MANDATORY: Before creating this screen, you MUST:
-1. Use list_files to see all existing components
-2. Use read_file to examine similar existing screens for import patterns
-3. Only use imports that you've verified exist
-4. If needed components don't exist, create a basic implementation or note the dependency`;
+      if (insertError) {
+        console.error("Error inserting assistant response:", insertError);
+        throw new Error("Error inserting assistant response into database");
       }
+
+      // Track API usage
+      const { error: usageError } = await supabase.from("api_usage").insert({
+        user_id: userID,
+        prototype_id: prototype_id || null,
+      });
+
+      if (usageError) {
+        console.error("Error tracking API usage:", usageError);
+      }
+
+      return NextResponse.json({
+        ...assistantResponse,
+        updatedFiles: stepResult.updatedFiles,
+      });
     }
 
+    // Handle planning phase
     const lastMessage = messages[messages.length - 1];
-    let userMessage = executionContext
-      ? `${executionContext}\n\nOriginal request: ${lastMessage.content}`
-      : lastMessage.content;
+    let userMessage = lastMessage.content;
 
     // Always inject project context if available (prevents LLM hallucination)
     console.log("🎨 Injecting Expo Snack project context for development...");
@@ -530,10 +756,280 @@ MANDATORY: Before creating this screen, you MUST:
       console.log("⚠️ No relevant Expo Snack files found to inject");
     }
 
+    // Check if this request expects streaming (new flow)
+    const expectsStreaming = request.headers.get("accept") === "text/stream";
+
+    if (expectsStreaming) {
+      // Return a streaming response
+      const encoder = new TextEncoder();
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Phase 1: Get the planning response
+            let response = await generateText({
+              model: google("gemini-2.5-flash"),
+              system: PLANNING_PROMPT,
+              tools: {
+                list_files: {
+                  description: "List all files in the project to understand structure",
+                  parameters: z.object({}),
+                },
+                read_file: {
+                  description: "Read the contents of a specific file in the project",
+                  parameters: z.object({
+                    filePath: z
+                      .string()
+                      .describe(
+                        "The file path to read (e.g., 'screens/PaywallScreen.js')",
+                      ),
+                  }),
+                },
+                write_file: {
+                  description: "Write or update a file in the project",
+                  parameters: z.object({
+                    filePath: z.string().describe("The file path to write to"),
+                    contents: z.string().describe("The complete file contents"),
+                    operation: z
+                      .enum(["create", "modify"])
+                      .describe(
+                        "Whether this is creating a new file or modifying existing",
+                      ),
+                  }),
+                },
+              },
+              messages: [
+                ...messages
+                  .slice(0, -1)
+                  .map((msg: { role: string; content: string }) => ({
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content,
+                  })),
+                {
+                  role: "user" as const,
+                  content: userMessage,
+                },
+              ],
+            });
+
+            let finalResponse = response.text;
+            let toolCallsMade = 0;
+
+            // Handle tool calls iteratively for planning
+            while (response.toolCalls && response.toolCalls.length > 0) {
+              toolCallsMade += response.toolCalls.length;
+              console.log(
+                `🔄 Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
+              );
+
+              const toolResults = [];
+
+              // Execute each tool call
+              for (const toolCall of response.toolCalls) {
+                try {
+                  const result = await fileManager.handleToolCall({
+                    function: {
+                      name: toolCall.toolName,
+                      arguments: toolCall.args,
+                    },
+                  });
+
+                  toolResults.push({
+                    toolCallId: toolCall.toolCallId,
+                    result: JSON.stringify(result),
+                  });
+                } catch (error) {
+                  console.error(`❌ Tool call failed: ${toolCall.toolName}`, error);
+                  toolResults.push({
+                    toolCallId: toolCall.toolCallId,
+                    result: JSON.stringify({
+                      error: error instanceof Error ? error.message : "Unknown error",
+                    }),
+                  });
+                }
+              }
+
+              // Continue the conversation with tool results
+              const toolResultsText = toolResults
+                .map((tr) => `Tool ${tr.toolCallId}: ${tr.result}`)
+                .join("\n");
+
+              let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
+              const projectContextContinuation = getProjectContext(snackFiles);
+              if (projectContextContinuation) {
+                continuationMessage += projectContextContinuation;
+              }
+
+              response = await generateText({
+                model: google("gemini-2.5-flash"),
+                system: PLANNING_PROMPT,
+                tools: {
+                  list_files: {
+                    description:
+                      "List all files in the project to understand structure",
+                    parameters: z.object({}),
+                  },
+                  read_file: {
+                    description: "Read the contents of a specific file in the project",
+                    parameters: z.object({
+                      filePath: z.string().describe("The file path to read"),
+                    }),
+                  },
+                  write_file: {
+                    description: "Write or update a file in the project",
+                    parameters: z.object({
+                      filePath: z.string().describe("The file path to write to"),
+                      contents: z.string().describe("The complete file contents"),
+                      operation: z
+                        .enum(["create", "modify"])
+                        .describe("Create or modify operation"),
+                    }),
+                  },
+                },
+                messages: [
+                  ...messages
+                    .slice(0, -1)
+                    .map((msg: { role: string; content: string }) => ({
+                      role: msg.role as "user" | "assistant",
+                      content: msg.content,
+                    })),
+                  {
+                    role: "user" as const,
+                    content: userMessage,
+                  },
+                  {
+                    role: "assistant" as const,
+                    content: finalResponse,
+                  },
+                  {
+                    role: "user" as const,
+                    content: continuationMessage,
+                  },
+                ],
+              });
+
+              finalResponse = response.text;
+
+              // Prevent infinite loops
+              if (toolCallsMade > 50) {
+                finalResponse += `\n\n⚠️ Maximum tool calls reached (50).`;
+                break;
+              }
+            }
+
+            // Save planning message to database
+            const { data: planningMessage } = await supabase
+              .from("prototype_chat_messages")
+              .insert({
+                chat_session_id: chat_session_id,
+                content: finalResponse,
+                role: "assistant",
+                phase: "planning",
+              })
+              .select()
+              .single();
+
+            // Send planning response
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: "planning",
+              content: finalResponse,
+              updatedFiles: fileManager.getFinalState(),
+              messageId: planningMessage?.id
+            })}\n\n`));
+
+            // Check if the response contains an execution plan
+            if (finalResponse.includes("EXECUTION_PLAN")) {
+              const planningResult = extractExecutionPlan(finalResponse);
+
+              if (planningResult.hasPlan && planningResult.operations.length > 0) {
+                // Send execution start
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                  type: "execution_start",
+                  operations: planningResult.operations
+                })}\n\n`));
+
+                // Execute each operation step by step
+                for (let i = 0; i < planningResult.operations.length; i++) {
+                  const operation = planningResult.operations[i];
+                  
+                  // Send step start
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                    type: "step_start",
+                    stepIndex: i,
+                    operation: operation
+                  })}\n\n`));
+
+                  try {
+                    const stepResult = await executeStep(
+                      operation,
+                      fileManager,
+                      messages,
+                      snackFiles,
+                      prototype_id
+                    );
+
+                    // Send step completion
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                      type: "step_complete",
+                      stepIndex: i,
+                      operation: operation,
+                      result: stepResult,
+                      success: stepResult.hasResult
+                    })}\n\n`));
+
+                  } catch (error) {
+                    console.error(`Error executing step ${i + 1}:`, error);
+                    
+                    // Send step error
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                      type: "step_error",
+                      stepIndex: i,
+                      operation: operation,
+                      error: error instanceof Error ? error.message : "Unknown error"
+                    })}\n\n`));
+                  }
+                }
+
+                // Send execution complete
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                  type: "execution_complete",
+                  updatedFiles: fileManager.getFinalState()
+                })}\n\n`));
+              }
+            }
+
+            // Track API usage
+            await supabase.from("api_usage").insert({
+              user_id: userID,
+              prototype_id: prototype_id || null,
+            });
+
+            controller.close();
+          } catch (error) {
+            console.error("Streaming error:", error);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: "error",
+              error: error instanceof Error ? error.message : "Internal server error"
+            })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
+    // Non-streaming path (legacy support)
     // Use AI SDK with tool support
     let response = await generateText({
       model: google("gemini-2.5-flash"),
-      system: selectedPrompt,
+      system: PLANNING_PROMPT,
       tools: {
         list_files: {
           description: "List all files in the project to understand structure",
@@ -587,7 +1083,6 @@ MANDATORY: Before creating this screen, you MUST:
       );
 
       const toolResults = [];
-      let hasWriteOperation = false;
 
       // Execute each tool call
       for (const toolCall of response.toolCalls) {
@@ -601,11 +1096,6 @@ MANDATORY: Before creating this screen, you MUST:
               arguments: toolCall.args,
             },
           });
-
-          // Track if we performed a write operation
-          if (toolCall.toolName === "write_file") {
-            hasWriteOperation = true;
-          }
 
           toolResults.push({
             toolCallId: toolCall.toolCallId,
@@ -622,45 +1112,12 @@ MANDATORY: Before creating this screen, you MUST:
         }
       }
 
-      // For execution phase, check if step is complete
-      if (isExecutionPhase && stepOperation) {
-        const isStepComplete =
-          hasWriteOperation ||
-          (stepOperation.type === "create" && hasWriteOperation) ||
-          (stepOperation.type === "modify" && hasWriteOperation) ||
-          finalResponse.toLowerCase().includes("step complete") ||
-          finalResponse.toLowerCase().includes("completed successfully");
-
-        if (isStepComplete) {
-          console.log(
-            `✅ Step completed: ${stepOperation.id} - ${stepOperation.title}`,
-          );
-          finalResponse += `\n\n✅ Step completed: ${stepOperation.title}`;
-          break;
-        }
-
-        // Prevent infinite loops in execution phase - if we've made several calls without completing
-        if (toolCallsMade >= 250) {
-          console.log("⚠️ Execution phase taking too long, forcing completion");
-          finalResponse += `\n\n⚠️ Step execution reached maximum attempts. Current progress saved.`;
-          break;
-        }
-      }
-
       // Continue the conversation with tool results
       const toolResultsText = toolResults
         .map((tr) => `Tool ${tr.toolCallId}: ${tr.result}`)
         .join("\n");
 
-      // Different continuation prompts based on phase
-      let continuationPrompt = "Continue with your task.";
-      if (isExecutionPhase) {
-        continuationPrompt =
-          "Based on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.";
-      }
-
-      // Always add project context to continuation to maintain consistency
-      let continuationMessage = `Tool results:\n${toolResultsText}\n\n${continuationPrompt}`;
+      let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
       const projectContextContinuation = getProjectContext(snackFiles);
       if (projectContextContinuation) {
         continuationMessage += projectContextContinuation;
@@ -668,7 +1125,7 @@ MANDATORY: Before creating this screen, you MUST:
 
       response = await generateText({
         model: google("gemini-2.5-flash"),
-        system: selectedPrompt,
+        system: PLANNING_PROMPT,
         tools: {
           list_files: {
             description:
@@ -716,10 +1173,9 @@ MANDATORY: Before creating this screen, you MUST:
 
       finalResponse = response.text;
 
-      // Prevent infinite loops - reduced limit for execution phase
-      const maxCalls = isExecutionPhase ? 35 : 50;
-      if (toolCallsMade > maxCalls) {
-        finalResponse += `\n\n⚠️ Maximum tool calls reached (${maxCalls}).`;
+      // Prevent infinite loops
+      if (toolCallsMade > 50) {
+        finalResponse += `\n\n⚠️ Maximum tool calls reached (50).`;
         break;
       }
     }
@@ -731,7 +1187,7 @@ MANDATORY: Before creating this screen, you MUST:
         chat_session_id: chat_session_id,
         content: finalResponse,
         role: "assistant",
-        phase: isExecutionPhase ? "execution" : "planning",
+        phase: "planning",
       })
       .select()
       .single();
