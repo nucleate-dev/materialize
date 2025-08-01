@@ -25,7 +25,7 @@ class FileManager {
     this.prototypeId = prototypeId || null;
   }
 
-  handleToolCall(toolCall: {
+  async handleToolCall(toolCall: {
     function: { name: string; arguments: Record<string, unknown> };
   }) {
     const { name, arguments: args } = toolCall.function;
@@ -37,7 +37,7 @@ class FileManager {
         return this.readFile(args.filePath as string);
 
       case "write_file":
-        return this.writeFile(
+        return await this.writeFile(
           args.filePath as string,
           args.contents as string,
           args.operation as string,
@@ -64,7 +64,7 @@ class FileManager {
     };
   }
 
-  writeFile(filePath: string, contents: string, operation: string) {
+  async writeFile(filePath: string, contents: string, operation: string) {
     const existingFile = this.files.get(filePath);
 
     if (operation === "modify" && !existingFile) {
@@ -96,71 +96,71 @@ class FileManager {
 
     // SOURISH: REMOVING THIS -- WE SHOULD UPDATE THE DATABASE FROM THE CLIENT
     // Persist to database if prototypeId is available
-    // if (this.prototypeId) {
-    //   try {
-    //     console.log(`💾 Saving file to database: ${filePath}`);
+    if (this.prototypeId) {
+      try {
+        console.log(`💾 Saving file to database: ${filePath}`);
 
-    //     if (existingFile?.id) {
-    //       // Update existing file in database
-    //       const { error } = await supabase
-    //         .from("prototype_files")
-    //         .update({
-    //           contents,
-    //           updated_at: new Date().toISOString(),
-    //         })
-    //         .eq("id", existingFile.id);
+        if (existingFile?.id) {
+          // Update existing file in database
+          const { error } = await supabase
+            .from("prototype_files")
+            .update({
+              contents,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingFile.id);
 
-    //       if (error) {
-    //         console.error(
-    //           `❌ Error updating file ${filePath} in database:`,
-    //           error,
-    //         );
-    //         return {
-    //           error: `Database update failed for ${filePath}: ${error.message}`,
-    //         };
-    //       }
-    //       console.log(`✅ Successfully updated file ${filePath} in database`);
-    //     } else {
-    //       // Create new file in database
-    //       const { data, error } = await supabase
-    //         .from("prototype_files")
-    //         .insert({
-    //           prototype_id: this.prototypeId,
-    //           name: filePath,
-    //           contents,
-    //         })
-    //         .select()
-    //         .single();
+          if (error) {
+            console.error(
+              `❌ Error updating file ${filePath} in database:`,
+              error,
+            );
+            return {
+              error: `Database update failed for ${filePath}: ${error.message}`,
+            };
+          }
+          console.log(`✅ Successfully updated file ${filePath} in database`);
+        } else {
+          // Create new file in database
+          const { data, error } = await supabase
+            .from("prototype_files")
+            .insert({
+              prototype_id: this.prototypeId,
+              name: filePath,
+              contents,
+            })
+            .select()
+            .single();
 
-    //       if (error) {
-    //         console.error(
-    //           `❌ Error creating file ${filePath} in database:`,
-    //           error,
-    //         );
-    //         return {
-    //           error: `Database insert failed for ${filePath}: ${error.message}`,
-    //         };
-    //       }
+          if (error) {
+            console.error(
+              `❌ Error creating file ${filePath} in database:`,
+              error,
+            );
+            return {
+              error: `Database insert failed for ${filePath}: ${error.message}`,
+            };
+          }
 
-    //       // Update the in-memory file with the database ID
-    //       if (data) {
-    //         this.files.set(filePath, { ...updatedFile, id: data.id });
-    //         console.log(
-    //           `✅ Successfully created file ${filePath} in database with ID: ${data.id}`,
-    //         );
-    //       }
-    //     }
-    //   } catch (error) {
-    //     console.error(`❌ Unexpected error saving file ${filePath}:`, error);
-    //     return {
-    //       error: `Unexpected error saving ${filePath}: ${error instanceof Error ? error.message : "Unknown error"}`,
-    //     };
-    //   }
-    // } else {
-    //   console.warn(
-    //     `⚠️ No prototypeId provided, file ${filePath} not saved to database`,
-    //   );
-    // }
+          // Update the in-memory file with the database ID
+          if (data) {
+            this.files.set(filePath, { ...updatedFile, id: data.id });
+            console.log(
+              `✅ Successfully created file ${filePath} in database with ID: ${data.id}`,
+            );
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Unexpected error saving file ${filePath}:`, error);
+        return {
+          error: `Unexpected error saving ${filePath}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        };
+      }
+    } else {
+      console.warn(
+        `⚠️ No prototypeId provided, file ${filePath} not saved to database`,
+      );
+    }
 
     return {
       success: true,
@@ -434,7 +434,10 @@ export async function POST(request: NextRequest) {
 
     let userID: string;
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET!,
+      ) as jwt.JwtPayload;
       userID = decoded.sub as string;
     } catch (error) {
       console.error("Invalid JWT token: ", error);
@@ -592,7 +595,7 @@ MANDATORY: Before creating this screen, you MUST:
           console.log(
             `📞 Executing tool call: ${toolCall.toolName} (ID: ${toolCall.toolCallId})`,
           );
-          const result = fileManager.handleToolCall({
+          const result = await fileManager.handleToolCall({
             function: {
               name: toolCall.toolName,
               arguments: toolCall.args,
