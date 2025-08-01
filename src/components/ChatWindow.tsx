@@ -22,40 +22,19 @@ type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 
 interface ChatWindowProps {
-  // Legacy props for backward compatibility - will be removed after full migration
-  messages?: PrototypeChatMessage[];
-  onSendMessage?: (message: string) => void;
-  isLoading?: boolean;
-
-  // New props for AI SDK integration
-  currentCode?: string;
-  phase?: "planning" | "execution" | "step_execution";
-  snackFiles?: Record<string, { contents: string; type: "CODE" | "ASSET" }>;
-  stepOperation?: {
-    id: string;
-    type: "create" | "modify" | "delete" | "move";
-    title: string;
-    description: string;
-    filePath: string;
-    newFilePath?: string;
-  };
-  chatSessionId?: string;
+  messages: PrototypeChatMessage[];
+  onSendMessage: (message: string) => void;
+  isLoading: boolean;
   onClearChat: () => void;
 }
 
 export default function ChatWindow({
-  // Legacy props
-  messages: legacyMessages = [],
+  messages,
   onSendMessage,
-  isLoading: legacyIsLoading = false,
+  isLoading,
   onClearChat,
 }: ChatWindowProps) {
-  // Legacy input state for custom message handling
   const [input, setInput] = useState("");
-
-  // Use legacy messages
-  const messages = legacyMessages;
-  const isLoading = legacyIsLoading;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -120,11 +99,8 @@ export default function ChatWindow({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
-      // Always use the legacy implementation for now since it has the custom phase logic
-      if (onSendMessage) {
-        onSendMessage(input.trim());
-        setInput(""); // Clear input after sending
-      }
+      onSendMessage(input.trim());
+      setInput(""); // Clear input after sending
     }
   };
 
@@ -484,7 +460,6 @@ export default function ChatWindow({
   };
 
   const handleClearConfirm = () => {
-    // Call legacy clear function
     onClearChat();
     setShowClearConfirmation(false);
   };
