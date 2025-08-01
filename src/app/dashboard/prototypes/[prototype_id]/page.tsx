@@ -27,7 +27,6 @@ type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -45,7 +44,7 @@ export default function CreatePage() {
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
-  
+
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -142,9 +141,6 @@ export default function CreatePage() {
     setPrototypeChatMessages,
   ]);
 
-
-
-
   const handleResetToDefault = useCallback(async () => {
     if (!prototypeId) {
       console.error("Reset failed: no prototype ID");
@@ -154,7 +150,7 @@ export default function CreatePage() {
     setIsLoading(true);
     try {
       await fileSystem.resetToDefault(prototypeId);
-      
+
       // Force refresh the preview
       if (snackViewerRef.current) {
         snackViewerRef.current.forceRefresh();
@@ -167,7 +163,6 @@ export default function CreatePage() {
       setIsLoading(false);
     }
   }, [prototypeId, fileSystem, snackViewerRef]);
-
 
   const handleApplyCode = (
     result: CodeExtractionResult,
@@ -292,20 +287,16 @@ export default function CreatePage() {
                 chatSession={prototypeChatSession}
                 messages={prototypeChatMessages}
                 onMessagesUpdate={setPrototypeChatMessages}
-                
                 // File system integration
                 files={fileSystem.state.files}
                 selectedFile={fileSystem.state.selectedFile}
                 onFilesUpdate={fileSystem.applyFileUpdates}
                 onFileContentUpdate={fileSystem.updateFileContent}
-                
                 // Prototype context
                 prototypeId={prototypeId!}
-                
                 // Loading state
                 isLoading={isLoading}
                 setIsLoading={setIsLoading}
-                
                 // Legacy props for backward compatibility
                 onApplyCode={handleApplyCode}
                 onExecutePlannedOperation={handleExecutePlannedOperation}

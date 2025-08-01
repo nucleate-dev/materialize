@@ -15,16 +15,18 @@ export interface FileSystemActions {
   // File selection and content management
   selectFile: (filePath: string) => void;
   updateFileContent: (filePath: string, content: string) => void;
-  
+
   // Database operations
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
-  saveFilesToDatabase: (updatedFiles: Record<string, PrototypeFile>) => Promise<void>;
+  saveFilesToDatabase: (
+    updatedFiles: Record<string, PrototypeFile>,
+  ) => Promise<void>;
   resetToDefault: (prototypeId: string) => Promise<void>;
-  
+
   // Bulk file operations
   setFiles: (files: Record<string, PrototypeFile>) => void;
   applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => void;
-  
+
   // Utilities
   getFileContent: (filePath: string) => string;
   getSelectedFileContent: () => string;
@@ -34,7 +36,10 @@ export interface UseFileSystemReturn extends FileSystemActions {
   state: FileSystemState;
 }
 
-export const useFileSystem = (prototypeId: string | null, defaultFile = "App.js"): UseFileSystemReturn => {
+export const useFileSystem = (
+  prototypeId: string | undefined,
+  defaultFile = "App.js",
+): UseFileSystemReturn => {
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,205 +51,224 @@ export const useFileSystem = (prototypeId: string | null, defaultFile = "App.js"
 
   // Update file content in local state
   const updateFileContent = useCallback((filePath: string, content: string) => {
-    setFiles(prevFiles => ({
+    setFiles((prevFiles) => ({
       ...prevFiles,
       [filePath]: {
         ...prevFiles[filePath],
         contents: content,
         updated_at: new Date().toISOString(),
-      }
+      },
     }));
   }, []);
 
   // Load files from database
-  const loadFilesFromDatabase = useCallback(async (prototypeId: string) => {
-    if (!prototypeId) return;
+  const loadFilesFromDatabase = useCallback(
+    async (prototypeId: string) => {
+      if (!prototypeId) return;
 
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("prototype_files")
-        .select("*")
-        .eq("prototype_id", prototypeId)
-        .order("created_at", { ascending: true });
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("prototype_files")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching prototype files:", error);
-        return;
-      }
-
-      // Convert array to dictionary mapping name to PrototypeFile object
-      const filesDict = (data || []).reduce(
-        (acc, file) => {
-          acc[file.name] = file;
-          return acc;
-        },
-        {} as Record<string, PrototypeFile>,
-      );
-
-      setFiles(filesDict);
-      
-      // Set selected file to default if it exists, otherwise keep current selection
-      if (filesDict[defaultFile] && selectedFile === defaultFile) {
-        // File exists and we're still on default - no change needed
-      } else if (!filesDict[selectedFile]) {
-        // Current selection doesn't exist, fallback to default or first available
-        const availableFile = filesDict[defaultFile] || Object.keys(filesDict)[0];
-        if (availableFile) {
-          setSelectedFile(availableFile);
+        if (error) {
+          console.error("Error fetching prototype files:", error);
+          return;
         }
-      }
 
-      console.log("Fetched prototype files:", filesDict);
-    } catch (error) {
-      console.error("Error loading files:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [defaultFile, selectedFile]);
+        // Convert array to dictionary mapping name to PrototypeFile object
+        const filesDict = (data || []).reduce(
+          (acc, file) => {
+            acc[file.name] = file;
+            return acc;
+          },
+          {} as Record<string, PrototypeFile>,
+        );
+
+        setFiles(filesDict);
+
+        // Set selected file to default if it exists, otherwise keep current selection
+        if (filesDict[defaultFile] && selectedFile === defaultFile) {
+          // File exists and we're still on default - no change needed
+        } else if (!filesDict[selectedFile]) {
+          // Current selection doesn't exist, fallback to default or first available
+          const availableFile =
+            filesDict[defaultFile] || Object.keys(filesDict)[0];
+          if (availableFile) {
+            setSelectedFile(availableFile);
+          }
+        }
+
+        console.log("Fetched prototype files:", filesDict);
+      } catch (error) {
+        console.error("Error loading files:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [defaultFile, selectedFile],
+  );
 
   // Save files to database
-  const saveFilesToDatabase = useCallback(async (updatedFiles: Record<string, PrototypeFile>) => {
-    if (!prototypeId) return;
+  const saveFilesToDatabase = useCallback(
+    async (updatedFiles: Record<string, PrototypeFile>) => {
+      if (!prototypeId) return;
 
-    for (const [filePath, fileData] of Object.entries(updatedFiles)) {
-      try {
-        // Check if file exists
-        const { data: existingFile } = await supabase
-          .from("prototype_files")
-          .select("id")
-          .eq("prototype_id", prototypeId)
-          .eq("name", filePath)
-          .maybeSingle();
-
-        if (existingFile) {
-          // Update existing file
-          const { error } = await supabase
+      for (const [filePath, fileData] of Object.entries(updatedFiles)) {
+        try {
+          // Check if file exists
+          const { data: existingFile } = await supabase
             .from("prototype_files")
-            .update({
+            .select("id")
+            .eq("prototype_id", prototypeId)
+            .eq("name", filePath)
+            .maybeSingle();
+
+          if (existingFile) {
+            // Update existing file
+            const { error } = await supabase
+              .from("prototype_files")
+              .update({
+                contents: fileData.contents,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingFile.id);
+
+            if (error) {
+              console.error(`Error updating file ${filePath}:`, error);
+            }
+          } else {
+            // Create new file
+            const { error } = await supabase.from("prototype_files").insert({
+              prototype_id: prototypeId,
+              name: filePath,
               contents: fileData.contents,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingFile.id);
+            });
 
-          if (error) {
-            console.error(`Error updating file ${filePath}:`, error);
+            if (error) {
+              console.error(`Error creating file ${filePath}:`, error);
+            }
           }
-        } else {
-          // Create new file
-          const { error } = await supabase.from("prototype_files").insert({
-            prototype_id: prototypeId,
-            name: filePath,
-            contents: fileData.contents,
-          });
-
-          if (error) {
-            console.error(`Error creating file ${filePath}:`, error);
-          }
+        } catch (error) {
+          console.error(`Error saving file ${filePath}:`, error);
         }
-      } catch (error) {
-        console.error(`Error saving file ${filePath}:`, error);
       }
-    }
-  }, [prototypeId]);
+    },
+    [prototypeId],
+  );
 
   // Reset to default files
-  const resetToDefault = useCallback(async (prototypeId: string) => {
-    if (!prototypeId) {
-      console.error("Reset failed: no prototype ID");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      // Get default app files
-      const defaultSnackFiles = getDefaultSnackFiles();
-
-      // Convert SnackFiles to PrototypeFile format
-      const defaultPrototypeFiles: Record<string, PrototypeFile> = {};
-
-      for (const [fileName, fileData] of Object.entries(defaultSnackFiles)) {
-        defaultPrototypeFiles[fileName] = {
-          id: "", // Will be set by database
-          prototype_id: prototypeId,
-          name: fileName,
-          contents: fileData.contents,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      }
-
-      // Delete all existing files for this prototype
-      const { error: deleteError } = await supabase
-        .from("prototype_files")
-        .delete()
-        .eq("prototype_id", prototypeId);
-
-      if (deleteError) {
-        console.error("Error deleting existing files:", deleteError);
+  const resetToDefault = useCallback(
+    async (prototypeId: string) => {
+      if (!prototypeId) {
+        console.error("Reset failed: no prototype ID");
         return;
       }
 
-      // Insert new default files
-      const filesToInsert = Object.values(defaultPrototypeFiles).map(
-        (file) => ({
-          prototype_id: file.prototype_id,
-          name: file.name,
-          contents: file.contents,
-        }),
-      );
+      try {
+        setIsLoading(true);
 
-      const { data: newFiles, error: insertError } = await supabase
-        .from("prototype_files")
-        .insert(filesToInsert)
-        .select();
+        // Get default app files
+        const defaultSnackFiles = getDefaultSnackFiles();
 
-      if (insertError) {
-        console.error("Error inserting default files:", insertError);
-        return;
+        // Convert SnackFiles to PrototypeFile format
+        const defaultPrototypeFiles: Record<string, PrototypeFile> = {};
+
+        for (const [fileName, fileData] of Object.entries(defaultSnackFiles)) {
+          defaultPrototypeFiles[fileName] = {
+            id: "", // Will be set by database
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: fileData.contents,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        }
+
+        // Delete all existing files for this prototype
+        const { error: deleteError } = await supabase
+          .from("prototype_files")
+          .delete()
+          .eq("prototype_id", prototypeId);
+
+        if (deleteError) {
+          console.error("Error deleting existing files:", deleteError);
+          return;
+        }
+
+        // Insert new default files
+        const filesToInsert = Object.values(defaultPrototypeFiles).map(
+          (file) => ({
+            prototype_id: file.prototype_id,
+            name: file.name,
+            contents: file.contents,
+          }),
+        );
+
+        const { data: newFiles, error: insertError } = await supabase
+          .from("prototype_files")
+          .insert(filesToInsert)
+          .select();
+
+        if (insertError) {
+          console.error("Error inserting default files:", insertError);
+          return;
+        }
+
+        // Update local state with new files
+        const newFilesDict = (newFiles || []).reduce(
+          (acc, file) => {
+            acc[file.name] = file;
+            return acc;
+          },
+          {} as Record<string, PrototypeFile>,
+        );
+
+        setFiles(newFilesDict);
+        setSelectedFile(defaultFile);
+
+        console.log("Successfully reset to default app");
+      } catch (error) {
+        console.error("Error resetting to default:", error);
+      } finally {
+        setIsLoading(false);
       }
-
-      // Update local state with new files
-      const newFilesDict = (newFiles || []).reduce(
-        (acc, file) => {
-          acc[file.name] = file;
-          return acc;
-        },
-        {} as Record<string, PrototypeFile>,
-      );
-
-      setFiles(newFilesDict);
-      setSelectedFile(defaultFile);
-
-      console.log("Successfully reset to default app");
-    } catch (error) {
-      console.error("Error resetting to default:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [defaultFile]);
+    },
+    [defaultFile],
+  );
 
   // Bulk set files (with deep copy to ensure React detects changes)
-  const handleSetFiles = useCallback((newFiles: Record<string, PrototypeFile>) => {
-    setFiles(JSON.parse(JSON.stringify(newFiles)));
-  }, []);
+  const handleSetFiles = useCallback(
+    (newFiles: Record<string, PrototypeFile>) => {
+      setFiles(JSON.parse(JSON.stringify(newFiles)));
+    },
+    [],
+  );
 
   // Apply file updates from external sources (like chat API responses)
-  const applyFileUpdates = useCallback((updatedFiles: Record<string, PrototypeFile>) => {
-    setFiles(prevFiles => {
-      const newFiles = { ...prevFiles };
-      Object.entries(updatedFiles).forEach(([filePath, fileData]) => {
-        newFiles[filePath] = fileData;
+  const applyFileUpdates = useCallback(
+    (updatedFiles: Record<string, PrototypeFile>) => {
+      setFiles((prevFiles) => {
+        const newFiles = { ...prevFiles };
+        Object.entries(updatedFiles).forEach(([filePath, fileData]) => {
+          newFiles[filePath] = fileData;
+        });
+        return JSON.parse(JSON.stringify(newFiles)); // Deep copy for React detection
       });
-      return JSON.parse(JSON.stringify(newFiles)); // Deep copy for React detection
-    });
-  }, []);
+    },
+    [],
+  );
 
   // Get content of specific file
-  const getFileContent = useCallback((filePath: string): string => {
-    return files[filePath]?.contents || "";
-  }, [files]);
+  const getFileContent = useCallback(
+    (filePath: string): string => {
+      return files[filePath]?.contents || "";
+    },
+    [files],
+  );
 
   // Get content of currently selected file
   const getSelectedFileContent = useCallback((): string => {
