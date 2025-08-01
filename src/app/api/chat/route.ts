@@ -428,6 +428,7 @@ export async function POST(request: NextRequest) {
       phase,
       stepOperation,
       prototype_id,
+      user_id,
     } = await request.json();
 
     if (!GOOGLE_AI_API_KEY) {
@@ -705,6 +706,18 @@ MANDATORY: Before creating this screen, you MUST:
     if (insertError) {
       console.error("Error inserting assistant response:", insertError);
       throw new Error("Error inserting assistant response into database");
+    }
+
+    // Track API usage
+    if (user_id) {
+      const { error: usageError } = await supabase.from("api_usage").insert({
+        user_id: user_id,
+        prototype_id: prototype_id || null,
+      });
+
+      if (usageError) {
+        console.error("Error tracking API usage:", usageError);
+      }
     }
 
     return NextResponse.json({

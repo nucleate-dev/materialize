@@ -37,7 +37,7 @@ type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -222,13 +222,11 @@ export default function CreatePage() {
           }
         } else {
           // Create new file
-          const { error } = await supabase
-            .from("prototype_files")
-            .insert({
-              prototype_id: prototypeId,
-              name: filePath,
-              contents: fileData.contents,
-            });
+          const { error } = await supabase.from("prototype_files").insert({
+            prototype_id: prototypeId,
+            name: filePath,
+            contents: fileData.contents,
+          });
 
           if (error) {
             console.error(`Error creating file ${filePath}:`, error);
@@ -416,16 +414,16 @@ export default function CreatePage() {
 
     try {
       setIsLoading(true);
-      
+
       // Get default app files
       const defaultSnackFiles = getDefaultSnackFiles();
-      
+
       // Convert SnackFiles to PrototypeFile format
       const defaultPrototypeFiles: Record<string, PrototypeFile> = {};
-      
+
       for (const [fileName, fileData] of Object.entries(defaultSnackFiles)) {
         defaultPrototypeFiles[fileName] = {
-          id: '', // Will be set by database
+          id: "", // Will be set by database
           prototype_id: prototypeId,
           name: fileName,
           contents: fileData.contents,
@@ -446,11 +444,13 @@ export default function CreatePage() {
       }
 
       // Insert new default files
-      const filesToInsert = Object.values(defaultPrototypeFiles).map(file => ({
-        prototype_id: file.prototype_id,
-        name: file.name,
-        contents: file.contents,
-      }));
+      const filesToInsert = Object.values(defaultPrototypeFiles).map(
+        (file) => ({
+          prototype_id: file.prototype_id,
+          name: file.name,
+          contents: file.contents,
+        }),
+      );
 
       const { data: newFiles, error: insertError } = await supabase
         .from("prototype_files")
@@ -788,20 +788,22 @@ export default function CreatePage() {
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${isPreviewView
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                      isPreviewView
                         ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
                         : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                      }`}
+                    }`}
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     Preview
                   </button>
                   <button
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${!isPreviewView
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                      !isPreviewView
                         ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
                         : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                      }`}
+                    }`}
                   >
                     <CodeBracketIcon className="w-4 h-4 inline mr-2" />
                     Code

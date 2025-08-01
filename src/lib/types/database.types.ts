@@ -1,3 +1,6 @@
+Need to install the following packages:
+supabase@2.33.7
+Ok to proceed? (y) 
 export type Json =
   | string
   | number
@@ -14,6 +17,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_usage: {
+        Row: {
+          created_at: string | null
+          id: number
+          prototype_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          prototype_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          prototype_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canvas_documents: {
         Row: {
           canvas_id: string | null
