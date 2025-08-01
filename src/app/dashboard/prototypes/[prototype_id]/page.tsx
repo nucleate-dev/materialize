@@ -10,10 +10,8 @@ import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import { supabase } from "@/GlobalConstants";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useFileSystem } from "@/hooks/useFileSystem";
-import { CodeExtractionResult } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { updateSnackFiles } from "@/lib/utils/code/codeExtractor";
 import {
   CodeBracketIcon,
   EyeIcon,
@@ -39,7 +37,7 @@ export default function CreatePage() {
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
-  const { loadFilesFromDatabase } = fileSystem;
+  const { loadFilesFromDatabase, selectFile } = fileSystem;
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   // Automatically collapse sidebar when page opens
@@ -96,24 +94,6 @@ export default function CreatePage() {
       setIsLoading(false);
     }
   }, [prototypeId, fileSystem, snackViewerRef]);
-
-  const handleApplyCode = (
-    result: CodeExtractionResult,
-    plannedFilePaths?: string[],
-  ) => {
-    if (result.hasCode) {
-      const newFiles = updateSnackFiles(
-        fileSystem.state.files,
-        result.codeBlocks,
-        plannedFilePaths,
-      );
-      fileSystem.setFiles(newFiles);
-    }
-  };
-
-  const handleFileSelect = (filePath: string) => {
-    fileSystem.selectFile(filePath);
-  };
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined && fileSystem.state.selectedFile) {
@@ -178,8 +158,6 @@ export default function CreatePage() {
                 // Loading state
                 isLoading={isLoading}
                 setIsLoading={setIsLoading}
-                // Legacy props for backward compatibility
-                onApplyCode={handleApplyCode}
               />
             </div>
           </div>
@@ -270,7 +248,7 @@ export default function CreatePage() {
                       <FileTree
                         files={fileSystem.state.files}
                         selectedFile={fileSystem.state.selectedFile}
-                        onFileSelect={handleFileSelect}
+                        onFileSelect={selectFile}
                       />
                     </div>
                   </div>

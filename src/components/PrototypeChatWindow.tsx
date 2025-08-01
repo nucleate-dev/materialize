@@ -47,7 +47,6 @@ export default function PrototypeChatWindow({
   prototypeId,
   isLoading,
   setIsLoading,
-  onApplyCode,
   onClearChat,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
@@ -467,17 +466,11 @@ export default function PrototypeChatWindow({
     }
   }, [prototypeChatSession, onClearChat, setPrototypeChatMessages]);
 
-  // Default handlers for optional props
-  const defaultApplyCode = (result: CodeExtractionResult) => {
-    console.log("Default onApplyCode called:", result);
-  };
-
   return (
     <ChatWindow
       messages={prototypeChatMessages}
       onSendMessage={handleSendMessage}
       isLoading={isLoading}
-      onApplyCode={onApplyCode || defaultApplyCode}
       onClearChat={handleClearChat}
     />
   );

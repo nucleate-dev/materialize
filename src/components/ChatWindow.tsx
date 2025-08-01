@@ -1,8 +1,4 @@
 "use client";
-
-import { APPLY_CODE_IMMEDIATELY } from "@/GlobalConstants";
-import { CodeExtractionResult } from "@/lib/types/chat";
-import { extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
 import {
   extractExecutionPlan,
   logPlanningExtraction,
@@ -44,9 +40,6 @@ interface ChatWindowProps {
     newFilePath?: string;
   };
   chatSessionId?: string;
-
-  // Preserved functionality
-  onApplyCode: (result: CodeExtractionResult) => void;
   onClearChat: () => void;
 }
 
@@ -55,9 +48,6 @@ export default function ChatWindow({
   messages: legacyMessages = [],
   onSendMessage: legacyOnSendMessage,
   isLoading: legacyIsLoading = false,
-
-  // Preserved functionality
-  onApplyCode,
   onClearChat,
 }: ChatWindowProps) {
   // Legacy input state for custom message handling
@@ -74,22 +64,6 @@ export default function ChatWindow({
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
     new Set(),
   );
-
-  // Helper function for operation colors (same as PlanningView)
-  // const getOperationColor = (type: PlannedOperation["type"]) => {
-  //   switch (type) {
-  //     case "create":
-  //       return "from-green-500 to-emerald-600";
-  //     case "modify":
-  //       return "from-blue-500 to-blue-600";
-  //     case "delete":
-  //       return "from-red-500 to-red-600";
-  //     case "move":
-  //       return "from-purple-500 to-purple-600";
-  //     default:
-  //       return "from-gray-500 to-gray-600";
-  //   }
-  // };
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
   const [planningData, setPlanningData] = useState<
     Map<string, PlanningExtractionResult>
@@ -143,26 +117,6 @@ export default function ChatWindow({
     });
   }, [messages]);
 
-  // Auto-apply code when APPLY_CODE_IMMEDIATELY is true
-  useEffect(() => {
-    if (!APPLY_CODE_IMMEDIATELY) return;
-
-    // Get the last message
-    const lastMessage = messages[messages.length - 1];
-
-    // Only process assistant messages (not user messages)
-    if (!lastMessage || lastMessage.role === "user") return;
-
-    // Check if this message has applicable content
-    const codeResult = extractCodeFromMessage(lastMessage.content);
-    const hasApplicableContent = codeResult.hasCode;
-
-    if (hasApplicableContent) {
-      // Apply the code automatically
-      onApplyCode(codeResult);
-    }
-  }, [messages]); // Remove onApplyCode from dependencies to prevent infinite loop
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
@@ -179,11 +133,6 @@ export default function ChatWindow({
       e.preventDefault();
       handleSubmit(e);
     }
-  };
-
-  const handleApplyCode = (message: string) => {
-    const codeResult = extractCodeFromMessage(message);
-    onApplyCode(codeResult);
   };
 
   const toggleCodeVisibility = (messageId: string) => {
@@ -379,12 +328,7 @@ export default function ChatWindow({
 
   const renderMessage = (message: PrototypeChatMessage) => {
     const isUser = message.role === "user";
-
-    // Extract code from message
-    const codeResult = extractCodeFromMessage(message.content);
     const planData = planningData.get(message.id);
-
-    const hasApplicableContent = codeResult.hasCode;
 
     // Determine message type
     const isPlanningMessage =
@@ -514,17 +458,6 @@ export default function ChatWindow({
                           Show Code
                         </>
                       )}
-                    </button>
-                  )}
-
-                  {/* Apply Code Button or Auto-Applied Indicator */}
-                  {!APPLY_CODE_IMMEDIATELY && hasApplicableContent && (
-                    <button
-                      onClick={() => handleApplyCode(message.content)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg text-sm font-semibold hover:bg-green-700 dark:hover:bg-green-800 transition-colors"
-                    >
-                      <PlayIcon className="w-4 h-4" />
-                      Apply Code ({codeResult.codeBlocks.length})
                     </button>
                   )}
                 </div>
