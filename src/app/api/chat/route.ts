@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -421,6 +422,36 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    // JWT Token validation
+    const token = request.headers.get("authorization")?.split(" ")[1];
+    if (!token || !request.headers.get("authorization")?.startsWith("Bearer")) {
+      console.error("No JWT token provided");
+      return NextResponse.json(
+        { error: "Unauthorized: No token provided" },
+        { status: 401 },
+      );
+    }
+
+    let userID: string;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      userID = decoded.sub as string;
+    } catch (error) {
+      console.error("Invalid JWT token: ", error);
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid token" },
+        { status: 401 },
+      );
+    }
+
+    if (!userID) {
+      console.error("User ID is null or undefined from JWT token");
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid user ID" },
+        { status: 401 },
+      );
+    }
+
     const {
       messages,
       snackFiles,
@@ -428,7 +459,6 @@ export async function POST(request: NextRequest) {
       phase,
       stepOperation,
       prototype_id,
-      user_id,
     } = await request.json();
 
     if (!GOOGLE_AI_API_KEY) {
@@ -709,15 +739,14 @@ MANDATORY: Before creating this screen, you MUST:
     }
 
     // Track API usage
-    if (user_id) {
-      const { error: usageError } = await supabase.from("api_usage").insert({
-        user_id: user_id,
-        prototype_id: prototype_id || null,
-      });
+    const { error: usageError } = await supabase.from("api_usage").insert({
+      user_id: userID,
+      prototype_id: prototype_id || null,
+    });
 
-      if (usageError) {
-        console.error("Error tracking API usage:", usageError);
-      }
+    if (usageError) {
+      console.error("Error tracking API usage:", usageError);
+      // Don't throw error here - we don't want to fail the request for usage tracking
     }
 
     return NextResponse.json({

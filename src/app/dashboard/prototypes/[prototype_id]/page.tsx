@@ -298,10 +298,16 @@ export default function CreatePage() {
         );
 
         // Execute the specific operation
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.access_token) {
+          throw new Error("No access token available");
+        }
+
         const stepResponse = await fetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.session.access_token}`,
           },
           body: JSON.stringify({
             chat_session_id: prototypeChatSession?.id || "",
@@ -513,11 +519,19 @@ export default function CreatePage() {
 
       try {
         setIsLoading(true);
+        
+        // Get access token for authentication
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.access_token) {
+          throw new Error("No access token available");
+        }
+
         // Phase 1: Get the planning response
         const planningResponse = await fetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.session.access_token}`,
           },
           body: JSON.stringify({
             chat_session_id: prototypeChatSession.id,
