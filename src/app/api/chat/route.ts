@@ -66,14 +66,12 @@ export async function POST(request: NextRequest) {
     // 3. Parse request body
     const { messages, snackFiles, chat_session_id, prototype_id } =
       await request.json();
-
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
         { error: "Messages array is required" },
         { status: 400 },
       );
     }
-
     const fileManager = new FileManager(snackFiles, prototype_id); // NO DB PERSISTENCE
 
     // 4. Load/generate additional project context
@@ -99,280 +97,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Start streamed response to the client
+    // 5. Start streamed response to the client
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Phase 1: Get the planning response
-          let response = await generateText({
-            model: google("gemini-2.5-flash"),
-            system: PLANNING_PROMPT,
-            tools: {
-              list_files: {
-                description:
-                  "List all files in the project to understand structure",
-                parameters: z.object({}),
-              },
-              read_file: {
-                description:
-                  "Read the contents of a specific file in the project",
-                parameters: z.object({
-                  filePath: z
-                    .string()
-                    .describe(
-                      "The file path to read (e.g., 'screens/PaywallScreen.js')",
-                    ),
-                }),
-              },
-              write_file: {
-                description: "Write or update a file in the project",
-                parameters: z.object({
-                  filePath: z.string().describe("The file path to write to"),
-                  contents: z.string().describe("The complete file contents"),
-                  operation: z
-                    .enum(["create", "modify"])
-                    .describe(
-                      "Whether this is creating a new file or modifying existing",
-                    ),
-                }),
-              },
-            },
-            messages: [
-              ...messages
-                .slice(0, -1)
-                .map((msg: { role: string; content: string }) => ({
-                  role: msg.role as "user" | "assistant",
-                  content: msg.content,
-                })),
-              {
-                role: "user" as const,
-                content: userMessage,
-              },
-            ],
-          });
-
-          let finalResponse = response.text;
-          let toolCallsMade = 0;
-
-          // Handle tool calls iteratively for planning
-          while (response.toolCalls && response.toolCalls.length > 0) {
-            toolCallsMade += response.toolCalls.length;
-            console.log(
-              `🔄 Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
-            );
-
-            const toolResults = [];
-
-            // Execute each tool call
-            for (const toolCall of response.toolCalls) {
-              try {
-                const result = fileManager.handleToolCall({
-                  function: {
-                    name: toolCall.toolName,
-                    arguments: toolCall.args,
-                  },
-                });
-
-                toolResults.push({
-                  toolCallId: toolCall.toolCallId,
-                  result: JSON.stringify(result),
-                });
-              } catch (error) {
-                console.error(
-                  `❌ Tool call failed: ${toolCall.toolName}`,
-                  error,
-                );
-                toolResults.push({
-                  toolCallId: toolCall.toolCallId,
-                  result: JSON.stringify({
-                    error:
-                      error instanceof Error ? error.message : "Unknown error",
-                  }),
-                });
-              }
-            }
-
-            // Continue the conversation with tool results
-            const toolResultsText = toolResults
-              .map((tr) => `Tool ${tr.toolCallId}: ${tr.result}`)
-              .join("\n");
-
-            let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
-            const projectContextContinuation = getProjectContext(snackFiles);
-            if (projectContextContinuation) {
-              continuationMessage += projectContextContinuation;
-            }
-
-            response = await generateText({
-              model: google("gemini-2.5-flash"),
-              system: PLANNING_PROMPT,
-              tools: {
-                list_files: {
-                  description:
-                    "List all files in the project to understand structure",
-                  parameters: z.object({}),
-                },
-                read_file: {
-                  description:
-                    "Read the contents of a specific file in the project",
-                  parameters: z.object({
-                    filePath: z.string().describe("The file path to read"),
-                  }),
-                },
-                write_file: {
-                  description: "Write or update a file in the project",
-                  parameters: z.object({
-                    filePath: z.string().describe("The file path to write to"),
-                    contents: z.string().describe("The complete file contents"),
-                    operation: z
-                      .enum(["create", "modify"])
-                      .describe("Create or modify operation"),
-                  }),
-                },
-              },
-              messages: [
-                ...messages
-                  .slice(0, -1)
-                  .map((msg: { role: string; content: string }) => ({
-                    role: msg.role as "user" | "assistant",
-                    content: msg.content,
-                  })),
-                {
-                  role: "user" as const,
-                  content: userMessage,
-                },
-                {
-                  role: "assistant" as const,
-                  content: finalResponse,
-                },
-                {
-                  role: "user" as const,
-                  content: continuationMessage,
-                },
-              ],
-            });
-
-            finalResponse = response.text;
-
-            // Prevent infinite loops
-            if (toolCallsMade > 50) {
-              finalResponse += `\n\n⚠️ Maximum tool calls reached (50).`;
-              break;
-            }
-          }
-
-          // Save planning message to database
-          const { data: planningMessage } = await supabase
-            .from("prototype_chat_messages")
-            .insert({
-              chat_session_id: chat_session_id,
-              content: finalResponse,
-              role: "assistant",
-              phase: "planning",
-            })
-            .select()
-            .single();
-
-          // Send planning response
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: "planning",
-                content: finalResponse,
-                updatedFiles: fileManager.getFinalState(),
-                messageId: planningMessage?.id,
-              })}\n\n`,
-            ),
+          // 6. Execute planning phase
+          const finalResponse = await handlePlanningPhase(
+            messages,
+            userMessage,
+            fileManager,
+            snackFiles,
+            chat_session_id,
+            controller,
+            encoder,
           );
 
-          // Check if the response contains an execution plan
-          if (finalResponse.includes("EXECUTION_PLAN")) {
-            const planningResult = extractExecutionPlan(finalResponse);
+          // 7. Execute execution phase
+          await handleExecutionPhase(
+            finalResponse,
+            fileManager,
+            messages,
+            snackFiles,
+            prototype_id,
+            controller,
+            encoder,
+          );
 
-            if (
-              planningResult.hasPlan &&
-              planningResult.operations.length > 0
-            ) {
-              // Send execution start
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: "execution_start",
-                    operations: planningResult.operations,
-                  })}\n\n`,
-                ),
-              );
-
-              // Execute each operation step by step
-              for (let i = 0; i < planningResult.operations.length; i++) {
-                const operation = planningResult.operations[i];
-
-                // Send step start
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: "step_start",
-                      stepIndex: i,
-                      operation: operation,
-                    })}\n\n`,
-                  ),
-                );
-
-                try {
-                  const stepResult = await executeStep(
-                    operation,
-                    fileManager,
-                    messages,
-                    snackFiles,
-                    prototype_id,
-                  );
-
-                  // Send step completion
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({
-                        type: "step_complete",
-                        stepIndex: i,
-                        operation: operation,
-                        result: stepResult,
-                        success: stepResult.hasResult,
-                      })}\n\n`,
-                    ),
-                  );
-                } catch (error) {
-                  console.error(`Error executing step ${i + 1}:`, error);
-
-                  // Send step error
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({
-                        type: "step_error",
-                        stepIndex: i,
-                        operation: operation,
-                        error:
-                          error instanceof Error
-                            ? error.message
-                            : "Unknown error",
-                      })}\n\n`,
-                    ),
-                  );
-                }
-              }
-
-              // Send execution complete
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: "execution_complete",
-                    updatedFiles: fileManager.getFinalState(),
-                  })}\n\n`,
-                ),
-              );
-            }
-          }
-
-          // Track API usage
+          // 7. Track API usage
           await supabase.from("api_usage").insert({
             user_id: userID,
             prototype_id: prototype_id || null,
@@ -413,6 +165,282 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 },
     );
+  }
+}
+
+async function handlePlanningPhase(
+  messages: { role: string; content: string }[],
+  userMessage: string,
+  fileManager: FileManager,
+  snackFiles: PrototypeFiles | null,
+  chat_session_id: string,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+): Promise<string> {
+  // Phase 1: Get the planning response
+  let response = await generateText({
+    model: google("gemini-2.5-flash"),
+    system: PLANNING_PROMPT,
+    tools: {
+      list_files: {
+        description: "List all files in the project to understand structure",
+        parameters: z.object({}),
+      },
+      read_file: {
+        description: "Read the contents of a specific file in the project",
+        parameters: z.object({
+          filePath: z
+            .string()
+            .describe(
+              "The file path to read (e.g., 'screens/PaywallScreen.js')",
+            ),
+        }),
+      },
+      write_file: {
+        description: "Write or update a file in the project",
+        parameters: z.object({
+          filePath: z.string().describe("The file path to write to"),
+          contents: z.string().describe("The complete file contents"),
+          operation: z
+            .enum(["create", "modify"])
+            .describe(
+              "Whether this is creating a new file or modifying existing",
+            ),
+        }),
+      },
+    },
+    messages: [
+      ...messages
+        .slice(0, -1)
+        .map((msg: { role: string; content: string }) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        })),
+      {
+        role: "user" as const,
+        content: userMessage,
+      },
+    ],
+  });
+
+  let finalResponse = response.text;
+  let toolCallsMade = 0;
+
+  // Handle tool calls iteratively for planning
+  while (response.toolCalls && response.toolCalls.length > 0) {
+    toolCallsMade += response.toolCalls.length;
+    console.log(
+      `🔄 Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
+    );
+
+    const toolResults = [];
+
+    // Execute each tool call
+    for (const toolCall of response.toolCalls) {
+      try {
+        const result = fileManager.handleToolCall({
+          function: {
+            name: toolCall.toolName,
+            arguments: toolCall.args,
+          },
+        });
+
+        toolResults.push({
+          toolCallId: toolCall.toolCallId,
+          result: JSON.stringify(result),
+        });
+      } catch (error) {
+        console.error(`❌ Tool call failed: ${toolCall.toolName}`, error);
+        toolResults.push({
+          toolCallId: toolCall.toolCallId,
+          result: JSON.stringify({
+            error: error instanceof Error ? error.message : "Unknown error",
+          }),
+        });
+      }
+    }
+
+    // Continue the conversation with tool results
+    const toolResultsText = toolResults
+      .map((tr) => `Tool ${tr.toolCallId}: ${tr.result}`)
+      .join("\n");
+
+    let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
+    const projectContextContinuation = getProjectContext(snackFiles);
+    if (projectContextContinuation) {
+      continuationMessage += projectContextContinuation;
+    }
+
+    response = await generateText({
+      model: google("gemini-2.5-flash"),
+      system: PLANNING_PROMPT,
+      tools: {
+        list_files: {
+          description: "List all files in the project to understand structure",
+          parameters: z.object({}),
+        },
+        read_file: {
+          description: "Read the contents of a specific file in the project",
+          parameters: z.object({
+            filePath: z.string().describe("The file path to read"),
+          }),
+        },
+        write_file: {
+          description: "Write or update a file in the project",
+          parameters: z.object({
+            filePath: z.string().describe("The file path to write to"),
+            contents: z.string().describe("The complete file contents"),
+            operation: z
+              .enum(["create", "modify"])
+              .describe("Create or modify operation"),
+          }),
+        },
+      },
+      messages: [
+        ...messages
+          .slice(0, -1)
+          .map((msg: { role: string; content: string }) => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+          })),
+        {
+          role: "user" as const,
+          content: userMessage,
+        },
+        {
+          role: "assistant" as const,
+          content: finalResponse,
+        },
+        {
+          role: "user" as const,
+          content: continuationMessage,
+        },
+      ],
+    });
+
+    finalResponse = response.text;
+
+    // Prevent infinite loops
+    if (toolCallsMade > 50) {
+      finalResponse += `\n\n⚠️ Maximum tool calls reached (50).`;
+      break;
+    }
+  }
+
+  // Save planning message to database
+  const { data: planningMessage } = await supabase
+    .from("prototype_chat_messages")
+    .insert({
+      chat_session_id: chat_session_id,
+      content: finalResponse,
+      role: "assistant",
+      phase: "planning",
+    })
+    .select()
+    .single();
+
+  // Send planning response
+  controller.enqueue(
+    encoder.encode(
+      `data: ${JSON.stringify({
+        type: "planning",
+        content: finalResponse,
+        updatedFiles: fileManager.getFinalState(),
+        messageId: planningMessage?.id,
+      })}\n\n`,
+    ),
+  );
+
+  return finalResponse;
+}
+
+async function handleExecutionPhase(
+  finalResponse: string,
+  fileManager: FileManager,
+  messages: { role: string; content: string }[],
+  snackFiles: PrototypeFiles | null,
+  prototype_id: string,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+) {
+  // Check if the response contains an execution plan
+  if (finalResponse.includes("EXECUTION_PLAN")) {
+    const planningResult = extractExecutionPlan(finalResponse);
+
+    if (planningResult.hasPlan && planningResult.operations.length > 0) {
+      // Send execution start
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: "execution_start",
+            operations: planningResult.operations,
+          })}\n\n`,
+        ),
+      );
+
+      // Execute each operation step by step
+      for (let i = 0; i < planningResult.operations.length; i++) {
+        const operation = planningResult.operations[i];
+
+        // Send step start
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: "step_start",
+              stepIndex: i,
+              operation: operation,
+            })}\n\n`,
+          ),
+        );
+
+        try {
+          const stepResult = await executeStep(
+            operation,
+            fileManager,
+            messages,
+            snackFiles,
+            prototype_id,
+          );
+
+          // Send step completion
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: "step_complete",
+                stepIndex: i,
+                operation: operation,
+                result: stepResult,
+                success: stepResult.hasResult,
+              })}\n\n`,
+            ),
+          );
+        } catch (error) {
+          console.error(`Error executing step ${i + 1}:`, error);
+
+          // Send step error
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: "step_error",
+                stepIndex: i,
+                operation: operation,
+                error: error instanceof Error ? error.message : "Unknown error",
+              })}\n\n`,
+            ),
+          );
+        }
+      }
+
+      // Send execution complete
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: "execution_complete",
+            updatedFiles: fileManager.getFinalState(),
+          })}\n\n`,
+        ),
+      );
+    }
   }
 }
 
