@@ -37,7 +37,6 @@ export default function CreatePage() {
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
-  const { loadFilesFromDatabase, selectFile } = fileSystem;
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   // Automatically collapse sidebar when page opens
@@ -68,9 +67,8 @@ export default function CreatePage() {
 
     if (prototypeId && user?.id) {
       fetchPrototype();
-      loadFilesFromDatabase(prototypeId);
     }
-  }, [prototypeId, user, setPrototype, loadFilesFromDatabase]);
+  }, [prototypeId, user, setPrototype]);
 
   const handleResetToDefault = useCallback(async () => {
     if (!prototypeId) {
@@ -248,7 +246,7 @@ export default function CreatePage() {
                       <FileTree
                         files={fileSystem.state.files}
                         selectedFile={fileSystem.state.selectedFile}
-                        onFileSelect={selectFile}
+                        onFileSelect={fileSystem.selectFile}
                       />
                     </div>
                   </div>

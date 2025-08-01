@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
@@ -43,23 +43,6 @@ export const useFileSystem = (
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
-
-  // File selection
-  const selectFile = useCallback((filePath: string) => {
-    setSelectedFile(filePath);
-  }, []);
-
-  // Update file content in local state
-  const updateFileContent = useCallback((filePath: string, content: string) => {
-    setFiles((prevFiles) => ({
-      ...prevFiles,
-      [filePath]: {
-        ...prevFiles[filePath],
-        contents: content,
-        updated_at: new Date().toISOString(),
-      },
-    }));
-  }, []);
 
   // Load files from database
   const loadFilesFromDatabase = useCallback(
@@ -111,6 +94,28 @@ export const useFileSystem = (
     },
     [defaultFile, selectedFile],
   );
+
+  useEffect(() => {
+    if (!prototypeId) return;
+    loadFilesFromDatabase(prototypeId);
+  }, [prototypeId, loadFilesFromDatabase]);
+
+  // File selection
+  const selectFile = useCallback((filePath: string) => {
+    setSelectedFile(filePath);
+  }, []);
+
+  // Update file content in local state
+  const updateFileContent = useCallback((filePath: string, content: string) => {
+    setFiles((prevFiles) => ({
+      ...prevFiles,
+      [filePath]: {
+        ...prevFiles[filePath],
+        contents: content,
+        updated_at: new Date().toISOString(),
+      },
+    }));
+  }, []);
 
   // Save files to database
   const saveFilesToDatabase = useCallback(
