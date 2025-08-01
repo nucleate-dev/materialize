@@ -46,7 +46,7 @@ interface ChatWindowProps {
 export default function ChatWindow({
   // Legacy props
   messages: legacyMessages = [],
-  onSendMessage: legacyOnSendMessage,
+  onSendMessage,
   isLoading: legacyIsLoading = false,
   onClearChat,
 }: ChatWindowProps) {
@@ -121,8 +121,8 @@ export default function ChatWindow({
     e.preventDefault();
     if (input.trim() && !isLoading) {
       // Always use the legacy implementation for now since it has the custom phase logic
-      if (legacyOnSendMessage) {
-        legacyOnSendMessage(input.trim());
+      if (onSendMessage) {
+        onSendMessage(input.trim());
         setInput(""); // Clear input after sending
       }
     }
