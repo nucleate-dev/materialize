@@ -178,13 +178,6 @@ export default function CreatePage() {
     }
   };
 
-  const handleExecutePlannedOperation = async (
-    operationId: string,
-  ): Promise<void> => {
-    console.log(`Executing planned operation ${operationId}`);
-    // This is now handled automatically by the step-by-step flow
-  };
-
   const handleClearChat = useCallback(async () => {
     if (!prototypeChatSession?.id) {
       console.error("Clear chat failed: no chat session found");
@@ -299,7 +292,6 @@ export default function CreatePage() {
                 setIsLoading={setIsLoading}
                 // Legacy props for backward compatibility
                 onApplyCode={handleApplyCode}
-                onExecutePlannedOperation={handleExecutePlannedOperation}
                 onClearChat={handleClearChat}
               />
             </div>

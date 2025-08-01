@@ -1,7 +1,7 @@
 "use client";
 
 import { APPLY_CODE_IMMEDIATELY } from "@/GlobalConstants";
-import { CodeExtractionResult, EditOperation } from "@/lib/types/chat";
+import { CodeExtractionResult } from "@/lib/types/chat";
 import { extractCodeFromMessage } from "@/lib/utils/code/codeExtractor";
 import {
   extractExecutionPlan,
@@ -30,27 +30,23 @@ interface ChatWindowProps {
   messages?: PrototypeChatMessage[];
   onSendMessage?: (message: string) => void;
   isLoading?: boolean;
-  
+
   // New props for AI SDK integration
   currentCode?: string;
-  phase?: 'planning' | 'execution' | 'step_execution';
-  snackFiles?: Record<string, { contents: string; type: 'CODE' | 'ASSET' }>;
+  phase?: "planning" | "execution" | "step_execution";
+  snackFiles?: Record<string, { contents: string; type: "CODE" | "ASSET" }>;
   stepOperation?: {
     id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
+    type: "create" | "modify" | "delete" | "move";
     title: string;
     description: string;
     filePath: string;
     newFilePath?: string;
   };
   chatSessionId?: string;
-  
+
   // Preserved functionality
   onApplyCode: (result: CodeExtractionResult) => void;
-  onExecutePlannedOperation: (
-    operationId: string,
-    operations: EditOperation[],
-  ) => Promise<void>;
   onClearChat: () => void;
 }
 
@@ -59,14 +55,13 @@ export default function ChatWindow({
   messages: legacyMessages = [],
   onSendMessage: legacyOnSendMessage,
   isLoading: legacyIsLoading = false,
-  
+
   // Preserved functionality
   onApplyCode,
-  onExecutePlannedOperation,
   onClearChat,
 }: ChatWindowProps) {
   // Legacy input state for custom message handling
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
 
   // Use legacy messages
   const messages = legacyMessages;
@@ -75,7 +70,7 @@ export default function ChatWindow({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
   };
-  
+
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
     new Set(),
   );
@@ -134,7 +129,7 @@ export default function ChatWindow({
       if (prevData.size !== newPlanningData.size) {
         return newPlanningData;
       }
-      
+
       // Check if any values are different
       for (const [key, value] of newPlanningData) {
         const prevValue = prevData.get(key);
@@ -142,7 +137,7 @@ export default function ChatWindow({
           return newPlanningData;
         }
       }
-      
+
       // No changes, return previous data to prevent re-render
       return prevData;
     });
@@ -174,7 +169,7 @@ export default function ChatWindow({
       // Always use the legacy implementation for now since it has the custom phase logic
       if (legacyOnSendMessage) {
         legacyOnSendMessage(input.trim());
-        setInput(''); // Clear input after sending
+        setInput(""); // Clear input after sending
       }
     }
   };
@@ -257,9 +252,6 @@ export default function ChatWindow({
         }
         return newMap;
       });
-
-      // Execute the planned operation
-      await onExecutePlannedOperation(operationId, stepOperations);
 
       // Update operation status to completed
       setPlanningData((prev) => {
@@ -595,7 +587,7 @@ export default function ChatWindow({
                 </p>
               </div>
             </div>
-            
+
             {messages.length > 0 && (
               <button
                 onClick={() => setShowClearConfirmation(true)}
@@ -762,7 +754,9 @@ export default function ChatWindow({
             {/* Modal Content */}
             <div className="p-6">
               <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Are you sure you want to clear all chat messages? This action cannot be undone and will permanently delete your conversation history.
+                Are you sure you want to clear all chat messages? This action
+                cannot be undone and will permanently delete your conversation
+                history.
               </p>
 
               {/* Modal Actions */}
