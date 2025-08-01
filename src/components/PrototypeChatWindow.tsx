@@ -410,8 +410,6 @@ export default function PrototypeChatWindow({
             chat_session_id: prototypeChatSession.id,
             messages: [...prototypeChatMessages, userMessage],
             snackFiles: files,
-            currentCode: files[selectedFile]?.contents || "",
-            phase: "planning",
           }),
         });
 
