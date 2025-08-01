@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import Loader from "@/components/dashboard/Loader";
@@ -20,6 +20,7 @@ type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 export default function PrototypePage() {
   const { user, userIsLoading } = useUser();
   const params = useParams<{ prototype_id: string }>();
+  const router = useRouter();
   const prototypeId = params?.prototype_id;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
@@ -28,6 +29,7 @@ export default function PrototypePage() {
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCloning, setIsCloning] = useState(false);
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -83,9 +85,56 @@ export default function PrototypePage() {
     fetchPrototypeData();
   }, [prototypeId]);
 
-  const handleClonePrototype = () => {
-    // TODO: Implement clone/fork functionality
-    console.log("Clone prototype:", prototypeId);
+  const handleClonePrototype = async () => {
+    if (!user || !prototype || !prototypeId) return;
+
+    try {
+      setIsCloning(true);
+
+      // Create new prototype
+      const clonedPrototypeName = `${prototype.name} (Copy)`;
+      const { data: newPrototype, error: prototypeError } = await supabase
+        .from("prototypes")
+        .insert({
+          name: clonedPrototypeName,
+          description: prototype.description,
+          owner_id: user.id,
+          project_id: prototype.project_id,
+          prototype_context: prototype.prototype_context,
+          visibility: "SELF" as const,
+        })
+        .select()
+        .single();
+
+      if (prototypeError) {
+        throw prototypeError;
+      }
+
+      // Copy all files to the new prototype
+      const filesToCopy = Object.values(prototypeFiles).map((file) => ({
+        prototype_id: newPrototype.id,
+        name: file.name,
+        contents: file.contents,
+      }));
+
+      const { error: filesError } = await supabase
+        .from("prototype_files")
+        .insert(filesToCopy);
+
+      if (filesError) {
+        throw filesError;
+      }
+
+      // Navigate to the new prototype in dashboard
+      router.push(`/dashboard/prototypes/${newPrototype.id}`);
+    } catch (err) {
+      console.error("Error cloning prototype:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to clone prototype",
+      );
+    } finally {
+      setIsCloning(false);
+    }
   };
 
   if (userIsLoading || isLoading) {
@@ -184,13 +233,29 @@ export default function PrototypePage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleClonePrototype}
-                  className="group relative bg-gradient-to-r from-primary via-secondary to-meta-5 hover:from-primary/90 hover:via-secondary/90 hover:to-meta-5/90 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/40 dark:hover:shadow-primary/60 ring-2 ring-white/20 dark:ring-primary/30 hover:ring-white/30 dark:hover:ring-primary/50 flex items-center gap-3"
+                  disabled={isCloning || !user}
+                  className={`group relative px-6 py-3 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 ${
+                    isCloning || !user
+                      ? "bg-stroke/50 dark:bg-strokedark/50 text-body/40 dark:text-bodydark/40 cursor-not-allowed"
+                      : "bg-gradient-to-r from-primary via-secondary to-meta-5 hover:from-primary/90 hover:via-secondary/90 hover:to-meta-5/90 text-white hover:scale-105 hover:shadow-xl hover:shadow-primary/40 dark:hover:shadow-primary/60 ring-2 ring-white/20 dark:ring-primary/30 hover:ring-white/30 dark:hover:ring-primary/50"
+                  }`}
                 >
                   {/* Button glow effect */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary/30 to-secondary/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  {!isCloning && !(!user) && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary/30 to-secondary/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  )}
 
-                  <DocumentDuplicateIcon className="relative w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
-                  <span className="relative">Clone Prototype</span>
+                  {isCloning ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-body/30 border-t-body rounded-full animate-spin"></div>
+                      <span className="relative">Cloning...</span>
+                    </>
+                  ) : (
+                    <>
+                      <DocumentDuplicateIcon className="relative w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+                      <span className="relative">Clone Prototype</span>
+                    </>
+                  )}
                 </button>
 
                 <button className="group p-3 bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 rounded-xl border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110">
@@ -208,7 +273,7 @@ export default function PrototypePage() {
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
 
             <div className="relative z-10 h-full">
-              <ExpoSnackViewer files={prototypeFiles} />
+              <ExpoSnackViewer files={prototypeFiles} hideControls={true} />
             </div>
           </div>
         </div>
