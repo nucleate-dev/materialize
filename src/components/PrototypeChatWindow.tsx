@@ -20,7 +20,7 @@ export interface PrototypeChatWindowProps {
   // File system integration
   files: Record<string, PrototypeFile>;
   selectedFile: string;
-  onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
+  onFilesUpdate: (files: Record<string, PrototypeFile>) => Promise<void>;
 
   // Loading state
   isLoading: boolean;
@@ -181,7 +181,7 @@ export default function PrototypeChatWindow({
 
                     // Save updated files from planning
                     if (data.updatedFiles) {
-                      onFilesUpdate(data.updatedFiles);
+                      await onFilesUpdate(data.updatedFiles);
                     }
                     break;
                   }
@@ -241,7 +241,7 @@ export default function PrototypeChatWindow({
                     const { stepIndex, result, success } = data;
 
                     if (success && result.updatedFiles) {
-                      onFilesUpdate(result.updatedFiles);
+                      await onFilesUpdate(result.updatedFiles);
                     }
 
                     // Update the execution message to show completion
@@ -304,7 +304,7 @@ export default function PrototypeChatWindow({
 
                     // Save final updated files
                     if (data.updatedFiles) {
-                      onFilesUpdate(data.updatedFiles);
+                      await onFilesUpdate(data.updatedFiles);
                     }
 
                     // Update final execution message
@@ -371,6 +371,7 @@ export default function PrototypeChatWindow({
         return;
       }
 
+      // 1. INSERT USER MESSAGE TO DB
       const { data: userMessage, error: insertError } = await supabase
         .from("prototype_chat_messages")
         .insert({
@@ -380,14 +381,13 @@ export default function PrototypeChatWindow({
         })
         .select()
         .single();
-
       if (insertError) {
         console.error("Error inserting user message:", insertError);
         return;
       }
-
       setPrototypeChatMessages([...prototypeChatMessages, userMessage]);
 
+      // 2. SEND MESSAGE TO CHAT API
       try {
         setIsLoading(true);
 
@@ -406,12 +406,12 @@ export default function PrototypeChatWindow({
             Authorization: `Bearer ${session.session.access_token}`,
           },
           body: JSON.stringify({
+            prototype_id: prototypeId,
             chat_session_id: prototypeChatSession.id,
             messages: [...prototypeChatMessages, userMessage],
+            snackFiles: files,
             currentCode: files[selectedFile]?.contents || "",
             phase: "planning",
-            snackFiles: files,
-            prototype_id: prototypeId,
           }),
         });
 

@@ -5,9 +5,7 @@ import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
-import { 
-  extractExecutionPlan,
-} from "@/lib/utils/code/planningExtractor";
+import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -28,7 +26,7 @@ class FileManager {
     this.prototypeId = prototypeId || null;
   }
 
-  async handleToolCall(toolCall: {
+  handleToolCall(toolCall: {
     function: { name: string; arguments: Record<string, unknown> };
   }) {
     const { name, arguments: args } = toolCall.function;
@@ -40,7 +38,7 @@ class FileManager {
         return this.readFile(args.filePath as string);
 
       case "write_file":
-        return await this.writeFile(
+        return this.writeFile(
           args.filePath as string,
           args.contents as string,
           args.operation as string,
@@ -67,7 +65,7 @@ class FileManager {
     };
   }
 
-  async writeFile(filePath: string, contents: string, operation: string) {
+  writeFile(filePath: string, contents: string, operation: string) {
     const existingFile = this.files.get(filePath);
 
     if (operation === "modify" && !existingFile) {
@@ -97,73 +95,13 @@ class FileManager {
 
     this.files.set(filePath, updatedFile);
 
-    // SOURISH: REMOVING THIS -- WE SHOULD UPDATE THE DATABASE FROM THE CLIENT
-    // Persist to database if prototypeId is available
-    if (this.prototypeId) {
-      try {
-        console.log(`💾 Saving file to database: ${filePath}`);
+    console.log(
+      `✅ Successfully ${operation}d file ${filePath} in memory (database updates handled by client)`,
+    );
 
-        if (existingFile?.id) {
-          // Update existing file in database
-          const { error } = await supabase
-            .from("prototype_files")
-            .update({
-              contents,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingFile.id);
-
-          if (error) {
-            console.error(
-              `❌ Error updating file ${filePath} in database:`,
-              error,
-            );
-            return {
-              error: `Database update failed for ${filePath}: ${error.message}`,
-            };
-          }
-          console.log(`✅ Successfully updated file ${filePath} in database`);
-        } else {
-          // Create new file in database
-          const { data, error } = await supabase
-            .from("prototype_files")
-            .insert({
-              prototype_id: this.prototypeId,
-              name: filePath,
-              contents,
-            })
-            .select()
-            .single();
-
-          if (error) {
-            console.error(
-              `❌ Error creating file ${filePath} in database:`,
-              error,
-            );
-            return {
-              error: `Database insert failed for ${filePath}: ${error.message}`,
-            };
-          }
-
-          // Update the in-memory file with the database ID
-          if (data) {
-            this.files.set(filePath, { ...updatedFile, id: data.id });
-            console.log(
-              `✅ Successfully created file ${filePath} in database with ID: ${data.id}`,
-            );
-          }
-        }
-      } catch (error) {
-        console.error(`❌ Unexpected error saving file ${filePath}:`, error);
-        return {
-          error: `Unexpected error saving ${filePath}: ${error instanceof Error ? error.message : "Unknown error"}`,
-        };
-      }
-    } else {
-      console.warn(
-        `⚠️ No prototypeId provided, file ${filePath} not saved to database`,
-      );
-    }
+    // Database updates are handled by the client filesystem
+    // The client will receive the updated files through the getFinalState() method
+    // and handle database persistence through the file system manager
 
     return {
       success: true,
@@ -437,7 +375,7 @@ async function executeStep(
   messages: { role: string; content: string }[],
   snackFiles: PrototypeFiles | null,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _prototype_id: string
+  _prototype_id: string,
 ) {
   const executionContext = `
 EXECUTING STEP: ${operation.id}
@@ -525,7 +463,7 @@ MANDATORY: Before creating this screen, you MUST:
     // Execute each tool call
     for (const toolCall of response.toolCalls) {
       try {
-        const result = await fileManager.handleToolCall({
+        const result = fileManager.handleToolCall({
           function: {
             name: toolCall.toolName,
             arguments: toolCall.args,
@@ -634,7 +572,9 @@ MANDATORY: Before creating this screen, you MUST:
   return {
     content: finalResponse,
     updatedFiles: fileManager.getFinalState(),
-    hasResult: finalResponse.includes("✅ Step completed") || finalResponse.includes("Successfully"),
+    hasResult:
+      finalResponse.includes("✅ Step completed") ||
+      finalResponse.includes("Successfully"),
   };
 }
 
@@ -706,7 +646,7 @@ export async function POST(request: NextRequest) {
         fileManager,
         messages,
         snackFiles,
-        prototype_id
+        prototype_id,
       );
 
       // Save step result to database
@@ -762,7 +702,7 @@ export async function POST(request: NextRequest) {
     if (expectsStreaming) {
       // Return a streaming response
       const encoder = new TextEncoder();
-      
+
       const stream = new ReadableStream({
         async start(controller) {
           try {
@@ -772,11 +712,13 @@ export async function POST(request: NextRequest) {
               system: PLANNING_PROMPT,
               tools: {
                 list_files: {
-                  description: "List all files in the project to understand structure",
+                  description:
+                    "List all files in the project to understand structure",
                   parameters: z.object({}),
                 },
                 read_file: {
-                  description: "Read the contents of a specific file in the project",
+                  description:
+                    "Read the contents of a specific file in the project",
                   parameters: z.object({
                     filePath: z
                       .string()
@@ -827,7 +769,7 @@ export async function POST(request: NextRequest) {
               // Execute each tool call
               for (const toolCall of response.toolCalls) {
                 try {
-                  const result = await fileManager.handleToolCall({
+                  const result = fileManager.handleToolCall({
                     function: {
                       name: toolCall.toolName,
                       arguments: toolCall.args,
@@ -839,11 +781,17 @@ export async function POST(request: NextRequest) {
                     result: JSON.stringify(result),
                   });
                 } catch (error) {
-                  console.error(`❌ Tool call failed: ${toolCall.toolName}`, error);
+                  console.error(
+                    `❌ Tool call failed: ${toolCall.toolName}`,
+                    error,
+                  );
                   toolResults.push({
                     toolCallId: toolCall.toolCallId,
                     result: JSON.stringify({
-                      error: error instanceof Error ? error.message : "Unknown error",
+                      error:
+                        error instanceof Error
+                          ? error.message
+                          : "Unknown error",
                     }),
                   });
                 }
@@ -870,7 +818,8 @@ export async function POST(request: NextRequest) {
                     parameters: z.object({}),
                   },
                   read_file: {
-                    description: "Read the contents of a specific file in the project",
+                    description:
+                      "Read the contents of a specific file in the project",
                     parameters: z.object({
                       filePath: z.string().describe("The file path to read"),
                     }),
@@ -878,8 +827,12 @@ export async function POST(request: NextRequest) {
                   write_file: {
                     description: "Write or update a file in the project",
                     parameters: z.object({
-                      filePath: z.string().describe("The file path to write to"),
-                      contents: z.string().describe("The complete file contents"),
+                      filePath: z
+                        .string()
+                        .describe("The file path to write to"),
+                      contents: z
+                        .string()
+                        .describe("The complete file contents"),
                       operation: z
                         .enum(["create", "modify"])
                         .describe("Create or modify operation"),
@@ -930,34 +883,49 @@ export async function POST(request: NextRequest) {
               .single();
 
             // Send planning response
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: "planning",
-              content: finalResponse,
-              updatedFiles: fileManager.getFinalState(),
-              messageId: planningMessage?.id
-            })}\n\n`));
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "planning",
+                  content: finalResponse,
+                  updatedFiles: fileManager.getFinalState(),
+                  messageId: planningMessage?.id,
+                })}\n\n`,
+              ),
+            );
 
             // Check if the response contains an execution plan
             if (finalResponse.includes("EXECUTION_PLAN")) {
               const planningResult = extractExecutionPlan(finalResponse);
 
-              if (planningResult.hasPlan && planningResult.operations.length > 0) {
+              if (
+                planningResult.hasPlan &&
+                planningResult.operations.length > 0
+              ) {
                 // Send execution start
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                  type: "execution_start",
-                  operations: planningResult.operations
-                })}\n\n`));
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: "execution_start",
+                      operations: planningResult.operations,
+                    })}\n\n`,
+                  ),
+                );
 
                 // Execute each operation step by step
                 for (let i = 0; i < planningResult.operations.length; i++) {
                   const operation = planningResult.operations[i];
-                  
+
                   // Send step start
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                    type: "step_start",
-                    stepIndex: i,
-                    operation: operation
-                  })}\n\n`));
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({
+                        type: "step_start",
+                        stepIndex: i,
+                        operation: operation,
+                      })}\n\n`,
+                    ),
+                  );
 
                   try {
                     const stepResult = await executeStep(
@@ -965,36 +933,50 @@ export async function POST(request: NextRequest) {
                       fileManager,
                       messages,
                       snackFiles,
-                      prototype_id
+                      prototype_id,
                     );
 
                     // Send step completion
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                      type: "step_complete",
-                      stepIndex: i,
-                      operation: operation,
-                      result: stepResult,
-                      success: stepResult.hasResult
-                    })}\n\n`));
-
+                    controller.enqueue(
+                      encoder.encode(
+                        `data: ${JSON.stringify({
+                          type: "step_complete",
+                          stepIndex: i,
+                          operation: operation,
+                          result: stepResult,
+                          success: stepResult.hasResult,
+                        })}\n\n`,
+                      ),
+                    );
                   } catch (error) {
                     console.error(`Error executing step ${i + 1}:`, error);
-                    
+
                     // Send step error
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                      type: "step_error",
-                      stepIndex: i,
-                      operation: operation,
-                      error: error instanceof Error ? error.message : "Unknown error"
-                    })}\n\n`));
+                    controller.enqueue(
+                      encoder.encode(
+                        `data: ${JSON.stringify({
+                          type: "step_error",
+                          stepIndex: i,
+                          operation: operation,
+                          error:
+                            error instanceof Error
+                              ? error.message
+                              : "Unknown error",
+                        })}\n\n`,
+                      ),
+                    );
                   }
                 }
 
                 // Send execution complete
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                  type: "execution_complete",
-                  updatedFiles: fileManager.getFinalState()
-                })}\n\n`));
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: "execution_complete",
+                      updatedFiles: fileManager.getFinalState(),
+                    })}\n\n`,
+                  ),
+                );
               }
             }
 
@@ -1007,20 +989,27 @@ export async function POST(request: NextRequest) {
             controller.close();
           } catch (error) {
             console.error("Streaming error:", error);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-              type: "error",
-              error: error instanceof Error ? error.message : "Internal server error"
-            })}\n\n`));
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "error",
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Internal server error",
+                })}\n\n`,
+              ),
+            );
             controller.close();
           }
-        }
+        },
       });
 
       return new Response(stream, {
         headers: {
-          'Content-Type': 'text/plain',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
+          "Content-Type": "text/plain",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
         },
       });
     }
@@ -1090,7 +1079,7 @@ export async function POST(request: NextRequest) {
           console.log(
             `📞 Executing tool call: ${toolCall.toolName} (ID: ${toolCall.toolCallId})`,
           );
-          const result = await fileManager.handleToolCall({
+          const result = fileManager.handleToolCall({
             function: {
               name: toolCall.toolName,
               arguments: toolCall.args,

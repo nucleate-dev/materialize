@@ -25,7 +25,7 @@ export interface FileSystemActions {
 
   // Bulk file operations
   setFiles: (files: Record<string, PrototypeFile>) => void;
-  applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => void;
+  applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => Promise<void>;
 
   // Utilities
   getFileContent: (filePath: string) => string;
@@ -255,7 +255,8 @@ export const useFileSystem = (
 
   // Apply file updates from external sources (like chat API responses)
   const applyFileUpdates = useCallback(
-    (updatedFiles: Record<string, PrototypeFile>) => {
+    async (updatedFiles: Record<string, PrototypeFile>) => {
+      // Update local state first
       setFiles((prevFiles) => {
         const newFiles = { ...prevFiles };
         Object.entries(updatedFiles).forEach(([filePath, fileData]) => {
@@ -263,8 +264,13 @@ export const useFileSystem = (
         });
         return JSON.parse(JSON.stringify(newFiles)); // Deep copy for React detection
       });
+
+      // Persist to database
+      console.log("🔄 Saving file updates to database:", Object.keys(updatedFiles));
+      await saveFilesToDatabase(updatedFiles);
+      console.log("✅ File updates saved to database");
     },
-    [],
+    [saveFilesToDatabase],
   );
 
   // Get content of specific file
