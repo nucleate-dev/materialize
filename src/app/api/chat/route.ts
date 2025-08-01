@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
             prototype_id,
             controller,
             encoder,
+            chat_session_id,
           );
 
           // 7. Track API usage
@@ -362,6 +363,7 @@ async function handleExecutionPhase(
   prototype_id: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
   encoder: TextEncoder,
+  chat_session_id: string,
 ) {
   // Check if the response contains an execution plan
   if (finalResponse.includes("EXECUTION_PLAN")) {
@@ -440,6 +442,18 @@ async function handleExecutionPhase(
           })}\n\n`,
         ),
       );
+
+      // Save execution summary message to database
+      const executionSummary = `🎉 Execution completed! Successfully processed ${planningResult.operations.length} operations:\n\n${planningResult.operations
+        .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
+        .join("\n")}`;
+
+      await supabase.from("prototype_chat_messages").insert({
+        chat_session_id: chat_session_id,
+        content: executionSummary,
+        role: "assistant" as const,
+        phase: "execution",
+      });
     }
   }
 }
