@@ -10,6 +10,7 @@ import {
 } from "@/lib/utils/code/planningExtractor";
 import { v4 as uuidv4 } from "uuid";
 import ChatWindow from "@/components/ChatWindow";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -18,19 +19,13 @@ type PrototypeChatMessage =
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export interface PrototypeChatWindowProps {
-  // Chat session and messages
-  chatSession: PrototypeChatSession | null;
-  messages: PrototypeChatMessage[];
-  onMessagesUpdate: (messages: PrototypeChatMessage[]) => void;
+  prototypeId: string | undefined;
 
   // File system integration
   files: Record<string, PrototypeFile>;
   selectedFile: string;
   onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
   onFileContentUpdate: (filePath: string, content: string) => void;
-
-  // Prototype context
-  prototypeId: string;
 
   // Loading state
   isLoading: boolean;
@@ -41,14 +36,10 @@ export interface PrototypeChatWindowProps {
     result: CodeExtractionResult,
     plannedFilePaths?: string[],
   ) => void;
-  onExecutePlannedOperation?: (operationId: string) => Promise<void>;
   onClearChat?: () => void;
 }
 
 export default function PrototypeChatWindow({
-  chatSession,
-  messages,
-  onMessagesUpdate,
   files,
   selectedFile,
   onFilesUpdate,
@@ -57,11 +48,76 @@ export default function PrototypeChatWindow({
   isLoading,
   setIsLoading,
   onApplyCode,
-  onExecutePlannedOperation,
   onClearChat,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
   const [isExecutingOperations, setIsExecutingOperations] = useState(false);
+  const [prototypeChatSession, setPrototypeChatSession] =
+    useState<PrototypeChatSession | null>(null);
+  const [prototypeChatMessages, setPrototypeChatMessages] = useState<
+    PrototypeChatMessage[]
+  >([]);
+
+  const { user } = useUser();
+  const userId = user?.id;
+
+  useEffect(() => {
+    async function fetchPrototypeChatSessionAndMessages() {
+      if (!prototypeId || !userId) return;
+
+      // fetch or create project chat session
+      const { data, error } = await supabase
+        .from("prototype_chat_sessions")
+        .select("*")
+        .eq("prototype_id", prototypeId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching project chat session:", error);
+        return;
+      }
+
+      let chatSession = data;
+      if (!chatSession) {
+        // No session found, create one
+        const { data: newSession, error: createError } = await supabase
+          .from("prototype_chat_sessions")
+          .insert({ prototype_id: prototypeId, user_id: userId })
+          .select()
+          .single();
+        if (createError) {
+          console.error("Error creating project chat session:", createError);
+          return;
+        }
+        chatSession = newSession;
+        setPrototypeChatSession(newSession);
+        console.log("Created new project chat session:", chatSession);
+      } else {
+        setPrototypeChatSession(chatSession);
+        console.log("Fetched project chat session:", chatSession);
+      }
+
+      // Then fetch the messages for this session
+      const { data: messagesData, error: messagesError } = await supabase
+        .from("prototype_chat_messages")
+        .select("*")
+        .eq("chat_session_id", chatSession.id)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      if (messagesError) {
+        console.error("Error fetching chat messages:", messagesError);
+        return;
+      }
+
+      // Reverse to get chronological order (oldest first)
+      setPrototypeChatMessages(messagesData?.reverse() || []);
+      console.log("Fetched chat messages:", messagesData);
+    }
+
+    if (prototypeId && userId) {
+      fetchPrototypeChatSessionAndMessages();
+    }
+  }, [prototypeId, userId]);
 
   // Animate loading dots only when executing operations
   useEffect(() => {
@@ -99,7 +155,7 @@ export default function PrototypeChatWindow({
       const executionMessageId = uuidv4();
       const initialExecutionMessage: PrototypeChatMessage = {
         id: executionMessageId,
-        chat_session_id: chatSession?.id || "",
+        chat_session_id: prototypeChatSession?.id || "",
         role: "assistant",
         phase: "execution",
         content: `🔄 Executing ${operations.length} operations...\n\n${operations
@@ -110,7 +166,7 @@ export default function PrototypeChatWindow({
 
       setIsExecutingOperations(true); // Start animation
       let currentMessagesState = [...currentMessages, initialExecutionMessage];
-      onMessagesUpdate(currentMessagesState);
+      setPrototypeChatMessages(currentMessagesState);
 
       let completedSteps = 0;
       let failedSteps = 0;
@@ -142,7 +198,7 @@ export default function PrototypeChatWindow({
               ? { ...msg, content: loadingContent }
               : msg,
           );
-          onMessagesUpdate(currentMessagesState);
+          setPrototypeChatMessages(currentMessagesState);
 
           // Execute the specific operation
           const { data: session } = await supabase.auth.getSession();
@@ -157,7 +213,7 @@ export default function PrototypeChatWindow({
               Authorization: `Bearer ${session.session.access_token}`,
             },
             body: JSON.stringify({
-              chat_session_id: chatSession?.id || "",
+              chat_session_id: prototypeChatSession?.id || "",
               messages: currentMessages,
               currentCode: files[selectedFile]?.contents || "",
               phase: "step_execution",
@@ -208,7 +264,7 @@ export default function PrototypeChatWindow({
             {
               id: `step-${Date.now()}-${i}`,
               role: "assistant",
-              chat_session_id: chatSession?.id || "",
+              chat_session_id: prototypeChatSession?.id || "",
               content: stepResult.hasResult
                 ? `✅ Completed: ${operation.title}`
                 : `❌ Failed: ${operation.title}`,
@@ -242,15 +298,15 @@ export default function PrototypeChatWindow({
       currentMessagesState = currentMessagesState.map((msg) =>
         msg.id === executionMessageId ? { ...msg, content: finalContent } : msg,
       );
-      onMessagesUpdate(currentMessagesState);
+      setPrototypeChatMessages(currentMessagesState);
       setIsExecutingOperations(false); // Stop animation
     },
     [
-      chatSession,
-      messages,
+      prototypeChatMessages,
+      prototypeChatMessages,
       files,
       selectedFile,
-      onMessagesUpdate,
+      setPrototypeChatMessages,
       onFilesUpdate,
       onFileContentUpdate,
       prototypeId,
@@ -261,7 +317,7 @@ export default function PrototypeChatWindow({
   // Handle sending messages
   const handleSendMessage = useCallback(
     async (content: string) => {
-      if (!chatSession?.id) {
+      if (!prototypeChatSession?.id) {
         console.error("Sending message failed: no chat session found");
         return;
       }
@@ -269,7 +325,7 @@ export default function PrototypeChatWindow({
       const { data: userMessage, error: insertError } = await supabase
         .from("prototype_chat_messages")
         .insert({
-          chat_session_id: chatSession.id,
+          chat_session_id: prototypeChatSession.id,
           content: content,
           role: "user" as const,
         })
@@ -281,7 +337,7 @@ export default function PrototypeChatWindow({
         return;
       }
 
-      onMessagesUpdate([...messages, userMessage]);
+      setPrototypeChatMessages([...prototypeChatMessages, userMessage]);
 
       try {
         setIsLoading(true);
@@ -300,8 +356,8 @@ export default function PrototypeChatWindow({
             Authorization: `Bearer ${session.session.access_token}`,
           },
           body: JSON.stringify({
-            chat_session_id: chatSession.id,
-            messages: [...messages, userMessage],
+            chat_session_id: prototypeChatSession.id,
+            messages: [...prototypeChatMessages, userMessage],
             currentCode: files[selectedFile]?.contents || "",
             phase: "planning",
             snackFiles: files,
@@ -318,14 +374,18 @@ export default function PrototypeChatWindow({
 
         const planningMessage: PrototypeChatMessage = {
           id: (Date.now() + 1).toString(),
-          chat_session_id: chatSession?.id || "",
+          chat_session_id: prototypeChatSession?.id || "",
           role: "assistant",
           content: planningData.content,
           created_at: new Date().toISOString(),
           phase: "planning",
         };
 
-        onMessagesUpdate([...messages, userMessage, planningMessage]);
+        setPrototypeChatMessages([
+          ...prototypeChatMessages,
+          userMessage,
+          planningMessage,
+        ]);
 
         // Save updated files to database if returned from planning API
         if (planningData.updatedFiles) {
@@ -340,7 +400,7 @@ export default function PrototypeChatWindow({
           if (planningResult.hasPlan && planningResult.operations.length > 0) {
             // Execute each operation step by step
             await executeOperationsStepByStep(planningResult.operations, [
-              ...messages,
+              ...prototypeChatMessages,
               userMessage,
               planningMessage,
             ]);
@@ -351,7 +411,7 @@ export default function PrototypeChatWindow({
 
         const errorMessage: PrototypeChatMessage = {
           id: (Date.now() + 1).toString(),
-          chat_session_id: chatSession?.id || "",
+          chat_session_id: prototypeChatSession?.id || "",
           role: "assistant",
           content:
             "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
@@ -359,15 +419,19 @@ export default function PrototypeChatWindow({
           phase: "execution",
         };
 
-        onMessagesUpdate([...messages, userMessage, errorMessage]);
+        setPrototypeChatMessages([
+          ...prototypeChatMessages,
+          userMessage,
+          errorMessage,
+        ]);
       } finally {
         setIsLoading(false);
       }
     },
     [
-      chatSession,
-      messages,
-      onMessagesUpdate,
+      prototypeChatSession,
+      prototypeChatMessages,
+      setPrototypeChatMessages,
       setIsLoading,
       files,
       selectedFile,
@@ -381,13 +445,13 @@ export default function PrototypeChatWindow({
   const handleClearChat = useCallback(async () => {
     if (onClearChat) {
       await onClearChat();
-    } else if (chatSession?.id) {
+    } else if (prototypeChatSession?.id) {
       try {
         // Delete all messages for this chat session
         const { error } = await supabase
           .from("prototype_chat_messages")
           .delete()
-          .eq("chat_session_id", chatSession.id);
+          .eq("chat_session_id", prototypeChatSession.id);
 
         if (error) {
           console.error("Error clearing chat messages:", error);
@@ -395,32 +459,25 @@ export default function PrototypeChatWindow({
         }
 
         // Clear the local state
-        onMessagesUpdate([]);
+        setPrototypeChatMessages([]);
         console.log("Chat cleared successfully");
       } catch (error) {
         console.error("Error clearing chat:", error);
       }
     }
-  }, [chatSession, onClearChat, onMessagesUpdate]);
+  }, [prototypeChatSession, onClearChat, setPrototypeChatMessages]);
 
   // Default handlers for optional props
   const defaultApplyCode = (result: CodeExtractionResult) => {
     console.log("Default onApplyCode called:", result);
   };
 
-  const defaultExecutePlannedOperation = async (operationId: string) => {
-    console.log("Default onExecutePlannedOperation called:", operationId);
-  };
-
   return (
     <ChatWindow
-      messages={messages}
+      messages={prototypeChatMessages}
       onSendMessage={handleSendMessage}
       isLoading={isLoading}
       onApplyCode={onApplyCode || defaultApplyCode}
-      onExecutePlannedOperation={
-        onExecutePlannedOperation || defaultExecutePlannedOperation
-      }
       onClearChat={handleClearChat}
     />
   );

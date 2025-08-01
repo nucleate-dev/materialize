@@ -23,10 +23,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeChatSession =
-  Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
-type PrototypeChatMessage =
-  Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -39,15 +35,11 @@ export default function CreatePage() {
   const [isPreviewView, setIsPreviewView] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [prototypeChatSession, setPrototypeChatSession] =
-    useState<PrototypeChatSession | null>(null);
-  const [prototypeChatMessages, setPrototypeChatMessages] = useState<
-    PrototypeChatMessage[]
-  >([]);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
+  const { loadFilesFromDatabase } = fileSystem;
   const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
 
   // Automatically collapse sidebar when page opens
@@ -76,70 +68,11 @@ export default function CreatePage() {
       console.log("Fetched prototype:", data);
     }
 
-    async function fetchPrototypeChatSessionAndMessages() {
-      if (!prototypeId || !user?.id) return;
-
-      // fetch or create project chat session
-      const { data, error } = await supabase
-        .from("prototype_chat_sessions")
-        .select("*")
-        .eq("prototype_id", prototypeId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) {
-        console.error("Error fetching project chat session:", error);
-        return;
-      }
-
-      let chatSession = data;
-      if (!chatSession) {
-        // No session found, create one
-        const { data: newSession, error: createError } = await supabase
-          .from("prototype_chat_sessions")
-          .insert({ prototype_id: prototypeId, user_id: user.id })
-          .select()
-          .single();
-        if (createError) {
-          console.error("Error creating project chat session:", createError);
-          return;
-        }
-        chatSession = newSession;
-        setPrototypeChatSession(newSession);
-        console.log("Created new project chat session:", chatSession);
-      } else {
-        setPrototypeChatSession(chatSession);
-        console.log("Fetched project chat session:", chatSession);
-      }
-
-      // Then fetch the messages for this session
-      const { data: messagesData, error: messagesError } = await supabase
-        .from("prototype_chat_messages")
-        .select("*")
-        .eq("chat_session_id", chatSession.id)
-        .order("created_at", { ascending: false })
-        .limit(40);
-      if (messagesError) {
-        console.error("Error fetching chat messages:", messagesError);
-        return;
-      }
-
-      // Reverse to get chronological order (oldest first)
-      setPrototypeChatMessages(messagesData?.reverse() || []);
-      console.log("Fetched chat messages:", messagesData);
-    }
-
     if (prototypeId && user?.id) {
       fetchPrototype();
-      fetchPrototypeChatSessionAndMessages();
-      fileSystem.loadFilesFromDatabase(prototypeId);
+      loadFilesFromDatabase(prototypeId);
     }
-  }, [
-    prototypeId,
-    user,
-    setPrototype,
-    setPrototypeChatSession,
-    setPrototypeChatMessages,
-  ]);
+  }, [prototypeId, user, setPrototype, loadFilesFromDatabase]);
 
   const handleResetToDefault = useCallback(async () => {
     if (!prototypeId) {
@@ -177,46 +110,6 @@ export default function CreatePage() {
       fileSystem.setFiles(newFiles);
     }
   };
-
-  const handleClearChat = useCallback(async () => {
-    if (!prototypeChatSession?.id) {
-      console.error("Clear chat failed: no chat session found");
-      return;
-    }
-
-    try {
-      // Delete all messages for this chat session
-      const { error } = await supabase
-        .from("prototype_chat_messages")
-        .delete()
-        .eq("chat_session_id", prototypeChatSession.id);
-
-      if (error) {
-        console.error("Error clearing chat messages:", error);
-        return;
-      }
-
-      // Clear the local state
-      setPrototypeChatMessages([]);
-      console.log("Chat cleared successfully");
-    } catch (error) {
-      console.error("Error clearing chat:", error);
-    }
-  }, [prototypeChatSession]);
-
-  // const handleFilesChange = (files: SnackFiles) => {
-  //   // Create a deep copy to ensure React detects the change
-  //   setPrototypeFiles(JSON.parse(JSON.stringify(files)));
-
-  //   // Update the main app code based on selected file
-  //   if (files[selectedFile]) {
-  //     setMainAppCode(files[selectedFile].contents);
-  //   } else if (files[defaultFile]) {
-  //     // Fallback to default file if selected file doesn't exist
-  //     setSelectedFile(defaultFile);
-  //     setMainAppCode(files[defaultFile].contents);
-  //   }
-  // };
 
   const handleFileSelect = (filePath: string) => {
     fileSystem.selectFile(filePath);
@@ -276,23 +169,17 @@ export default function CreatePage() {
 
             <div className="relative flex-1 flex flex-col">
               <PrototypeChatWindow
-                // Chat session and messages
-                chatSession={prototypeChatSession}
-                messages={prototypeChatMessages}
-                onMessagesUpdate={setPrototypeChatMessages}
+                prototypeId={prototypeId}
                 // File system integration
                 files={fileSystem.state.files}
                 selectedFile={fileSystem.state.selectedFile}
                 onFilesUpdate={fileSystem.applyFileUpdates}
                 onFileContentUpdate={fileSystem.updateFileContent}
-                // Prototype context
-                prototypeId={prototypeId!}
                 // Loading state
                 isLoading={isLoading}
                 setIsLoading={setIsLoading}
                 // Legacy props for backward compatibility
                 onApplyCode={handleApplyCode}
-                onClearChat={handleClearChat}
               />
             </div>
           </div>
