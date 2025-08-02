@@ -426,10 +426,10 @@ export type Database = {
           current_period_end: number | null
           current_period_start: number | null
           id: string
-          plan_id: string | null
+          plan_id: string
           price_id: string | null
           scheduled_for_cancellation: boolean | null
-          status: string | null
+          status: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id: string | null
           updated_at: string | null
           user_id: string | null
@@ -439,10 +439,10 @@ export type Database = {
           current_period_end?: number | null
           current_period_start?: number | null
           id: string
-          plan_id?: string | null
+          plan_id: string
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -452,10 +452,10 @@ export type Database = {
           current_period_end?: number | null
           current_period_start?: number | null
           id?: string
-          plan_id?: string | null
+          plan_id?: string
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
           stripe_customer_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -503,6 +503,7 @@ export type Database = {
     }
     Enums: {
       chat_role: "user" | "assistant"
+      subscription_status: "active" | "past_due" | "canceled"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
     }
     CompositeTypes: {
@@ -632,6 +633,7 @@ export const Constants = {
   public: {
     Enums: {
       chat_role: ["user", "assistant"],
+      subscription_status: ["active", "past_due", "canceled"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },
   },

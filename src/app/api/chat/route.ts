@@ -1,3 +1,4 @@
+import { ProductKeys } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -6,12 +7,14 @@ import { generateText } from "ai";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import Stripe from "stripe";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY ?? "";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
 const google = createGoogleGenerativeAI({
   apiKey: GOOGLE_AI_API_KEY,
@@ -28,7 +31,9 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    // ------------------------------------------------------------------------------------------------
     // 1. JWT Token validation -- must be an AUTHORIZED user
+    // ------------------------------------------------------------------------------------------------
     const token = request.headers.get("authorization")?.split(" ")[1];
     if (!token || !request.headers.get("authorization")?.startsWith("Bearer")) {
       console.error("No JWT token provided");
@@ -61,9 +66,87 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. TODO (sourish) PAYWALL -- must have messages left on current subscription plan
+    // ------------------------------------------------------------------------------------------------
+    // 2. Fetch user subscription and paywall the user if needed
+    // ------------------------------------------------------------------------------------------------
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const startOfMonthISO = startOfMonth.toISOString();
 
+    const [subscriptionResult, apiUsageResult] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select(
+          "id, plan_id, price_id, status, stripe_customer_id, current_period_start, current_period_end",
+        )
+        .eq("user_id", userID)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .maybeSingle(),
+      supabase
+        .from("api_usage")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userID)
+        .gte("created_at", startOfMonthISO),
+    ]);
+
+    const { data: userSubscription, error: subscriptionError } =
+      subscriptionResult;
+    const { count: monthlyApiUsageCount, error: apiUsageError } =
+      apiUsageResult;
+
+    let userTier: string = ProductKeys.FREE_SUBSCRIPTION; // Default to free tier
+
+    if (subscriptionError) {
+      console.error("Error fetching user subscription:", subscriptionError);
+      // Continue with free tier rather than failing the request
+    } else if (userSubscription) {
+      // User has an active subscription, determine their tier from plan_id
+      userTier = userSubscription.plan_id;
+      console.log(
+        `User ${userID} is on ${userTier} tier with subscription:`,
+        userSubscription.id,
+      );
+    } else {
+      // No active subscription found, user is on free tier
+      console.log(
+        `User ${userID} has no active subscription, defaulting to free tier`,
+      );
+    }
+
+    if (apiUsageError) {
+      console.error("Error fetching monthly API usage:", apiUsageError);
+    }
+
+    console.log(`User tier determined: ${userTier}`);
+    console.log(`Monthly API usage count: ${monthlyApiUsageCount || 0}`);
+
+    // If user is on free tier, check their usage limits and paywall them if they exceed the limit
+    if (
+      userTier === ProductKeys.FREE_SUBSCRIPTION &&
+      (monthlyApiUsageCount || 0) >= 15
+    ) {
+      console.log(
+        `User ${userID} has reached free tier monthly limit: ${monthlyApiUsageCount}/15`,
+      );
+      return NextResponse.json(
+        {
+          error:
+            "You have reached your free monthly messaging limit of 15 messages. Please upgrade your subscription to continue using the service.",
+          usage: {
+            current: monthlyApiUsageCount,
+            limit: 15,
+            tier: ProductKeys.FREE_SUBSCRIPTION,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    // ------------------------------------------------------------------------------------------------
     // 3. Parse request body
+    // ------------------------------------------------------------------------------------------------
     const { messages, snackFiles, chat_session_id, prototype_id } =
       await request.json();
     if (!messages || !Array.isArray(messages)) {
@@ -74,7 +157,9 @@ export async function POST(request: NextRequest) {
     }
     const fileManager = new FileManager(snackFiles, prototype_id); // NO DB PERSISTENCE
 
+    // ------------------------------------------------------------------------------------------------
     // 4. Load/generate additional project context
+    // ------------------------------------------------------------------------------------------------
     const lastMessage = messages[messages.length - 1];
     let userMessage = lastMessage.content;
 
@@ -97,12 +182,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ------------------------------------------------------------------------------------------------
     // 5. Start streamed response to the client
+    // ------------------------------------------------------------------------------------------------
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // ------------------------------------------------------------------------------------------------
           // 6. Execute planning phase
+          // ------------------------------------------------------------------------------------------------
           const finalResponse = await handlePlanningPhase(
             messages,
             userMessage,
@@ -113,7 +202,9 @@ export async function POST(request: NextRequest) {
             encoder,
           );
 
+          // ------------------------------------------------------------------------------------------------
           // 7. Execute execution phase
+          // ------------------------------------------------------------------------------------------------
           await handleExecutionPhase(
             finalResponse,
             fileManager,
@@ -125,11 +216,37 @@ export async function POST(request: NextRequest) {
             chat_session_id,
           );
 
-          // 7. Track API usage
+          // ------------------------------------------------------------------------------------------------
+          // 8. Track API usage
+          // ------------------------------------------------------------------------------------------------
           await supabase.from("api_usage").insert({
             user_id: userID,
             prototype_id: prototype_id || null,
           });
+
+          // ------------------------------------------------------------------------------------------------
+          // 9. If the user has an active subscription, send the usage data to Stripe
+          // ------------------------------------------------------------------------------------------------
+          if (
+            userTier === ProductKeys.PRO_SUBSCRIPTION &&
+            userSubscription?.stripe_customer_id
+          ) {
+            try {
+              await stripe.billing.meterEvents.create({
+                event_name: "materialize_assistant_messages",
+                payload: {
+                  stripe_customer_id: userSubscription.stripe_customer_id,
+                  value: "1",
+                },
+              });
+              console.log(
+                `Stripe meter event successfully sent for pro user ${userID}`,
+              );
+            } catch (stripeError) {
+              console.error("Error sending Stripe meter event:", stripeError);
+              // Don't fail the request if Stripe meter event fails
+            }
+          }
 
           controller.close();
         } catch (error) {
@@ -392,7 +509,9 @@ Do NOT repeat the same tool call again.`;
             operation: z
               .enum(["create", "modify"])
               .default("create")
-              .describe("REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')"),
+              .describe(
+                "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+              ),
           }),
         },
       },
@@ -666,7 +785,9 @@ MANDATORY: Before creating this screen, you MUST:
           operation: z
             .enum(["create", "modify"])
             .default("create")
-            .describe("REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')"),
+            .describe(
+              "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+            ),
         }),
       },
     },
@@ -875,7 +996,9 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             operation: z
               .enum(["create", "modify"])
               .default("create")
-              .describe("REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')"),
+              .describe(
+                "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+              ),
           }),
         },
       },
