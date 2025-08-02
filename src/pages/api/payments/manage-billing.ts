@@ -1,15 +1,15 @@
 import Stripe from "stripe";
 import { NextApiRequest, NextApiResponse } from "next";
-// import { PostHog } from "posthog-node";
+import { PostHog } from "posthog-node";
 import { createClient } from "@supabase/supabase-js";
-// import { ExceptionEvents, LoggingEventSource } from "@/LoggingEvents";
+import { ExceptionEvents, LoggingEventSource } from "@/LoggingEvents";
 import jwt from "jsonwebtoken";
 
-// const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-//   host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-//   flushAt: 1,
-//   flushInterval: 0,
-// });
+const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
+  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+  flushAt: 1,
+  flushInterval: 0,
+});
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
@@ -58,21 +58,21 @@ export default async function handler(
   res: NextApiResponse,
 ) {
   if (req.method !== "POST") {
-    // await posthog.shutdown();
+    await posthog.shutdown();
     res.setHeader("Allow", "POST");
     res.status(405).end("Method Not Allowed");
   }
 
   const token = req.headers.authorization?.split(" ")[1];
   if (!token || !req.headers.authorization?.startsWith("Bearer")) {
-    // posthog.capture({
-    //   distinctId: "unknown",
-    //   event: ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
-    //   },
-    // });
-    // await posthog.shutdown();
+    posthog.capture({
+      distinctId: "unknown",
+      event: ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
+      },
+    });
+    await posthog.shutdown();
     console.error("No token provided");
     return res.status(401).json({ error: "Unauthorized: No token provided" });
   }
@@ -82,28 +82,28 @@ export default async function handler(
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     userID = decoded.sub;
   } catch (error) {
-    // posthog.capture({
-    //   distinctId: "unknown",
-    //   event: ExceptionEvents.INVALID_JWT_TOKEN,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
-    //     error: error,
-    //   },
-    // });
-    // await posthog.shutdown();
+    posthog.capture({
+      distinctId: "unknown",
+      event: ExceptionEvents.INVALID_JWT_TOKEN,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
+        error: error,
+      },
+    });
+    await posthog.shutdown();
     console.error("Invalid token: ", error);
     return res.status(401).json({ error: "Unauthorized: Invalid token" });
   }
 
   if (userID === null || userID === undefined) {
-    // posthog.capture({
-    //   distinctId: "unknown",
-    //   event: ExceptionEvents.NULL_USER_ID_FROM_JWT_TOKEN,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
-    //   },
-    // });
-    // await posthog.shutdown();
+    posthog.capture({
+      distinctId: "unknown",
+      event: ExceptionEvents.NULL_USER_ID_FROM_JWT_TOKEN,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
+      },
+    });
+    await posthog.shutdown();
     return res.status(400).send("Missing user ID. User is not authenticated.");
   }
 
@@ -114,16 +114,16 @@ export default async function handler(
     .eq("user_id", userID)
     .single();
   if (userFetchError) {
-    // posthog.capture({
-    //   distinctId: userID as string,
-    //   event: ExceptionEvents.USER_FETCH_ERROR,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
-    //     error: userFetchError,
-    //     function: "manage-billing",
-    //   },
-    // });
-    // await posthog.shutdown();
+    posthog.capture({
+      distinctId: userID as string,
+      event: ExceptionEvents.USER_FETCH_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
+        error: userFetchError,
+        function: "manage-billing",
+      },
+    });
+    await posthog.shutdown();
     return res.status(400).send("Could not fetch user data.");
   }
 
@@ -133,18 +133,18 @@ export default async function handler(
       customer: stripeCustomerId,
       return_url: `${process.env.NEXT_PUBLIC_SITE_BASE_URL}/dashboard/account`, // Change this to your actual return URL
     });
-    // await posthog.shutdown();
+    await posthog.shutdown();
     res.status(200).json({ redirect_url: session.url });
   } catch (err) {
-    // posthog.capture({
-    //   distinctId: userID as string,
-    //   event: ExceptionEvents.STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
-    //     error: err,
-    //   },
-    // });
-    // await posthog.shutdown();
+    posthog.capture({
+      distinctId: userID as string,
+      event: ExceptionEvents.STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
+        error: err,
+      },
+    });
+    await posthog.shutdown();
     console.error("Could not create stripe billing portal session: ", err);
     res.status(500).send("Could not create stripe billing portal session");
   }
