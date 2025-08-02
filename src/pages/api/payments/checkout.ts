@@ -81,10 +81,13 @@ export default async function handler(
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     userID = decoded.sub;
-    
+
     // Validate that userID is present and valid
-    if (!userID || typeof userID !== 'string') {
-      console.error("Invalid or missing user ID from JWT token:", { userID, decodedPayload: decoded });
+    if (!userID || typeof userID !== "string") {
+      console.error("Invalid or missing user ID from JWT token:", {
+        userID,
+        decodedPayload: decoded,
+      });
       // posthog.capture({
       //   distinctId: "unknown",
       //   event: ExceptionEvents.INVALID_USER_ID_IN_JWT,
@@ -95,9 +98,10 @@ export default async function handler(
       //   },
       // });
       // await posthog.shutdown();
-      return res.status(401).json({ error: "Unauthorized: Invalid user ID in token" });
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: Invalid user ID in token" });
     }
-    
   } catch (error) {
     // posthog.capture({
     //   distinctId: "unknown",
@@ -126,7 +130,6 @@ export default async function handler(
       line_items: [
         {
           price: priceID,
-          quantity: 1,
         },
       ],
       mode: "subscription",
