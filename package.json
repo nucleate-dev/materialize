@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -25,12 +25,12 @@
     "jsvectormap": "^1.6.0",
     "lucide-react": "^0.525.0",
     "micro": "^10.0.1",
-    "next": "15.4.5",
+    "next": "^14.2.30",
     "posthog-js": "^1.165.0",
     "posthog-node": "^4.2.0",
-    "react": "19.1.1",
+    "react": "^18",
     "react-apexcharts": "^1.4.1",
-    "react-dom": "19.1.1",
+    "react-dom": "^18",
     "react-jvectormap": "^0.0.16",
     "react-monaco-editor": "^0.59.0",
     "resend": "^4.0.0",
@@ -42,19 +42,15 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20",
-    "@types/react": "19.1.9",
-    "@types/react-dom": "19.1.7",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
     "autoprefixer": "^10.0.1",
     "eslint": "^8.56.0",
-    "eslint-config-next": "15.4.5",
+    "eslint-config-next": "14.0.4",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
     "typescript": "^5.3.3"
-  },
-  "overrides": {
-    "@types/react": "19.1.9",
-    "@types/react-dom": "19.1.7"
   }
 }
