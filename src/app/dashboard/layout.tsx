@@ -1,16 +1,13 @@
 "use client";
 
-import "./globals.css";
-import "./data-tables-css.css";
-import "./satoshi.css";
+import { SidebarProvider } from "@/hooks/useSidebar";
 import { useEffect, useState } from "react";
 import Loader from "../../components/dashboard/Loader";
 import Sidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
-import { SidebarProvider } from "@/hooks/useSidebar";
 // import WithPaywall from "./Paywall";
 
-function DashboardContent({ children }: { children: React.ReactNode }) {
+function DashboardContent({ children }: { children: React.ReactNode; }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
