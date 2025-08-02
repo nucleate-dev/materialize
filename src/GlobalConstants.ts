@@ -8,7 +8,7 @@ export enum NavigationTabNames {
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
 );
 
 export const posthogClient = posthog.init(
@@ -16,11 +16,12 @@ export const posthogClient = posthog.init(
   {
     api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     person_profiles: "always",
-  }
+  },
 );
 
 export const ProductKeys = Object.freeze({
-  BASE_SUBSCRIPTION: "base",
+  FREE_SUBSCRIPTION: "free",
+  TEAM_SUBSCRIPTION: "team",
   PRO_SUBSCRIPTION: "pro",
 });
 
@@ -29,7 +30,6 @@ export const SubscriptionStatuses = Object.freeze({
   PAST_DUE: "past_due",
   CANCELED: "canceled",
 });
-
 
 // FLAGS
 

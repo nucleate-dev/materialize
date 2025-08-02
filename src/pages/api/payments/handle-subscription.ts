@@ -30,7 +30,7 @@ const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
 });
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
 
 /**
@@ -59,7 +59,7 @@ const supabase = createClient(
  */
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
 ) {
   if (req.method !== "POST") {
     await posthog.shutdown();
@@ -135,7 +135,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   let subscription = invoice.subscription;
   if (typeof subscription === "string") {
     subscription = await stripe.subscriptions.retrieve(
-      invoice.subscription as string
+      invoice.subscription as string,
     );
   }
   if (subscription === null) {
@@ -233,7 +233,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   let subscription = invoice.subscription;
   if (typeof subscription === "string") {
     subscription = await stripe.subscriptions.retrieve(
-      invoice.subscription as string
+      invoice.subscription as string,
     );
   }
   if (subscription === null) {
@@ -313,7 +313,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     userData?.email,
     userData?.name,
     getPlanKey(subscription.items.data[0].price.id),
-    retryUrl
+    retryUrl,
   );
   if (resendError) {
     posthog.capture({
@@ -410,7 +410,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
  * @returns {Promise<void>} - The function does not return any value but interacts with the database and external email services.
  */
 async function handleSubscriptionTrialWillEnd(
-  subscription: Stripe.Subscription
+  subscription: Stripe.Subscription,
 ) {
   const userId = subscription.metadata?.user_id;
   const { data: userData, error: userFetchError } = await supabase
@@ -434,7 +434,7 @@ async function handleSubscriptionTrialWillEnd(
   const resendError = await triggerSubscriptionFreeTrialWillEndEmail(
     userData?.email,
     userData?.name,
-    getPlanKey(subscription.items.data[0].price.id)
+    getPlanKey(subscription.items.data[0].price.id),
   );
   if (resendError) {
     posthog.capture({
@@ -542,7 +542,7 @@ async function verifyStripeSignature(req: NextApiRequest): Promise<{
     event = stripe.webhooks.constructEvent(
       requestBuffer.toString(),
       sig,
-      endpointSecret
+      endpointSecret,
     );
   } catch (err: unknown) {
     return {
@@ -571,7 +571,7 @@ function getCustomerIdFromInvoice(invoice: Stripe.Invoice): string | null {
 }
 
 function getCustomerIdFromSubscription(
-  subscription: Stripe.Subscription
+  subscription: Stripe.Subscription,
 ): string | null {
   // Check if invoice.customer is a string or an expanded object
   if (typeof subscription.customer === "string") {
