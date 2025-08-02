@@ -38,7 +38,7 @@ import { ProductKeys, SubscriptionStatuses, supabase } from "@/GlobalConstants";
  */
 export function useHasSubscriptionAccess() {
   const user = useUser();
-  const [hasBaseSubscriptionAccess, setHasBaseSubscriptionAccess] =
+  const [hasTeamSubscriptionAccess, setHasTeamSubscriptionAccess] =
     useState<boolean>(false);
   const [hasProSubscriptionAccess, setHasProSubscriptionAccess] =
     useState<boolean>(false);
@@ -58,26 +58,27 @@ export function useHasSubscriptionAccess() {
         setLoadingSubscriptionData(false);
         return;
       }
+      console.log("fetched subscription");
       if (
         data === null ||
         data.length === 0 ||
         data[0].status !== SubscriptionStatuses.ACTIVE
       ) {
-        setHasBaseSubscriptionAccess(false);
+        setHasTeamSubscriptionAccess(false);
         setHasProSubscriptionAccess(false);
         setLoadingSubscriptionData(false);
         return;
       }
       const plan = data[0].plan_id;
       switch (plan) {
-        case ProductKeys.BASE_SUBSCRIPTION:
-          setHasBaseSubscriptionAccess(true);
+        case ProductKeys.TEAM_SUBSCRIPTION:
+          setHasTeamSubscriptionAccess(true);
           break;
         case ProductKeys.PRO_SUBSCRIPTION:
           setHasProSubscriptionAccess(true);
           break;
         default:
-          setHasBaseSubscriptionAccess(false);
+          setHasTeamSubscriptionAccess(false);
           setHasProSubscriptionAccess(false);
           break;
       }
@@ -89,7 +90,7 @@ export function useHasSubscriptionAccess() {
   }, [user.user, user.userIsLoading]);
 
   return {
-    hasBaseSubscriptionAccess,
+    hasTeamSubscriptionAccess,
     hasProSubscriptionAccess,
     loadingSubscriptionData,
   };

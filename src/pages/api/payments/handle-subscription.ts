@@ -583,11 +583,11 @@ function getCustomerIdFromSubscription(
 
 function getPlanKey(priceID: string) {
   switch (priceID) {
-    case process.env.STRIPE_BASE_PRICE_ID:
-      return ProductKeys.BASE_SUBSCRIPTION;
+    case process.env.STRIPE_TEAM_PRICE_ID:
+      return ProductKeys.TEAM_SUBSCRIPTION;
     case process.env.STRIPE_PRO_PRICE_ID:
       return ProductKeys.PRO_SUBSCRIPTION;
     default:
-      return priceID;
+      return ProductKeys.FREE_SUBSCRIPTION;
   }
 }
