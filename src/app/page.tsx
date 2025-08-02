@@ -1,11 +1,10 @@
 "use client";
 import PremiumHeader from "@/components/PremiumHeader";
+import { PricingCard } from "@/components/PricingCard";
 import { ProductKeys } from "@/GlobalConstants";
-import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   ArrowRightIcon,
   ArrowsPointingOutIcon,
-  CheckIcon,
   CodeBracketIcon,
   DevicePhoneMobileIcon,
   EyeIcon,
@@ -13,7 +12,6 @@ import {
   PlayIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { useRouter } from "next/navigation";
 
 export default function Home() {
   return (
@@ -367,7 +365,7 @@ function PricingSection() {
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {pricingTiers.map((tier, index) => (
-            <PricingCard key={index} {...tier} />
+            <PricingCard key={index} {...tier} theme="dark" />
           ))}
         </div>
 
@@ -418,84 +416,3 @@ function PricingSection() {
   );
 }
 
-function PricingCard({
-  name,
-  price,
-  productID,
-  period,
-  description,
-  features,
-  cta,
-  ctaStyle,
-  popular,
-}: {
-  name: string;
-  price: string;
-  productID: string;
-  period: string;
-  description: string;
-  features: string[];
-  cta: string;
-  ctaStyle: string;
-  popular: boolean;
-}) {
-  const router = useRouter();
-  return (
-    <div className="group relative">
-      {/* Popular Badge */}
-      {popular && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-          <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
-            Most Popular
-          </div>
-        </div>
-      )}
-
-      {/* Hover Glow Effect */}
-      <div
-        className={`absolute inset-0 ${popular ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20" : "bg-gradient-to-r from-blue-600/20 to-cyan-600/20"} opacity-0 group-hover:opacity-100 rounded-3xl blur-xl transition-opacity duration-500`}
-      ></div>
-
-      {/* Card */}
-      <div
-        className={`relative bg-gradient-to-br from-white/10 to-white/5 border ${popular ? "border-purple-500/30" : "border-white/10"} rounded-3xl p-8 hover:border-white/30 transition-all duration-500 backdrop-blur-xl group-hover:transform group-hover:scale-105 h-full`}
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h3 className="text-2xl font-bold text-white mb-2">{name}</h3>
-          <div className="flex items-baseline justify-center gap-1 mb-4">
-            <span className="text-5xl font-black text-white">{price}</span>
-            <span className="text-gray-400 text-lg">{period}</span>
-          </div>
-          <p className="text-gray-300">{description}</p>
-        </div>
-
-        {/* Features */}
-        <div className="flex-1 space-y-4">
-          {features.map((feature, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-5 h-5 mt-0.5">
-                <CheckIcon className="w-5 h-5 text-green-400" />
-              </div>
-              <span
-                className={`text-gray-300 ${feature.startsWith("•") ? "text-sm ml-4" : ""}`}
-              >
-                {feature}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div className="pt-6">
-          <button
-            className={`w-full py-4 px-6 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${ctaStyle}`}
-            onClick={() => handleCheckout(productID, router)}
-          >
-            {cta}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

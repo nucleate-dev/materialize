@@ -3,7 +3,7 @@
 import Loader from "../../components/dashboard/Loader";
 import { ProductKeys } from "@/GlobalConstants";
 import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
-import { PricingCard } from "../landing_components/Pricing";
+import { PricingCard } from "@/components/PricingCard";
 import Link from "next/link";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 
