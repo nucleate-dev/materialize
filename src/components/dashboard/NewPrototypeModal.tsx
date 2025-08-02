@@ -3,6 +3,8 @@
 import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
+import { Database } from "@/lib/types/database.types";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import {
   SparklesIcon,
   RocketLaunchIcon,
@@ -47,6 +49,10 @@ export default function NewPrototypeModal({
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const { hasActiveProSubscription } = useHasSubscriptionAccess();
+  const [visibility, setVisibility] = useState<
+    Database["public"]["Enums"]["visibility_level"]
+  >("PUBLIC");
 
   // Fetch user's projects
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function NewPrototypeModal({
           description: null,
           prototype_context: null,
           thumbnail_url: null,
-          visibility: "SELF" as const,
+          visibility,
         })
         .select()
         .single();
@@ -128,6 +134,7 @@ export default function NewPrototypeModal({
       // Reset form
       setName("");
       setSelectedProject(null);
+      setVisibility("PUBLIC");
       setTouched(false);
       onCreated(data.id);
       onClose();
@@ -217,6 +224,36 @@ export default function NewPrototypeModal({
                 )}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label
+              htmlFor="prototype-visibility"
+              className="text-sm font-semibold"
+            >
+              Visibility
+            </Label>
+            <Select
+              value={visibility}
+              onValueChange={(value) =>
+                setVisibility(
+                  value as Database["public"]["Enums"]["visibility_level"]
+                )
+              }
+              disabled={!hasActiveProSubscription || isCreating}
+            >
+              <SelectTrigger id="prototype-visibility" className="h-12">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PUBLIC">Public</SelectItem>
+                <SelectItem value="SELF">Self</SelectItem>
+              </SelectContent>
+            </Select>
+            {!hasActiveProSubscription && (
+              <p className="text-xs text-muted-foreground">
+                Upgrade to Pro to set prototype visibility to Self.
+              </p>
+            )}
           </div>
 
           <Button
