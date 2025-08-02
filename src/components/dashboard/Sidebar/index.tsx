@@ -1,20 +1,20 @@
-import React, { useEffect, useRef } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import Image from "next/image";
 import { useSidebar } from "@/hooks/useSidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
-  SparklesIcon,
-  RocketLaunchIcon,
-  Square3Stack3DIcon,
-  FolderIcon,
+  ArrowLeftStartOnRectangleIcon,
+  Bars3Icon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  Bars3Icon,
   Cog6ToothIcon,
-  ArrowLeftStartOnRectangleIcon,
+  FolderIcon,
+  RocketLaunchIcon,
+  SparklesIcon,
+  Square3Stack3DIcon,
 } from "@heroicons/react/24/outline";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -81,9 +81,8 @@ const Sidebar = () => {
   return (
     <aside
       ref={sidebar}
-      className={`absolute left-0 top-0 z-9999 flex h-screen flex-col overflow-hidden duration-500 ease-out lg:static lg:translate-x-0 ${
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      } ${sidebarExpanded ? "w-72" : "w-20"}`}
+      className={`absolute left-0 top-0 z-9999 flex h-screen flex-col overflow-hidden duration-500 ease-out lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } ${sidebarExpanded ? "w-72" : "w-20"}`}
     >
       {/* Enhanced Glassmorphism Background with Borders & Shadows */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-gray-2/85 to-whiter/90 dark:from-boxdark/90 dark:via-boxdark-2/85 dark:to-meta-4/90 backdrop-blur-xl"></div>
@@ -110,9 +109,8 @@ const Sidebar = () => {
       <div className="relative z-10 h-full flex flex-col">
         {/* Header Section */}
         <div
-          className={`flex items-center gap-3 px-6 py-6 lg:py-8 ${
-            sidebarExpanded ? "justify-between" : "justify-center"
-          }`}
+          className={`flex items-center gap-3 px-6 py-6 lg:py-8 ${sidebarExpanded ? "justify-between" : "justify-center"
+            }`}
         >
           {/* Logo Section - Only when expanded */}
           {sidebarExpanded && (
@@ -168,13 +166,11 @@ const Sidebar = () => {
           <div className="mb-8">
             <Link
               href="/dashboard"
-              className={`group relative flex items-center gap-4 rounded-2xl py-4 px-4 font-semibold transition-all duration-500 transform-gpu ${
-                sidebarExpanded ? "" : "justify-center"
-              } ${
-                pathname === "/dashboard"
+              className={`group relative flex items-center gap-4 rounded-2xl py-4 px-4 font-semibold transition-all duration-500 transform-gpu ${sidebarExpanded ? "" : "justify-center"
+                } ${pathname === "/dashboard"
                   ? "bg-gradient-to-r from-primary via-secondary to-meta-5 text-white shadow-2xl shadow-primary/40 hover:shadow-primary/60 dark:shadow-primary/60 dark:hover:shadow-primary/80 scale-100 hover:scale-105 ring-2 ring-white/30 dark:ring-primary/30"
                   : "bg-white/40 dark:bg-boxdark/40 text-body dark:text-bodydark hover:bg-white/60 dark:hover:bg-boxdark/60 border border-stroke/30 dark:border-strokedark/40 hover:border-primary/30 dark:hover:border-secondary/30 backdrop-blur-sm hover:scale-105"
-              }`}
+                }`}
               title={!sidebarExpanded ? "New chat +" : ""}
             >
               {/* Background glow effect for active state */}
@@ -185,18 +181,16 @@ const Sidebar = () => {
               {/* Button content */}
               <div className="relative flex items-center gap-4">
                 <div
-                  className={`p-2 rounded-xl transition-all duration-300 ${
-                    pathname === "/dashboard"
+                  className={`p-2 rounded-xl transition-all duration-300 ${pathname === "/dashboard"
                       ? "bg-white/20 dark:bg-white/10"
                       : "bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
-                  }`}
+                    }`}
                 >
                   <SparklesIcon
-                    className={`w-5 h-5 transition-all duration-300 ${
-                      pathname === "/dashboard"
+                    className={`w-5 h-5 transition-all duration-300 ${pathname === "/dashboard"
                         ? "text-white"
                         : "text-primary dark:text-secondary group-hover:text-primary dark:group-hover:text-secondary"
-                    }`}
+                      }`}
                   />
                 </div>
                 {sidebarExpanded && (
@@ -217,13 +211,11 @@ const Sidebar = () => {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 animate-in slide-in-from-left fade-in ${
-                  sidebarExpanded ? "" : "justify-center"
-                } ${
-                  item.active
+                className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 animate-in slide-in-from-left fade-in ${sidebarExpanded ? "" : "justify-center"
+                  } ${item.active
                     ? "bg-white/80 dark:bg-boxdark/80 text-primary dark:text-secondary border border-primary/20 dark:border-secondary/20 shadow-lg dark:shadow-2xl backdrop-blur-xl"
                     : "text-body dark:text-bodydark hover:bg-white/50 dark:hover:bg-boxdark/50 hover:text-black dark:hover:text-white border border-transparent hover:border-stroke/30 dark:hover:border-strokedark/40 backdrop-blur-sm hover:scale-105"
-                }`}
+                  }`}
                 style={{ animationDelay: `${index * 100}ms` }}
                 title={!sidebarExpanded ? item.label : ""}
               >
@@ -233,18 +225,16 @@ const Sidebar = () => {
                 <div className="relative flex items-center gap-4">
                   {/* Icon container */}
                   <div
-                    className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
-                      item.active
+                    className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${item.active
                         ? "bg-primary/10 dark:bg-secondary/20"
                         : "bg-stroke/20 dark:bg-strokedark/30 group-hover:bg-primary/10 dark:group-hover:bg-secondary/20"
-                    }`}
+                      }`}
                   >
                     <item.icon
-                      className={`w-5 h-5 transition-colors duration-300 ${
-                        item.active
+                      className={`w-5 h-5 transition-colors duration-300 ${item.active
                           ? "text-primary dark:text-secondary"
                           : "text-body dark:text-bodydark group-hover:text-primary dark:group-hover:text-secondary"
-                      }`}
+                        }`}
                     />
                   </div>
 
@@ -272,13 +262,11 @@ const Sidebar = () => {
             {/* Account Settings */}
             <Link
               href="/dashboard/account"
-              className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 ${
-                sidebarExpanded ? "" : "justify-center"
-              } ${
-                pathname?.includes("account")
+              className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 ${sidebarExpanded ? "" : "justify-center"
+                } ${pathname?.includes("account")
                   ? "bg-white/80 dark:bg-boxdark/80 text-primary dark:text-secondary border border-primary/20 dark:border-secondary/20 shadow-lg dark:shadow-2xl backdrop-blur-xl"
                   : "text-body dark:text-bodydark hover:bg-white/50 dark:hover:bg-boxdark/50 hover:text-black dark:hover:text-white border border-transparent hover:border-stroke/30 dark:hover:border-strokedark/40 backdrop-blur-sm hover:scale-105"
-              }`}
+                }`}
               title={!sidebarExpanded ? "Account Settings" : ""}
             >
               {/* Hover gradient effect */}
@@ -287,18 +275,16 @@ const Sidebar = () => {
               <div className="relative flex items-center gap-4">
                 {/* Icon container */}
                 <div
-                  className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
-                    pathname?.includes("account")
+                  className={`p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${pathname?.includes("account")
                       ? "bg-primary/10 dark:bg-secondary/20"
                       : "bg-stroke/20 dark:bg-strokedark/30 group-hover:bg-primary/10 dark:group-hover:bg-secondary/20"
-                  }`}
+                    }`}
                 >
                   <Cog6ToothIcon
-                    className={`w-5 h-5 transition-colors duration-300 ${
-                      pathname?.includes("account")
+                    className={`w-5 h-5 transition-colors duration-300 ${pathname?.includes("account")
                         ? "text-primary dark:text-secondary"
                         : "text-body dark:text-bodydark group-hover:text-primary dark:group-hover:text-secondary"
-                    }`}
+                      }`}
                   />
                 </div>
 
@@ -319,9 +305,8 @@ const Sidebar = () => {
             {/* Logout */}
             <button
               onClick={logout}
-              className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 w-full text-left ${
-                sidebarExpanded ? "" : "justify-center"
-              } text-body dark:text-bodydark hover:bg-red-50/50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 border border-transparent hover:border-red-200/30 dark:hover:border-red-800/40 backdrop-blur-sm hover:scale-105`}
+              className={`group relative flex items-center gap-4 rounded-2xl py-3 px-4 font-medium transition-all duration-300 w-full text-left ${sidebarExpanded ? "" : "justify-center"
+                } text-body dark:text-bodydark hover:bg-red-50/50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 border border-transparent hover:border-red-200/30 dark:hover:border-red-800/40 backdrop-blur-sm hover:scale-105`}
               title={!sidebarExpanded ? "Logout" : ""}
             >
               {/* Hover gradient effect */}
