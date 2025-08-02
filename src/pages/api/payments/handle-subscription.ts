@@ -3,15 +3,15 @@ import {
   triggerSubscriptionFreeTrialWillEndEmail,
   triggerSubscriptionPaymentFailedEmail,
 } from "@/lib/utils/emails/ResendEmailUtils";
-import {
-  ExceptionEvents,
-  LoggingEventSource,
-  SuccessEvents,
-} from "@/LoggingEvents";
+// import {
+//   ExceptionEvents,
+//   LoggingEventSource,
+//   SuccessEvents,
+// } from "@/LoggingEvents";
 import { createClient } from "@supabase/supabase-js";
 import { buffer } from "micro";
 import { NextApiRequest, NextApiResponse } from "next";
-import { PostHog } from "posthog-node";
+// import { PostHog } from "posthog-node";
 import Stripe from "stripe";
 
 // nextjs automatically parses some of the JSON body. However, stripe webhook verification
@@ -23,11 +23,11 @@ export const config = {
 };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-  flushAt: 1,
-  flushInterval: 0,
-});
+// const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
+//   host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+//   flushAt: 1,
+//   flushInterval: 0,
+// });
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
@@ -62,7 +62,7 @@ export default async function handler(
   res: NextApiResponse,
 ) {
   if (req.method !== "POST") {
-    await posthog.shutdown();
+    // await posthog.shutdown();
     res.setHeader("Allow", "POST");
     return res.status(405).send("Method Not Allowed");
   }
@@ -70,14 +70,14 @@ export default async function handler(
   // verify stripe sent the event and not a malicious third-party
   const stripeVerification = await verifyStripeSignature(req);
   if (stripeVerification.event === null) {
-    posthog.capture({
-      distinctId: "stripe",
-      event: ExceptionEvents.STRIPE_WEBHOOK_VERIFICATION_FAILED,
-      properties: {
-        message: stripeVerification.message,
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: "stripe",
+    //   event: ExceptionEvents.STRIPE_WEBHOOK_VERIFICATION_FAILED,
+    //   properties: {
+    //     message: stripeVerification.message,
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //   },
+    // });
     return res
       .status(stripeVerification.status)
       .send(stripeVerification.message);
@@ -105,7 +105,7 @@ export default async function handler(
     default:
       break;
   }
-  await posthog.shutdown();
+  // await posthog.shutdown();
   return res.status(200).send("Stripe event received successfully");
 }
 
@@ -139,13 +139,13 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     );
   }
   if (subscription === null) {
-    posthog.capture({
-      distinctId: "unknown",
-      event: ExceptionEvents.COULD_NOT_RETRIEVE_STRIPE_SUBSCRIPTION,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: "unknown",
+    //   event: ExceptionEvents.COULD_NOT_RETRIEVE_STRIPE_SUBSCRIPTION,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //   },
+    // });
     return;
   }
   const userId = subscription.metadata?.user_id;
@@ -154,7 +154,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
     .upsert({
-      subscription_id: subscription.id, // primary key
+      id: subscription.id, // primary key
       user_id: userId,
       stripe_customer_id: getCustomerIdFromInvoice(invoice),
       status: SubscriptionStatuses.ACTIVE,
@@ -164,14 +164,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       plan_id: getPlanKey(subscription.items.data[0].price.id),
     });
   if (subscriptionUpdateError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: subscriptionUpdateError,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: subscriptionUpdateError,
+    //   },
+    // });
     return;
   }
 
@@ -180,30 +180,29 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     user_id: userId,
     subscription_id: subscription.id,
     stripe_customer_id: getCustomerIdFromInvoice(invoice),
-    receipt_number: invoice.receipt_number,
     amount: invoice.amount_paid,
     currency: invoice.currency,
     status: invoice.status, // should be 'paid'
   });
   if (paymentUpdateError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.PAYMENT_UPDATE_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: paymentUpdateError,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.PAYMENT_UPDATE_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: paymentUpdateError,
+    //   },
+    // });
     return;
   }
 
-  posthog.capture({
-    distinctId: userId,
-    event: SuccessEvents.HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID,
-    properties: {
-      source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-    },
-  });
+  // posthog.capture({
+  //   distinctId: userId,
+  //   event: SuccessEvents.HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID,
+  //   properties: {
+  //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+  //   },
+  // });
   return;
 }
 
@@ -237,13 +236,13 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     );
   }
   if (subscription === null) {
-    posthog.capture({
-      distinctId: "unknown",
-      event: ExceptionEvents.COULD_NOT_RETRIEVE_STRIPE_SUBSCRIPTION,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: "unknown",
+    //   event: ExceptionEvents.COULD_NOT_RETRIEVE_STRIPE_SUBSCRIPTION,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //   },
+    // });
     return;
   }
 
@@ -252,20 +251,19 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
     .update({
-      subscription_id: subscription.id, // primary key
       status: SubscriptionStatuses.PAST_DUE,
     })
-    .eq("subscription_id", subscription.id);
+    .eq("id", subscription.id);
   if (subscriptionUpdateError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: subscriptionUpdateError,
-        function: "handleInvoicePaymentFailed",
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: subscriptionUpdateError,
+    //     function: "handleInvoicePaymentFailed",
+    //   },
+    // });
     return;
   }
 
@@ -275,15 +273,15 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     .eq("user_id", userId)
     .single();
   if (userFetchError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.USER_FETCH_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: userFetchError,
-        function: "handleInvoicePaymentFailed",
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.USER_FETCH_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: userFetchError,
+    //     function: "handleInvoicePaymentFailed",
+    //   },
+    // });
     return;
   }
 
@@ -298,14 +296,14 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       retryUrl = session.url;
     }
   } catch (err) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: err,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: err,
+    //   },
+    // });
   }
 
   // trigger email to the user that their subscription is paused until the invoice payment is resolved
@@ -316,23 +314,23 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     retryUrl,
   );
   if (resendError) {
-    posthog.capture({
-      event: ExceptionEvents.SEND_PAYMENT_FAILURE_EMAIL_ERROR,
-      distinctId: userId,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: resendError,
-      },
-    });
+    // posthog.capture({
+    //   event: ExceptionEvents.SEND_PAYMENT_FAILURE_EMAIL_ERROR,
+    //   distinctId: userId,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: resendError,
+    //   },
+    // });
   }
 
-  posthog.capture({
-    distinctId: userId,
-    event: SuccessEvents.HANDLED_STRIPE_INVOICE_PAYMENT_FAILED,
-    properties: {
-      source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-    },
-  });
+  // posthog.capture({
+  //   distinctId: userId,
+  //   event: SuccessEvents.HANDLED_STRIPE_INVOICE_PAYMENT_FAILED,
+  //   properties: {
+  //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+  //   },
+  // });
 }
 
 /**
@@ -361,30 +359,29 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
  * @returns {Promise<void>} - The function does not return any value, but logs relevant information and updates the database.
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const userId = subscription.metadata?.user_id;
+  // const userId = subscription.metadata?.user_id;
 
   // update the database with the new subscription info. The handleInvoicePayment function should handle recording the payment
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
     .update({
-      subscription_id: subscription.id, // primary key
       current_period_start: subscription.current_period_start,
       current_period_end: subscription.current_period_end,
       price_id: subscription.items.data[0].price.id,
       plan_id: getPlanKey(subscription.items.data[0].price.id),
       scheduled_for_cancellation: subscription.cancel_at_period_end,
     })
-    .eq("subscription_id", subscription.id);
+    .eq("id", subscription.id);
   if (subscriptionUpdateError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        function: "handleSubscriptionUpdated",
-        error: subscriptionUpdateError,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     function: "handleSubscriptionUpdated",
+    //     error: subscriptionUpdateError,
+    //   },
+    // });
     return;
   }
 }
@@ -419,15 +416,15 @@ async function handleSubscriptionTrialWillEnd(
     .eq("user_id", userId)
     .single();
   if (userFetchError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.USER_FETCH_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: userFetchError,
-        function: "handleSubscriptionTrialWillEnd",
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.USER_FETCH_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: userFetchError,
+    //     function: "handleSubscriptionTrialWillEnd",
+    //   },
+    // });
   }
 
   // trigger email to the user that their free trial will end
@@ -437,15 +434,15 @@ async function handleSubscriptionTrialWillEnd(
     getPlanKey(subscription.items.data[0].price.id),
   );
   if (resendError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.SEND_FREE_TRIAL_WILL_END_EMAIL_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: userFetchError,
-        function: "handleSubscriptionTrialWillEnd",
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.SEND_FREE_TRIAL_WILL_END_EMAIL_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     error: userFetchError,
+    //     function: "handleSubscriptionTrialWillEnd",
+    //   },
+    // });
     return;
   }
 }
@@ -470,25 +467,24 @@ async function handleSubscriptionTrialWillEnd(
  * @returns {Promise<void>} - The function does not return any value but logs relevant information and updates the database.
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const userId = subscription.metadata?.user_id;
+  // const userId = subscription.metadata?.user_id;
 
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
     .update({
-      subscription_id: subscription.id, // primary key
       status: SubscriptionStatuses.CANCELED, // note: usually, the user should have benefits until the period end, unless they are refunded prorated amount
     })
-    .eq("subscription_id", subscription.id);
+    .eq("id", subscription.id);
   if (subscriptionUpdateError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        function: "handleSubscriptionDeleted",
-        error: subscriptionUpdateError,
-      },
-    });
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: ExceptionEvents.SUSBCRIPTION_UPDATE_ERROR,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+    //     function: "handleSubscriptionDeleted",
+    //     error: subscriptionUpdateError,
+    //   },
+    // });
     return;
   }
 }
