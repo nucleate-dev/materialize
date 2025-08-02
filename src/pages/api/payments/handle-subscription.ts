@@ -132,13 +132,16 @@ export default async function handler(
  * @returns {Promise<void>} - The function does not return any value, but logs relevant information in case of errors.
  */
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  let subscription = invoice.subscription;
+  let subscription = invoice.parent?.subscription_details?.subscription;
+  console.log("subscription: ", subscription);
   if (typeof subscription === "string") {
-    subscription = await stripe.subscriptions.retrieve(
-      invoice.subscription as string,
-    );
+    subscription = await stripe.subscriptions.retrieve(subscription);
   }
-  if (subscription === null) {
+  if (subscription === null || subscription === undefined) {
+    console.error(
+      "Could not retrieve Stripe subscription for invoice:",
+      invoice.id,
+    );
     // posthog.capture({
     //   distinctId: "unknown",
     //   event: ExceptionEvents.COULD_NOT_RETRIEVE_STRIPE_SUBSCRIPTION,
@@ -148,6 +151,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     // });
     return;
   }
+  console.log("subscription: ", subscription);
   const userId = subscription.metadata?.user_id;
 
   // update the database with the new subscription info and record the payment for access later
@@ -158,8 +162,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       user_id: userId,
       stripe_customer_id: getCustomerIdFromInvoice(invoice),
       status: SubscriptionStatuses.ACTIVE,
-      current_period_start: subscription.current_period_start,
-      current_period_end: subscription.current_period_end,
+      current_period_start: subscription.items.data[0].current_period_start,
+      current_period_end: subscription.items.data[0].current_period_end,
       price_id: subscription.items.data[0].price.id,
       plan_id: getPlanKey(subscription.items.data[0].price.id),
     });
@@ -172,6 +176,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     //     error: subscriptionUpdateError,
     //   },
     // });
+    console.error(
+      "Error updating subscription in database:",
+      subscriptionUpdateError,
+    );
     return;
   }
 
@@ -229,13 +237,15 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
  */
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   // update subscription in database to 'past_due'
-  let subscription = invoice.subscription;
+  let subscription = invoice.parent?.subscription_details?.subscription;
   if (typeof subscription === "string") {
-    subscription = await stripe.subscriptions.retrieve(
-      invoice.subscription as string,
-    );
+    subscription = await stripe.subscriptions.retrieve(subscription);
   }
-  if (subscription === null) {
+  if (subscription === null || subscription === undefined) {
+    console.error(
+      "Could not retrieve Stripe subscription for invoice:",
+      invoice.id,
+    );
     // posthog.capture({
     //   distinctId: "unknown",
     //   event: ExceptionEvents.COULD_NOT_RETRIEVE_STRIPE_SUBSCRIPTION,
@@ -365,8 +375,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const { error: subscriptionUpdateError } = await supabase
     .from("subscriptions")
     .update({
-      current_period_start: subscription.current_period_start,
-      current_period_end: subscription.current_period_end,
+      current_period_start: subscription.items.data[0].current_period_start,
+      current_period_end: subscription.items.data[0].current_period_end,
       price_id: subscription.items.data[0].price.id,
       plan_id: getPlanKey(subscription.items.data[0].price.id),
       scheduled_for_cancellation: subscription.cancel_at_period_end,

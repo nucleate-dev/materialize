@@ -438,7 +438,7 @@ export type Database = {
           created_at?: string
           current_period_end?: number | null
           current_period_start?: number | null
-          id?: string
+          id: string
           plan_id?: string | null
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
