@@ -307,6 +307,7 @@ export const DEFAULT_DEPENDENCIES = {
   react: { version: "19.0.0" },
   "react-dom": { version: "19.0.0" },
   "react-native": { version: "0.79.1" },
+  "react-native-reanimated": { version: "~3.16.1" },
   "@react-navigation/native-stack": { version: "7.2.1" },
   "@react-navigation/native": { version: "7.0.14" },
   "@react-navigation/bottom-tabs": { version: "7.4.4" },

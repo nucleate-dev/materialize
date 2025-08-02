@@ -583,12 +583,16 @@ MANDATORY: Before creating this screen, you MUST:
 
     // Check if step is complete based on successful file write operations
     let hasSuccessfulWriteOperation = false;
-    
+
     // Check if any write operations were successful
     for (const toolResult of toolResults) {
       try {
         const result = JSON.parse(toolResult.result);
-        if (result.success && result.operation && (result.operation === "create" || result.operation === "modify")) {
+        if (
+          result.success &&
+          result.operation &&
+          (result.operation === "create" || result.operation === "modify")
+        ) {
           hasSuccessfulWriteOperation = true;
           break;
         }
@@ -596,7 +600,7 @@ MANDATORY: Before creating this screen, you MUST:
         // Ignore parse errors
       }
     }
-    
+
     const isStepComplete = hasSuccessfulWriteOperation;
 
     if (isStepComplete) {
@@ -938,6 +942,7 @@ CRITICAL IMPORT RULES:
 - Only import from files that actually exist in the project
 - When creating screens, first check what components are available
 - Always provide the available imports context in your plan
+- Zustand persistence is NOT SUPPORTED. The USER will DIE if you add a 'zustand/middleware' import. DO NOT IMPORT IT BY ANY MEANS!
 
 PROJECT STRUCTURE RULES:
 - screens/ - individual screen components (HomeScreen.js, PaywallScreen.js, etc.)
@@ -997,6 +1002,7 @@ DESIGN RULES:
 - When creating a new screen, you should create a new file for the screen.
 - When creating a screen, you should keep in mind information hierarchy and how the user will take in the information on the screen.
 - You should keep in the importance of beautiful UI design and creating a great user experience.
+- When creating cards, you should keep in mind that card widths on the screen should be consistent and should be about 90% of the screen width, so that there's a nice margin between the screen edges and the cards.
 
 PROJECT STRUCTURE RULES:
 - screens/ - individual screen components (screens/PaywallScreen.js)
