@@ -1,14 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/Button";
-import { TextField } from "@/components/Fields";
-import React, { ChangeEvent, FormEvent, useCallback, useState } from "react";
-import RegistrationAccountCreatedEmailVerificationPending from "../register/RegistrationAccountCreatedEmailVerificationPending";
 import ErrorModal from "@/components/ErrorModal";
-import Link from "next/link";
-import { OAuthSignInButton } from "../AuthComponents";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ChangeEvent, FormEvent, useCallback, useState } from "react";
+import { OAuthSignInButton } from "../AuthComponents";
+import RegistrationAccountCreatedEmailVerificationPending from "../register/RegistrationAccountCreatedEmailVerificationPending";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -20,6 +23,7 @@ export default function LoginForm() {
     useState<boolean>(false);
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const { email, password } = formData;
 
@@ -34,10 +38,15 @@ export default function LoginForm() {
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      setIsLoading(true);
+
       const loginResponse = await login({
         email,
         password,
       });
+
+      setIsLoading(false);
+
       if (loginResponse.error) {
         setShowErrorModal(true);
         setErrorMessage(loginResponse.error.message);
@@ -70,6 +79,7 @@ export default function LoginForm() {
       </div>
     );
   }
+
   return (
     <>
       <ErrorModal
@@ -79,72 +89,83 @@ export default function LoginForm() {
         }}
         errorMessage={errorMessage}
       />
-      <form
-        action="#"
-        className="mt-4 grid grid-cols-1 gap-y-4 px-4"
-        onSubmit={handleSubmit}
-      >
-        <TextField
-          label="Email address"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={handleChange}
-        />
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={handleChange}
-        />
-        <div>
-          <Button type="submit" value="Sign in" />
-        </div>
-        <div className="col-span-full grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {/* add or remove OAuth buttons here as desired. The second parameter is the redirect URL */}
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("google", "/login/callback");
-            }}
-            provider="google"
-            showOnlyLogo
-          />
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("apple", "/login/callback");
-            }}
-            provider="apple"
-            showOnlyLogo
-          />
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("facebook", "/login/callback");
-            }}
-            provider="facebook"
-            showOnlyLogo
-          />
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("github", "/login/callback");
-            }}
-            provider="github"
-            showOnlyLogo
-          />
-        </div>
-        <div className="my-4 text-center">
-          <p>
-            Forgot your password? Reset it{" "}
-            <Link href="/forgot_password" className="text-primary">
-              here
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
+          <CardDescription className="text-center">
+            Enter your credentials to access your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Enter your email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <OAuthSignInButton
+              onClick={async () => {
+                await signInWithOAuth("google", "/login/callback");
+              }}
+              provider="google"
+              showOnlyLogo={false}
+            />
+          </div>
+
+          <div className="text-center text-sm">
+            <Link
+              href="/forgot_password"
+              className="text-primary hover:underline"
+            >
+              Forgot your password?
             </Link>
-          </p>
-        </div>
-      </form>
+          </div>
+        </CardContent>
+      </Card>
     </>
   );
 }

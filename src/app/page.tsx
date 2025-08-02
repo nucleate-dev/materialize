@@ -57,7 +57,7 @@ function HeroSection() {
         </h1>
 
         {/* Animated Subtitle */}
-        <p className="text-xl md:text-2xl text-gray-300 max-w-5xl mx-auto mb-16 leading-relaxed">
+        <p className="text-xl md:text-2xl text-white max-w-5xl mx-auto mb-16 leading-relaxed">
           Prototype your ideas, workshop new designs, and build high-quality
           React Native components at the
           <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent font-semibold">
@@ -129,7 +129,7 @@ function HeroSection() {
   );
 }
 
-function PhoneMockup({ label }: { label: string }) {
+function PhoneMockup({ label }: { label: string; }) {
   return (
     <div className="relative w-40 sm:w-48 md:w-56 aspect-[9/19] bg-black rounded-[2.5rem] border-4 border-gray-700 shadow-xl flex items-center justify-center overflow-hidden">
       {/* notch */}
@@ -148,7 +148,7 @@ function RapidPrototypingSection() {
         <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
           Rapid Prototyping
         </h2>
-        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">
+        <p className="text-xl text-white max-w-3xl mx-auto mb-16">
           Quickly build paywalls and iterate in seconds.
         </p>
         <div className="flex justify-center gap-6">
@@ -168,7 +168,7 @@ function FlowVisualizationSection() {
         <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
           Visualize &amp; Tweak Your Flows Quickly
         </h2>
-        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">
+        <p className="text-xl text-white max-w-3xl mx-auto mb-16">
           See your 3 step paywall flow at a glance.
         </p>
         <div className="flex justify-center gap-6">
@@ -233,7 +233,7 @@ function FeaturesSection() {
           <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
             Built for Speed & Quality
           </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+          <p className="text-xl text-white max-w-3xl mx-auto">
             Every feature designed to eliminate friction and accelerate your
             creative process.
           </p>
@@ -281,7 +281,7 @@ function FeatureCard({
         <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-gray-100 transition-colors">
           {title}
         </h3>
-        <p className="text-gray-300 text-lg leading-relaxed group-hover:text-gray-200 transition-colors">
+        <p className="text-white text-lg leading-relaxed group-hover:text-gray-100 transition-colors">
           {description}
         </p>
 
@@ -356,7 +356,7 @@ function PricingSection() {
           <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
             Choose Your Plan
           </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+          <p className="text-xl text-white max-w-3xl mx-auto">
             Start free and scale as you grow. Pay only for what you use with
             transparent, developer-friendly pricing.
           </p>

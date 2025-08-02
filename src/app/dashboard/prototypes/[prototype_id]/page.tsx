@@ -8,8 +8,8 @@ import ExpoSnackViewer, {
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import { supabase } from "@/GlobalConstants";
-import { useSidebar } from "@/hooks/useSidebar";
 import { useFileSystem } from "@/hooks/useFileSystem";
+import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
@@ -25,7 +25,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -168,14 +168,14 @@ export default function CreatePage() {
           {/* Enhanced Header with Toggle */}
           <div className="relative">
             {/* Header gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-meta-3/5 via-meta-5/5 to-meta-6/5 dark:from-meta-3/10 dark:via-meta-5/10 dark:to-meta-6/10"></div>
+            <div className="absolute inset-0"></div>
 
             <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-meta-3/20 to-meta-5/20 rounded-lg blur-sm"></div>
-                    <div className="relative p-2 bg-gradient-to-r from-meta-3 to-meta-5 rounded-lg shadow-lg">
+                    <div className="absolute inset-0 rounded-lg blur-sm"></div>
+                    <div className="relative p-2 rounded-lg shadow-lg">
                       {isPreviewView ? (
                         <EyeIcon className="w-5 h-5 text-white" />
                       ) : (
@@ -199,22 +199,20 @@ export default function CreatePage() {
                 <div className="flex items-center bg-white/60 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/30 dark:border-strokedark/40">
                   <button
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      isPreviewView
-                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
-                        : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                    }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${isPreviewView
+                      ? "text-white shadow-lg shadow-meta-3/25 transform scale-105"
+                      : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
+                      }`}
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     Preview
                   </button>
                   <button
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      !isPreviewView
-                        ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-lg shadow-meta-3/25 transform scale-105"
-                        : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
-                    }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${!isPreviewView
+                      ? "text-white shadow-lg shadow-meta-3/25 transform scale-105"
+                      : "text-body dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/40 dark:hover:bg-boxdark/40"
+                      }`}
                   >
                     <CodeBracketIcon className="w-4 h-4 inline mr-2" />
                     Code

@@ -12,6 +12,17 @@ import {
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
 import { DEFAULT_DEPENDENCIES } from "../templates/defaultApp";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];
@@ -263,106 +274,103 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     };
 
     const handleModalClose = () => {
-      setShowNewFileModal(false);
       setNewFileName("");
       setNewFileError("");
     };
 
     return (
-      <div className="flex flex-col h-full bg-transparent">
-        {/* Compact Header with Controls */}
-        <div className="flex items-center justify-between p-3 bg-white/40 dark:bg-boxdark/40 border-b border-white/20 dark:border-strokedark/30">
-          <div className="flex items-center space-x-3">
+      <div className="flex flex-col h-full bg-background">
+        {/* Header with Controls */}
+        <div className="flex items-center justify-between p-6 bg-background border-b border-border">
+          <div className="flex items-center space-x-4">
             {/* Mode Selector */}
-            <div className="flex bg-white/60 dark:bg-boxdark/60 rounded-lg p-1 backdrop-blur-sm">
-              <button
+            <div className="flex bg-muted rounded-lg p-1">
+              <Button
+                variant={previewMode === "mobile" ? "default" : "ghost"}
+                size="sm"
                 onClick={() => handleModeChange("mobile")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "mobile"
-                  ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
-                  : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
-                  }`}
               >
                 Mobile
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={previewMode === "web" ? "default" : "ghost"}
+                size="sm"
                 onClick={() => handleModeChange("web")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "web"
-                  ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
-                  : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
-                  }`}
               >
                 Web
-              </button>
+              </Button>
             </div>
           </div>
 
           {!hideControls && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               {onCreateFile && (
-                <button
+                <Button
                   onClick={() => setShowNewFileModal(true)}
-                  className="bg-gradient-to-r from-primary to-secondary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+                  size="sm"
                   disabled={isLoading}
                   title="Create new file"
                 >
                   + New File
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 onClick={onResetToDefault}
-                className="bg-gradient-to-r from-meta-1 to-meta-6 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+                size="sm"
+                variant="destructive"
                 disabled={isLoading}
                 title="Reset to default app"
               >
                 Reset
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleRefresh}
-                className="bg-gradient-to-r from-meta-3 to-meta-5 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+                size="sm"
+                variant="secondary"
                 disabled={isLoading || !webPreviewURL}
               >
                 Refresh
-              </button>
+              </Button>
             </div>
           )}
         </div>
 
         {/* Status */}
         {(isLoading || error) && (
-          <div className="p-3 bg-white/20 dark:bg-boxdark/20 border-b border-white/20 dark:border-strokedark/30">
+          <div className="p-4 bg-muted border-b border-border">
             {isLoading && (
-              <div className="flex items-center space-x-2 text-primary">
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">Loading preview...</span>
+              <div className="flex items-center space-x-3">
+                <Badge variant="secondary">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Loading preview...
+                </Badge>
               </div>
             )}
 
             {error && (
-              <div className="flex items-center space-x-2 text-meta-1">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-sm font-medium">{error}</span>
+              <div className="flex items-center space-x-3">
+                <Badge variant="destructive">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  {error}
+                </Badge>
               </div>
             )}
           </div>
         )}
 
         {/* Preview */}
-        <div className="flex-1 relative flex items-center justify-center bg-gradient-to-br from-gray-50/50 to-gray-100/50 dark:from-boxdark/20 dark:to-meta-4/20 p-4">
+        <div className="flex-1 relative flex items-center justify-center bg-muted/30 p-8">
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">
+              <div className="text-center bg-card p-8 rounded-lg border border-border">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                <p className="text-foreground text-lg font-medium">
                   Setting up your React Native preview...
                 </p>
               </div>
@@ -455,15 +463,15 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
           ) : (
             /* --- END: Mobile device frame --- */
             /* --- START: Web preview --- */
-            <div className="w-full h-full max-w-4xl mx-auto">
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden h-full">
-                <div className="bg-gray-100 px-4 py-2 border-b flex items-center space-x-2">
-                  <div className="flex space-x-1">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <div className="w-full h-full max-w-6xl mx-auto">
+              <div className="bg-card rounded-lg border border-border overflow-hidden h-full">
+                <div className="bg-muted px-6 py-4 border-b border-border flex items-center space-x-3">
+                  <div className="flex space-x-2">
+                    <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                    <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   </div>
-                  <span className="text-sm text-gray-600 ml-2">
+                  <span className="text-sm text-foreground font-medium ml-3">
                     Web Preview
                   </span>
                 </div>
@@ -485,72 +493,85 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* File Info */}
         {!hideControls && (
-          <div className="border-t p-3 bg-white">
-            <div className="text-xs text-gray-500">
-              Files: {Object.keys(files).join(", ")}
+          <div className="border-t border-border p-6 bg-background">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-foreground font-medium">Files:</span>
+              {Object.keys(files).map((fileName) => (
+                <Badge key={fileName} variant="outline" className="text-xs">
+                  {fileName}
+                </Badge>
+              ))}
               {snackUrl && (
-                <span className="ml-2">• Connected to Expo Snack</span>
+                <Badge variant="secondary" className="text-xs">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                  Connected to Expo Snack
+                </Badge>
               )}
             </div>
           </div>
         )}
 
         {/* New File Modal */}
-        {showNewFileModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleModalClose}>
-            <div className="bg-white dark:bg-boxdark rounded-lg p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Create New File</h3>
+        <Dialog open={showNewFileModal} onOpenChange={(open) => {
+          setShowNewFileModal(open);
+          if (!open) {
+            handleModalClose();
+          }
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New File</DialogTitle>
+            </DialogHeader>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-body dark:text-bodydark mb-2">
-                    File Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newFileName}
-                    onChange={(e) => {
-                      setNewFileName(e.target.value);
-                      setNewFileError("");
-                    }}
-                    placeholder="e.g., components/MyComponent.tsx"
-                    className="w-full px-3 py-2 border border-stroke dark:border-strokedark rounded-lg bg-transparent text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                    autoFocus
-                  />
-                  {newFileError && (
-                    <p className="text-meta-1 text-sm mt-1">{newFileError}</p>
-                  )}
-                </div>
-
-                <div className="text-sm text-body dark:text-bodydark">
-                  <p className="mb-2">Supported file types:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>.js, .jsx - JavaScript/React components</li>
-                    <li>.ts, .tsx - TypeScript/React components</li>
-                    <li>.json - JSON configuration files</li>
-                    <li>.md - Markdown documentation</li>
-                    <li>.css - Stylesheets</li>
-                  </ul>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="fileName" className="text-sm font-medium">
+                  File Name
+                </Label>
+                <Input
+                  id="fileName"
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => {
+                    setNewFileName(e.target.value);
+                    setNewFileError("");
+                  }}
+                  placeholder="e.g., components/MyComponent.tsx"
+                  className="mt-2"
+                  autoFocus
+                />
+                {newFileError && (
+                  <p className="text-destructive text-sm mt-1">{newFileError}</p>
+                )}
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={handleModalClose}
-                  className="px-4 py-2 text-sm font-medium text-body dark:text-bodydark hover:text-black dark:hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateFile}
-                  className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-300"
-                >
-                  Create File
-                </button>
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-2">Supported file types:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>.js, .jsx - JavaScript/React components</li>
+                  <li>.ts, .tsx - TypeScript/React components</li>
+                  <li>.json - JSON configuration files</li>
+                  <li>.md - Markdown documentation</li>
+                  <li>.css - Stylesheets</li>
+                </ul>
               </div>
             </div>
-          </div>
-        )}
+
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setShowNewFileModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateFile}
+              >
+                Create File
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   },

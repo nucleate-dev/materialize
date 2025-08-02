@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
-import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
 import EmptyState from "@/components/dashboard/EmptyState";
+import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
+import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
+import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/GlobalConstants";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Database } from "@/lib/types/database.types";
-import { useEffect } from "react";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -75,42 +77,30 @@ export default function WhiteboardsPage() {
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              Whiteboards
-            </h1>
-            <p className="text-body dark:text-bodydark">
-              Your infinite canvases for rapid prototyping and design
-            </p>
-          </div>
+      <Card className="mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-title-xl2 font-bold text-black dark:text-white mb-2">
+                Whiteboards
+              </CardTitle>
+              <CardDescription className="text-body dark:text-bodydark">
+                Your infinite canvases for rapid prototyping and design
+              </CardDescription>
+            </div>
 
-          {/* New Canvas Button */}
-          <button
-            onClick={handleOpenModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-          >
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+            {/* New Canvas Button */}
+            <Button
+              onClick={handleOpenModal}
+              size="lg"
+              className="gap-2"
             >
-              <path
-                d="M10 4V16M4 10H16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            New Whiteboard
-          </button>
-        </div>
-      </div>
+              <Plus className="h-4 w-4" />
+              New Whiteboard
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Modal for new canvas */}
       <NewWhiteboardModal
@@ -121,27 +111,29 @@ export default function WhiteboardsPage() {
       />
 
       {/* Canvases Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {loading ? (
-          <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-300">
-            Loading...
-          </div>
-        ) : canvases.length > 0 ? (
-          canvases.map((canvas) => (
-            <CanvasThumbnail
-              key={canvas.id}
-              canvasName={canvas.name}
-              thumbnailUrl={canvas.thumbnail_url}
-              lastModified={formatRelativeTime(
-                canvas.updated_at || canvas.created_at,
-              )}
-              onClick={() => handleCanvasClick(canvas.id)}
-            />
-          ))
-        ) : (
-          <EmptyState type="whiteboards" onButtonClick={handleOpenModal} />
-        )}
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {canvases.length > 0 ? (
+            canvases.map((canvas) => (
+              <CanvasThumbnail
+                key={canvas.id}
+                canvasName={canvas.name}
+                thumbnailUrl={canvas.thumbnail_url}
+                lastModified={formatRelativeTime(
+                  canvas.updated_at || canvas.created_at,
+                )}
+                onClick={() => handleCanvasClick(canvas.id)}
+              />
+            ))
+          ) : (
+            <EmptyState type="whiteboards" onButtonClick={handleOpenModal} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

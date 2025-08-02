@@ -1,11 +1,14 @@
 "use client";
 
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
-import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import EmptyState from "@/components/dashboard/EmptyState";
+import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
+import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
+import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -61,42 +64,30 @@ export default function PrototypesPage() {
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              All prototypes
-            </h1>
-            <p className="text-body dark:text-bodydark">
-              Manage and organize your prototypes from across all your projects
-            </p>
-          </div>
+      <Card className="mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-title-xl2 font-bold text-black dark:text-white mb-2">
+                All prototypes
+              </CardTitle>
+              <CardDescription className="text-body dark:text-bodydark">
+                Manage and organize your prototypes from across all your projects
+              </CardDescription>
+            </div>
 
-          {/* New Prototype Button */}
-          <button
-            onClick={handleOpenModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-          >
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+            {/* New Prototype Button */}
+            <Button
+              onClick={handleOpenModal}
+              size="lg"
+              className="gap-2"
             >
-              <path
-                d="M10 4V16M4 10H16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            New Prototype
-          </button>
-        </div>
-      </div>
+              <Plus className="h-4 w-4" />
+              New Prototype
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Modal for new prototype */}
       <NewPrototypeModal
@@ -109,7 +100,7 @@ export default function PrototypesPage() {
       {/* Prototypes Grid */}
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
