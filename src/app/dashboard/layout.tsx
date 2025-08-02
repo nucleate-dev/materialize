@@ -42,7 +42,8 @@ export default function RootLayout({
         <RequireAuth />
         <SidebarProvider>
           {/* <WithPaywall> */}
-          <div className="dark:bg-boxdark-2 bg-gray-2 dark:text-bodydark">
+          {/*  adds colored background: <div className="dark:bg-boxdark-2 bg-gray-2 dark:text-bodydark"> */}
+          <div>
             {loading ? (
               <Loader />
             ) : (

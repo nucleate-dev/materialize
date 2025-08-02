@@ -1,6 +1,10 @@
 "use client";
 
 import React from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { Plus, FolderOpen, Layers, PenTool } from "lucide-react";
 
 interface EmptyStateProps {
   type: "projects" | "prototypes" | "whiteboards";
@@ -23,40 +27,25 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       title: "No projects yet",
       description: "Create your first project to start prototyping your ideas at the speed of thought.",
       buttonText: "Create First Project",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-        />
-      ),
+      icon: FolderOpen,
+      gradient: "from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30",
+      iconColor: "text-primary dark:text-primary",
     },
     prototypes: {
       title: "No prototypes yet",
       description: "Create your first prototype to start prototyping your ideas at the speed of thought.",
       buttonText: "Create First Prototype",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-        />
-      ),
+      icon: Layers,
+      gradient: "from-meta-3/20 to-meta-5/20 dark:from-meta-3/30 dark:to-meta-5/30",
+      iconColor: "text-meta-3 dark:text-meta-3",
     },
     whiteboards: {
       title: "No whiteboards yet",
       description: "Create your first infinite canvas to start prototyping and designing at the speed of thought.",
       buttonText: "Create First Whiteboard",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-        />
-      ),
+      icon: PenTool,
+      gradient: "from-meta-1/20 to-meta-6/20 dark:from-meta-1/30 dark:to-meta-6/30",
+      iconColor: "text-meta-1 dark:text-meta-1",
     },
   };
 
@@ -64,33 +53,39 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   const finalTitle = title || content.title;
   const finalDescription = description || content.description;
   const finalButtonText = buttonText || content.buttonText;
+  const IconComponent = content.icon;
 
   return (
-    <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-24 h-24 bg-gray-100 dark:bg-meta-4 rounded-full flex items-center justify-center mb-6">
-        <svg
-          className="w-12 h-12 text-body dark:text-bodydark2"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          {content.icon}
-        </svg>
-      </div>
-      <h3 className="text-xl font-semibold text-black dark:text-white mb-2">
-        {finalTitle}
-      </h3>
-      <p className="text-body dark:text-bodydark mb-6 max-w-md">
-        {finalDescription}
-      </p>
-      {onButtonClick && (
-        <button
-          onClick={onButtonClick}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-        >
-          {finalButtonText}
-        </button>
-      )}
+    <div className="col-span-full flex flex-col items-center justify-center py-20">
+      <Card className="border-dashed border-2 border-border/50 bg-background/80 backdrop-blur-sm max-w-lg w-full">
+        <CardContent className="flex flex-col items-center text-center p-12">
+          <div className={cn(
+            "w-20 h-20 rounded-2xl flex items-center justify-center mb-6 bg-gradient-to-br",
+            content.gradient
+          )}>
+            <IconComponent className={cn("w-10 h-10", content.iconColor)} />
+          </div>
+          
+          <h3 className="text-2xl font-semibold text-black dark:text-white mb-3">
+            {finalTitle}
+          </h3>
+          
+          <p className="text-body dark:text-bodydark mb-8 leading-relaxed">
+            {finalDescription}
+          </p>
+          
+          {onButtonClick && (
+            <Button 
+              onClick={onButtonClick}
+              size="lg"
+              className="shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {finalButtonText}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

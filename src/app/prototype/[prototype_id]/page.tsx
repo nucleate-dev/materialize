@@ -13,6 +13,9 @@ import {
   ShareIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -184,84 +187,79 @@ export default function PrototypePage() {
 
   if (error) {
     return (
-      <div className="h-screen bg-gradient-to-br from-gray-2 via-whiter to-gray-3 dark:from-boxdark-2 dark:via-boxdark dark:to-meta-4 flex items-center justify-center">
-        <div className="text-center bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl p-8 rounded-3xl border border-white/20 dark:border-strokedark/30 shadow-2xl">
-          <div className="w-16 h-16 bg-gradient-to-br from-meta-1 to-meta-6 rounded-full flex items-center justify-center mx-auto mb-4">
-            <SparklesIcon className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-black dark:text-white mb-2">
-            Oops! Something went wrong
-          </h2>
-          <p className="text-body dark:text-bodydark">{error}</p>
-        </div>
+      <div className="h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-destructive rounded-full flex items-center justify-center mx-auto mb-4">
+              <SparklesIcon className="w-8 h-8 text-destructive-foreground" />
+            </div>
+            <CardTitle className="text-2xl">
+              Oops! Something went wrong
+            </CardTitle>
+            <CardDescription>
+              {error}
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
   if (!prototype) {
     return (
-      <div className="h-screen bg-gradient-to-br from-gray-2 via-whiter to-gray-3 dark:from-boxdark-2 dark:via-boxdark dark:to-meta-4 flex items-center justify-center">
-        <div className="text-center bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl p-8 rounded-3xl border border-white/20 dark:border-strokedark/30 shadow-2xl">
-          <div className="w-16 h-16 bg-gradient-to-br from-meta-3 to-meta-5 rounded-full flex items-center justify-center mx-auto mb-4">
-            <EyeIcon className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-black dark:text-white mb-2">
-            Prototype Not Found
-          </h2>
-          <p className="text-body dark:text-bodydark">
-            The prototype you're looking for doesn't exist or you don't have
-            permission to view it.
-          </p>
-        </div>
+      <div className="h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <EyeIcon className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <CardTitle className="text-2xl">
+              Prototype Not Found
+            </CardTitle>
+            <CardDescription>
+              The prototype you're looking for doesn't exist or you don't have
+              permission to view it.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-2 via-whiter to-gray-3 dark:from-boxdark-2 dark:via-boxdark dark:to-meta-4 overflow-hidden">
-      {/* Animated Background Orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-meta-5/10 to-meta-3/10 dark:from-meta-5/20 dark:to-meta-3/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-br from-meta-6/10 to-primary/10 dark:from-meta-6/20 dark:to-primary/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
-      </div>
-
-      <div className="relative z-10 h-full flex flex-col">
+    <div className="h-screen bg-background overflow-hidden">
+      <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="flex-shrink-0 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl border-b border-white/20 dark:border-strokedark/30 shadow-lg">
-          {/* Inner glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 pointer-events-none"></div>
-
-          <div className="relative z-10 px-8 py-6">
+        <div className="flex-shrink-0 bg-background border-b border-border">
+          <div className="px-8 py-6">
             <div className="flex items-center justify-between">
               {/* Left side - Prototype info */}
               <div className="flex items-center gap-6">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-meta-5/20 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-5/10 rounded-full blur-2xl animate-pulse"></div>
-                  <div className="relative p-4 bg-gradient-to-br from-primary to-secondary dark:from-primary dark:to-secondary rounded-2xl shadow-2xl shadow-primary/25 dark:shadow-primary/40 ring-1 ring-white/20 dark:ring-primary/30">
-                    <SparklesIcon className="w-8 h-8 text-white drop-shadow-lg" />
-                  </div>
+                <div className="p-4 bg-primary text-primary-foreground rounded-lg">
+                  <SparklesIcon className="w-8 h-8" />
                 </div>
 
                 <div>
-                  <h1 className="text-3xl font-bold text-black dark:text-white mb-2">
+                  <h1 className="text-3xl font-bold text-foreground mb-2">
                     {prototype.name}
                   </h1>
                   {prototype.description && (
-                    <p className="text-body dark:text-bodydark text-lg leading-relaxed">
+                    <p className="text-muted-foreground text-lg leading-relaxed">
                       {prototype.description}
                     </p>
                   )}
                   <div className="flex items-center gap-4 mt-3">
-                    <div className="flex items-center gap-2 text-sm text-body dark:text-bodydark">
-                      <div className="w-2 h-2 bg-meta-3 rounded-full animate-pulse"></div>
-                      <span>
-                        {Object.keys(prototypeFiles).length} files •{" "}
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                        {Object.keys(prototypeFiles).length} files
+                      </Badge>
+                      <Badge variant="outline">
                         {prototype.visibility?.toLowerCase() || "private"}
-                      </span>
+                      </Badge>
                     </div>
                     {prototype.created_at && (
-                      <div className="text-sm text-body dark:text-bodydark">
+                      <div className="text-sm text-muted-foreground">
                         Created{" "}
                         {new Date(prototype.created_at).toLocaleDateString()}
                       </div>
@@ -272,36 +270,30 @@ export default function PrototypePage() {
 
               {/* Right side - Action buttons */}
               <div className="flex items-center gap-3">
-                <button
+                <Button
                   onClick={handleClonePrototype}
                   disabled={isCloning || !user}
-                  className={`group relative px-6 py-3 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 ${
-                    isCloning || !user
-                      ? "bg-stroke/50 dark:bg-strokedark/50 text-body/40 dark:text-bodydark/40 cursor-not-allowed"
-                      : "bg-gradient-to-r from-primary via-secondary to-meta-5 hover:from-primary/90 hover:via-secondary/90 hover:to-meta-5/90 text-white hover:scale-105 hover:shadow-xl hover:shadow-primary/40 dark:hover:shadow-primary/60 ring-2 ring-white/20 dark:ring-primary/30 hover:ring-white/30 dark:hover:ring-primary/50"
-                  }`}
+                  size="lg"
                 >
-                  {/* Button glow effect */}
-                  {!isCloning && !(!user) && (
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary/30 to-secondary/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  )}
-
                   {isCloning ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-body/30 border-t-body rounded-full animate-spin"></div>
-                      <span className="relative">Cloning...</span>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Cloning...
                     </>
                   ) : (
                     <>
-                      <DocumentDuplicateIcon className="relative w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
-                      <span className="relative">Clone Prototype</span>
+                      <DocumentDuplicateIcon className="w-4 h-4 mr-2" />
+                      Clone Prototype
                     </>
                   )}
-                </button>
+                </Button>
 
-                <button className="group p-3 bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 rounded-xl border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110">
-                  <ShareIcon className="w-5 h-5 text-body dark:text-bodydark group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300" />
-                </button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                >
+                  <ShareIcon className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </div>
@@ -309,18 +301,15 @@ export default function PrototypePage() {
 
         {/* Main Content - ExpoSnackViewer */}
         <div className="flex-1 p-8">
-          <div className="h-full bg-white/60 dark:bg-boxdark/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-strokedark/30 shadow-2xl overflow-hidden">
-            {/* Inner glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-primary/5 dark:from-white/5 dark:to-primary/10 rounded-3xl pointer-events-none"></div>
-
-            <div className="relative z-10 h-full">
+          <Card className="h-full overflow-hidden">
+            <CardContent className="h-full p-0">
               <ExpoSnackViewer 
                 files={prototypeFiles} 
                 hideControls={!user || prototype?.owner_id !== user.id}
                 onCreateFile={user && prototype?.owner_id === user.id ? handleCreateFile : undefined}
               />
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

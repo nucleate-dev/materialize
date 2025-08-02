@@ -1,11 +1,14 @@
 "use client";
 
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
-import NewProjectModal from "@/components/dashboard/NewProjectModal";
 import EmptyState from "@/components/dashboard/EmptyState";
+import NewProjectModal from "@/components/dashboard/NewProjectModal";
+import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
 import { supabase } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -60,42 +63,29 @@ export default function ProjectsPage() {
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
-              All projects
-            </h1>
-            <p className="text-body dark:text-bodydark">
-              Manage and organize your projects
-            </p>
-          </div>
+      <Card className="mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
+                All projects
+              </h1>
+              <p className="text-body dark:text-bodydark">
+                Manage and organize your projects
+              </p>
+            </div>
 
-          {/* New Project Button */}
-          <button
-            onClick={handleOpenModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary/90 transition-colors duration-200"
-          >
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+            {/* New Project Button */}
+            <Button
+              onClick={handleOpenModal}
+              size="lg"
             >
-              <path
-                d="M10 4V16M4 10H16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            New Project
-          </button>
-        </div>
-      </div>
+              <Plus className="w-5 h-5" />
+              New Project
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Modal for new project */}
       <NewProjectModal
@@ -108,7 +98,7 @@ export default function ProjectsPage() {
       {/* Projects Grid */}
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
