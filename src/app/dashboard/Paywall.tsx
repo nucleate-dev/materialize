@@ -14,19 +14,24 @@ export default function WithPaywall({
 }) {
   const {
     hasTeamSubscriptionAccess,
-    hasProSubscriptionAccess,
+    hasActiveProSubscription,
+    hasPastDueSubscription,
     loadingSubscriptionData,
   } = useHasSubscriptionAccess();
   if (loadingSubscriptionData) {
     return <Loader />;
-  } else if (hasTeamSubscriptionAccess || hasProSubscriptionAccess) {
+  } else if (hasTeamSubscriptionAccess || hasActiveProSubscription) {
     return children;
   } else {
-    return <Paywall />;
+    return <Paywall isPastDue={hasPastDueSubscription} />;
   }
 }
 
-function Paywall() {
+function Paywall({
+  isPastDue = false,
+}: {
+  isPastDue?: boolean;
+}) {
   const pricingTiers = [
     {
       name: "Free",
@@ -72,6 +77,12 @@ function Paywall() {
         <h2 className="text-4xl md:text-5xl font-bold mb-4">
           Choose Your Plan
         </h2>
+        {isPastDue && (
+          <p className="text-red-600 mb-4">
+            Your subscription payment is past due. Please update your billing
+            information to regain access.
+          </p>
+        )}
         <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-12">
           Start free and scale as you grow. Pay only for what you use with
           transparent, developer-friendly pricing.
