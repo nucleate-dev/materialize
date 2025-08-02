@@ -1,5 +1,6 @@
 "use client";
 
+import { Database } from "@/lib/types/database.types";
 import {
   forwardRef,
   useCallback,
@@ -11,7 +12,6 @@ import {
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
 import { DEFAULT_DEPENDENCIES } from "../templates/defaultApp";
-import { Database } from "@/lib/types/database.types";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];
@@ -91,7 +91,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               };
               return acc;
             },
-            {} as Record<string, { type: "CODE"; contents: string }>,
+            {} as Record<string, { type: "CODE"; contents: string; }>,
           );
 
           snackSDK = new Snack({
@@ -155,7 +155,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               };
               return acc;
             },
-            {} as Record<string, { type: "CODE"; contents: string }>,
+            {} as Record<string, { type: "CODE"; contents: string; }>,
           );
           snack.updateFiles(snackFiles);
         } catch (err) {
@@ -277,21 +277,19 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
             <div className="flex bg-white/60 dark:bg-boxdark/60 rounded-lg p-1 backdrop-blur-sm">
               <button
                 onClick={() => handleModeChange("mobile")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${
-                  previewMode === "mobile"
-                    ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
-                    : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
-                }`}
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "mobile"
+                  ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
+                  : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
+                  }`}
               >
                 Mobile
               </button>
               <button
                 onClick={() => handleModeChange("web")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${
-                  previewMode === "web"
-                    ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
-                    : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
-                }`}
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-300 font-medium ${previewMode === "web"
+                  ? "bg-gradient-to-r from-meta-3 to-meta-5 text-white shadow-sm transform scale-105"
+                  : "text-body dark:text-bodydark hover:text-black dark:hover:text-white"
+                  }`}
               >
                 Web
               </button>
@@ -426,9 +424,9 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                 >
                   <iframe
                     key={`mobile-${refreshKey}`}
-                    ref={(c) =>
-                      (webPreviewRef.current = c?.contentWindow ?? null)
-                    }
+                    ref={(c) => {
+                      webPreviewRef.current = c?.contentWindow ?? null;
+                    }}
                     className="w-full h-full"
                     title="React Native Preview"
                     src={webPreviewURL}
@@ -471,9 +469,9 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                 </div>
                 <iframe
                   key={`web-${refreshKey}`}
-                  ref={(c) =>
-                    (webPreviewRef.current = c?.contentWindow ?? null)
-                  }
+                  ref={(c) => {
+                    webPreviewRef.current = c?.contentWindow ?? null;
+                  }}
                   className="w-full h-full min-h-[500px]"
                   title="React Native Web Preview"
                   src={webPreviewURL}
@@ -502,7 +500,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleModalClose}>
             <div className="bg-white dark:bg-boxdark rounded-lg p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Create New File</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-body dark:text-bodydark mb-2">
@@ -523,7 +521,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                     <p className="text-meta-1 text-sm mt-1">{newFileError}</p>
                   )}
                 </div>
-                
+
                 <div className="text-sm text-body dark:text-bodydark">
                   <p className="mb-2">Supported file types:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
@@ -535,7 +533,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                   </ul>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={handleModalClose}
