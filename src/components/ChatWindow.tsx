@@ -38,6 +38,11 @@ export default function ChatWindow({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
   };
 
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
@@ -101,6 +106,11 @@ export default function ChatWindow({
     if (input.trim() && !isLoading) {
       onSendMessage(input.trim());
       setInput(""); // Clear input after sending
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '56px';
+      }
     }
   };
 
@@ -590,7 +600,7 @@ export default function ChatWindow({
               placeholder="Ask me to create or modify React Native code... ✨"
               className="relative w-full px-6 py-4 pr-16 rounded-2xl text-sm font-medium transition-all duration-500 focus:scale-[1.02] transform-gpu bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 border-2 border-slate-200/50 dark:border-slate-600/60 focus:border-blue-500/70 dark:focus:border-blue-400/70 focus:bg-white dark:focus:bg-slate-700/95 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/50 shadow-lg dark:shadow-2xl hover:shadow-xl dark:hover:shadow-slate-900/50 backdrop-blur-xl hover:border-blue-500/30 dark:hover:border-blue-400/50 resize-none"
               rows={1}
-              style={{ minHeight: "56px", maxHeight: "160px" }}
+              style={{ minHeight: "56px", maxHeight: "160px", overflow: "hidden" }}
               disabled={isLoading}
             />
 
