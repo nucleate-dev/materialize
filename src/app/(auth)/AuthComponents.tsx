@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Provider } from "@supabase/supabase-js";
 
 /**
@@ -34,16 +35,17 @@ export function OAuthSignInButton({
 }) {
   const logo = getOAuthButtonLogo(provider);
   return (
-    <button
-      className="border-stroke bg-gray flex w-full items-center justify-center gap-3.5 rounded-lg border p-4 hover:bg-slate-100 hover:bg-opacity-50"
+    <Button
+      variant="outline"
+      className="w-full"
       onClick={onClick}
     >
-      <span>{logo}</span>
+      <span className="mr-2">{logo}</span>
       {showOnlyLogo
         ? null
         : `Continue with ${provider.charAt(0).toUpperCase() + provider.slice(1)
         }`}
-    </button>
+    </Button>
   );
 }
 
