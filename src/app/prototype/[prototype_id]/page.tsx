@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import Loader from "@/components/dashboard/Loader";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -17,7 +17,13 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
@@ -147,7 +153,10 @@ export default function PrototypePage() {
     }
   };
 
-  const handleCreateFile = async (fileName: string, initialContent: string = "") => {
+  const handleCreateFile = async (
+    fileName: string,
+    initialContent: string = "",
+  ) => {
     if (!user || !prototypeId) return;
 
     try {
@@ -173,7 +182,7 @@ export default function PrototypePage() {
       }
 
       // Update local state to include the new file
-      setPrototypeFiles(prev => ({
+      setPrototypeFiles((prev) => ({
         ...prev,
         [fileName]: newFile,
       }));
@@ -182,9 +191,7 @@ export default function PrototypePage() {
       setError(null);
     } catch (err) {
       console.error("Error creating file:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to create file",
-      );
+      setError(err instanceof Error ? err.message : "Failed to create file");
     }
   };
 
@@ -204,7 +211,7 @@ export default function PrototypePage() {
 
     try {
       setIsUpdating(true);
-      
+
       const { error } = await supabase
         .from("prototypes")
         .update({ name: editedName.trim() })
@@ -215,7 +222,9 @@ export default function PrototypePage() {
       }
 
       // Update local state
-      setPrototype(prev => prev ? { ...prev, name: editedName.trim() } : null);
+      setPrototype((prev) =>
+        prev ? { ...prev, name: editedName.trim() } : null,
+      );
       setIsEditing(false);
       setEditedName("");
     } catch (err) {
@@ -243,9 +252,7 @@ export default function PrototypePage() {
             <CardTitle className="text-2xl">
               Oops! Something went wrong
             </CardTitle>
-            <CardDescription>
-              {error}
-            </CardDescription>
+            <CardDescription>{error}</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -260,9 +267,7 @@ export default function PrototypePage() {
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <EyeIcon className="w-8 h-8 text-muted-foreground" />
             </div>
-            <CardTitle className="text-2xl">
-              Prototype Not Found
-            </CardTitle>
+            <CardTitle className="text-2xl">Prototype Not Found</CardTitle>
             <CardDescription>
               The prototype you're looking for doesn't exist or you don't have
               permission to view it.
@@ -389,10 +394,7 @@ export default function PrototypePage() {
                   )}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  size="icon"
-                >
+                <Button variant="outline" size="icon">
                   <ShareIcon className="w-4 h-4" />
                 </Button>
               </div>
@@ -404,10 +406,14 @@ export default function PrototypePage() {
         <div className="flex-1 p-8">
           <Card className="h-full overflow-hidden">
             <CardContent className="h-full p-0">
-              <ExpoSnackViewer 
-                files={prototypeFiles} 
+              <ExpoSnackViewer
+                files={prototypeFiles}
                 hideControls={!user || prototype?.owner_id !== user.id}
-                onCreateFile={user && prototype?.owner_id === user.id ? handleCreateFile : undefined}
+                onCreateFile={
+                  user && prototype?.owner_id === user.id
+                    ? handleCreateFile
+                    : undefined
+                }
               />
             </CardContent>
           </Card>

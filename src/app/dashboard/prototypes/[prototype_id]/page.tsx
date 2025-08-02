@@ -7,7 +7,7 @@ import ExpoSnackViewer, {
 } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
@@ -30,7 +30,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -57,7 +57,7 @@ export default function CreatePage() {
       if (!prototypeId) return;
 
       console.log("Fetching prototype with ID:", prototypeId);
-      
+
       const { data, error } = await supabase
         .from("prototypes")
         .select("*")
@@ -124,7 +124,7 @@ export default function CreatePage() {
 
     try {
       setIsUpdating(true);
-      
+
       const { error } = await supabase
         .from("prototypes")
         .update({ name: editedName.trim() })
@@ -135,7 +135,9 @@ export default function CreatePage() {
       }
 
       // Update local state
-      setPrototype(prev => prev ? { ...prev, name: editedName.trim() } : null);
+      setPrototype((prev) =>
+        prev ? { ...prev, name: editedName.trim() } : null,
+      );
       setIsEditing(false);
       setEditedName("");
     } catch (err) {
@@ -170,9 +172,10 @@ export default function CreatePage() {
             <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
               {/* Debug info - remove after testing */}
               <div className="mb-2 text-xs text-gray-500">
-                Debug: prototypeId={prototypeId}, prototype={prototype ? "loaded" : "null"}, name={prototype?.name}
+                Debug: prototypeId={prototypeId}, prototype=
+                {prototype ? "loaded" : "null"}, name={prototype?.name}
               </div>
-              
+
               {/* Prototype Name Section */}
               {prototype && (
                 <div className="mb-4 group">
@@ -235,7 +238,7 @@ export default function CreatePage() {
                   </div>
                 </div>
               )}
-              
+
               {/* AI Assistant Section */}
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -314,22 +317,28 @@ export default function CreatePage() {
                 <div className="flex items-center bg-white/80 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/40 dark:border-strokedark/40 shadow-lg">
                   <button
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${isPreviewView
-                      ? "bg-primary text-white shadow-lg transform scale-105"
-                      : "text-gray-700 dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-boxdark/40"
-                      }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                      isPreviewView
+                        ? "bg-primary text-white shadow-lg transform scale-105"
+                        : "text-gray-700 dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-boxdark/40"
+                    }`}
                   >
-                    <EyeIcon className={`w-4 h-4 inline mr-2 ${isPreviewView ? "text-white" : "text-gray-700 dark:text-bodydark"}`} />
+                    <EyeIcon
+                      className={`w-4 h-4 inline mr-2 ${isPreviewView ? "text-white" : "text-gray-700 dark:text-bodydark"}`}
+                    />
                     Preview
                   </button>
                   <button
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${!isPreviewView
-                      ? "bg-primary text-white shadow-lg transform scale-105"
-                      : "text-gray-700 dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-boxdark/40"
-                      }`}
+                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                      !isPreviewView
+                        ? "bg-primary text-white shadow-lg transform scale-105"
+                        : "text-gray-700 dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-boxdark/40"
+                    }`}
                   >
-                    <CodeBracketIcon className={`w-4 h-4 inline mr-2 ${!isPreviewView ? "text-white" : "text-gray-700 dark:text-bodydark"}`} />
+                    <CodeBracketIcon
+                      className={`w-4 h-4 inline mr-2 ${!isPreviewView ? "text-white" : "text-gray-700 dark:text-bodydark"}`}
+                    />
                     Code
                   </button>
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
 
@@ -25,7 +25,9 @@ export interface FileSystemActions {
 
   // Bulk file operations
   setFiles: (files: Record<string, PrototypeFile>) => void;
-  applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => Promise<void>;
+  applyFileUpdates: (
+    updatedFiles: Record<string, PrototypeFile>,
+  ) => Promise<void>;
 
   // Utilities
   getFileContent: (filePath: string) => string;
@@ -266,7 +268,10 @@ export const useFileSystem = (
       });
 
       // Persist to database
-      console.log("🔄 Saving file updates to database:", Object.keys(updatedFiles));
+      console.log(
+        "🔄 Saving file updates to database:",
+        Object.keys(updatedFiles),
+      );
       await saveFilesToDatabase(updatedFiles);
       console.log("✅ File updates saved to database");
     },

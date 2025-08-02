@@ -4,8 +4,13 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/GlobalConstants";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Loader2, Plus } from "lucide-react";
@@ -13,7 +18,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-
 
 export default function PrototypesPage() {
   const { user } = useUser();
@@ -72,16 +76,13 @@ export default function PrototypesPage() {
                 All prototypes
               </CardTitle>
               <CardDescription className="text-body dark:text-bodydark">
-                Manage and organize your prototypes from across all your projects
+                Manage and organize your prototypes from across all your
+                projects
               </CardDescription>
             </div>
 
             {/* New Prototype Button */}
-            <Button
-              onClick={handleOpenModal}
-              size="lg"
-              className="gap-2"
-            >
+            <Button onClick={handleOpenModal} size="lg" className="gap-2">
               <Plus className="h-4 w-4" />
               New Prototype
             </Button>
@@ -121,10 +122,7 @@ export default function PrototypesPage() {
               />
             ))
           ) : (
-            <EmptyState
-              type="prototypes"
-              onButtonClick={handleOpenModal}
-            />
+            <EmptyState type="prototypes" onButtonClick={handleOpenModal} />
           )}
         </div>
       )}

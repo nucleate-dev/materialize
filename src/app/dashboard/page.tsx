@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
 import {
@@ -152,7 +152,9 @@ export default function DashboardPage() {
               <div className="grid w-full gap-4">
                 <Textarea
                   value={prompt}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setPrompt(e.target.value)
+                  }
                   placeholder="e.g., A simple to-do list app with a clean interface."
                   className="min-h-[120px] text-base"
                   rows={4}
@@ -220,11 +222,17 @@ export default function DashboardPage() {
         <div className="mt-16 text-center text-sm text-muted-foreground">
           <p>
             Need inspiration? Check out our{" "}
-            <Link href="/dashboard/projects" className="text-primary hover:underline">
+            <Link
+              href="/dashboard/projects"
+              className="text-primary hover:underline"
+            >
               project gallery
             </Link>{" "}
             or browse{" "}
-            <Link href="/dashboard/whiteboards" className="text-primary hover:underline">
+            <Link
+              href="/dashboard/whiteboards"
+              className="text-primary hover:underline"
+            >
               whiteboards
             </Link>
             .

@@ -1,7 +1,7 @@
 "use client";
 
 import Breadcrumb from "@/components/dashboard/Breadcrumbs/Breadcrumb";
-import { ProductKeys, supabase } from "@/GlobalConstants";
+import { ProductKeys } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { User, Phone, Mail, Rocket, Calendar, CreditCard } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { supabase } from "@/ClientConstants";
 
 function AccountSettings() {
   const user = useUser();
@@ -78,7 +79,7 @@ function AccountSettings() {
   return (
     <div className="mx-auto max-w-7xl p-6">
       <Breadcrumb pageName="Account" />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         {/* Personal Information Card */}
         <div className="lg:col-span-2">
@@ -105,7 +106,10 @@ function AccountSettings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber" className="flex items-center gap-2">
+                  <Label
+                    htmlFor="phoneNumber"
+                    className="flex items-center gap-2"
+                  >
                     <Phone className="w-4 h-4" />
                     Phone Number
                   </Label>
@@ -119,7 +123,10 @@ function AccountSettings() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="emailAddress" className="flex items-center gap-2">
+                <Label
+                  htmlFor="emailAddress"
+                  className="flex items-center gap-2"
+                >
                   <Mail className="w-4 h-4" />
                   Email Address
                 </Label>
@@ -146,12 +153,19 @@ function AccountSettings() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">Member since</p>
-                <p className="font-semibold">{memberSince?.toLocaleDateString()}</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Member since
+                </p>
+                <p className="font-semibold">
+                  {memberSince?.toLocaleDateString()}
+                </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="currentPlan" className="flex items-center gap-2">
+                <Label
+                  htmlFor="currentPlan"
+                  className="flex items-center gap-2"
+                >
                   <Rocket className="w-4 h-4" />
                   Current Plan
                 </Label>
@@ -164,9 +178,14 @@ function AccountSettings() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="billingDate" className="flex items-center gap-2">
+                <Label
+                  htmlFor="billingDate"
+                  className="flex items-center gap-2"
+                >
                   <Calendar className="w-4 h-4" />
-                  {scheduledForCancellation ? "Membership ends on" : "Next billing date"}
+                  {scheduledForCancellation
+                    ? "Membership ends on"
+                    : "Next billing date"}
                 </Label>
                 <Input
                   id="billingDate"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "../auth/SupabaseAuthUtils";
-import { ProductKeys, SubscriptionStatuses, supabase } from "@/GlobalConstants";
+import { ProductKeys, SubscriptionStatuses } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 
 /**
  * A custom hook that fetches and determines whether the current user has access to a base or pro subscription.

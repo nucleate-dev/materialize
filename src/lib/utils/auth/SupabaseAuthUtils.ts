@@ -1,4 +1,3 @@
-import { supabase } from "@/GlobalConstants";
 import {
   AuthError,
   AuthResponse,
@@ -8,6 +7,7 @@ import {
   Provider,
   User,
 } from "@supabase/supabase-js";
+import { supabase } from "@/ClientConstants";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -246,7 +246,7 @@ export async function updatePasswordForUser({
  */
 export async function signInWithOAuth(
   provider: Provider,
-  redirectTo: string | null
+  redirectTo: string | null,
 ): Promise<OAuthResponse> {
   return await supabase.auth.signInWithOAuth({
     provider: provider,
@@ -307,7 +307,7 @@ export const useUser = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user || null);
-      }
+      },
     );
 
     // Cleanup the listener when the component unmounts
@@ -355,7 +355,7 @@ export const useRequireAuth = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user || null);
-      }
+      },
     );
 
     // Cleanup the listener when the component unmounts

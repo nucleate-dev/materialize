@@ -5,7 +5,7 @@ import NewProjectModal from "@/components/dashboard/NewProjectModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Loader2, Plus } from "lucide-react";
@@ -76,10 +76,7 @@ export default function ProjectsPage() {
             </div>
 
             {/* New Project Button */}
-            <Button
-              onClick={handleOpenModal}
-              size="lg"
-            >
+            <Button onClick={handleOpenModal} size="lg">
               <Plus className="w-5 h-5" />
               New Project
             </Button>
@@ -117,10 +114,7 @@ export default function ProjectsPage() {
               />
             ))
           ) : (
-            <EmptyState
-              type="projects"
-              onButtonClick={handleOpenModal}
-            />
+            <EmptyState type="projects" onButtonClick={handleOpenModal} />
           )}
         </div>
       )}

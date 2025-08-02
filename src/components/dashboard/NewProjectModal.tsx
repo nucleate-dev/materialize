@@ -1,10 +1,15 @@
 "use client";
 
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState } from "react";
 import { SparklesIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,7 +84,7 @@ export default function NewProjectModal({
             Start a new project to organize your work
           </p>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="project-name" className="text-sm font-semibold">
@@ -92,8 +97,8 @@ export default function NewProjectModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={`h-12 text-lg ${
-                touched && !name.trim() 
-                  ? "border-destructive focus-visible:ring-destructive" 
+                touched && !name.trim()
+                  ? "border-destructive focus-visible:ring-destructive"
                   : "focus-visible:ring-primary"
               }`}
               autoFocus

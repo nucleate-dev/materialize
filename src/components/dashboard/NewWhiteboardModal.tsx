@@ -1,15 +1,26 @@
 "use client";
 
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 import { PaintBrushIcon, FolderIcon } from "@heroicons/react/24/outline";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface NewWhiteboardModalProps {
   open: boolean;
@@ -44,7 +55,7 @@ export default function NewWhiteboardModal({
   // Set initial project selection
   useEffect(() => {
     if (projectId && projects.length > 0) {
-      const project = projects.find(p => p.id === projectId);
+      const project = projects.find((p) => p.id === projectId);
       if (project) {
         setSelectedProject(project.id);
       }
@@ -125,7 +136,7 @@ export default function NewWhiteboardModal({
             Design and brainstorm on an infinite canvas
           </p>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="whiteboard-name" className="text-sm font-semibold">
@@ -138,8 +149,8 @@ export default function NewWhiteboardModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={`h-12 text-lg ${
-                touched && !name.trim() 
-                  ? "border-destructive focus-visible:ring-destructive" 
+                touched && !name.trim()
+                  ? "border-destructive focus-visible:ring-destructive"
                   : "focus-visible:ring-primary"
               }`}
               autoFocus
@@ -171,7 +182,12 @@ export default function NewWhiteboardModal({
             <Label htmlFor="project-select" className="text-sm font-semibold">
               Project
             </Label>
-            <Select value={selectedProject || "none"} onValueChange={(value) => setSelectedProject(value === "none" ? null : value)}>
+            <Select
+              value={selectedProject || "none"}
+              onValueChange={(value) =>
+                setSelectedProject(value === "none" ? null : value)
+              }
+            >
               <SelectTrigger className="h-12">
                 <div className="flex items-center gap-2">
                   <FolderIcon className="w-4 h-4 text-primary" />

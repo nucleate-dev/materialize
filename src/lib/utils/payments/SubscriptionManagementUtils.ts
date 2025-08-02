@@ -1,5 +1,5 @@
-import { supabase } from "@/GlobalConstants";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { supabase } from "@/ClientConstants";
 
 /**
  * Redirects the authenticated user to the Stripe customer portal where they can manage their billing information.
@@ -20,7 +20,7 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  */
 export async function handleRedirectToStripeCustomerPortal(
   userID: string,
-  router: AppRouterInstance
+  router: AppRouterInstance,
 ) {
   const { data: session } = await supabase.auth.getSession();
 

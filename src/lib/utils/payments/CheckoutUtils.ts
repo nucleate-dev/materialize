@@ -1,4 +1,5 @@
-import { ProductKeys, supabase } from "@/GlobalConstants";
+import { ProductKeys } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { loadStripe } from "@stripe/stripe-js";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { posthogClient, supabase } from "@/GlobalConstants";
+import { posthogClient, supabase } from "@/ClientConstants";
 import { useRouter } from "next/navigation";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
@@ -21,9 +21,11 @@ export default function AuthCallback() {
       const { data, error } = await supabase.auth.getSession();
       if (data.session?.user) {
         // associate logging events with this authenticated user
-        posthogClient?.identify(data.session?.user.id, {
-          email: data.session.user.email ?? "",
-        });
+        if (posthogClient && typeof posthogClient === 'object' && 'identify' in posthogClient) {
+          (posthogClient as { identify: (id: string, props: object) => void }).identify(data.session?.user.id, {
+            email: data.session.user.email ?? "",
+          });
+        }
       }
 
       if (error || data.session === null) {

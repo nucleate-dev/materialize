@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { CodeExtractionResult } from "@/lib/types/chat";
 import { v4 as uuidv4 } from "uuid";

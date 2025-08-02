@@ -4,8 +4,13 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
 import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/GlobalConstants";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Loader2, Plus } from "lucide-react";
@@ -90,11 +95,7 @@ export default function WhiteboardsPage() {
             </div>
 
             {/* New Canvas Button */}
-            <Button
-              onClick={handleOpenModal}
-              size="lg"
-              className="gap-2"
-            >
+            <Button onClick={handleOpenModal} size="lg" className="gap-2">
               <Plus className="h-4 w-4" />
               New Whiteboard
             </Button>

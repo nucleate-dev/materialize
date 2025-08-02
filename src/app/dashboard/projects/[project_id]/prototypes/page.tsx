@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 
@@ -45,16 +45,12 @@ export default function ProjectPrototypesPage() {
     try {
       // Fetch project details and prototypes in parallel
       const [projectResult, prototypesResult] = await Promise.all([
-        supabase
-          .from("projects")
-          .select("*")
-          .eq("id", projectId)
-          .single(),
+        supabase.from("projects").select("*").eq("id", projectId).single(),
         supabase
           .from("prototypes")
           .select("*")
           .eq("project_id", projectId)
-          .order("updated_at", { ascending: false })
+          .order("updated_at", { ascending: false }),
       ]);
 
       if (projectResult.error) {
@@ -119,7 +115,7 @@ export default function ProjectPrototypesPage() {
           buttonText="Create Prototype in Project"
           onButtonClick={handleOpenModal}
         />
-        
+
         {/* Modal for new prototype */}
         <NewPrototypeModal
           open={modalOpen}
@@ -179,7 +175,7 @@ export default function ProjectPrototypesPage() {
             prototypeName={prototype.name}
             thumbnailUrl={prototype.thumbnail_url}
             lastModified={formatRelativeTime(
-              prototype.updated_at || prototype.created_at
+              prototype.updated_at || prototype.created_at,
             )}
             onClick={() => handlePrototypeClick(prototype.id)}
           />

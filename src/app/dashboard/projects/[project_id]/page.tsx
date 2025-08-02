@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 
 // Union type for recent items
 type RecentItem = {
@@ -89,11 +89,13 @@ export default function ProjectPage() {
 
       // Merge two sorted arrays efficiently (O(n) time)
       const allItems: RecentItem[] = [];
-      let i = 0, j = 0;
-      
+      let i = 0,
+        j = 0;
+
       // Helper function to get comparable date
-      const getDate = (item: RecentItem) => new Date(item.updated_at || item.created_at || 0).getTime();
-      
+      const getDate = (item: RecentItem) =>
+        new Date(item.updated_at || item.created_at || 0).getTime();
+
       // Merge the two sorted arrays
       while (i < prototypes.length && j < canvases.length) {
         if (getDate(prototypes[i]) >= getDate(canvases[j])) {
@@ -104,13 +106,13 @@ export default function ProjectPage() {
           j++;
         }
       }
-      
+
       // Add remaining items
       while (i < prototypes.length) {
         allItems.push(prototypes[i]);
         i++;
       }
-      
+
       while (j < canvases.length) {
         allItems.push(canvases[j]);
         j++;

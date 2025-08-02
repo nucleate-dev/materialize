@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/GlobalConstants";
+import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -19,7 +19,7 @@ export function useProject(projectId: string | undefined) {
 
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const { data, error } = await supabase
         .from("projects")
