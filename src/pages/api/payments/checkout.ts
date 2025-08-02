@@ -53,7 +53,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
  */
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
 ) {
   if (req.method !== "POST") {
     await posthog.shutdown();
@@ -62,7 +62,6 @@ export default async function handler(
   }
 
   // JWT Token Validation (verify its provided and that it is valid)
-  // If Authentication is NOT required for checkout, delete the following jwt validation code
   const token = req.headers.authorization?.split(" ")[1];
   if (!token || !req.headers.authorization?.startsWith("Bearer")) {
     posthog.capture({
@@ -103,7 +102,6 @@ export default async function handler(
     priceID = process.env.STRIPE_PRO_PRICE_ID as string;
   }
 
-  // IF AUTH IS REQUIRED TO MAKE A PAYMENT (flow 1 & 2), USE THIS CODE BLOCK
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card", "us_bank_account"],
@@ -113,12 +111,12 @@ export default async function handler(
           quantity: 1,
         },
       ],
-      mode: "subscription", // use mode: "payment" for one time payments instead
+      mode: "subscription",
       success_url: `${process.env.NEXT_PUBLIC_SITE_BASE_URL}/dashboard`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_BASE_URL}`,
       subscription_data: {
         metadata: {
-          user_id: userID as string, // Set this to null or remove this if auth is NOT required to make payment
+          user_id: userID as string,
         },
       },
     });
