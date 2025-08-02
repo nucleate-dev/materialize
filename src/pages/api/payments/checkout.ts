@@ -24,10 +24,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
  *
  * This serverless function handles HTTP POST requests to create a Stripe Checkout session based on the product ID
  * and payment flow. It configures the payment options, sets the success and cancel URLs, and captures the session creation
- * event in PostHog for analytics. The product can either be "base" or "pro," determining which price ID to use.
+ * event in PostHog for analytics. The product can either be "team" or "pro," determining which price ID to use.
  *
  * @param {NextApiRequest} req - The incoming request object. It expects a JSON body with:
- *  - productID (string): The product ID ("base" or "pro") to determine the price (required).
+ *  - productID (string): The product ID ("team" or "pro") to determine the price (required).
  *  - userID (string): The unique ID of the user for metadata purposes (optional if auth is not required (flow 3).
  *
  * @param {NextApiResponse} res - The outgoing response object. It returns:

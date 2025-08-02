@@ -48,14 +48,17 @@ function AccountSettings() {
       setMemberSince(new Date(userData?.created_at));
       setNextBillingDate(new Date(data[0].current_period_end * 1000));
       switch (data[0].plan_id) {
-        case ProductKeys.BASE_SUBSCRIPTION:
-          setCurrentSubscription(ProductKeys.BASE_SUBSCRIPTION);
+        case ProductKeys.FREE_SUBSCRIPTION:
+          setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
           break;
         case ProductKeys.PRO_SUBSCRIPTION:
           setCurrentSubscription(ProductKeys.PRO_SUBSCRIPTION);
           break;
+        case ProductKeys.TEAM_SUBSCRIPTION:
+          setCurrentSubscription(ProductKeys.TEAM_SUBSCRIPTION);
+          break;
         default:
-          setCurrentSubscription(ProductKeys.BASE_SUBSCRIPTION);
+          setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
           break;
       }
       setScheduledForCancellation(data[0]?.scheduled_for_cancellation);
@@ -279,7 +282,7 @@ function AccountSettings() {
                   onClick={() => {
                     handleRedirectToStripeCustomerPortal(
                       user.user?.id ?? "",
-                      router
+                      router,
                     );
                   }}
                 >
