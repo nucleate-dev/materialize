@@ -263,16 +263,32 @@ async function handlePlanningPhase(
             "\n\n✅ Planning complete. Proceeding with execution.";
           break;
         } else {
-          // Force the model to create a plan with current information
-          console.log("⚠️ No valid plan yet, forcing completion");
-          finalResponse += "\n\n⚠️ Creating plan with current information...";
+          // Give the model feedback about duplicate tool calls and ask it to reflect
+          console.log(
+            "⚠️ No valid plan yet, asking model to reflect on duplicate calls",
+          );
 
-          // Generate a simple fallback plan if needed
+          const reflectionMessage = `🔄 REFLECTION NEEDED: You just made a duplicate tool call (${currentCall.name} with the same arguments). This suggests you may be stuck in a loop or not processing the previous results effectively.
+
+WHAT HAPPENED: You called "${currentCall.name}" with arguments: ${currentCall.args}
+This is the exact same call you made previously.
+
+PLEASE REFLECT AND CHANGE YOUR APPROACH:
+1. Review what information you've already gathered from previous tool calls
+2. Consider if you have enough information to proceed with planning
+3. Try a different approach - perhaps use a different tool or create the plan with what you know
+4. If you keep calling the same tool, you're likely not making progress
+
+Based on the information you've gathered so far, please either:
+- Create your EXECUTION_PLAN now if you have sufficient information
+- Use a DIFFERENT tool or approach to gather missing information
+- Explain what specific information you still need and why
+
+Do NOT repeat the same tool call again.`;
+
           response = await generateText({
             model: google("gemini-2.5-flash"),
-            system:
-              PLANNING_PROMPT +
-              "\n\nIMPORTANT: You MUST create an EXECUTION_PLAN now based on the information you have. Do not use any more tools.",
+            system: PLANNING_PROMPT,
             messages: [
               ...messages
                 .slice(0, -1)
@@ -290,14 +306,22 @@ async function handlePlanningPhase(
               },
               {
                 role: "user" as const,
-                content:
-                  "Based on what you've learned, create a detailed EXECUTION_PLAN now. Do not use any tools.",
+                content: reflectionMessage,
               },
             ],
           });
 
           finalResponse = response.text;
-          break;
+
+          // If it still tries to make tool calls after reflection, force completion
+          if (response.toolCalls && response.toolCalls.length > 0) {
+            console.log(
+              "⚠️ Model still trying to make tool calls after reflection, forcing plan creation",
+            );
+            finalResponse +=
+              "\n\n⚠️ Creating execution plan with available information...";
+            break;
+          }
         }
       }
 
@@ -682,10 +706,68 @@ MANDATORY: Before creating this screen, you MUST:
         lastToolCall.args === currentCall.args
       ) {
         console.log(
-          "🚫 Detected duplicate tool call in execution, breaking loop",
+          "🚫 Detected duplicate tool call in execution, asking for reflection",
         );
-        finalResponse +=
-          "\n\n⚠️ Detected redundant tool usage. Step execution continuing with current progress.";
+
+        const reflectionMessage = `🔄 EXECUTION REFLECTION: You just made a duplicate tool call during step execution (${currentCall.name} with the same arguments). This indicates you may be stuck or not processing previous results.
+
+CURRENT STEP: ${operation.title} (${operation.type})
+TARGET FILE: ${operation.filePath}
+
+WHAT HAPPENED: You called "${currentCall.name}" with arguments: ${currentCall.args}
+This is the exact same call you made in the previous iteration.
+
+PLEASE REFLECT AND ADJUST YOUR APPROACH:
+1. Review the results from your previous tool calls - what did you learn?
+2. Consider if you have enough information to complete this specific step
+3. If you keep reading the same file, perhaps you should now write/modify it
+4. If you keep listing files, perhaps you should read a specific file instead
+5. Focus ONLY on completing this one step: ${operation.description}
+
+Either:
+- Complete the assigned step with a write_file operation if you have sufficient information
+- Use a DIFFERENT tool to gather specific missing information
+- Explain exactly what information you still need and why
+
+Do NOT repeat the same tool call. Focus on completing this single step.`;
+
+        response = await generateText({
+          model: google("gemini-2.5-flash"),
+          system: EXECUTION_PROMPT,
+          messages: [
+            ...messages
+              .slice(0, -1)
+              .map((msg: { role: string; content: string }) => ({
+                role: msg.role as "user" | "assistant",
+                content: msg.content,
+              })),
+            {
+              role: "user" as const,
+              content: userMessage,
+            },
+            {
+              role: "assistant" as const,
+              content: finalResponse,
+            },
+            {
+              role: "user" as const,
+              content: reflectionMessage,
+            },
+          ],
+        });
+
+        finalResponse = response.text;
+
+        // If it still tries to make tool calls after reflection, force completion
+        if (response.toolCalls && response.toolCalls.length > 0) {
+          console.log(
+            "⚠️ Model still making tool calls after execution reflection, stopping",
+          );
+          finalResponse +=
+            "\n\n⚠️ Step execution completed with available information.";
+          break;
+        }
+
         break;
       }
 
@@ -1094,8 +1176,8 @@ PROJECT STRUCTURE RULES:
 GENERAL GUIDELINES:
 - If the user asks you to do something that is not related to the project, you should politely decline and say that you are only a React Native development assistant.
 - If the user says to create a new screen without mentioning if you should show it in the app, you should assume you must show it in the app.
--
-
+- The user will sometimes refer to App.js as the "home page" or the "main screen" if there is no other viable or valid option.
+- If there's a navigation stack in App.js and if you are asked to add a new screen to App.js as part of the navigation stack, make sure that App.js DOES NOT have placeholder screens or components in the file that interfere with showing the REAL screen.
 
 PLANNING WORKFLOW:
 1. Use list_files to understand current project structure and see what files are available in the project
@@ -1149,7 +1231,7 @@ DESIGN RULES:
 PROJECT STRUCTURE RULES:
 - screens/ - individual screen components (screens/PaywallScreen.js)
 - components/ - reusable UI components (components/Button.js)  
-- App.js - main app with navigation (modify ONLY when absolutely necessary). The user will sometimes refer to this as the "home page" or the "main screen".
+- App.js - main app with navigation (modify ONLY when absolutely necessary).
 
 EXECUTION WORKFLOW:
 1. Read the assigned step details carefully
