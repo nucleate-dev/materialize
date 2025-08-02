@@ -41,9 +41,8 @@ export function OAuthSignInButton({
       <span>{logo}</span>
       {showOnlyLogo
         ? null
-        : `Continue with ${
-            provider.charAt(0).toUpperCase() + provider.slice(1)
-          }`}
+        : `Continue with ${provider.charAt(0).toUpperCase() + provider.slice(1)
+        }`}
     </button>
   );
 }
@@ -99,7 +98,7 @@ function getOAuthButtonLogo(provider: Provider) {
           <g
             id="Page-1"
             stroke="none"
-            stroke-width="1"
+            strokeWidth="1"
             fill="none"
             fillRule="evenodd"
           >
@@ -129,9 +128,9 @@ function getOAuthButtonLogo(provider: Provider) {
           <g
             id="Icons"
             stroke="none"
-            stroke-width="1"
+            strokeWidth="1"
             fill="none"
-            fill-rule="evenodd"
+            fillRule="evenodd"
           >
             <g
               id="Color-"
@@ -169,7 +168,7 @@ function getOAuthButtonLogo(provider: Provider) {
               <rect
                 id="mask"
                 stroke="#000000"
-                stroke-width="2"
+                strokeWidth="2"
                 fill="#000000"
                 x="-1"
                 y="-1"

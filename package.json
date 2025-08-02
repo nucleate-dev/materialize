@@ -34,7 +34,7 @@
     "react-jvectormap": "^0.0.16",
     "react-monaco-editor": "^0.59.0",
     "resend": "^4.0.0",
-    "snack-sdk": "^3.8.0",
+    "snack-sdk": "5.0.0",
     "stripe": "^16.12.0",
     "tldraw": "^3.14.2",
     "uuid": "^11.1.0"
