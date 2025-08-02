@@ -53,6 +53,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^15.4.5",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20",
     "@types/react": "^18",

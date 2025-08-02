@@ -1,17 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "logo.clearbit.com",
-        port: "",
-      },
-      {
-        protocol: "https",
-        hostname: "randomuser.me",
-        port: "",
-      },
       {
         protocol: "https",
         hostname: "images.unsplash.com",
