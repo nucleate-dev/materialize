@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/GlobalConstants";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
 import {
   SparklesIcon,
   PaperAirplaneIcon,
@@ -17,19 +20,62 @@ export default function DashboardPage() {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { user } = useUser();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || isLoading) return;
 
     setIsLoading(true);
-    // TODO: Create new project with this prompt and navigate to it
-    // For now, we'll just simulate the action
-    setTimeout(() => {
+
+    try {
+      if (!user?.id) {
+        router.push("/login");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("prototypes")
+        .insert({
+          name: "New Prototype",
+          owner_id: user.id,
+          project_id: null,
+          description: null,
+          prototype_context: null,
+          thumbnail_url: null,
+          visibility: "SELF" as const,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating prototype:", error);
+        return;
+      }
+
+      const { error: filesError } = await supabase
+        .from("prototype_files")
+        .insert(getDefaultPrototypeFiles(data.id));
+      if (filesError) {
+        console.error("Error creating default prototype files:", filesError);
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "chat_intent",
+          JSON.stringify({
+            prototype_id: data.id,
+            message: prompt.trim(),
+          }),
+        );
+      }
+
+      router.push(`/dashboard/prototypes/${data.id}`);
+    } catch (err) {
+      console.error("Error creating prototype:", err);
+    } finally {
       setIsLoading(false);
-      // Navigate to a new project (placeholder)
-      console.log("Creating project with prompt:", prompt);
-    }, 2000);
+    }
   };
 
   const examplePrompts = [
