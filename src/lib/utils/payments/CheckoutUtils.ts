@@ -1,4 +1,4 @@
-import { supabase } from "@/GlobalConstants";
+import { ProductKeys, supabase } from "@/GlobalConstants";
 import { loadStripe } from "@stripe/stripe-js";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
@@ -28,16 +28,22 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
  */
 export async function handleCheckout(
   productID: string,
-  router: AppRouterInstance
+  router: AppRouterInstance,
 ) {
   const { data: session } = await supabase.auth.getSession();
 
   if (session.session) {
     // User is logged in, create the Stripe checkout session
-    handleRedirectToPaymentsPage(productID, session.session.access_token);
+    if (productID === ProductKeys.FREE_SUBSCRIPTION) {
+      router.push("/dashboard");
+    } else {
+      handleRedirectToPaymentsPage(productID, session.session.access_token);
+    }
   } else {
     // Store product ID in local storage or URL and redirect to login
-    localStorage.setItem("checkout_intent", productID);
+    if (productID !== ProductKeys.FREE_SUBSCRIPTION) {
+      localStorage.setItem("checkout_intent", productID);
+    }
     router.push("/login");
   }
 }
@@ -61,10 +67,10 @@ export async function handleCheckout(
  */
 export async function handleRedirectToPaymentsPage(
   productID: string,
-  accessToken: string
+  accessToken: string,
 ) {
   const stripe = await loadStripe(
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,
   );
   const response = await fetch("/api/payments/checkout", {
     method: "POST",

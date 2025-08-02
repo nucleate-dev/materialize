@@ -1,18 +1,19 @@
 "use client";
 import PremiumHeader from "@/components/PremiumHeader";
+import { ProductKeys } from "@/GlobalConstants";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   ArrowRightIcon,
-  ArrowsPointingOutIcon, 
+  ArrowsPointingOutIcon,
   CheckIcon,
-  CodeBracketIcon, 
-  DevicePhoneMobileIcon, 
-  EyeIcon, 
+  CodeBracketIcon,
+  DevicePhoneMobileIcon,
+  EyeIcon,
   PaintBrushIcon,
   PlayIcon,
-  SparklesIcon
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
-
-
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   return (
@@ -38,7 +39,6 @@ function FloatingElements() {
   );
 }
 
-
 function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center bg-black">
@@ -46,7 +46,9 @@ function HeroSection() {
         {/* Floating Badge */}
         <div className="inline-flex items-center px-6 py-3 mt-8 mb-12 bg-gradient-to-r from-white/10 to-white/5 border border-white/20 rounded-full backdrop-blur-xl shadow-2xl hover:scale-105 transition-transform duration-300">
           <div className="w-2 h-2 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full mr-3 animate-pulse"></div>
-          <span className="text-sm text-white font-medium">Speed of Thought Prototyping</span>
+          <span className="text-sm text-white font-medium">
+            Speed of Thought Prototyping
+          </span>
         </div>
 
         {/* Main Heading with Gradient */}
@@ -58,9 +60,14 @@ function HeroSection() {
 
         {/* Animated Subtitle */}
         <p className="text-xl md:text-2xl text-gray-300 max-w-5xl mx-auto mb-16 leading-relaxed">
-          Prototype your ideas, workshop new designs, and build high-quality React Native components at the
-          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent font-semibold"> speed of thought</span>.
-          Start with an infinite canvas to rapidly create React Native screens and components.
+          Prototype your ideas, workshop new designs, and build high-quality
+          React Native components at the
+          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent font-semibold">
+            {" "}
+            speed of thought
+          </span>
+          . Start with an infinite canvas to rapidly create React Native screens
+          and components.
         </p>
 
         {/* Enhanced CTA Buttons */}
@@ -106,7 +113,9 @@ function HeroSection() {
             </div>
 
             <div className="absolute top-6 right-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
-              <span className="text-white text-sm font-semibold">React Native</span>
+              <span className="text-white text-sm font-semibold">
+                React Native
+              </span>
             </div>
 
             <div className="absolute bottom-6 left-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
@@ -122,7 +131,7 @@ function HeroSection() {
   );
 }
 
-function PhoneMockup({ label }: { label: string; }) {
+function PhoneMockup({ label }: { label: string }) {
   return (
     <div className="relative w-40 sm:w-48 md:w-56 aspect-[9/19] bg-black rounded-[2.5rem] border-4 border-gray-700 shadow-xl flex items-center justify-center overflow-hidden">
       {/* notch */}
@@ -138,8 +147,12 @@ function RapidPrototypingSection() {
   return (
     <section className="relative py-32 bg-gradient-to-b from-gray-900 to-black text-center">
       <div className="container mx-auto px-6">
-        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">Rapid Prototyping</h2>
-        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">Quickly build paywalls and iterate in seconds.</p>
+        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
+          Rapid Prototyping
+        </h2>
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">
+          Quickly build paywalls and iterate in seconds.
+        </p>
         <div className="flex justify-center gap-6">
           <PhoneMockup label="Paywall 1" />
           <PhoneMockup label="Paywall 2" />
@@ -154,8 +167,12 @@ function FlowVisualizationSection() {
   return (
     <section className="relative py-32 bg-gradient-to-b from-black to-gray-900 text-center">
       <div className="container mx-auto px-6">
-        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">Visualize &amp; Tweak Your Flows Quickly</h2>
-        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">See your 3 step paywall flow at a glance.</p>
+        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
+          Visualize &amp; Tweak Your Flows Quickly
+        </h2>
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-16">
+          See your 3 step paywall flow at a glance.
+        </p>
         <div className="flex justify-center gap-6">
           <PhoneMockup label="Step 1" />
           <PhoneMockup label="Step 2" />
@@ -171,33 +188,38 @@ function FeaturesSection() {
     {
       icon: <ArrowsPointingOutIcon className="w-8 h-8" />,
       title: "Infinite Canvas & Flow Branching",
-      description: "Compare 5–10 UX ideas side-by-side in one space—no file/version sprawl, faster convergence.",
-      gradient: "from-blue-500 to-cyan-500"
+      description:
+        "Compare 5–10 UX ideas side-by-side in one space—no file/version sprawl, faster convergence.",
+      gradient: "from-blue-500 to-cyan-500",
     },
     {
       icon: <PaintBrushIcon className="w-8 h-8" />,
       title: "Taste-Trained AI Variants",
-      description: "One click produces polished, best-practice screens (onboarding, checkout, empty states) so you skip blank-canvas lag.",
-      gradient: "from-purple-500 to-pink-500"
+      description:
+        "One click produces polished, best-practice screens (onboarding, checkout, empty states) so you skip blank-canvas lag.",
+      gradient: "from-purple-500 to-pink-500",
     },
     {
       icon: <EyeIcon className="w-8 h-8" />,
       title: "Dive-In Component Editing",
-      description: "Double-click to tweak props, layout, or copy with instant live re-render—stay in creative flow.",
-      gradient: "from-green-500 to-emerald-500"
+      description:
+        "Double-click to tweak props, layout, or copy with instant live re-render—stay in creative flow.",
+      gradient: "from-green-500 to-emerald-500",
     },
     {
       icon: <DevicePhoneMobileIcon className="w-8 h-8" />,
       title: "React Native Preview",
-      description: "Instantly preview your React Native components across platforms and iterate without leaving the canvas.",
-      gradient: "from-orange-500 to-red-500"
+      description:
+        "Instantly preview your React Native components across platforms and iterate without leaving the canvas.",
+      gradient: "from-orange-500 to-red-500",
     },
     {
       icon: <CodeBracketIcon className="w-8 h-8" />,
       title: "One-Click Code Export",
-      description: "Output clean JSX / RN Web or open a sandbox—eliminates hand-off rebuild time and accelerates implementation.",
-      gradient: "from-indigo-500 to-purple-500"
-    }
+      description:
+        "Output clean JSX / RN Web or open a sandbox—eliminates hand-off rebuild time and accelerates implementation.",
+      gradient: "from-indigo-500 to-purple-500",
+    },
   ];
 
   return (
@@ -206,13 +228,16 @@ function FeaturesSection() {
         {/* Section Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center px-4 py-2 mb-6 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-full">
-            <span className="text-sm text-blue-300 font-medium">Core Features</span>
+            <span className="text-sm text-blue-300 font-medium">
+              Core Features
+            </span>
           </div>
           <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
             Built for Speed & Quality
           </h2>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Every feature designed to eliminate friction and accelerate your creative process.
+            Every feature designed to eliminate friction and accelerate your
+            creative process.
           </p>
         </div>
 
@@ -231,7 +256,7 @@ function FeatureCard({
   icon,
   title,
   description,
-  gradient
+  gradient,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -241,15 +266,17 @@ function FeatureCard({
   return (
     <div className="group relative">
       {/* Hover Glow Effect */}
-      <div className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-20 rounded-3xl blur-xl transition-opacity duration-500`}></div>
+      <div
+        className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-20 rounded-3xl blur-xl transition-opacity duration-500`}
+      ></div>
 
       {/* Card */}
       <div className="relative bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-3xl p-8 hover:border-white/30 transition-all duration-500 backdrop-blur-xl group-hover:transform group-hover:scale-105">
         {/* Icon */}
-        <div className={`inline-flex p-4 bg-gradient-to-r ${gradient} rounded-2xl mb-6 shadow-lg`}>
-          <div className="text-white">
-            {icon}
-          </div>
+        <div
+          className={`inline-flex p-4 bg-gradient-to-r ${gradient} rounded-2xl mb-6 shadow-lg`}
+        >
+          <div className="text-white">{icon}</div>
         </div>
 
         {/* Content */}
@@ -274,6 +301,7 @@ function PricingSection() {
   const pricingTiers = [
     {
       name: "Free",
+      productID: ProductKeys.FREE_SUBSCRIPTION,
       price: "$0",
       period: "/month",
       description: "Perfect for getting started with prototyping",
@@ -282,14 +310,16 @@ function PricingSection() {
         "Basic React Native components",
         "Infinite canvas access",
         "Code export",
-        "Community support"
+        "Community support",
       ],
       cta: "Get Started",
-      ctaStyle: "bg-white/10 text-white border border-white/20 hover:bg-white/20",
-      popular: false
+      ctaStyle:
+        "bg-white/10 text-white border border-white/20 hover:bg-white/20",
+      popular: false,
     },
     {
       name: "Pro",
+      productID: ProductKeys.PRO_SUBSCRIPTION,
       price: "$20",
       period: "/month",
       description: "Ideal for professional developers and teams",
@@ -297,33 +327,40 @@ function PricingSection() {
         "100 messages included",
         "Pay-per-message scaling:",
         "• 101-300: $0.15/message",
-        "• 301-600: $0.10/message", 
+        "• 301-600: $0.10/message",
         "• 600+: $0.07/message",
         "Advanced AI components",
         "Priority support",
         "Team collaboration",
-        "Custom templates"
+        "Custom templates",
       ],
       cta: "Start Pro Trial",
-      ctaStyle: "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700",
-      popular: true
-    }
+      ctaStyle:
+        "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700",
+      popular: true,
+    },
   ];
 
   return (
-    <section id="pricing" className="relative py-32 bg-gradient-to-b from-black to-gray-900">
+    <section
+      id="pricing"
+      className="relative py-32 bg-gradient-to-b from-black to-gray-900"
+    >
       <div className="container mx-auto px-6">
         {/* Section Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center px-4 py-2 mb-6 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-full">
             <SparklesIcon className="w-4 h-4 text-purple-300 mr-2" />
-            <span className="text-sm text-purple-300 font-medium">Simple Pricing</span>
+            <span className="text-sm text-purple-300 font-medium">
+              Simple Pricing
+            </span>
           </div>
           <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
             Choose Your Plan
           </h2>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Start free and scale as you grow. Pay only for what you use with transparent, developer-friendly pricing.
+            Start free and scale as you grow. Pay only for what you use with
+            transparent, developer-friendly pricing.
           </p>
         </div>
 
@@ -339,22 +376,40 @@ function PricingSection() {
           <h3 className="text-2xl font-bold text-white mb-8">Usage Examples</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-              <div className="text-2xl font-bold text-white mb-2">150 messages</div>
+              <div className="text-2xl font-bold text-white mb-2">
+                150 messages
+              </div>
               <div className="text-gray-300 mb-2">Pro plan cost:</div>
-              <div className="text-lg font-semibold text-green-400">$20 + $7.50 = $27.50</div>
-              <div className="text-sm text-gray-400 mt-2">100 included + 50 × $0.15</div>
+              <div className="text-lg font-semibold text-green-400">
+                $20 + $7.50 = $27.50
+              </div>
+              <div className="text-sm text-gray-400 mt-2">
+                100 included + 50 × $0.15
+              </div>
             </div>
             <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-              <div className="text-2xl font-bold text-white mb-2">400 messages</div>
+              <div className="text-2xl font-bold text-white mb-2">
+                400 messages
+              </div>
               <div className="text-gray-300 mb-2">Pro plan cost:</div>
-              <div className="text-lg font-semibold text-green-400">$20 + $40 = $60</div>
-              <div className="text-sm text-gray-400 mt-2">100 included + 200×$0.15 + 100×$0.10</div>
+              <div className="text-lg font-semibold text-green-400">
+                $20 + $40 = $60
+              </div>
+              <div className="text-sm text-gray-400 mt-2">
+                100 included + 200×$0.15 + 100×$0.10
+              </div>
             </div>
             <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-              <div className="text-2xl font-bold text-white mb-2">800 messages</div>
+              <div className="text-2xl font-bold text-white mb-2">
+                800 messages
+              </div>
               <div className="text-gray-300 mb-2">Pro plan cost:</div>
-              <div className="text-lg font-semibold text-green-400">$20 + $84 = $104</div>
-              <div className="text-sm text-gray-400 mt-2">Includes all tiers + 200×$0.07</div>
+              <div className="text-lg font-semibold text-green-400">
+                $20 + $84 = $104
+              </div>
+              <div className="text-sm text-gray-400 mt-2">
+                Includes all tiers + 200×$0.07
+              </div>
             </div>
           </div>
         </div>
@@ -366,15 +421,17 @@ function PricingSection() {
 function PricingCard({
   name,
   price,
+  productID,
   period,
   description,
   features,
   cta,
   ctaStyle,
-  popular
+  popular,
 }: {
   name: string;
   price: string;
+  productID: string;
   period: string;
   description: string;
   features: string[];
@@ -382,6 +439,7 @@ function PricingCard({
   ctaStyle: string;
   popular: boolean;
 }) {
+  const router = useRouter();
   return (
     <div className="group relative">
       {/* Popular Badge */}
@@ -394,10 +452,14 @@ function PricingCard({
       )}
 
       {/* Hover Glow Effect */}
-      <div className={`absolute inset-0 ${popular ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/20' : 'bg-gradient-to-r from-blue-600/20 to-cyan-600/20'} opacity-0 group-hover:opacity-100 rounded-3xl blur-xl transition-opacity duration-500`}></div>
+      <div
+        className={`absolute inset-0 ${popular ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20" : "bg-gradient-to-r from-blue-600/20 to-cyan-600/20"} opacity-0 group-hover:opacity-100 rounded-3xl blur-xl transition-opacity duration-500`}
+      ></div>
 
       {/* Card */}
-      <div className={`relative bg-gradient-to-br from-white/10 to-white/5 border ${popular ? 'border-purple-500/30' : 'border-white/10'} rounded-3xl p-8 hover:border-white/30 transition-all duration-500 backdrop-blur-xl group-hover:transform group-hover:scale-105 h-full`}>
+      <div
+        className={`relative bg-gradient-to-br from-white/10 to-white/5 border ${popular ? "border-purple-500/30" : "border-white/10"} rounded-3xl p-8 hover:border-white/30 transition-all duration-500 backdrop-blur-xl group-hover:transform group-hover:scale-105 h-full`}
+      >
         {/* Header */}
         <div className="text-center mb-8">
           <h3 className="text-2xl font-bold text-white mb-2">{name}</h3>
@@ -409,13 +471,15 @@ function PricingCard({
         </div>
 
         {/* Features */}
-        <div className="mb-8 space-y-4">
+        <div className="flex-1 space-y-4">
           {features.map((feature, index) => (
             <div key={index} className="flex items-start gap-3">
               <div className="flex-shrink-0 w-5 h-5 mt-0.5">
                 <CheckIcon className="w-5 h-5 text-green-400" />
               </div>
-              <span className={`text-gray-300 ${feature.startsWith('•') ? 'text-sm ml-4' : ''}`}>
+              <span
+                className={`text-gray-300 ${feature.startsWith("•") ? "text-sm ml-4" : ""}`}
+              >
                 {feature}
               </span>
             </div>
@@ -423,8 +487,11 @@ function PricingCard({
         </div>
 
         {/* CTA */}
-        <div className="mt-auto">
-          <button className={`w-full py-4 px-6 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${ctaStyle}`}>
+        <div className="pt-6">
+          <button
+            className={`w-full py-4 px-6 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${ctaStyle}`}
+            onClick={() => handleCheckout(productID, router)}
+          >
             {cta}
           </button>
         </div>

@@ -1,18 +1,19 @@
 import Stripe from "stripe";
 import { NextApiRequest, NextApiResponse } from "next";
-import { PostHog } from "posthog-node";
-import {
-  LoggingEventSource,
-  ExceptionEvents,
-  SuccessEvents,
-} from "@/LoggingEvents";
+// import { PostHog } from "posthog-node";
+// import {
+//   LoggingEventSource,
+//   ExceptionEvents,
+//   SuccessEvents,
+// } from "@/LoggingEvents";
 import jwt from "jsonwebtoken";
+import { ProductKeys } from "@/GlobalConstants";
 
-const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-  flushAt: 1,
-  flushInterval: 0,
-});
+// const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
+//   host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+//   flushAt: 1,
+//   flushInterval: 0,
+// });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
@@ -56,7 +57,7 @@ export default async function handler(
   res: NextApiResponse,
 ) {
   if (req.method !== "POST") {
-    await posthog.shutdown();
+    // await posthog.shutdown();
     res.setHeader("Allow", "POST");
     res.status(405).end("Method Not Allowed");
   }
@@ -64,14 +65,14 @@ export default async function handler(
   // JWT Token Validation (verify its provided and that it is valid)
   const token = req.headers.authorization?.split(" ")[1];
   if (!token || !req.headers.authorization?.startsWith("Bearer")) {
-    posthog.capture({
-      distinctId: "unknown",
-      event: ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
-      },
-    });
-    await posthog.shutdown();
+    // posthog.capture({
+    //   distinctId: "unknown",
+    //   event: ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
+    //   },
+    // });
+    // await posthog.shutdown();
     console.error("No token provided");
     return res.status(401).json({ error: "Unauthorized: No token provided" });
   }
@@ -81,24 +82,24 @@ export default async function handler(
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     userID = decoded.sub;
   } catch (error) {
-    posthog.capture({
-      distinctId: "unknown",
-      event: ExceptionEvents.INVALID_JWT_TOKEN,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
-        error: error,
-      },
-    });
-    await posthog.shutdown();
+    // posthog.capture({
+    //   distinctId: "unknown",
+    //   event: ExceptionEvents.INVALID_JWT_TOKEN,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
+    //     error: error,
+    //   },
+    // });
+    // await posthog.shutdown();
     console.error("Invalid token: ", error);
     return res.status(401).json({ error: "Unauthorized: Invalid token" });
   }
 
   const body = JSON.parse(req.body);
   let priceID = process.env.STRIPE_BASE_PRICE_ID as string;
-  if (body.productID === "base") {
-    priceID = process.env.STRIPE_BASE_PRICE_ID as string;
-  } else if (body.productID === "pro") {
+  if (body.productID === ProductKeys.TEAM_SUBSCRIPTION) {
+    priceID = process.env.STRIPE_TEAM_PRICE_ID as string;
+  } else if (body.productID === ProductKeys.PRO_SUBSCRIPTION) {
     priceID = process.env.STRIPE_PRO_PRICE_ID as string;
   }
 
@@ -121,26 +122,26 @@ export default async function handler(
       },
     });
 
-    posthog.capture({
-      distinctId: userID as string,
-      event: SuccessEvents.STRIPE_CHECKOUT_SESSION_CREATED,
-      properties: {
-        product: body.productID,
-        source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
-      },
-    });
-    await posthog.shutdown();
+    // posthog.capture({
+    //   distinctId: userID as string,
+    //   event: SuccessEvents.STRIPE_CHECKOUT_SESSION_CREATED,
+    //   properties: {
+    //     product: body.productID,
+    //     source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
+    //   },
+    // });
+    // await posthog.shutdown();
     return res.status(200).json({ id: session.id });
   } catch (error) {
-    posthog.capture({
-      distinctId: userID as string,
-      event: ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATION_ERROR,
-      properties: {
-        error: error,
-        source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
-      },
-    });
-    await posthog.shutdown();
+    // posthog.capture({
+    //   distinctId: userID as string,
+    //   event: ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATION_ERROR,
+    //   properties: {
+    //     error: error,
+    //     source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
+    //   },
+    // });
+    // await posthog.shutdown();
     console.error("Exception creating checkout session: ", error);
     return res.status(400).json({ id: null });
   }
