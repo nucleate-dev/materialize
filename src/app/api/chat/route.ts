@@ -226,7 +226,7 @@ async function handlePlanningPhase(
 
   let finalResponse = response.text;
   let toolCallsMade = 0;
-  let lastToolCall: { name: string; args: any } | null = null;
+  let lastToolCall: { name: string; args: unknown } | null = null;
 
   // Handle tool calls iteratively for planning
   while (response.toolCalls && response.toolCalls.length > 0) {
