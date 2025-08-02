@@ -934,6 +934,7 @@ IMPORTANT: You have access to the following packages without needing to install 
 - @react-navigation/native
 - @react-navigation/native-stack
 - @react-navigation/bottom-tabs
+- react-native-reanimated
 - zustand
 
 CRITICAL IMPORT RULES:
