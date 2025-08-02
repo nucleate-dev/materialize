@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
+import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -34,6 +35,8 @@ export default function ProjectPrototypesPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activePrototype, setActivePrototype] = useState<Prototype | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!projectId) {
@@ -85,6 +88,16 @@ export default function ProjectPrototypesPage() {
   const handlePrototypeCreated = (prototypeId: string) => {
     fetchData(); // Refetch data after creation
     router.push(`/dashboard/prototypes/${prototypeId}`);
+  };
+
+  const handleOpenSettings = (prototype: Prototype) => {
+    setActivePrototype(prototype);
+    setSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setSettingsOpen(false);
+    setActivePrototype(null);
   };
 
   if (isLoading) {
@@ -178,6 +191,7 @@ export default function ProjectPrototypesPage() {
               prototype.updated_at || prototype.created_at,
             )}
             onClick={() => handlePrototypeClick(prototype.id)}
+            onSettings={() => handleOpenSettings(prototype)}
           />
         ))}
       </div>
@@ -189,6 +203,16 @@ export default function ProjectPrototypesPage() {
         user={user}
         onCreated={handlePrototypeCreated}
         projectId={projectId}
+      />
+
+      <PrototypeSettingsModal
+        open={settingsOpen}
+        onClose={handleCloseSettings}
+        prototype={activePrototype}
+        onUpdated={() => {
+          fetchData();
+          handleCloseSettings();
+        }}
       />
     </>
   );

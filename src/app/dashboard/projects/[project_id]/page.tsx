@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/ClientConstants";
+import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
+import { Database } from "@/lib/types/database.types";
 
 // Union type for recent items
 type RecentItem = {
@@ -35,6 +37,8 @@ export default function ProjectPage() {
   const projectId = params?.project_id as string;
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activePrototype, setActivePrototype] = useState<Database["public"]["Tables"]["prototypes"]["Row"] | null>(null);
 
   const fetchRecentItems = useCallback(async () => {
     if (!projectId) {
@@ -138,6 +142,23 @@ export default function ProjectPage() {
     }
   };
 
+  const handleOpenSettings = async (id: string) => {
+    const { data } = await supabase
+      .from("prototypes")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (data) {
+      setActivePrototype(data);
+      setSettingsOpen(true);
+    }
+  };
+
+  const handleCloseSettings = () => {
+    setSettingsOpen(false);
+    setActivePrototype(null);
+  };
+
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
@@ -170,6 +191,11 @@ export default function ProjectPage() {
                   item.updated_at || item.created_at,
                 )}
                 onClick={() => handleItemClick(item)}
+                onSettings={
+                  item.type === "prototype"
+                    ? () => handleOpenSettings(item.id)
+                    : undefined
+                }
               />
             ))
           ) : (
@@ -187,6 +213,16 @@ export default function ProjectPage() {
           )}
         </div>
       )}
+
+      <PrototypeSettingsModal
+        open={settingsOpen}
+        onClose={handleCloseSettings}
+        prototype={activePrototype}
+        onUpdated={() => {
+          fetchRecentItems();
+          handleCloseSettings();
+        }}
+      />
     </div>
   );
 }

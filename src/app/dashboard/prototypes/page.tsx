@@ -3,6 +3,7 @@
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
+import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,6 +26,8 @@ export default function PrototypesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activePrototype, setActivePrototype] = useState<Prototype | null>(null);
 
   const fetchPrototypes = useCallback(async () => {
     if (!user?.id) {
@@ -63,6 +66,16 @@ export default function PrototypesPage() {
   const handlePrototypeCreated = (prototypeId: string) => {
     fetchPrototypes(); // Refetch prototypes after creation
     router.push(`/dashboard/prototypes/${prototypeId}`);
+  };
+
+  const handleOpenSettings = (prototype: Prototype) => {
+    setActivePrototype(prototype);
+    setSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setSettingsOpen(false);
+    setActivePrototype(null);
   };
 
   return (
@@ -119,6 +132,7 @@ export default function PrototypesPage() {
                 onClick={() =>
                   router.push(`/dashboard/prototypes/${prototype.id}`)
                 }
+                onSettings={() => handleOpenSettings(prototype)}
               />
             ))
           ) : (
@@ -126,6 +140,16 @@ export default function PrototypesPage() {
           )}
         </div>
       )}
+
+      <PrototypeSettingsModal
+        open={settingsOpen}
+        onClose={handleCloseSettings}
+        prototype={activePrototype}
+        onUpdated={() => {
+          fetchPrototypes();
+          handleCloseSettings();
+        }}
+      />
     </div>
   );
 }
