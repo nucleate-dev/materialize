@@ -226,6 +226,7 @@ async function handlePlanningPhase(
 
   let finalResponse = response.text;
   let toolCallsMade = 0;
+  let lastToolCall: { name: string; args: any } | null = null;
 
   // Handle tool calls iteratively for planning
   while (response.toolCalls && response.toolCalls.length > 0) {
@@ -233,6 +234,75 @@ async function handlePlanningPhase(
     console.log(
       `🔄 Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
     );
+
+    // Check if we already have a valid plan
+    const hasValidPlan =
+      finalResponse.includes("EXECUTION_PLAN") &&
+      finalResponse.includes("[") &&
+      finalResponse.includes("]");
+
+    // Check for duplicate tool calls
+    if (response.toolCalls.length === 1) {
+      const currentToolCall = response.toolCalls[0];
+      const currentCall = {
+        name: currentToolCall.toolName,
+        args: JSON.stringify(currentToolCall.args),
+      };
+
+      if (
+        lastToolCall &&
+        lastToolCall.name === currentCall.name &&
+        lastToolCall.args === currentCall.args
+      ) {
+        console.log("🚫 Detected duplicate tool call");
+
+        // If we have a valid plan, break the loop
+        if (hasValidPlan) {
+          console.log("✅ Valid plan detected, proceeding");
+          finalResponse +=
+            "\n\n✅ Planning complete. Proceeding with execution.";
+          break;
+        } else {
+          // Force the model to create a plan with current information
+          console.log("⚠️ No valid plan yet, forcing completion");
+          finalResponse += "\n\n⚠️ Creating plan with current information...";
+
+          // Generate a simple fallback plan if needed
+          response = await generateText({
+            model: google("gemini-2.5-flash"),
+            system:
+              PLANNING_PROMPT +
+              "\n\nIMPORTANT: You MUST create an EXECUTION_PLAN now based on the information you have. Do not use any more tools.",
+            messages: [
+              ...messages
+                .slice(0, -1)
+                .map((msg: { role: string; content: string }) => ({
+                  role: msg.role as "user" | "assistant",
+                  content: msg.content,
+                })),
+              {
+                role: "user" as const,
+                content: userMessage,
+              },
+              {
+                role: "assistant" as const,
+                content: finalResponse,
+              },
+              {
+                role: "user" as const,
+                content:
+                  "Based on what you've learned, create a detailed EXECUTION_PLAN now. Do not use any tools.",
+              },
+            ],
+          });
+
+          finalResponse = response.text;
+          break;
+        }
+      }
+
+      lastToolCall = currentCall;
+    }
 
     const toolResults = [];
 
@@ -267,9 +337,12 @@ async function handlePlanningPhase(
       .join("\n");
 
     let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
-    const projectContextContinuation = getProjectContext(snackFiles);
-    if (projectContextContinuation) {
-      continuationMessage += projectContextContinuation;
+    // Only inject context every 5 tool calls to avoid confusion
+    if (toolCallsMade % 5 === 0) {
+      const projectContextContinuation = getProjectContext(snackFiles);
+      if (projectContextContinuation) {
+        continuationMessage += projectContextContinuation;
+      }
     }
 
     response = await generateText({
@@ -326,6 +399,46 @@ async function handlePlanningPhase(
       finalResponse += `\n\n⚠️ Maximum tool calls reached (50).`;
       break;
     }
+  }
+
+  // Ensure we have a valid plan before proceeding
+  const hasValidPlan =
+    finalResponse.includes("EXECUTION_PLAN") &&
+    finalResponse.includes("[") &&
+    finalResponse.includes("]");
+
+  if (!hasValidPlan) {
+    console.log("⚠️ No valid execution plan found, generating fallback plan");
+
+    const fallbackResponse = await generateText({
+      model: google("gemini-2.5-flash"),
+      system:
+        PLANNING_PROMPT +
+        "\n\nCRITICAL: You MUST create an EXECUTION_PLAN in the exact format specified. Do not use any tools.",
+      messages: [
+        ...messages
+          .slice(0, -1)
+          .map((msg: { role: string; content: string }) => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content,
+          })),
+        {
+          role: "user" as const,
+          content: userMessage,
+        },
+        {
+          role: "assistant" as const,
+          content: finalResponse,
+        },
+        {
+          role: "user" as const,
+          content:
+            "You must now create a detailed EXECUTION_PLAN based on the user's request. Format it exactly as specified in your instructions.",
+        },
+      ],
+    });
+
+    finalResponse += "\n\n" + fallbackResponse.text;
   }
 
   // Save planning message to database
@@ -546,6 +659,7 @@ MANDATORY: Before creating this screen, you MUST:
 
   let finalResponse = response.text;
   let toolCallsMade = 0;
+  let lastToolCall: { name: string; args: unknown } | null = null;
 
   // Handle tool calls iteratively
   while (response.toolCalls && response.toolCalls.length > 0) {
@@ -553,6 +667,30 @@ MANDATORY: Before creating this screen, you MUST:
     console.log(
       `🔄 Processing ${response.toolCalls.length} tool calls for step ${operation.id}`,
     );
+
+    // Check for duplicate tool calls
+    if (response.toolCalls.length === 1) {
+      const currentToolCall = response.toolCalls[0];
+      const currentCall = {
+        name: currentToolCall.toolName,
+        args: JSON.stringify(currentToolCall.args),
+      };
+
+      if (
+        lastToolCall &&
+        lastToolCall.name === currentCall.name &&
+        lastToolCall.args === currentCall.args
+      ) {
+        console.log(
+          "🚫 Detected duplicate tool call in execution, breaking loop",
+        );
+        finalResponse +=
+          "\n\n⚠️ Detected redundant tool usage. Step execution continuing with current progress.";
+        break;
+      }
+
+      lastToolCall = currentCall;
+    }
 
     const toolResults = [];
 
@@ -622,9 +760,12 @@ MANDATORY: Before creating this screen, you MUST:
       .join("\n");
 
     let continuationMessage = `Tool results:\n${toolResultsText}\n\nBased on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.`;
-    const projectContextContinuation = getProjectContext(snackFiles);
-    if (projectContextContinuation) {
-      continuationMessage += projectContextContinuation;
+    // Only inject context every 3 tool calls to avoid confusion in execution
+    if (toolCallsMade % 3 === 0) {
+      const projectContextContinuation = getProjectContext(snackFiles);
+      if (projectContextContinuation) {
+        continuationMessage += projectContextContinuation;
+      }
     }
 
     response = await generateText({
@@ -1008,7 +1149,7 @@ DESIGN RULES:
 PROJECT STRUCTURE RULES:
 - screens/ - individual screen components (screens/PaywallScreen.js)
 - components/ - reusable UI components (components/Button.js)  
-- App.js - main app with navigation (modify ONLY when absolutely necessary)
+- App.js - main app with navigation (modify ONLY when absolutely necessary). The user will sometimes refer to this as the "home page" or the "main screen".
 
 EXECUTION WORKFLOW:
 1. Read the assigned step details carefully
