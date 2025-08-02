@@ -21,6 +21,7 @@ interface ExpoSnackViewerProps {
   files: Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]>;
   onResetToDefault?: () => void;
   hideControls?: boolean;
+  onCreateFile?: (fileName: string, initialContent?: string) => void;
 }
 
 export interface ExpoSnackViewerRef {
@@ -30,7 +31,7 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files, onResetToDefault, hideControls = false }, ref) => {
+  ({ files, onResetToDefault, hideControls = false, onCreateFile }, ref) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +39,9 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
     const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
+    const [showNewFileModal, setShowNewFileModal] = useState(false);
+    const [newFileName, setNewFileName] = useState("");
+    const [newFileError, setNewFileError] = useState("");
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -212,6 +216,58 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       document.body.style.userSelect = "none";
     };
 
+    const handleCreateFile = () => {
+      if (!newFileName.trim()) {
+        setNewFileError("File name is required");
+        return;
+      }
+
+      // Check if file already exists
+      if (files[newFileName.trim()]) {
+        setNewFileError("File already exists");
+        return;
+      }
+
+      // Validate file name (basic validation)
+      const fileName = newFileName.trim();
+      if (!/^[a-zA-Z0-9._/-]+$/.test(fileName)) {
+        setNewFileError("Invalid file name. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.");
+        return;
+      }
+
+      // Get default content based on file extension
+      const getDefaultContent = (name: string) => {
+        const ext = name.split('.').pop()?.toLowerCase();
+        switch (ext) {
+          case 'js':
+          case 'jsx':
+            return `import React from 'react';\nimport { View, Text } from 'react-native';\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}() {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+          case 'ts':
+          case 'tsx':
+            return `import React from 'react';\nimport { View, Text } from 'react-native';\n\ninterface Props {}\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}({}: Props) {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+          case 'json':
+            return '{\n  \n}';
+          case 'md':
+            return `# ${name.split('.')[0]}\n\nAdd your content here.`;
+          case 'css':
+            return '/* Add your styles here */';
+          default:
+            return '';
+        }
+      };
+
+      onCreateFile?.(fileName, getDefaultContent(fileName));
+      setShowNewFileModal(false);
+      setNewFileName("");
+      setNewFileError("");
+    };
+
+    const handleModalClose = () => {
+      setShowNewFileModal(false);
+      setNewFileName("");
+      setNewFileError("");
+    };
+
     return (
       <div className="flex flex-col h-full bg-transparent">
         {/* Compact Header with Controls */}
@@ -244,6 +300,16 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
           {!hideControls && (
             <div className="flex items-center space-x-2">
+              {onCreateFile && (
+                <button
+                  onClick={() => setShowNewFileModal(true)}
+                  className="bg-gradient-to-r from-primary to-secondary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+                  disabled={isLoading}
+                  title="Create new file"
+                >
+                  + New File
+                </button>
+              )}
               <button
                 onClick={onResetToDefault}
                 className="bg-gradient-to-r from-meta-1 to-meta-6 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
@@ -427,6 +493,63 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               {snackUrl && (
                 <span className="ml-2">• Connected to Expo Snack</span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* New File Modal */}
+        {showNewFileModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleModalClose}>
+            <div className="bg-white dark:bg-boxdark rounded-lg p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Create New File</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-body dark:text-bodydark mb-2">
+                    File Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newFileName}
+                    onChange={(e) => {
+                      setNewFileName(e.target.value);
+                      setNewFileError("");
+                    }}
+                    placeholder="e.g., components/MyComponent.tsx"
+                    className="w-full px-3 py-2 border border-stroke dark:border-strokedark rounded-lg bg-transparent text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  />
+                  {newFileError && (
+                    <p className="text-meta-1 text-sm mt-1">{newFileError}</p>
+                  )}
+                </div>
+                
+                <div className="text-sm text-body dark:text-bodydark">
+                  <p className="mb-2">Supported file types:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>.js, .jsx - JavaScript/React components</li>
+                    <li>.ts, .tsx - TypeScript/React components</li>
+                    <li>.json - JSON configuration files</li>
+                    <li>.md - Markdown documentation</li>
+                    <li>.css - Stylesheets</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={handleModalClose}
+                  className="px-4 py-2 text-sm font-medium text-body dark:text-bodydark hover:text-black dark:hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateFile}
+                  className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-300"
+                >
+                  Create File
+                </button>
+              </div>
             </div>
           </div>
         )}

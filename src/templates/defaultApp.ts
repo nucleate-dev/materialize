@@ -6,18 +6,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, typography } from './styles/theme';
+import HomeScreen from './screens/HomeScreen';
 
 const Stack = createNativeStackNavigator();
-
-function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.messageText}>
-        Chat with the window on the left to update me!
-      </Text>
-    </View>
-  );
-}
 
 export default function App() {
   return (
@@ -76,22 +67,12 @@ export function getDefaultPrototypeFiles(
 export const getDefaultSnackFiles = (): SnackFiles => ({
   "App.js": {
     contents: `import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { colors, typography } from './styles/theme';
+import { colors } from './styles/theme';
+import HomeScreen from './screens/HomeScreen';
 
 const Stack = createNativeStackNavigator();
-
-function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.messageText}>
-        Chat with the window on the left to update me!
-      </Text>
-    </View>
-  );
-}
 
 export default function App() {
   return (
@@ -115,6 +96,19 @@ export default function App() {
       </Stack.Navigator>
     </NavigationContainer>
   );
+}`,
+    type: "CODE",
+  },
+  "screens/HomeScreen.js": {
+    contents: `import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors, typography } from '../styles/theme';
+
+export default function HomeScreen() {
+  return (
+    <View style={styles.container}>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -124,12 +118,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-  },
-  messageText: {
-    ...typography.h2,
-    color: colors.text.primary,
-    textAlign: 'center',
-    lineHeight: 32,
   },
 });`,
     type: "CODE",
@@ -308,6 +296,7 @@ export const DEFAULT_DEPENDENCIES = {
   "react-dom": { version: "19.0.0" },
   "react-native": { version: "0.79.1" },
   "react-native-reanimated": { version: "~3.16.1" },
+  moti: { version: "^0.30.0" },
   "@react-navigation/native-stack": { version: "7.2.1" },
   "@react-navigation/native": { version: "7.0.14" },
   "@react-navigation/bottom-tabs": { version: "7.4.4" },

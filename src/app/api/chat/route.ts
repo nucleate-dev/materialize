@@ -204,8 +204,9 @@ async function handlePlanningPhase(
           contents: z.string().describe("The complete file contents"),
           operation: z
             .enum(["create", "modify"])
+            .default("create")
             .describe(
-              "Whether this is creating a new file or modifying existing",
+              "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
             ),
         }),
       },
@@ -390,7 +391,8 @@ Do NOT repeat the same tool call again.`;
             contents: z.string().describe("The complete file contents"),
             operation: z
               .enum(["create", "modify"])
-              .describe("Create or modify operation"),
+              .default("create")
+              .describe("REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')"),
           }),
         },
       },
@@ -663,7 +665,8 @@ MANDATORY: Before creating this screen, you MUST:
           contents: z.string().describe("The complete file contents"),
           operation: z
             .enum(["create", "modify"])
-            .describe("Create or modify operation"),
+            .default("create")
+            .describe("REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')"),
         }),
       },
     },
@@ -871,7 +874,8 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             contents: z.string().describe("The complete file contents"),
             operation: z
               .enum(["create", "modify"])
-              .describe("Create or modify operation"),
+              .default("create")
+              .describe("REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')"),
           }),
         },
       },
@@ -1054,7 +1058,7 @@ class FileManager {
         return this.writeFile(
           args.filePath as string,
           args.contents as string,
-          args.operation as string,
+          args.operation as string | undefined,
         );
 
       case "list_files":
@@ -1078,15 +1082,17 @@ class FileManager {
     };
   }
 
-  writeFile(filePath: string, contents: string, operation: string) {
+  writeFile(filePath: string, contents: string, operation?: string) {
+    // Default to "create" if operation is not provided
+    const op = operation || "create";
     const existingFile = this.files.get(filePath);
 
-    if (operation === "modify" && !existingFile) {
+    if (op === "modify" && !existingFile) {
       console.error(`❌ Cannot modify non-existent file: ${filePath}`);
       return { error: `Cannot modify non-existent file: ${filePath}` };
     }
 
-    if (operation === "create" && existingFile) {
+    if (op === "create" && existingFile) {
       console.error(
         `❌ File already exists: ${filePath}. Use 'modify' operation.`,
       );
@@ -1109,7 +1115,7 @@ class FileManager {
     this.files.set(filePath, updatedFile);
 
     console.log(
-      `✅ Successfully ${operation}d file ${filePath} in memory (database updates handled by client)`,
+      `✅ Successfully ${op}d file ${filePath} in memory (database updates handled by client)`,
     );
 
     // Database updates are handled by the client filesystem
@@ -1119,8 +1125,8 @@ class FileManager {
     return {
       success: true,
       filePath,
-      operation,
-      message: `Successfully ${operation}d ${filePath}`,
+      operation: op,
+      message: `Successfully ${op}d ${filePath}`,
     };
   }
 
@@ -1176,7 +1182,6 @@ PROJECT STRUCTURE RULES:
 GENERAL GUIDELINES:
 - If the user asks you to do something that is not related to the project, you should politely decline and say that you are only a React Native development assistant.
 - If the user says to create a new screen without mentioning if you should show it in the app, you should assume you must show it in the app.
-- The user will sometimes refer to App.js as the "home page" or the "main screen" if there is no other viable or valid option.
 - If there's a navigation stack in App.js and if you are asked to add a new screen to App.js as part of the navigation stack, make sure that App.js DOES NOT have placeholder screens or components in the file that interfere with showing the REAL screen.
 
 PLANNING WORKFLOW:
@@ -1212,6 +1217,7 @@ CRITICAL EXECUTION RULES:
 - Always read files before modifying them to understand current state
 - After writing a file, your step is COMPLETE - do not make additional changes
 - Provide a clear completion summary when done
+- We are writing JAVASCRIPT code, so you should use the correct syntax for the language.
 
 IMPORT SAFETY RULES:
 - Before writing any file, use read_file to check existing similar files for import patterns
