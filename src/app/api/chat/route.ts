@@ -1,17 +1,17 @@
 import { Database } from "@/lib/types/database.types";
+import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
+import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import jwt from "jsonwebtoken";
-import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY!;
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY ?? "";
 
 const google = createGoogleGenerativeAI({
   apiKey: GOOGLE_AI_API_KEY,
@@ -555,7 +555,6 @@ MANDATORY: Before creating this screen, you MUST:
     );
 
     const toolResults = [];
-    let hasWriteOperation = false;
 
     // Execute each tool call
     for (const toolCall of response.toolCalls) {
@@ -566,10 +565,6 @@ MANDATORY: Before creating this screen, you MUST:
             arguments: toolCall.args,
           },
         });
-
-        if (toolCall.toolName === "write_file") {
-          hasWriteOperation = true;
-        }
 
         toolResults.push({
           toolCallId: toolCall.toolCallId,
@@ -586,11 +581,23 @@ MANDATORY: Before creating this screen, you MUST:
       }
     }
 
-    // Check if step is complete
-    const isStepComplete =
-      hasWriteOperation ||
-      finalResponse.toLowerCase().includes("step complete") ||
-      finalResponse.toLowerCase().includes("completed successfully");
+    // Check if step is complete based on successful file write operations
+    let hasSuccessfulWriteOperation = false;
+    
+    // Check if any write operations were successful
+    for (const toolResult of toolResults) {
+      try {
+        const result = JSON.parse(toolResult.result);
+        if (result.success && result.operation && (result.operation === "create" || result.operation === "modify")) {
+          hasSuccessfulWriteOperation = true;
+          break;
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    
+    const isStepComplete = hasSuccessfulWriteOperation;
 
     if (isStepComplete) {
       console.log(`✅ Step completed: ${operation.id} - ${operation.title}`);
@@ -599,9 +606,9 @@ MANDATORY: Before creating this screen, you MUST:
     }
 
     // Prevent infinite loops
-    if (toolCallsMade >= 25) {
+    if (toolCallsMade >= 50) {
       console.log("⚠️ Step execution taking too long, forcing completion");
-      finalResponse += `\n\n⚠️ Step execution reached maximum attempts. Current progress saved.`;
+      finalResponse += `\n\n⚠️ Step execution reached maximum attempts (50). Current progress saved.`;
       break;
     }
 
