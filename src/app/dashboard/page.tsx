@@ -34,9 +34,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user } = useUser();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim() || isLoading) return;
+  const submitPrompt = async (message: string) => {
+    const content = message.trim();
+    if (!content || isLoading) return;
 
     setIsLoading(true);
 
@@ -73,7 +73,7 @@ export default function DashboardPage() {
           "chat_intent",
           JSON.stringify({
             prototype_id: data.id,
-            message: prompt.trim(),
+            message: content,
           }),
         );
       }
@@ -84,6 +84,11 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitPrompt(prompt);
   };
 
   const examplePrompts = [
@@ -197,7 +202,7 @@ export default function DashboardPage() {
           {examplePrompts.map((example, index) => (
             <Card
               key={index}
-              onClick={() => setPrompt(example.prompt)}
+              onClick={() => submitPrompt(example.prompt)}
               className="cursor-pointer hover:border-primary transition-colors group"
             >
               <CardHeader>
