@@ -6,7 +6,7 @@
 
 @layer base {
   body {
-    @apply font-satoshi font-normal text-base text-body relative z-1;
+    @apply font-satoshi font-normal text-base text-body relative z-[1];
   }
 }
 
@@ -24,12 +24,13 @@
   .chat-height {
     @apply h-[calc(100vh_-_8.125rem)] lg:h-[calc(100vh_-_5.625rem)];
   }
+
   .inbox-height {
     @apply h-[calc(100vh_-_8.125rem)] lg:h-[calc(100vh_-_5.625rem)];
   }
 }
 
-/* third-party libraries CSS */
+/* Third-party libraries CSS */
 
 .tableCheckbox:checked ~ div span {
   @apply opacity-100;
@@ -96,11 +97,9 @@
 .flatpickr-months .flatpickr-next-month {
   @apply !top-7 dark:!text-white dark:!fill-white;
 }
-.flatpickr-months .flatpickr-prev-month.flatpickr-prev-month,
-.flatpickr-months .flatpickr-next-month.flatpickr-prev-month {
+.flatpickr-months .flatpickr-prev-month.flatpickr-prev-month {
   @apply !left-7;
 }
-.flatpickr-months .flatpickr-prev-month.flatpickr-next-month,
 .flatpickr-months .flatpickr-next-month.flatpickr-next-month {
   @apply !right-7;
 }
@@ -113,7 +112,6 @@ span.flatpickr-weekday,
 }
 .flatpickr-day.selected,
 .flatpickr-day.startRange,
-.flatpickr-day.selected,
 .flatpickr-day.endRange {
   @apply dark:!text-white;
 }
