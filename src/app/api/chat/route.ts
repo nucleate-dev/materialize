@@ -6,8 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import Stripe from "stripe";
+import { z } from "zod";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",

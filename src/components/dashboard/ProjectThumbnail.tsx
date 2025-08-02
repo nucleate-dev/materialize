@@ -6,9 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Rocket,
   Calendar,
   ArrowUpRight,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 
 interface ProjectThumbnailProps {
@@ -18,6 +26,7 @@ interface ProjectThumbnailProps {
   thumbnailUrl: string | null;
   lastModified?: string;
   onClick?: () => void;
+  onDelete?: () => void;
 }
 
 const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
@@ -27,6 +36,7 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
   thumbnailUrl,
   lastModified,
   onClick,
+  onDelete,
 }) => {
   const displayName = projectName || prototypeName || canvasName || "Untitled";
   return (
@@ -37,6 +47,35 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
       <Card className="bg-background/80 backdrop-blur-sm border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group-hover:border-primary/50">
         {/* Image Container */}
         <div className="relative aspect-[4/3] bg-muted overflow-hidden flex items-center justify-center">
+          {/* 3-dot menu */}
+          {onDelete && (
+            <div className="absolute top-2 right-2 z-10">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
           {thumbnailUrl ? (
             <>
               <Image

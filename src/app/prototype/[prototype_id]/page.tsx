@@ -12,10 +12,14 @@ import {
   DocumentDuplicateIcon,
   ShareIcon,
   EyeIcon,
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -33,6 +37,9 @@ export default function PrototypePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -181,6 +188,46 @@ export default function PrototypePage() {
     }
   };
 
+  const handleStartEdit = () => {
+    if (!prototype || !user || prototype.owner_id !== user.id) return;
+    setEditedName(prototype.name);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedName("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!prototype || !user || !prototypeId || !editedName.trim()) return;
+
+    try {
+      setIsUpdating(true);
+      
+      const { error } = await supabase
+        .from("prototypes")
+        .update({ name: editedName.trim() })
+        .eq("id", prototypeId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setPrototype(prev => prev ? { ...prev, name: editedName.trim() } : null);
+      setIsEditing(false);
+      setEditedName("");
+    } catch (err) {
+      console.error("Error updating prototype name:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update prototype name",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   if (userIsLoading || isLoading) {
     return <Loader />;
   }
@@ -234,15 +281,69 @@ export default function PrototypePage() {
           <div className="px-8 py-6">
             <div className="flex items-center justify-between">
               {/* Left side - Prototype info */}
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 group">
                 <div className="p-4 bg-primary text-primary-foreground rounded-lg">
                   <SparklesIcon className="w-8 h-8" />
                 </div>
 
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground mb-2">
-                    {prototype.name}
-                  </h1>
+                  <div className="flex items-center gap-3 mb-2">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="text-3xl font-bold text-foreground bg-background border-2 border-primary/50 focus:border-primary"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleSaveEdit();
+                            } else if (e.key === "Escape") {
+                              handleCancelEdit();
+                            }
+                          }}
+                          autoFocus
+                          disabled={isUpdating}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleSaveEdit}
+                          disabled={isUpdating || !editedName.trim()}
+                          className="h-8 w-8 p-0"
+                        >
+                          {isUpdating ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <CheckIcon className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          disabled={isUpdating}
+                          className="h-8 w-8 p-0"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-bold text-foreground">
+                          {prototype.name}
+                        </h1>
+                        {user && prototype.owner_id === user.id && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleStartEdit}
+                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {prototype.description && (
                     <p className="text-muted-foreground text-lg leading-relaxed">
                       {prototype.description}
