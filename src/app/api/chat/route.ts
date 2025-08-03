@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
+import SnackSession from "snack-sdk";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
           // ------------------------------------------------------------------------------------------------
           // 7. Execute execution phase
           // ------------------------------------------------------------------------------------------------
-          await handleExecutionPhase(
+          const { updatedFiles, executionSummary } = await handleExecutionPhase(
             finalResponse,
             fileManager,
             messages,
@@ -213,74 +214,106 @@ export async function POST(request: NextRequest) {
             prototype_id,
             controller,
             encoder,
-            chat_session_id,
           );
 
           // ------------------------------------------------------------------------------------------------
-          // 8. Track API usage and get updated count
+          // 8. Validate generated files using SnackSession
           // ------------------------------------------------------------------------------------------------
-          await supabase.from("api_usage").insert({
-            user_id: userID,
-            prototype_id: prototype_id || null,
-          });
+          const validation = await validateSnackFiles(updatedFiles);
 
-          // Get the updated message count for the current billing period
-          let updatedMessageCount = 0;
-          try {
-            // For users with subscription, use their billing period
-            let periodStart = startOfMonthISO;
-            let periodEnd = new Date().toISOString();
-            
-            if (userSubscription && userSubscription.current_period_start && userSubscription.current_period_end) {
-              periodStart = new Date(userSubscription.current_period_start * 1000).toISOString();
-              periodEnd = new Date(userSubscription.current_period_end * 1000).toISOString();
-            }
-
-            const { count: newCount } = await supabase
-              .from("api_usage")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", userID)
-              .gte("created_at", periodStart)
-              .lte("created_at", periodEnd);
-
-            updatedMessageCount = newCount || 0;
-            console.log(`Updated message count for user ${userID}: ${updatedMessageCount}`);
-          } catch (countError) {
-            console.error("Error fetching updated message count:", countError);
-          }
-
-          // Send updated message count to client
+          // Send updated files to client after validation
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
-                type: "usage_update",
-                messageCount: updatedMessageCount,
+                type: "execution_complete",
+                updatedFiles,
               })}\n\n`,
             ),
           );
 
-          // ------------------------------------------------------------------------------------------------
-          // 9. If the user has an active subscription, send the usage data to Stripe
-          // ------------------------------------------------------------------------------------------------
-          if (
-            userTier === ProductKeys.PRO_SUBSCRIPTION &&
-            userSubscription?.stripe_customer_id
-          ) {
+          if (validation.hasErrors) {
+            console.error("Snack validation errors:", validation.errors);
+          } else {
+            // ------------------------------------------------------------------------------------------------
+            // 9. Track API usage and get updated count
+            // ------------------------------------------------------------------------------------------------
+            await supabase.from("api_usage").insert({
+              user_id: userID,
+              prototype_id: prototype_id || null,
+            });
+
+            // Get the updated message count for the current billing period
+            let updatedMessageCount = 0;
             try {
-              await stripe.billing.meterEvents.create({
-                event_name: "materialize_assistant_messages",
-                payload: {
-                  stripe_customer_id: userSubscription.stripe_customer_id,
-                  value: "1",
-                },
-              });
+              // For users with subscription, use their billing period
+              let periodStart = startOfMonthISO;
+              let periodEnd = new Date().toISOString();
+
+              if (userSubscription && userSubscription.current_period_start && userSubscription.current_period_end) {
+                periodStart = new Date(
+                  userSubscription.current_period_start * 1000,
+                ).toISOString();
+                periodEnd = new Date(
+                  userSubscription.current_period_end * 1000,
+                ).toISOString();
+              }
+
+              const { count: newCount } = await supabase
+                .from("api_usage")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", userID)
+                .gte("created_at", periodStart)
+                .lte("created_at", periodEnd);
+
+              updatedMessageCount = newCount || 0;
               console.log(
-                `Stripe meter event successfully sent for pro user ${userID}`,
+                `Updated message count for user ${userID}: ${updatedMessageCount}`,
               );
-            } catch (stripeError) {
-              console.error("Error sending Stripe meter event:", stripeError);
-              // Don't fail the request if Stripe meter event fails
+            } catch (countError) {
+              console.error("Error fetching updated message count:", countError);
             }
+
+            // Send updated message count to client
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "usage_update",
+                  messageCount: updatedMessageCount,
+                })}\n\n`,
+              ),
+            );
+
+            // ------------------------------------------------------------------------------------------------
+            // 10. If the user has an active subscription, send the usage data to Stripe
+            // ------------------------------------------------------------------------------------------------
+            if (
+              userTier === ProductKeys.PRO_SUBSCRIPTION &&
+              userSubscription?.stripe_customer_id
+            ) {
+              try {
+                await stripe.billing.meterEvents.create({
+                  event_name: "materialize_assistant_messages",
+                  payload: {
+                    stripe_customer_id: userSubscription.stripe_customer_id,
+                    value: "1",
+                  },
+                });
+                console.log(
+                  `Stripe meter event successfully sent for pro user ${userID}`,
+                );
+              } catch (stripeError) {
+                console.error("Error sending Stripe meter event:", stripeError);
+                // Don't fail the request if Stripe meter event fails
+              }
+            }
+
+            // Save execution summary message to database
+            await supabase.from("prototype_chat_messages").insert({
+              chat_session_id,
+              content: executionSummary,
+              role: "assistant" as const,
+              phase: "execution",
+            });
           }
 
           controller.close();
@@ -656,8 +689,7 @@ async function handleExecutionPhase(
   prototype_id: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
   encoder: TextEncoder,
-  chat_session_id: string,
-) {
+): Promise<{ updatedFiles: PrototypeFiles; executionSummary: string }> {
   // Check if the response contains an execution plan
   if (finalResponse.includes("EXECUTION_PLAN")) {
     const planningResult = extractExecutionPlan(finalResponse);
@@ -726,29 +758,59 @@ async function handleExecutionPhase(
         }
       }
 
-      // Send execution complete
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: "execution_complete",
-            updatedFiles: fileManager.getFinalState(),
-          })}\n\n`,
-        ),
-      );
-
-      // Save execution summary message to database
       const executionSummary = `🎉 Execution completed! Successfully processed ${planningResult.operations.length} operations:\n\n${planningResult.operations
         .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
         .join("\n")}`;
 
-      await supabase.from("prototype_chat_messages").insert({
-        chat_session_id: chat_session_id,
-        content: executionSummary,
-        role: "assistant" as const,
-        phase: "execution",
-      });
+      return {
+        updatedFiles: fileManager.getFinalState(),
+        executionSummary,
+      };
     }
   }
+
+  return {
+    updatedFiles: fileManager.getFinalState(),
+    executionSummary: "",
+  };
+}
+
+async function validateSnackFiles(snackFiles: PrototypeFiles) {
+  const files: Record<string, { type: string; contents: string }> = {};
+  for (const [path, file] of Object.entries(snackFiles)) {
+    files[path] = { type: "CODE", contents: file.contents || "" };
+  }
+
+  return new Promise<{ hasErrors: boolean; errors: string[] }>(async (resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session: any = new SnackSession({ files, online: false });
+    const errors: string[] = [];
+
+    session.addErrorListener?.((error: unknown) => {
+      const err = error as { message?: string };
+      errors.push(err?.message || JSON.stringify(error));
+    });
+
+    session.addLogListener?.((log: { level: string; message?: string }) => {
+      if (log.level === "error") {
+        errors.push(log.message || JSON.stringify(log));
+      }
+    });
+
+    try {
+      // Start the session but don't wait longer than our timeout
+      session.startAsync?.().catch((e: unknown) => {
+        errors.push(e instanceof Error ? e.message : String(e));
+      });
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+
+    setTimeout(() => {
+      session.stopAsync?.();
+      resolve({ hasErrors: errors.length > 0, errors });
+    }, 2000);
+  });
 }
 
 // Helper function to execute a single step
