@@ -52,7 +52,7 @@ export default function NewPrototypeModal({
   const { userPlan } = useHasSubscriptionAccess();
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
-  >("PUBLIC");
+  >(userPlan === "pro" ? "SELF" : "PUBLIC");
 
   // Fetch user's projects
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function NewPrototypeModal({
       // Reset form
       setName("");
       setSelectedProject(null);
-      setVisibility("PUBLIC");
+      setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
       setTouched(false);
       onCreated(data.id);
       onClose();

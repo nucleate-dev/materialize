@@ -21,6 +21,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -36,6 +37,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
+  const { userPlan } = useHasSubscriptionAccess();
   const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
@@ -255,6 +257,11 @@ export default function CreatePage() {
 
   const handleVisibilityToggle = async (checked: boolean) => {
     if (!prototype) return;
+
+    // Prevent free users from making prototypes private
+    if (!checked && userPlan !== "pro") {
+      return;
+    }
 
     try {
       const newVisibility = checked ? "PUBLIC" : "SELF";
@@ -494,15 +501,23 @@ export default function CreatePage() {
                 <p className="text-xs text-gray-600 dark:text-gray-400">
                   {isPublic ? "Anyone with the link can view" : "Only you can view"}
                 </p>
+                {userPlan !== "pro" && !isPublic && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Upgrade to Pro to make prototypes private
+                  </p>
+                )}
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className={`relative inline-flex items-center ${
+                userPlan !== "pro" && !isPublic ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              }`}>
                 <input
                   type="checkbox"
                   checked={isPublic}
                   onChange={(e) => handleVisibilityToggle(e.target.checked)}
+                  disabled={userPlan !== "pro" && !isPublic}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
