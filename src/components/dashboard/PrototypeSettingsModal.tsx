@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Database } from "@/lib/types/database.types";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
@@ -41,6 +42,7 @@ export default function PrototypeSettingsModal({
     Database["public"]["Enums"]["visibility_level"]
   >("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { userPlan } = useHasSubscriptionAccess();
 
   useEffect(() => {
     if (prototype) {
@@ -122,7 +124,7 @@ export default function PrototypeSettingsModal({
                 onValueChange={(v) =>
                   setVisibility(v as Database["public"]["Enums"]["visibility_level"])
                 }
-                disabled={isSubmitting}
+                disabled={isSubmitting || userPlan !== "pro"}
               >
                 <SelectTrigger id="prototype-visibility">
                   <SelectValue />
@@ -132,6 +134,11 @@ export default function PrototypeSettingsModal({
                   <SelectItem value="PUBLIC">Public</SelectItem>
                 </SelectContent>
               </Select>
+              {userPlan !== "pro" && (
+                <p className="text-xs text-muted-foreground">
+                  Upgrade to Pro to change prototype visibility settings.
+                </p>
+              )}
             </div>
             <DialogFooter className="flex justify-between">
               <Button

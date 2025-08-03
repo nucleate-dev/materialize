@@ -4,12 +4,13 @@ import Breadcrumb from "@/components/dashboard/Breadcrumbs/Breadcrumb";
 import { ProductKeys } from "@/GlobalConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { User, Phone, Mail, Rocket, Calendar, CreditCard } from "lucide-react";
+import { User, Mail, Rocket, Calendar, CreditCard, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/ClientConstants";
@@ -17,64 +18,120 @@ import { supabase } from "@/ClientConstants";
 function AccountSettings() {
   const user = useUser();
   const router = useRouter();
+  const {
+    userPlan,
+    currentPeriodStart,
+    currentPeriodEnd,
+    loadingSubscriptionData,
+  } = useHasSubscriptionAccess();
 
   const [currentSubscription, setCurrentSubscription] = useState<string>("");
   const [nextBillingDate, setNextBillingDate] = useState<Date>(new Date());
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [memberSince, setMemberSince] = useState<Date>(new Date());
   const [scheduledForCancellation, setScheduledForCancellation] =
     useState<boolean>(false);
+  const [messageCount, setMessageCount] = useState<number>(0);
+  const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
 
   useEffect(() => {
     async function fetchCurrentSubscription() {
+      // Set user info from Supabase Auth user
+      if (user.user) {
+        setEmail(user.user.email || "");
+        setName(user.user.user_metadata?.full_name || user.user.user_metadata?.first_name + " " + user.user.user_metadata?.last_name || "");
+        setMemberSince(new Date(user.user.created_at));
+      }
+
+      // Fetch subscription data
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.user?.id);
+      
       if (error) {
-        // handle error
         console.log("error: ", error);
+        // Set default subscription if no subscription found
+        setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
         return;
       }
 
-      const { data: userData, error: userFetchError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("user_id", user.user?.id)
-        .single();
-      if (userFetchError) {
-        // handle error
-        console.log("error: ", error);
-        return;
+      if (data && data.length > 0) {
+        setNextBillingDate(new Date(data[0].current_period_end * 1000));
+        switch (data[0].plan_id) {
+          case ProductKeys.FREE_SUBSCRIPTION:
+            setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
+            break;
+          case ProductKeys.PRO_SUBSCRIPTION:
+            setCurrentSubscription(ProductKeys.PRO_SUBSCRIPTION);
+            break;
+          case ProductKeys.TEAM_SUBSCRIPTION:
+            setCurrentSubscription(ProductKeys.TEAM_SUBSCRIPTION);
+            break;
+          default:
+            setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
+            break;
+        }
+        setScheduledForCancellation(data[0]?.scheduled_for_cancellation);
+      } else {
+        // No subscription found, set free as default
+        setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
       }
-      setName(userData?.name);
-      setEmail(userData?.email);
-      setPhoneNumber(userData?.phone_number);
-      setMemberSince(new Date(userData?.created_at));
-      setNextBillingDate(new Date(data[0].current_period_end * 1000));
-      switch (data[0].plan_id) {
-        case ProductKeys.FREE_SUBSCRIPTION:
-          setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
-          break;
-        case ProductKeys.PRO_SUBSCRIPTION:
-          setCurrentSubscription(ProductKeys.PRO_SUBSCRIPTION);
-          break;
-        case ProductKeys.TEAM_SUBSCRIPTION:
-          setCurrentSubscription(ProductKeys.TEAM_SUBSCRIPTION);
-          break;
-        default:
-          setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
-          break;
-      }
-      setScheduledForCancellation(data[0]?.scheduled_for_cancellation);
     }
 
     if (user.user && user.userIsLoading === false) {
       fetchCurrentSubscription();
     }
   }, [user.user, user.userIsLoading]);
+
+  // Fetch message count for current billing period
+  useEffect(() => {
+    async function fetchMessageCount() {
+      if (!user.user?.id || loadingSubscriptionData) return;
+
+      setLoadingUsageCount(true);
+      try {
+        const { count, error } = await supabase
+          .from("api_usage")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.user.id)
+          .gte("created_at", currentPeriodStart.toISOString())
+          .lte("created_at", currentPeriodEnd.toISOString());
+
+        if (error) {
+          console.error("Error fetching message count:", error);
+          setMessageCount(0);
+        } else {
+          console.log("Fetched message count:", count);
+          setMessageCount(count || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching message count:", error);
+        setMessageCount(0);
+      } finally {
+        setLoadingUsageCount(false);
+      }
+    }
+
+    fetchMessageCount();
+  }, [user.user?.id, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData]);
+
+  // Calculate message limit based on subscription plan
+  const getMessageLimit = () => {
+    switch (userPlan) {
+      case "free":
+        return 15;
+      case "pro":
+        return 100;
+      case "team":
+        return 100;
+      default:
+        return 15;
+    }
+  };
+
+  const messageLimit = getMessageLimit();
 
   return (
     <div className="mx-auto max-w-7xl p-6">
@@ -91,7 +148,7 @@ function AccountSettings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="fullName" className="flex items-center gap-2">
                     <User className="w-4 h-4" />
@@ -107,36 +164,20 @@ function AccountSettings() {
 
                 <div className="space-y-2">
                   <Label
-                    htmlFor="phoneNumber"
+                    htmlFor="emailAddress"
                     className="flex items-center gap-2"
                   >
-                    <Phone className="w-4 h-4" />
-                    Phone Number
+                    <Mail className="w-4 h-4" />
+                    Email Address
                   </Label>
                   <Input
-                    id="phoneNumber"
-                    value={phoneNumber}
+                    id="emailAddress"
+                    type="email"
+                    value={email}
                     disabled
                     className="bg-muted"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="emailAddress"
-                  className="flex items-center gap-2"
-                >
-                  <Mail className="w-4 h-4" />
-                  Email Address
-                </Label>
-                <Input
-                  id="emailAddress"
-                  type="email"
-                  value={email}
-                  disabled
-                  className="bg-muted"
-                />
               </div>
             </CardContent>
           </Card>
@@ -190,6 +231,26 @@ function AccountSettings() {
                 <Input
                   id="billingDate"
                   value={`${nextBillingDate?.getMonth() + 1}/${nextBillingDate?.getDate()}/${nextBillingDate?.getFullYear()}`}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="messageUsage"
+                  className="flex items-center gap-2"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Messages Used (Current Period)
+                </Label>
+                <Input
+                  id="messageUsage"
+                  value={
+                    loadingUsageCount
+                      ? "Loading..."
+                      : `${messageCount}/${messageLimit}`
+                  }
                   disabled
                   className="bg-muted"
                 />

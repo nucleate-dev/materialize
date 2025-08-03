@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { HorizontalModeToggle } from "@/components/horizontal-mode-toggle";
 import {
   ChevronLeft,
   ChevronRight,
@@ -191,6 +192,9 @@ const Sidebar = () => {
 
         {/* Account & System Section */}
         <div className="px-4 lg:px-6 pb-6 space-y-2">
+          {/* Theme Toggle */}
+          <HorizontalModeToggle sidebarExpanded={sidebarExpanded} />
+
           {/* Account Settings */}
           <Button
             asChild

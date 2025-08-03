@@ -1,11 +1,11 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewProjectModal from "@/components/dashboard/NewProjectModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Loader2, Plus } from "lucide-react";
@@ -65,21 +65,24 @@ export default function ProjectsPage() {
       {/* Page Header */}
       <Card className="mb-8">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-title-xl2 font-bold text-black dark:text-white mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
                 All projects
               </h1>
-              <p className="text-body dark:text-bodydark">
+              <p className="text-sm sm:text-base text-body dark:text-bodydark">
                 Manage and organize your projects
               </p>
             </div>
 
             {/* New Project Button */}
-            <Button onClick={handleOpenModal} size="lg">
-              <Plus className="w-5 h-5" />
-              New Project
-            </Button>
+            <div className="flex-shrink-0">
+              <Button onClick={handleOpenModal} size="lg" className="w-full sm:w-auto">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <span className="hidden sm:inline">New Project</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>

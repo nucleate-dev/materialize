@@ -1,8 +1,11 @@
 "use client";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 
 export default function PremiumHeader() {
+  const { user, userIsLoading } = useUser();
+
   return (
     <header className="relative z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
       <div className="container mx-auto px-6 py-4">
@@ -42,19 +45,35 @@ export default function PremiumHeader() {
 
           {/* CTA Buttons */}
           <div className="flex items-center space-x-4">
-            <Link
-              href="/login"
-              className="px-6 py-3 rounded-xl border border-white/20 text-white/80 backdrop-blur-xl transition-all duration-300 hover:text-white hover:bg-white/10 hover:scale-105"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/register"
-              className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
-            >
-              <span className="relative z-10">Get started</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </Link>
+            {userIsLoading ? (
+              <div className="px-6 py-3 rounded-xl border border-white/20 text-white/80 backdrop-blur-xl">
+                Loading...
+              </div>
+            ) : user ? (
+              <Link
+                href="/dashboard"
+                className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
+              >
+                <span className="relative z-10">Dashboard</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-6 py-3 rounded-xl border border-white/20 text-white/80 backdrop-blur-xl transition-all duration-300 hover:text-white hover:bg-white/10 hover:scale-105"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/register"
+                  className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
+                >
+                  <span className="relative z-10">Get started</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </div>

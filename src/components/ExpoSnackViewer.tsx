@@ -9,10 +9,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
 import { supabase } from "@/ClientConstants";
+import { Monitor, RefreshCw, RotateCcw, Settings, Smartphone } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -325,60 +333,25 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
     return (
       <div className="flex flex-col h-full bg-background">
-        {/* Header with Controls */}
-        <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
-          <div className="flex items-center space-x-4">
-            {/* Mode Selector */}
-            <div className="flex bg-muted rounded-lg p-1">
-              <Button
-                variant={previewMode === "mobile" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleModeChange("mobile")}
-              >
-                Mobile
-              </Button>
-              <Button
-                variant={previewMode === "web" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleModeChange("web")}
-              >
-                Web
-              </Button>
+        {/* Header - simplified without controls */}
+        {!hideControls && onCreateFile && (
+          <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="text-sm font-medium text-foreground">React Native Preview</span>
             </div>
+            <Button
+              onClick={() => setShowNewFileModal(true)}
+              size="sm"
+              disabled={isLoading}
+              title="Create new file"
+            >
+              + New File
+            </Button>
           </div>
-
-          {!hideControls && (
-            <div className="flex items-center space-x-3">
-              {onCreateFile && (
-                <Button
-                  onClick={() => setShowNewFileModal(true)}
-                  size="sm"
-                  disabled={isLoading}
-                  title="Create new file"
-                >
-                  + New File
-                </Button>
-              )}
-              <Button
-                onClick={onResetToDefault}
-                size="sm"
-                variant="destructive"
-                disabled={isLoading}
-                title="Reset to default app"
-              >
-                Reset
-              </Button>
-              <Button
-                onClick={handleRefresh}
-                size="sm"
-                variant="secondary"
-                disabled={isLoading || !webPreviewURL}
-              >
-                Refresh
-              </Button>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Status */}
         {(isLoading || error) && (
@@ -411,6 +384,54 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* Preview */}
         <div className="flex-1 relative flex items-center justify-center bg-background p-8">
+          {/* Floating Options Button */}
+          <div className="absolute top-4 right-4 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => handleModeChange("mobile")}
+                  className={previewMode === "mobile" ? "bg-accent" : ""}
+                >
+                  <Smartphone className="w-4 h-4 mr-2" />
+                  Mobile View
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleModeChange("web")}
+                  className={previewMode === "web" ? "bg-accent" : ""}
+                >
+                  <Monitor className="w-4 h-4 mr-2" />
+                  Web View
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleRefresh}
+                  disabled={isLoading || !webPreviewURL}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh Preview
+                </DropdownMenuItem>
+                {!hideControls && onResetToDefault && (
+                  <DropdownMenuItem
+                    onClick={onResetToDefault}
+                    disabled={isLoading}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset to Default
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -537,7 +558,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         </div>
 
         {/* File Info */}
-        {!hideControls && (
+        {false && (
           <div className="border-t border-border p-6 bg-muted/30">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">

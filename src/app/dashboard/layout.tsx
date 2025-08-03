@@ -3,6 +3,7 @@
 import { SidebarProvider } from "@/hooks/useSidebar";
 import { useEffect, useState } from "react";
 import Loader from "../../components/dashboard/Loader";
+import MobileHeader from "../../components/dashboard/MobileHeader";
 import Sidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
@@ -13,6 +14,8 @@ function DashboardContent({ children }: { children: React.ReactNode; }) {
       <Sidebar />
       {/* <!-- ===== Content Area Start ===== --> */}
       <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-300 ease-linear">
+        {/* Mobile Header */}
+        <MobileHeader />
         {/* <Header /> */}
         <main className="flex-1 flex flex-col">
           <div className="transition-all duration-300 ease-linear max-w-none flex-1">

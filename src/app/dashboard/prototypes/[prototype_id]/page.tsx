@@ -7,6 +7,7 @@ import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModa
 import ExpoSnackViewer, { ExpoSnackViewerRef } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
+import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -20,16 +21,13 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import {
-  CheckIcon,
+  ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
   CodeBracketIcon,
-  Cog6ToothIcon,
-  EyeIcon,
-  PencilIcon,
-  ShareIcon,
-  SparklesIcon,
-  XMarkIcon,
+  DevicePhoneMobileIcon,
+  EyeIcon
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,6 +37,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
+  const { userPlan } = useHasSubscriptionAccess();
   const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
@@ -46,13 +45,17 @@ export default function CreatePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+
+  // Mobile-specific state
+  const [activePanel, setActivePanel] = useState<'chat' | 'preview'>('preview');
+  const [isMobile, setIsMobile] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
@@ -63,6 +66,45 @@ export default function CreatePage() {
   useEffect(() => {
     setSidebarExpanded(false);
   }, [setSidebarExpanded]);
+
+  // Mobile detection and resize handling
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Touch handling for swipe gestures
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && activePanel === 'chat') {
+      setActivePanel('preview');
+    }
+    if (isRightSwipe && activePanel === 'preview') {
+      setActivePanel('chat');
+    }
+  };
 
   // Fetch prototype data
   useEffect(() => {
@@ -122,43 +164,57 @@ export default function CreatePage() {
     }
   };
 
-  const handleStartEdit = () => {
-    if (!prototype || !user || prototype.owner_id !== user.id) return;
-    setEditedName(prototype.name);
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedName("");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!prototype || !user || !prototypeId || !editedName.trim()) return;
+  const handleClonePrototype = async () => {
+    if (!user || !prototype || !prototypeId) return;
 
     try {
-      setIsUpdating(true);
+      setIsCloning(true);
 
-      const { error } = await supabase
+      // Create new prototype
+      const clonedPrototypeName = `${prototype.name} (Copy)`;
+      const { data: newPrototype, error: prototypeError } = await supabase
         .from("prototypes")
-        .update({ name: editedName.trim() })
-        .eq("id", prototypeId);
+        .insert({
+          name: clonedPrototypeName,
+          description: prototype.description,
+          owner_id: user.id,
+          project_id: prototype.project_id,
+          prototype_context: prototype.prototype_context,
+          visibility: "SELF" as const,
+        })
+        .select()
+        .single();
 
-      if (error) {
-        throw error;
+      if (prototypeError) {
+        throw prototypeError;
       }
 
-      // Update local state
-      setPrototype((prev) =>
-        prev ? { ...prev, name: editedName.trim() } : null,
-      );
-      setIsEditing(false);
-      setEditedName("");
+      // Copy all files to the new prototype
+      const filesToCopy = Object.values(fileSystem.state.files).map((file) => ({
+        prototype_id: newPrototype.id,
+        name: file.name,
+        contents: file.contents,
+      }));
+
+      const { error: filesError } = await supabase
+        .from("prototype_files")
+        .insert(filesToCopy);
+
+      if (filesError) {
+        throw filesError;
+      }
+
+      // Navigate to the new prototype in dashboard
+      router.push(`/dashboard/prototypes/${newPrototype.id}`);
     } catch (err) {
-      console.error("Error updating prototype name:", err);
+      console.error("Error cloning prototype:", err);
     } finally {
-      setIsUpdating(false);
+      setIsCloning(false);
     }
+  };
+
+  const handleUpdatePrototype = (updatedPrototype: Prototype) => {
+    setPrototype(updatedPrototype);
   };
 
   if (!prototypeId || userIsLoading) {
@@ -202,6 +258,11 @@ export default function CreatePage() {
   const handleVisibilityToggle = async (checked: boolean) => {
     if (!prototype) return;
 
+    // Prevent free users from making prototypes private
+    if (!checked && userPlan !== "pro") {
+      return;
+    }
+
     try {
       const newVisibility = checked ? "PUBLIC" : "SELF";
       await supabase
@@ -217,193 +278,143 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
       {/* Header */}
-      <Card className="border-0 rounded-none bg-background/80 backdrop-blur-sm border-b border-border">
-        <CardContent className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left side - Prototype name */}
-            <div className="flex items-center gap-3 group">
-              {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    className="text-xl font-bold text-foreground bg-background border-2 border-primary/50 focus:border-primary"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSaveEdit();
-                      } else if (e.key === "Escape") {
-                        handleCancelEdit();
-                      }
-                    }}
-                    autoFocus
-                    disabled={isUpdating}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleSaveEdit}
-                    disabled={isUpdating || !editedName.trim()}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isUpdating ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <CheckIcon className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    disabled={isUpdating}
-                    className="h-8 w-8 p-0"
-                  >
-                    <XMarkIcon className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-foreground">
-                    {prototype?.name || 'Untitled Prototype'}
-                  </h1>
-                  {user && prototype?.owner_id === user.id && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleStartEdit}
-                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:bg-white/20 dark:hover:bg-boxdark/40 transition-opacity"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+      {prototype && (
+        <PublicPrototypeHeader
+          prototype={prototype}
+          prototypeFiles={fileSystem.state.files}
+          isCloning={isCloning}
+          onClonePrototype={handleClonePrototype}
+          onUpdatePrototype={handleUpdatePrototype}
+          onShare={handleShare}
+        />
+      )}
 
-            {/* Right side - Settings and Share buttons */}
-            <div className="flex items-center gap-2">
-              {user && prototype?.owner_id === user.id && (
-                <Button
-                  onClick={() => setShowSettingsModal(true)}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Cog6ToothIcon className="w-4 h-4" />
-                  Settings
-                </Button>
-              )}
-              <Button
-                onClick={handleShare}
-                className="flex items-center gap-2"
-              >
-                <ShareIcon className="w-4 h-4" />
-                Share
-              </Button>
-            </div>
+      {/* Mobile Panel Toggle */}
+      {isMobile && (
+        <div className="bg-background border-b border-border p-2">
+          <div className="flex items-center justify-center space-x-2">
+            <Button
+              variant={activePanel === 'chat' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActivePanel('chat')}
+              className="flex items-center gap-2"
+            >
+              <ChatBubbleLeftRightIcon className="w-4 h-4" />
+              Chat
+            </Button>
+            <Button
+              variant={activePanel === 'preview' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActivePanel('preview')}
+              className="flex items-center gap-2"
+            >
+              <DevicePhoneMobileIcon className="w-4 h-4" />
+              Preview
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
       {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden">
-
+      <div
+        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? 'flex-col' : ''}`}
+        style={isMobile ? { height: 'calc(100dvh - 120px)' } : {}}
+        onTouchStart={isMobile ? onTouchStart : undefined}
+        onTouchMove={isMobile ? onTouchMove : undefined}
+        onTouchEnd={isMobile ? onTouchEnd : undefined}
+      >
         {/* Left Panel - AI Assistant Chat */}
-        <div className="w-2/5 min-w-[420px] flex flex-col relative z-10">
+        <div className={`${isMobile
+          ? `${activePanel === 'chat' ? 'flex' : 'hidden'} w-full h-full`
+          : 'w-2/5 min-w-[420px] flex'
+          } flex-col relative z-10`} style={isMobile ? { height: '100%' } : {}}>
           {/* Card Container */}
-          <Card className="h-full m-4 bg-background/80 backdrop-blur-sm border border-border">
-            <CardContent className="h-full flex flex-col p-0">
-              {/* Header */}
-              <div className="p-6 border-b border-border">
-
-                {/* AI Assistant Section */}
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg blur-sm"></div>
-                    <div className="relative p-2 bg-gradient-to-r from-primary to-secondary rounded-lg shadow-lg">
-                      <SparklesIcon className="w-5 h-5 text-white" />
+          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2'} bg-background/80 backdrop-blur-sm border border-border`} style={isMobile ? { height: 'calc(100% - 16px)' } : {}}>
+            <CardContent className="h-full flex flex-col p-0 overflow-hidden">
+              {/* Mobile Chat Header */}
+              {isMobile && (
+                <div className="p-2 border-b border-border flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
+                      <h2 className="text-base font-bold text-foreground">AI Assistant</h2>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Swipe left to see preview
                     </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">
-                      AI Assistant
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Build with AI-powered development
-                    </p>
-                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Content Area */}
-              <div className="flex-1 flex flex-col overflow-hidden relative h-full">
-                <div className="relative flex-1 flex flex-col">
-                  <PrototypeChatWindow
-                    prototypeId={prototypeId}
-                    // File system integration
-                    files={fileSystem.state.files}
-                    selectedFile={fileSystem.state.selectedFile}
-                    onFilesUpdate={fileSystem.applyFileUpdates}
-                    // Loading state
-                    isLoading={isLoading}
-                    setIsLoading={setIsLoading}
-                  />
-                </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <PrototypeChatWindow
+                  prototypeId={prototypeId}
+                  // File system integration
+                  files={fileSystem.state.files}
+                  selectedFile={fileSystem.state.selectedFile}
+                  onFilesUpdate={fileSystem.applyFileUpdates}
+                  // Loading state
+                  isLoading={isLoading}
+                  setIsLoading={setIsLoading}
+                />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Right Panel - Preview/Code Toggle */}
-        <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
+        <div className={`${isMobile
+          ? `${activePanel === 'preview' ? 'flex' : 'hidden'} w-full h-full`
+          : 'w-3/5 min-w-[500px] flex'
+          } flex-col relative z-10`}>
           {/* Card Container */}
-          <Card className="h-full m-4 ml-0 bg-background/80 backdrop-blur-sm border border-border">
+          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2 ml-0'} bg-background/80 backdrop-blur-sm border border-border`}>
             <CardContent className="h-full flex flex-col p-0">
               {/* Header with Toggle */}
-              <div className="p-6 border-b border-border">
+              <div className="p-3 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <div className="absolute inset-0 rounded-lg blur-sm"></div>
-                      <div className="relative p-2 rounded-lg shadow-lg">
-                        {isPreviewView ? (
-                          <EyeIcon className="w-5 h-5 text-foreground" />
-                        ) : (
-                          <CodeBracketIcon className="w-5 h-5 text-foreground" />
-                        )}
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1 rounded-lg">
+                      {isPreviewView ? (
+                        <EyeIcon className="w-4 h-4 text-foreground" />
+                      ) : (
+                        <CodeBracketIcon className="w-4 h-4 text-foreground" />
+                      )}
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">
+                      <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
                         {isPreviewView ? "Live Preview" : "Code Editor"}
                       </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {isPreviewView
-                          ? "See your changes in real-time"
-                          : "Edit your prototype files"}
-                      </p>
                     </div>
+                    {isMobile && (
+                      <div className="text-xs text-muted-foreground ml-2">
+                        Swipe right for chat
+                      </div>
+                    )}
                   </div>
 
                   {/* Enhanced Toggle Buttons */}
                   <div className="flex items-center bg-muted rounded-lg p-1">
                     <Button
                       variant={isPreviewView ? "default" : "ghost"}
-                      size="sm"
+                      size={isMobile ? "sm" : "sm"}
                       onClick={() => setIsPreviewView(true)}
                       className="flex items-center gap-2"
                     >
                       <EyeIcon className="w-4 h-4" />
-                      Preview
+                      {!isMobile && "Preview"}
                     </Button>
                     <Button
                       variant={!isPreviewView ? "default" : "ghost"}
-                      size="sm"
+                      size={isMobile ? "sm" : "sm"}
                       onClick={() => setIsPreviewView(false)}
                       className="flex items-center gap-2"
                     >
                       <CodeBracketIcon className="w-4 h-4" />
-                      Code
+                      {!isMobile && "Code"}
                     </Button>
                   </div>
                 </div>
@@ -422,10 +433,13 @@ export default function CreatePage() {
                       />
                     </div>
                   ) : (
-                    <div className="max-h-[550px] flex">
+                    <div className={`flex h-full ${isMobile ? 'flex-col' : ''}`}>
                       {/* File Explorer */}
-                      <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border h-full">
-                        <div className="h-full">
+                      <div className={`${isMobile
+                        ? 'w-full max-h-[200px] border-b'
+                        : 'w-1/4 min-w-[200px] max-w-[280px] border-r'
+                        } border-border`}>
+                        <div className="h-full overflow-auto">
                           <FileTree
                             files={fileSystem.state.files}
                             selectedFile={fileSystem.state.selectedFile}
@@ -435,17 +449,12 @@ export default function CreatePage() {
                       </div>
 
                       {/* Code Editor */}
-                      <div
-                        className="flex-1 overflow-y-auto"
-                        style={{ minHeight: "calc(100vh - 120px)" }}
-                      >
-                        <div className="h-full">
-                          <CodeEditor
-                            value={fileSystem.getSelectedFileContent()}
-                            onChange={handleCodeChange}
-                            fileName={fileSystem.state.selectedFile}
-                          />
-                        </div>
+                      <div className="flex-1 h-full">
+                        <CodeEditor
+                          value={fileSystem.getSelectedFileContent()}
+                          onChange={handleCodeChange}
+                          fileName={fileSystem.state.selectedFile}
+                        />
                       </div>
                     </div>
                   )}
@@ -493,15 +502,23 @@ export default function CreatePage() {
                 <p className="text-xs text-gray-600 dark:text-gray-400">
                   {isPublic ? "Anyone with the link can view" : "Only you can view"}
                 </p>
+                {userPlan !== "pro" && !isPublic && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Upgrade to Pro to make prototypes private
+                  </p>
+                )}
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className={`relative inline-flex items-center ${
+                userPlan !== "pro" && !isPublic ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              }`}>
                 <input
                   type="checkbox"
                   checked={isPublic}
                   onChange={(e) => handleVisibilityToggle(e.target.checked)}
+                  disabled={userPlan !== "pro" && !isPublic}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
@@ -510,7 +527,7 @@ export default function CreatePage() {
               <p className="text-sm font-medium">Share Link</p>
               <div className="flex items-center gap-2">
                 <Input
-                  value={window.location.href}
+                  value={window.location.href.replace("dashboard/prototypes", "prototype")}
                   readOnly
                   className="flex-1 bg-gray-50 dark:bg-gray-800"
                 />
