@@ -22,7 +22,7 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { createPrototype } from "@/lib/utils/prototypes";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -38,7 +38,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const userPlan = useGetSubscriptionPlan();
+  const { userPlan } = useSubscriptionAccess();
   const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();

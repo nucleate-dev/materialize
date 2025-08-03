@@ -5,7 +5,7 @@ import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { createPrototype } from "@/lib/utils/prototypes";
-import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   Card,
   CardContent,
@@ -30,7 +30,7 @@ export default function PrototypePage() {
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [prototypeFiles, setPrototypeFiles] = useState<Record<string, PrototypeFile>>({});
-  const userPlan = useGetSubscriptionPlan();
+  const { userPlan } = useSubscriptionAccess();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);

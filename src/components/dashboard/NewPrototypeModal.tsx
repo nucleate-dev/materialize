@@ -5,7 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 import { Database } from "@/lib/types/database.types";
 import { createPrototype } from "@/lib/utils/prototypes";
-import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   SparklesIcon,
   RocketLaunchIcon,
@@ -49,7 +49,7 @@ export default function NewPrototypeModal({
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  const userPlan = useGetSubscriptionPlan();
+  const { userPlan } = useSubscriptionAccess();
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
   >(userPlan === "pro" ? "SELF" : "PUBLIC");

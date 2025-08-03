@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { createPrototype } from "@/lib/utils/prototypes";
-import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   ArrowRight,
   Code,
@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useUser();
-  const userPlan = useGetSubscriptionPlan();
+  const { userPlan } = useSubscriptionAccess();
 
   const submitPrompt = async (message: string) => {
     const content = message.trim();

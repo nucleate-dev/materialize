@@ -3,7 +3,7 @@
 import { posthogClient, supabase } from "@/ClientConstants";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { createPrototype } from "@/lib/utils/prototypes";
-import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
@@ -12,7 +12,7 @@ export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
     useState<boolean>(false);
   const router = useRouter();
-  const userPlan = useGetSubscriptionPlan();
+  const { userPlan } = useSubscriptionAccess();
 
   let productId: string | null = null;
   let chatIntent: { message: string; prototype_id?: string; } | null = null;
