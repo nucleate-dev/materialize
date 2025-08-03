@@ -2,9 +2,10 @@
 
 import { supabase } from "@/ClientConstants";
 import ChatWindow from "@/components/ChatWindow";
-import { CodeExtractionResult } from "@/lib/types/chat";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import { useCallback, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -26,11 +27,6 @@ export interface PrototypeChatWindowProps {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
 
-  // Legacy props for backward compatibility
-  onApplyCode?: (
-    result: CodeExtractionResult,
-    plannedFilePaths?: string[],
-  ) => void;
   onClearChat?: () => void;
 }
 
@@ -49,9 +45,18 @@ export default function PrototypeChatWindow({
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
+  const [messageCount, setMessageCount] = useState<number>(0);
+  const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
+  const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
 
   const { user } = useUser();
   const userId = user?.id;
+  const {
+    userPlan,
+    currentPeriodStart,
+    currentPeriodEnd,
+    loadingSubscriptionData,
+  } = useHasSubscriptionAccess();
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -110,6 +115,41 @@ export default function PrototypeChatWindow({
       fetchPrototypeChatSessionAndMessages();
     }
   }, [prototypeId, userId]);
+
+  // Fetch message count for current billing period
+  useEffect(() => {
+    async function fetchMessageCount() {
+      if (!userId || loadingSubscriptionData) return;
+
+      setLoadingCount(true);
+      try {
+        const { count, error } = await supabase
+          .from("api_usage")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .gte("created_at", currentPeriodStart.toISOString())
+          .lte("created_at", currentPeriodEnd.toISOString());
+
+        if (error) {
+          console.error("Error fetching message count:", error);
+          setMessageCount(0);
+        } else {
+          console.log("Fetched message count:", count);
+          setMessageCount(count || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching message count:", error);
+        setMessageCount(0);
+      } finally {
+        setLoadingCount(false);
+      }
+    }
+
+    fetchMessageCount();
+  }, [userId, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData]);
+
+  // Note: Message count is now updated via the API response when a message is sent
+  // This provides the most accurate count from the database
 
   // Animate loading dots only while executing operations
   useEffect(() => {
@@ -324,6 +364,13 @@ export default function PrototypeChatWindow({
                     }
                     break;
 
+                  case "usage_update": {
+                    // Update the local message count with the value returned from the API
+                    console.log("Received usage update:", data.messageCount);
+                    setMessageCount(data.messageCount);
+                    break;
+                  }
+
                   case "error": {
                     console.error("Streaming error:", data.error);
                     setIsExecutingOperations(false);
@@ -362,11 +409,41 @@ export default function PrototypeChatWindow({
     ],
   );
 
+  // Calculate limits based on subscription plan
+  const getMessageLimit = () => {
+    switch (userPlan) {
+      case "free":
+        return 15;
+      case "pro":
+        return 100;
+      case "team":
+        return 100; // Assuming team has same limit as pro
+      default:
+        return 15;
+    }
+  };
+
+  const messageLimit = getMessageLimit();
+  const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
+
+  // Show upsell modal when free user reaches limit
+  useEffect(() => {
+    if (userPlan === "free" && messageCount >= 15 && !loadingUsageCount) {
+      setShowUpsellModal(true);
+    }
+  }, [userPlan, messageCount, loadingUsageCount]);
+
   // Handle sending messages
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!prototypeChatSession?.id) {
         console.error("Sending message failed: no chat session found");
+        return;
+      }
+
+      // Check if user is at limit before sending
+      if (isAtLimit) {
+        console.log("Message not sent: user has reached their limit");
         return;
       }
 
@@ -448,6 +525,7 @@ export default function PrototypeChatWindow({
       files,
       prototypeId,
       processStreamingResponse,
+      isAtLimit,
     ],
   );
 
@@ -498,11 +576,25 @@ export default function PrototypeChatWindow({
   }, [prototypeId, prototypeChatSession, handleSendMessage]);
 
   return (
-    <ChatWindow
-      messages={prototypeChatMessages}
-      onSendMessage={handleSendMessage}
-      isLoading={isLoading}
-      onClearChat={handleClearChat}
-    />
+    <>
+      <ChatWindow
+        messages={prototypeChatMessages}
+        onSendMessage={handleSendMessage}
+        isLoading={isLoading}
+        onClearChat={handleClearChat}
+        messageCount={messageCount}
+        messageLimit={messageLimit}
+        isAtLimit={isAtLimit}
+        loadingUsageCount={loadingUsageCount}
+      />
+
+      {/* Upsell Modal */}
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        messageCount={messageCount}
+        messageLimit={messageLimit}
+      />
+    </>
   );
 }

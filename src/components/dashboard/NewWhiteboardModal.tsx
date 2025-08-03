@@ -41,7 +41,7 @@ export default function NewWhiteboardModal({
   const [description, setDescription] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string; }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
@@ -55,35 +55,35 @@ export default function NewWhiteboardModal({
     }
   }, [projectId, projects]);
 
-  const fetchProjects = async () => {
-    if (!user) return;
-
-    setIsLoadingProjects(true);
-    try {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("id, name")
-        .eq("owner_id", user.id)
-        .order("updated_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching projects:", error);
-        return;
-      }
-      setProjects(data || []);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    } finally {
-      setIsLoadingProjects(false);
-    }
-  };
-
   // Fetch user's projects
   useEffect(() => {
+    async function fetchProjects() {
+      if (!user) return;
+
+      setIsLoadingProjects(true);
+      try {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("id, name")
+          .eq("owner_id", user.id)
+          .order("updated_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching projects:", error);
+          return;
+        }
+        setProjects(data || []);
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    }
+
     if (open && user) {
       fetchProjects();
     }
-  }, [open, user, fetchProjects]);
+  }, [open, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,10 +148,11 @@ export default function NewWhiteboardModal({
               placeholder="e.g. Marketing Brainstorm ✨"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`h-12 text-lg ${touched && !name.trim()
-                ? "border-destructive focus-visible:ring-destructive"
-                : "focus-visible:ring-primary"
-                }`}
+              className={`h-12 text-lg ${
+                touched && !name.trim()
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : "focus-visible:ring-primary"
+              }`}
               autoFocus
               maxLength={64}
             />

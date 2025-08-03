@@ -4,9 +4,7 @@ import { supabase } from "@/ClientConstants";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
-import ExpoSnackViewer, {
-  ExpoSnackViewerRef,
-} from "@/components/ExpoSnackViewer";
+import ExpoSnackViewer, { ExpoSnackViewerRef } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import { Button } from "@/components/ui/button";
@@ -173,7 +171,7 @@ export default function CreatePage() {
 
   const handleCopyLink = async () => {
     if (!prototype) return;
-    
+
     setIsCopying(true);
     try {
       // If not public, make it public first
@@ -182,14 +180,14 @@ export default function CreatePage() {
           .from("prototypes")
           .update({ visibility: "PUBLIC" })
           .eq("id", prototype.id);
-        
+
         setIsPublic(true);
         setPrototype(prev => prev ? { ...prev, visibility: "PUBLIC" } : null);
       }
-      
+
       await navigator.clipboard.writeText(window.location.href);
       console.log('Prototype URL copied to clipboard');
-      
+
       // Close modal after successful copy
       setTimeout(() => {
         setShowShareModal(false);
@@ -203,14 +201,14 @@ export default function CreatePage() {
 
   const handleVisibilityToggle = async (checked: boolean) => {
     if (!prototype) return;
-    
+
     try {
       const newVisibility = checked ? "PUBLIC" : "SELF";
       await supabase
         .from("prototypes")
         .update({ visibility: newVisibility })
         .eq("id", prototype.id);
-      
+
       setIsPublic(checked);
       setPrototype(prev => prev ? { ...prev, visibility: newVisibility } : null);
     } catch (err) {
@@ -282,7 +280,7 @@ export default function CreatePage() {
                 </div>
               )}
             </div>
-            
+
             {/* Right side - Settings and Share buttons */}
             <div className="flex items-center gap-2">
               {user && prototype?.owner_id === user.id && (
@@ -310,153 +308,153 @@ export default function CreatePage() {
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden">
 
-      {/* Left Panel - AI Assistant Chat */}
-      <div className="w-2/5 min-w-[420px] flex flex-col relative z-10">
-        {/* Card Container */}
-        <Card className="h-full m-4 bg-background/80 backdrop-blur-sm border border-border">
-          <CardContent className="h-full flex flex-col p-0">
-            {/* Header */}
-            <div className="p-6 border-b border-border">
+        {/* Left Panel - AI Assistant Chat */}
+        <div className="w-2/5 min-w-[420px] flex flex-col relative z-10">
+          {/* Card Container */}
+          <Card className="h-full m-4 bg-background/80 backdrop-blur-sm border border-border">
+            <CardContent className="h-full flex flex-col p-0">
+              {/* Header */}
+              <div className="p-6 border-b border-border">
 
-              {/* AI Assistant Section */}
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg blur-sm"></div>
-                  <div className="relative p-2 bg-gradient-to-r from-primary to-secondary rounded-lg shadow-lg">
-                    <SparklesIcon className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">
-                    AI Assistant
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Build with AI-powered development
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden relative h-full">
-              <div className="relative flex-1 flex flex-col">
-              <PrototypeChatWindow
-                prototypeId={prototypeId}
-                // File system integration
-                files={fileSystem.state.files}
-                selectedFile={fileSystem.state.selectedFile}
-                onFilesUpdate={fileSystem.applyFileUpdates}
-                // Loading state
-                isLoading={isLoading}
-                setIsLoading={setIsLoading}
-              />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Right Panel - Preview/Code Toggle */}
-      <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
-        {/* Card Container */}
-        <Card className="h-full m-4 ml-0 bg-background/80 backdrop-blur-sm border border-border">
-          <CardContent className="h-full flex flex-col p-0">
-            {/* Header with Toggle */}
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between">
+                {/* AI Assistant Section */}
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="absolute inset-0 rounded-lg blur-sm"></div>
-                    <div className="relative p-2 rounded-lg shadow-lg">
-                      {isPreviewView ? (
-                        <EyeIcon className="w-5 h-5 text-foreground" />
-                      ) : (
-                        <CodeBracketIcon className="w-5 h-5 text-foreground" />
-                      )}
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg blur-sm"></div>
+                    <div className="relative p-2 bg-gradient-to-r from-primary to-secondary rounded-lg shadow-lg">
+                      <SparklesIcon className="w-5 h-5 text-white" />
                     </div>
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-foreground">
-                      {isPreviewView ? "Live Preview" : "Code Editor"}
+                      AI Assistant
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {isPreviewView
-                        ? "See your changes in real-time"
-                        : "Edit your prototype files"}
+                      Build with AI-powered development
                     </p>
                   </div>
                 </div>
-
-                {/* Enhanced Toggle Buttons */}
-                <div className="flex items-center bg-muted rounded-lg p-1">
-                  <Button
-                    variant={isPreviewView ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setIsPreviewView(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <EyeIcon className="w-4 h-4" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant={!isPreviewView ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setIsPreviewView(false)}
-                    className="flex items-center gap-2"
-                  >
-                    <CodeBracketIcon className="w-4 h-4" />
-                    Code
-                  </Button>
-                </div>
               </div>
-            </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-hidden h-full">
-            <div className="relative h-full">
-              {isPreviewView ? (
-                <div className="h-full">
-                  <ExpoSnackViewer
-                    ref={snackViewerRef}
+              {/* Content Area */}
+              <div className="flex-1 flex flex-col overflow-hidden relative h-full">
+                <div className="relative flex-1 flex flex-col">
+                  <PrototypeChatWindow
+                    prototypeId={prototypeId}
+                    // File system integration
                     files={fileSystem.state.files}
-                    onResetToDefault={handleResetToDefault}
+                    selectedFile={fileSystem.state.selectedFile}
+                    onFilesUpdate={fileSystem.applyFileUpdates}
+                    // Loading state
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
                   />
                 </div>
-              ) : (
-                <div className="max-h-[550px] flex">
-                  {/* File Explorer */}
-                  <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border h-full">
-                    <div className="h-full">
-                      <FileTree
-                        files={fileSystem.state.files}
-                        selectedFile={fileSystem.state.selectedFile}
-                        onFileSelect={fileSystem.selectFile}
-                      />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Panel - Preview/Code Toggle */}
+        <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
+          {/* Card Container */}
+          <Card className="h-full m-4 ml-0 bg-background/80 backdrop-blur-sm border border-border">
+            <CardContent className="h-full flex flex-col p-0">
+              {/* Header with Toggle */}
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-lg blur-sm"></div>
+                      <div className="relative p-2 rounded-lg shadow-lg">
+                        {isPreviewView ? (
+                          <EyeIcon className="w-5 h-5 text-foreground" />
+                        ) : (
+                          <CodeBracketIcon className="w-5 h-5 text-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">
+                        {isPreviewView ? "Live Preview" : "Code Editor"}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        {isPreviewView
+                          ? "See your changes in real-time"
+                          : "Edit your prototype files"}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Code Editor */}
-                  <div
-                    className="flex-1 overflow-y-auto"
-                    style={{ minHeight: "calc(100vh - 120px)" }}
-                  >
-                    <div className="h-full">
-                      <CodeEditor
-                        value={fileSystem.getSelectedFileContent()}
-                        onChange={handleCodeChange}
-                        fileName={fileSystem.state.selectedFile}
-                      />
-                    </div>
+                  {/* Enhanced Toggle Buttons */}
+                  <div className="flex items-center bg-muted rounded-lg p-1">
+                    <Button
+                      variant={isPreviewView ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setIsPreviewView(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <EyeIcon className="w-4 h-4" />
+                      Preview
+                    </Button>
+                    <Button
+                      variant={!isPreviewView ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setIsPreviewView(false)}
+                      className="flex items-center gap-2"
+                    >
+                      <CodeBracketIcon className="w-4 h-4" />
+                      Code
+                    </Button>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-          </CardContent>
-        </Card>
+              </div>
+
+              {/* Content Area */}
+              <div className="flex-1 overflow-hidden h-full">
+                <div className="relative h-full">
+                  {isPreviewView ? (
+                    <div className="h-full flex flex-col">
+                      <ExpoSnackViewer
+                        ref={snackViewerRef}
+                        files={fileSystem.state.files}
+                        onResetToDefault={handleResetToDefault}
+                      />
+                    </div>
+                  ) : (
+                    <div className="max-h-[550px] flex">
+                      {/* File Explorer */}
+                      <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border h-full">
+                        <div className="h-full">
+                          <FileTree
+                            files={fileSystem.state.files}
+                            selectedFile={fileSystem.state.selectedFile}
+                            onFileSelect={fileSystem.selectFile}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Code Editor */}
+                      <div
+                        className="flex-1 overflow-y-auto"
+                        style={{ minHeight: "calc(100vh - 120px)" }}
+                      >
+                        <div className="h-full">
+                          <CodeEditor
+                            value={fileSystem.getSelectedFileContent()}
+                            onChange={handleCodeChange}
+                            fileName={fileSystem.state.selectedFile}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-      </div>
-      
+
       {/* Settings Modal */}
       <PrototypeSettingsModal
         open={showSettingsModal}
@@ -479,7 +477,7 @@ export default function CreatePage() {
           }
         }}
       />
-      
+
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
         <DialogContent className="sm:max-w-md">
