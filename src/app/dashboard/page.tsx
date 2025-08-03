@@ -12,7 +12,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
+import { createPrototype } from "@/lib/utils/prototypes";
+import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
 import {
   ArrowRight,
   Code,
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const userPlan = useGetSubscriptionPlan();
 
   const submitPrompt = async (message: string) => {
     const content = message.trim();
@@ -52,26 +54,19 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("prototypes")
-        .insert({
-          name: "New Prototype",
-          owner_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) {
+      let data;
+      try {
+        data = await createPrototype(
+          supabase,
+          {
+            name: "New Prototype",
+            owner_id: user.id,
+          },
+          userPlan,
+        );
+      } catch (error) {
         console.error("Error creating prototype:", error);
         return;
-      }
-
-      const { error: filesError } = await supabase
-        .from("prototype_files")
-        .insert(getDefaultPrototypeFiles(data.id));
-
-      if (filesError) {
-        console.error("Error creating default prototype files:", filesError);
       }
 
       if (typeof window !== "undefined") {
