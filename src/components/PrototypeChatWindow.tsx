@@ -147,21 +147,8 @@ export default function PrototypeChatWindow({
     fetchMessageCount();
   }, [userId, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData]);
 
-  // Update message count when new user messages are added
-  useEffect(() => {
-    const userMessageCount = prototypeChatMessages.filter(msg => msg.role === "user").length;
-    if (userMessageCount > 0 && !loadingCount) {
-      // Only update if we have a higher count than what we fetched
-      // This handles the case where a new message was just sent
-      const lastUserMessage = prototypeChatMessages.filter(msg => msg.role === "user").pop();
-      if (lastUserMessage) {
-        const messageTime = new Date(lastUserMessage.created_at);
-        if (messageTime >= currentPeriodStart && messageTime <= currentPeriodEnd) {
-          setMessageCount(prev => Math.max(prev, userMessageCount));
-        }
-      }
-    }
-  }, [prototypeChatMessages, currentPeriodStart, currentPeriodEnd, loadingCount]);
+  // Note: Message count is now updated via the API response when a message is sent
+  // This provides the most accurate count from the database
 
   // Animate loading dots only while executing operations
   useEffect(() => {
@@ -376,6 +363,13 @@ export default function PrototypeChatWindow({
                     }
                     break;
 
+                  case "usage_update": {
+                    // Update the local message count with the value returned from the API
+                    console.log("Received usage update:", data.messageCount);
+                    setMessageCount(data.messageCount);
+                    break;
+                  }
+
                   case "error": {
                     console.error("Streaming error:", data.error);
                     setIsExecutingOperations(false);
@@ -430,8 +424,6 @@ export default function PrototypeChatWindow({
 
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
-  
-  console.log("Message count data:", { messageCount, messageLimit, isAtLimit, userPlan, loadingCount });
 
   // Handle sending messages
   const handleSendMessage = useCallback(
