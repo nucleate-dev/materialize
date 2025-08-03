@@ -4,6 +4,8 @@ import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
+import { createPrototype } from "@/lib/utils/prototypes";
+import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
 import {
   Card,
   CardContent,
@@ -27,9 +29,8 @@ export default function PrototypePage() {
   const prototypeId = params?.prototype_id;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [prototypeFiles, setPrototypeFiles] = useState<
-    Record<string, PrototypeFile>
-  >({});
+  const [prototypeFiles, setPrototypeFiles] = useState<Record<string, PrototypeFile>>({});
+  const userPlan = useGetSubscriptionPlan();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
@@ -96,37 +97,22 @@ export default function PrototypePage() {
 
       // Create new prototype
       const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const { data: newPrototype, error: prototypeError } = await supabase
-        .from("prototypes")
-        .insert({
+      const newPrototype = await createPrototype(
+        supabase,
+        {
           name: clonedPrototypeName,
           description: prototype.description,
           owner_id: user.id,
           project_id: prototype.project_id,
           prototype_context: prototype.prototype_context,
           visibility: "SELF" as const,
-        })
-        .select()
-        .single();
-
-      if (prototypeError) {
-        throw prototypeError;
-      }
-
-      // Copy all files to the new prototype
-      const filesToCopy = Object.values(prototypeFiles).map((file) => ({
-        prototype_id: newPrototype.id,
-        name: file.name,
-        contents: file.contents,
-      }));
-
-      const { error: filesError } = await supabase
-        .from("prototype_files")
-        .insert(filesToCopy);
-
-      if (filesError) {
-        throw filesError;
-      }
+        },
+        userPlan,
+        Object.values(prototypeFiles).map((file) => ({
+          name: file.name,
+          contents: file.contents,
+        })),
+      );
 
       // Navigate to the new prototype in dashboard
       router.push(`/dashboard/prototypes/${newPrototype.id}`);

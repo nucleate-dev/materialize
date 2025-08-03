@@ -2,7 +2,8 @@
 
 import { posthogClient, supabase } from "@/ClientConstants";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
-import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
+import { createPrototype } from "@/lib/utils/prototypes";
+import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
@@ -11,6 +12,7 @@ export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
     useState<boolean>(false);
   const router = useRouter();
+  const userPlan = useGetSubscriptionPlan();
 
   let productId: string | null = null;
   let chatIntent: { message: string; prototype_id?: string; } | null = null;
@@ -54,28 +56,18 @@ export default function AuthCallback() {
         try {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
-            const { data: protoData, error: protoError } = await supabase
-              .from("prototypes")
-              .insert({
-                name: "New Prototype",
-                owner_id: data.session.user.id,
-              })
-              .select()
-              .single();
-
-            if (protoError) {
-              console.error("Error creating prototype:", protoError);
-            } else {
-              const { error: filesError } = await supabase
-                .from("prototype_files")
-                .insert(getDefaultPrototypeFiles(protoData.id));
-              if (filesError) {
-                console.error(
-                  "Error creating default prototype files:",
-                  filesError,
-                );
-              }
+            try {
+              const protoData = await createPrototype(
+                supabase,
+                {
+                  name: "New Prototype",
+                  owner_id: data.session.user.id,
+                },
+                userPlan,
+              );
               prototypeId = protoData.id;
+            } catch (protoError) {
+              console.error("Error creating prototype:", protoError);
             }
           }
           if (prototypeId) {
@@ -106,7 +98,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [productId, chatIntent, router]);
+  }, [productId, chatIntent, router, userPlan]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

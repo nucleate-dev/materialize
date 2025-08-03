@@ -4,7 +4,8 @@ import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 import { Database } from "@/lib/types/database.types";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { createPrototype } from "@/lib/utils/prototypes";
+import { useGetSubscriptionPlan } from "@/hooks/useGetSubscriptionPlan";
 import {
   SparklesIcon,
   RocketLaunchIcon,
@@ -26,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -49,7 +49,7 @@ export default function NewPrototypeModal({
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  const { userPlan } = useHasSubscriptionAccess();
+  const userPlan = useGetSubscriptionPlan();
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
   >(userPlan === "pro" ? "SELF" : "PUBLIC");
@@ -133,9 +133,9 @@ export default function NewPrototypeModal({
     setIsCreating(true);
 
     try {
-      const { data, error } = await supabase
-        .from("prototypes")
-        .insert({
+      const data = await createPrototype(
+        supabase,
+        {
           name: name.trim(),
           owner_id: user.id,
           project_id: selectedProject || null,
@@ -143,25 +143,9 @@ export default function NewPrototypeModal({
           prototype_context: null,
           thumbnail_url: null,
           visibility,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Error creating prototype:", error);
-        throw error;
-      }
-
-      const { error: prototypeFilesInsertError } = await supabase
-        .from("prototype_files")
-        .insert(getDefaultPrototypeFiles(data.id));
-      if (prototypeFilesInsertError) {
-        console.error(
-          "Error creating default prototype files:",
-          prototypeFilesInsertError,
-        );
-        throw error;
-      }
+        },
+        userPlan,
+      );
 
       // Reset form
       setName("");
