@@ -42,6 +42,12 @@ export default function DashboardPage() {
 
     try {
       if (!user?.id) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "chat_intent",
+            JSON.stringify({ message: content }),
+          );
+        }
         router.push("/login");
         return;
       }
