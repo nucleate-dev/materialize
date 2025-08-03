@@ -1,21 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
 import Loader from "@/components/dashboard/Loader";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import ExpoSnackViewer from "@/components/ExpoSnackViewer";
-import {
-  SparklesIcon,
-  DocumentDuplicateIcon,
-  ShareIcon,
-  EyeIcon,
-  PencilIcon,
-  CheckIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,15 +12,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Database } from "@/lib/types/database.types";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import {
+  CheckIcon,
+  DocumentDuplicateIcon,
+  EyeIcon,
+  PencilIcon,
+  ShareIcon,
+  SparklesIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function PrototypePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const router = useRouter();
   const prototypeId = params?.prototype_id;
 
@@ -269,7 +269,7 @@ export default function PrototypePage() {
             </div>
             <CardTitle className="text-2xl">Prototype Not Found</CardTitle>
             <CardDescription>
-              The prototype you're looking for doesn't exist or you don't have
+              The prototype you&apos;re looking for doesn&apos;t exist or you don&apos;t have
               permission to view it.
             </CardDescription>
           </CardHeader>

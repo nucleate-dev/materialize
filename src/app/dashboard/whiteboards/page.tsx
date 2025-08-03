@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
 import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
@@ -10,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Loader2, Plus } from "lucide-react";
@@ -64,7 +64,7 @@ export default function WhiteboardsPage() {
     if (user) {
       fetchCanvases(user.id);
     }
-  }, [user]);
+  }, [user, fetchCanvases]);
 
   const handleCanvasClick = (canvasId: string) => {
     console.log(`Opening canvas ${canvasId}`);

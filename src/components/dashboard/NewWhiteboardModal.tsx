@@ -1,19 +1,15 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { User } from "@supabase/supabase-js";
-import { useState, useEffect } from "react";
-import { PaintBrushIcon, FolderIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,6 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { FolderIcon, PaintBrushIcon } from "@heroicons/react/24/outline";
+import { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 
 interface NewWhiteboardModalProps {
   open: boolean;
@@ -41,16 +41,9 @@ export default function NewWhiteboardModal({
   const [description, setDescription] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-
-  // Fetch user's projects
-  useEffect(() => {
-    if (open && user) {
-      fetchProjects();
-    }
-  }, [open, user]);
 
   // Set initial project selection
   useEffect(() => {
@@ -84,6 +77,13 @@ export default function NewWhiteboardModal({
       setIsLoadingProjects(false);
     }
   };
+
+  // Fetch user's projects
+  useEffect(() => {
+    if (open && user) {
+      fetchProjects();
+    }
+  }, [open, user, fetchProjects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,11 +148,10 @@ export default function NewWhiteboardModal({
               placeholder="e.g. Marketing Brainstorm ✨"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`h-12 text-lg ${
-                touched && !name.trim()
-                  ? "border-destructive focus-visible:ring-destructive"
-                  : "focus-visible:ring-primary"
-              }`}
+              className={`h-12 text-lg ${touched && !name.trim()
+                ? "border-destructive focus-visible:ring-destructive"
+                : "focus-visible:ring-primary"
+                }`}
               autoFocus
               maxLength={64}
             />

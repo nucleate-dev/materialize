@@ -62,7 +62,6 @@ export default function LoginForm() {
       }
     },
     [
-      login,
       setShowErrorModal,
       setErrorMessage,
       router,

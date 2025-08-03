@@ -8,7 +8,7 @@ export default function Login() {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
           <p className="text-muted-foreground">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/register"
               className="text-primary hover:underline font-medium"

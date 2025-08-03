@@ -1,5 +1,16 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
 import {
   forwardRef,
@@ -12,17 +23,6 @@ import {
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
 import { DEFAULT_DEPENDENCIES } from "../templates/defaultApp";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];

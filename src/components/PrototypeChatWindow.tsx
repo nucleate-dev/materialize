@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
-import { CodeExtractionResult } from "@/lib/types/chat";
-import { v4 as uuidv4 } from "uuid";
 import ChatWindow from "@/components/ChatWindow";
+import { CodeExtractionResult } from "@/lib/types/chat";
+import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useCallback, useEffect, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -36,7 +36,6 @@ export interface PrototypeChatWindowProps {
 
 export default function PrototypeChatWindow({
   files,
-  selectedFile,
   onFilesUpdate,
   prototypeId,
   isLoading,
@@ -447,7 +446,6 @@ export default function PrototypeChatWindow({
       setPrototypeChatMessages,
       setIsLoading,
       files,
-      selectedFile,
       prototypeId,
       processStreamingResponse,
     ],

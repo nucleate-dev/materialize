@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { posthogClient, supabase } from "@/ClientConstants";
-import { useRouter } from "next/navigation";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
 
 export default function AuthCallback() {
@@ -13,7 +13,7 @@ export default function AuthCallback() {
   const router = useRouter();
 
   let productId: string | null = null;
-  let chatIntent: { message: string; prototype_id?: string } | null = null;
+  let chatIntent: { message: string; prototype_id?: string; } | null = null;
   if (typeof window !== "undefined") {
     productId = localStorage?.getItem("checkout_intent");
     if (!productId) {
@@ -37,7 +37,7 @@ export default function AuthCallback() {
       if (data.session?.user) {
         // associate logging events with this authenticated user
         if (posthogClient && typeof posthogClient === 'object' && 'identify' in posthogClient) {
-          (posthogClient as { identify: (id: string, props: object) => void }).identify(data.session?.user.id, {
+          (posthogClient as { identify: (id: string, props: object) => void; }).identify(data.session?.user.id, {
             email: data.session.user.email ?? "",
           });
         }
@@ -63,7 +63,7 @@ export default function AuthCallback() {
               .select()
               .single();
 
-          if (protoError) {
+            if (protoError) {
               console.error("Error creating prototype:", protoError);
             } else {
               const { error: filesError } = await supabase
@@ -106,7 +106,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [productId, chatIntent]);
+  }, [productId, chatIntent, router]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

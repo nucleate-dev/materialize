@@ -1,4 +1,13 @@
 "use client";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Database } from "@/lib/types/database.types";
 import {
   extractExecutionPlan,
   logPlanningExtraction,
@@ -15,15 +24,6 @@ import {
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
 import PlanningView from "./PlanningView";
-import { Database } from "@/lib/types/database.types";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
@@ -45,7 +45,7 @@ export default function ChatWindow({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    
+
     // Auto-resize textarea
     const textarea = e.target;
     textarea.style.height = 'auto';
@@ -113,7 +113,7 @@ export default function ChatWindow({
     if (input.trim() && !isLoading) {
       onSendMessage(input.trim());
       setInput(""); // Clear input after sending
-      
+
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = '56px';
@@ -228,11 +228,11 @@ export default function ChatWindow({
           const updatedOperations = messageData.operations.map((op) =>
             op.id === operationId
               ? {
-                  ...op,
-                  status: "error" as const,
-                  error:
-                    error instanceof Error ? error.message : "Unknown error",
-                }
+                ...op,
+                status: "error" as const,
+                error:
+                  error instanceof Error ? error.message : "Unknown error",
+              }
               : op,
           );
           newMap.set(message.id, {
@@ -337,11 +337,10 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`p-4 rounded-lg ${
-              isUser
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-card-foreground border border-border"
-            }`}
+            className={`p-4 rounded-lg ${isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-card text-card-foreground border border-border"
+              }`}
           >
 
             <div className="relative z-10">
@@ -349,11 +348,10 @@ export default function ChatWindow({
               {!isUser && (isPlanningMessage || isExecutionMessage) && (
                 <div className="mb-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                      isPlanningMessage
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : "bg-secondary/10 text-secondary-foreground border-secondary/20"
-                    }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${isPlanningMessage
+                      ? "bg-primary/10 text-primary border-primary/20"
+                      : "bg-secondary/10 text-secondary-foreground border-secondary/20"
+                      }`}
                   >
                     {isPlanningMessage
                       ? "Planning Phase"
@@ -450,11 +448,10 @@ export default function ChatWindow({
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${
-                  isUser
-                    ? "text-primary-foreground/70"
-                    : "text-muted-foreground"
-                }`}
+                className={`text-xs mt-3 font-medium ${isUser
+                  ? "text-primary-foreground/70"
+                  : "text-muted-foreground"
+                  }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -530,8 +527,8 @@ export default function ChatWindow({
             <div className="space-y-3 max-w-lg mx-auto">
               <div className="p-4 bg-muted rounded-lg border border-border">
                 <p className="text-sm text-muted-foreground">
-                  Try: "Create a todo list component" or "Add a red
-                  background to the view"
+                  Try: &quot;Create a todo list component&quot; or &quot;Add a red
+                  background to the view&quot;
                 </p>
               </div>
             </div>
@@ -596,11 +593,10 @@ export default function ChatWindow({
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className={`p-3 rounded-lg transition-colors ${
-              input.trim()
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-muted text-muted-foreground cursor-not-allowed"
-            }`}
+            className={`p-3 rounded-lg transition-colors ${input.trim()
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+              }`}
           >
             <PaperAirplaneIcon className="w-5 h-5" />
           </button>
