@@ -129,9 +129,8 @@ const MobileHeader = () => {
 
                                     <DropdownMenuSeparator />
 
-                                    <DropdownMenuItem className="flex items-center gap-3 cursor-pointer">
-                                        <HorizontalModeToggle sidebarExpanded={false} />
-                                        <span>Theme</span>
+                                    <DropdownMenuItem className="flex items-center cursor-pointer p-0">
+                                        <HorizontalModeToggle sidebarExpanded={true} />
                                     </DropdownMenuItem>
 
                                     <DropdownMenuSeparator />
