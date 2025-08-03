@@ -365,7 +365,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         )}
 
         {/* Preview */}
-        <div className="flex-1 relative flex items-center justify-center bg-muted/30 p-8">
+        <div className="flex-1 relative flex items-center justify-center bg-muted/30 p-8 overflow-hidden">
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -493,20 +493,27 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* File Info */}
         {!hideControls && (
-          <div className="border-t border-border p-6 bg-background">
+          <div className="flex-shrink-0 border-t border-border bg-muted/30 p-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-foreground font-medium">Files:</span>
-              {Object.keys(files).map((fileName) => (
-                <Badge key={fileName} variant="outline" className="text-xs">
-                  {fileName}
-                </Badge>
-              ))}
-              {snackUrl && (
-                <Badge variant="secondary" className="text-xs">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                  Connected to Expo Snack
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-sm font-medium text-foreground">Included Files ({Object.keys(files).length})</span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {Object.keys(files).map((fileName) => (
+                  <Badge key={fileName} variant="secondary" className="text-xs font-mono">
+                    {fileName}
+                  </Badge>
+                ))}
+                {snackUrl && (
+                  <Badge variant="default" className="text-xs">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                    Live Preview
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         )}

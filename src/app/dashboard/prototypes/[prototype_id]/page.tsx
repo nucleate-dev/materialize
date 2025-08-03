@@ -282,7 +282,7 @@ export default function CreatePage() {
       {/* Right Panel - Preview/Code Toggle */}
       <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
         {/* Glassmorphism Container */}
-        <div className="h-full m-4 ml-0 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden">
+        <div className="h-full m-4 ml-0 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 flex flex-col">
           {/* Enhanced Header with Toggle */}
           <div className="relative">
             {/* Header gradient overlay */}
@@ -347,12 +347,12 @@ export default function CreatePage() {
           </div>
 
           {/* Content Area with subtle inner glow */}
-          <div className="flex-1 overflow-hidden h-full">
+          <div className="flex-1 flex flex-col min-h-0">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
 
-            <div className="relative h-full">
+            <div className="relative flex-1 flex flex-col">
               {isPreviewView ? (
-                <div className="h-full">
+                <div className="h-full flex flex-col">
                   <ExpoSnackViewer
                     ref={snackViewerRef}
                     files={fileSystem.state.files}
