@@ -218,9 +218,10 @@ export default function NewPrototypeModal({
                 <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
                   Prototype Limit Reached
                 </h4>
-                <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-                  FREE users can create up to 5 prototypes. You've reached your limit.
-                </p>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                    FREE users can create up to 5 prototypes. You&apos;ve reached your
+                    limit.
+                  </p>
                 <Button
                   type="button"
                   variant="outline"

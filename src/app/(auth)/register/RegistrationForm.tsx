@@ -1,14 +1,22 @@
 "use client";
 
-import { Button } from "@/components/Button";
 import ErrorModal from "@/components/ErrorModal";
-import { TextField } from "@/components/Fields";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   isValidEmailInput,
-  isValidPassword
+  isValidPassword,
 } from "@/lib/utils/auth/AuthFormValidationUtils";
 import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useState } from "react";
 import { OAuthSignInButton } from "../AuthComponents";
@@ -32,6 +40,7 @@ export default function RegistrationForm() {
   const [showSuccessState, setShowSuccessState] = useState<boolean>(false);
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const { email, password, firstName, lastName, confirmPassword } =
     formData;
   const { emailError, passwordError, confirmPasswordError } =
@@ -90,12 +99,14 @@ export default function RegistrationForm() {
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      setIsLoading(true);
       const authResponse = await signUp({
         email,
         password,
         firstName,
         lastName,
       });
+      setIsLoading(false);
       if (authResponse.error) {
         setShowErrorModal(true);
         setErrorMessage(authResponse.error.message);
@@ -116,7 +127,7 @@ export default function RegistrationForm() {
   }
 
   return (
-    <div>
+    <>
       <ErrorModal
         show={showErrorModal}
         onClose={() => {
@@ -124,102 +135,117 @@ export default function RegistrationForm() {
         }}
         errorMessage={errorMessage}
       />
-      <form
-        onSubmit={handleSubmit}
-        action="#"
-        className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 px-4"
-      >
-        <TextField
-          label="First name"
-          name="firstName"
-          type="text"
-          autoComplete="given-name"
-          required
-          value={firstName}
-          onChange={handleChange}
-        />
-        <TextField
-          label="Last name"
-          name="lastName"
-          type="text"
-          autoComplete="family-name"
-          required
-          value={lastName}
-          onChange={handleChange}
-        />
-        <TextField
-          label="Email address"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={handleChange}
-          error={emailError}
-        />
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          required
-          value={password}
-          onChange={handleChange}
-          error={passwordError}
-        />
-        <TextField
-          label="Confirm Password"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-          required
-          value={confirmPassword}
-          onChange={handleChange}
-          error={confirmPasswordError}
-        />
-        <div className="col-span-full">
-          <Button type="submit" value="Create Account" />
-        </div>
-        <div className="col-span-full grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {/* add or remove OAuth buttons here as desired. The second parameter is the redirect URL */}
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("google", "/register/callback");
-            }}
-            provider="google"
-            showOnlyLogo
-          />
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("apple", "/register/callback");
-            }}
-            provider="apple"
-            showOnlyLogo
-          />
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("facebook", "/register/callback");
-            }}
-            provider="facebook"
-            showOnlyLogo
-          />
-          <OAuthSignInButton
-            onClick={async () => {
-              await signInWithOAuth("github", "/register/callback");
-            }}
-            provider="github"
-            showOnlyLogo
-          />
-        </div>
-        <div className="mt-1 text-center">
-          <p>
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary">
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </form>
-    </div>
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">
+            Register
+          </CardTitle>
+          <CardDescription className="text-center">
+            Enter your details to create your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-col space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  autoComplete="given-name"
+                  required
+                  value={firstName}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  required
+                  value={lastName}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+              {emailError && (
+                <p className="text-sm text-destructive">{emailError}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+              {passwordError && (
+                <p className="text-sm text-destructive">{passwordError}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+              {confirmPasswordError && (
+                <p className="text-sm text-destructive">{confirmPasswordError}</p>
+              )}
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating account..." : "Create account"}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <OAuthSignInButton
+              onClick={async () => {
+                await signInWithOAuth("google", "/register/callback");
+              }}
+              provider="google"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 }
