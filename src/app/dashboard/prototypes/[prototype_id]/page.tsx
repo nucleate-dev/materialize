@@ -22,15 +22,16 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
+  ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
   CodeBracketIcon,
+  DevicePhoneMobileIcon,
   EyeIcon
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -48,6 +49,12 @@ export default function CreatePage() {
   const [isCopying, setIsCopying] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
 
+  // Mobile-specific state
+  const [activePanel, setActivePanel] = useState<'chat' | 'preview'>('preview');
+  const [isMobile, setIsMobile] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -57,6 +64,45 @@ export default function CreatePage() {
   useEffect(() => {
     setSidebarExpanded(false);
   }, [setSidebarExpanded]);
+
+  // Mobile detection and resize handling
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Touch handling for swipe gestures
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && activePanel === 'chat') {
+      setActivePanel('preview');
+    }
+    if (isRightSwipe && activePanel === 'preview') {
+      setActivePanel('chat');
+    }
+  };
 
   // Fetch prototype data
   useEffect(() => {
@@ -225,7 +271,7 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
       {/* Header */}
       {prototype && (
         <PublicPrototypeHeader
@@ -238,16 +284,61 @@ export default function CreatePage() {
         />
       )}
 
+      {/* Mobile Panel Toggle */}
+      {isMobile && (
+        <div className="bg-background border-b border-border p-2">
+          <div className="flex items-center justify-center space-x-2">
+            <Button
+              variant={activePanel === 'chat' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActivePanel('chat')}
+              className="flex items-center gap-2"
+            >
+              <ChatBubbleLeftRightIcon className="w-4 h-4" />
+              Chat
+            </Button>
+            <Button
+              variant={activePanel === 'preview' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActivePanel('preview')}
+              className="flex items-center gap-2"
+            >
+              <DevicePhoneMobileIcon className="w-4 h-4" />
+              Preview
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden">
-
+      <div
+        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? 'flex-col' : ''}`}
+        onTouchStart={isMobile ? onTouchStart : undefined}
+        onTouchMove={isMobile ? onTouchMove : undefined}
+        onTouchEnd={isMobile ? onTouchEnd : undefined}
+      >
         {/* Left Panel - AI Assistant Chat */}
-        <div className="w-2/5 min-w-[420px] flex flex-col relative z-10">
+        <div className={`${isMobile
+          ? `${activePanel === 'chat' ? 'flex' : 'hidden'} w-full`
+          : 'w-2/5 min-w-[420px] flex'
+          } flex-col relative z-10`}>
           {/* Card Container */}
-          <Card className="h-full m-4 bg-background/80 backdrop-blur-sm border border-border">
+          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2'} bg-background/80 backdrop-blur-sm border border-border`}>
             <CardContent className="h-full flex flex-col p-0">
-              {/* Header */}
+              {/* Mobile Chat Header */}
+              {isMobile && (
+                <div className="p-3 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
+                      <h2 className="text-lg font-bold text-foreground">AI Assistant</h2>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Swipe left to see preview
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Content Area */}
               <div className="flex-1 flex flex-col overflow-hidden relative h-full">
@@ -269,55 +360,55 @@ export default function CreatePage() {
         </div>
 
         {/* Right Panel - Preview/Code Toggle */}
-        <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
+        <div className={`${isMobile
+          ? `${activePanel === 'preview' ? 'flex' : 'hidden'} w-full`
+          : 'w-3/5 min-w-[500px] flex'
+          } flex-col relative z-10`}>
           {/* Card Container */}
-          <Card className="h-full m-4 ml-0 bg-background/80 backdrop-blur-sm border border-border">
+          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2 ml-0'} bg-background/80 backdrop-blur-sm border border-border`}>
             <CardContent className="h-full flex flex-col p-0">
               {/* Header with Toggle */}
-              <div className="p-6 border-b border-border">
+              <div className="p-3 border-b border-border">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <div className="absolute inset-0 rounded-lg blur-sm"></div>
-                      <div className="relative p-2 rounded-lg shadow-lg">
-                        {isPreviewView ? (
-                          <EyeIcon className="w-5 h-5 text-foreground" />
-                        ) : (
-                          <CodeBracketIcon className="w-5 h-5 text-foreground" />
-                        )}
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1 rounded-lg">
+                      {isPreviewView ? (
+                        <EyeIcon className="w-4 h-4 text-foreground" />
+                      ) : (
+                        <CodeBracketIcon className="w-4 h-4 text-foreground" />
+                      )}
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">
+                      <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
                         {isPreviewView ? "Live Preview" : "Code Editor"}
                       </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {isPreviewView
-                          ? "See your changes in real-time"
-                          : "Edit your prototype files"}
-                      </p>
                     </div>
+                    {isMobile && (
+                      <div className="text-xs text-muted-foreground ml-2">
+                        Swipe right for chat
+                      </div>
+                    )}
                   </div>
 
                   {/* Enhanced Toggle Buttons */}
                   <div className="flex items-center bg-muted rounded-lg p-1">
                     <Button
                       variant={isPreviewView ? "default" : "ghost"}
-                      size="sm"
+                      size={isMobile ? "sm" : "sm"}
                       onClick={() => setIsPreviewView(true)}
                       className="flex items-center gap-2"
                     >
                       <EyeIcon className="w-4 h-4" />
-                      Preview
+                      {!isMobile && "Preview"}
                     </Button>
                     <Button
                       variant={!isPreviewView ? "default" : "ghost"}
-                      size="sm"
+                      size={isMobile ? "sm" : "sm"}
                       onClick={() => setIsPreviewView(false)}
                       className="flex items-center gap-2"
                     >
                       <CodeBracketIcon className="w-4 h-4" />
-                      Code
+                      {!isMobile && "Code"}
                     </Button>
                   </div>
                 </div>
@@ -335,10 +426,13 @@ export default function CreatePage() {
                       />
                     </div>
                   ) : (
-                    <div className="max-h-[550px] flex">
+                    <div className={`flex h-full ${isMobile ? 'flex-col' : ''}`}>
                       {/* File Explorer */}
-                      <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border h-full">
-                        <div className="h-full">
+                      <div className={`${isMobile
+                        ? 'w-full max-h-[200px] border-b'
+                        : 'w-1/4 min-w-[200px] max-w-[280px] border-r'
+                        } border-border`}>
+                        <div className="h-full overflow-auto">
                           <FileTree
                             files={fileSystem.state.files}
                             selectedFile={fileSystem.state.selectedFile}
@@ -348,17 +442,12 @@ export default function CreatePage() {
                       </div>
 
                       {/* Code Editor */}
-                      <div
-                        className="flex-1 overflow-y-auto"
-                        style={{ minHeight: "calc(100vh - 120px)" }}
-                      >
-                        <div className="h-full">
-                          <CodeEditor
-                            value={fileSystem.getSelectedFileContent()}
-                            onChange={handleCodeChange}
-                            fileName={fileSystem.state.selectedFile}
-                          />
-                        </div>
+                      <div className="flex-1 h-full">
+                        <CodeEditor
+                          value={fileSystem.getSelectedFileContent()}
+                          onChange={handleCodeChange}
+                          fileName={fileSystem.state.selectedFile}
+                        />
                       </div>
                     </div>
                   )}

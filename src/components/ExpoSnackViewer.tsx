@@ -9,9 +9,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
+import { Monitor, RefreshCw, RotateCcw, Settings, Smartphone } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -23,7 +31,6 @@ import {
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
 import { DEFAULT_DEPENDENCIES } from "../templates/defaultApp";
-import { Smartphone, Monitor, RotateCcw, RefreshCw } from "lucide-react";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];
@@ -332,58 +339,54 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* Preview */}
         <div className="flex-1 relative flex items-center justify-center bg-background p-8">
-          {/* Floating Mode Selector - Top Left */}
-          <div className="absolute top-4 left-4 z-10">
-            <div className="flex bg-background/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-border">
-              <Button
-                variant={previewMode === "mobile" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleModeChange("mobile")}
-                className="flex items-center gap-2"
-              >
-                <Smartphone className="w-4 h-4" />
-                Mobile
-              </Button>
-              <Button
-                variant={previewMode === "web" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleModeChange("web")}
-                className="flex items-center gap-2"
-              >
-                <Monitor className="w-4 h-4" />
-                Web
-              </Button>
-            </div>
-          </div>
-
-          {/* Floating Control Buttons - Top Right */}
-          {!hideControls && (
-            <div className="absolute top-4 right-4 z-10">
-              <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-border">
+          {/* Floating Options Button */}
+          <div className="absolute top-4 right-4 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
-                  onClick={onResetToDefault}
-                  size="sm"
-                  variant="destructive"
-                  disabled={isLoading}
-                  title="Reset to default app"
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset
-                </Button>
-                <Button
-                  onClick={handleRefresh}
-                  size="sm"
                   variant="secondary"
-                  disabled={isLoading || !webPreviewURL}
-                  className="flex items-center gap-2"
+                  size="sm"
+                  className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  <Settings className="w-4 h-4" />
                 </Button>
-              </div>
-            </div>
-          )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => handleModeChange("mobile")}
+                  className={previewMode === "mobile" ? "bg-accent" : ""}
+                >
+                  <Smartphone className="w-4 h-4 mr-2" />
+                  Mobile View
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleModeChange("web")}
+                  className={previewMode === "web" ? "bg-accent" : ""}
+                >
+                  <Monitor className="w-4 h-4 mr-2" />
+                  Web View
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleRefresh}
+                  disabled={isLoading || !webPreviewURL}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh Preview
+                </DropdownMenuItem>
+                {!hideControls && onResetToDefault && (
+                  <DropdownMenuItem
+                    onClick={onResetToDefault}
+                    disabled={isLoading}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset to Default
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -510,7 +513,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         </div>
 
         {/* File Info */}
-        {!hideControls && (
+        {false && (
           <div className="border-t border-border p-6 bg-muted/30">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
