@@ -36,7 +36,7 @@ interface ChatWindowProps {
   messageCount?: number;
   messageLimit?: number;
   isAtLimit?: boolean;
-  loadingCount?: boolean;
+  loadingUsageCount?: boolean;
 }
 
 export default function ChatWindow({
@@ -47,7 +47,7 @@ export default function ChatWindow({
   messageCount = 0,
   messageLimit = 15,
   isAtLimit = false,
-  loadingCount = false,
+  loadingUsageCount = false,
 }: ChatWindowProps) {
   const [input, setInput] = useState("");
 
@@ -56,8 +56,8 @@ export default function ChatWindow({
 
     // Auto-resize textarea
     const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
   };
 
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
@@ -126,7 +126,7 @@ export default function ChatWindow({
 
       // Reset textarea height
       if (textareaRef.current) {
-        textareaRef.current.style.height = '56px';
+        textareaRef.current.style.height = "56px";
       }
     }
   };
@@ -238,11 +238,11 @@ export default function ChatWindow({
           const updatedOperations = messageData.operations.map((op) =>
             op.id === operationId
               ? {
-                ...op,
-                status: "error" as const,
-                error:
-                  error instanceof Error ? error.message : "Unknown error",
-              }
+                  ...op,
+                  status: "error" as const,
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : op,
           );
           newMap.set(message.id, {
@@ -347,21 +347,22 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`p-4 rounded-lg ${isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-card-foreground border border-border"
-              }`}
+            className={`p-4 rounded-lg ${
+              isUser
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-card-foreground border border-border"
+            }`}
           >
-
             <div className="relative z-10">
               {/* Message Type Badge */}
               {!isUser && (isPlanningMessage || isExecutionMessage) && (
                 <div className="mb-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${isPlanningMessage
-                      ? "bg-primary/10 text-primary border-primary/20"
-                      : "bg-secondary/10 text-secondary-foreground border-secondary/20"
-                      }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                      isPlanningMessage
+                        ? "bg-primary/10 text-primary border-primary/20"
+                        : "bg-secondary/10 text-secondary-foreground border-secondary/20"
+                    }`}
                   >
                     {isPlanningMessage
                       ? "Planning Phase"
@@ -458,10 +459,11 @@ export default function ChatWindow({
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${isUser
-                  ? "text-primary-foreground/70"
-                  : "text-muted-foreground"
-                  }`}
+                className={`text-xs mt-3 font-medium ${
+                  isUser
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground"
+                }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -537,8 +539,8 @@ export default function ChatWindow({
             <div className="space-y-3 max-w-lg mx-auto">
               <div className="p-4 bg-muted rounded-lg border border-border">
                 <p className="text-sm text-muted-foreground">
-                  Try: &quot;Create a todo list component&quot; or &quot;Add a red
-                  background to the view&quot;
+                  Try: &quot;Create a todo list component&quot; or &quot;Add a
+                  red background to the view&quot;
                 </p>
               </div>
             </div>
@@ -580,14 +582,18 @@ export default function ChatWindow({
       <div className="flex-shrink-0 p-6 border-t border-border bg-background">
         {/* Message Count Display */}
         <div className="mb-3 text-center">
-          {loadingCount ? (
+          {loadingUsageCount ? (
             <p className="text-xs font-medium text-muted-foreground">
               Loading usage...
             </p>
           ) : (
-            <p className={`text-xs font-medium ${
-              isAtLimit ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
-            }`}>
+            <p
+              className={`text-xs font-medium ${
+                isAtLimit
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              }`}
+            >
               Messages: {messageCount}/{messageLimit}
               {isAtLimit && " (Limit reached)"}
             </p>
@@ -601,12 +607,20 @@ export default function ChatWindow({
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={isAtLimit ? "Message limit reached for this billing period" : "Ask me to create or modify React Native code..."}
+              placeholder={
+                isAtLimit
+                  ? "Message limit reached for this billing period"
+                  : "Ask me to create or modify React Native code..."
+              }
               className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
                 isAtLimit ? "opacity-50 cursor-not-allowed" : ""
               }`}
               rows={1}
-              style={{ minHeight: "56px", maxHeight: "160px", overflow: "hidden" }}
+              style={{
+                minHeight: "56px",
+                maxHeight: "160px",
+                overflow: "hidden",
+              }}
               disabled={isLoading || isAtLimit}
             />
 
@@ -624,8 +638,12 @@ export default function ChatWindow({
               !isDisabled
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
-              }`}
-            title={isAtLimit ? "Message limit reached for this billing period" : undefined}
+            }`}
+            title={
+              isAtLimit
+                ? "Message limit reached for this billing period"
+                : undefined
+            }
           >
             <PaperAirplaneIcon className="w-5 h-5" />
           </button>
@@ -633,7 +651,10 @@ export default function ChatWindow({
       </div>
 
       {/* Confirmation Modal */}
-      <Dialog open={showClearConfirmation} onOpenChange={setShowClearConfirmation}>
+      <Dialog
+        open={showClearConfirmation}
+        onOpenChange={setShowClearConfirmation}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -653,16 +674,10 @@ export default function ChatWindow({
           </div>
 
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={handleClearCancel}
-            >
+            <Button variant="ghost" onClick={handleClearCancel}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleClearConfirm}
-            >
+            <Button variant="destructive" onClick={handleClearConfirm}>
               Clear Chat
             </Button>
           </DialogFooter>

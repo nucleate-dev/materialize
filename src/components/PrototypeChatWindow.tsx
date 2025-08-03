@@ -2,7 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import ChatWindow from "@/components/ChatWindow";
-import { CodeExtractionResult } from "@/lib/types/chat";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
@@ -27,11 +27,6 @@ export interface PrototypeChatWindowProps {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
 
-  // Legacy props for backward compatibility
-  onApplyCode?: (
-    result: CodeExtractionResult,
-    plannedFilePaths?: string[],
-  ) => void;
   onClearChat?: () => void;
 }
 
@@ -51,11 +46,17 @@ export default function PrototypeChatWindow({
     PrototypeChatMessage[]
   >([]);
   const [messageCount, setMessageCount] = useState<number>(0);
-  const [loadingCount, setLoadingCount] = useState<boolean>(true);
+  const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
+  const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
 
   const { user } = useUser();
   const userId = user?.id;
-  const { userPlan, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData } = useHasSubscriptionAccess();
+  const {
+    userPlan,
+    currentPeriodStart,
+    currentPeriodEnd,
+    loadingSubscriptionData,
+  } = useHasSubscriptionAccess();
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -119,7 +120,7 @@ export default function PrototypeChatWindow({
   useEffect(() => {
     async function fetchMessageCount() {
       if (!userId || loadingSubscriptionData) return;
-      
+
       setLoadingCount(true);
       try {
         const { count, error } = await supabase
@@ -425,6 +426,13 @@ export default function PrototypeChatWindow({
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
 
+  // Show upsell modal when free user reaches limit
+  useEffect(() => {
+    if (userPlan === "free" && messageCount >= 15 && !loadingUsageCount) {
+      setShowUpsellModal(true);
+    }
+  }, [userPlan, messageCount, loadingUsageCount]);
+
   // Handle sending messages
   const handleSendMessage = useCallback(
     async (content: string) => {
@@ -568,15 +576,25 @@ export default function PrototypeChatWindow({
   }, [prototypeId, prototypeChatSession, handleSendMessage]);
 
   return (
-    <ChatWindow
-      messages={prototypeChatMessages}
-      onSendMessage={handleSendMessage}
-      isLoading={isLoading}
-      onClearChat={handleClearChat}
-      messageCount={messageCount}
-      messageLimit={messageLimit}
-      isAtLimit={isAtLimit}
-      loadingCount={loadingCount}
-    />
+    <>
+      <ChatWindow
+        messages={prototypeChatMessages}
+        onSendMessage={handleSendMessage}
+        isLoading={isLoading}
+        onClearChat={handleClearChat}
+        messageCount={messageCount}
+        messageLimit={messageLimit}
+        isAtLimit={isAtLimit}
+        loadingUsageCount={loadingUsageCount}
+      />
+
+      {/* Upsell Modal */}
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        messageCount={messageCount}
+        messageLimit={messageLimit}
+      />
+    </>
   );
 }

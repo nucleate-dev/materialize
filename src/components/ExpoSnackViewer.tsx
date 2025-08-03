@@ -150,7 +150,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
           });
         }
       };
-    }, []); // This effect should run only once on mount
+    }, [files]); // Include files dependency
 
     useEffect(() => {
       const updateSnackFiles = async () => {
