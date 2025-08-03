@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import { PostHog } from "posthog-node";
 import { createClient } from "@supabase/supabase-js";
 import { ExceptionEvents, LoggingEventSource } from "@/LoggingEvents";
@@ -17,6 +17,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
+
 /**
  * API Route Handler for Stripe Billing Portal Session creation.
  *
@@ -25,12 +26,12 @@ const supabase = createClient(
  * subscription upgrades/downgrades, and cancellations. The session URL is returned to the client
  * for redirection.
  *
- * @param {NextApiRequest} req - The incoming request object. It expects:
+ * @param {NextRequest} req - The incoming request object. It expects:
  *  - A POST method.
  *  - A JSON body with:
  *    - userID (string): The ID of the authenticated user (required).
  *
- * @param {NextApiResponse} res - The outgoing response object. It returns:
+ * @returns {NextResponse} - The outgoing response object. It returns:
  *  - HTTP 200 with a JSON object containing `redirect_url` if the session is successfully created.
  *  - HTTP 400 if the userID is missing or there is a Stripe session creation error.
  *  - HTTP 500 if there is an internal server error (e.g., issue with fetching user or Stripe API call).
@@ -53,18 +54,9 @@ const supabase = createClient(
  *  4. Returns the session URL to the client.
  *  5. Handles and logs errors appropriately, such as missing user IDs or database/Stripe errors.
  */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
-  if (req.method !== "POST") {
-    await posthog.shutdown();
-    res.setHeader("Allow", "POST");
-    res.status(405).end("Method Not Allowed");
-  }
-
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token || !req.headers.authorization?.startsWith("Bearer")) {
+export async function POST(req: NextRequest) {
+  const token = req.headers.get("authorization")?.split(" ")[1];
+  if (!token || !req.headers.get("authorization")?.startsWith("Bearer")) {
     posthog.capture({
       distinctId: "unknown",
       event: ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
@@ -74,7 +66,7 @@ export default async function handler(
     });
     await posthog.shutdown();
     console.error("No token provided");
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
+    return NextResponse.json({ error: "Unauthorized: No token provided" }, { status: 401 });
   }
 
   let userID;
@@ -92,7 +84,7 @@ export default async function handler(
     });
     await posthog.shutdown();
     console.error("Invalid token: ", error);
-    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    return NextResponse.json({ error: "Unauthorized: Invalid token" }, { status: 401 });
   }
 
   if (userID === null || userID === undefined) {
@@ -104,7 +96,7 @@ export default async function handler(
       },
     });
     await posthog.shutdown();
-    return res.status(400).send("Missing user ID. User is not authenticated.");
+    return new NextResponse("Missing user ID. User is not authenticated.", { status: 400 });
   }
 
   // fetch the stripe customer ID from the database
@@ -124,7 +116,7 @@ export default async function handler(
       },
     });
     await posthog.shutdown();
-    return res.status(400).send("Could not fetch user data.");
+    return new NextResponse("Could not fetch user data.", { status: 400 });
   }
 
   const stripeCustomerId = userData?.stripe_customer_id;
@@ -134,7 +126,7 @@ export default async function handler(
       return_url: `${process.env.NEXT_PUBLIC_SITE_BASE_URL}/dashboard/account`, // Change this to your actual return URL
     });
     await posthog.shutdown();
-    res.status(200).json({ redirect_url: session.url });
+    return NextResponse.json({ redirect_url: session.url });
   } catch (err) {
     posthog.capture({
       distinctId: userID as string,
@@ -146,6 +138,6 @@ export default async function handler(
     });
     await posthog.shutdown();
     console.error("Could not create stripe billing portal session: ", err);
-    res.status(500).send("Could not create stripe billing portal session");
+    return new NextResponse("Could not create stripe billing portal session", { status: 500 });
   }
 }
