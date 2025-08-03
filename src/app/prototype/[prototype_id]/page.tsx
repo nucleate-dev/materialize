@@ -3,8 +3,7 @@
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer from "@/components/ExpoSnackViewer";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import {
   Card,
   CardContent,
@@ -12,17 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
-  CheckIcon,
-  DocumentDuplicateIcon,
   EyeIcon,
-  PencilIcon,
-  ShareIcon,
   SparklesIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -43,9 +36,6 @@ export default function PrototypePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -195,46 +185,8 @@ export default function PrototypePage() {
     }
   };
 
-  const handleStartEdit = () => {
-    if (!prototype || !user || prototype.owner_id !== user.id) return;
-    setEditedName(prototype.name);
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedName("");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!prototype || !user || !prototypeId || !editedName.trim()) return;
-
-    try {
-      setIsUpdating(true);
-
-      const { error } = await supabase
-        .from("prototypes")
-        .update({ name: editedName.trim() })
-        .eq("id", prototypeId);
-
-      if (error) {
-        throw error;
-      }
-
-      // Update local state
-      setPrototype((prev) =>
-        prev ? { ...prev, name: editedName.trim() } : null,
-      );
-      setIsEditing(false);
-      setEditedName("");
-    } catch (err) {
-      console.error("Error updating prototype name:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to update prototype name",
-      );
-    } finally {
-      setIsUpdating(false);
-    }
+  const handleUpdatePrototype = (updatedPrototype: Prototype) => {
+    setPrototype(updatedPrototype);
   };
 
   if (userIsLoading || isLoading) {
@@ -282,125 +234,14 @@ export default function PrototypePage() {
     <div className="h-screen bg-background overflow-hidden">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="flex-shrink-0 bg-background border-b border-border">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              {/* Left side - Prototype info */}
-              <div className="flex items-center gap-6 group">
-                <div className="p-4 bg-primary text-primary-foreground rounded-lg">
-                  <SparklesIcon className="w-8 h-8" />
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editedName}
-                          onChange={(e) => setEditedName(e.target.value)}
-                          className="text-3xl font-bold text-foreground bg-background border-2 border-primary/50 focus:border-primary"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSaveEdit();
-                            } else if (e.key === "Escape") {
-                              handleCancelEdit();
-                            }
-                          }}
-                          autoFocus
-                          disabled={isUpdating}
-                        />
-                        <Button
-                          size="sm"
-                          onClick={handleSaveEdit}
-                          disabled={isUpdating || !editedName.trim()}
-                          className="h-8 w-8 p-0"
-                        >
-                          {isUpdating ? (
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <CheckIcon className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleCancelEdit}
-                          disabled={isUpdating}
-                          className="h-8 w-8 p-0"
-                        >
-                          <XMarkIcon className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold text-foreground">
-                          {prototype.name}
-                        </h1>
-                        {user && prototype.owner_id === user.id && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleStartEdit}
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {prototype.description && (
-                    <p className="text-muted-foreground text-lg leading-relaxed">
-                      {prototype.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 mt-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                        {Object.keys(prototypeFiles).length} files
-                      </Badge>
-                      <Badge variant="outline">
-                        {prototype.visibility?.toLowerCase() || "private"}
-                      </Badge>
-                    </div>
-                    {prototype.created_at && (
-                      <div className="text-sm text-muted-foreground">
-                        Created{" "}
-                        {new Date(prototype.created_at).toLocaleDateString()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right side - Action buttons */}
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={handleClonePrototype}
-                  disabled={isCloning || !user}
-                  size="lg"
-                >
-                  {isCloning ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Cloning...
-                    </>
-                  ) : (
-                    <>
-                      <DocumentDuplicateIcon className="w-4 h-4 mr-2" />
-                      Clone Prototype
-                    </>
-                  )}
-                </Button>
-
-                <Button variant="outline" size="icon">
-                  <ShareIcon className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PublicPrototypeHeader
+          prototype={prototype}
+          prototypeFiles={prototypeFiles}
+          user={user}
+          isCloning={isCloning}
+          onClonePrototype={handleClonePrototype}
+          onUpdatePrototype={handleUpdatePrototype}
+        />
 
         {/* Main Content - ExpoSnackViewer */}
         <div className="flex-1 p-8">
