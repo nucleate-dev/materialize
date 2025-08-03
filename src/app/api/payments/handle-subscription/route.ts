@@ -9,18 +9,9 @@ import {
   SuccessEvents,
 } from "@/LoggingEvents";
 import { createClient } from "@supabase/supabase-js";
-import { buffer } from "micro";
-import { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import { PostHog } from "posthog-node";
 import Stripe from "stripe";
-
-// nextjs automatically parses some of the JSON body. However, stripe webhook verification
-// requires the raw input. So we set the config here for the bodyParser to be false.
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
@@ -47,26 +38,16 @@ const supabase = createClient(
  *
  * If the request method is not `POST`, it returns a `405 Method Not Allowed` response.
  *
- * @param {NextApiRequest} req - The incoming HTTP request object, containing event data from Stripe.
- * @param {NextApiResponse} res - The HTTP response object used to send a response back to Stripe.
+ * @param {NextRequest} req - The incoming HTTP request object, containing event data from Stripe.
  *
- * @returns {Promise<void>} - The response is sent directly through `res` after handling the Stripe event.
+ * @returns {Promise<NextResponse>} - The response is sent directly through NextResponse after handling the Stripe event.
  *
  * Error Handling:
  *  - If Stripe's webhook verification fails, logs an event to PostHog and returns an error response.
  *  - Calls the relevant handler functions for each Stripe event.
  *  - Gracefully shuts down PostHog analytics on error or completion.
  */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
-  if (req.method !== "POST") {
-    await posthog.shutdown();
-    res.setHeader("Allow", "POST");
-    return res.status(405).send("Method Not Allowed");
-  }
-
+export async function POST(req: NextRequest) {
   // verify stripe sent the event and not a malicious third-party
   const stripeVerification = await verifyStripeSignature(req);
   if (stripeVerification.event === null) {
@@ -78,9 +59,10 @@ export default async function handler(
         source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
       },
     });
-    return res
-      .status(stripeVerification.status)
-      .send(stripeVerification.message);
+    return NextResponse.json(
+      { error: stripeVerification.message },
+      { status: stripeVerification.status }
+    );
   }
 
   const event = stripeVerification.event;
@@ -106,7 +88,7 @@ export default async function handler(
       break;
   }
   // await posthog.shutdown();
-  return res.status(200).send("Stripe event received successfully");
+  return NextResponse.json({ message: "Stripe event received successfully" });
 }
 
 /**
@@ -503,7 +485,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
  * Verifies the Stripe signature for incoming webhook requests to ensure that the event is legitimately sent by Stripe.
  * This function checks the Stripe signature using the secret and validates the event payload.
  *
- * @param {NextApiRequest} req - The incoming HTTP request object, which contains the Stripe event payload and signature.
+ * @param {NextRequest} req - The incoming HTTP request object, which contains the Stripe event payload and signature.
  *
  * @returns {Promise<{status: number; message: string | null; event: Stripe.Event | null}>} -
  *  - `status`: The HTTP status code representing the result of the verification (e.g., 200 for success, 400 for failure).
@@ -525,14 +507,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
  *
  * @throws Will return an error message if the signature verification fails, but the function does not throw any unhandled exceptions.
  */
-async function verifyStripeSignature(req: NextApiRequest): Promise<{
+async function verifyStripeSignature(req: NextRequest): Promise<{
   status: number;
   message: string | null;
   event: Stripe.Event | null;
 }> {
   // load key info
-  const requestBuffer = await buffer(req);
-  const sig = req.headers["stripe-signature"] as string;
+  const requestBuffer = await req.text();
+  const sig = req.headers.get("stripe-signature") as string;
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
   if (!sig || !endpointSecret) {
     return {
@@ -546,7 +528,7 @@ async function verifyStripeSignature(req: NextApiRequest): Promise<{
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(
-      requestBuffer.toString(),
+      requestBuffer,
       sig,
       endpointSecret,
     );
