@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Database } from "@/lib/types/database.types";
+import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   DocumentDuplicateIcon,
   PencilIcon,
@@ -16,12 +17,10 @@ import { useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-type User = Database["public"]["Tables"]["users"]["Row"];
 
 interface PublicPrototypeHeaderProps {
   prototype: Prototype;
   prototypeFiles: Record<string, PrototypeFile>;
-  user: User | null;
   isCloning: boolean;
   onClonePrototype: () => void;
   onUpdatePrototype: (updatedPrototype: Prototype) => void;
@@ -30,7 +29,6 @@ interface PublicPrototypeHeaderProps {
 export default function PublicPrototypeHeader({
   prototype,
   prototypeFiles,
-  user,
   isCloning,
   onClonePrototype,
   onUpdatePrototype,
@@ -38,6 +36,8 @@ export default function PublicPrototypeHeader({
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const userObj = useUser();
+  const user = userObj.user;
 
   const handleStartEdit = () => {
     if (!prototype || !user || prototype.owner_id !== user.id) return;
@@ -56,12 +56,11 @@ export default function PublicPrototypeHeader({
     try {
       setIsUpdating(true);
 
-      const { error } = await import("@/ClientConstants").then(
-        ({ supabase }) =>
-          supabase
-            .from("prototypes")
-            .update({ name: editedName.trim() })
-            .eq("id", prototype.id)
+      const { error } = await import("@/ClientConstants").then(({ supabase }) =>
+        supabase
+          .from("prototypes")
+          .update({ name: editedName.trim() })
+          .eq("id", prototype.id),
       );
 
       if (error) {

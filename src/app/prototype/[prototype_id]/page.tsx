@@ -13,10 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import {
-  EyeIcon,
-  SparklesIcon,
-} from "@heroicons/react/24/outline";
+import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -25,7 +22,7 @@ type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function PrototypePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const router = useRouter();
   const prototypeId = params?.prototype_id;
 
@@ -221,8 +218,8 @@ export default function PrototypePage() {
             </div>
             <CardTitle className="text-2xl">Prototype Not Found</CardTitle>
             <CardDescription>
-              The prototype you&apos;re looking for doesn&apos;t exist or you don&apos;t have
-              permission to view it.
+              The prototype you&apos;re looking for doesn&apos;t exist or you
+              don&apos;t have permission to view it.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -237,7 +234,6 @@ export default function PrototypePage() {
         <PublicPrototypeHeader
           prototype={prototype}
           prototypeFiles={prototypeFiles}
-          user={user}
           isCloning={isCloning}
           onClonePrototype={handleClonePrototype}
           onUpdatePrototype={handleUpdatePrototype}
