@@ -7,6 +7,11 @@ const nextConfig = {
         hostname: "images.unsplash.com",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "hfgjmwidcoszkmvejxhw.supabase.co",
+        port: "",
+      },
     ],
   },
   async headers() {
