@@ -5,7 +5,7 @@ import ChatWindow from "@/components/ChatWindow";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useCallback, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -56,7 +56,7 @@ export default function PrototypeChatWindow({
     currentPeriodStart,
     currentPeriodEnd,
     loadingSubscriptionData,
-  } = useHasSubscriptionAccess();
+  } = useSubscriptionAccess();
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {

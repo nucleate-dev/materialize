@@ -1,7 +1,7 @@
 import { Database } from "@/lib/types/database.types";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 
 export function useGetSubscriptionPlan(): Database["public"]["Enums"]["subscription_plan_type"] {
-  const { userPlan } = useHasSubscriptionAccess();
+  const { userPlan } = useSubscriptionAccess();
   return userPlan;
 }

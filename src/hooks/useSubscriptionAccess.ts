@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useUser } from "../auth/SupabaseAuthUtils";
+import { useUser } from "../lib/utils/auth/SupabaseAuthUtils";
 import { SubscriptionStatuses } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
@@ -40,7 +40,7 @@ function getCurrentMonthPeriod() {
  *  - The hook will re-fetch the subscription information whenever `user.user` or `user.userIsLoading` state changes.
  *
  * @example
- * const { userPlan, loadingSubscriptionData, currentPeriodStart, currentPeriodEnd } = useHasSubscriptionAccess();
+ * const { userPlan, loadingSubscriptionData, currentPeriodStart, currentPeriodEnd } = useSubscriptionAccess();
  *
  * if (loadingSubscriptionData) {
  *   // Show a loading spinner
@@ -53,7 +53,7 @@ function getCurrentMonthPeriod() {
  *   // User is on free tier (billing period = current month)
  * }
  */
-export function useHasSubscriptionAccess() {
+export function useSubscriptionAccess() {
   const user = useUser();
   const [userPlan, setUserPlan] = useState<SubscriptionPlanType>("free");
   const [loadingSubscriptionData, setLoadingSubscriptionData] = useState<boolean>(true);
