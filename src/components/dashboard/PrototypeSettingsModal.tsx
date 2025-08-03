@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,6 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Database } from "@/lib/types/database.types";
+import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
   open: boolean;
@@ -128,7 +128,7 @@ export default function PrototypeSettingsModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SELF">Self</SelectItem>
+                  <SelectItem value="SELF">Private</SelectItem>
                   <SelectItem value="PUBLIC">Public</SelectItem>
                 </SelectContent>
               </Select>

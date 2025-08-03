@@ -281,7 +281,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     return (
       <div className="flex flex-col h-full bg-background">
         {/* Header with Controls */}
-        <div className="flex items-center justify-between p-6 bg-background border-b border-border">
+        <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
           <div className="flex items-center space-x-4">
             {/* Mode Selector */}
             <div className="flex bg-muted rounded-lg p-1">
@@ -337,7 +337,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* Status */}
         {(isLoading || error) && (
-          <div className="p-4 bg-muted border-b border-border">
+          <div className="p-4 bg-muted/50 border-b border-border">
             {isLoading && (
               <div className="flex items-center space-x-3">
                 <Badge variant="secondary">
@@ -365,7 +365,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         )}
 
         {/* Preview */}
-        <div className="flex-1 relative flex items-center justify-center bg-muted/30 p-8">
+        <div className="flex-1 relative flex items-center justify-center bg-background p-8">
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -493,7 +493,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* File Info */}
         {!hideControls && (
-          <div className="border-t border-border p-6 bg-background">
+          <div className="border-t border-border p-6 bg-muted/30">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm text-foreground font-medium">Files:</span>
               {Object.keys(files).map((fileName) => (

@@ -1,36 +1,47 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
+import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import ExpoSnackViewer, {
   ExpoSnackViewerRef,
 } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
-import { supabase } from "@/ClientConstants";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
-  CodeBracketIcon,
-  EyeIcon,
-  SparklesIcon,
-  PencilIcon,
   CheckIcon,
+  ClipboardDocumentIcon,
+  CodeBracketIcon,
+  Cog6ToothIcon,
+  EyeIcon,
+  PencilIcon,
+  ShareIcon,
+  SparklesIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -40,6 +51,10 @@ export default function CreatePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
@@ -71,6 +86,7 @@ export default function CreatePage() {
       }
 
       setPrototype(data);
+      setIsPublic(data.visibility === "PUBLIC");
       console.log("Successfully fetched prototype:", data);
     }
 
@@ -151,93 +167,156 @@ export default function CreatePage() {
     return <Loader />;
   }
 
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
+
+  const handleCopyLink = async () => {
+    if (!prototype) return;
+    
+    setIsCopying(true);
+    try {
+      // If not public, make it public first
+      if (!isPublic) {
+        await supabase
+          .from("prototypes")
+          .update({ visibility: "PUBLIC" })
+          .eq("id", prototype.id);
+        
+        setIsPublic(true);
+        setPrototype(prev => prev ? { ...prev, visibility: "PUBLIC" } : null);
+      }
+      
+      await navigator.clipboard.writeText(window.location.href);
+      console.log('Prototype URL copied to clipboard');
+      
+      // Close modal after successful copy
+      setTimeout(() => {
+        setShowShareModal(false);
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to copy URL:', err);
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  const handleVisibilityToggle = async (checked: boolean) => {
+    if (!prototype) return;
+    
+    try {
+      const newVisibility = checked ? "PUBLIC" : "SELF";
+      await supabase
+        .from("prototypes")
+        .update({ visibility: newVisibility })
+        .eq("id", prototype.id);
+      
+      setIsPublic(checked);
+      setPrototype(prev => prev ? { ...prev, visibility: newVisibility } : null);
+    } catch (err) {
+      console.error('Failed to update visibility:', err);
+    }
+  };
+
   return (
-    <div className="h-full flex overflow-hidden relative bg-gradient-to-br from-gray-2 via-whiter to-gray-3 dark:from-boxdark-2 dark:via-boxdark dark:to-meta-4">
-      {/* Animated Background Orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-meta-5/5 to-meta-3/5 dark:from-meta-5/10 dark:to-meta-3/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-secondary/3 to-primary/3 dark:from-secondary/8 dark:to-primary/8 rounded-full blur-2xl animate-pulse delay-500"></div>
-      </div>
+    <div className="h-full flex flex-col overflow-hidden bg-background">
+      {/* Header */}
+      <Card className="border-0 rounded-none bg-background/80 backdrop-blur-sm border-b border-border">
+        <CardContent className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left side - Prototype name */}
+            <div className="flex items-center gap-3 group">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    className="text-xl font-bold text-foreground bg-background border-2 border-primary/50 focus:border-primary"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSaveEdit();
+                      } else if (e.key === "Escape") {
+                        handleCancelEdit();
+                      }
+                    }}
+                    autoFocus
+                    disabled={isUpdating}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveEdit}
+                    disabled={isUpdating || !editedName.trim()}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isUpdating ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <CheckIcon className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={isUpdating}
+                    className="h-8 w-8 p-0"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold text-foreground">
+                    {prototype?.name || 'Untitled Prototype'}
+                  </h1>
+                  {user && prototype?.owner_id === user.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleStartEdit}
+                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:bg-white/20 dark:hover:bg-boxdark/40 transition-opacity"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Right side - Settings and Share buttons */}
+            <div className="flex items-center gap-2">
+              {user && prototype?.owner_id === user.id && (
+                <Button
+                  onClick={() => setShowSettingsModal(true)}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Cog6ToothIcon className="w-4 h-4" />
+                  Settings
+                </Button>
+              )}
+              <Button
+                onClick={handleShare}
+                className="flex items-center gap-2"
+              >
+                <ShareIcon className="w-4 h-4" />
+                Share
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Main content area */}
+      <div className="flex-1 flex overflow-hidden">
 
       {/* Left Panel - AI Assistant Chat */}
       <div className="w-2/5 min-w-[420px] flex flex-col relative z-10">
-        {/* Glassmorphism Container */}
-        <div className="h-full m-4 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden">
-          {/* Enhanced Header */}
-          <div className="relative">
-            {/* Header gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-meta-5/5 dark:from-primary/10 dark:via-secondary/10 dark:to-meta-5/10"></div>
-
-            <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
-              {/* Debug info - remove after testing */}
-              <div className="mb-2 text-xs text-gray-500">
-                Debug: prototypeId={prototypeId}, prototype=
-                {prototype ? "loaded" : "null"}, name={prototype?.name}
-              </div>
-
-              {/* Prototype Name Section */}
-              {prototype && (
-                <div className="mb-4 group">
-                  <div className="flex items-center gap-3">
-                    {isEditing ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <Input
-                          value={editedName}
-                          onChange={(e) => setEditedName(e.target.value)}
-                          className="text-lg font-semibold text-black dark:text-white bg-background border-2 border-primary/50 focus:border-primary"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSaveEdit();
-                            } else if (e.key === "Escape") {
-                              handleCancelEdit();
-                            }
-                          }}
-                          autoFocus
-                          disabled={isUpdating}
-                        />
-                        <Button
-                          size="sm"
-                          onClick={handleSaveEdit}
-                          disabled={isUpdating || !editedName.trim()}
-                          className="h-7 w-7 p-0"
-                        >
-                          {isUpdating ? (
-                            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <CheckIcon className="w-3 h-3" />
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleCancelEdit}
-                          disabled={isUpdating}
-                          className="h-7 w-7 p-0"
-                        >
-                          <XMarkIcon className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 flex-1">
-                        <h1 className="text-lg font-semibold text-black dark:text-white">
-                          {prototype.name}
-                        </h1>
-                        {user && prototype.owner_id === user.id && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleStartEdit}
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:bg-white/20 dark:hover:bg-boxdark/40 transition-opacity"
-                          >
-                            <PencilIcon className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+        {/* Card Container */}
+        <Card className="h-full m-4 bg-background/80 backdrop-blur-sm border border-border">
+          <CardContent className="h-full flex flex-col p-0">
+            {/* Header */}
+            <div className="p-6 border-b border-border">
 
               {/* AI Assistant Section */}
               <div className="flex items-center space-x-3">
@@ -248,22 +327,19 @@ export default function CreatePage() {
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-black dark:text-white">
+                  <h2 className="text-xl font-bold text-foreground">
                     AI Assistant
                   </h2>
-                  <p className="text-sm text-body dark:text-bodydark">
+                  <p className="text-sm text-muted-foreground">
                     Build with AI-powered development
                   </p>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Content Area with subtle inner glow */}
-          <div className="flex-1 flex flex-col overflow-hidden relative h-full">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
-
-            <div className="relative flex-1 flex flex-col">
+            
+            {/* Content Area */}
+            <div className="flex-1 flex flex-col overflow-hidden relative h-full">
+              <div className="relative flex-1 flex flex-col">
               <PrototypeChatWindow
                 prototypeId={prototypeId}
                 // File system integration
@@ -274,38 +350,36 @@ export default function CreatePage() {
                 isLoading={isLoading}
                 setIsLoading={setIsLoading}
               />
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Right Panel - Preview/Code Toggle */}
       <div className="w-3/5 min-w-[500px] flex flex-col relative z-10">
-        {/* Glassmorphism Container */}
-        <div className="h-full m-4 ml-0 bg-white/80 dark:bg-boxdark/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-strokedark/30 overflow-hidden">
-          {/* Enhanced Header with Toggle */}
-          <div className="relative">
-            {/* Header gradient overlay */}
-            <div className="absolute inset-0"></div>
-
-            <div className="relative p-6 border-b border-white/20 dark:border-strokedark/30">
+        {/* Card Container */}
+        <Card className="h-full m-4 ml-0 bg-background/80 backdrop-blur-sm border border-border">
+          <CardContent className="h-full flex flex-col p-0">
+            {/* Header with Toggle */}
+            <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <div className="absolute inset-0 rounded-lg blur-sm"></div>
                     <div className="relative p-2 rounded-lg shadow-lg">
                       {isPreviewView ? (
-                        <EyeIcon className="w-5 h-5 text-black dark:text-white" />
+                        <EyeIcon className="w-5 h-5 text-foreground" />
                       ) : (
-                        <CodeBracketIcon className="w-5 h-5 text-black dark:text-white" />
+                        <CodeBracketIcon className="w-5 h-5 text-foreground" />
                       )}
                     </div>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-black dark:text-white">
+                    <h2 className="text-xl font-bold text-foreground">
                       {isPreviewView ? "Live Preview" : "Code Editor"}
                     </h2>
-                    <p className="text-sm text-body dark:text-bodydark">
+                    <p className="text-sm text-muted-foreground">
                       {isPreviewView
                         ? "See your changes in real-time"
                         : "Edit your prototype files"}
@@ -314,42 +388,31 @@ export default function CreatePage() {
                 </div>
 
                 {/* Enhanced Toggle Buttons */}
-                <div className="flex items-center bg-white/80 dark:bg-boxdark/60 rounded-xl p-1 backdrop-blur-sm border border-white/40 dark:border-strokedark/40 shadow-lg">
-                  <button
+                <div className="flex items-center bg-muted rounded-lg p-1">
+                  <Button
+                    variant={isPreviewView ? "default" : "ghost"}
+                    size="sm"
                     onClick={() => setIsPreviewView(true)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      isPreviewView
-                        ? "bg-primary text-white shadow-lg transform scale-105"
-                        : "text-gray-700 dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-boxdark/40"
-                    }`}
+                    className="flex items-center gap-2"
                   >
-                    <EyeIcon
-                      className={`w-4 h-4 inline mr-2 ${isPreviewView ? "text-white" : "text-gray-700 dark:text-bodydark"}`}
-                    />
+                    <EyeIcon className="w-4 h-4" />
                     Preview
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant={!isPreviewView ? "default" : "ghost"}
+                    size="sm"
                     onClick={() => setIsPreviewView(false)}
-                    className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                      !isPreviewView
-                        ? "bg-primary text-white shadow-lg transform scale-105"
-                        : "text-gray-700 dark:text-bodydark hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-boxdark/40"
-                    }`}
+                    className="flex items-center gap-2"
                   >
-                    <CodeBracketIcon
-                      className={`w-4 h-4 inline mr-2 ${!isPreviewView ? "text-white" : "text-gray-700 dark:text-bodydark"}`}
-                    />
+                    <CodeBracketIcon className="w-4 h-4" />
                     Code
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Content Area with subtle inner glow */}
+          {/* Content Area */}
           <div className="flex-1 overflow-hidden h-full">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-white/2 pointer-events-none"></div>
-
             <div className="relative h-full">
               {isPreviewView ? (
                 <div className="h-full">
@@ -362,7 +425,7 @@ export default function CreatePage() {
               ) : (
                 <div className="max-h-[550px] flex">
                   {/* File Explorer */}
-                  <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/20 dark:border-strokedark/30 h-full">
+                  <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border h-full">
                     <div className="h-full">
                       <FileTree
                         files={fileSystem.state.files}
@@ -389,8 +452,91 @@ export default function CreatePage() {
               )}
             </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+      </div>
+      
+      {/* Settings Modal */}
+      <PrototypeSettingsModal
+        open={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        prototype={prototype}
+        onUpdated={() => {
+          // Refetch prototype data after update
+          if (prototypeId) {
+            supabase
+              .from("prototypes")
+              .select("*")
+              .eq("id", prototypeId)
+              .single()
+              .then(({ data }) => {
+                if (data) {
+                  setPrototype(data);
+                  setIsPublic(data.visibility === "PUBLIC");
+                }
+              });
+          }
+        }}
+      />
+      
+      {/* Share Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Prototype</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Visibility Toggle */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div>
+                <p className="font-medium text-sm">Make Public</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {isPublic ? "Anyone with the link can view" : "Only you can view"}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(e) => handleVisibilityToggle(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {/* Share Link */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Share Link</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={window.location.href}
+                  readOnly
+                  className="flex-1 bg-gray-50 dark:bg-gray-800"
+                />
+                <Button
+                  onClick={handleCopyLink}
+                  disabled={isCopying}
+                  className="flex items-center gap-2"
+                >
+                  {isCopying ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ClipboardDocumentIcon className="w-4 h-4" />
+                  )}
+                  {isCopying ? 'Copying...' : 'Copy'}
+                </Button>
+              </div>
+              {!isPublic && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ Copying the link will automatically make this prototype public
+                </p>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
