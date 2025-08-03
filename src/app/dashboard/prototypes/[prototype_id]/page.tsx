@@ -418,6 +418,7 @@ export default function CreatePage() {
                         ref={snackViewerRef}
                         files={fileSystem.state.files}
                         onResetToDefault={handleResetToDefault}
+                        prototypeId={prototypeId}
                       />
                     </div>
                   ) : (

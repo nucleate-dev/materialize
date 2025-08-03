@@ -255,6 +255,7 @@ export default function PrototypePage() {
                     ? handleCreateFile
                     : undefined
                 }
+                prototypeId={prototypeId}
               />
             </CardContent>
           </Card>

@@ -33,6 +33,7 @@ interface ExpoSnackViewerProps {
   onResetToDefault?: () => void;
   hideControls?: boolean;
   onCreateFile?: (fileName: string, initialContent?: string) => void;
+  prototypeId?: string;
 }
 
 export interface ExpoSnackViewerRef {
@@ -42,7 +43,10 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files, onResetToDefault, hideControls = false, onCreateFile }, ref) => {
+  (
+    { files, onResetToDefault, hideControls = false, onCreateFile, prototypeId },
+    ref,
+  ) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -184,6 +188,37 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
     const snackUrl = snackState?.url;
     const webPreviewURL = snackState?.webPreviewURL;
+
+    useEffect(() => {
+      if (!prototypeId || !webPreviewURL) return;
+
+      let timeout: NodeJS.Timeout;
+
+      const handleLoad = () => {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(async () => {
+          try {
+            await fetch(`/api/prototypes/${prototypeId}/snapshot`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: webPreviewURL }),
+            });
+          } catch (err) {
+            console.error("Failed to capture snapshot:", err);
+          }
+        }, 1000);
+      };
+
+      const iframe = document.querySelector(
+        'iframe[title="React Native Preview"], iframe[title="React Native Web Preview"]',
+      ) as HTMLIFrameElement | null;
+      iframe?.addEventListener("load", handleLoad);
+
+      return () => {
+        if (timeout) clearTimeout(timeout);
+        iframe?.removeEventListener("load", handleLoad);
+      };
+    }, [webPreviewURL, prototypeId]);
 
     const handleRefresh = () => {
       if (webPreviewRef.current && webPreviewURL) {
