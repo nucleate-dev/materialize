@@ -1,58 +1,47 @@
 import { useEffect, useState } from "react";
 import { useUser } from "../auth/SupabaseAuthUtils";
-import { ProductKeys, SubscriptionStatuses } from "@/GlobalConstants";
+import { SubscriptionStatuses } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
+import { Database } from "@/lib/types/database.types";
+
+type SubscriptionPlanType = Database["public"]["Enums"]["subscription_plan_type"];
 
 /**
- * A custom hook that fetches and determines the current user's subscription status.
- * It provides flags for base or pro access, past-due subscriptions and free tier users.
+ * A custom hook that fetches and determines the current user's subscription plan.
+ * Returns a single string representing the user's current active plan.
  *
  * @returns {Object} - An object containing:
- *  - `hasTeamSubscriptionAccess`: Whether the user has an active team/base subscription.
- *  - `hasActiveProSubscription`: Whether the user has an active pro subscription.
- *  - `hasPastDueSubscription`: Whether the user's latest subscription is in a past_due state.
- *  - `isOnFreeTier`: Whether the user has no subscription and is on the free tier.
+ *  - `userPlan`: The current active subscription plan ("free", "team", "pro")
  *  - `loadingSubscriptionData`: Whether the subscription data is still being loaded.
  *
  * This hook performs the following steps:
  *  1. Retrieves the current user using the `useUser` hook.
- *  2. Fetches the user's subscription information from the `subscriptions` table in the Supabase database, sorted by `updated_at` in descending order to get the latest subscription.
+ *  2. Fetches the user's active subscription information from the `subscriptions` table in the Supabase database, sorted by `updated_at` in descending order to get the latest active subscription.
  *  3. Determines the subscription plan based on the plan ID:
- *     - If no valid subscription is found, the user is considered on the free tier.
- *     - If the status is `PAST_DUE`, `hasPastDueSubscription` is set to `true`.
- *     - If the status is `ACTIVE`, the plan is inspected to determine whether
- *       `hasTeamSubscriptionAccess` or `hasActiveProSubscription` should be set to `true`.
+ *     - If no active subscription is found, returns "free".
+ *     - If an active subscription exists, returns the plan_id from the database.
  *  4. Updates the state and sets `loadingSubscriptionData` to `false` once the data is loaded.
  *
  * Dependencies:
  *  - The hook will re-fetch the subscription information whenever `user.user` or `user.userIsLoading` state changes.
  *
  * @example
- * const {
- *   hasTeamSubscriptionAccess,
- *   hasActiveProSubscription,
- *   hasPastDueSubscription,
- *   isOnFreeTier,
- *   loadingSubscriptionData,
- * } = useHasSubscriptionAccess();
+ * const { userPlan, loadingSubscriptionData } = useHasSubscriptionAccess();
  *
  * if (loadingSubscriptionData) {
  *   // Show a loading spinner
- * } else if (hasActiveProSubscription) {
- *   // User has an active pro subscription
+ * } else if (userPlan === "pro") {
+ *   // User has a pro subscription
+ * } else if (userPlan === "team") {
+ *   // User has a team subscription
+ * } else {
+ *   // User is on free tier
  * }
  */
 export function useHasSubscriptionAccess() {
   const user = useUser();
-  const [hasTeamSubscriptionAccess, setHasTeamSubscriptionAccess] =
-    useState<boolean>(false);
-  const [hasActiveProSubscription, setHasActiveProSubscription] =
-    useState<boolean>(false);
-  const [hasPastDueSubscription, setHasPastDueSubscription] =
-    useState<boolean>(false);
-  const [isOnFreeTier, setIsOnFreeTier] = useState<boolean>(false);
-  const [loadingSubscriptionData, setLoadingSubscriptionData] =
-    useState<boolean>(true);
+  const [userPlan, setUserPlan] = useState<SubscriptionPlanType>("free");
+  const [loadingSubscriptionData, setLoadingSubscriptionData] = useState<boolean>(true);
 
   useEffect(() => {
     async function fetchSubscriptionInformation() {
@@ -60,64 +49,48 @@ export function useHasSubscriptionAccess() {
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.user?.id)
+        .eq("status", SubscriptionStatuses.ACTIVE)
         .order("updated_at", {
           ascending: false,
         });
+      
       if (error) {
+        console.error("Error fetching subscription:", error);
+        setUserPlan("free");
         setLoadingSubscriptionData(false);
         return;
       }
+      
       console.log("fetched subscription");
+      
       if (data === null || data.length === 0) {
-        setIsOnFreeTier(true);
+        // No active subscription found, user is on free tier
+        setUserPlan("free");
         setLoadingSubscriptionData(false);
         return;
       }
 
       const latestSubscription = data[0];
-      const status = latestSubscription.status;
       const plan = latestSubscription.plan_id;
 
-      // reset all flags
-      setHasTeamSubscriptionAccess(false);
-      setHasActiveProSubscription(false);
-      setHasPastDueSubscription(false);
-      setIsOnFreeTier(false);
-
-      switch (status) {
-        case SubscriptionStatuses.PAST_DUE:
-          setHasPastDueSubscription(true);
-          break;
-        case SubscriptionStatuses.ACTIVE:
-          switch (plan) {
-            case ProductKeys.TEAM_SUBSCRIPTION:
-              setHasTeamSubscriptionAccess(true);
-              break;
-            case ProductKeys.PRO_SUBSCRIPTION:
-              setHasActiveProSubscription(true);
-              break;
-            default:
-              setIsOnFreeTier(true);
-              break;
-          }
-          break;
-        default:
-          setIsOnFreeTier(true);
-          break;
+      // User has an active subscription, use the plan from database
+      if (plan) {
+        setUserPlan(plan);
+      } else {
+        // Fallback to free if no plan is found
+        setUserPlan("free");
       }
 
       setLoadingSubscriptionData(false);
     }
+    
     if (user.user && user.userIsLoading === false) {
       fetchSubscriptionInformation();
     }
   }, [user.user, user.userIsLoading]);
 
   return {
-    hasTeamSubscriptionAccess,
-    hasActiveProSubscription,
-    hasPastDueSubscription,
-    isOnFreeTier,
+    userPlan,
     loadingSubscriptionData,
   };
 }

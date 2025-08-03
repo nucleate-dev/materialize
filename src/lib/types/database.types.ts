@@ -426,7 +426,7 @@ export type Database = {
           current_period_end: number | null
           current_period_start: number | null
           id: string
-          plan_id: string
+          plan_id: Database["public"]["Enums"]["subscription_plan_type"]
           price_id: string | null
           scheduled_for_cancellation: boolean | null
           status: Database["public"]["Enums"]["subscription_status"] | null
@@ -439,7 +439,7 @@ export type Database = {
           current_period_end?: number | null
           current_period_start?: number | null
           id: string
-          plan_id: string
+          plan_id?: Database["public"]["Enums"]["subscription_plan_type"]
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
           status?: Database["public"]["Enums"]["subscription_status"] | null
@@ -452,7 +452,7 @@ export type Database = {
           current_period_end?: number | null
           current_period_start?: number | null
           id?: string
-          plan_id?: string
+          plan_id?: Database["public"]["Enums"]["subscription_plan_type"]
           price_id?: string | null
           scheduled_for_cancellation?: boolean | null
           status?: Database["public"]["Enums"]["subscription_status"] | null
@@ -503,6 +503,7 @@ export type Database = {
     }
     Enums: {
       chat_role: "user" | "assistant"
+      subscription_plan_type: "free" | "team" | "pro"
       subscription_status: "active" | "past_due" | "canceled"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
     }
@@ -633,6 +634,7 @@ export const Constants = {
   public: {
     Enums: {
       chat_role: ["user", "assistant"],
+      subscription_plan_type: ["free", "team", "pro"],
       subscription_status: ["active", "past_due", "canceled"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },

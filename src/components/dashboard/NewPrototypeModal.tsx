@@ -49,7 +49,7 @@ export default function NewPrototypeModal({
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  const { hasActiveProSubscription } = useHasSubscriptionAccess();
+  const { userPlan } = useHasSubscriptionAccess();
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
   >("PUBLIC");
@@ -239,7 +239,7 @@ export default function NewPrototypeModal({
                   value as Database["public"]["Enums"]["visibility_level"]
                 )
               }
-              disabled={!hasActiveProSubscription || isCreating}
+              disabled={userPlan !== "pro" || isCreating}
             >
               <SelectTrigger id="prototype-visibility" className="h-12">
                 <SelectValue />
@@ -249,7 +249,7 @@ export default function NewPrototypeModal({
                 <SelectItem value="SELF">Self</SelectItem>
               </SelectContent>
             </Select>
-            {!hasActiveProSubscription && (
+            {userPlan !== "pro" && (
               <p className="text-xs text-muted-foreground">
                 Upgrade to Pro to set prototype visibility to Self.
               </p>
