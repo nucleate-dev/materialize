@@ -600,7 +600,7 @@ export default function ChatWindow({
             </p>
           )}
         </div>
-        <form onSubmit={handleSubmit} className="flex gap-4 items-end">
+        <form onSubmit={handleSubmit} className="flex gap-4 items-center">
           {/* Input Container */}
           <div className="flex-1 relative">
             <textarea

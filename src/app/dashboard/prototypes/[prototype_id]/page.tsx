@@ -325,10 +325,10 @@ export default function CreatePage() {
           } flex-col relative z-10`} style={isMobile ? { height: '100%' } : {}}>
           {/* Card Container */}
           <Card className={`h-full ${isMobile ? 'm-2' : 'm-2'} bg-background/80 backdrop-blur-sm border border-border`} style={isMobile ? { height: 'calc(100% - 16px)' } : {}}>
-            <CardContent className="h-full flex flex-col p-0">
+            <CardContent className="h-full flex flex-col p-0 overflow-hidden">
               {/* Mobile Chat Header */}
               {isMobile && (
-                <div className="p-2 border-b border-border">
+                <div className="p-2 border-b border-border flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
@@ -342,19 +342,17 @@ export default function CreatePage() {
               )}
 
               {/* Content Area */}
-              <div className="flex-1 flex flex-col overflow-hidden relative h-full">
-                <div className="relative flex-1 flex flex-col">
-                  <PrototypeChatWindow
-                    prototypeId={prototypeId}
-                    // File system integration
-                    files={fileSystem.state.files}
-                    selectedFile={fileSystem.state.selectedFile}
-                    onFilesUpdate={fileSystem.applyFileUpdates}
-                    // Loading state
-                    isLoading={isLoading}
-                    setIsLoading={setIsLoading}
-                  />
-                </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <PrototypeChatWindow
+                  prototypeId={prototypeId}
+                  // File system integration
+                  files={fileSystem.state.files}
+                  selectedFile={fileSystem.state.selectedFile}
+                  onFilesUpdate={fileSystem.applyFileUpdates}
+                  // Loading state
+                  isLoading={isLoading}
+                  setIsLoading={setIsLoading}
+                />
               </div>
             </CardContent>
           </Card>
