@@ -7,6 +7,7 @@ import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModa
 import ExpoSnackViewer, { ExpoSnackViewerRef } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
+import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -21,20 +22,15 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
-  CheckIcon,
   ClipboardDocumentIcon,
   CodeBracketIcon,
-  Cog6ToothIcon,
-  EyeIcon,
-  PencilIcon,
-  ShareIcon,
-  SparklesIcon,
-  XMarkIcon,
+  EyeIcon
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -46,13 +42,11 @@ export default function CreatePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
@@ -122,43 +116,57 @@ export default function CreatePage() {
     }
   };
 
-  const handleStartEdit = () => {
-    if (!prototype || !user || prototype.owner_id !== user.id) return;
-    setEditedName(prototype.name);
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedName("");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!prototype || !user || !prototypeId || !editedName.trim()) return;
+  const handleClonePrototype = async () => {
+    if (!user || !prototype || !prototypeId) return;
 
     try {
-      setIsUpdating(true);
+      setIsCloning(true);
 
-      const { error } = await supabase
+      // Create new prototype
+      const clonedPrototypeName = `${prototype.name} (Copy)`;
+      const { data: newPrototype, error: prototypeError } = await supabase
         .from("prototypes")
-        .update({ name: editedName.trim() })
-        .eq("id", prototypeId);
+        .insert({
+          name: clonedPrototypeName,
+          description: prototype.description,
+          owner_id: user.id,
+          project_id: prototype.project_id,
+          prototype_context: prototype.prototype_context,
+          visibility: "SELF" as const,
+        })
+        .select()
+        .single();
 
-      if (error) {
-        throw error;
+      if (prototypeError) {
+        throw prototypeError;
       }
 
-      // Update local state
-      setPrototype((prev) =>
-        prev ? { ...prev, name: editedName.trim() } : null,
-      );
-      setIsEditing(false);
-      setEditedName("");
+      // Copy all files to the new prototype
+      const filesToCopy = Object.values(fileSystem.state.files).map((file) => ({
+        prototype_id: newPrototype.id,
+        name: file.name,
+        contents: file.contents,
+      }));
+
+      const { error: filesError } = await supabase
+        .from("prototype_files")
+        .insert(filesToCopy);
+
+      if (filesError) {
+        throw filesError;
+      }
+
+      // Navigate to the new prototype in dashboard
+      router.push(`/dashboard/prototypes/${newPrototype.id}`);
     } catch (err) {
-      console.error("Error updating prototype name:", err);
+      console.error("Error cloning prototype:", err);
     } finally {
-      setIsUpdating(false);
+      setIsCloning(false);
     }
+  };
+
+  const handleUpdatePrototype = (updatedPrototype: Prototype) => {
+    setPrototype(updatedPrototype);
   };
 
   if (!prototypeId || userIsLoading) {
@@ -219,91 +227,17 @@ export default function CreatePage() {
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background">
       {/* Header */}
-      <Card className="border-0 rounded-none bg-background/80 backdrop-blur-sm border-b border-border">
-        <CardContent className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left side - Prototype name */}
-            <div className="flex items-center gap-3 group">
-              {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    className="text-xl font-bold text-foreground bg-background border-2 border-primary/50 focus:border-primary"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSaveEdit();
-                      } else if (e.key === "Escape") {
-                        handleCancelEdit();
-                      }
-                    }}
-                    autoFocus
-                    disabled={isUpdating}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleSaveEdit}
-                    disabled={isUpdating || !editedName.trim()}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isUpdating ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <CheckIcon className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    disabled={isUpdating}
-                    className="h-8 w-8 p-0"
-                  >
-                    <XMarkIcon className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-foreground">
-                    {prototype?.name || 'Untitled Prototype'}
-                  </h1>
-                  {user && prototype?.owner_id === user.id && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleStartEdit}
-                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:bg-white/20 dark:hover:bg-boxdark/40 transition-opacity"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+      {prototype && (
+        <PublicPrototypeHeader
+          prototype={prototype}
+          prototypeFiles={fileSystem.state.files}
+          isCloning={isCloning}
+          onClonePrototype={handleClonePrototype}
+          onUpdatePrototype={handleUpdatePrototype}
+          onShare={handleShare}
+        />
+      )}
 
-            {/* Right side - Settings and Share buttons */}
-            <div className="flex items-center gap-2">
-              {user && prototype?.owner_id === user.id && (
-                <Button
-                  onClick={() => setShowSettingsModal(true)}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Cog6ToothIcon className="w-4 h-4" />
-                  Settings
-                </Button>
-              )}
-              <Button
-                onClick={handleShare}
-                className="flex items-center gap-2"
-              >
-                <ShareIcon className="w-4 h-4" />
-                Share
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden">
@@ -314,26 +248,6 @@ export default function CreatePage() {
           <Card className="h-full m-4 bg-background/80 backdrop-blur-sm border border-border">
             <CardContent className="h-full flex flex-col p-0">
               {/* Header */}
-              <div className="p-6 border-b border-border">
-
-                {/* AI Assistant Section */}
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg blur-sm"></div>
-                    <div className="relative p-2 bg-gradient-to-r from-primary to-secondary rounded-lg shadow-lg">
-                      <SparklesIcon className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">
-                      AI Assistant
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Build with AI-powered development
-                    </p>
-                  </div>
-                </div>
-              </div>
 
               {/* Content Area */}
               <div className="flex-1 flex flex-col overflow-hidden relative h-full">
@@ -509,7 +423,7 @@ export default function CreatePage() {
               <p className="text-sm font-medium">Share Link</p>
               <div className="flex items-center gap-2">
                 <Input
-                  value={window.location.href}
+                  value={window.location.href.replace("dashboard/prototypes", "prototype")}
                   readOnly
                   className="flex-1 bg-gray-50 dark:bg-gray-800"
                 />

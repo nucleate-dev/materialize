@@ -24,6 +24,7 @@ interface PublicPrototypeHeaderProps {
   isCloning: boolean;
   onClonePrototype: () => void;
   onUpdatePrototype: (updatedPrototype: Prototype) => void;
+  onShare?: () => void;
 }
 
 export default function PublicPrototypeHeader({
@@ -32,6 +33,7 @@ export default function PublicPrototypeHeader({
   isCloning,
   onClonePrototype,
   onUpdatePrototype,
+  onShare,
 }: PublicPrototypeHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -191,7 +193,7 @@ export default function PublicPrototypeHeader({
               )}
             </Button>
 
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={onShare}>
               <ShareIcon className="w-4 h-4" />
             </Button>
           </div>

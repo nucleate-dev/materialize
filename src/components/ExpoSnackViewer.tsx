@@ -23,6 +23,7 @@ import {
 import type { SnackListenerSubscription, SnackState } from "snack-sdk";
 import { Snack } from "snack-sdk";
 import { DEFAULT_DEPENDENCIES } from "../templates/defaultApp";
+import { Smartphone, Monitor, RotateCcw, RefreshCw } from "lucide-react";
 
 interface SnackWithSubscriptions extends Snack {
   _subscriptions?: SnackListenerSubscription[];
@@ -280,60 +281,25 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
     return (
       <div className="flex flex-col h-full bg-background">
-        {/* Header with Controls */}
-        <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
-          <div className="flex items-center space-x-4">
-            {/* Mode Selector */}
-            <div className="flex bg-muted rounded-lg p-1">
-              <Button
-                variant={previewMode === "mobile" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleModeChange("mobile")}
-              >
-                Mobile
-              </Button>
-              <Button
-                variant={previewMode === "web" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleModeChange("web")}
-              >
-                Web
-              </Button>
+        {/* Header - simplified without controls */}
+        {!hideControls && onCreateFile && (
+          <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="text-sm font-medium text-foreground">React Native Preview</span>
             </div>
+            <Button
+              onClick={() => setShowNewFileModal(true)}
+              size="sm"
+              disabled={isLoading}
+              title="Create new file"
+            >
+              + New File
+            </Button>
           </div>
-
-          {!hideControls && (
-            <div className="flex items-center space-x-3">
-              {onCreateFile && (
-                <Button
-                  onClick={() => setShowNewFileModal(true)}
-                  size="sm"
-                  disabled={isLoading}
-                  title="Create new file"
-                >
-                  + New File
-                </Button>
-              )}
-              <Button
-                onClick={onResetToDefault}
-                size="sm"
-                variant="destructive"
-                disabled={isLoading}
-                title="Reset to default app"
-              >
-                Reset
-              </Button>
-              <Button
-                onClick={handleRefresh}
-                size="sm"
-                variant="secondary"
-                disabled={isLoading || !webPreviewURL}
-              >
-                Refresh
-              </Button>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Status */}
         {(isLoading || error) && (
@@ -366,6 +332,58 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
         {/* Preview */}
         <div className="flex-1 relative flex items-center justify-center bg-background p-8">
+          {/* Floating Mode Selector - Top Left */}
+          <div className="absolute top-4 left-4 z-10">
+            <div className="flex bg-background/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-border">
+              <Button
+                variant={previewMode === "mobile" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleModeChange("mobile")}
+                className="flex items-center gap-2"
+              >
+                <Smartphone className="w-4 h-4" />
+                Mobile
+              </Button>
+              <Button
+                variant={previewMode === "web" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleModeChange("web")}
+                className="flex items-center gap-2"
+              >
+                <Monitor className="w-4 h-4" />
+                Web
+              </Button>
+            </div>
+          </div>
+
+          {/* Floating Control Buttons - Top Right */}
+          {!hideControls && (
+            <div className="absolute top-4 right-4 z-10">
+              <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-border">
+                <Button
+                  onClick={onResetToDefault}
+                  size="sm"
+                  variant="destructive"
+                  disabled={isLoading}
+                  title="Reset to default app"
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </Button>
+                <Button
+                  onClick={handleRefresh}
+                  size="sm"
+                  variant="secondary"
+                  disabled={isLoading || !webPreviewURL}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          )}
           {isLoading && !webPreviewURL ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
