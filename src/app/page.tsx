@@ -1,9 +1,12 @@
 "use client";
 import PremiumHeader from "@/components/PremiumHeader";
+import { PricingCard } from "@/components/PricingCard";
+import { ProductKeys } from "@/GlobalConstants";
 import {
   ArrowRightIcon,
   CodeBracketIcon,
   PlayIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 
 export default function Home() {
@@ -12,6 +15,7 @@ export default function Home() {
       <PremiumHeader />
       <HeroSection />
       <FloatingElements />
+      <PricingSection />
     </main>
   );
 }
@@ -118,3 +122,123 @@ function HeroSection() {
   );
 }
 
+function PricingSection() {
+  const pricingTiers = [
+    {
+      name: "Free",
+      productID: ProductKeys.FREE_SUBSCRIPTION,
+      price: "$0",
+      period: "/month",
+      description: "Perfect for getting started with prototyping",
+      features: [
+        "10 messages per month",
+        "Basic React Native components",
+        "Infinite canvas access",
+        "Code export",
+        "Community support",
+      ],
+      cta: "Get Started",
+      ctaStyle:
+        "bg-white/10 text-white border border-white/20 hover:bg-white/20",
+      popular: false,
+    },
+    {
+      name: "Pro",
+      productID: ProductKeys.PRO_SUBSCRIPTION,
+      price: "$20",
+      period: "/month",
+      description: "Ideal for professional developers and teams",
+      features: [
+        "100 messages included",
+        "Pay-per-message scaling:",
+        "• 101-300: $0.15/message",
+        "• 301-600: $0.10/message",
+        "• 600+: $0.07/message",
+        "Advanced AI components",
+        "Priority support",
+        "Team collaboration",
+        "Custom templates",
+      ],
+      cta: "Start Pro Trial",
+      ctaStyle:
+        "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700",
+      popular: true,
+    },
+  ];
+
+  return (
+    <section
+      id="pricing"
+      className="relative py-32 bg-gradient-to-b from-black to-gray-900"
+    >
+      <div className="container mx-auto px-6">
+        {/* Section Header */}
+        <div className="text-center mb-20">
+          <div className="inline-flex items-center px-4 py-2 mb-6 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-full">
+            <SparklesIcon className="w-4 h-4 text-purple-300 mr-2" />
+            <span className="text-sm text-purple-300 font-medium">
+              Simple Pricing
+            </span>
+          </div>
+          <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
+            Choose Your Plan
+          </h2>
+          <p className="text-xl text-white max-w-3xl mx-auto">
+            Start free and scale as you grow. Pay only for what you use with
+            transparent, developer-friendly pricing.
+          </p>
+        </div>
+
+        {/* Pricing Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          {pricingTiers.map((tier, index) => (
+            <PricingCard key={index} {...tier} theme="dark" />
+          ))}
+        </div>
+
+        {/* Usage Examples */}
+        <div className="mt-20 text-center">
+          <h3 className="text-2xl font-bold text-white mb-8">Usage Examples</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <div className="text-2xl font-bold text-white mb-2">
+                150 messages
+              </div>
+              <div className="text-gray-300 mb-2">Pro plan cost:</div>
+              <div className="text-lg font-semibold text-green-400">
+                $20 + $7.50 = $27.50
+              </div>
+              <div className="text-sm text-gray-400 mt-2">
+                100 included + 50 × $0.15
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <div className="text-2xl font-bold text-white mb-2">
+                400 messages
+              </div>
+              <div className="text-gray-300 mb-2">Pro plan cost:</div>
+              <div className="text-lg font-semibold text-green-400">
+                $20 + $40 = $60
+              </div>
+              <div className="text-sm text-gray-400 mt-2">
+                100 included + 200×$0.15 + 100×$0.10
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <div className="text-2xl font-bold text-white mb-2">
+                800 messages
+              </div>
+              <div className="text-gray-300 mb-2">Pro plan cost:</div>
+              <div className="text-lg font-semibold text-green-400">
+                $20 + $84 = $104
+              </div>
+              <div className="text-sm text-gray-400 mt-2">
+                Includes all tiers + 200×$0.07
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
