@@ -3,7 +3,7 @@ import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classNames";
 import { HorizontalModeToggle } from "@/components/horizontal-mode-toggle";
 import {
   ChevronLeft,

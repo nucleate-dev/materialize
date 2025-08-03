@@ -5,7 +5,7 @@ import { MoonIcon, SunIcon } from "@heroicons/react/24/outline"
 import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/classNames"
 
 interface HorizontalModeToggleProps {
   sidebarExpanded?: boolean
