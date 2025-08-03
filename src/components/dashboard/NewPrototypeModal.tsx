@@ -53,8 +53,10 @@ export default function NewPrototypeModal({
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
   >(userPlan === "pro" ? "SELF" : "PUBLIC");
+  const [prototypeCount, setPrototypeCount] = useState(0);
+  const [isLoadingCount, setIsLoadingCount] = useState(false);
 
-  // Fetch user's projects
+  // Fetch user's projects and prototype count
   useEffect(() => {
     async function fetchProjects() {
       if (!user) return;
@@ -79,10 +81,34 @@ export default function NewPrototypeModal({
         setIsLoadingProjects(false);
       }
     }
+
+    async function fetchPrototypeCount() {
+      if (!user) return;
+
+      setIsLoadingCount(true);
+      try {
+        const { count, error } = await supabase
+          .from("prototypes")
+          .select("*", { count: "exact", head: true })
+          .eq("owner_id", user.id);
+
+        if (error) {
+          console.error("Error fetching prototype count:", error);
+          return;
+        }
+        setPrototypeCount(count || 0);
+      } catch (error) {
+        console.error("Error fetching prototype count:", error);
+      } finally {
+        setIsLoadingCount(false);
+      }
+    }
+
     if (open && user?.id) {
       fetchProjects();
+      fetchPrototypeCount();
     }
-  }, [open, user, setIsLoadingProjects, setProjects]);
+  }, [open, user]);
 
   // Set initial project selection
   useEffect(() => {
@@ -98,6 +124,12 @@ export default function NewPrototypeModal({
     e.preventDefault();
     setTouched(true);
     if (!name.trim() || !user) return;
+
+    // Check prototype limit for FREE users
+    if (userPlan !== "pro" && prototypeCount >= 5) {
+      return;
+    }
+
     setIsCreating(true);
 
     try {
@@ -160,9 +192,50 @@ export default function NewPrototypeModal({
           <p className="text-muted-foreground">
             Build interactive prototypes to test your ideas
           </p>
+          {userPlan !== "pro" && (
+            <div className="text-sm text-muted-foreground">
+              {isLoadingCount ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                  Loading...
+                </div>
+              ) : (
+                <span>
+                  Prototypes: {prototypeCount}/5 {prototypeCount >= 5 && "(Limit reached)"}
+                </span>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {userPlan !== "pro" && prototypeCount >= 5 && (
+          <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5">
+                ⚠️
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                  Prototype Limit Reached
+                </h4>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                  FREE users can create up to 5 prototypes. You've reached your limit.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                  onClick={() => window.open('/pricing', '_blank')}
+                >
+                  Upgrade to Pro
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className={`space-y-6 ${userPlan !== "pro" && prototypeCount >= 5 ? "opacity-50 pointer-events-none" : ""}`}>
           <div className="space-y-2">
             <Label htmlFor="prototype-name" className="text-sm font-semibold">
               Prototype Name <span className="text-destructive">*</span>
@@ -258,7 +331,7 @@ export default function NewPrototypeModal({
 
           <Button
             type="submit"
-            disabled={isCreating || !name.trim()}
+            disabled={isCreating || !name.trim() || (userPlan !== "pro" && prototypeCount >= 5)}
             className="w-full h-12"
           >
             {isCreating ? (
