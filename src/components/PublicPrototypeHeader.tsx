@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import {
   CheckIcon,
   DocumentDuplicateIcon,

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/ClientConstants";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {

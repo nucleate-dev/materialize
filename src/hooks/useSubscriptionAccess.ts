@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useUser } from "../lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import { SubscriptionStatuses } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";

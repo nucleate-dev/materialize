@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { login, signInWithOAuth, useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useState, useEffect } from "react";

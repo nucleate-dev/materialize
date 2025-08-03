@@ -21,7 +21,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
 import { createPrototype } from "@/lib/utils/prototypes";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   ChatBubbleLeftRightIcon,

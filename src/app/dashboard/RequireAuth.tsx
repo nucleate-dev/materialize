@@ -1,6 +1,6 @@
 "use client";
 
-import { useRequireAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function RequireAuth() {
   useRequireAuth();

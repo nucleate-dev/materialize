@@ -2,7 +2,7 @@
 
 import Breadcrumb from "@/components/dashboard/Breadcrumbs/Breadcrumb";
 import { ProductKeys } from "@/GlobalConstants";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Button } from "@/components/ui/button";

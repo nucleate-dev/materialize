@@ -8,7 +8,7 @@ import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type Project = Database["public"]["Tables"]["projects"]["Row"];

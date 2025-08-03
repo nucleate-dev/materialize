@@ -7,7 +7,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 
 type Canvas = Database["public"]["Tables"]["canvases"]["Row"];
 type Project = Database["public"]["Tables"]["projects"]["Row"];
