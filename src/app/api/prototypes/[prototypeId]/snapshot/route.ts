@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
-);
+import jwt from "jsonwebtoken";
 
 export const maxDuration = 60;
 
@@ -12,6 +8,39 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { prototypeId: string } },
 ) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.split(" ")[1];
+  if (!token || !authHeader?.startsWith("Bearer")) {
+    return NextResponse.json(
+      { error: "Unauthorized: No token provided" },
+      { status: 401 },
+    );
+  }
+
+  let userID: string;
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET!,
+    ) as jwt.JwtPayload;
+    userID = decoded.sub as string;
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Unauthorized: Invalid token" },
+      { status: 401 },
+    );
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    {
+      global: {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    },
+  );
+
   const { url } = await request.json();
   const { prototypeId } = params;
 
@@ -48,7 +77,8 @@ export async function POST(
     const { error: updateError } = await supabase
       .from("prototypes")
       .update({ thumbnail_url: publicUrl })
-      .eq("id", prototypeId);
+      .eq("id", prototypeId)
+      .eq("user_id", userID);
 
     if (updateError) {
       throw updateError;

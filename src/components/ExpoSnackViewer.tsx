@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
+import { supabase } from "@/ClientConstants";
 import {
   forwardRef,
   useCallback,
@@ -198,9 +199,18 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         if (timeout) clearTimeout(timeout);
         timeout = setTimeout(async () => {
           try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+
             await fetch(`/api/prototypes/${prototypeId}/snapshot`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
               body: JSON.stringify({ url: webPreviewURL }),
             });
           } catch (err) {
