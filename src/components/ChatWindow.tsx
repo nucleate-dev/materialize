@@ -33,6 +33,10 @@ interface ChatWindowProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   onClearChat: () => void;
+  messageCount?: number;
+  messageLimit?: number;
+  isAtLimit?: boolean;
+  loadingCount?: boolean;
 }
 
 export default function ChatWindow({
@@ -40,6 +44,10 @@ export default function ChatWindow({
   onSendMessage,
   isLoading,
   onClearChat,
+  messageCount = 0,
+  messageLimit = 15,
+  isAtLimit = false,
+  loadingCount = false,
 }: ChatWindowProps) {
   const [input, setInput] = useState("");
 
@@ -108,9 +116,11 @@ export default function ChatWindow({
     });
   }, [messages]);
 
+  const isDisabled = !input.trim() || isLoading || isAtLimit;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
+    if (input.trim() && !isLoading && !isAtLimit) {
       onSendMessage(input.trim());
       setInput(""); // Clear input after sending
 
@@ -568,6 +578,21 @@ export default function ChatWindow({
 
       {/* Input Section */}
       <div className="flex-shrink-0 p-6 border-t border-border bg-background">
+        {/* Message Count Display */}
+        <div className="mb-3 text-center">
+          {loadingCount ? (
+            <p className="text-xs font-medium text-muted-foreground">
+              Loading usage...
+            </p>
+          ) : (
+            <p className={`text-xs font-medium ${
+              isAtLimit ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+            }`}>
+              Messages: {messageCount}/{messageLimit}
+              {isAtLimit && " (Limit reached)"}
+            </p>
+          )}
+        </div>
         <form onSubmit={handleSubmit} className="flex gap-4 items-end">
           {/* Input Container */}
           <div className="flex-1 relative">
@@ -576,11 +601,13 @@ export default function ChatWindow({
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me to create or modify React Native code..."
-              className="w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none"
+              placeholder={isAtLimit ? "Message limit reached for this billing period" : "Ask me to create or modify React Native code..."}
+              className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
+                isAtLimit ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               rows={1}
               style={{ minHeight: "56px", maxHeight: "160px", overflow: "hidden" }}
-              disabled={isLoading}
+              disabled={isLoading || isAtLimit}
             />
 
             {/* Input decoration */}
@@ -592,11 +619,13 @@ export default function ChatWindow({
           {/* Send Button */}
           <button
             type="submit"
-            disabled={!input.trim() || isLoading}
-            className={`p-3 rounded-lg transition-colors ${input.trim()
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
+            disabled={isDisabled}
+            className={`p-3 rounded-lg transition-colors ${
+              !isDisabled
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
               }`}
+            title={isAtLimit ? "Message limit reached for this billing period" : undefined}
           >
             <PaperAirplaneIcon className="w-5 h-5" />
           </button>

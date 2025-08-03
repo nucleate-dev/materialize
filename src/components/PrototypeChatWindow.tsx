@@ -5,6 +5,7 @@ import ChatWindow from "@/components/ChatWindow";
 import { CodeExtractionResult } from "@/lib/types/chat";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
 import { useCallback, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -49,9 +50,12 @@ export default function PrototypeChatWindow({
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
+  const [messageCount, setMessageCount] = useState<number>(0);
+  const [loadingCount, setLoadingCount] = useState<boolean>(true);
 
   const { user } = useUser();
   const userId = user?.id;
+  const { userPlan, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData } = useHasSubscriptionAccess();
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -110,6 +114,54 @@ export default function PrototypeChatWindow({
       fetchPrototypeChatSessionAndMessages();
     }
   }, [prototypeId, userId]);
+
+  // Fetch message count for current billing period
+  useEffect(() => {
+    async function fetchMessageCount() {
+      if (!userId || loadingSubscriptionData) return;
+      
+      setLoadingCount(true);
+      try {
+        const { count, error } = await supabase
+          .from("api_usage")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .gte("created_at", currentPeriodStart.toISOString())
+          .lte("created_at", currentPeriodEnd.toISOString());
+
+        if (error) {
+          console.error("Error fetching message count:", error);
+          setMessageCount(0);
+        } else {
+          console.log("Fetched message count:", count);
+          setMessageCount(count || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching message count:", error);
+        setMessageCount(0);
+      } finally {
+        setLoadingCount(false);
+      }
+    }
+
+    fetchMessageCount();
+  }, [userId, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData]);
+
+  // Update message count when new user messages are added
+  useEffect(() => {
+    const userMessageCount = prototypeChatMessages.filter(msg => msg.role === "user").length;
+    if (userMessageCount > 0 && !loadingCount) {
+      // Only update if we have a higher count than what we fetched
+      // This handles the case where a new message was just sent
+      const lastUserMessage = prototypeChatMessages.filter(msg => msg.role === "user").pop();
+      if (lastUserMessage) {
+        const messageTime = new Date(lastUserMessage.created_at);
+        if (messageTime >= currentPeriodStart && messageTime <= currentPeriodEnd) {
+          setMessageCount(prev => Math.max(prev, userMessageCount));
+        }
+      }
+    }
+  }, [prototypeChatMessages, currentPeriodStart, currentPeriodEnd, loadingCount]);
 
   // Animate loading dots only while executing operations
   useEffect(() => {
@@ -362,11 +414,36 @@ export default function PrototypeChatWindow({
     ],
   );
 
+  // Calculate limits based on subscription plan
+  const getMessageLimit = () => {
+    switch (userPlan) {
+      case "free":
+        return 15;
+      case "pro":
+        return 100;
+      case "team":
+        return 100; // Assuming team has same limit as pro
+      default:
+        return 15;
+    }
+  };
+
+  const messageLimit = getMessageLimit();
+  const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
+  
+  console.log("Message count data:", { messageCount, messageLimit, isAtLimit, userPlan, loadingCount });
+
   // Handle sending messages
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!prototypeChatSession?.id) {
         console.error("Sending message failed: no chat session found");
+        return;
+      }
+
+      // Check if user is at limit before sending
+      if (isAtLimit) {
+        console.log("Message not sent: user has reached their limit");
         return;
       }
 
@@ -448,6 +525,7 @@ export default function PrototypeChatWindow({
       files,
       prototypeId,
       processStreamingResponse,
+      isAtLimit,
     ],
   );
 
@@ -503,6 +581,10 @@ export default function PrototypeChatWindow({
       onSendMessage={handleSendMessage}
       isLoading={isLoading}
       onClearChat={handleClearChat}
+      messageCount={messageCount}
+      messageLimit={messageLimit}
+      isAtLimit={isAtLimit}
+      loadingCount={loadingCount}
     />
   );
 }
