@@ -155,16 +155,58 @@ export default function CanvasPage() {
     }
   }, [canvasId, editor, canvasDocument, user]);
 
+  const saveCanvasThumbnail = useCallback(async () => {
+    if (!editor.current || !canvasId) return;
+    const ids = Array.from(editor.current.getCurrentPageShapeIds());
+    const image = await editor.current.toImage(ids, {
+      format: "png",
+      quality: 1,
+    });
+
+    const fileName = `${canvasId}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from("canvas-thumbnails")
+      .upload(fileName, image.blob, {
+        contentType: "image/png",
+        upsert: true,
+      });
+    if (uploadError) {
+      console.error("Error uploading thumbnail:", uploadError);
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("canvas-thumbnails")
+      .getPublicUrl(fileName);
+    const publicUrl = data?.publicUrl;
+    if (!publicUrl) return;
+
+    const { error: updateError } = await supabase
+      .from("canvases")
+      .update({ thumbnail_url: publicUrl })
+      .eq("id", canvasId);
+    if (updateError) {
+      console.error("Error updating thumbnail url:", updateError);
+    }
+  }, [canvasId, editor]);
+
   // Auto-save setup with proper debouncing
   useEffect(() => {
     if (!editor.current) return;
 
-    let timeoutId: NodeJS.Timeout;
+    let documentTimeout: NodeJS.Timeout;
+    let thumbnailTimeout: NodeJS.Timeout;
+
     const debouncedSave = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
+      clearTimeout(documentTimeout);
+      documentTimeout = setTimeout(() => {
         saveCanvasDocument();
-      }, 1000); // Save after 1 second of inactivity
+      }, 1000);
+
+      clearTimeout(thumbnailTimeout);
+      thumbnailTimeout = setTimeout(() => {
+        saveCanvasThumbnail();
+      }, 5000);
     };
 
     const cleanup = editor.current.store.listen(
@@ -175,10 +217,11 @@ export default function CanvasPage() {
     );
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(documentTimeout);
+      clearTimeout(thumbnailTimeout);
       cleanup();
     };
-  }, [saveCanvasDocument, editor]);
+  }, [saveCanvasDocument, saveCanvasThumbnail, editor]);
 
   // ----------------- MESSAGE HANDLING -----------------------------------------------------------
   const handleSendMessage = () => {
