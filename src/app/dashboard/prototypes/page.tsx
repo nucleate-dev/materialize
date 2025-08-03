@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
@@ -11,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Loader2, Plus } from "lucide-react";
@@ -83,22 +83,25 @@ export default function PrototypesPage() {
       {/* Page Header */}
       <Card className="mb-8">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-title-xl2 font-bold text-black dark:text-white mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
                 All prototypes
               </CardTitle>
-              <CardDescription className="text-body dark:text-bodydark">
+              <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
                 Manage and organize your prototypes from across all your
                 projects
               </CardDescription>
             </div>
 
             {/* New Prototype Button */}
-            <Button onClick={handleOpenModal} size="lg" className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Prototype
-            </Button>
+            <div className="flex-shrink-0">
+              <Button onClick={handleOpenModal} size="lg" className="w-full sm:w-auto gap-2">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">New Prototype</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>

@@ -84,21 +84,24 @@ export default function WhiteboardsPage() {
       {/* Page Header */}
       <Card className="mb-8">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-title-xl2 font-bold text-black dark:text-white mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
                 Whiteboards
               </CardTitle>
-              <CardDescription className="text-body dark:text-bodydark">
+              <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
                 Your infinite canvases for rapid prototyping and design
               </CardDescription>
             </div>
 
             {/* New Canvas Button */}
-            <Button onClick={handleOpenModal} size="lg" className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Whiteboard
-            </Button>
+            <div className="flex-shrink-0">
+              <Button onClick={handleOpenModal} size="lg" className="w-full sm:w-auto gap-2">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">New Whiteboard</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>

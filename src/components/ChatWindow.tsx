@@ -484,7 +484,10 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="relative flex flex-col bg-background h-full w-full">
+    <div className="relative flex flex-col bg-background h-full w-full" style={{
+      height: '100%',
+      minHeight: '100%'
+    }}>
       {/* Header */}
       <div className="flex-shrink-0 border-b border-border bg-background">
         <div className="p-6">
@@ -573,7 +576,12 @@ export default function ChatWindow({
       </div>
 
       {/* Input Section */}
-      <div className="flex-shrink-0 p-6 border-t border-border bg-background">
+      <div className="flex-shrink-0 p-6 border-t border-border bg-background" style={{
+        position: 'sticky',
+        bottom: 0,
+        backgroundColor: 'var(--background)',
+        zIndex: 10
+      }}>
         {/* Message Count Display */}
         <div className="mb-3 text-center">
           {loadingUsageCount ? (

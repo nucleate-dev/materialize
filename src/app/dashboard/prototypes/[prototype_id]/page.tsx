@@ -313,25 +313,26 @@ export default function CreatePage() {
       {/* Main content area */}
       <div
         className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? 'flex-col' : ''}`}
+        style={isMobile ? { height: 'calc(100dvh - 120px)' } : {}}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
         {/* Left Panel - AI Assistant Chat */}
         <div className={`${isMobile
-          ? `${activePanel === 'chat' ? 'flex' : 'hidden'} w-full`
+          ? `${activePanel === 'chat' ? 'flex' : 'hidden'} w-full h-full`
           : 'w-2/5 min-w-[420px] flex'
-          } flex-col relative z-10`}>
+          } flex-col relative z-10`} style={isMobile ? { height: '100%' } : {}}>
           {/* Card Container */}
-          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2'} bg-background/80 backdrop-blur-sm border border-border`}>
+          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2'} bg-background/80 backdrop-blur-sm border border-border`} style={isMobile ? { height: 'calc(100% - 16px)' } : {}}>
             <CardContent className="h-full flex flex-col p-0">
               {/* Mobile Chat Header */}
               {isMobile && (
-                <div className="p-3 border-b border-border">
+                <div className="p-2 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
-                      <h2 className="text-lg font-bold text-foreground">AI Assistant</h2>
+                      <h2 className="text-base font-bold text-foreground">AI Assistant</h2>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Swipe left to see preview
@@ -361,7 +362,7 @@ export default function CreatePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div className={`${isMobile
-          ? `${activePanel === 'preview' ? 'flex' : 'hidden'} w-full`
+          ? `${activePanel === 'preview' ? 'flex' : 'hidden'} w-full h-full`
           : 'w-3/5 min-w-[500px] flex'
           } flex-col relative z-10`}>
           {/* Card Container */}
