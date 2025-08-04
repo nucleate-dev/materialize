@@ -14,6 +14,7 @@ import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
 import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
   ArrowRight,
   Code,
@@ -32,6 +33,7 @@ import { useState } from "react";
 export default function DashboardPage() {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
   const { userPlan } = useSubscriptionAccess();
@@ -82,8 +84,8 @@ export default function DashboardPage() {
 
         router.push(`/dashboard/prototypes/${result.data.id}`);
       } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
-        // Handle prototype limit reached - could show modal here
-        console.log("Prototype limit reached");
+        // Show upsell modal
+        setShowUpsellModal(true);
       } else {
         console.error("Error creating prototype:", result.message);
       }
@@ -131,7 +133,8 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <>
+      <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-16">
         {/* Header Section */}
         <div className="text-center mb-16">
@@ -252,6 +255,13 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
-    </div>
+      </div>
+
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
+    </>
   );
 }

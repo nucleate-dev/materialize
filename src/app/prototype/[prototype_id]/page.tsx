@@ -6,6 +6,7 @@ import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
   Card,
   CardContent,
@@ -34,6 +35,7 @@ export default function PrototypePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -118,8 +120,8 @@ export default function PrototypePage() {
         // Navigate to the new prototype in dashboard
         router.push(`/dashboard/prototypes/${result.data.id}`);
       } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
-        // Handle prototype limit reached
-        setError("You've reached the maximum number of prototypes for the free plan. Upgrade to Pro for unlimited prototypes.");
+        // Show upsell modal
+        setShowUpsellModal(true);
       } else {
         setError(result.message);
       }
@@ -221,7 +223,8 @@ export default function PrototypePage() {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
+    <>
+      <div className="h-screen bg-background overflow-hidden">
       <div className="h-full flex flex-col">
         {/* Header */}
         <PublicPrototypeHeader
@@ -249,6 +252,13 @@ export default function PrototypePage() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
+    </>
   );
 }

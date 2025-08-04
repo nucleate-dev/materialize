@@ -23,6 +23,7 @@ import { Database } from "@/lib/types/database.types";
 import { createPrototype } from "@/lib/utils/prototypes";
 import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -57,6 +58,7 @@ export default function CreatePage() {
   const [isMobile, setIsMobile] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
@@ -194,8 +196,8 @@ export default function CreatePage() {
         // Navigate to the new prototype in dashboard
         router.push(`/dashboard/prototypes/${result.data.id}`);
       } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
-        // Handle prototype limit reached
-        console.log("Prototype limit reached when cloning");
+        // Show upsell modal
+        setShowUpsellModal(true);
       } else {
         console.error("Error cloning prototype:", result.message);
       }
@@ -545,6 +547,12 @@ export default function CreatePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
     </div>
   );
 }
