@@ -11,25 +11,29 @@ import {
 import { ProductKeys } from "@/GlobalConstants";
 import { useUser } from "@/hooks/useUser";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  User, 
-  Mail, 
-  Rocket, 
-  Calendar, 
-  CreditCard, 
-  MessageSquare, 
-  Settings, 
+import {
+  Mail,
+  Calendar,
+  CreditCard,
+  MessageSquare,
+  Settings,
   Crown,
   AlertCircle,
-  CheckCircle
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -45,65 +49,28 @@ function AccountSettings() {
     loadingSubscriptionData,
   } = useSubscriptionAccess();
 
-  const [currentSubscription, setCurrentSubscription] = useState<string>("");
-  const [nextBillingDate, setNextBillingDate] = useState<Date>(new Date());
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [memberSince, setMemberSince] = useState<Date>(new Date());
-  const [scheduledForCancellation, setScheduledForCancellation] =
-    useState<boolean>(false);
   const [messageCount, setMessageCount] = useState<number>(0);
   const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
+  const [isProcessingUpgrade, setIsProcessingUpgrade] =
+    useState<boolean>(false);
 
   useEffect(() => {
-    async function fetchCurrentSubscription() {
-      // Set user info from Supabase Auth user
-      if (user.user) {
-        setEmail(user.user.email || "");
-        setName(user.user.user_metadata?.full_name || user.user.user_metadata?.first_name + " " + user.user.user_metadata?.last_name || "");
-        setMemberSince(new Date(user.user.created_at));
-      }
-
-      // Fetch subscription data
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.user?.id);
-      
-      if (error) {
-        console.log("error: ", error);
-        // Set default subscription if no subscription found
-        setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setNextBillingDate(new Date(data[0].current_period_end * 1000));
-        switch (data[0].plan_id) {
-          case ProductKeys.FREE_SUBSCRIPTION:
-            setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
-            break;
-          case ProductKeys.PRO_SUBSCRIPTION:
-            setCurrentSubscription(ProductKeys.PRO_SUBSCRIPTION);
-            break;
-          case ProductKeys.TEAM_SUBSCRIPTION:
-            setCurrentSubscription(ProductKeys.TEAM_SUBSCRIPTION);
-            break;
-          default:
-            setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
-            break;
-        }
-        setScheduledForCancellation(data[0]?.scheduled_for_cancellation);
-      } else {
-        // No subscription found, set free as default
-        setCurrentSubscription(ProductKeys.FREE_SUBSCRIPTION);
-      }
+    // Set user info from Supabase Auth user
+    if (user.user) {
+      setEmail(user.user.email || "");
+      setName(
+        user.user.user_metadata?.full_name ||
+          user.user.user_metadata?.first_name +
+            " " +
+            user.user.user_metadata?.last_name ||
+          "",
+      );
+      setMemberSince(new Date(user.user.created_at));
     }
-
-    if (user.user && user.userIsLoading === false) {
-      fetchCurrentSubscription();
-    }
-  }, [user.user, user.userIsLoading]);
+  }, [user.user]);
 
   // Fetch message count for current billing period
   useEffect(() => {
@@ -135,7 +102,12 @@ function AccountSettings() {
     }
 
     fetchMessageCount();
-  }, [user.user?.id, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData]);
+  }, [
+    user.user?.id,
+    currentPeriodStart,
+    currentPeriodEnd,
+    loadingSubscriptionData,
+  ]);
 
   // Calculate message limit based on subscription plan
   const getMessageLimit = () => {
@@ -152,6 +124,20 @@ function AccountSettings() {
   };
 
   const messageLimit = getMessageLimit();
+
+  // Convert userPlan to ProductKeys format
+  const getCurrentSubscription = () => {
+    switch (userPlan) {
+      case "pro":
+        return ProductKeys.PRO_SUBSCRIPTION;
+      case "team":
+        return ProductKeys.TEAM_SUBSCRIPTION;
+      default:
+        return ProductKeys.FREE_SUBSCRIPTION;
+    }
+  };
+
+  const currentSubscription = getCurrentSubscription();
 
   const getPlanBadgeVariant = (plan: string) => {
     switch (plan.toLowerCase()) {
@@ -177,12 +163,28 @@ function AccountSettings() {
       .slice(0, 2);
   };
 
+  const handleUpgradeToProClick = async () => {
+    try {
+      setIsProcessingUpgrade(true);
+      await handleCheckout(ProductKeys.PRO_SUBSCRIPTION, router);
+      // Keep processing state for 2 seconds to account for Stripe redirect delay
+      setTimeout(() => {
+        setIsProcessingUpgrade(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error starting checkout:", error);
+      setIsProcessingUpgrade(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-8 max-w-4xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Account Settings
+          </h1>
           <p className="text-muted-foreground mt-1">
             Manage your account information and subscription
           </p>
@@ -212,9 +214,14 @@ function AccountSettings() {
             <div className="space-y-2">
               <div className="flex items-center space-x-3">
                 <h2 className="text-2xl font-semibold">{name || "User"}</h2>
-                <Badge variant={getPlanBadgeVariant(currentSubscription)} className="capitalize">
-                  {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && <Crown className="w-3 h-3 mr-1" />}
-                  {currentSubscription.replace('_subscription', '')}
+                <Badge
+                  variant={getPlanBadgeVariant(currentSubscription)}
+                  className="capitalize"
+                >
+                  {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && (
+                    <Crown className="w-3 h-3 mr-1" />
+                  )}
+                  {currentSubscription.replace("_subscription", "")}
                 </Badge>
               </div>
               <p className="text-muted-foreground flex items-center">
@@ -223,26 +230,17 @@ function AccountSettings() {
               </p>
               <p className="text-sm text-muted-foreground flex items-center">
                 <Calendar className="w-4 h-4 mr-2" />
-                Member since {memberSince?.toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                Member since{" "}
+                {memberSince?.toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 })}
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Status Alert */}
-      {scheduledForCancellation && (
-        <Alert className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800 dark:text-orange-200">
-            Your subscription is scheduled for cancellation on {nextBillingDate?.toLocaleDateString()}.
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Subscription Management */}
       <Card>
@@ -259,17 +257,21 @@ function AccountSettings() {
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div className="space-y-1">
               <p className="font-medium capitalize">
-                {currentSubscription.replace('_subscription', '')} Plan
+                {currentSubscription.replace("_subscription", "")} Plan
               </p>
               <p className="text-sm text-muted-foreground">
-                {currentSubscription === ProductKeys.FREE_SUBSCRIPTION 
-                  ? 'Free forever with basic features'
-                  : `${messageLimit} messages per billing cycle`
-                }
+                {currentSubscription === ProductKeys.FREE_SUBSCRIPTION
+                  ? "Free forever with basic features"
+                  : `${messageLimit} messages per billing cycle`}
               </p>
             </div>
-            <Badge variant={getPlanBadgeVariant(currentSubscription)} className="capitalize">
-              {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && <Crown className="w-3 h-3 mr-1" />}
+            <Badge
+              variant={getPlanBadgeVariant(currentSubscription)}
+              className="capitalize"
+            >
+              {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && (
+                <Crown className="w-3 h-3 mr-1" />
+              )}
               Active
             </Badge>
           </div>
@@ -283,23 +285,23 @@ function AccountSettings() {
                 <div className="grid gap-4 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {scheduledForCancellation ? 'Subscription ends' : 'Next billing date'}:
+                      Current period ends:
                     </span>
                     <span className="font-medium">
-                      {nextBillingDate?.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                      {currentPeriodEnd?.toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
                       })}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Member since:</span>
                     <span className="font-medium">
-                      {memberSince?.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                      {memberSince?.toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
                       })}
                     </span>
                   </div>
@@ -310,19 +312,40 @@ function AccountSettings() {
 
           <Separator />
 
-          <Button
-            onClick={() => {
-              handleRedirectToStripeCustomerPortal(
-                user.user?.id ?? "",
-                router,
-              );
-            }}
-            className="w-full"
-            size="lg"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Manage Subscription & Billing
-          </Button>
+          {currentSubscription === ProductKeys.FREE_SUBSCRIPTION ? (
+            <Button
+              onClick={handleUpgradeToProClick}
+              className="w-full"
+              size="lg"
+              disabled={isProcessingUpgrade}
+            >
+              {isProcessingUpgrade ? (
+                <>
+                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade to Pro
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                handleRedirectToStripeCustomerPortal(
+                  user.user?.id ?? "",
+                  router,
+                );
+              }}
+              className="w-full"
+              size="lg"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Manage Subscription & Billing
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -342,13 +365,12 @@ function AccountSettings() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Messages Used</span>
               <span className="text-sm text-muted-foreground">
-                {loadingUsageCount ? "Loading..." : `${messageCount} / ${messageLimit}`}
+                {loadingUsageCount
+                  ? "Loading..."
+                  : `${messageCount} / ${messageLimit}`}
               </span>
             </div>
-            <Progress 
-              value={getUsagePercentage()} 
-              className="h-2"
-            />
+            <Progress value={getUsagePercentage()} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>0</span>
               <span>{messageLimit} messages</span>
@@ -361,25 +383,60 @@ function AccountSettings() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Current period:</span>
               <span className="font-medium">
-                {currentPeriodStart?.toLocaleDateString()} - {currentPeriodEnd?.toLocaleDateString()}
+                {currentPeriodStart?.toLocaleDateString()} -{" "}
+                {currentPeriodEnd?.toLocaleDateString()}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Messages remaining:</span>
               <span className="font-medium">
-                {loadingUsageCount ? "..." : Math.max(0, messageLimit - messageCount)}
+                {loadingUsageCount
+                  ? "..."
+                  : Math.max(0, messageLimit - messageCount)}
               </span>
             </div>
           </div>
 
-          {getUsagePercentage() > 80 && (
-            <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                You've used {Math.round(getUsagePercentage())}% of your monthly message limit.
-              </AlertDescription>
-            </Alert>
-          )}
+          {(() => {
+            const usagePercentage = getUsagePercentage();
+
+            if (userPlan === "free") {
+              if (usagePercentage >= 100) {
+                return (
+                  <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800 dark:text-red-200">
+                      You've exceeded your free plan limit ({messageCount}/
+                      {messageLimit} messages). Upgrade to Pro to continue using
+                      the service this period.
+                    </AlertDescription>
+                  </Alert>
+                );
+              } else if (usagePercentage > 80) {
+                return (
+                  <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
+                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                      You've used {Math.round(usagePercentage)}% of your monthly
+                      message limit.
+                    </AlertDescription>
+                  </Alert>
+                );
+              }
+            } else if (userPlan === "pro" && usagePercentage >= 100) {
+              return (
+                <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                    You've exceeded your included usage. You'll now be charged
+                    per message.
+                  </AlertDescription>
+                </Alert>
+              );
+            }
+
+            return null;
+          })()}
         </CardContent>
       </Card>
     </div>
