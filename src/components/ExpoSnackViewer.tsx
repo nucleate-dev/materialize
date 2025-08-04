@@ -66,11 +66,21 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     const [showNewFileModal, setShowNewFileModal] = useState(false);
     const [newFileName, setNewFileName] = useState("");
     const [newFileError, setNewFileError] = useState("");
+    const [useOfficialEmbed, setUseOfficialEmbed] = useState(false);
+    const [embedError, setEmbedError] = useState(false);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
     const hasRenderError = useRef(false);
     const lastSnapshotTime = useRef(0);
+
+    // Check if we're on a production domain (not localhost)
+    const isProductionDomain = useCallback(() => {
+      if (typeof window === 'undefined') return false;
+      const hostname = window.location.hostname;
+      return hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.');
+    }, []);
+
 
     // Force refresh method
     const forceRefresh = useCallback(() => {
@@ -206,6 +216,19 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
     const snackUrl = snackState?.webPreviewURL;
     const webPreviewURL = snackState?.webPreviewURL;
+
+    // Auto-switch to fallback on production domains after initial load
+    useEffect(() => {
+      if (isProductionDomain() && webPreviewURL && !embedError) {
+        // Give iframe a chance to load, then switch to fallback if needed
+        const timer = setTimeout(() => {
+          console.log('Production domain detected, enabling fallback mode for better UX');
+          setUseOfficialEmbed(true);
+        }, 5000); // 5 second grace period
+
+        return () => clearTimeout(timer);
+      }
+    }, [webPreviewURL, embedError, isProductionDomain]);
 
     const triggerSnapshot = useCallback(async () => {
       if (!snackUrl || !prototypeId) return;
@@ -505,16 +528,60 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                     boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
                   }}
                 >
-                  <iframe
-                    key={`mobile-${refreshKey}`}
-                    ref={(c) => {
-                      webPreviewRef.current = c?.contentWindow ?? null;
-                    }}
-                    className="w-full h-full"
-                    title="React Native Preview"
-                    src={webPreviewURL}
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                  />
+                  {useOfficialEmbed ? (
+                    // Fallback: Open in new tab or show message
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
+                      <div className="text-center p-6">
+                        <div className="text-gray-600 mb-4">
+                          Preview not available in embedded mode
+                        </div>
+                        <Button
+                          onClick={() => webPreviewURL && window.open(webPreviewURL, '_blank')}
+                          className="mb-2"
+                        >
+                          Open in New Tab
+                        </Button>
+                        <div className="text-xs text-gray-500">
+                          This is due to security restrictions on production domains
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <iframe
+                      key={`mobile-${refreshKey}`}
+                      ref={(c) => {
+                        webPreviewRef.current = c?.contentWindow ?? null;
+                      }}
+                      className="w-full h-full"
+                      title="React Native Preview"
+                      src={webPreviewURL}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                      onError={() => {
+                        console.log('Mobile iframe failed to load, switching to fallback');
+                        setUseOfficialEmbed(true);
+                        setEmbedError(true);
+                      }}
+                      onLoad={(e) => {
+                        // Check if iframe actually loaded content
+                        const iframe = e.currentTarget;
+                        try {
+                          // This will throw if blocked by CORS
+                          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                          if (!iframeDoc || iframeDoc.body.innerHTML.length === 0) {
+                            setTimeout(() => {
+                              setUseOfficialEmbed(true);
+                              setEmbedError(true);
+                            }, 2000);
+                          }
+                        } catch (err) {
+                          // CORS error - switch to fallback
+                          console.log('CORS error detected, switching to fallback');
+                          setUseOfficialEmbed(true);
+                          setEmbedError(true);
+                        }
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* Resize handle */}
@@ -550,16 +617,77 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                     Web Preview
                   </span>
                 </div>
-                <iframe
-                  key={`web-${refreshKey}`}
-                  ref={(c) => {
-                    webPreviewRef.current = c?.contentWindow ?? null;
-                  }}
-                  className="w-full h-full min-h-[500px]"
-                  title="React Native Web Preview"
-                  src={webPreviewURL}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                />
+                {useOfficialEmbed ? (
+                  // Fallback: Open in new tab or show message  
+                  <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-gray-50">
+                    <div className="text-center p-8">
+                      <div className="text-gray-700 mb-6 text-lg">
+                        🚀 Preview not available in embedded mode
+                      </div>
+                      <div className="text-gray-600 mb-6">
+                        Due to security restrictions, the Expo Snack preview cannot be embedded on production domains.
+                      </div>
+                      <div className="space-y-3">
+                        <Button
+                          onClick={() => webPreviewURL && window.open(webPreviewURL, '_blank')}
+                          className="w-full"
+                          size="lg"
+                        >
+                          Open Preview in New Tab
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setUseOfficialEmbed(false);
+                            setEmbedError(false);
+                            setRefreshKey(prev => prev + 1);
+                          }}
+                          className="w-full"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-4">
+                        This works perfectly on localhost during development
+                      </div>
+                    </div>  
+                  </div>
+                ) : (
+                  <iframe
+                    key={`web-${refreshKey}`}
+                    ref={(c) => {
+                      webPreviewRef.current = c?.contentWindow ?? null;
+                    }}
+                    className="w-full h-full min-h-[500px]"
+                    title="React Native Web Preview"
+                    src={webPreviewURL}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                    onError={() => {
+                      console.log('Web iframe failed to load, switching to fallback');
+                      setUseOfficialEmbed(true);
+                      setEmbedError(true);
+                    }}
+                    onLoad={(e) => {
+                      // Check if iframe actually loaded content
+                      const iframe = e.currentTarget;
+                      try {
+                        // This will throw if blocked by CORS
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                        if (!iframeDoc || iframeDoc.body.innerHTML.length === 0) {
+                          setTimeout(() => {
+                            setUseOfficialEmbed(true);
+                            setEmbedError(true);
+                          }, 3000); // Longer timeout for web view
+                        }
+                      } catch (err) {
+                        // CORS error - switch to fallback
+                        console.log('CORS error detected on web preview, switching to fallback');
+                        setUseOfficialEmbed(true);
+                        setEmbedError(true);
+                      }
+                    }}
+                  />
+                )}
               </div>
             </div>
             /* --- END: Web preview --- */
