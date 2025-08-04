@@ -3,19 +3,37 @@ import { createClient } from "@supabase/supabase-js";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { Database } from "@/lib/types/database.types";
+import jwt from "jsonwebtoken";
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token =
-      authHeader && authHeader.startsWith("Bearer ")
-        ? authHeader.slice(7)
-        : null;
+    const token = request.headers.get("authorization")?.split(" ")[1];
+    if (!token || !request.headers.get("authorization")?.startsWith("Bearer")) {
+      return NextResponse.json(
+        { error: "Unauthorized: No token provided" },
+        { status: 401 },
+      );
+    }
 
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET!,
+      ) as jwt.JwtPayload;
+      if (!decoded.sub) {
+        return NextResponse.json(
+          { error: "Unauthorized: Invalid user ID" },
+          { status: 401 },
+        );
+      }
+    } catch (error) {
+      console.error("Invalid JWT token: ", error);
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid token" },
+        { status: 401 },
+      );
     }
 
     const supabase = createClient<Database>(
