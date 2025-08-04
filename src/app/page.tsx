@@ -81,12 +81,6 @@ function HeroSection() {
               <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </span>
           </a>
-          <button className="group px-8 py-4 bg-white/10 text-white font-semibold rounded-2xl border border-white/20 backdrop-blur-xl transition-all duration-300 hover:bg-white/20 hover:scale-105">
-            <span className="flex items-center gap-2">
-              <PlayIcon className="w-5 h-5" />
-              Watch demo
-            </span>
-          </button>
         </div>
 
         {/* Enhanced Demo Video */}
