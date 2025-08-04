@@ -2,7 +2,7 @@
 
 import Loader from "../../components/dashboard/Loader";
 import { ProductKeys } from "@/GlobalConstants";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { PricingCard } from "@/components/PricingCard";
 import Link from "next/link";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -12,7 +12,7 @@ export default function WithPaywall({
 }: {
   children: React.ReactNode;
 }) {
-  const { userPlan, loadingSubscriptionData } = useHasSubscriptionAccess();
+  const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
   if (loadingSubscriptionData) {
     return <Loader />;
   } else if (userPlan === "team" || userPlan === "pro") {

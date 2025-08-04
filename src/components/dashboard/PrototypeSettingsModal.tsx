@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Database } from "@/lib/types/database.types";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
@@ -42,7 +42,7 @@ export default function PrototypeSettingsModal({
     Database["public"]["Enums"]["visibility_level"]
   >("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { userPlan } = useHasSubscriptionAccess();
+  const { userPlan } = useSubscriptionAccess();
 
   useEffect(() => {
     if (prototype) {

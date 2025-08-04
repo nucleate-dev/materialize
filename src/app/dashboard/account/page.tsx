@@ -2,9 +2,9 @@
 
 import Breadcrumb from "@/components/dashboard/Breadcrumbs/Breadcrumb";
 import { ProductKeys } from "@/GlobalConstants";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ function AccountSettings() {
     currentPeriodStart,
     currentPeriodEnd,
     loadingSubscriptionData,
-  } = useHasSubscriptionAccess();
+  } = useSubscriptionAccess();
 
   const [currentSubscription, setCurrentSubscription] = useState<string>("");
   const [nextBillingDate, setNextBillingDate] = useState<Date>(new Date());

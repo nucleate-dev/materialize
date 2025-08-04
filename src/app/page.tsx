@@ -4,11 +4,7 @@ import { PricingCard } from "@/components/PricingCard";
 import { ProductKeys } from "@/GlobalConstants";
 import {
   ArrowRightIcon,
-  ArrowsPointingOutIcon,
   CodeBracketIcon,
-  DevicePhoneMobileIcon,
-  EyeIcon,
-  PaintBrushIcon,
   PlayIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
@@ -18,11 +14,8 @@ export default function Home() {
     <main className="bg-black overflow-hidden">
       <PremiumHeader />
       <HeroSection />
-      <RapidPrototypingSection />
-      <FlowVisualizationSection />
-      <FeaturesSection />
-      <PricingSection />
       <FloatingElements />
+      <PricingSection />
     </main>
   );
 }
@@ -120,172 +113,6 @@ function HeroSection() {
         </div>
       </div>
     </section>
-  );
-}
-
-function PhoneMockup({ label }: { label: string; }) {
-  return (
-    <div className="relative w-40 sm:w-48 md:w-56 aspect-[9/19] bg-black rounded-[2.5rem] border-4 border-gray-700 shadow-xl flex items-center justify-center overflow-hidden">
-      {/* notch */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-black rounded-b-xl"></div>
-      <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-300 text-sm">
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function RapidPrototypingSection() {
-  return (
-    <section className="relative py-32 bg-gradient-to-b from-gray-900 to-black text-center">
-      <div className="container mx-auto px-6">
-        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
-          Rapid Prototyping
-        </h2>
-        <p className="text-xl text-white max-w-3xl mx-auto mb-16">
-          Quickly build paywalls and iterate in seconds.
-        </p>
-        <div className="flex justify-center gap-6">
-          <PhoneMockup label="Paywall 1" />
-          <PhoneMockup label="Paywall 2" />
-          <PhoneMockup label="Paywall 3" />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FlowVisualizationSection() {
-  return (
-    <section className="relative py-32 bg-gradient-to-b from-black to-gray-900 text-center">
-      <div className="container mx-auto px-6">
-        <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
-          Visualize &amp; Tweak Your Flows Quickly
-        </h2>
-        <p className="text-xl text-white max-w-3xl mx-auto mb-16">
-          See your 3 step paywall flow at a glance.
-        </p>
-        <div className="flex justify-center gap-6">
-          <PhoneMockup label="Step 1" />
-          <PhoneMockup label="Step 2" />
-          <PhoneMockup label="Step 3" />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FeaturesSection() {
-  const features = [
-    {
-      icon: <ArrowsPointingOutIcon className="w-8 h-8" />,
-      title: "Infinite Canvas & Flow Branching",
-      description:
-        "Compare 5–10 UX ideas side-by-side in one space—no file/version sprawl, faster convergence.",
-      gradient: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: <PaintBrushIcon className="w-8 h-8" />,
-      title: "Taste-Trained AI Variants",
-      description:
-        "One click produces polished, best-practice screens (onboarding, checkout, empty states) so you skip blank-canvas lag.",
-      gradient: "from-purple-500 to-pink-500",
-    },
-    {
-      icon: <EyeIcon className="w-8 h-8" />,
-      title: "Dive-In Component Editing",
-      description:
-        "Double-click to tweak props, layout, or copy with instant live re-render—stay in creative flow.",
-      gradient: "from-green-500 to-emerald-500",
-    },
-    {
-      icon: <DevicePhoneMobileIcon className="w-8 h-8" />,
-      title: "React Native Preview",
-      description:
-        "Instantly preview your React Native components across platforms and iterate without leaving the canvas.",
-      gradient: "from-orange-500 to-red-500",
-    },
-    {
-      icon: <CodeBracketIcon className="w-8 h-8" />,
-      title: "One-Click Code Export",
-      description:
-        "Output clean JSX / RN Web or open a sandbox—eliminates hand-off rebuild time and accelerates implementation.",
-      gradient: "from-indigo-500 to-purple-500",
-    },
-  ];
-
-  return (
-    <section id="features" className="relative py-32 bg-black">
-      <div className="container mx-auto px-6">
-        {/* Section Header */}
-        <div className="text-center mb-20">
-          <div className="inline-flex items-center px-4 py-2 mb-6 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-full">
-            <span className="text-sm text-blue-300 font-medium">
-              Core Features
-            </span>
-          </div>
-          <h2 className="text-5xl md:text-6xl font-bold mb-6 text-white">
-            Built for Speed & Quality
-          </h2>
-          <p className="text-xl text-white max-w-3xl mx-auto">
-            Every feature designed to eliminate friction and accelerate your
-            creative process.
-          </p>
-        </div>
-
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 max-w-7xl mx-auto">
-          {features.map((feature, index) => (
-            <FeatureCard key={index} {...feature} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-  gradient,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  gradient: string;
-}) {
-  return (
-    <div className="group relative">
-      {/* Hover Glow Effect */}
-      <div
-        className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-20 rounded-3xl blur-xl transition-opacity duration-500`}
-      ></div>
-
-      {/* Card */}
-      <div className="relative bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-3xl p-8 hover:border-white/30 transition-all duration-500 backdrop-blur-xl group-hover:transform group-hover:scale-105">
-        {/* Icon */}
-        <div
-          className={`inline-flex p-4 bg-gradient-to-r ${gradient} rounded-2xl mb-6 shadow-lg`}
-        >
-          <div className="text-white">{icon}</div>
-        </div>
-
-        {/* Content */}
-        <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-gray-100 transition-colors">
-          {title}
-        </h3>
-        <p className="text-white text-lg leading-relaxed group-hover:text-gray-100 transition-colors">
-          {description}
-        </p>
-
-        {/* Subtle Arrow Indicator */}
-        <div className="flex items-center mt-6 text-gray-400 group-hover:text-white transition-colors">
-          <span className="text-sm font-medium mr-2">Learn more</span>
-          <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -409,4 +236,3 @@ function PricingSection() {
     </section>
   );
 }
-

@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { login, signInWithOAuth, useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useState, useEffect } from "react";
@@ -25,24 +26,6 @@ export default function LoginForm() {
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  // Redirect to dashboard if user is already logged in
-  useEffect(() => {
-    if (!userIsLoading && user) {
-      router.push("/dashboard");
-    }
-  }, [user, userIsLoading, router]);
-
-  // Show loading while checking authentication
-  if (userIsLoading) {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center">Loading...</div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   const { email, password } = formData;
 
@@ -89,6 +72,24 @@ export default function LoginForm() {
       password,
     ]
   );
+
+  // Redirect to dashboard if user is already logged in
+  useEffect(() => {
+    if (!userIsLoading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, userIsLoading, router]);
+
+  // Show loading while checking authentication
+  if (userIsLoading) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardContent className="flex items-center justify-center py-8">
+          <div className="text-center">Loading...</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (showVerifyEmailState) {
     return (

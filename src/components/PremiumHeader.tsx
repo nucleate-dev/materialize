@@ -1,7 +1,7 @@
 "use client";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useUser } from "@/hooks/useUser";
 
 export default function PremiumHeader() {
   const { user, userIsLoading } = useUser();

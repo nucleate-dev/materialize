@@ -20,8 +20,9 @@ import { Input } from "@/components/ui/input";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { useHasSubscriptionAccess } from "@/lib/utils/payments/PaymentValidationUtils";
+import { createPrototype } from "@/lib/utils/prototypes";
+import { useUser } from "@/hooks/useUser";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -37,7 +38,7 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
-  const { userPlan } = useHasSubscriptionAccess();
+  const { userPlan } = useSubscriptionAccess();
   const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
@@ -172,37 +173,22 @@ export default function CreatePage() {
 
       // Create new prototype
       const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const { data: newPrototype, error: prototypeError } = await supabase
-        .from("prototypes")
-        .insert({
+      const newPrototype = await createPrototype(
+        supabase,
+        {
           name: clonedPrototypeName,
           description: prototype.description,
           owner_id: user.id,
           project_id: prototype.project_id,
           prototype_context: prototype.prototype_context,
           visibility: "SELF" as const,
-        })
-        .select()
-        .single();
-
-      if (prototypeError) {
-        throw prototypeError;
-      }
-
-      // Copy all files to the new prototype
-      const filesToCopy = Object.values(fileSystem.state.files).map((file) => ({
-        prototype_id: newPrototype.id,
-        name: file.name,
-        contents: file.contents,
-      }));
-
-      const { error: filesError } = await supabase
-        .from("prototype_files")
-        .insert(filesToCopy);
-
-      if (filesError) {
-        throw filesError;
-      }
+        },
+        userPlan,
+        Object.values(fileSystem.state.files).map((file) => ({
+          name: file.name,
+          contents: file.contents,
+        })),
+      );
 
       // Navigate to the new prototype in dashboard
       router.push(`/dashboard/prototypes/${newPrototype.id}`);
