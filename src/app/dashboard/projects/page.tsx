@@ -71,7 +71,7 @@ export default function ProjectsPage() {
                 All projects
               </h1>
               <p className="text-sm sm:text-base text-body dark:text-bodydark">
-                Manage and organize your projects
+                Create and manage your design prototypes. Examples include "Onboarding Flow" or "Paywalls"
               </p>
             </div>
 
