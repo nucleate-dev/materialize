@@ -13,11 +13,26 @@ import { useUser } from "@/hooks/useUser";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Rocket, Calendar, CreditCard, MessageSquare } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  User, 
+  Mail, 
+  Rocket, 
+  Calendar, 
+  CreditCard, 
+  MessageSquare, 
+  Settings, 
+  BarChart3,
+  Crown,
+  AlertCircle,
+  CheckCircle
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/ClientConstants";
@@ -140,12 +155,40 @@ function AccountSettings() {
 
   const messageLimit = getMessageLimit();
 
+  const getPlanBadgeVariant = (plan: string) => {
+    switch (plan.toLowerCase()) {
+      case ProductKeys.PRO_SUBSCRIPTION.toLowerCase():
+        return "default";
+      case ProductKeys.TEAM_SUBSCRIPTION.toLowerCase():
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
+
+  const getUsagePercentage = () => {
+    return messageLimit > 0 ? (messageCount / messageLimit) * 100 : 0;
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-title-md2 font-semibold text-black dark:text-white">
-          Account
-        </h2>
+    <div className="container mx-auto py-6 space-y-8 max-w-4xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your account information and subscription
+          </p>
+        </div>
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -159,124 +202,185 @@ function AccountSettings() {
         </Breadcrumb>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Personal Information Card */}
-        <div className="lg:col-span-2">
-          <Card className="bg-background/80 backdrop-blur-sm border border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Personal Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    value={name}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="emailAddress"
-                    className="flex items-center gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Email Address
-                  </Label>
-                  <Input
-                    id="emailAddress"
-                    type="email"
-                    value={email}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
+      {/* Profile Header Card */}
+      <Card className="border-0 shadow-md">
+        <CardContent className="pt-6">
+          <div className="flex items-center space-x-4">
+            <Avatar className="h-20 w-20">
+              <AvatarFallback className="text-lg font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                {getInitials(name || "U")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3">
+                <h2 className="text-2xl font-semibold">{name || "User"}</h2>
+                <Badge variant={getPlanBadgeVariant(currentSubscription)} className="capitalize">
+                  {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && <Crown className="w-3 h-3 mr-1" />}
+                  {currentSubscription.replace('_subscription', '')}
+                </Badge>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <p className="text-muted-foreground flex items-center">
+                <Mail className="w-4 h-4 mr-2" />
+                {email}
+              </p>
+              <p className="text-sm text-muted-foreground flex items-center">
+                <Calendar className="w-4 h-4 mr-2" />
+                Member since {memberSince?.toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Membership Details Card */}
-        <div className="lg:col-span-1">
-          <Card className="bg-background/80 backdrop-blur-sm border border-border">
+      {/* Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview" className="flex items-center space-x-2">
+            <BarChart3 className="w-4 h-4" />
+            <span>Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="subscription" className="flex items-center space-x-2">
+            <CreditCard className="w-4 h-4" />
+            <span>Subscription</span>
+          </TabsTrigger>
+          <TabsTrigger value="usage" className="flex items-center space-x-2">
+            <MessageSquare className="w-4 h-4" />
+            <span>Usage</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/* Current Plan */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Current Plan</CardTitle>
+                <Rocket className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold capitalize">
+                  {currentSubscription.replace('_subscription', '')}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {currentSubscription === ProductKeys.FREE_SUBSCRIPTION ? 'Free forever' : 'Premium features included'}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Usage This Period */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Usage This Period</CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {loadingUsageCount ? "..." : messageCount}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  of {messageLimit} messages used
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Current Period End */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Current Period Ends</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {currentPeriodEnd?.getDate()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {currentPeriodEnd?.toLocaleDateString('en-US', { 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Status Alert */}
+          {scheduledForCancellation && (
+            <Alert className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800 dark:text-orange-200">
+                Your subscription is scheduled for cancellation on {nextBillingDate?.toLocaleDateString()}.
+              </AlertDescription>
+            </Alert>
+          )}
+        </TabsContent>
+
+        <TabsContent value="subscription" className="space-y-6">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center space-x-2">
                 <CreditCard className="w-5 h-5" />
-                Membership Details
+                <span>Subscription Management</span>
               </CardTitle>
+              <CardDescription>
+                Manage your subscription, billing, and payment methods
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="text-center p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">
-                  Member since
-                </p>
-                <p className="font-semibold">
-                  {memberSince?.toLocaleDateString()}
-                </p>
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <p className="font-medium capitalize">
+                    {currentSubscription.replace('_subscription', '')} Plan
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {currentSubscription === ProductKeys.FREE_SUBSCRIPTION 
+                      ? 'Free forever with basic features'
+                      : `${messageLimit} messages per billing cycle`
+                    }
+                  </p>
+                </div>
+                <Badge variant={getPlanBadgeVariant(currentSubscription)} className="capitalize">
+                  {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && <Crown className="w-3 h-3 mr-1" />}
+                  Active
+                </Badge>
               </div>
 
-              <div className="space-y-2">
-                <Label
-                  htmlFor="currentPlan"
-                  className="flex items-center gap-2"
-                >
-                  <Rocket className="w-4 h-4" />
-                  Current Plan
-                </Label>
-                <Input
-                  id="currentPlan"
-                  value={currentSubscription}
-                  disabled
-                  className="bg-muted font-medium"
-                />
-              </div>
+              {currentSubscription !== ProductKeys.FREE_SUBSCRIPTION && (
+                <>
+                  <Separator />
 
-              <div className="space-y-2">
-                <Label
-                  htmlFor="billingDate"
-                  className="flex items-center gap-2"
-                >
-                  <Calendar className="w-4 h-4" />
-                  {scheduledForCancellation
-                    ? "Membership ends on"
-                    : "Next billing date"}
-                </Label>
-                <Input
-                  id="billingDate"
-                  value={`${nextBillingDate?.getMonth() + 1}/${nextBillingDate?.getDate()}/${nextBillingDate?.getFullYear()}`}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="messageUsage"
-                  className="flex items-center gap-2"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Messages Used (Current Period)
-                </Label>
-                <Input
-                  id="messageUsage"
-                  value={
-                    loadingUsageCount
-                      ? "Loading..."
-                      : `${messageCount}/${messageLimit}`
-                  }
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Billing Information</h4>
+                    <div className="grid gap-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          {scheduledForCancellation ? 'Subscription ends' : 'Next billing date'}:
+                        </span>
+                        <span className="font-medium">
+                          {nextBillingDate?.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Member since:</span>
+                        <span className="font-medium">
+                          {memberSince?.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Separator />
 
@@ -288,13 +392,73 @@ function AccountSettings() {
                   );
                 }}
                 className="w-full"
+                size="lg"
               >
-                Manage Subscription
+                <Settings className="w-4 h-4 mr-2" />
+                Manage Subscription & Billing
               </Button>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="usage" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <MessageSquare className="w-5 h-5" />
+                <span>Usage Statistics</span>
+              </CardTitle>
+              <CardDescription>
+                Track your message usage for the current billing period
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Messages Used</span>
+                  <span className="text-sm text-muted-foreground">
+                    {loadingUsageCount ? "Loading..." : `${messageCount} / ${messageLimit}`}
+                  </span>
+                </div>
+                <Progress 
+                  value={getUsagePercentage()} 
+                  className="h-2"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0</span>
+                  <span>{messageLimit} messages</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current period:</span>
+                  <span className="font-medium">
+                    {currentPeriodStart?.toLocaleDateString()} - {currentPeriodEnd?.toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Messages remaining:</span>
+                  <span className="font-medium">
+                    {loadingUsageCount ? "..." : Math.max(0, messageLimit - messageCount)}
+                  </span>
+                </div>
+              </div>
+
+              {getUsagePercentage() > 80 && (
+                <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                    You've used {Math.round(getUsagePercentage())}% of your monthly message limit.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
