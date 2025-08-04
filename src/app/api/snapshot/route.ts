@@ -2,16 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
-);
+import { Database } from "@/lib/types/database.types";
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization");
+    const token =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
+
     const { snackUrl, prototypeId } = await request.json();
 
     if (!snackUrl || !prototypeId) {
@@ -34,17 +52,31 @@ export async function POST(request: NextRequest) {
     const screenshot = await page.screenshot({ type: "png" });
     await browser.close();
 
-    const filePath = `${prototypeId}/${Date.now()}.png`;
-    const { error } = await supabase.storage
+    const filePath = `${prototypeId}/${prototypeId}.png`;
+    const { error: uploadError } = await supabase.storage
       .from("prototype-snapshots")
       .upload(filePath, screenshot, {
         upsert: true,
         contentType: "image/png",
       });
 
-    if (error) {
-      console.error("Supabase upload error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("prototype-snapshots").getPublicUrl(filePath);
+
+    const { error: updateError } = await supabase
+      .from("prototypes")
+      .update({ thumbnail_url: publicUrl })
+      .eq("id", prototypeId);
+
+    if (updateError) {
+      console.error("Supabase update error:", updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, filePath });
