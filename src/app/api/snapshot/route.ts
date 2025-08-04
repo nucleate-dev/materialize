@@ -57,11 +57,97 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine if we're in a serverless environment
+    const isServerless =
+      process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    console.log("Environment check:", {
+      isServerless,
+      NODE_ENV: process.env.NODE_ENV,
+    });
+
+    let executablePath;
+    let args;
+
+    if (isServerless) {
+      // Use @sparticuz/chromium for serverless environments
+      console.log("Using serverless chromium");
+      executablePath = await chromium.executablePath();
+      args = chromium.args;
+    } else {
+      // For local development, first try puppeteer's bundled chromium
+      console.log("Local development mode");
+      try {
+        // Try to use puppeteer's bundled chromium (if regular puppeteer is installed)
+        let puppeteerRegular;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          puppeteerRegular = require("puppeteer");
+        } catch {
+          puppeteerRegular = null;
+        }
+
+        if (puppeteerRegular && puppeteerRegular.executablePath) {
+          console.log("Using puppeteer bundled chromium");
+          executablePath = puppeteerRegular.executablePath();
+          args = ["--no-sandbox", "--disable-setuid-sandbox"];
+        } else {
+          throw new Error("Puppeteer not available");
+        }
+      } catch {
+        // Fallback to local Chrome installation
+        console.log(
+          "Puppeteer bundled chromium not available, trying local Chrome",
+        );
+        const localChromePaths = [
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", // macOS
+          "/usr/bin/google-chrome-stable", // Linux
+          "/usr/bin/google-chrome", // Linux alternative
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // Windows
+          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", // Windows 32-bit
+        ];
+
+        executablePath = localChromePaths.find((path) => {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const fs = require("fs");
+            return fs.existsSync(path);
+          } catch {
+            return false;
+          }
+        });
+
+        if (!executablePath) {
+          // Final fallback to @sparticuz/chromium
+          console.log(
+            "No local Chrome found, falling back to @sparticuz/chromium",
+          );
+          try {
+            executablePath = await chromium.executablePath();
+            args = chromium.args;
+          } catch (err) {
+            console.error("All fallbacks failed:", err);
+            throw new Error(
+              `No Chrome executable found. Error: ${err instanceof Error ? err.message : "Unknown error"}. Please install Chrome or run "npm install puppeteer" for local development.`,
+            );
+          }
+        } else {
+          console.log("Using local Chrome at:", executablePath);
+          args = ["--no-sandbox", "--disable-setuid-sandbox"];
+        }
+      }
+    }
+
+    console.log("Launching browser with:", {
+      executablePath,
+      args: args.slice(0, 5),
+    });
+
     const browser = await puppeteer.launch({
-      args: chromium.args,
+      args,
       defaultViewport: { width: 400, height: 800 },
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      executablePath,
+      headless: true,
     });
 
     const page = await browser.newPage();
@@ -70,9 +156,9 @@ export async function POST(request: NextRequest) {
     const screenshot = await page.screenshot({ type: "png" });
     await browser.close();
 
-    const filePath = `${prototypeId}/${prototypeId}.png`;
+    const filePath = `${prototypeId}.png`;
     const { error: uploadError } = await supabase.storage
-      .from("prototype-snapshots")
+      .from("prototype-thumbnails")
       .upload(filePath, screenshot, {
         upsert: true,
         contentType: "image/png",
@@ -85,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("prototype-snapshots").getPublicUrl(filePath);
+    } = supabase.storage.from("prototype-thumbnails").getPublicUrl(filePath);
 
     const { error: updateError } = await supabase
       .from("prototypes")
