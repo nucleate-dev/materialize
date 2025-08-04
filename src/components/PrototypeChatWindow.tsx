@@ -592,6 +592,7 @@ export default function PrototypeChatWindow({
       <ProPlanUpsellModal
         open={showUpsellModal}
         onOpenChange={setShowUpsellModal}
+        reason="free_message_limit_reached"
         messageCount={messageCount}
         messageLimit={messageLimit}
       />

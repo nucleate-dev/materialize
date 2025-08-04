@@ -10,27 +10,74 @@ import {
 } from "@/components/ui/dialog";
 import { ProductKeys } from "@/GlobalConstants";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { StarIcon, SparklesIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { Star, Sparkles, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+type UpsellReason = "free_message_limit_reached" | "prototype_creation_limit_reached";
 
 interface ProPlanUpsellModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  messageCount: number;
-  messageLimit: number;
+  reason: UpsellReason;
+  messageCount?: number;
+  messageLimit?: number;
   onDismiss?: () => void;
 }
 
 export default function ProPlanUpsellModal({
   open,
   onOpenChange,
+  reason,
   messageCount,
   messageLimit,
   onDismiss,
 }: ProPlanUpsellModalProps) {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const getUpsellContent = () => {
+    switch (reason) {
+      case "free_message_limit_reached":
+        return {
+          limitText: `Free limit reached: ${messageCount}/${messageLimit} messages`,
+          title: "Continue building with Pro",
+          description: "Unlock unlimited AI-powered development and keep building amazing apps.",
+          features: [
+            "100 messages per month",
+            "Priority AI responses", 
+            "Advanced code generation",
+            "Premium support"
+          ]
+        };
+      case "prototype_creation_limit_reached":
+        return {
+          limitText: "Free limit reached: 5/5 prototypes",
+          title: "Create unlimited prototypes with Pro",
+          description: "You can only create 5 prototypes on the free plan. Upgrade to Pro for unlimited prototype creation.",
+          features: [
+            "Unlimited prototypes",
+            "Advanced prototype features",
+            "Priority AI responses",
+            "Premium support"
+          ]
+        };
+      default:
+        return {
+          limitText: "Free limit reached",
+          title: "Upgrade to Pro",
+          description: "Unlock premium features and continue building.",
+          features: [
+            "Unlimited access",
+            "Priority support",
+            "Advanced features",
+            "Premium tools"
+          ]
+        };
+    }
+  };
+
+  const content = getUpsellContent();
 
   const handleUpgrade = async () => {
     try {
@@ -60,8 +107,8 @@ export default function ProPlanUpsellModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30">
-              <StarIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            <div className="p-3 rounded-xl bg-muted">
+              <Star className="w-6 h-6 text-primary" />
             </div>
             <DialogTitle className="text-xl">Upgrade to Pro</DialogTitle>
           </div>
@@ -69,44 +116,29 @@ export default function ProPlanUpsellModal({
 
         <div className="py-6">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-full mb-4">
-              <SparklesIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                Free limit reached: {messageCount}/{messageLimit} messages
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-destructive/10 rounded-full mb-4">
+              <Sparkles className="w-4 h-4 text-destructive" />
+              <span className="text-sm font-medium text-destructive">
+                {content.limitText}
               </span>
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              Continue building with Pro
+              {content.title}
             </h3>
             <p className="text-muted-foreground leading-relaxed">
-              Unlock unlimited AI-powered development and keep building amazing
-              apps.
+              {content.description}
             </p>
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <CheckIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <span className="text-sm text-foreground">
-                100 messages per month
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <span className="text-sm text-foreground">
-                Priority AI responses
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <span className="text-sm text-foreground">
-                Advanced code generation
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <span className="text-sm text-foreground">Premium support</span>
-            </div>
+            {content.features.map((feature, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                <span className="text-sm text-foreground">
+                  {feature}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -117,7 +149,6 @@ export default function ProPlanUpsellModal({
           <Button
             onClick={handleUpgrade}
             disabled={isProcessing}
-            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isProcessing ? (
               <>
@@ -126,7 +157,7 @@ export default function ProPlanUpsellModal({
               </>
             ) : (
               <>
-                <StarIcon className="w-4 h-4 mr-2" />
+                <Star className="w-4 h-4 mr-2" />
                 Upgrade to Pro
               </>
             )}
