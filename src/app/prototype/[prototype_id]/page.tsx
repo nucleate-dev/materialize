@@ -26,7 +26,7 @@ export default function PrototypePage() {
   const { user, userIsLoading } = useUser();
   const params = useParams<{ prototype_id: string }>();
   const router = useRouter();
-  const prototypeId = params?.prototype_id;
+  const prototypeId = params.prototype_id;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [prototypeFiles, setPrototypeFiles] = useState<Record<string, PrototypeFile>>({});
@@ -231,6 +231,7 @@ export default function PrototypePage() {
             <CardContent className="h-full p-0">
               <ExpoSnackViewer
                 files={prototypeFiles}
+                prototypeId={prototypeId}
                 hideControls={!user || prototype?.owner_id !== user.id}
                 onCreateFile={
                   user && prototype?.owner_id === user.id

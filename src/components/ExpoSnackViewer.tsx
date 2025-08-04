@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
 import { Monitor, RefreshCw, RotateCcw, Settings, Smartphone } from "lucide-react";
+import { supabase } from "@/ClientConstants";
 import {
   forwardRef,
   useCallback,
@@ -38,6 +39,7 @@ interface SnackWithSubscriptions extends Snack {
 
 interface ExpoSnackViewerProps {
   files: Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]>;
+  prototypeId: string;
   onResetToDefault?: () => void;
   hideControls?: boolean;
   onCreateFile?: (fileName: string, initialContent?: string) => void;
@@ -50,7 +52,10 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files, onResetToDefault, hideControls = false, onCreateFile }, ref) => {
+  (
+    { files, prototypeId, onResetToDefault, hideControls = false, onCreateFile },
+    ref,
+  ) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +69,8 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
+    const hasRenderError = useRef(false);
+    const lastSnapshotTime = useRef(0);
 
     // Force refresh method
     const forceRefresh = useCallback(() => {
@@ -128,6 +135,9 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
           const logSubscription = snackSDK.addLogListener((log) => {
             console.log("Snack log:", log);
+            if (log.type === "error") {
+              hasRenderError.current = true;
+            }
           });
 
           setSnack(snackSDK);
@@ -190,8 +200,52 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       }
     }, [files, snack, forceRefresh]);
 
-    const snackUrl = snackState?.url;
+    useEffect(() => {
+      hasRenderError.current = false;
+    }, [files, refreshKey]);
+
+    const snackUrl = snackState?.webPreviewURL;
     const webPreviewURL = snackState?.webPreviewURL;
+
+    const triggerSnapshot = useCallback(async () => {
+      if (!snackUrl || !prototypeId) return;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) return;
+
+      try {
+        const res = await fetch("/api/snapshot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ snackUrl, prototypeId }),
+        });
+
+        if (!res.ok) {
+          console.error("Snapshot request failed", await res.text());
+        }
+      } catch (err) {
+        console.error("Snapshot error", err);
+      }
+    }, [snackUrl, prototypeId]);
+
+    const debouncedSnapshot = useCallback(() => {
+      const now = Date.now();
+      if (now - lastSnapshotTime.current < 90000) return;
+      lastSnapshotTime.current = now;
+      void triggerSnapshot();
+    }, [triggerSnapshot]);
+
+    useEffect(() => {
+      if (snackUrl && !hasRenderError.current) {
+        debouncedSnapshot();
+      }
+    }, [snackUrl, debouncedSnapshot]);
 
     const handleRefresh = () => {
       if (webPreviewRef.current && webPreviewURL) {

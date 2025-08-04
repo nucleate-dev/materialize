@@ -39,8 +39,8 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
-  const prototypeId = params?.prototype_id;
+  const params = useParams<{ prototype_id: string }>();
+  const prototypeId = params.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -414,6 +414,7 @@ export default function CreatePage() {
                       <ExpoSnackViewer
                         ref={snackViewerRef}
                         files={fileSystem.state.files}
+                        prototypeId={prototypeId}
                         onResetToDefault={handleResetToDefault}
                       />
                     </div>
