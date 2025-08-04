@@ -14,7 +14,6 @@ import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/Subsc
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -28,7 +27,6 @@ import {
   CreditCard, 
   MessageSquare, 
   Settings, 
-  BarChart3,
   Crown,
   AlertCircle,
   CheckCircle
@@ -236,229 +234,154 @@ function AccountSettings() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview" className="flex items-center space-x-2">
-            <BarChart3 className="w-4 h-4" />
-            <span>Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="subscription" className="flex items-center space-x-2">
-            <CreditCard className="w-4 h-4" />
-            <span>Subscription</span>
-          </TabsTrigger>
-          <TabsTrigger value="usage" className="flex items-center space-x-2">
-            <MessageSquare className="w-4 h-4" />
-            <span>Usage</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Status Alert */}
+      {scheduledForCancellation && (
+        <Alert className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
+          <AlertCircle className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-800 dark:text-orange-200">
+            Your subscription is scheduled for cancellation on {nextBillingDate?.toLocaleDateString()}.
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Current Plan */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Plan</CardTitle>
-                <Rocket className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold capitalize">
-                  {currentSubscription.replace('_subscription', '')}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {currentSubscription === ProductKeys.FREE_SUBSCRIPTION ? 'Free forever' : 'Premium features included'}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Usage This Period */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Usage This Period</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {loadingUsageCount ? "..." : messageCount}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  of {messageLimit} messages used
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Current Period End */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Period Ends</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {currentPeriodEnd?.getDate()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {currentPeriodEnd?.toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    year: 'numeric' 
-                  })}
-                </p>
-              </CardContent>
-            </Card>
+      {/* Subscription Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <CreditCard className="w-5 h-5" />
+            <span>Subscription Management</span>
+          </CardTitle>
+          <CardDescription>
+            Manage your subscription, billing, and payment methods
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-1">
+              <p className="font-medium capitalize">
+                {currentSubscription.replace('_subscription', '')} Plan
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {currentSubscription === ProductKeys.FREE_SUBSCRIPTION 
+                  ? 'Free forever with basic features'
+                  : `${messageLimit} messages per billing cycle`
+                }
+              </p>
+            </div>
+            <Badge variant={getPlanBadgeVariant(currentSubscription)} className="capitalize">
+              {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && <Crown className="w-3 h-3 mr-1" />}
+              Active
+            </Badge>
           </div>
 
-          {/* Status Alert */}
-          {scheduledForCancellation && (
-            <Alert className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
-              <AlertCircle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800 dark:text-orange-200">
-                Your subscription is scheduled for cancellation on {nextBillingDate?.toLocaleDateString()}.
+          {currentSubscription !== ProductKeys.FREE_SUBSCRIPTION && (
+            <>
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="font-medium">Billing Information</h4>
+                <div className="grid gap-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {scheduledForCancellation ? 'Subscription ends' : 'Next billing date'}:
+                    </span>
+                    <span className="font-medium">
+                      {nextBillingDate?.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Member since:</span>
+                    <span className="font-medium">
+                      {memberSince?.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <Separator />
+
+          <Button
+            onClick={() => {
+              handleRedirectToStripeCustomerPortal(
+                user.user?.id ?? "",
+                router,
+              );
+            }}
+            className="w-full"
+            size="lg"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Manage Subscription & Billing
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Usage Statistics */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <MessageSquare className="w-5 h-5" />
+            <span>Usage Statistics</span>
+          </CardTitle>
+          <CardDescription>
+            Track your message usage for the current billing period
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Messages Used</span>
+              <span className="text-sm text-muted-foreground">
+                {loadingUsageCount ? "Loading..." : `${messageCount} / ${messageLimit}`}
+              </span>
+            </div>
+            <Progress 
+              value={getUsagePercentage()} 
+              className="h-2"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>0</span>
+              <span>{messageLimit} messages</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Current period:</span>
+              <span className="font-medium">
+                {currentPeriodStart?.toLocaleDateString()} - {currentPeriodEnd?.toLocaleDateString()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Messages remaining:</span>
+              <span className="font-medium">
+                {loadingUsageCount ? "..." : Math.max(0, messageLimit - messageCount)}
+              </span>
+            </div>
+          </div>
+
+          {getUsagePercentage() > 80 && (
+            <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                You've used {Math.round(getUsagePercentage())}% of your monthly message limit.
               </AlertDescription>
             </Alert>
           )}
-        </TabsContent>
-
-        <TabsContent value="subscription" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="w-5 h-5" />
-                <span>Subscription Management</span>
-              </CardTitle>
-              <CardDescription>
-                Manage your subscription, billing, and payment methods
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-1">
-                  <p className="font-medium capitalize">
-                    {currentSubscription.replace('_subscription', '')} Plan
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {currentSubscription === ProductKeys.FREE_SUBSCRIPTION 
-                      ? 'Free forever with basic features'
-                      : `${messageLimit} messages per billing cycle`
-                    }
-                  </p>
-                </div>
-                <Badge variant={getPlanBadgeVariant(currentSubscription)} className="capitalize">
-                  {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && <Crown className="w-3 h-3 mr-1" />}
-                  Active
-                </Badge>
-              </div>
-
-              {currentSubscription !== ProductKeys.FREE_SUBSCRIPTION && (
-                <>
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Billing Information</h4>
-                    <div className="grid gap-4 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          {scheduledForCancellation ? 'Subscription ends' : 'Next billing date'}:
-                        </span>
-                        <span className="font-medium">
-                          {nextBillingDate?.toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Member since:</span>
-                        <span className="font-medium">
-                          {memberSince?.toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <Separator />
-
-              <Button
-                onClick={() => {
-                  handleRedirectToStripeCustomerPortal(
-                    user.user?.id ?? "",
-                    router,
-                  );
-                }}
-                className="w-full"
-                size="lg"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Manage Subscription & Billing
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="usage" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <MessageSquare className="w-5 h-5" />
-                <span>Usage Statistics</span>
-              </CardTitle>
-              <CardDescription>
-                Track your message usage for the current billing period
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Messages Used</span>
-                  <span className="text-sm text-muted-foreground">
-                    {loadingUsageCount ? "Loading..." : `${messageCount} / ${messageLimit}`}
-                  </span>
-                </div>
-                <Progress 
-                  value={getUsagePercentage()} 
-                  className="h-2"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0</span>
-                  <span>{messageLimit} messages</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Current period:</span>
-                  <span className="font-medium">
-                    {currentPeriodStart?.toLocaleDateString()} - {currentPeriodEnd?.toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Messages remaining:</span>
-                  <span className="font-medium">
-                    {loadingUsageCount ? "..." : Math.max(0, messageLimit - messageCount)}
-                  </span>
-                </div>
-              </div>
-
-              {getUsagePercentage() > 80 && (
-                <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
-                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                    You've used {Math.round(getUsagePercentage())}% of your monthly message limit.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }
