@@ -97,7 +97,7 @@ export default function PrototypePage() {
 
       // Create new prototype
       const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const newPrototype = await createPrototype(
+      const result = await createPrototype(
         supabase,
         {
           name: clonedPrototypeName,
@@ -114,8 +114,15 @@ export default function PrototypePage() {
         })),
       );
 
-      // Navigate to the new prototype in dashboard
-      router.push(`/dashboard/prototypes/${newPrototype.id}`);
+      if (result.success) {
+        // Navigate to the new prototype in dashboard
+        router.push(`/dashboard/prototypes/${result.data.id}`);
+      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+        // Handle prototype limit reached
+        setError("You've reached the maximum number of prototypes for the free plan. Upgrade to Pro for unlimited prototypes.");
+      } else {
+        setError(result.message);
+      }
     } catch (err) {
       console.error("Error cloning prototype:", err);
       setError(

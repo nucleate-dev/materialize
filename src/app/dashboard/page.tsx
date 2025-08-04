@@ -54,9 +54,9 @@ export default function DashboardPage() {
         return;
       }
 
-      let data;
+      let result;
       try {
-        data = await createPrototype(
+        result = await createPrototype(
           supabase,
           {
             name: "New Prototype",
@@ -69,17 +69,24 @@ export default function DashboardPage() {
         return;
       }
 
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "chat_intent",
-          JSON.stringify({
-            prototype_id: data.id,
-            message: content,
-          }),
-        );
-      }
+      if (result.success) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "chat_intent",
+            JSON.stringify({
+              prototype_id: result.data.id,
+              message: content,
+            }),
+          );
+        }
 
-      router.push(`/dashboard/prototypes/${data.id}`);
+        router.push(`/dashboard/prototypes/${result.data.id}`);
+      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+        // Handle prototype limit reached - could show modal here
+        console.log("Prototype limit reached");
+      } else {
+        console.error("Error creating prototype:", result.message);
+      }
     } catch (err) {
       console.error("Error creating prototype:", err);
     } finally {

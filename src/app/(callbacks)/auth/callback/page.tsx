@@ -57,7 +57,7 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-              const protoData = await createPrototype(
+              const protoResult = await createPrototype(
                 supabase,
                 {
                   name: "New Prototype",
@@ -65,7 +65,9 @@ export default function AuthCallback() {
                 },
                 userPlan,
               );
-              prototypeId = protoData.id;
+              if (protoResult.success) {
+                prototypeId = protoResult.data.id;
+              }
             } catch (protoError) {
               console.error("Error creating prototype:", protoError);
             }

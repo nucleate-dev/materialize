@@ -173,7 +173,7 @@ export default function CreatePage() {
 
       // Create new prototype
       const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const newPrototype = await createPrototype(
+      const result = await createPrototype(
         supabase,
         {
           name: clonedPrototypeName,
@@ -190,8 +190,15 @@ export default function CreatePage() {
         })),
       );
 
-      // Navigate to the new prototype in dashboard
-      router.push(`/dashboard/prototypes/${newPrototype.id}`);
+      if (result.success) {
+        // Navigate to the new prototype in dashboard
+        router.push(`/dashboard/prototypes/${result.data.id}`);
+      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+        // Handle prototype limit reached
+        console.log("Prototype limit reached when cloning");
+      } else {
+        console.error("Error cloning prototype:", result.message);
+      }
     } catch (err) {
       console.error("Error cloning prototype:", err);
     } finally {

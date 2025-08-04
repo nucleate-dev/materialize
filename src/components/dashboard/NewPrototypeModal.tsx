@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -55,6 +56,7 @@ export default function NewPrototypeModal({
   >(userPlan === "pro" ? "SELF" : "PUBLIC");
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function NewPrototypeModal({
     setIsCreating(true);
 
     try {
-      const data = await createPrototype(
+      const result = await createPrototype(
         supabase,
         {
           name: name.trim(),
@@ -147,13 +149,21 @@ export default function NewPrototypeModal({
         userPlan,
       );
 
-      // Reset form
-      setName("");
-      setSelectedProject(null);
-      setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
-      setTouched(false);
-      onCreated(data.id);
-      onClose();
+      if (result.success) {
+        // Reset form
+        setName("");
+        setSelectedProject(null);
+        setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
+        setTouched(false);
+        onCreated(result.data.id);
+        onClose();
+      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+        // Show upsell modal
+        onClose();
+        setShowUpsellModal(true);
+      } else {
+        console.error("Error creating prototype:", result.message);
+      }
     } catch (error) {
       console.error("Error creating prototype:", error);
     } finally {
@@ -162,7 +172,8 @@ export default function NewPrototypeModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
@@ -333,6 +344,13 @@ export default function NewPrototypeModal({
           </Button>
         </form>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      <ProPlanUpsellModal
+        open={showUpsellModal}
+        onOpenChange={setShowUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
+    </>
   );
 }
