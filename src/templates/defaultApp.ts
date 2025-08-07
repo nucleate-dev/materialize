@@ -271,6 +271,323 @@ Built with ❤️ using Materialize
   },
 });
 
+export const getDefaultSnackFilesTypeScript = (): SnackFiles => ({
+  "App.tsx": {
+    contents: `import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { colors } from './styles/theme';
+import HomeScreen from './screens/HomeScreen';
+
+export type RootStackParamList = {
+  Home: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+export default function App(): React.JSX.Element {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: colors.surface,
+          },
+          headerTintColor: colors.text.primary,
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{ title: 'Materialize App' }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}`,
+    type: "CODE",
+  },
+  "screens/HomeScreen.tsx": {
+    contents: `import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors, typography } from '../styles/theme';
+
+export default function HomeScreen(): React.JSX.Element {
+  return (
+    <View style={styles.container}>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+});`,
+    type: "CODE",
+  },
+  "components/Button.tsx": {
+    contents: `import React from 'react';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+
+interface ButtonProps {
+  title: string;
+  onPress: () => void;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+}
+
+export default function Button({ title, onPress, style, textStyle }: ButtonProps): React.JSX.Element {
+  return (
+    <TouchableOpacity style={[styles.button, style]} onPress={onPress}>
+      <Text style={[styles.text, textStyle]}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});`,
+    type: "CODE",
+  },
+  "components/Card.tsx": {
+    contents: `import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+
+interface CardProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
+
+export default function Card({ children, style }: CardProps): React.JSX.Element {
+  return (
+    <View style={[styles.card, style]}>
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginVertical: 8,
+  },
+});`,
+    type: "CODE",
+  },
+  "styles/theme.ts": {
+    contents: `export interface Colors {
+  primary: string;
+  secondary: string;
+  success: string;
+  warning: string;
+  danger: string;
+  background: string;
+  surface: string;
+  text: {
+    primary: string;
+    secondary: string;
+    tertiary: string;
+  };
+  border: string;
+}
+
+export interface Typography {
+  h1: { fontSize: number; fontWeight: string };
+  h2: { fontSize: number; fontWeight: string };
+  h3: { fontSize: number; fontWeight: string };
+  body: { fontSize: number; fontWeight: string };
+  caption: { fontSize: number; fontWeight: string };
+}
+
+export interface Spacing {
+  xs: number;
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+}
+
+export const colors: Colors = {
+  primary: '#007AFF',
+  secondary: '#5AC8FA',
+  success: '#34C759',
+  warning: '#FF9500',
+  danger: '#FF3B30',
+  background: '#F2F2F7',
+  surface: '#FFFFFF',
+  text: {
+    primary: '#000000',
+    secondary: '#3C3C43',
+    tertiary: '#8E8E93',
+  },
+  border: '#C6C6C8',
+};
+
+export const typography: Typography = {
+  h1: { fontSize: 32, fontWeight: 'bold' },
+  h2: { fontSize: 24, fontWeight: 'bold' },
+  h3: { fontSize: 20, fontWeight: '600' },
+  body: { fontSize: 16, fontWeight: 'normal' },
+  caption: { fontSize: 12, fontWeight: 'normal' },
+};
+
+export const spacing: Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};`,
+    type: "CODE",
+  },
+  "package.json": {
+    contents: JSON.stringify(
+      {
+        name: "materialize-project",
+        version: "1.0.0",
+        main: "App.tsx",
+        scripts: {
+          start: "expo start",
+          android: "expo start --android",
+          ios: "expo start --ios",
+          web: "expo start --web",
+        },
+        dependencies: DEFAULT_TYPESCRIPT_DEPENDENCIES,
+        devDependencies: {
+          "@types/react": "~19.0.0",
+          "@types/react-native": "^0.79.1",
+          "typescript": "^5.7.2"
+        },
+        private: true,
+      },
+      null,
+      2,
+    ),
+    type: "CODE",
+  },
+  "tsconfig.json": {
+    contents: JSON.stringify(
+      {
+        extends: "expo/tsconfig.base",
+        compilerOptions: {
+          strict: true,
+          skipLibCheck: true,
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          jsx: "react-jsx",
+          moduleResolution: "bundler",
+          resolveJsonModule: true
+        }
+      },
+      null,
+      2,
+    ),
+    type: "CODE",
+  },
+  "README.md": {
+    contents: `# Materialize Project (TypeScript)
+
+This is a React Native project created with Materialize using TypeScript.
+
+## Getting Started
+
+1. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. Start the development server:
+   \`\`\`bash
+   npm start
+   \`\`\`
+
+3. Open the Expo app on your phone and scan the QR code.
+
+## Project Structure
+
+- \`App.tsx\` - Main app entry point with stack navigation
+- \`components/\` - Reusable UI components with TypeScript interfaces
+- \`styles/\` - Theme and styling configuration with type definitions
+
+## Features
+
+- Live preview with Expo Snack
+- AI-powered code generation
+- Real-time updates
+- Component library with TypeScript support
+- Type-safe navigation with React Navigation
+- Strict TypeScript configuration
+
+Built with ❤️ using Materialize
+`,
+    type: "CODE",
+  },
+});
+
+export const DEFAULT_TYPESCRIPT_DEPENDENCIES = {
+  "@expo/vector-icons": { version: "^14.1.0" },
+  "@react-native-async-storage/async-storage": { version: "2.1.2" },
+  "@tanstack/react-query": { version: "^5.83.0" },
+  expo: { version: "^53.0.4" },
+  "expo-blur": { version: "~14.1.4" },
+  tamagui: { version: "^1.132.15" },
+  "expo-constants": { version: "~17.1.4" },
+  "expo-font": { version: "~13.3.0" },
+  "expo-haptics": { version: "~14.1.4" },
+  "expo-image": { version: "~2.1.6" },
+  "expo-image-picker": { version: "~16.1.4" },
+  "expo-linear-gradient": { version: "~14.1.4" },
+  "expo-linking": { version: "~7.1.4" },
+  "expo-location": { version: "~18.1.4" },
+  "expo-splash-screen": { version: "~0.30.7" },
+  "expo-status-bar": { version: "~2.2.3" },
+  "expo-symbols": { version: "~0.4.4" },
+  "expo-system-ui": { version: "~5.0.6" },
+  "expo-web-browser": { version: "~14.1.6" },
+  "lucide-react-native": { version: "^0.475.0" },
+  react: { version: "19.0.0" },
+  "react-dom": { version: "19.0.0" },
+  "react-native": { version: "0.79.1" },
+  "react-native-reanimated": { version: "~3.16.1" },
+  moti: { version: "^0.30.0" },
+  "@react-navigation/native-stack": { version: "7.2.1" },
+  "@react-navigation/native": { version: "7.0.14" },
+  "@react-navigation/bottom-tabs": { version: "7.4.4" },
+  "react-native-gesture-handler": { version: "~2.24.0" },
+  "react-native-safe-area-context": { version: "5.3.0" },
+  "react-native-screens": { version: "~4.10.0" },
+  "react-native-svg": { version: "15.11.2" },
+  "react-native-web": { version: "^0.20.0" },
+  zustand: { version: "^5.0.2" },
+};
+
 export const DEFAULT_DEPENDENCIES = {
   "@expo/vector-icons": { version: "^14.1.0" },
   "@react-native-async-storage/async-storage": { version: "2.1.2" },
