@@ -6,8 +6,8 @@ import NewProjectModal from "@/components/dashboard/NewProjectModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Database } from "@/lib/types/database.types";
 import { useUser } from "@/hooks/useUser";
+import { Database } from "@/lib/types/database.types";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -71,7 +71,7 @@ export default function ProjectsPage() {
                 All projects
               </h1>
               <p className="text-sm sm:text-base text-body dark:text-bodydark">
-                Create and manage your design prototypes. Examples include "Onboarding Flow" or "Paywalls"
+                Create and manage your design prototypes.
               </p>
             </div>
 
