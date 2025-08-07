@@ -424,6 +424,8 @@ export default function CreatePage() {
                         ref={snackViewerRef}
                         files={fileSystem.state.files}
                         onResetToDefault={handleResetToDefault}
+                        onCreateFile={fileSystem.createFile}
+                        onDeleteFile={fileSystem.deleteFile}
                       />
                     </div>
                   ) : (
@@ -448,6 +450,10 @@ export default function CreatePage() {
                           value={fileSystem.getSelectedFileContent()}
                           onChange={handleCodeChange}
                           fileName={fileSystem.state.selectedFile}
+                          onCreateFile={fileSystem.createFile}
+                          onDeleteFile={fileSystem.deleteFile}
+                          availableFiles={Object.keys(fileSystem.state.files)}
+                          canDelete={Object.keys(fileSystem.state.files).length > 1}
                         />
                       </div>
                     </div>

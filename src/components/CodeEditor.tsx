@@ -1,7 +1,18 @@
 "use client";
 
 import Editor from "@monaco-editor/react";
-import React from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FileText, Plus, Trash2 } from "lucide-react";
+import React, { useState } from "react";
 
 interface CodeEditorProps {
   value: string;
@@ -9,6 +20,10 @@ interface CodeEditorProps {
   onChange?: (value: string | undefined) => void;
   readOnly?: boolean;
   fileName?: string;
+  onCreateFile?: (fileName: string, initialContent?: string) => void;
+  onDeleteFile?: (fileName: string) => void;
+  availableFiles?: string[];
+  canDelete?: boolean;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -16,7 +31,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   language = "javascript",
   onChange,
   readOnly = false,
-  fileName
+  fileName,
+  onCreateFile,
+  onDeleteFile,
+  availableFiles = [],
+  canDelete = true,
 }) => {
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
@@ -42,6 +61,75 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   const editorLanguage = fileName ? getLanguageFromFileName(fileName) : language;
+
+  const [showNewFileModal, setShowNewFileModal] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileError, setNewFileError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleCreateFile = () => {
+    if (!newFileName.trim()) {
+      setNewFileError("File name is required");
+      return;
+    }
+
+    // Check if file already exists
+    if (availableFiles.includes(newFileName.trim())) {
+      setNewFileError("File already exists");
+      return;
+    }
+
+    // Validate file name (basic validation)
+    const fileName = newFileName.trim();
+    if (!/^[a-zA-Z0-9._/-]+$/.test(fileName)) {
+      setNewFileError("Invalid file name. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.");
+      return;
+    }
+
+    // Get default content based on file extension
+    const getDefaultContent = (name: string) => {
+      const ext = name.split('.').pop()?.toLowerCase();
+      switch (ext) {
+        case 'js':
+        case 'jsx':
+          return `import React from 'react';\nimport { View, Text } from 'react-native';\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}() {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+        case 'ts':
+        case 'tsx':
+          return `import React from 'react';\nimport { View, Text } from 'react-native';\n\ninterface Props {}\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}({}: Props) {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+        case 'json':
+          return '{\n  \n}';
+        case 'md':
+          return `# ${name.split('.')[0]}\n\nAdd your content here.`;
+        case 'css':
+          return '/* Add your styles here */';
+        default:
+          return '';
+      }
+    };
+
+    onCreateFile?.(fileName, getDefaultContent(fileName));
+    setShowNewFileModal(false);
+    setNewFileName("");
+    setNewFileError("");
+  };
+
+  const handleDeleteFile = () => {
+    if (fileName && onDeleteFile) {
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const confirmDeleteFile = () => {
+    if (fileName && onDeleteFile) {
+      onDeleteFile(fileName);
+    }
+    setShowDeleteConfirm(false);
+  };
+
+  const handleModalClose = () => {
+    setNewFileName("");
+    setNewFileError("");
+  };
 
   // Configure Monaco Editor before it loads
   const beforeMount = (monaco: typeof import('monaco-editor')) => {
@@ -163,6 +251,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       {fileName && (
         <div className="flex items-center justify-between p-3 bg-muted/60 border-b border-border">
           <div className="flex items-center space-x-2">
+            <FileText className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">
               {fileName}
             </span>
@@ -172,9 +261,38 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               </span>
             )}
           </div>
-          <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
-            {editorLanguage}
-          </span>
+          
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
+              {editorLanguage}
+            </span>
+            {!readOnly && (
+              <div className="flex items-center space-x-1">
+                {onCreateFile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setShowNewFileModal(true)}
+                    title="Create new file"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </Button>
+                )}
+                {onDeleteFile && canDelete && availableFiles.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={handleDeleteFile}
+                    title={`Delete ${fileName}`}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <div className="flex-1">
@@ -215,6 +333,99 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           }}
         />
       </div>
+      
+      {/* New File Modal */}
+      <Dialog open={showNewFileModal} onOpenChange={(open) => {
+        setShowNewFileModal(open);
+        if (!open) {
+          handleModalClose();
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New File</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="fileName" className="text-sm font-medium">
+                File Name
+              </Label>
+              <Input
+                id="fileName"
+                type="text"
+                value={newFileName}
+                onChange={(e) => {
+                  setNewFileName(e.target.value);
+                  setNewFileError("");
+                }}
+                placeholder="e.g., components/MyComponent.tsx"
+                className="mt-2"
+                autoFocus
+              />
+              {newFileError && (
+                <p className="text-destructive text-sm mt-1">{newFileError}</p>
+              )}
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p className="mb-2">Supported file types:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>.js, .jsx - JavaScript/React components</li>
+                <li>.ts, .tsx - TypeScript/React components</li>
+                <li>.json - JSON configuration files</li>
+                <li>.md - Markdown documentation</li>
+                <li>.css - Stylesheets</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowNewFileModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateFile}
+            >
+              Create File
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete File</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete <span className="font-mono font-medium text-foreground">{fileName}</span>?
+              This action cannot be undone.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteFile}
+            >
+              Delete File
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

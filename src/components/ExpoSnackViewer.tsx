@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
-import { Monitor, RefreshCw, RotateCcw, Settings, Smartphone } from "lucide-react";
+import { Monitor, RefreshCw, RotateCcw, Settings, Smartphone, Trash2, FileText } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -41,6 +41,7 @@ interface ExpoSnackViewerProps {
   onResetToDefault?: () => void;
   hideControls?: boolean;
   onCreateFile?: (fileName: string, initialContent?: string) => void;
+  onDeleteFile?: (fileName: string) => void;
 }
 
 export interface ExpoSnackViewerRef {
@@ -50,7 +51,7 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files, onResetToDefault, hideControls = false, onCreateFile }, ref) => {
+  ({ files, onResetToDefault, hideControls = false, onCreateFile, onDeleteFile }, ref) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -61,6 +62,8 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
     const [showNewFileModal, setShowNewFileModal] = useState(false);
     const [newFileName, setNewFileName] = useState("");
     const [newFileError, setNewFileError] = useState("");
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -286,10 +289,31 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       setNewFileError("");
     };
 
+    const handleDeleteFile = (fileName: string) => {
+      if (Object.keys(files).length <= 1) {
+        return; // Prevent deleting the last file
+      }
+      setFileToDelete(fileName);
+      setShowDeleteConfirm(true);
+    };
+
+    const confirmDeleteFile = () => {
+      if (fileToDelete && onDeleteFile) {
+        onDeleteFile(fileToDelete);
+        setShowDeleteConfirm(false);
+        setFileToDelete(null);
+      }
+    };
+
+    const cancelDeleteFile = () => {
+      setShowDeleteConfirm(false);
+      setFileToDelete(null);
+    };
+
     return (
       <div className="flex flex-col h-full bg-background">
-        {/* Header - simplified without controls */}
-        {!hideControls && onCreateFile && (
+        {/* Header - only shows when not hidden and no file management controls */}
+        {!hideControls && !onCreateFile && !onDeleteFile && (
           <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,14 +321,6 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               </svg>
               <span className="text-sm font-medium text-foreground">React Native Preview</span>
             </div>
-            <Button
-              onClick={() => setShowNewFileModal(true)}
-              size="sm"
-              disabled={isLoading}
-              title="Create new file"
-            >
-              + New File
-            </Button>
           </div>
         )}
 
@@ -596,6 +612,37 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                 onClick={handleCreateFile}
               >
                 Create File
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete File</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete <span className="font-mono font-medium text-foreground">{fileToDelete}</span>?
+                This action cannot be undone.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={cancelDeleteFile}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteFile}
+              >
+                Delete File
               </Button>
             </DialogFooter>
           </DialogContent>

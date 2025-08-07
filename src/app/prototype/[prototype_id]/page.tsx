@@ -135,47 +135,6 @@ export default function PrototypePage() {
     }
   };
 
-  const handleCreateFile = async (
-    fileName: string,
-    initialContent: string = "",
-  ) => {
-    if (!user || !prototypeId) return;
-
-    try {
-      // Check if file already exists locally
-      if (prototypeFiles[fileName]) {
-        setError("File already exists");
-        return;
-      }
-
-      // Insert new file into database
-      const { data: newFile, error: fileError } = await supabase
-        .from("prototype_files")
-        .insert({
-          prototype_id: prototypeId,
-          name: fileName,
-          contents: initialContent,
-        })
-        .select()
-        .single();
-
-      if (fileError) {
-        throw fileError;
-      }
-
-      // Update local state to include the new file
-      setPrototypeFiles((prev) => ({
-        ...prev,
-        [fileName]: newFile,
-      }));
-
-      // Clear any previous errors
-      setError(null);
-    } catch (err) {
-      console.error("Error creating file:", err);
-      setError(err instanceof Error ? err.message : "Failed to create file");
-    }
-  };
 
   const handleUpdatePrototype = (updatedPrototype: Prototype) => {
     setPrototype(updatedPrototype);
@@ -241,12 +200,7 @@ export default function PrototypePage() {
             <CardContent className="h-full p-0">
               <ExpoSnackViewer
                 files={prototypeFiles}
-                hideControls={!user || prototype?.owner_id !== user.id}
-                onCreateFile={
-                  user && prototype?.owner_id === user.id
-                    ? handleCreateFile
-                    : undefined
-                }
+                hideControls={true}
               />
             </CardContent>
           </Card>

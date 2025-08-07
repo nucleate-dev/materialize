@@ -29,6 +29,10 @@ export interface FileSystemActions {
     updatedFiles: Record<string, PrototypeFile>,
   ) => Promise<void>;
 
+  // File management operations
+  createFile: (fileName: string, initialContent?: string) => Promise<void>;
+  deleteFile: (fileName: string) => Promise<void>;
+
   // Utilities
   getFileContent: (filePath: string) => string;
   getSelectedFileContent: () => string;
@@ -291,6 +295,106 @@ export const useFileSystem = (
     return files[selectedFile]?.contents || "";
   }, [files, selectedFile]);
 
+  // Create a new file
+  const createFile = useCallback(
+    async (fileName: string, initialContent = "") => {
+      if (!prototypeId) {
+        console.error("Create file failed: no prototype ID");
+        return;
+      }
+
+      if (files[fileName]) {
+        console.error("File already exists:", fileName);
+        return;
+      }
+
+      try {
+        // Create file in database
+        const { data: newFile, error } = await supabase
+          .from("prototype_files")
+          .insert({
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: initialContent,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`Error creating file ${fileName}:`, error);
+          return;
+        }
+
+        // Update local state
+        setFiles((prevFiles) => ({
+          ...prevFiles,
+          [fileName]: newFile,
+        }));
+
+        // Select the new file
+        setSelectedFile(fileName);
+
+        console.log("Successfully created file:", fileName);
+      } catch (error) {
+        console.error(`Error creating file ${fileName}:`, error);
+      }
+    },
+    [prototypeId, files],
+  );
+
+  // Delete a file
+  const deleteFile = useCallback(
+    async (fileName: string) => {
+      if (!prototypeId) {
+        console.error("Delete file failed: no prototype ID");
+        return;
+      }
+
+      const fileToDelete = files[fileName];
+      if (!fileToDelete) {
+        console.error("File not found:", fileName);
+        return;
+      }
+
+      // Prevent deleting the last file
+      if (Object.keys(files).length <= 1) {
+        console.error("Cannot delete the last file");
+        return;
+      }
+
+      try {
+        // Delete file from database
+        const { error } = await supabase
+          .from("prototype_files")
+          .delete()
+          .eq("id", fileToDelete.id);
+
+        if (error) {
+          console.error(`Error deleting file ${fileName}:`, error);
+          return;
+        }
+
+        // Update local state
+        const newFiles = { ...files };
+        delete newFiles[fileName];
+        setFiles(newFiles);
+
+        // If the deleted file was selected, select another file
+        if (selectedFile === fileName) {
+          const remainingFiles = Object.keys(newFiles);
+          if (remainingFiles.length > 0) {
+            setSelectedFile(remainingFiles[0]);
+          }
+        }
+
+        console.log("Successfully deleted file:", fileName);
+      } catch (error) {
+        console.error(`Error deleting file ${fileName}:`, error);
+      }
+    },
+    [prototypeId, files, selectedFile],
+  );
+
   const state: FileSystemState = {
     files,
     selectedFile,
@@ -305,6 +409,8 @@ export const useFileSystem = (
     resetToDefault,
     setFiles: handleSetFiles,
     applyFileUpdates,
+    createFile,
+    deleteFile,
     getFileContent,
     getSelectedFileContent,
   };
