@@ -140,6 +140,62 @@ export default function CreatePage() {
     }
   }, [prototypeId, router]);
 
+  // Test build-files API when component loads
+  useEffect(() => {
+    async function testBuildFilesAPI() {
+      if (!prototypeId || !user || Object.keys(fileSystem.state.files).length === 0) {
+        return;
+      }
+
+      try {
+        console.log("Testing build-files API with prototype:", prototypeId);
+        
+        // Get JWT token from Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error("No access token available");
+          return;
+        }
+
+        // Convert FileSystem files to the format expected by the API
+        const filesForAPI: Record<string, string> = {};
+        Object.entries(fileSystem.state.files).forEach(([fileName, fileObj]) => {
+          filesForAPI[fileName] = fileObj.contents;
+        });
+
+        console.log("Calling build-files API with files:", Object.keys(filesForAPI));
+
+        const response = await fetch('/api/build-files', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            files: filesForAPI,
+            prototypeId: prototypeId,
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          console.log("Build-files API success:", result);
+          console.log("Public URL:", result.publicUrl);
+        } else {
+          console.error("Build-files API error:", result);
+        }
+      } catch (error) {
+        console.error("Error testing build-files API:", error);
+      }
+    }
+
+    // Only run once when all dependencies are available
+    if (user && prototypeId && Object.keys(fileSystem.state.files).length > 0) {
+      testBuildFilesAPI();
+    }
+  }, [user, prototypeId, fileSystem.state.files]);
+
   const handleResetToDefault = useCallback(async () => {
     if (!prototypeId) {
       console.error("Reset failed: no prototype ID");
