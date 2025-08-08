@@ -20,7 +20,7 @@ import {
   PaperAirplaneIcon,
   PlayIcon,
   SparklesIcon,
-  TrashIcon
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
 import PlanningView from "./PlanningView";
@@ -77,10 +77,10 @@ export default function ChatWindow({
   const scrollToBottom = () => {
     // Use a slight delay to ensure DOM updates are complete
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ 
+      messagesEndRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "end",
-        inline: "nearest"
+        inline: "nearest",
       });
     }, 50);
   };
@@ -245,11 +245,11 @@ export default function ChatWindow({
           const updatedOperations = messageData.operations.map((op) =>
             op.id === operationId
               ? {
-                ...op,
-                status: "error" as const,
-                error:
-                  error instanceof Error ? error.message : "Unknown error",
-              }
+                  ...op,
+                  status: "error" as const,
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : op,
           );
           newMap.set(message.id, {
@@ -354,20 +354,22 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`p-4 rounded-lg ${isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-card-foreground border border-border"
-              }`}
+            className={`p-4 rounded-lg ${
+              isUser
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-card-foreground border border-border"
+            }`}
           >
             <div className="relative z-10">
               {/* Message Type Badge */}
               {!isUser && (isPlanningMessage || isExecutionMessage) && (
                 <div className="mb-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${isPlanningMessage
-                      ? "bg-primary/10 text-primary border-primary/20"
-                      : "bg-secondary/10 text-secondary-foreground border-secondary/20"
-                      }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                      isPlanningMessage
+                        ? "bg-primary/10 text-primary border-primary/20"
+                        : "bg-secondary/10 text-secondary-foreground border-secondary/20"
+                    }`}
                   >
                     {isPlanningMessage
                       ? "Planning Phase"
@@ -464,10 +466,11 @@ export default function ChatWindow({
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${isUser
-                  ? "text-primary-foreground/70"
-                  : "text-muted-foreground"
-                  }`}
+                className={`text-xs mt-3 font-medium ${
+                  isUser
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground"
+                }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -491,16 +494,19 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="relative flex flex-col bg-background h-full w-full" style={{
-      height: '100%',
-      minHeight: '100%'
-    }}>
+    <div
+      className="relative flex flex-col bg-background h-full w-full"
+      style={{
+        height: "100%",
+        minHeight: "100%",
+      }}
+    >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-border bg-background">
-        <div className="p-6">
+        <div className="p-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg text-primary-foreground">
+              <div className="p-4 rounded-lg text-primary-foreground">
                 <SparklesIcon className="w-4 h-4 text-foreground" />
               </div>
               <div>
@@ -583,12 +589,15 @@ export default function ChatWindow({
       </div>
 
       {/* Input Section */}
-      <div className="flex-shrink-0 p-6 border-t border-border bg-background" style={{
-        position: 'sticky',
-        bottom: 0,
-        backgroundColor: 'var(--background)',
-        zIndex: 10
-      }}>
+      <div
+        className="flex-shrink-0 p-6 border-t border-border bg-background"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          backgroundColor: "var(--background)",
+          zIndex: 10,
+        }}
+      >
         {/* Message Count Display */}
         <div className="mb-3 text-center">
           {loadingUsageCount ? (
@@ -597,10 +606,11 @@ export default function ChatWindow({
             </p>
           ) : (
             <p
-              className={`text-xs font-medium ${isAtLimit
-                ? "text-red-600 dark:text-red-400"
-                : "text-muted-foreground"
-                }`}
+              className={`text-xs font-medium ${
+                isAtLimit
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              }`}
             >
               Messages: {messageCount}/{messageLimit}
               {isAtLimit && " (Limit reached)"}
@@ -620,8 +630,9 @@ export default function ChatWindow({
                   ? "Message limit reached for this billing period"
                   : "Ask me to create or modify React Native code..."
               }
-              className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${isAtLimit ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
+                isAtLimit ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               rows={1}
               style={{
                 minHeight: "56px",
@@ -641,10 +652,11 @@ export default function ChatWindow({
           <button
             type="submit"
             disabled={isDisabled}
-            className={`p-3 rounded-lg transition-colors ${!isDisabled
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-              }`}
+            className={`p-3 rounded-lg transition-colors ${
+              !isDisabled
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
             title={
               isAtLimit
                 ? "Message limit reached for this billing period"

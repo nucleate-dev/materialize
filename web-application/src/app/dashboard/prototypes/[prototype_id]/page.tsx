@@ -4,7 +4,9 @@ import { supabase } from "@/ClientConstants";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
-import ExpoSnackViewer, { ExpoSnackViewerRef } from "@/components/ExpoSnackViewer";
+import ExpoSnackViewer, {
+  ExpoSnackViewerRef,
+} from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
@@ -29,7 +31,7 @@ import {
   ClipboardDocumentIcon,
   CodeBracketIcon,
   DevicePhoneMobileIcon,
-  EyeIcon
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -40,7 +42,7 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -54,7 +56,7 @@ export default function CreatePage() {
   const [isCloning, setIsCloning] = useState(false);
 
   // Mobile-specific state
-  const [activePanel, setActivePanel] = useState<'chat' | 'preview'>('preview');
+  const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
   const [isMobile, setIsMobile] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -77,9 +79,9 @@ export default function CreatePage() {
     };
 
     checkMobile();
-    window.addEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
 
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Touch handling for swipe gestures
@@ -101,11 +103,11 @@ export default function CreatePage() {
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
-    if (isLeftSwipe && activePanel === 'chat') {
-      setActivePanel('preview');
+    if (isLeftSwipe && activePanel === "chat") {
+      setActivePanel("preview");
     }
-    if (isRightSwipe && activePanel === 'preview') {
-      setActivePanel('chat');
+    if (isRightSwipe && activePanel === "preview") {
+      setActivePanel("chat");
     }
   };
 
@@ -233,18 +235,20 @@ export default function CreatePage() {
           .eq("id", prototype.id);
 
         setIsPublic(true);
-        setPrototype(prev => prev ? { ...prev, visibility: "PUBLIC" } : null);
+        setPrototype((prev) =>
+          prev ? { ...prev, visibility: "PUBLIC" } : null,
+        );
       }
 
       await navigator.clipboard.writeText(window.location.href);
-      console.log('Prototype URL copied to clipboard');
+      console.log("Prototype URL copied to clipboard");
 
       // Close modal after successful copy
       setTimeout(() => {
         setShowShareModal(false);
       }, 1000);
     } catch (err) {
-      console.error('Failed to copy URL:', err);
+      console.error("Failed to copy URL:", err);
     } finally {
       setIsCopying(false);
     }
@@ -266,9 +270,11 @@ export default function CreatePage() {
         .eq("id", prototype.id);
 
       setIsPublic(checked);
-      setPrototype(prev => prev ? { ...prev, visibility: newVisibility } : null);
+      setPrototype((prev) =>
+        prev ? { ...prev, visibility: newVisibility } : null,
+      );
     } catch (err) {
-      console.error('Failed to update visibility:', err);
+      console.error("Failed to update visibility:", err);
     }
   };
 
@@ -291,18 +297,18 @@ export default function CreatePage() {
         <div className="bg-background border-b border-border p-2">
           <div className="flex items-center justify-center space-x-2">
             <Button
-              variant={activePanel === 'chat' ? "default" : "ghost"}
+              variant={activePanel === "chat" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setActivePanel('chat')}
+              onClick={() => setActivePanel("chat")}
               className="flex items-center gap-2"
             >
               <ChatBubbleLeftRightIcon className="w-4 h-4" />
               Chat
             </Button>
             <Button
-              variant={activePanel === 'preview' ? "default" : "ghost"}
+              variant={activePanel === "preview" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setActivePanel('preview')}
+              onClick={() => setActivePanel("preview")}
               className="flex items-center gap-2"
             >
               <DevicePhoneMobileIcon className="w-4 h-4" />
@@ -314,27 +320,36 @@ export default function CreatePage() {
 
       {/* Main content area */}
       <div
-        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? 'flex-col' : ''}`}
-        style={isMobile ? { height: 'calc(100dvh - 120px)' } : {}}
+        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : ""}`}
+        style={isMobile ? { height: "calc(100dvh - 120px)" } : {}}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
         {/* Left Panel - AI Assistant Chat */}
-        <div className={`${isMobile
-          ? `${activePanel === 'chat' ? 'flex' : 'hidden'} w-full h-full`
-          : 'w-2/5 min-w-[420px] flex'
-          } flex-col relative z-10`} style={isMobile ? { height: '100%' } : {}}>
+        <div
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "w-2/5 min-w-[420px] flex"
+          } flex-col relative z-10`}
+          style={isMobile ? { height: "100%" } : {}}
+        >
           {/* Card Container */}
-          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2'} bg-background/80 backdrop-blur-sm border border-border`} style={isMobile ? { height: 'calc(100% - 16px)' } : {}}>
+          <Card
+            className={`h-full ${isMobile ? "m-2" : "m-2"} bg-background/80 backdrop-blur-sm border border-border`}
+            style={isMobile ? { height: "calc(100% - 16px)" } : {}}
+          >
             <CardContent className="h-full flex flex-col p-0 overflow-hidden">
               {/* Mobile Chat Header */}
               {isMobile && (
-                <div className="p-2 border-b border-border flex-shrink-0">
+                <div className="p-6 border-b border-border flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
-                      <h2 className="text-base font-bold text-foreground">AI Assistant</h2>
+                      <h2 className="text-base font-bold text-foreground">
+                        AI Assistant
+                      </h2>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Swipe left to see preview
@@ -361,18 +376,23 @@ export default function CreatePage() {
         </div>
 
         {/* Right Panel - Preview/Code Toggle */}
-        <div className={`${isMobile
-          ? `${activePanel === 'preview' ? 'flex' : 'hidden'} w-full h-full`
-          : 'w-3/5 min-w-[500px] flex'
-          } flex-col relative z-10`}>
+        <div
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "w-3/5 min-w-[500px] flex"
+          } flex-col relative z-10`}
+        >
           {/* Card Container */}
-          <Card className={`h-full ${isMobile ? 'm-2' : 'm-2 ml-0'} bg-background/80 backdrop-blur-sm border border-border`}>
+          <Card
+            className={`h-full ${isMobile ? "m-2" : "m-2 ml-0"} bg-background/80 backdrop-blur-sm border border-border`}
+          >
             <CardContent className="h-full flex flex-col p-0">
               {/* Header with Toggle */}
               <div className="p-3 border-b border-border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <div className="p-1 rounded-lg">
+                    <div className="rounded-lg">
                       {isPreviewView ? (
                         <EyeIcon className="w-4 h-4 text-foreground" />
                       ) : (
@@ -380,7 +400,9 @@ export default function CreatePage() {
                       )}
                     </div>
                     <div>
-                      <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
+                      <h2
+                        className={`${isMobile ? "text-base" : "text-lg"} font-bold text-foreground`}
+                      >
                         {isPreviewView ? "Live Preview" : "Code Editor"}
                       </h2>
                     </div>
@@ -429,12 +451,17 @@ export default function CreatePage() {
                       />
                     </div>
                   ) : (
-                    <div className={`flex h-full ${isMobile ? 'flex-col' : ''}`}>
+                    <div
+                      className={`flex h-full ${isMobile ? "flex-col" : ""}`}
+                    >
                       {/* File Explorer */}
-                      <div className={`${isMobile
-                        ? 'w-full max-h-[200px] border-b'
-                        : 'w-1/4 min-w-[200px] max-w-[280px] border-r'
-                        } border-border`}>
+                      <div
+                        className={`${
+                          isMobile
+                            ? "w-full max-h-[200px] border-b"
+                            : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                        } border-border`}
+                      >
                         <div className="h-full overflow-auto">
                           <FileTree
                             files={fileSystem.state.files}
@@ -453,7 +480,9 @@ export default function CreatePage() {
                           onCreateFile={fileSystem.createFile}
                           onDeleteFile={fileSystem.deleteFile}
                           availableFiles={Object.keys(fileSystem.state.files)}
-                          canDelete={Object.keys(fileSystem.state.files).length > 1}
+                          canDelete={
+                            Object.keys(fileSystem.state.files).length > 1
+                          }
                         />
                       </div>
                     </div>
@@ -500,7 +529,9 @@ export default function CreatePage() {
               <div>
                 <p className="font-medium text-sm">Make Public</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {isPublic ? "Anyone with the link can view" : "Only you can view"}
+                  {isPublic
+                    ? "Anyone with the link can view"
+                    : "Only you can view"}
                 </p>
                 {userPlan !== "pro" && !isPublic && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
@@ -508,9 +539,13 @@ export default function CreatePage() {
                   </p>
                 )}
               </div>
-              <label className={`relative inline-flex items-center ${
-                userPlan !== "pro" && !isPublic ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-              }`}>
+              <label
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={isPublic}
@@ -527,7 +562,10 @@ export default function CreatePage() {
               <p className="text-sm font-medium">Share Link</p>
               <div className="flex items-center gap-2">
                 <Input
-                  value={window.location.href.replace("dashboard/prototypes", "prototype")}
+                  value={window.location.href.replace(
+                    "dashboard/prototypes",
+                    "prototype",
+                  )}
                   readOnly
                   className="flex-1 bg-gray-50 dark:bg-gray-800"
                 />
@@ -541,12 +579,13 @@ export default function CreatePage() {
                   ) : (
                     <ClipboardDocumentIcon className="w-4 h-4" />
                   )}
-                  {isCopying ? 'Copying...' : 'Copy'}
+                  {isCopying ? "Copying..." : "Copy"}
                 </Button>
               </div>
               {!isPublic && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  ⚠️ Copying the link will automatically make this prototype public
+                  ⚠️ Copying the link will automatically make this prototype
+                  public
                 </p>
               )}
             </div>
