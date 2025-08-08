@@ -19,7 +19,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
-import { Monitor, RefreshCw, RotateCcw, Settings, Smartphone, Trash2, FileText } from "lucide-react";
+import {
+  Monitor,
+  RefreshCw,
+  RotateCcw,
+  Settings,
+  Smartphone,
+} from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -51,7 +57,16 @@ export interface ExpoSnackViewerRef {
 type PreviewMode = "web" | "mobile";
 
 const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
-  ({ files, onResetToDefault, hideControls = false, onCreateFile, onDeleteFile }, ref) => {
+  (
+    {
+      files,
+      onResetToDefault,
+      hideControls = false,
+      onCreateFile,
+      onDeleteFile,
+    },
+    ref,
+  ) => {
     const [snack, setSnack] = useState<SnackWithSubscriptions | null>(null);
     const [snackState, setSnackState] = useState<SnackState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -113,7 +128,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               };
               return acc;
             },
-            {} as Record<string, { type: "CODE"; contents: string; }>,
+            {} as Record<string, { type: "CODE"; contents: string }>,
           );
 
           snackSDK = new Snack({
@@ -177,7 +192,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               };
               return acc;
             },
-            {} as Record<string, { type: "CODE"; contents: string; }>,
+            {} as Record<string, { type: "CODE"; contents: string }>,
           );
           snack.updateFiles(snackFiles);
         } catch (err) {
@@ -253,28 +268,30 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       // Validate file name (basic validation)
       const fileName = newFileName.trim();
       if (!/^[a-zA-Z0-9._/-]+$/.test(fileName)) {
-        setNewFileError("Invalid file name. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.");
+        setNewFileError(
+          "Invalid file name. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.",
+        );
         return;
       }
 
       // Get default content based on file extension
       const getDefaultContent = (name: string) => {
-        const ext = name.split('.').pop()?.toLowerCase();
+        const ext = name.split(".").pop()?.toLowerCase();
         switch (ext) {
-          case 'js':
-          case 'jsx':
-            return `import React from 'react';\nimport { View, Text } from 'react-native';\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}() {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
-          case 'ts':
-          case 'tsx':
-            return `import React from 'react';\nimport { View, Text } from 'react-native';\n\ninterface Props {}\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}({}: Props) {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
-          case 'json':
-            return '{\n  \n}';
-          case 'md':
-            return `# ${name.split('.')[0]}\n\nAdd your content here.`;
-          case 'css':
-            return '/* Add your styles here */';
+          case "js":
+          case "jsx":
+            return `import React from 'react';\nimport { View, Text } from 'react-native';\n\nexport default function ${name.split(".")[0].replace(/[^a-zA-Z0-9]/g, "")}() {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+          case "ts":
+          case "tsx":
+            return `import React from 'react';\nimport { View, Text } from 'react-native';\n\ninterface Props {}\n\nexport default function ${name.split(".")[0].replace(/[^a-zA-Z0-9]/g, "")}({}: Props) {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+          case "json":
+            return "{\n  \n}";
+          case "md":
+            return `# ${name.split(".")[0]}\n\nAdd your content here.`;
+          case "css":
+            return "/* Add your styles here */";
           default:
-            return '';
+            return "";
         }
       };
 
@@ -289,13 +306,13 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
       setNewFileError("");
     };
 
-    const handleDeleteFile = (fileName: string) => {
-      if (Object.keys(files).length <= 1) {
-        return; // Prevent deleting the last file
-      }
-      setFileToDelete(fileName);
-      setShowDeleteConfirm(true);
-    };
+    // const handleDeleteFile = (fileName: string) => {
+    //   if (Object.keys(files).length <= 1) {
+    //     return; // Prevent deleting the last file
+    //   }
+    //   setFileToDelete(fileName);
+    //   setShowDeleteConfirm(true);
+    // };
 
     const confirmDeleteFile = () => {
       if (fileToDelete && onDeleteFile) {
@@ -316,10 +333,22 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         {!hideControls && !onCreateFile && !onDeleteFile && (
           <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                className="w-4 h-4 text-muted-foreground"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
-              <span className="text-sm font-medium text-foreground">React Native Preview</span>
+              <span className="text-sm font-medium text-foreground">
+                React Native Preview
+              </span>
             </div>
           </div>
         )}
@@ -339,7 +368,11 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
             {error && (
               <div className="flex items-center space-x-3">
                 <Badge variant="destructive">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
@@ -533,14 +566,30 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
           <div className="border-t border-border p-6 bg-muted/30">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-4 h-4 text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
-                <span className="text-sm font-medium text-foreground">Included Files ({Object.keys(files).length})</span>
+                <span className="text-sm font-medium text-foreground">
+                  Included Files ({Object.keys(files).length})
+                </span>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {Object.keys(files).map((fileName) => (
-                  <Badge key={fileName} variant="secondary" className="text-xs font-mono">
+                  <Badge
+                    key={fileName}
+                    variant="secondary"
+                    className="text-xs font-mono"
+                  >
                     {fileName}
                   </Badge>
                 ))}
@@ -556,12 +605,15 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
         )}
 
         {/* New File Modal */}
-        <Dialog open={showNewFileModal} onOpenChange={(open) => {
-          setShowNewFileModal(open);
-          if (!open) {
-            handleModalClose();
-          }
-        }}>
+        <Dialog
+          open={showNewFileModal}
+          onOpenChange={(open) => {
+            setShowNewFileModal(open);
+            if (!open) {
+              handleModalClose();
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Create New File</DialogTitle>
@@ -585,7 +637,9 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
                   autoFocus
                 />
                 {newFileError && (
-                  <p className="text-destructive text-sm mt-1">{newFileError}</p>
+                  <p className="text-destructive text-sm mt-1">
+                    {newFileError}
+                  </p>
                 )}
               </div>
 
@@ -608,11 +662,7 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleCreateFile}
-              >
-                Create File
-              </Button>
+              <Button onClick={handleCreateFile}>Create File</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -626,22 +676,19 @@ const ExpoSnackViewer = forwardRef<ExpoSnackViewerRef, ExpoSnackViewerProps>(
 
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to delete <span className="font-mono font-medium text-foreground">{fileToDelete}</span>?
-                This action cannot be undone.
+                Are you sure you want to delete{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {fileToDelete}
+                </span>
+                ? This action cannot be undone.
               </p>
             </div>
 
             <DialogFooter>
-              <Button
-                variant="ghost"
-                onClick={cancelDeleteFile}
-              >
+              <Button variant="ghost" onClick={cancelDeleteFile}>
                 Cancel
               </Button>
-              <Button
-                variant="destructive"
-                onClick={confirmDeleteFile}
-              >
+              <Button variant="destructive" onClick={confirmDeleteFile}>
                 Delete File
               </Button>
             </DialogFooter>

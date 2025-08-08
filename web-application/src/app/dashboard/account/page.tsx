@@ -406,9 +406,9 @@ function AccountSettings() {
                   <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
                     <AlertCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800 dark:text-red-200">
-                      You've exceeded your free plan limit ({messageCount}/
-                      {messageLimit} messages). Upgrade to Pro to continue using
-                      the service this period.
+                      {`You've exceeded your free plan limit (${messageCount}/
+                      ${messageLimit} messages). Upgrade to Pro to continue using
+                      the service this period.`}
                     </AlertDescription>
                   </Alert>
                 );
@@ -417,8 +417,7 @@ function AccountSettings() {
                   <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
                     <AlertCircle className="h-4 w-4 text-yellow-600" />
                     <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                      You've used {Math.round(usagePercentage)}% of your monthly
-                      message limit.
+                      {`You've used ${Math.round(usagePercentage)}% of your monthly message limit.`}
                     </AlertDescription>
                   </Alert>
                 );
@@ -428,8 +427,9 @@ function AccountSettings() {
                 <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
                   <AlertCircle className="h-4 w-4 text-yellow-600" />
                   <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                    You've exceeded your included usage. You'll now be charged
-                    per message.
+                    {
+                      "You've exceeded your included usage. You'll now be charged per message."
+                    }
                   </AlertDescription>
                 </Alert>
               );
