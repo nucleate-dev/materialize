@@ -34,39 +34,89 @@ const PROTOTYPES_DIR = process.env.PROTOTYPES_DIR || './prototypes';
 // Utility function to build the project using Expo export
 async function buildProject(projectPath, prototypeId) {
   const tempDir = path.join('/tmp', `build-${prototypeId}`);
+  const buildLog = [];
+  
+  const logStep = (step, success = true, output = '', error = '') => {
+    const logEntry = {
+      step,
+      success,
+      timestamp: new Date().toISOString(),
+      output: output.toString().trim(),
+      error: error.toString().trim()
+    };
+    buildLog.push(logEntry);
+    console.log(`[${step}] ${success ? '✓' : '✗'} ${success ? 'Success' : 'Failed'}`);
+    if (output) console.log(`Output: ${output}`);
+    if (error) console.error(`Error: ${error}`);
+  };
 
   try {
     // Ensure directories exist
     await fs.ensureDir(tempDir);
+    logStep('Create build directory', true, `Created: ${tempDir}`);
 
     // Copy project files to temp directory
     await fs.copy(projectPath, tempDir);
+    logStep('Copy project files', true, `Copied from ${projectPath} to ${tempDir}`);
 
     // Install dependencies
     console.log(`Installing dependencies for build ${prototypeId}...`);
-    await execAsync('npm install', { cwd: tempDir });
+    try {
+      const { stdout, stderr } = await execAsync('npm install', { cwd: tempDir });
+      logStep('Install dependencies', true, stdout, stderr);
+    } catch (error) {
+      logStep('Install dependencies', false, error.stdout || '', error.stderr || error.message);
+      throw error;
+    }
 
     // Install Expo CLI globally if not present (in temp environment)
     console.log('Installing Expo CLI...');
-    await execAsync('npm install -g @expo/cli', { cwd: tempDir });
+    try {
+      const { stdout, stderr } = await execAsync('npm install -g @expo/cli', { cwd: tempDir });
+      logStep('Install Expo CLI', true, stdout, stderr);
+    } catch (error) {
+      logStep('Install Expo CLI', false, error.stdout || '', error.stderr || error.message);
+      throw error;
+    }
 
     // Run Expo export for web platform
     console.log(`Building Expo project for web platform...`);
-    await execAsync('npx expo export --platform web', { cwd: tempDir });
+    try {
+      const { stdout, stderr } = await execAsync('npx expo export --platform web', { cwd: tempDir });
+      logStep('Expo export', true, stdout, stderr);
+    } catch (error) {
+      logStep('Expo export', false, error.stdout || '', error.stderr || error.message);
+      throw error;
+    }
 
     // The Expo export creates a 'dist' folder by default
     const expoDistPath = path.join(tempDir, 'dist');
     
     // Verify the dist folder was created
     if (!(await fs.pathExists(expoDistPath))) {
-      throw new Error('Expo export did not create dist folder');
+      const errorMsg = 'Expo export did not create dist folder';
+      logStep('Verify build output', false, '', errorMsg);
+      const error = new Error(errorMsg);
+      error.buildLog = buildLog;
+      throw error;
     }
 
+    logStep('Verify build output', true, `Build output found at: ${expoDistPath}`);
     console.log(`Expo build completed successfully for ${prototypeId}`);
-    return expoDistPath;
+    
+    return { 
+      outputPath: expoDistPath, 
+      buildLog,
+      success: true
+    };
 
   } catch (error) {
     console.error(`Build error for ${prototypeId}:`, error.message);
+    
+    // Attach build log to error for debugging
+    error.buildLog = buildLog;
+    error.buildFailed = true;
+    
     // Cleanup on error
     await fs.remove(tempDir);
     throw error;
@@ -512,9 +562,26 @@ fastify.post('/build', async (request, reply) => {
     fastify.log.info(`Downloaded ${objects.Contents.length} files for build ${jobId}`);
 
     // Build the project
-    const outputPath = await buildProject(tempProjectPath, prototypeId);
-
-    fastify.log.info(`Build completed successfully for job ${jobId}`);
+    let buildResult;
+    try {
+      buildResult = await buildProject(tempProjectPath, prototypeId);
+      fastify.log.info(`Build completed successfully for job ${jobId}`);
+    } catch (error) {
+      fastify.log.error(`Build failed for job ${jobId}:`, error.message);
+      
+      // Return build failure with logs
+      return reply.code(500).send({
+        jobId,
+        prototypeId,
+        status: 'build_failed',
+        error: 'Build process failed',
+        details: error.message,
+        buildLog: error.buildLog || [],
+        buildFailed: true
+      });
+    }
+    
+    const { outputPath, buildLog } = buildResult;
 
     // Upload build output to S3
     const buildS3Prefix = `${prototypeId}/dist`;
@@ -532,6 +599,8 @@ fastify.post('/build', async (request, reply) => {
           status: 'partial_success',
           error: 'Some files failed to upload to S3',
           failedUploads: error.failedUploads,
+          buildLog: buildLog,
+          buildSuccess: true,
           uploadedFiles: error.successfulUploads.map(result => ({
             key: result.Key,
             location: result.Location
@@ -568,6 +637,8 @@ fastify.post('/build', async (request, reply) => {
       status: 'completed',
       message: `Build completed successfully. ${uploadResults.length} files uploaded to S3.`,
       buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+      buildLog: buildLog,
+      buildSuccess: true,
       uploadedFiles: uploadResults.map(result => ({
         key: result.Key,
         location: result.Location
@@ -662,9 +733,26 @@ fastify.post('/build-and-deploy', async (request, reply) => {
     fastify.log.info(`Starting build-and-deploy for prototype ${prototypeId}, job ${jobId}`);
 
     // Build the project directly from extracted files
-    const outputPath = await buildProject(projectDir, prototypeId);
-
-    fastify.log.info(`Build completed successfully for job ${jobId}`);
+    let buildResult;
+    try {
+      buildResult = await buildProject(projectDir, prototypeId);
+      fastify.log.info(`Build completed successfully for job ${jobId}`);
+    } catch (error) {
+      fastify.log.error(`Build failed for build-and-deploy job ${jobId}:`, error.message);
+      
+      // Return build failure with logs
+      return reply.code(500).send({
+        jobId,
+        prototypeId,
+        status: 'build_failed',
+        error: 'Build process failed',
+        details: error.message,
+        buildLog: error.buildLog || [],
+        buildFailed: true
+      });
+    }
+    
+    const { outputPath, buildLog } = buildResult;
     fastify.log.info(`Build output path: ${outputPath}`);
     
     // Check what files were built
@@ -688,6 +776,8 @@ fastify.post('/build-and-deploy', async (request, reply) => {
           status: 'partial_success',
           error: 'Some files failed to upload to S3',
           failedUploads: error.failedUploads,
+          buildLog: buildLog,
+          buildSuccess: true,
           uploadedFiles: error.successfulUploads.map(result => ({
             key: result.Key,
             location: result.Location
@@ -729,6 +819,8 @@ fastify.post('/build-and-deploy', async (request, reply) => {
       status: 'completed',
       message: `Build and deploy completed successfully. ${uploadResults.length} files uploaded to S3.`,
       buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+      buildLog: buildLog,
+      buildSuccess: true,
       uploadedFiles: uploadResults.map(result => ({
         key: result.Key,
         location: result.Location
