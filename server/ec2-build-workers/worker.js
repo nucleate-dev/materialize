@@ -28,6 +28,7 @@ const BUCKET_NAME = 'materialize-sites';
 const execAsync = promisify(exec);
 
 const PORT = process.env.PORT || 3002;
+const PROTOTYPES_DIR = process.env.PROTOTYPES_DIR || './prototypes';
 
 
 // Utility function to build the project using Expo export
@@ -119,7 +120,7 @@ function getContentType(filename) {
 }
 
 // Helper function to extract zip file and upload contents to S3
-async function extractAndUploadZip(zipBuffer, prototypeId) {
+async function extractAndUploadZip(zipBuffer, prototypeId, writeToDisk = false) {
   const tempDir = path.join('/tmp', `extract-${uuidv4()}`);
   const zipPath = path.join(tempDir, 'upload.zip');
   
@@ -159,6 +160,18 @@ async function extractAndUploadZip(zipBuffer, prototypeId) {
     
     console.log(`Successfully uploaded ${uploadedFiles.length} files to S3`);
     
+    // Save to disk if requested
+    if (writeToDisk) {
+      const savedFiles = [];
+      await saveFilesToDisk(extractDir, '', prototypeId, savedFiles);
+      console.log(`Successfully saved ${savedFiles.length} files to local disk`);
+      
+      // Add local paths to uploaded files info
+      for (let i = 0; i < uploadedFiles.length && i < savedFiles.length; i++) {
+        uploadedFiles[i].localPath = savedFiles[i].localPath;
+      }
+    }
+    
     // Cleanup
     await fs.remove(tempDir);
     
@@ -167,6 +180,32 @@ async function extractAndUploadZip(zipBuffer, prototypeId) {
     console.error('extractAndUploadZip error:', error);
     await fs.remove(tempDir);
     throw error;
+  }
+}
+
+// Utility function to save files to local disk
+async function saveFilesToDisk(dirPath, relativePath, prototypeId, savedFiles) {
+  const prototypesDir = path.resolve(PROTOTYPES_DIR, prototypeId, 'files');
+  await fs.ensureDir(prototypesDir);
+  
+  const files = await fs.readdir(dirPath, { withFileTypes: true });
+  
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file.name);
+    const currentRelativePath = relativePath ? path.join(relativePath, file.name) : file.name;
+    
+    if (file.isDirectory()) {
+      await saveFilesToDisk(fullPath, currentRelativePath, prototypeId, savedFiles);
+    } else {
+      const localSavePath = path.join(prototypesDir, currentRelativePath);
+      await fs.ensureDir(path.dirname(localSavePath));
+      await fs.copy(fullPath, localSavePath);
+      
+      savedFiles.push({
+        filename: currentRelativePath,
+        localPath: localSavePath
+      });
+    }
   }
 }
 
@@ -220,6 +259,7 @@ fastify.post('/upload', async (request, reply) => {
   try {
     const uploadedFiles = [];
     let prototypeId = null;
+    let writeToDisk = false;
 
     // Handle multiple files and form fields
     const parts = request.parts();
@@ -240,7 +280,7 @@ fastify.post('/upload', async (request, reply) => {
           fastify.log.info(`Processing zip file: ${part.filename || 'unknown'}`);
           
           // Extract zip and upload all contents
-          const extractedFiles = await extractAndUploadZip(buffer, prototypeId);
+          const extractedFiles = await extractAndUploadZip(buffer, prototypeId, writeToDisk);
           uploadedFiles.push(...extractedFiles);
           
           fastify.log.info(`Extracted and uploaded ${extractedFiles.length} files from ${part.filename || 'zip file'}`);
@@ -257,15 +297,28 @@ fastify.post('/upload', async (request, reply) => {
           };
 
           const result = await s3.upload(uploadParams).promise();
-          uploadedFiles.push({
+          const fileInfo = {
             filename: filename,
             s3Location: result.Location,
             key: result.Key
-          });
+          };
+          
+          // Save to disk if requested
+          if (writeToDisk) {
+            const localPath = path.resolve(PROTOTYPES_DIR, prototypeId, 'files', filename);
+            await fs.ensureDir(path.dirname(localPath));
+            await fs.writeFile(localPath, buffer);
+            fileInfo.localPath = localPath;
+          }
+          
+          uploadedFiles.push(fileInfo);
         }
       } else if (part.fieldname === 'prototypeId') {
         // This is the prototypeId field
         prototypeId = part.value;
+      } else if (part.fieldname === 'write_to_disk') {
+        // This is the write_to_disk field
+        writeToDisk = part.value === 'true' || part.value === true;
       }
     }
 
@@ -295,7 +348,7 @@ fastify.post('/upload', async (request, reply) => {
 // Build endpoint - downloads files from S3, builds them, uploads result
 fastify.post('/build', async (request, reply) => {
   const jobId = uuidv4();
-  const { prototypeId } = request.body;
+  const { prototypeId, write_to_disk = false } = request.body;
 
   if (!prototypeId) {
     return reply.code(400).send({ error: 'prototypeId is required' });
@@ -352,12 +405,21 @@ fastify.post('/build', async (request, reply) => {
     const uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
 
     fastify.log.info(`Uploaded ${uploadResults.length} built files for job ${jobId}`);
+    
+    // Save build output to disk if requested
+    let localBuildPath = null;
+    if (write_to_disk) {
+      localBuildPath = path.resolve(PROTOTYPES_DIR, prototypeId, 'build');
+      await fs.ensureDir(localBuildPath);
+      await fs.copy(outputPath, localBuildPath);
+      fastify.log.info(`Saved build output to local disk: ${localBuildPath}`);
+    }
 
     // Cleanup temporary files
     await fs.remove(tempProjectPath);
     await fs.remove(path.dirname(outputPath)); // Remove the entire temp build directory
 
-    return {
+    const response = {
       jobId,
       prototypeId,
       status: 'completed',
@@ -368,6 +430,13 @@ fastify.post('/build', async (request, reply) => {
         location: result.Location
       }))
     };
+    
+    if (write_to_disk && localBuildPath) {
+      response.localBuildPath = localBuildPath;
+      response.localBuildUrl = `file://${localBuildPath}/index.html`;
+    }
+    
+    return response;
 
   } catch (error) {
     fastify.log.error(`Build failed for job ${jobId}:`, error);
