@@ -35,6 +35,7 @@ const CONFIG = {
 };
 
 class ControlPlaneService {
+  private cleanupIntervals: ReturnType<typeof setInterval>[];
   constructor() {
     this.cleanupIntervals = [];
     this.startCleanupServices();
@@ -52,14 +53,14 @@ class ControlPlaneService {
       let minLoad =
         (await redis.hget(
           REDIS_KEYS.WORKER_LOAD,
-          instances[0].PrivateIpAddress
+          instances[0].PrivateIpAddress,
         )) || 0;
 
       for (const instance of instances.slice(1)) {
         const load =
           (await redis.hget(
             REDIS_KEYS.WORKER_LOAD,
-            instance.PrivateIpAddress
+            instance.PrivateIpAddress,
           )) || 0;
         if (parseInt(load) < parseInt(minLoad)) {
           leastLoadedInstance = instance;
@@ -88,7 +89,7 @@ class ControlPlaneService {
       }
 
       const instanceIds = asgResponse.AutoScalingGroups[0].Instances.filter(
-        (instance) => instance.LifecycleState === "InService"
+        (instance) => instance.LifecycleState === "InService",
       ).map((instance) => instance.InstanceId);
 
       if (instanceIds.length === 0) return [];
@@ -99,7 +100,7 @@ class ControlPlaneService {
         })
         .promise();
 
-      const instances = [];
+      const instances: any[] = [];
       ec2Response.Reservations.forEach((reservation) => {
         reservation.Instances.forEach((instance) => {
           if (instance.State.Name === "running") {
@@ -127,7 +128,7 @@ class ControlPlaneService {
         lockValue,
         "PX",
         30000,
-        "NX"
+        "NX",
       );
       if (!lockAcquired) {
         throw new Error("Could not acquire port lock");
@@ -172,18 +173,18 @@ class ControlPlaneService {
   async sendWorkerRequest(workerIp, payload) {
     try {
       const response = await axios.post(
-        `http://${workerIp}:3001/process`,
+        `http://${workerIp}:3005/process`,
         payload,
         {
           timeout: 30000,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
       return response.data;
     } catch (error) {
       fastify.log.error(
         `Error sending request to worker ${workerIp}:`,
-        error.message
+        error.message,
       );
       throw error;
     }
@@ -195,7 +196,7 @@ class ControlPlaneService {
       // Check if build already exists
       const activeBuild = await redis.hget(
         REDIS_KEYS.ACTIVE_BUILDS,
-        prototypeId
+        prototypeId,
       );
 
       if (activeBuild) {
@@ -212,7 +213,7 @@ class ControlPlaneService {
 
         const result = await this.sendWorkerRequest(
           buildInfo.workerIp,
-          payload
+          payload,
         );
 
         // Update timestamp
@@ -220,7 +221,7 @@ class ControlPlaneService {
         await redis.hset(
           REDIS_KEYS.ACTIVE_BUILDS,
           prototypeId,
-          JSON.stringify(buildInfo)
+          JSON.stringify(buildInfo),
         );
 
         return result;
@@ -229,7 +230,7 @@ class ControlPlaneService {
       // Create new build
       const worker = await this.getLeastLoadedWorker();
       const workerIp = worker.PrivateIpAddress;
-      let port = null;
+      let port: number | null = null;
 
       if (isHotReload) {
         port = await this.acquireFreePort(workerIp);
@@ -249,7 +250,7 @@ class ControlPlaneService {
       await redis.hset(
         REDIS_KEYS.ACTIVE_BUILDS,
         prototypeId,
-        JSON.stringify(buildInfo)
+        JSON.stringify(buildInfo),
       );
 
       // Increment worker load
@@ -279,14 +280,14 @@ class ControlPlaneService {
       const now = Date.now();
 
       for (const [prototypeId, buildInfoStr] of Object.entries(activeBuilds)) {
-        const buildInfo = JSON.parse(buildInfoStr);
+        const buildInfo = JSON.parse(buildInfoStr as string);
 
         if (
           buildInfo.isHotReload &&
           now - buildInfo.lastUpdated > CONFIG.IDLE_TIMEOUT_HOT_RELOAD
         ) {
           fastify.log.info(
-            `Cleaning up idle hot reload for prototype ${prototypeId}`
+            `Cleaning up idle hot reload for prototype ${prototypeId}`,
           );
 
           // Stop metro bundler on worker
@@ -299,7 +300,7 @@ class ControlPlaneService {
           } catch (error) {
             fastify.log.warn(
               `Failed to stop metro for ${prototypeId}:`,
-              error.message
+              error.message,
             );
           }
 
@@ -314,7 +315,7 @@ class ControlPlaneService {
           await redis.hset(
             REDIS_KEYS.ACTIVE_BUILDS,
             prototypeId,
-            JSON.stringify(buildInfo)
+            JSON.stringify(buildInfo),
           );
         }
       }
@@ -330,11 +331,11 @@ class ControlPlaneService {
       const now = Date.now();
 
       for (const [prototypeId, buildInfoStr] of Object.entries(activeBuilds)) {
-        const buildInfo = JSON.parse(buildInfoStr);
+        const buildInfo = JSON.parse(buildInfoStr as string);
 
         if (now - buildInfo.lastUpdated > CONFIG.IDLE_TIMEOUT_CLEANUP) {
           fastify.log.info(
-            `Cleaning up old build for prototype ${prototypeId}`
+            `Cleaning up old build for prototype ${prototypeId}`,
           );
 
           // Clean up files on worker
@@ -346,7 +347,7 @@ class ControlPlaneService {
           } catch (error) {
             fastify.log.warn(
               `Failed to cleanup files for ${prototypeId}:`,
-              error.message
+              error.message,
             );
           }
 
@@ -373,13 +374,13 @@ class ControlPlaneService {
     this.cleanupIntervals.push(
       setInterval(
         () => this.cleanupIdleHotReload(),
-        CONFIG.CLEANUP_INTERVAL_HOT_RELOAD
-      )
+        CONFIG.CLEANUP_INTERVAL_HOT_RELOAD,
+      ),
     );
 
     // File cleanup every 20 minutes
     this.cleanupIntervals.push(
-      setInterval(() => this.cleanupOldBuilds(), CONFIG.CLEANUP_INTERVAL_FILES)
+      setInterval(() => this.cleanupOldBuilds(), CONFIG.CLEANUP_INTERVAL_FILES),
     );
 
     fastify.log.info("Cleanup services started");
@@ -409,7 +410,7 @@ fastify.post("/build", async (request, reply) => {
     const result = await controlPlane.processBuildRequest(
       prototypeId,
       files,
-      isHotReload
+      isHotReload,
     );
 
     return reply.send({
