@@ -274,3 +274,5 @@ coverage/
 .azure/
 
 .DS_Store
+
+prototypes/

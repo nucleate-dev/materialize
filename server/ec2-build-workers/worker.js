@@ -119,6 +119,57 @@ function getContentType(filename) {
   return contentTypes[ext] || 'application/octet-stream';
 }
 
+// Helper function to extract zip file for direct building (no S3 upload)
+async function extractZipForBuilding(zipBuffer, prototypeId, writeToDisk = false) {
+  const tempDir = path.join('/tmp', `extract-build-${uuidv4()}`);
+  const zipPath = path.join(tempDir, 'upload.zip');
+  
+  console.log(`Extracting zip file for building to ${tempDir}`);
+  console.log(`Zip buffer size: ${zipBuffer.length} bytes`);
+  
+  try {
+    await fs.ensureDir(tempDir);
+    await fs.writeFile(zipPath, zipBuffer);
+    
+    const extractDir = path.join(tempDir, 'extracted');
+    await fs.ensureDir(extractDir);
+    
+    console.log(`Created extract directory: ${extractDir}`);
+    
+    // Extract zip file
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(zipPath)
+        .pipe(unzipper.Extract({ path: extractDir }))
+        .on('close', () => {
+          console.log('Zip extraction completed');
+          resolve();
+        })
+        .on('error', (error) => {
+          console.error('Zip extraction error:', error);
+          reject(error);
+        });
+    });
+    
+    // Check what was extracted
+    const extractedContents = await fs.readdir(extractDir, { withFileTypes: true });
+    console.log(`Extracted ${extractedContents.length} items:`, extractedContents.map(f => f.name));
+    
+    // Save to disk if requested (source files)
+    if (writeToDisk) {
+      const savedFiles = [];
+      await saveFilesToDisk(extractDir, '', prototypeId, savedFiles);
+      console.log(`Successfully saved ${savedFiles.length} source files to local disk`);
+    }
+    
+    // Return the extraction directory for building
+    return { extractDir, tempDir };
+  } catch (error) {
+    console.error('extractZipForBuilding error:', error);
+    await fs.remove(tempDir);
+    throw error;
+  }
+}
+
 // Helper function to extract zip file and upload contents to S3
 async function extractAndUploadZip(zipBuffer, prototypeId, writeToDisk = false) {
   const tempDir = path.join('/tmp', `extract-${uuidv4()}`);
@@ -455,6 +506,143 @@ fastify.post('/build', async (request, reply) => {
       status: 'failed',
       error: 'Build failed',
       details: error.message
+    });
+  }
+});
+
+// Build and deploy endpoint - takes files, builds them, uploads only built files to S3
+fastify.post('/build-and-deploy', async (request, reply) => {
+  const jobId = uuidv4();
+  let prototypeId = null;
+  let writeToDisk = false;
+  let projectDir = null;
+  let tempDir = null;
+
+  try {
+    fastify.log.info(`Starting build-and-deploy job ${jobId}`);
+    const parts = request.parts();
+
+    for await (const part of parts) {
+      if (part.file) {
+        if (!prototypeId) {
+          return reply.code(400).send({
+            error: 'prototypeId must be provided before file uploads'
+          });
+        }
+
+        const buffer = await part.toBuffer();
+
+        // Check if this is a zip file
+        const filename = part.filename || 'unknown';
+        const mimetype = part.mimetype || '';
+        const isZip = mimetype === 'application/zip' || filename.toLowerCase().endsWith('.zip');
+        
+        if (isZip) {
+          fastify.log.info(`Processing zip file for build-and-deploy: ${filename}`);
+          
+          // Extract zip for building (no S3 upload)
+          const { extractDir, tempDir: extractTempDir } = await extractZipForBuilding(buffer, prototypeId, writeToDisk);
+          projectDir = extractDir;
+          tempDir = extractTempDir;
+          
+          fastify.log.info(`Extracted project files for building`);
+          break; // Only process first zip file
+        } else {
+          return reply.code(400).send({
+            error: 'build-and-deploy endpoint only supports zip files'
+          });
+        }
+      } else if (part.fieldname === 'prototypeId') {
+        prototypeId = part.value;
+      } else if (part.fieldname === 'write_to_disk') {
+        writeToDisk = part.value === 'true' || part.value === true;
+      }
+    }
+
+    if (!prototypeId) {
+      return reply.code(400).send({ error: 'prototypeId is required' });
+    }
+
+    if (!projectDir) {
+      return reply.code(400).send({ error: 'No valid zip file provided' });
+    }
+
+    fastify.log.info(`Starting build-and-deploy for prototype ${prototypeId}, job ${jobId}`);
+
+    // Build the project directly from extracted files
+    const outputPath = await buildProject(projectDir, prototypeId);
+
+    fastify.log.info(`Build completed successfully for job ${jobId}`);
+    fastify.log.info(`Build output path: ${outputPath}`);
+    
+    // Check what files were built
+    const builtFiles = await fs.readdir(outputPath, { withFileTypes: true });
+    fastify.log.info(`Built files found: ${builtFiles.map(f => f.name).join(', ')}`);
+
+    // Upload only the built files to S3
+    const buildS3Prefix = `${prototypeId}/dist`;
+    fastify.log.info(`Starting S3 upload with prefix: ${buildS3Prefix}`);
+    const uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
+
+    fastify.log.info(`Uploaded ${uploadResults.length} built files to S3 for job ${jobId}`);
+    if (uploadResults.length > 0) {
+      fastify.log.info(`Sample uploaded file: ${uploadResults[0].Key}`);
+    }
+    
+    // Save build output to disk if requested
+    let localBuildPath = null;
+    if (writeToDisk) {
+      localBuildPath = path.resolve(PROTOTYPES_DIR, prototypeId, 'build');
+      await fs.ensureDir(localBuildPath);
+      await fs.copy(outputPath, localBuildPath);
+      fastify.log.info(`Saved build output to local disk: ${localBuildPath}`);
+    }
+
+    // Cleanup temporary files
+    if (tempDir) {
+      await fs.remove(tempDir);
+    }
+    await fs.remove(path.dirname(outputPath)); // Remove the build temp directory
+
+    const response = {
+      jobId,
+      prototypeId,
+      status: 'completed',
+      message: `Build and deploy completed successfully. ${uploadResults.length} files uploaded to S3.`,
+      buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+      uploadedFiles: uploadResults.map(result => ({
+        key: result.Key,
+        location: result.Location
+      }))
+    };
+    
+    if (writeToDisk && localBuildPath) {
+      response.localBuildPath = localBuildPath;
+      response.localBuildUrl = `file://${localBuildPath}/index.html`;
+    }
+    
+    return response;
+
+  } catch (error) {
+    fastify.log.error(`Build-and-deploy failed for job ${jobId}:`, error);
+    fastify.log.error(`Error stack:`, error.stack);
+    
+    // Cleanup on error
+    try {
+      if (tempDir) {
+        await fs.remove(tempDir);
+      }
+    } catch (cleanupError) {
+      fastify.log.error('Cleanup failed:', cleanupError);
+    }
+
+    return reply.code(500).send({
+      jobId,
+      prototypeId: prototypeId || 'unknown',
+      status: 'failed',
+      error: 'Build and deploy failed',
+      details: error.message,
+      stack: error.stack
     });
   }
 });

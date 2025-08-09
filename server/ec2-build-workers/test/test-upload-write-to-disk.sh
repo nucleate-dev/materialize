@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Test script for the file upload and build endpoints with write_to_disk enabled
+# Test script for the new build-and-deploy endpoint with write_to_disk enabled
 # Usage: bash test-upload-write-to-disk.sh
 
 PROTOTYPE_ID="test-prototype-$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZIP_FILE="$SCRIPT_DIR/test-project.zip"
 
-echo "Testing file upload endpoint with write_to_disk enabled"
+echo "Testing build-and-deploy endpoint with write_to_disk enabled"
 echo "Prototype ID: $PROTOTYPE_ID"
 
 # Create zip file of the test project (excluding the test script itself and any existing zip)
@@ -18,52 +18,54 @@ zip -r test-project.zip . -x "test-upload*.sh" "*.zip" "README.md"
 echo "Zip file created with the following contents:"
 unzip -l test-project.zip
 
-# Test the upload endpoint with the zip file and write_to_disk enabled
-echo -e "\n\nTesting upload endpoint with write_to_disk=true..."
-UPLOAD_RESPONSE=$(curl -s -X POST http://localhost:3002/upload \
+# Test the build-and-deploy endpoint with the zip file and write_to_disk enabled
+echo -e "\n\nTesting build-and-deploy endpoint with write_to_disk=true..."
+BUILD_DEPLOY_RESPONSE=$(curl -s -X POST http://localhost:3002/build-and-deploy \
   -F "prototypeId=$PROTOTYPE_ID" \
   -F "write_to_disk=true" \
   -F "files=@test-project.zip")
 
-echo "Upload Response:"
-echo $UPLOAD_RESPONSE
-
-echo -e "\n\nTesting build endpoint with write_to_disk=true..."
-
-# Test build endpoint with write_to_disk enabled
-BUILD_RESPONSE=$(curl -s -X POST http://localhost:3002/build \
-  -H "Content-Type: application/json" \
-  -d "{\"prototypeId\":\"$PROTOTYPE_ID\",\"write_to_disk\":true}")
-
-echo "Build Response:"
-echo $BUILD_RESPONSE
+echo "Build-and-Deploy Response:"
+echo $BUILD_DEPLOY_RESPONSE
 
 echo -e "\n\nTesting health endpoint..."
 
 # Test health endpoint
 curl -s http://localhost:3002/health
 
-echo -e "\n\nDone! Files should be saved locally at:"
+echo -e "\n\nDone! Single endpoint completed the entire process:"
+echo "✅ Extracted files"
+echo "✅ Built project with Expo"
+echo "✅ Uploaded ONLY built files to S3"
+echo "✅ Saved files locally (if write_to_disk=true)"
+echo ""
+echo "Files should be saved locally at:"
 echo "- Source files: ./prototypes/$PROTOTYPE_ID/files/"
 echo "- Build files: ./prototypes/$PROTOTYPE_ID/build/"
 echo "- S3 build URL: Check response above for buildUrl"
 
-# Check if local files were created
-if [ -d "./prototypes/$PROTOTYPE_ID" ]; then
+# Check if local files were created (relative to the project root where worker.js runs)
+PROTOTYPES_PATH="../prototypes/$PROTOTYPE_ID"
+if [ -d "$PROTOTYPES_PATH" ]; then
     echo -e "\n✅ Local prototype directory created:"
-    ls -la "./prototypes/$PROTOTYPE_ID/"
+    ls -la "$PROTOTYPES_PATH/"
     
-    if [ -d "./prototypes/$PROTOTYPE_ID/files" ]; then
+    if [ -d "$PROTOTYPES_PATH/files" ]; then
         echo -e "\n📁 Source files directory:"
-        ls -la "./prototypes/$PROTOTYPE_ID/files/"
+        ls -la "$PROTOTYPES_PATH/files/"
     fi
     
-    if [ -d "./prototypes/$PROTOTYPE_ID/build" ]; then
+    if [ -d "$PROTOTYPES_PATH/build" ]; then
         echo -e "\n🏗️  Build files directory:"
-        ls -la "./prototypes/$PROTOTYPE_ID/build/"
+        ls -la "$PROTOTYPES_PATH/build/"
     fi
 else
-    echo -e "\n❌ No local prototype directory found - check for errors above"
+    echo -e "\n❌ No local prototype directory found at $PROTOTYPES_PATH"
+    echo "    Let's check if it was created elsewhere:"
+    echo "    Current directory: $(pwd)"
+    echo "    Looking for: prototypes/$PROTOTYPE_ID"
+    find . -name "prototypes" -type d 2>/dev/null | head -5
+    find .. -name "prototypes" -type d 2>/dev/null | head -5
 fi
 
 # Cleanup zip file
