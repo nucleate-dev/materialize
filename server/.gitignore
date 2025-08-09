@@ -272,3 +272,5 @@ coverage/
 
 # Azure
 .azure/
+
+.DS_Store
