@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "target": "ES2022",
+    "moduleResolution": "nodenext",
+    "skipLibCheck": true
+  }
+}

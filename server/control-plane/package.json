@@ -2,22 +2,23 @@
   "name": "rn-web-control-plane",
   "version": "1.0.0",
   "description": "Control plane for React Native Web app building service",
-  "main": "worker.js",
+  "main": "server.ts",
   "scripts": {
-    "start": "node worker.js",
-    "dev": "nodemon worker.js",
+    "start": "node server.ts",
+    "dev": "nodemon server.ts",
     "test": "jest"
   },
   "dependencies": {
-    "fastify": "^4.24.3",
-    "ioredis": "^5.3.2",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/static": "^6.12.0",
     "aws-sdk": "^2.1491.0",
     "axios": "^1.6.2",
-    "@fastify/static": "^6.12.0"
+    "fastify": "^5.4.0",
+    "ioredis": "^5.3.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2"
   },
   "engines": {
     "node": ">=18.0.0"
