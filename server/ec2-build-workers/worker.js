@@ -76,30 +76,59 @@ async function buildProject(projectPath, prototypeId) {
 // Utility function to upload directory to S3
 async function uploadDirectoryToS3(localPath, s3KeyPrefix) {
   const files = await fs.readdir(localPath, { withFileTypes: true });
-  const uploadPromises = [];
+  const uploadResults = [];
+  const failedUploads = [];
 
   for (const file of files) {
     const localFilePath = path.join(localPath, file.name);
     
     if (file.isDirectory()) {
-      const subDirUploads = await uploadDirectoryToS3(localFilePath, `${s3KeyPrefix}/${file.name}`);
-      uploadPromises.push(...subDirUploads);
+      try {
+        const subDirResults = await uploadDirectoryToS3(localFilePath, `${s3KeyPrefix}/${file.name}`);
+        uploadResults.push(...subDirResults);
+      } catch (error) {
+        if (error.failedUploads) {
+          failedUploads.push(...error.failedUploads);
+        } else {
+          failedUploads.push({
+            path: localFilePath,
+            error: error.message
+          });
+        }
+      }
     } else {
-      const fileBuffer = await fs.readFile(localFilePath);
-      const s3Key = `${s3KeyPrefix}/${file.name}`;
-      
-      const uploadPromise = s3.upload({
-        Bucket: BUCKET_NAME,
-        Key: s3Key,
-        Body: fileBuffer,
-        ContentType: getContentType(file.name)
-      }).promise();
-      
-      uploadPromises.push(uploadPromise);
+      try {
+        const fileBuffer = await fs.readFile(localFilePath);
+        const s3Key = `${s3KeyPrefix}/${file.name}`;
+        
+        const result = await s3.upload({
+          Bucket: BUCKET_NAME,
+          Key: s3Key,
+          Body: fileBuffer,
+          ContentType: getContentType(file.name)
+        }).promise();
+        
+        uploadResults.push(result);
+      } catch (error) {
+        console.error(`Failed to upload ${localFilePath} to S3:`, error.message);
+        failedUploads.push({
+          path: localFilePath,
+          key: `${s3KeyPrefix}/${file.name}`,
+          error: error.message
+        });
+      }
     }
   }
 
-  return Promise.all(uploadPromises);
+  if (failedUploads.length > 0) {
+    const errorMessage = `Failed to upload ${failedUploads.length} files to S3`;
+    const error = new Error(errorMessage);
+    error.failedUploads = failedUploads;
+    error.successfulUploads = uploadResults;
+    throw error;
+  }
+
+  return uploadResults;
 }
 
 // Helper function to determine content type
@@ -261,7 +290,7 @@ async function saveFilesToDisk(dirPath, relativePath, prototypeId, savedFiles) {
 }
 
 // Recursive function to upload extracted files maintaining directory structure
-async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploadedFiles) {
+async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploadedFiles, failedFiles = []) {
   const files = await fs.readdir(dirPath, { withFileTypes: true });
   console.log(`Processing ${files.length} items in ${dirPath}`);
   
@@ -271,7 +300,7 @@ async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploaded
     
     if (file.isDirectory()) {
       console.log(`  Directory: ${currentRelativePath}`);
-      await uploadExtractedFiles(fullPath, currentRelativePath, prototypeId, uploadedFiles);
+      await uploadExtractedFiles(fullPath, currentRelativePath, prototypeId, uploadedFiles, failedFiles);
     } else {
       console.log(`  Uploading file: ${currentRelativePath}`);
       try {
@@ -294,9 +323,19 @@ async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploaded
         console.log(`    ✓ Uploaded: ${key}`);
       } catch (error) {
         console.error(`    ✗ Failed to upload ${currentRelativePath}:`, error.message);
-        throw error;
+        failedFiles.push({
+          filename: currentRelativePath,
+          error: error.message
+        });
       }
     }
+  }
+  
+  if (failedFiles.length > 0) {
+    const errorMessage = `Failed to upload ${failedFiles.length} files: ${failedFiles.map(f => f.filename).join(', ')}`;
+    const error = new Error(errorMessage);
+    error.failedFiles = failedFiles;
+    throw error;
   }
 }
 
@@ -331,8 +370,23 @@ fastify.post('/upload', async (request, reply) => {
           fastify.log.info(`Processing zip file: ${part.filename || 'unknown'}`);
           
           // Extract zip and upload all contents
-          const extractedFiles = await extractAndUploadZip(buffer, prototypeId, writeToDisk);
-          uploadedFiles.push(...extractedFiles);
+          try {
+            const extractedFiles = await extractAndUploadZip(buffer, prototypeId, writeToDisk);
+            uploadedFiles.push(...extractedFiles);
+          } catch (error) {
+            // If there are failed files but some succeeded, include partial results
+            if (error.failedFiles) {
+              return reply.code(207).send({
+                prototypeId,
+                uploadedFiles,
+                partialSuccess: true,
+                error: 'Some files failed to upload to S3',
+                failedFiles: error.failedFiles,
+                message: `Partially successful: ${uploadedFiles.length} files uploaded, ${error.failedFiles.length} failed`
+              });
+            }
+            throw error;
+          }
           
           fastify.log.info(`Extracted and uploaded ${extractedFiles.length} files from ${part.filename || 'zip file'}`);
         } else {
@@ -347,7 +401,18 @@ fastify.post('/upload', async (request, reply) => {
             ContentType: part.mimetype
           };
 
-          const result = await s3.upload(uploadParams).promise();
+          let result;
+          try {
+            result = await s3.upload(uploadParams).promise();
+          } catch (error) {
+            fastify.log.error(`Failed to upload individual file ${filename} to S3:`, error.message);
+            return reply.code(500).send({
+              error: 'Failed to upload file to S3',
+              filename: filename,
+              details: error.message
+            });
+          }
+          
           const fileInfo = {
             filename: filename,
             s3Location: result.Location,
@@ -453,7 +518,34 @@ fastify.post('/build', async (request, reply) => {
 
     // Upload build output to S3
     const buildS3Prefix = `${prototypeId}/dist`;
-    const uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
+    let uploadResults;
+    try {
+      uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
+    } catch (error) {
+      fastify.log.error(`S3 upload failed for job ${jobId}:`, error);
+      
+      // If there were some successful uploads, include them in the response
+      if (error.successfulUploads && error.successfulUploads.length > 0) {
+        return reply.code(207).send({
+          jobId,
+          prototypeId,
+          status: 'partial_success',
+          error: 'Some files failed to upload to S3',
+          failedUploads: error.failedUploads,
+          uploadedFiles: error.successfulUploads.map(result => ({
+            key: result.Key,
+            location: result.Location
+          })),
+          message: `Build completed but S3 upload partially failed: ${error.successfulUploads.length} files uploaded, ${error.failedUploads.length} failed`,
+          buildUrl: error.successfulUploads.some(f => f.Key.endsWith('index.html')) 
+            ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html` 
+            : null
+        });
+      }
+      
+      // Complete failure
+      throw new Error(`S3 upload failed: ${error.message}`);
+    }
 
     fastify.log.info(`Uploaded ${uploadResults.length} built files for job ${jobId}`);
     
@@ -582,7 +674,34 @@ fastify.post('/build-and-deploy', async (request, reply) => {
     // Upload only the built files to S3
     const buildS3Prefix = `${prototypeId}/dist`;
     fastify.log.info(`Starting S3 upload with prefix: ${buildS3Prefix}`);
-    const uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
+    let uploadResults;
+    try {
+      uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
+    } catch (error) {
+      fastify.log.error(`S3 upload failed for build-and-deploy job ${jobId}:`, error);
+      
+      // If there were some successful uploads, include them in the response
+      if (error.successfulUploads && error.successfulUploads.length > 0) {
+        return reply.code(207).send({
+          jobId,
+          prototypeId,
+          status: 'partial_success',
+          error: 'Some files failed to upload to S3',
+          failedUploads: error.failedUploads,
+          uploadedFiles: error.successfulUploads.map(result => ({
+            key: result.Key,
+            location: result.Location
+          })),
+          message: `Build completed but S3 upload partially failed: ${error.successfulUploads.length} files uploaded, ${error.failedUploads.length} failed`,
+          buildUrl: error.successfulUploads.some(f => f.Key.endsWith('index.html')) 
+            ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html` 
+            : null
+        });
+      }
+      
+      // Complete failure
+      throw new Error(`S3 upload failed: ${error.message}`);
+    }
 
     fastify.log.info(`Uploaded ${uploadResults.length} built files to S3 for job ${jobId}`);
     if (uploadResults.length > 0) {
