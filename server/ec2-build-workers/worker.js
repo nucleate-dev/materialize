@@ -30,6 +30,9 @@ const execAsync = promisify(exec);
 const PORT = process.env.PORT || 3002;
 const PROTOTYPES_DIR = process.env.PROTOTYPES_DIR || './prototypes';
 
+// Track running dev servers
+const runningDevServers = new Map();
+
 
 // Utility function to build the project using Expo export
 async function buildProject(projectPath, prototypeId) {
@@ -856,6 +859,386 @@ fastify.post('/build-and-deploy', async (request, reply) => {
       stack: error.stack
     });
   }
+});
+
+// Start Expo dev server with tunnel
+fastify.post('/dev-server', async (request, reply) => {
+  const jobId = uuidv4();
+  let prototypeId = null;
+  let projectDir = null;
+  let tempDir = null;
+
+  try {
+    fastify.log.info(`Starting dev server job ${jobId}`);
+    const parts = request.parts();
+
+    for await (const part of parts) {
+      if (part.file) {
+        if (!prototypeId) {
+          return reply.code(400).send({
+            error: 'prototypeId must be provided before file uploads'
+          });
+        }
+
+        const buffer = await part.toBuffer();
+        const filename = part.filename || 'unknown';
+        const mimetype = part.mimetype || '';
+        const isZip = mimetype === 'application/zip' || filename.toLowerCase().endsWith('.zip');
+        
+        if (isZip) {
+          fastify.log.info(`Processing zip file for dev server: ${filename}`);
+          
+          // Extract zip for dev server
+          const { extractDir, tempDir: extractTempDir } = await extractZipForBuilding(buffer, prototypeId, false);
+          projectDir = extractDir;
+          tempDir = extractTempDir;
+          
+          fastify.log.info(`Extracted project files for dev server`);
+          break;
+        } else {
+          return reply.code(400).send({
+            error: 'dev-server endpoint only supports zip files'
+          });
+        }
+      } else if (part.fieldname === 'prototypeId') {
+        prototypeId = part.value;
+      }
+    }
+
+    if (!prototypeId) {
+      return reply.code(400).send({ error: 'prototypeId is required' });
+    }
+
+    if (!projectDir) {
+      return reply.code(400).send({ error: 'No valid zip file provided' });
+    }
+
+    // Check if dev server already running for this prototype
+    if (runningDevServers.has(prototypeId)) {
+      return reply.code(409).send({
+        error: 'Dev server already running for this prototype',
+        prototypeId,
+        existingServer: runningDevServers.get(prototypeId)
+      });
+    }
+
+    fastify.log.info(`Starting dev server for prototype ${prototypeId}, job ${jobId}`);
+
+    // Install dependencies first
+    try {
+      const { stdout, stderr } = await execAsync('npm install', { cwd: projectDir });
+      fastify.log.info(`Dependencies installed for ${prototypeId}`);
+    } catch (error) {
+      fastify.log.error(`Failed to install dependencies for ${prototypeId}:`, error.message);
+      if (tempDir) await fs.remove(tempDir);
+      return reply.code(500).send({
+        error: 'Failed to install dependencies',
+        details: error.message
+      });
+    }
+
+    // Install @expo/ngrok globally for tunnel support
+    try {
+      const { stdout, stderr } = await execAsync('npm install -g @expo/ngrok@^4.1.0', { cwd: projectDir });
+      fastify.log.info(`@expo/ngrok installed globally for ${prototypeId}`);
+    } catch (error) {
+      fastify.log.warn(`Failed to install @expo/ngrok globally, tunneling may not work: ${error.message}`);
+      // Continue anyway, tunnel might still work if already installed
+    }
+
+    // Find an available port starting from 8082
+    let devPort = 8082;
+    while (devPort < 8090) {
+      try {
+        await new Promise((resolve, reject) => {
+          execAsync(`lsof -ti :${devPort}`).then(({ stdout }) => {
+            if (stdout.trim()) {
+              // Port is in use
+              reject(new Error(`Port ${devPort} in use`));
+            } else {
+              // Port is available
+              resolve();
+            }
+          }).catch(() => {
+            // lsof returns error when no processes found, which means port is available
+            resolve();
+          });
+        });
+        break; // Port is available
+      } catch (error) {
+        devPort++; // Try next port
+      }
+    }
+
+    fastify.log.info(`Using port ${devPort} for Expo dev server`);
+
+    // Start the Expo dev server with tunnel
+    const { spawn } = await import('child_process');
+    const expoProcess = spawn('npx', ['expo', 'start', '--web', '--tunnel', '--port', devPort.toString()], {
+      cwd: projectDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        CI: '1', // This prevents interactive prompts
+        EXPO_DEVTOOLS: 'false'
+      }
+    });
+
+    let tunnelUrl = null;
+    let startupLogs = [];
+    const maxWaitTime = 60000; // 60 seconds
+    const startTime = Date.now();
+
+    // Promise to wait for tunnel URL
+    const waitForTunnel = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for tunnel URL'));
+      }, maxWaitTime);
+
+      expoProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        startupLogs.push(output);
+        fastify.log.info(`Expo stdout: ${output.trim()}`);
+        
+        // Look for various tunnel URL patterns
+        const patterns = [
+          /https?:\/\/[a-zA-Z0-9-]+\.exp\.direct/g,
+          /https?:\/\/[a-zA-Z0-9-]+\.ngrok\.io/g,
+          /https?:\/\/[a-zA-Z0-9-]+\.tunnel\.dev/g,
+          /Tunnel:\s+(https?:\/\/[a-zA-Z0-9.-]+)/g,
+          /🌐\s+Metro waiting on\s+(https?:\/\/[a-zA-Z0-9.-]+)/g
+        ];
+        
+        for (const pattern of patterns) {
+          const matches = [...output.matchAll(pattern)];
+          if (matches.length > 0) {
+            for (const match of matches) {
+              const url = match[1] || match[0];
+              if (url && (url.includes('exp.direct') || url.includes('ngrok.io') || url.includes('tunnel.dev'))) {
+                tunnelUrl = url;
+                fastify.log.info(`Found tunnel URL: ${tunnelUrl}`);
+                clearTimeout(timeout);
+                resolve(tunnelUrl);
+                return;
+              }
+            }
+          }
+        }
+        
+        // Also look for "Tunnel ready" messages and try to find tunnel URL
+        if (output.includes('Tunnel ready') || output.includes('tunnel is ready') || output.includes('Tunnel connected')) {
+          fastify.log.info('Tunnel ready detected, attempting to find tunnel URL...');
+          
+          // Sometimes the URL isn't in the same message, try to get it from ngrok API
+          setTimeout(async () => {
+            try {
+              // Check if we can get tunnel info from ngrok API
+              const ngrokApiResponse = await fetch('http://127.0.0.1:4040/api/tunnels').catch(() => null);
+              if (ngrokApiResponse) {
+                const ngrokData = await ngrokApiResponse.json();
+                if (ngrokData.tunnels && ngrokData.tunnels.length > 0) {
+                  const httpTunnel = ngrokData.tunnels.find(t => t.proto === 'http' || t.proto === 'https');
+                  if (httpTunnel) {
+                    tunnelUrl = httpTunnel.public_url;
+                    fastify.log.info(`Found tunnel URL from ngrok API: ${tunnelUrl}`);
+                    clearTimeout(timeout);
+                    resolve(tunnelUrl);
+                    return;
+                  }
+                }
+              }
+              
+              // If no ngrok API, try to construct likely tunnel URL
+              // Modern expo often uses format like https://abc123-user-project.exp.direct
+              const possibleUrl = `https://localhost-${devPort}.exp.direct`;
+              fastify.log.info(`Attempting fallback tunnel URL: ${possibleUrl}`);
+              tunnelUrl = possibleUrl;
+              clearTimeout(timeout);
+              resolve(tunnelUrl);
+              
+            } catch (error) {
+              fastify.log.error('Failed to get tunnel URL from API:', error.message);
+            }
+          }, 2000); // Wait 2 seconds for tunnel to fully establish
+        }
+      });
+
+      expoProcess.stderr.on('data', (data) => {
+        const output = data.toString();
+        startupLogs.push(output);
+        fastify.log.error(`Expo dev server stderr: ${output}`);
+      });
+
+      expoProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          reject(new Error(`Expo dev server exited with code ${code}`));
+        }
+      });
+
+      expoProcess.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
+
+    try {
+      await waitForTunnel;
+    } catch (error) {
+      fastify.log.error(`Failed to start dev server for ${prototypeId}:`, error.message);
+      expoProcess.kill();
+      if (tempDir) await fs.remove(tempDir);
+      
+      return reply.code(500).send({
+        error: 'Failed to start dev server',
+        details: error.message,
+        logs: startupLogs
+      });
+    }
+
+    // Store the running dev server info
+    const devServerInfo = {
+      prototypeId,
+      jobId,
+      process: expoProcess,
+      projectDir,
+      tempDir,
+      tunnelUrl,
+      startTime: new Date(),
+      logs: startupLogs
+    };
+
+    runningDevServers.set(prototypeId, devServerInfo);
+
+    // Set up cleanup handlers
+    expoProcess.on('close', (code) => {
+      fastify.log.info(`Dev server for ${prototypeId} exited with code ${code}`);
+      runningDevServers.delete(prototypeId);
+      if (tempDir) {
+        fs.remove(tempDir).catch(err => {
+          fastify.log.error(`Failed to cleanup temp dir for ${prototypeId}:`, err);
+        });
+      }
+    });
+
+    fastify.log.info(`Dev server started successfully for ${prototypeId} with tunnel: ${tunnelUrl}`);
+
+    return {
+      jobId,
+      prototypeId,
+      status: 'started',
+      tunnelUrl,
+      message: 'Dev server started successfully',
+      startTime: devServerInfo.startTime
+    };
+
+  } catch (error) {
+    fastify.log.error(`Dev server startup failed for job ${jobId}:`, error);
+    
+    // Cleanup on error
+    if (tempDir) {
+      try {
+        await fs.remove(tempDir);
+      } catch (cleanupError) {
+        fastify.log.error('Cleanup failed:', cleanupError);
+      }
+    }
+
+    return reply.code(500).send({
+      jobId,
+      prototypeId: prototypeId || 'unknown',
+      status: 'failed',
+      error: 'Failed to start dev server',
+      details: error.message
+    });
+  }
+});
+
+// Stop dev server
+fastify.delete('/dev-server/:prototypeId', async (request, reply) => {
+  const { prototypeId } = request.params;
+
+  if (!runningDevServers.has(prototypeId)) {
+    return reply.code(404).send({
+      error: 'No dev server running for this prototype',
+      prototypeId
+    });
+  }
+
+  try {
+    const devServerInfo = runningDevServers.get(prototypeId);
+    
+    // Kill the process
+    devServerInfo.process.kill('SIGTERM');
+    
+    // Force kill after 5 seconds if it doesn't close gracefully
+    setTimeout(() => {
+      if (!devServerInfo.process.killed) {
+        devServerInfo.process.kill('SIGKILL');
+      }
+    }, 5000);
+
+    // Cleanup temp directory
+    if (devServerInfo.tempDir) {
+      await fs.remove(devServerInfo.tempDir);
+    }
+
+    // Remove from tracking
+    runningDevServers.delete(prototypeId);
+
+    fastify.log.info(`Dev server stopped for ${prototypeId}`);
+
+    return {
+      prototypeId,
+      status: 'stopped',
+      message: 'Dev server stopped successfully'
+    };
+
+  } catch (error) {
+    fastify.log.error(`Failed to stop dev server for ${prototypeId}:`, error);
+    return reply.code(500).send({
+      error: 'Failed to stop dev server',
+      prototypeId,
+      details: error.message
+    });
+  }
+});
+
+// List running dev servers
+fastify.get('/dev-servers', async (request, reply) => {
+  const servers = Array.from(runningDevServers.entries()).map(([prototypeId, info]) => ({
+    prototypeId,
+    jobId: info.jobId,
+    tunnelUrl: info.tunnelUrl,
+    startTime: info.startTime,
+    status: 'running'
+  }));
+
+  return {
+    runningServers: servers,
+    count: servers.length
+  };
+});
+
+// Debug endpoint to get logs from a running dev server
+fastify.get('/dev-server/:prototypeId/logs', async (request, reply) => {
+  const { prototypeId } = request.params;
+
+  if (!runningDevServers.has(prototypeId)) {
+    return reply.code(404).send({
+      error: 'No dev server running for this prototype',
+      prototypeId
+    });
+  }
+
+  const devServerInfo = runningDevServers.get(prototypeId);
+  
+  return {
+    prototypeId,
+    logs: devServerInfo.logs || [],
+    startTime: devServerInfo.startTime,
+    tunnelUrl: devServerInfo.tunnelUrl
+  };
 });
 
 // Start the server
