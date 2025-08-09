@@ -292,70 +292,107 @@ fastify.post('/upload', async (request, reply) => {
   }
 });
 
-// Build endpoint - downloads files from S3, builds them, uploads result
+// Build endpoint - takes uploaded files, builds them, uploads only the dist/ result
 fastify.post('/build', async (request, reply) => {
   const jobId = uuidv4();
-  const { prototypeId } = request.body;
-
-  if (!prototypeId) {
-    return reply.code(400).send({ error: 'prototypeId is required' });
-  }
+  let prototypeId = null;
+  let tempProjectPath = null;
 
   try {
-    // Create temporary directory for this build
-    const tempProjectPath = path.join('/tmp', `project-${jobId}`);
-    await fs.ensureDir(tempProjectPath);
+    // Handle multipart form data (files + prototypeId)
+    const parts = request.parts();
 
-    fastify.log.info(`Starting build for prototype ${prototypeId}, job ${jobId}`);
+    for await (const part of parts) {
+      if (part.file) {
+        // This is a file part
+        const buffer = await part.toBuffer();
 
-    // Download files from S3 to temporary directory
-    const listParams = {
-      Bucket: BUCKET_NAME,
-      Prefix: `${prototypeId}/`
-    };
+        if (!prototypeId) {
+          return reply.code(400).send({
+            error: 'prototypeId must be provided before file uploads'
+          });
+        }
 
-    const objects = await s3.listObjectsV2(listParams).promise();
-    
-    if (!objects.Contents || objects.Contents.length === 0) {
-      await fs.remove(tempProjectPath);
-      return reply.code(404).send({ 
-        error: `No files found for prototype ${prototypeId}` 
-      });
+        // Create temporary directory for this build if not exists
+        if (!tempProjectPath) {
+          tempProjectPath = path.join('/tmp', `project-${jobId}`);
+          await fs.ensureDir(tempProjectPath);
+        }
+
+        // Check if this is a zip file
+        if (part.mimetype === 'application/zip' || (part.filename && part.filename.toLowerCase().endsWith('.zip'))) {
+          fastify.log.info(`Processing zip file: ${part.filename || 'unknown'}`);
+          
+          // Extract zip directly to temp directory
+          const extractDir = path.join(tempProjectPath, 'extracted');
+          await fs.ensureDir(extractDir);
+          
+          const zipPath = path.join(tempProjectPath, 'upload.zip');
+          await fs.writeFile(zipPath, buffer);
+          
+          // Extract zip file
+          await new Promise((resolve, reject) => {
+            fs.createReadStream(zipPath)
+              .pipe(unzipper.Extract({ path: extractDir }))
+              .on('close', () => {
+                fastify.log.info('Zip extraction completed');
+                resolve();
+              })
+              .on('error', (error) => {
+                fastify.log.error('Zip extraction error:', error);
+                reject(error);
+              });
+          });
+          
+          // Move extracted contents to project root
+          const extractedContents = await fs.readdir(extractDir, { withFileTypes: true });
+          for (const item of extractedContents) {
+            const srcPath = path.join(extractDir, item.name);
+            const destPath = path.join(tempProjectPath, item.name);
+            await fs.move(srcPath, destPath);
+          }
+          
+          // Clean up extraction directory and zip file
+          await fs.remove(extractDir);
+          await fs.remove(zipPath);
+          
+        } else {
+          // Handle individual file upload
+          const filename = part.filename || 'unnamed-file';
+          const filePath = path.join(tempProjectPath, filename);
+          
+          await fs.ensureDir(path.dirname(filePath));
+          await fs.writeFile(filePath, buffer);
+        }
+      } else if (part.fieldname === 'prototypeId') {
+        // This is the prototypeId field
+        prototypeId = part.value;
+      }
     }
 
-    // Download each file
-    const downloadPromises = objects.Contents.map(async (object) => {
-      const downloadParams = {
-        Bucket: BUCKET_NAME,
-        Key: object.Key
-      };
-      
-      const data = await s3.getObject(downloadParams).promise();
-      const relativePath = object.Key.replace(`${prototypeId}/`, '');
-      const localPath = path.join(tempProjectPath, relativePath);
-      
-      await fs.ensureDir(path.dirname(localPath));
-      await fs.writeFile(localPath, data.Body);
-    });
+    if (!prototypeId) {
+      return reply.code(400).send({ error: 'prototypeId is required' });
+    }
 
-    await Promise.all(downloadPromises);
+    if (!tempProjectPath) {
+      return reply.code(400).send({ error: 'No files provided' });
+    }
 
-    fastify.log.info(`Downloaded ${objects.Contents.length} files for build ${jobId}`);
+    fastify.log.info(`Starting build for prototype ${prototypeId}, job ${jobId}`);
 
     // Build the project
     const outputPath = await buildProject(tempProjectPath, prototypeId);
 
     fastify.log.info(`Build completed successfully for job ${jobId}`);
 
-    // Upload build output to S3
-    const buildS3Prefix = `${prototypeId}/dist`;
+    // Upload ONLY the build output (dist folder) to S3
+    const buildS3Prefix = `${prototypeId}`;
     const uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
 
     fastify.log.info(`Uploaded ${uploadResults.length} built files for job ${jobId}`);
 
     // Cleanup temporary files
     await fs.remove(tempProjectPath);
-    await fs.remove(path.dirname(outputPath)); // Remove the entire temp build directory
 
     return {
       jobId,
@@ -373,11 +410,12 @@ fastify.post('/build', async (request, reply) => {
     fastify.log.error(`Build failed for job ${jobId}:`, error);
     
     // Cleanup on error
-    try {
-      const tempProjectPath = path.join('/tmp', `project-${jobId}`);
-      await fs.remove(tempProjectPath);
-    } catch (cleanupError) {
-      fastify.log.error('Cleanup failed:', cleanupError);
+    if (tempProjectPath) {
+      try {
+        await fs.remove(tempProjectPath);
+      } catch (cleanupError) {
+        fastify.log.error('Cleanup failed:', cleanupError);
+      }
     }
 
     return reply.code(500).send({
