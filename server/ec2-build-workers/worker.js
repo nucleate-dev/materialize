@@ -1,8 +1,10 @@
-const fastify = require('fastify')({ logger: true });
-const fs = require('fs-extra');
-const AWS = require('aws-sdk');
-const archiver = require('archiver');
-const { v4: uuidv4 } = require('uuid');
+import fastifyLib from 'fastify';
+import fs from 'fs-extra';
+import AWS from 'aws-sdk';
+import archiver from 'archiver';
+import { v4 as uuidv4 } from 'uuid';
+
+const fastify = fastifyLib({ logger: true });
 
 const PORT = process.env.PORT || 3002;
 
