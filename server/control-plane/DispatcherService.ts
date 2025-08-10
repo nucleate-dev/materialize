@@ -6,6 +6,7 @@ import {
 import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import * as dotenv from "dotenv";
 import { GlideClient } from "@valkey/valkey-glide";
+import FormData from "form-data";
 
 dotenv.config();
 
@@ -180,15 +181,17 @@ export class DispatcherService {
   // Send request to worker
   private async sendWorkerRequest(
     workerIp: string,
-    payload: any
+    formData: FormData
   ): Promise<any> {
     try {
       const response = await axios.post(
-        `http://${workerIp}:3002/build`,
-        payload,
+        `http://${workerIp}:3002/build-and-deploy`,
+        formData,
         {
-          timeout: 30000,
-          headers: { "Content-Type": "application/json" },
+          timeout: 60000,
+          headers: {
+            ...formData.getHeaders(),
+          },
         }
       );
       return response.data;
@@ -198,11 +201,11 @@ export class DispatcherService {
     }
   }
 
-  // Process build request
+  // Process build request with zipped files
   public async processBuildRequest(
     prototypeId: string,
-    files: any,
-    isHotReload = false
+    zipBuffer: Buffer,
+    writeToDisK: boolean = false
   ): Promise<any> {
     try {
       // Check if build already exists
@@ -219,35 +222,22 @@ export class DispatcherService {
       //   - send the build request to the worker (either /build or /hot-reload)
       //   - return the result
 
-      // Create new build
-      // const worker = await this.getLeastLoadedWorker();
-      // const workerIp = worker.PrivateIpAddress;
-      // let port: number | null = null;
-
-      // // Send request to worker
-      // const payload = {
-      //   prototypeId,
-      //   files,
-      //   isHotReload,
-      //   isUpdate: false,
-      //   port,
-      // };
-
-      // const result = await this.sendWorkerRequest(workerIp, payload);
-
-      // test getting all instances in scaling group
+      // For now, get the first available worker
       const instances = await this.getActiveWorkerInstances();
       console.log("Instance to push to: ", instances[0]);
+      
+      const workerIp = instances[0].PrivateIpAddress;
 
-      const rval = await this.sendWorkerRequest(
-        instances[0].PrivateIpAddress,
-        files
-      );
+      // Create FormData to send to worker
+      const formData = new FormData();
+      formData.append('prototypeId', prototypeId);
+      formData.append('write_to_disk', writeToDisK.toString());
+      formData.append('files', zipBuffer, {
+        filename: 'project.zip',
+        contentType: 'application/zip'
+      });
 
-      console.log("rval", rval);
-      const result = {
-        message: "Test successful",
-      };
+      const result = await this.sendWorkerRequest(workerIp, formData);
       return result;
     } catch (error) {
       throw error;
