@@ -183,7 +183,7 @@ export class DispatcherService {
         `http://${workerIp}:3002/build-and-deploy`,
         formData,
         {
-          timeout: 60000,
+          timeout: 300000,
           headers: {
             ...formData.getHeaders(),
           },
