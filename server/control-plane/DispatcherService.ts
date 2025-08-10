@@ -6,8 +6,50 @@ import {
 import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import Redis from "ioredis";
 import dotenv from "dotenv";
+import { SignatureV4 } from "@aws-sdk/signature-v4";
+import { defaultProvider } from "@aws-sdk/credential-provider-node";
+import { Sha256 } from "@aws-crypto/sha256-js";
+import { formatUrl } from "@aws-sdk/util-format-url";
+import { HttpRequest } from "@aws-sdk/protocol-http";
 
 dotenv.config();
+
+async function buildIamAuthToken({
+  username,
+  cacheName, // serverless cache name (not the hostname)
+  region,
+  isServerless = true,
+}: {
+  username: string;
+  cacheName: string;
+  region: string;
+  isServerless?: boolean;
+}) {
+  const signer = new SignatureV4({
+    service: "elasticache",
+    region,
+    credentials: defaultProvider(),
+    sha256: Sha256,
+  });
+
+  const query: Record<string, string> = { Action: "connect", User: username };
+  if (isServerless) query.ResourceType = "ServerlessCache";
+
+  const unsigned = new HttpRequest({
+    protocol: "http:",
+    hostname: cacheName, // e.g. the *cache name* for serverless
+    method: "GET",
+    path: "/", // important
+    query, // plain Record<string,string>
+    headers: {},
+  });
+
+  const signed = await signer.presign(unsigned /*, { expiresIn: 900 }*/);
+  const presignedUrl = formatUrl(signed); // e.g. "https://cache-01/?Action=connect&User=app-user&..."
+  const token = presignedUrl.replace(/^https?:\/\//, ""); // token is URL without the scheme
+  return token;
+}
+
 export class DispatcherService {
   private autoScalingClient: AutoScalingClient;
   private ec2Client: EC2Client;
@@ -15,26 +57,50 @@ export class DispatcherService {
 
   constructor() {
     this.autoScalingClient = new AutoScalingClient({
-      region: process.env.AWS_REGION || "us-east-1",
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
+      region: process.env.AWS_REGION!,
     });
 
     this.ec2Client = new EC2Client({
-      region: process.env.AWS_REGION || "us-east-1",
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
+      region: process.env.AWS_REGION!,
     });
 
+    const region = process.env.AWS_REGION!;
+    const host = process.env.REDIS_HOST!; // Primary endpoint host (no scheme)
+    const port = parseInt(process.env.REDIS_PORT!);
+    const username = process.env.REDIS_USERNAME!; // ElastiCache user (IAM auth; username==userId)
+    const cacheName = process.env.REDIS_CACHE_NAME!;
+
     this.redis = new Redis({
-      host: process.env.REDIS_HOST!,
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD,
+      host,
+      port,
+      username,
+      password: undefined,
+      lazyConnect: true,
+      tls: {},
       maxRetriesPerRequest: 3,
+      enableAutoPipelining: true,
+    });
+
+    const getPassword = async () =>
+      buildIamAuthToken({ username, cacheName, region, isServerless: true });
+
+    (async () => {
+      const token = await getPassword();
+      // ioredis reads password option only at connect time; set dynamically:
+      // @ts-ignore
+      this.redis.options.password = token;
+      await this.redis.connect();
+    })();
+
+    // On reconnects, refresh the token (token ~15 min; connection max 12h)
+    this.redis.on("reconnecting", async () => {
+      try {
+        const token = await getPassword();
+        // @ts-ignore
+        this.redis.options.password = token;
+      } catch (e) {
+        console.error("Failed to refresh IAM auth token for Redis:", e);
+      }
     });
   }
 
