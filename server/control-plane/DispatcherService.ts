@@ -1,22 +1,152 @@
 import axios from "axios";
+import {
+  AutoScalingClient,
+  DescribeAutoScalingGroupsCommand,
+} from "@aws-sdk/client-auto-scaling";
+import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
+import Redis from "ioredis";
+import dotenv from "dotenv";
+
+dotenv.config();
 export class DispatcherService {
+  private autoScalingClient: AutoScalingClient;
+  private ec2Client: EC2Client;
+  private redis: Redis;
+
+  constructor() {
+    this.autoScalingClient = new AutoScalingClient({
+      region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    this.ec2Client = new EC2Client({
+      region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    this.redis = new Redis({
+      host: process.env.REDIS_HOST!,
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      password: process.env.REDIS_PASSWORD,
+      maxRetriesPerRequest: 3,
+    });
+  }
+
   // Get least loaded worker instance
   private async getLeastLoadedWorker() {
     try {
       const instances = await this.getActiveWorkerInstances();
-      // if (instances.length === 0) {
-      //   throw new Error("No active worker instances available");
-      // }
-      // TODO: add some logic to see which instance is the least loaded
-      let leastLoadedInstance = instances[0];
-      return leastLoadedInstance;
+
+      if (instances.length === 0) {
+        throw new Error("No active worker instances available");
+      }
+
+      // Get load information for each instance from Redis
+      const instanceLoads: {
+        instance: any;
+        activeBuilds: number;
+        availablePorts: number;
+      }[] = [];
+
+      for (const instance of instances) {
+        const ip = instance.PrivateIpAddress;
+
+        // Count active builds for this instance
+        const activeBuildsKey = `active_builds:${ip}`;
+        const activeBuilds = await this.redis.scard(activeBuildsKey);
+
+        // Count available ports for this instance
+        const portRegistryKey = `port_registry:${ip}`;
+        const totalPorts =
+          parseInt(process.env.MAX_PORT!) - parseInt(process.env.MIN_PORT!);
+        const usedPorts = await this.redis.scard(portRegistryKey);
+        const availablePorts = totalPorts - usedPorts;
+
+        instanceLoads.push({
+          instance,
+          activeBuilds,
+          availablePorts,
+        });
+      }
+
+      // Sort by load priority:
+      // 1. Prioritize instances with available ports (for hot reload capability)
+      // 2. Then by lowest number of active builds
+      instanceLoads.sort((a, b) => {
+        // First, prioritize instances with available ports
+        if (a.availablePorts > 0 && b.availablePorts === 0) return -1;
+        if (a.availablePorts === 0 && b.availablePorts > 0) return 1;
+
+        // Then sort by number of active builds (least loaded first)
+        return a.activeBuilds - b.activeBuilds;
+      });
+
+      return instanceLoads[0].instance;
     } catch (error) {
+      console.error("Error getting least loaded worker:", error);
       throw error;
     }
   }
 
   // Get active EC2 instances from Auto Scaling Group
-  private async getActiveWorkerInstances() {}
+  private async getActiveWorkerInstances() {
+    try {
+      // Get Auto Scaling Group information
+      const asgCommand = new DescribeAutoScalingGroupsCommand({
+        AutoScalingGroupNames: [process.env.AUTO_SCALING_GROUP_NAME!],
+      });
+
+      const asgResponse = await this.autoScalingClient.send(asgCommand);
+      const asg = asgResponse.AutoScalingGroups?.[0];
+
+      if (!asg || !asg.Instances || asg.Instances.length === 0) {
+        throw new Error("No instances found in Auto Scaling Group");
+      }
+
+      // Get instance IDs that are InService
+      const activeInstanceIds = asg.Instances.filter(
+        (instance) => instance.LifecycleState === "InService"
+      )
+        .map((instance) => instance.InstanceId!)
+        .filter(Boolean);
+
+      if (activeInstanceIds.length === 0) {
+        throw new Error("No active instances found in Auto Scaling Group");
+      }
+
+      // Get detailed instance information
+      const ec2Command = new DescribeInstancesCommand({
+        InstanceIds: activeInstanceIds,
+      });
+
+      const ec2Response = await this.ec2Client.send(ec2Command);
+      const instances: any[] = [];
+
+      ec2Response.Reservations?.forEach((reservation) => {
+        reservation.Instances?.forEach((instance) => {
+          if (instance.State?.Name === "running" && instance.PrivateIpAddress) {
+            instances.push({
+              InstanceId: instance.InstanceId,
+              PrivateIpAddress: instance.PrivateIpAddress,
+              PublicIpAddress: instance.PublicIpAddress,
+              State: instance.State.Name,
+            });
+          }
+        });
+      });
+
+      return instances;
+    } catch (error) {
+      console.error("Error fetching active worker instances:", error);
+      throw new Error(`Failed to fetch worker instances: ${error.message}`);
+    }
+  }
 
   // Acquire a free port for hot reload
   private async acquireFreePort(workerIp) {
