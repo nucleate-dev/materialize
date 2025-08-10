@@ -184,7 +184,7 @@ export class DispatcherService {
   ): Promise<any> {
     try {
       const response = await axios.post(
-        `http://${workerIp}:3000/build`,
+        `http://${workerIp}:3002/build`,
         payload,
         {
           timeout: 30000,
@@ -237,8 +237,14 @@ export class DispatcherService {
 
       // test getting all instances in scaling group
       const instances = await this.getActiveWorkerInstances();
-      console.log("Instances: ", instances);
+      console.log("Instance to push to: ", instances[0]);
 
+      const rval = await this.sendWorkerRequest(
+        instances[0].PrivateIpAddress,
+        files
+      );
+
+      console.log("rval", rval);
       const result = {
         message: "Test successful",
       };
