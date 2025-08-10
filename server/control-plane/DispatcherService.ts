@@ -110,7 +110,6 @@ export class DispatcherService {
   private async getActiveWorkerInstances() {
     try {
       // Get Auto Scaling Group information
-      console.log("Getting active worker instances");
       const asgCommand = new DescribeAutoScalingGroupsCommand({
         AutoScalingGroupNames: [process.env.AUTO_SCALING_GROUP_NAME!],
       });
@@ -120,7 +119,6 @@ export class DispatcherService {
       if (!asg || !asg.Instances || asg.Instances.length === 0) {
         throw new Error("No instances found in Auto Scaling Group");
       }
-      console.log("Auto Scaling Group: ", asg);
 
       // Get instance IDs that are InService
       const activeInstanceIds = asg.Instances.filter(
@@ -128,7 +126,6 @@ export class DispatcherService {
       )
         .map((instance) => instance.InstanceId!)
         .filter(Boolean);
-      console.log("Active Instance IDs: ", activeInstanceIds);
 
       if (activeInstanceIds.length === 0) {
         throw new Error("No active instances found in Auto Scaling Group");
@@ -139,7 +136,6 @@ export class DispatcherService {
         InstanceIds: activeInstanceIds,
       });
       const ec2Response = await this.ec2Client.send(ec2Command);
-      console.log("EC2 Response: ", ec2Response);
 
       const instances: any[] = [];
       ec2Response.Reservations?.forEach((reservation) => {
@@ -154,7 +150,6 @@ export class DispatcherService {
           }
         });
       });
-      console.log("Instances: ", instances);
 
       return instances;
     } catch (error) {
@@ -205,7 +200,7 @@ export class DispatcherService {
   public async processBuildRequest(
     prototypeId: string,
     zipBuffer: Buffer,
-    writeToDisK: boolean = false
+    writeToDisk: boolean = false
   ): Promise<any> {
     try {
       // Check if build already exists
@@ -225,16 +220,16 @@ export class DispatcherService {
       // For now, get the first available worker
       const instances = await this.getActiveWorkerInstances();
       console.log("Instance to push to: ", instances[0]);
-      
+
       const workerIp = instances[0].PrivateIpAddress;
 
       // Create FormData to send to worker
       const formData = new FormData();
-      formData.append('prototypeId', prototypeId);
-      formData.append('write_to_disk', writeToDisK.toString());
-      formData.append('files', zipBuffer, {
-        filename: 'project.zip',
-        contentType: 'application/zip'
+      formData.append("prototypeId", prototypeId);
+      formData.append("write_to_disk", writeToDisk.toString());
+      formData.append("files", zipBuffer, {
+        filename: "project.zip",
+        contentType: "application/zip",
       });
 
       const result = await this.sendWorkerRequest(workerIp, formData);
