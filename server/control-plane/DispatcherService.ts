@@ -4,55 +4,10 @@ import {
   DescribeAutoScalingGroupsCommand,
 } from "@aws-sdk/client-auto-scaling";
 import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
-import dotenv from "dotenv";
-import { SignatureV4 } from "@aws-sdk/signature-v4";
-import { defaultProvider } from "@aws-sdk/credential-provider-node";
-import { Sha256 } from "@aws-crypto/sha256-js";
-import { formatUrl } from "@aws-sdk/util-format-url";
-import { HttpRequest } from "@aws-sdk/protocol-http";
-import {
-  GlideClient,
-  type GlideClientConfiguration,
-  type ServerCredentials,
-} from "@valkey/valkey-glide";
+import * as dotenv from "dotenv";
+import { GlideClient } from "@valkey/valkey-glide";
 
 dotenv.config();
-
-// async function buildIamAuthToken({
-//   username,
-//   cacheName, // serverless cache name (not the hostname)
-//   region,
-//   isServerless = true,
-// }: {
-//   username: string;
-//   cacheName: string;
-//   region: string;
-//   isServerless?: boolean;
-// }) {
-//   const signer = new SignatureV4({
-//     service: "elasticache",
-//     region,
-//     credentials: defaultProvider(),
-//     sha256: Sha256,
-//   });
-
-//   const query: Record<string, string> = { Action: "connect", User: username };
-//   if (isServerless) query.ResourceType = "ServerlessCache";
-
-//   const unsigned = new HttpRequest({
-//     protocol: "http:",
-//     hostname: cacheName, // e.g. the *cache name* for serverless
-//     method: "GET",
-//     path: "/", // important
-//     query, // plain Record<string,string>
-//     headers: {},
-//   });
-
-//   const signed = await signer.presign(unsigned /*, { expiresIn: 900 }*/);
-//   const presignedUrl = formatUrl(signed); // e.g. "https://cache-01/?Action=connect&User=app-user&..."
-//   const token = presignedUrl.replace(/^https?:\/\//, ""); // token is URL without the scheme
-//   return token;
-// }
 
 export class DispatcherService {
   private autoScalingClient: AutoScalingClient;
@@ -68,75 +23,30 @@ export class DispatcherService {
       region: process.env.AWS_REGION!,
     });
 
-    const region = process.env.AWS_REGION!;
-    const endpointHost = process.env.REDIS_HOST!; // Primary endpoint host (no scheme)
-    const port = parseInt(process.env.REDIS_PORT!);
-    const username = process.env.REDIS_USERNAME!; // ElastiCache user (IAM auth; username==userId)
-    const cacheName = process.env.REDIS_CACHE_NAME!;
+    const endpointHost = process.env.CACHE_HOST!; // Primary endpoint host (no scheme)
+    const port = parseInt(process.env.CACHE_PORT!);
+    const username = process.env.CACHE_USERNAME!; // ElastiCache user (IAM auth; username==userId)
 
-    const initCache = async () => {
-      this.cache = await GlideClient.createClient({
-        addresses: [{ host: process.env.REDIS_HOST!, port: 6379 }], // Primary endpoint DNS
-        useTLS: true,
-        auth: {
-          type: "iam",
-          user: process.env.REDIS_USERNAME!, // ElastiCache user (must equal User ID)
-          cacheName: process.env.REDIS_CACHE_NAME!, // serverless cache *name* (short)
-          region: process.env.AWS_REGION!, // e.g. us-east-2
-        },
-      });
+    const initCache = async (): Promise<void> => {
+      try {
+        this.cache = await GlideClient.createClient({
+          addresses: [{ host: endpointHost, port }],
+          useTLS: true,
+          credentials: {
+            username,
+            password: "Materialize123!!",
+          },
+          clientName: "control-plane",
+          requestTimeout: 2000,
+        });
+        console.log("Valkey cache initialized successfully");
+      } catch (error) {
+        console.error("Failed to initialize Valkey cache:", error);
+        throw error;
+      }
     };
 
     void initCache();
-
-    // const initCache = async () => {
-    //   // 1) create first IAM token
-    //   const token = await buildIamAuthToken({
-    //     username,
-    //     cacheName,
-    //     region,
-    //     isServerless: true,
-    //   });
-
-    //   // 2) create GLIDE client (standalone mode with TLS)
-    //   const credentials: ServerCredentials = { username, password: token };
-    //   const config: GlideClientConfiguration = {
-    //     addresses: [{ host: endpointHost, port }],
-    //     credentials,
-    //     useTLS: true, // serverless endpoints require TLS
-    //     requestTimeout: 2000, // tweak for your use case
-    //     clientName: "control-plane",
-    //   };
-
-    //   this.cache = await GlideClient.createClient(config);
-
-    //   // 3) set up periodic token refresh (IAM tokens last ~15m; connections must re-AUTH by 12h)
-    //   //    Best practice: refresh every ~10m, force re-auth occasionally to extend the 12h window.
-    //   const refresh = async (immediate = false) => {
-    //     const newToken = await buildIamAuthToken({
-    //       username,
-    //       cacheName,
-    //       region,
-    //       isServerless: true,
-    //     });
-    //     await this.cache.updateConnectionPassword(newToken, immediate);
-    //   };
-
-    //   // refresh every 10 minutes (no immediate re-auth)
-    //   setInterval(() => {
-    //     refresh(false).catch((e) =>
-    //       console.error("Valkey token refresh failed:", e)
-    //     );
-    //   }, 10 * 60 * 1000);
-    //   // force re-auth every 10 hours to extend connection lifetime
-    //   setInterval(() => {
-    //     refresh(true).catch((e) =>
-    //       console.error("Valkey immediate re-auth failed:", e)
-    //     );
-    //   }, 10 * 60 * 60 * 1000);
-    // };
-
-    // void initCache();
   }
 
   // Get least loaded worker instance
@@ -253,21 +163,25 @@ export class DispatcherService {
   }
 
   // Acquire a free port for hot reload
-  private async acquireFreePort(workerIp) {
+  private async acquireFreePort(workerIp: string): Promise<number | null> {
     // find a free ports in the Elasticache PortRegistry for the workerIp
     // acquire a lock on elasticache
     // then acquire a port (mark it as taken) in the PortRegistry and ActiveBuildRegistry in Elasticache
     // release the lock
+    return null; // TODO: Implement
   }
 
   // Release a port
-  private async releasePort(workerIp, port) {
+  private async releasePort(workerIp: string, port: number): Promise<void> {
     // clear the port from the Elasticache port registry and mark it as free
     // remove the port from the ActiveBuildRegistry for this project
   }
 
   // Send request to worker
-  private async sendWorkerRequest(workerIp, payload) {
+  private async sendWorkerRequest(
+    workerIp: string,
+    payload: any
+  ): Promise<any> {
     try {
       const response = await axios.post(
         `http://${workerIp}:3000/build`,
@@ -285,7 +199,11 @@ export class DispatcherService {
   }
 
   // Process build request
-  public async processBuildRequest(prototypeId, files, isHotReload = false) {
+  public async processBuildRequest(
+    prototypeId: string,
+    files: any,
+    isHotReload = false
+  ): Promise<any> {
     try {
       // Check if build already exists
       // If build already exists, send update to the existing worker
