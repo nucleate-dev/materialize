@@ -24,9 +24,10 @@ export class DispatcherService {
       region: process.env.AWS_REGION!,
     });
 
-    const endpointHost = process.env.CACHE_HOST!; // Primary endpoint host (no scheme)
+    const endpointHost = process.env.CACHE_HOST!;
     const port = parseInt(process.env.CACHE_PORT!);
-    const username = process.env.CACHE_USERNAME!; // ElastiCache user (IAM auth; username==userId)
+    const username = process.env.CACHE_USERNAME!;
+    const password = process.env.CACHE_PASSWORD!;
 
     const initCache = async (): Promise<void> => {
       try {
@@ -35,7 +36,7 @@ export class DispatcherService {
           useTLS: true,
           credentials: {
             username,
-            password: "Materialize123!!",
+            password,
           },
           clientName: "control-plane",
           requestTimeout: 2000,
