@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
+import { DispatcherService } from "./DispatcherService";
 
 interface DispatchRequest {
   prototypeId: string;
@@ -17,8 +18,9 @@ const fastify = Fastify({
   logger: true,
   bodyLimit: 20 * 1024 * 1024, // 20MB
 });
-
 fastify.register(cors, { origin: true, credentials: true });
+
+const dispatcherService = new DispatcherService();
 
 const dispatchSchema = {
   body: {
@@ -64,11 +66,11 @@ fastify.post(
         });
       }
 
-      // const result = await controlPlane.processBuildRequest(
-      //   prototypeId,
-      //   files,
-      //   isHotReload
-      // );
+      const result = await dispatcherService.processBuildRequest(
+        prototypeId,
+        files,
+        isHotReload
+      );
 
       return reply.send({
         success: true,
@@ -76,6 +78,7 @@ fastify.post(
         url: "materializeui.com",
         buildErrors: [],
         status: "success",
+        result,
       });
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
