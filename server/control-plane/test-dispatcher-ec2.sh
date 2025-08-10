@@ -15,10 +15,10 @@ if [ -n "$DIRECT_WORKER" ]; then
     TARGET_URL="http://$DIRECT_WORKER:3002/build-and-deploy"
     echo "Testing EC2 Worker directly at: $TARGET_URL"
 elif [ -n "$1" ]; then
-    TARGET_URL="http://$1:3001/dispatch"
+    TARGET_URL="http://$1:3000/dispatch"
     echo "Testing DispatcherService on EC2 at: $TARGET_URL"
 else
-    TARGET_URL="http://localhost:3001/dispatch"
+    TARGET_URL="http://localhost:3000/dispatch"
     echo "Testing DispatcherService locally at: $TARGET_URL"
 fi
 
