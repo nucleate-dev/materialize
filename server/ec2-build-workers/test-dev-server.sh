@@ -80,10 +80,21 @@ start_dev_server() {
     } &
     progress_pid=$!
     
-    response=$(curl -s -X POST "$BASE_URL/dev-server" \
+    raw=$(curl -sS -X POST "$BASE_URL/dev-server" \
         -F "prototypeId=$PROTOTYPE_ID" \
         -F "file=@$ZIP_FILE" \
-        --max-time 120)
+        --max-time 600 \
+        --fail-with-body \
+        -H "Accept: application/json" \
+        -w "\nHTTP_STATUS:%{http_code}\n")
+
+    status=$(echo "$raw" | sed -n 's/^HTTP_STATUS://p')
+    body=$(echo "$raw" | sed '/^HTTP_STATUS:/d')
+
+    echo "HTTP: $status"
+    echo "Body: $body"
+    
+    response="$body"
     
     # Stop progress indicator
     kill $progress_pid 2>/dev/null || true
