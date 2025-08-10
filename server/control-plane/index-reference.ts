@@ -1,20 +1,92 @@
-const fastify = require("fastify")({ logger: true });
-const Redis = require("ioredis");
-const AWS = require("aws-sdk");
-const axios = require("axios");
+import Fastify from "fastify";
+import Redis from "ioredis";
+import AWS from "aws-sdk";
+import axios from "axios";
 
-// Initialize Redis client
-const redis = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: process.env.REDIS_PORT || 6379,
-  retryDelayOnFailover: 100,
-  maxRetriesPerRequest: 3,
+// Routes
+fastify.post("/build", async (request, reply) => {
+  try {
+    const { prototypeId, files, isHotReload = false } = request.body;
+
+    if (!prototypeId || !files) {
+      return reply.status(400).send({
+        error: "Missing required fields: prototypeId, files",
+      });
+    }
+
+    const result = await controlPlane.processBuildRequest(
+      prototypeId,
+      files,
+      isHotReload
+    );
+
+    return reply.send({
+      success: true,
+      prototypeId,
+      url: result.url,
+      buildErrors: result.buildErrors || [],
+      status: result.status,
+    });
+  } catch (error) {
+    fastify.log.error("Build request failed:", error);
+    return reply.status(500).send({
+      error: "Internal server error",
+      message: error.message,
+    });
+  }
 });
 
+// Health check
+fastify.get("/health", async (request, reply) => {
+  try {
+    await redis.ping();
+    return { status: "healthy", timestamp: new Date().toISOString() };
+  } catch (error) {
+    return reply
+      .status(500)
+      .send({ status: "unhealthy", error: error.message });
+  }
+});
+
+// Status endpoint
+fastify.get("/status/:prototypeId", async (request, reply) => {
+  try {
+    const { prototypeId } = request.params;
+    const activeBuild = await redis.hget(REDIS_KEYS.ACTIVE_BUILDS, prototypeId);
+
+    if (!activeBuild) {
+      return reply.status(404).send({ error: "Prototype not found" });
+    }
+
+    return JSON.parse(activeBuild);
+  } catch (error) {
+    return reply.status(500).send({ error: error.message });
+  }
+});
+
+// Start server
+const start = async () => {
+  try {
+    await fastify.listen({
+      port: process.env.PORT || 3000,
+      host: process.env.HOST || "0.0.0.0",
+    });
+    fastify.log.info("Control plane server started successfully");
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+
+// Initialize Redis client
+const redis = new Redis();
+
 // Initialize AWS clients
-const ec2 = new AWS.EC2({ region: process.env.AWS_REGION || "us-east-1" });
+const ec2 = new AWS.EC2({ region: process.env.AWS_REGION || "us-east-2" });
 const autoscaling = new AWS.AutoScaling({
-  region: process.env.AWS_REGION || "us-east-1",
+  region: process.env.AWS_REGION || "us-east-2",
 });
 
 // Redis Keys
@@ -53,14 +125,14 @@ class ControlPlaneService {
       let minLoad =
         (await redis.hget(
           REDIS_KEYS.WORKER_LOAD,
-          instances[0].PrivateIpAddress,
+          instances[0].PrivateIpAddress
         )) || 0;
 
       for (const instance of instances.slice(1)) {
         const load =
           (await redis.hget(
             REDIS_KEYS.WORKER_LOAD,
-            instance.PrivateIpAddress,
+            instance.PrivateIpAddress
           )) || 0;
         if (parseInt(load) < parseInt(minLoad)) {
           leastLoadedInstance = instance;
@@ -89,7 +161,7 @@ class ControlPlaneService {
       }
 
       const instanceIds = asgResponse.AutoScalingGroups[0].Instances.filter(
-        (instance) => instance.LifecycleState === "InService",
+        (instance) => instance.LifecycleState === "InService"
       ).map((instance) => instance.InstanceId);
 
       if (instanceIds.length === 0) return [];
@@ -128,7 +200,7 @@ class ControlPlaneService {
         lockValue,
         "PX",
         30000,
-        "NX",
+        "NX"
       );
       if (!lockAcquired) {
         throw new Error("Could not acquire port lock");
@@ -178,13 +250,13 @@ class ControlPlaneService {
         {
           timeout: 30000,
           headers: { "Content-Type": "application/json" },
-        },
+        }
       );
       return response.data;
     } catch (error) {
       fastify.log.error(
         `Error sending request to worker ${workerIp}:`,
-        error.message,
+        error.message
       );
       throw error;
     }
@@ -196,7 +268,7 @@ class ControlPlaneService {
       // Check if build already exists
       const activeBuild = await redis.hget(
         REDIS_KEYS.ACTIVE_BUILDS,
-        prototypeId,
+        prototypeId
       );
 
       if (activeBuild) {
@@ -213,7 +285,7 @@ class ControlPlaneService {
 
         const result = await this.sendWorkerRequest(
           buildInfo.workerIp,
-          payload,
+          payload
         );
 
         // Update timestamp
@@ -221,7 +293,7 @@ class ControlPlaneService {
         await redis.hset(
           REDIS_KEYS.ACTIVE_BUILDS,
           prototypeId,
-          JSON.stringify(buildInfo),
+          JSON.stringify(buildInfo)
         );
 
         return result;
@@ -250,7 +322,7 @@ class ControlPlaneService {
       await redis.hset(
         REDIS_KEYS.ACTIVE_BUILDS,
         prototypeId,
-        JSON.stringify(buildInfo),
+        JSON.stringify(buildInfo)
       );
 
       // Increment worker load
@@ -287,7 +359,7 @@ class ControlPlaneService {
           now - buildInfo.lastUpdated > CONFIG.IDLE_TIMEOUT_HOT_RELOAD
         ) {
           fastify.log.info(
-            `Cleaning up idle hot reload for prototype ${prototypeId}`,
+            `Cleaning up idle hot reload for prototype ${prototypeId}`
           );
 
           // Stop metro bundler on worker
@@ -300,7 +372,7 @@ class ControlPlaneService {
           } catch (error) {
             fastify.log.warn(
               `Failed to stop metro for ${prototypeId}:`,
-              error.message,
+              error.message
             );
           }
 
@@ -315,7 +387,7 @@ class ControlPlaneService {
           await redis.hset(
             REDIS_KEYS.ACTIVE_BUILDS,
             prototypeId,
-            JSON.stringify(buildInfo),
+            JSON.stringify(buildInfo)
           );
         }
       }
@@ -335,7 +407,7 @@ class ControlPlaneService {
 
         if (now - buildInfo.lastUpdated > CONFIG.IDLE_TIMEOUT_CLEANUP) {
           fastify.log.info(
-            `Cleaning up old build for prototype ${prototypeId}`,
+            `Cleaning up old build for prototype ${prototypeId}`
           );
 
           // Clean up files on worker
@@ -347,7 +419,7 @@ class ControlPlaneService {
           } catch (error) {
             fastify.log.warn(
               `Failed to cleanup files for ${prototypeId}:`,
-              error.message,
+              error.message
             );
           }
 
@@ -374,13 +446,13 @@ class ControlPlaneService {
     this.cleanupIntervals.push(
       setInterval(
         () => this.cleanupIdleHotReload(),
-        CONFIG.CLEANUP_INTERVAL_HOT_RELOAD,
-      ),
+        CONFIG.CLEANUP_INTERVAL_HOT_RELOAD
+      )
     );
 
     // File cleanup every 20 minutes
     this.cleanupIntervals.push(
-      setInterval(() => this.cleanupOldBuilds(), CONFIG.CLEANUP_INTERVAL_FILES),
+      setInterval(() => this.cleanupOldBuilds(), CONFIG.CLEANUP_INTERVAL_FILES)
     );
 
     fastify.log.info("Cleanup services started");
@@ -396,67 +468,6 @@ class ControlPlaneService {
 // Initialize service
 const controlPlane = new ControlPlaneService();
 
-// Routes
-fastify.post("/build", async (request, reply) => {
-  try {
-    const { prototypeId, files, isHotReload = false } = request.body;
-
-    if (!prototypeId || !files) {
-      return reply.status(400).send({
-        error: "Missing required fields: prototypeId, files",
-      });
-    }
-
-    const result = await controlPlane.processBuildRequest(
-      prototypeId,
-      files,
-      isHotReload,
-    );
-
-    return reply.send({
-      success: true,
-      prototypeId,
-      url: result.url,
-      buildErrors: result.buildErrors || [],
-      status: result.status,
-    });
-  } catch (error) {
-    fastify.log.error("Build request failed:", error);
-    return reply.status(500).send({
-      error: "Internal server error",
-      message: error.message,
-    });
-  }
-});
-
-// Health check
-fastify.get("/health", async (request, reply) => {
-  try {
-    await redis.ping();
-    return { status: "healthy", timestamp: new Date().toISOString() };
-  } catch (error) {
-    return reply
-      .status(500)
-      .send({ status: "unhealthy", error: error.message });
-  }
-});
-
-// Status endpoint
-fastify.get("/status/:prototypeId", async (request, reply) => {
-  try {
-    const { prototypeId } = request.params;
-    const activeBuild = await redis.hget(REDIS_KEYS.ACTIVE_BUILDS, prototypeId);
-
-    if (!activeBuild) {
-      return reply.status(404).send({ error: "Prototype not found" });
-    }
-
-    return JSON.parse(activeBuild);
-  } catch (error) {
-    return reply.status(500).send({ error: error.message });
-  }
-});
-
 // Graceful shutdown
 const gracefulShutdown = () => {
   fastify.log.info("Shutting down gracefully...");
@@ -467,19 +478,3 @@ const gracefulShutdown = () => {
 
 process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
-
-// Start server
-const start = async () => {
-  try {
-    await fastify.listen({
-      port: process.env.PORT || 3000,
-      host: process.env.HOST || "0.0.0.0",
-    });
-    fastify.log.info("Control plane server started successfully");
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
-};
-
-start();
