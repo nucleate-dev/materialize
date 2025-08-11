@@ -25,6 +25,7 @@ fastify.post("/dispatch", async (request: FastifyRequest, reply: FastifyReply) =
   try {
     let prototypeId: string | null = null;
     let writeToDisK = false;
+    let hotReload = false;
     let zipBuffer: Buffer | null = null;
 
     const parts = (request as any).parts();
@@ -38,6 +39,8 @@ fastify.post("/dispatch", async (request: FastifyRequest, reply: FastifyReply) =
         prototypeId = part.value as string;
       } else if (part.fieldname === 'writeToDisK') {
         writeToDisK = part.value === 'true' || part.value === true;
+      } else if (part.fieldname === 'hotReload') {
+        hotReload = part.value === 'true' || part.value === true;
       }
     }
 
@@ -58,7 +61,8 @@ fastify.post("/dispatch", async (request: FastifyRequest, reply: FastifyReply) =
     const result = await dispatcherService.processBuildRequest(
       prototypeId,
       zipBuffer,
-      writeToDisK
+      writeToDisK,
+      hotReload
     );
 
     return reply.send({

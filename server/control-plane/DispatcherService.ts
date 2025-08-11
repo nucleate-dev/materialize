@@ -10,6 +10,26 @@ import FormData from "form-data";
 
 dotenv.config();
 
+const ALLOCATE_LUA = `
+local usedKey = KEYS[1]
+local startP = tonumber(ARGV[1]) or 4000
+local endP   = tonumber(ARGV[2]) or 4099
+local range  = endP - startP + 1
+if range <= 0 then return nil end
+local hint = tonumber(ARGV[3] or "")
+local offset = 0
+if hint and hint >= startP and hint <= endP then
+  offset = hint - startP
+end
+for i = 0, range - 1 do
+  local p = startP + ((offset + i) % range)
+  if redis.call('SADD', usedKey, tostring(p)) == 1 then
+    return tostring(p)
+  end
+end
+return nil
+`;
+
 interface ActiveBuild {
   worker_host: string;
   worker_private_ip: string;
@@ -29,6 +49,7 @@ export class DispatcherService {
   private autoScalingClient: AutoScalingClient;
   private ec2Client: EC2Client;
   private cache!: GlideClient; // Valkey GLIDE client
+  private allocateSha: string | null = null;
 
   constructor() {
     this.autoScalingClient = new AutoScalingClient({
@@ -175,18 +196,37 @@ export class DispatcherService {
   }
 
   // Acquire a free port for hot reload
-  private async acquireFreePort(workerIp: string): Promise<number | null> {
-    // find a free ports in the Elasticache PortRegistry for the workerIp
-    // acquire a lock on elasticache
-    // then acquire a port (mark it as taken) in the PortRegistry and ActiveBuildRegistry in Elasticache
-    // release the lock
-    return null; // TODO: Implement
+  private async acquireFreePort(
+    workerIp: string,
+    opts?: { start?: number; end?: number; hint?: number }
+  ): Promise<number | null> {
+    if (!this.allocateSha) {
+      this.allocateSha = String(
+        await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA])
+      );
+    }
+    const key = `ports:${workerIp}:used`;
+    const start = String(
+      opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000
+    );
+    const end = String(opts?.end ?? parseInt(process.env.MAX_PORT!) ?? 4099);
+    const hint = opts?.hint != null ? String(opts.hint) : "";
+
+    const res = await this.cache.customCommand([
+      "EVALSHA",
+      this.allocateSha,
+      "1",
+      key,
+      start,
+      end,
+      hint,
+    ]);
+    return res ? Number(res) : null;
   }
 
   // Release a port
   private async releasePort(workerIp: string, port: number): Promise<void> {
-    // clear the port from the Elasticache port registry and mark it as free
-    // remove the port from the ActiveBuildRegistry for this project
+    await this.cache.srem(`ports:${workerIp}:used`, [String(port)]);
   }
 
   // Send request to worker
@@ -235,7 +275,8 @@ export class DispatcherService {
   private constructFormData(
     prototypeId: string,
     zipBuffer: Buffer,
-    writeToDisk: boolean
+    writeToDisk: boolean,
+    port?: number
   ) {
     const formData = new FormData();
     formData.append("prototypeId", prototypeId);
@@ -244,6 +285,9 @@ export class DispatcherService {
       filename: "project.zip",
       contentType: "application/zip",
     });
+    if (port) {
+      formData.append("port", port.toString());
+    }
     return formData;
   }
 
@@ -268,8 +312,13 @@ export class DispatcherService {
         const buildResponse: BuildResponse = await this.sendWorkerRequest(
           existingBuild.worker_private_ip,
           hotReload,
-          this.constructFormData(prototypeId, zipBuffer, writeToDisk)
-        ); // TODO optionally send hot reload vs build
+          this.constructFormData(
+            prototypeId,
+            zipBuffer,
+            writeToDisk,
+            existingBuild.port ? Number(existingBuild.port) : undefined
+          )
+        );
 
         // Update the existing build with new timestamp and URL
         const updatedBuild: ActiveBuild = {
@@ -282,31 +331,43 @@ export class DispatcherService {
         return buildResponse;
       }
 
-      // TODO: If build does not exist, create a new build
-      //   - get the least loaded worker
-      //   - acquire a free port if hot reload
-      //   - create a new build info and add to the Elasticache ActiveBuildRegistry
-      //   - Optional: increment the worker load in elasticache
-      //   - send the build request to the worker (either /build or /hot-reload)
-      //   - return the result
+      // If build does not exist, create a new build
       const instances = await this.getActiveWorkerInstances();
       const workerIp = instances[0].PrivateIpAddress;
       console.log("No existing build found, creating a new build:");
       console.log("Instance to push to: ", workerIp);
 
+      // Acquire a free port if hot reload is requested
+      let allocatedPort: number | undefined;
+      if (hotReload) {
+        const port = await this.acquireFreePort(workerIp);
+        if (port === null) {
+          throw new Error(
+            `No available ports on worker ${workerIp} for hot reload`
+          );
+        }
+        allocatedPort = port;
+        console.log(`Allocated port ${allocatedPort} for hot reload`);
+      }
+
       const buildResponse: BuildResponse = await this.sendWorkerRequest(
         workerIp,
         hotReload,
-        this.constructFormData(prototypeId, zipBuffer, writeToDisk)
+        this.constructFormData(
+          prototypeId,
+          zipBuffer,
+          writeToDisk,
+          allocatedPort
+        )
       );
 
       // Create new build entry in cache
       const newBuild: ActiveBuild = {
         worker_host: instances[0].InstanceId,
         worker_private_ip: workerIp,
-        port: "",
+        port: allocatedPort || "",
         url: buildResponse.buildUrl,
-        type: "build",
+        type: hotReload ? "hot_reload" : "build",
         status: "running",
         last_touched: Math.floor(Date.now() / 1000),
       };
