@@ -183,27 +183,32 @@ export class CleanupService {
         }
       );
 
-      console.log(
-        `Successfully killed hot reload server on port ${port} for prototype ${prototypeId}`
-      );
+      // Check if the response indicates successful stop
+      if (response.data.status === "stopped") {
+        console.log(
+          `Successfully killed hot reload server on port ${port} for prototype ${prototypeId}`
+        );
 
-      return {
-        success: true,
-        buildUrl:
-          response.data.buildUrl ||
-          `https://materializeui.com/builds/${prototypeId}`,
-      };
+        return {
+          success: true,
+          buildUrl:
+            response.data.buildUrl ||
+            `https://materializeui.com/builds/${prototypeId}`,
+        };
+      } else {
+        // Worker returned an error
+        const errorMessage = response.data.error || "Unknown error from worker";
+        console.error(
+          `Worker failed to kill hot reload server on port ${port}: ${errorMessage}`
+        );
+        throw new Error(`Worker error: ${errorMessage}`);
+      }
     } catch (error) {
       console.error(
-        `Error killing hot reload server on worker ${workerIp} port ${port}:`,
+        `Failed to kill hot reload server on worker ${workerIp} port ${port}:`,
         error
       );
-
-      // Return a fallback response even if the request fails
-      return {
-        success: false,
-        buildUrl: `https://materializeui.com/builds/${prototypeId}`,
-      };
+      throw error; // Re-throw the error so cleanup fails
     }
   }
 
