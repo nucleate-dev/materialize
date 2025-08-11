@@ -1,10 +1,9 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { DispatcherService } from "./DispatcherService";
-import {
-  AutoScalingClient,
-} from "@aws-sdk/client-auto-scaling";
+import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { GlideClient } from "@valkey/valkey-glide";
 import * as dotenv from "dotenv";
@@ -55,7 +54,7 @@ const fastify = Fastify({
 fastify.register(cors, { origin: true, credentials: true });
 
 // Register multipart plugin for file uploads
-fastify.register(import("@fastify/multipart"));
+fastify.register(multipart);
 
 let dispatcherService: DispatcherService;
 
@@ -106,7 +105,6 @@ fastify.post(
       const result = await dispatcherService.processDispatchRequest(
         prototypeId,
         zipBuffer,
-        writeToDisK,
         hotReload
       );
 
@@ -177,10 +175,14 @@ const start = async () => {
   try {
     // Initialize clients first
     const { cache, ec2Client, autoScalingClient } = await initializeClients();
-    
+
     // Create dispatcher service with initialized clients
-    dispatcherService = new DispatcherService(cache, ec2Client, autoScalingClient);
-    
+    dispatcherService = new DispatcherService(
+      cache,
+      ec2Client,
+      autoScalingClient
+    );
+
     await fastify.listen({
       port: 3000,
       host: "0.0.0.0",
