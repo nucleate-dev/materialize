@@ -122,9 +122,11 @@ export class CleanupService {
             prototypeId
           );
 
+          // Only remove from cache if the delete request was successful
           if (deleteResponse.success) {
             await this.cache.del([buildKey]);
           }
+
           console.log(
             `Successfully cleaned up old build for prototype: ${prototypeId}`
           );
@@ -212,7 +214,7 @@ export class CleanupService {
     }
   }
 
-  // Placeholder function to dispatch delete build request to build worker
+  // Dispatch delete build request to build worker
   private async dispatchDeleteBuildRequest(
     workerIp: string,
     prototypeId: string
@@ -221,15 +223,38 @@ export class CleanupService {
       `Dispatching delete build request to worker ${workerIp} for prototype ${prototypeId}`
     );
 
-    // TODO: Implement actual request to build worker
-    // This should make an HTTP request to the build worker to delete the build files
-    // and return a success status
+    try {
+      const response = await axios.delete(
+        `http://${workerIp}:3002/build/${prototypeId}`,
+        {
+          timeout: 30000, // 30 second timeout
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-    // Placeholder response
-    return {
-      success: true,
-      message: `Build files for prototype ${prototypeId} deleted successfully`,
-    };
+      if (response.data.status === "deleted") {
+        console.log(
+          `Successfully deleted build files for prototype ${prototypeId} on worker ${workerIp}`
+        );
+        return {
+          success: true,
+        };
+      } else {
+        const errorMessage = response.data.error || "Unknown error from worker";
+        console.error(
+          `Worker failed to delete build for prototype ${prototypeId}: ${errorMessage}`
+        );
+        throw new Error(`Worker error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error(
+        `Failed to delete build files on worker ${workerIp} for prototype ${prototypeId}:`,
+        error
+      );
+      throw error; // Re-throw the error so cleanup can handle it appropriately
+    }
   }
 
   // Helper method to scan for keys matching a pattern
