@@ -7,8 +7,9 @@ import fastify, {
   FastifyReply,
   FastifyRequest,
 } from "fastify";
-import { createReadStream } from "node:fs";
-import fs from "node:fs/promises";
+import { createReadStream } from "fs";
+import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import unzipper from "unzipper";
 import { promisify } from "util";
@@ -129,6 +130,16 @@ AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION || "us-east-1",
+  httpOptions: {
+    timeout: 300000, // 5 minutes
+    connectTimeout: 60000, // 1 minute
+  },
+  maxRetries: 3,
+  retryDelayOptions: {
+    customBackoff: function (retryCount: number) {
+      return Math.pow(2, retryCount) * 1000; // Exponential backoff
+    },
+  },
 });
 
 const s3 = new AWS.S3();
@@ -138,8 +149,7 @@ const execAsync = promisify(exec);
 const PORT = parseInt(process.env.PORT || "3002", 10);
 const PROTOTYPES_DIR = process.env.PROTOTYPES_DIR || "./prototypes";
 const BUILD_TEMP_DIR =
-  process.env.BUILD_TEMP_DIR ||
-  path.join(require("os").homedir(), "build-worker", "temp");
+  process.env.BUILD_TEMP_DIR || path.join(os.homedir(), "build-worker", "temp");
 
 // Track running dev servers
 const runningDevServers = new Map<string, DevServerInfo>();
@@ -370,60 +380,174 @@ async function uploadDirectoryToS3(
   localPath: string,
   s3KeyPrefix: string,
 ): Promise<S3.ManagedUpload.SendData[]> {
-  const files = await fs.readdir(localPath);
+  console.log(
+    `Starting upload for directory: ${localPath} with prefix: ${s3KeyPrefix}`,
+  );
+
+  let files: string[];
+  try {
+    files = await fs.readdir(localPath);
+  } catch (error: any) {
+    console.error(`Failed to read directory ${localPath}:`, error.message);
+    throw error;
+  }
+
+  console.log(`Found ${files.length} items in ${localPath}:`, files);
+
   const uploadResults: S3.ManagedUpload.SendData[] = [];
   const failedUploads: FailedUpload[] = [];
+
+  // Add retry logic for individual file uploads
+  const maxRetries = 3;
 
   for (const fileName of files) {
     const localFilePath = path.join(localPath, fileName);
     const s3Key = `${s3KeyPrefix}/${fileName}`;
 
-    const stats = await fs.stat(localFilePath);
+    console.log(`Processing item: ${localFilePath}`);
+
+    let stats;
+    try {
+      stats = await fs.stat(localFilePath);
+    } catch (error: any) {
+      console.error(`Failed to stat ${localFilePath}:`, error.message);
+      failedUploads.push({
+        path: localFilePath,
+        error: `Failed to stat file: ${error.message}`,
+      });
+      continue;
+    }
+
     if (stats.isDirectory()) {
+      console.log(`Recursing into subdirectory: ${localFilePath}`);
       try {
         const subDirResults = await uploadDirectoryToS3(localFilePath, s3Key);
         uploadResults.push(...subDirResults);
+        console.log(
+          `Completed subdirectory ${localFilePath}, added ${subDirResults.length} files`,
+        );
       } catch (error: any) {
+        console.error(
+          `Error processing subdirectory ${localFilePath}:`,
+          error.message,
+        );
         if (error instanceof S3UploadError) {
           failedUploads.push(...error.failedUploads);
           if (error.successfulUploads) {
             uploadResults.push(...error.successfulUploads);
           }
         } else {
-          failedUploads.push({ path: localFilePath, error: error.message });
+          failedUploads.push({
+            path: localFilePath,
+            error: `Subdirectory processing failed: ${error.message}`,
+          });
         }
       }
-    } else {
+    } else if (stats.isFile()) {
+      console.log(`Uploading file: ${localFilePath} to S3 key: ${s3Key}`);
       try {
-        const fileBuffer = await fs.readFile(localFilePath);
-        const result = await s3
-          .upload({
-            Bucket: BUCKET_NAME,
-            Key: s3Key,
-            Body: fileBuffer,
-            ContentType: getContentType(fileName),
-          })
-          .promise();
-        uploadResults.push(result);
+        // Check file size before reading
+        const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+        console.log(`File size: ${fileSizeMB}MB`);
+
+        // For large files (>5MB), use streaming upload instead of buffer
+        const useStream = stats.size > 5 * 1024 * 1024;
+
+        let uploadResult: S3.ManagedUpload.SendData;
+        let retryCount = 0;
+
+        while (retryCount <= maxRetries) {
+          try {
+            console.log(
+              `Upload attempt ${retryCount + 1} for ${fileName} (${fileSizeMB}MB)${useStream ? " using stream" : " using buffer"}`,
+            );
+
+            let uploadParams;
+            if (useStream) {
+              // Use stream for large files to avoid memory issues
+              const fileStream = createReadStream(localFilePath);
+              uploadParams = {
+                Bucket: BUCKET_NAME,
+                Key: s3Key,
+                Body: fileStream,
+                ContentType: getContentType(fileName),
+              };
+            } else {
+              // Use buffer for smaller files
+              const fileBuffer = await fs.readFile(localFilePath);
+              console.log(
+                `Read file ${localFilePath}, size: ${fileBuffer.length} bytes`,
+              );
+              uploadParams = {
+                Bucket: BUCKET_NAME,
+                Key: s3Key,
+                Body: fileBuffer,
+                ContentType: getContentType(fileName),
+              };
+            }
+
+            // Add timeout to the upload promise
+            const uploadPromise = s3.upload(uploadParams).promise();
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(
+                () => reject(new Error("Upload timeout after 5 minutes")),
+                5 * 60 * 1000,
+              );
+            });
+
+            uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+            console.log(`Upload completed successfully for ${fileName}`);
+            break; // Success, exit retry loop
+          } catch (uploadError: any) {
+            retryCount++;
+            console.log(
+              `Upload attempt ${retryCount} failed for ${localFilePath}: ${uploadError.message}`,
+            );
+
+            if (retryCount > maxRetries) {
+              throw uploadError; // Give up after max retries
+            }
+
+            // Wait before retrying (exponential backoff)
+            const delay = Math.pow(2, retryCount) * 1000;
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+
+        uploadResults.push(uploadResult!);
+        console.log(
+          `Successfully uploaded ${localFilePath} to S3 after ${retryCount} retries (${fileSizeMB}MB)`,
+        );
       } catch (error: any) {
         console.error(
-          `Failed to upload ${localFilePath} to S3:`,
+          `Failed to upload ${localFilePath} to S3 after ${maxRetries} retries:`,
           error.message,
         );
         failedUploads.push({
           path: localFilePath,
           key: s3Key,
-          error: error.message,
+          error: `${error.message} (after ${maxRetries} retries)`,
         });
       }
+    } else {
+      console.log(`Skipping non-file/non-directory item: ${localFilePath}`);
+      // Skip symbolic links, sockets, etc.
+      continue;
     }
   }
 
+  console.log(`Completed processing directory ${localPath}:`);
+  console.log(`- Successful uploads: ${uploadResults.length}`);
+  console.log(`- Failed uploads: ${failedUploads.length}`);
+
   if (failedUploads.length > 0) {
+    console.log("Failed uploads details:", failedUploads);
     const errorMessage = `Failed to upload ${failedUploads.length} files to S3`;
     throw new S3UploadError(errorMessage, failedUploads, uploadResults);
   }
 
+  console.log("uploadResults", uploadResults);
   return uploadResults;
 }
 
@@ -504,7 +628,7 @@ async function extractZipForBuilding(
           resolve(true);
         });
 
-        extractStream.on("error", (error) => {
+        extractStream.on("error", (error: any) => {
           console.error("Stream extraction error:", error);
           reject(error);
         });
@@ -593,7 +717,10 @@ async function buildAndDeployFromExistingProject(
     if (error instanceof BuildError) {
       throw error;
     }
-    throw new BuildError(`Build process failed: ${error.message}`, []);
+    throw new BuildError(
+      `Build process failed: ${(error as Error).message}`,
+      [],
+    );
   }
 
   const { outputPath, buildLog } = buildResult;
@@ -804,7 +931,7 @@ fastifyApp.post(
         response.localBuildUrl = `file://${localBuildPath}/index.html`;
       }
 
-      return reply.send(response);
+      return response;
     } catch (error: any) {
       fastifyApp.log.error(`Build-and-deploy failed for job ${jobId}:`, error);
 
