@@ -1,5 +1,5 @@
 import AWS from 'aws-sdk';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import dotenv from 'dotenv';
 import fastifyLib from 'fastify';
 import fs from 'fs-extra';
@@ -217,19 +217,40 @@ async function extractZipForBuilding(zipBuffer, prototypeId, writeToDisk = false
 
     console.log(`Created extract directory: ${extractDir}`);
 
-    // Extract zip file
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(zipPath)
-        .pipe(unzipper.Extract({ path: extractDir }))
-        .on('close', () => {
-          console.log('Zip extraction completed');
-          resolve();
-        })
-        .on('error', (error) => {
-          console.error('Zip extraction error:', error);
+    // Extract zip file using buffer approach
+    try {
+      const zipBuffer = await fs.readFile(zipPath);
+      const directory = await unzipper.Open.buffer(zipBuffer);
+      
+      for (const file of directory.files) {
+        if (file.type === 'File') {
+          const filePath = path.join(extractDir, file.path);
+          await fs.ensureDir(path.dirname(filePath));
+          const content = await file.buffer();
+          await fs.writeFile(filePath, content);
+        }
+      }
+      console.log('Zip extraction completed using buffer method');
+    } catch (error) {
+      console.error('Buffer extraction failed, trying stream method:', error.message);
+      
+      // Fallback to stream method
+      await new Promise((resolve, reject) => {
+        const extractStream = unzipper.Extract({ path: extractDir });
+        
+        extractStream.on('close', () => {
+          console.log('Zip extraction completed using stream method');
+          resolve(true);
+        });
+        
+        extractStream.on('error', (error) => {
+          console.error('Stream extraction error:', error);
           reject(error);
         });
-    });
+        
+        fs.createReadStream(zipPath).pipe(extractStream);
+      });
+    }
 
     // Check what was extracted
     const extractedContents = await fs.readdir(extractDir, { withFileTypes: true });
@@ -268,19 +289,40 @@ async function extractAndUploadZip(zipBuffer, prototypeId, writeToDisk = false) 
 
     console.log(`Created extract directory: ${extractDir}`);
 
-    // Extract zip file
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(zipPath)
-        .pipe(unzipper.Extract({ path: extractDir }))
-        .on('close', () => {
-          console.log('Zip extraction completed');
-          resolve();
-        })
-        .on('error', (error) => {
-          console.error('Zip extraction error:', error);
+    // Extract zip file using buffer approach
+    try {
+      const zipBuffer = await fs.readFile(zipPath);
+      const directory = await unzipper.Open.buffer(zipBuffer);
+      
+      for (const file of directory.files) {
+        if (file.type === 'File') {
+          const filePath = path.join(extractDir, file.path);
+          await fs.ensureDir(path.dirname(filePath));
+          const content = await file.buffer();
+          await fs.writeFile(filePath, content);
+        }
+      }
+      console.log('Zip extraction completed using buffer method');
+    } catch (error) {
+      console.error('Buffer extraction failed, trying stream method:', error.message);
+      
+      // Fallback to stream method
+      await new Promise((resolve, reject) => {
+        const extractStream = unzipper.Extract({ path: extractDir });
+        
+        extractStream.on('close', () => {
+          console.log('Zip extraction completed using stream method');
+          resolve(true);
+        });
+        
+        extractStream.on('error', (error) => {
+          console.error('Stream extraction error:', error);
           reject(error);
         });
-    });
+        
+        fs.createReadStream(zipPath).pipe(extractStream);
+      });
+    }
 
     // Check what was extracted
     const extractedContents = await fs.readdir(extractDir, { withFileTypes: true });
@@ -916,7 +958,9 @@ fastify.post('/dev-server', async (request, reply) => {
     }
 
     if (!devPort) {
-      return reply.code(400).send({ error: 'Port number is required' });
+      // Auto-assign a port if none provided
+      devPort = 19006; // Default Expo dev server port
+      fastify.log.info(`No port specified, using default port ${devPort}`);
     }
 
     // Check if dev server already running for this prototype
@@ -955,7 +999,6 @@ fastify.post('/dev-server', async (request, reply) => {
     fastify.log.info(`Using provided port ${devPort} for Expo dev server`);
 
     // Start the Expo dev server with tunnel
-    const { spawn } = await import('child_process');
     const expoProcess = spawn('npx', ['expo', 'start', '--web', '--tunnel', '--port', devPort.toString()], {
       cwd: projectDir,
       stdio: ['ignore', 'pipe', 'pipe'],

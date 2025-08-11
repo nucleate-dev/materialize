@@ -2,11 +2,11 @@
   "name": "rn-web-build-worker",
   "version": "1.0.0",
   "description": "Build worker for React Native Web app building service",
-  "main": "worker.js",
+  "main": "worker.ts",
   "type": "module",
   "scripts": {
-    "start": "bun worker.js",
-    "dev": "bun --watch worker.js",
+    "start": "bun worker.ts",
+    "dev": "bun --watch worker.ts",
     "test": "bun test"
   },
   "dependencies": {

@@ -83,6 +83,7 @@ start_dev_server() {
     raw=$(curl -sS -X POST "$BASE_URL/dev-server" \
         -F "prototypeId=$PROTOTYPE_ID" \
         -F "files=@$ZIP_FILE" \
+        -F "devPort=4002" \
         --max-time 600 \
         --fail-with-body \
         -H "Accept: application/json" \
