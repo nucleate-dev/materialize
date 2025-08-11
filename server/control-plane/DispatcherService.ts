@@ -10,42 +10,6 @@ import FormData from "form-data";
 
 dotenv.config();
 
-const ALLOCATE_LUA = `
-local usedKey = KEYS[1]
-local startP = tonumber(ARGV[1]) or 4000
-local endP   = tonumber(ARGV[2]) or 4099
-local range  = endP - startP + 1
-if range <= 0 then return nil end
-local hint = tonumber(ARGV[3] or "")
-local offset = 0
-if hint and hint >= startP and hint <= endP then
-  offset = hint - startP
-end
-for i = 0, range - 1 do
-  local p = startP + ((offset + i) % range)
-  if redis.call('SADD', usedKey, tostring(p)) == 1 then
-    return tostring(p)
-  end
-end
-return nil
-`;
-
-interface ActiveBuild {
-  worker_host: string;
-  worker_private_ip: string;
-  port: string | number;
-  url: string;
-  type: "build" | "hot_reload";
-  status: "starting" | "running" | "error" | "stopped";
-  last_touched: number;
-}
-
-interface BuildResponse {
-  buildUrl?: string;
-  tunnelUrl?: string;
-  // Add other fields as needed
-}
-
 export class DispatcherService {
   private autoScalingClient: AutoScalingClient;
   private ec2Client: EC2Client;
@@ -425,4 +389,40 @@ export class DispatcherService {
   //     throw error;
   //   }
   // }
+}
+
+const ALLOCATE_LUA = `
+local usedKey = KEYS[1]
+local startP = tonumber(ARGV[1]) or 4000
+local endP   = tonumber(ARGV[2]) or 4099
+local range  = endP - startP + 1
+if range <= 0 then return nil end
+local hint = tonumber(ARGV[3] or "")
+local offset = 0
+if hint and hint >= startP and hint <= endP then
+  offset = hint - startP
+end
+for i = 0, range - 1 do
+  local p = startP + ((offset + i) % range)
+  if redis.call('SADD', usedKey, tostring(p)) == 1 then
+    return tostring(p)
+  end
+end
+return nil
+`;
+
+interface ActiveBuild {
+  worker_host: string;
+  worker_private_ip: string;
+  port: string | number;
+  url: string;
+  type: "build" | "hot_reload";
+  status: "starting" | "running" | "error" | "stopped";
+  last_touched: number;
+}
+
+interface BuildResponse {
+  buildUrl?: string;
+  tunnelUrl?: string;
+  // Add other fields as needed
 }
