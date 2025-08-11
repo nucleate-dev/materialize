@@ -30,7 +30,7 @@ echo "Making request to: $BASE_URL/dev-server"
 {
     curl -v -X POST "$BASE_URL/dev-server" \
         -F "prototypeId=$PROTOTYPE_ID" \
-        -F "file=@$ZIP_FILE" \
+        -F "files=@$ZIP_FILE" \
         --max-time 20 2>&1
 } &
 curl_pid=$!

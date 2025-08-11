@@ -1,13 +1,12 @@
 import AWS from 'aws-sdk';
-import fastifyLib from 'fastify';
-import { v4 as uuidv4 } from 'uuid';
+import { exec } from 'child_process';
 import dotenv from 'dotenv';
+import fastifyLib from 'fastify';
 import fs from 'fs-extra';
 import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import archiver from 'archiver';
 import unzipper from 'unzipper';
+import { promisify } from 'util';
+import { v4 as uuidv4 } from 'uuid';
 
 dotenv.config();
 
@@ -38,7 +37,7 @@ const runningDevServers = new Map();
 async function buildProject(projectPath, prototypeId) {
   const tempDir = path.join('/tmp', `build-${prototypeId}`);
   const buildLog = [];
-  
+
   const logStep = (step, success = true, output = '', error = '') => {
     const logEntry = {
       step,
@@ -94,7 +93,7 @@ async function buildProject(projectPath, prototypeId) {
 
     // The Expo export creates a 'dist' folder by default
     const expoDistPath = path.join(tempDir, 'dist');
-    
+
     // Verify the dist folder was created
     if (!(await fs.pathExists(expoDistPath))) {
       const errorMsg = 'Expo export did not create dist folder';
@@ -106,20 +105,20 @@ async function buildProject(projectPath, prototypeId) {
 
     logStep('Verify build output', true, `Build output found at: ${expoDistPath}`);
     console.log(`Expo build completed successfully for ${prototypeId}`);
-    
-    return { 
-      outputPath: expoDistPath, 
+
+    return {
+      outputPath: expoDistPath,
       buildLog,
       success: true
     };
 
   } catch (error) {
     console.error(`Build error for ${prototypeId}:`, error.message);
-    
+
     // Attach build log to error for debugging
     error.buildLog = buildLog;
     error.buildFailed = true;
-    
+
     // Cleanup on error
     await fs.remove(tempDir);
     throw error;
@@ -134,7 +133,7 @@ async function uploadDirectoryToS3(localPath, s3KeyPrefix) {
 
   for (const file of files) {
     const localFilePath = path.join(localPath, file.name);
-    
+
     if (file.isDirectory()) {
       try {
         const subDirResults = await uploadDirectoryToS3(localFilePath, `${s3KeyPrefix}/${file.name}`);
@@ -153,14 +152,14 @@ async function uploadDirectoryToS3(localPath, s3KeyPrefix) {
       try {
         const fileBuffer = await fs.readFile(localFilePath);
         const s3Key = `${s3KeyPrefix}/${file.name}`;
-        
+
         const result = await s3.upload({
           Bucket: BUCKET_NAME,
           Key: s3Key,
           Body: fileBuffer,
           ContentType: getContentType(file.name)
         }).promise();
-        
+
         uploadResults.push(result);
       } catch (error) {
         console.error(`Failed to upload ${localFilePath} to S3:`, error.message);
@@ -205,19 +204,19 @@ function getContentType(filename) {
 async function extractZipForBuilding(zipBuffer, prototypeId, writeToDisk = false) {
   const tempDir = path.join('/tmp', `extract-build-${uuidv4()}`);
   const zipPath = path.join(tempDir, 'upload.zip');
-  
+
   console.log(`Extracting zip file for building to ${tempDir}`);
   console.log(`Zip buffer size: ${zipBuffer.length} bytes`);
-  
+
   try {
     await fs.ensureDir(tempDir);
     await fs.writeFile(zipPath, zipBuffer);
-    
+
     const extractDir = path.join(tempDir, 'extracted');
     await fs.ensureDir(extractDir);
-    
+
     console.log(`Created extract directory: ${extractDir}`);
-    
+
     // Extract zip file
     await new Promise((resolve, reject) => {
       fs.createReadStream(zipPath)
@@ -231,18 +230,18 @@ async function extractZipForBuilding(zipBuffer, prototypeId, writeToDisk = false
           reject(error);
         });
     });
-    
+
     // Check what was extracted
     const extractedContents = await fs.readdir(extractDir, { withFileTypes: true });
     console.log(`Extracted ${extractedContents.length} items:`, extractedContents.map(f => f.name));
-    
+
     // Save to disk if requested (source files)
     if (writeToDisk) {
       const savedFiles = [];
       await saveFilesToDisk(extractDir, '', prototypeId, savedFiles);
       console.log(`Successfully saved ${savedFiles.length} source files to local disk`);
     }
-    
+
     // Return the extraction directory for building
     return { extractDir, tempDir };
   } catch (error) {
@@ -256,19 +255,19 @@ async function extractZipForBuilding(zipBuffer, prototypeId, writeToDisk = false
 async function extractAndUploadZip(zipBuffer, prototypeId, writeToDisk = false) {
   const tempDir = path.join('/tmp', `extract-${uuidv4()}`);
   const zipPath = path.join(tempDir, 'upload.zip');
-  
+
   console.log(`Extracting zip file to ${tempDir}`);
   console.log(`Zip buffer size: ${zipBuffer.length} bytes`);
-  
+
   try {
     await fs.ensureDir(tempDir);
     await fs.writeFile(zipPath, zipBuffer);
-    
+
     const extractDir = path.join(tempDir, 'extracted');
     await fs.ensureDir(extractDir);
-    
+
     console.log(`Created extract directory: ${extractDir}`);
-    
+
     // Extract zip file
     await new Promise((resolve, reject) => {
       fs.createReadStream(zipPath)
@@ -282,32 +281,32 @@ async function extractAndUploadZip(zipBuffer, prototypeId, writeToDisk = false) 
           reject(error);
         });
     });
-    
+
     // Check what was extracted
     const extractedContents = await fs.readdir(extractDir, { withFileTypes: true });
     console.log(`Extracted ${extractedContents.length} items:`, extractedContents.map(f => f.name));
-    
+
     // Upload all extracted files to S3
     const uploadedFiles = [];
     await uploadExtractedFiles(extractDir, '', prototypeId, uploadedFiles);
-    
+
     console.log(`Successfully uploaded ${uploadedFiles.length} files to S3`);
-    
+
     // Save to disk if requested
     if (writeToDisk) {
       const savedFiles = [];
       await saveFilesToDisk(extractDir, '', prototypeId, savedFiles);
       console.log(`Successfully saved ${savedFiles.length} files to local disk`);
-      
+
       // Add local paths to uploaded files info
       for (let i = 0; i < uploadedFiles.length && i < savedFiles.length; i++) {
         uploadedFiles[i].localPath = savedFiles[i].localPath;
       }
     }
-    
+
     // Cleanup
     await fs.remove(tempDir);
-    
+
     return uploadedFiles;
   } catch (error) {
     console.error('extractAndUploadZip error:', error);
@@ -320,20 +319,20 @@ async function extractAndUploadZip(zipBuffer, prototypeId, writeToDisk = false) 
 async function saveFilesToDisk(dirPath, relativePath, prototypeId, savedFiles) {
   const prototypesDir = path.resolve(PROTOTYPES_DIR, prototypeId, 'files');
   await fs.ensureDir(prototypesDir);
-  
+
   const files = await fs.readdir(dirPath, { withFileTypes: true });
-  
+
   for (const file of files) {
     const fullPath = path.join(dirPath, file.name);
     const currentRelativePath = relativePath ? path.join(relativePath, file.name) : file.name;
-    
+
     if (file.isDirectory()) {
       await saveFilesToDisk(fullPath, currentRelativePath, prototypeId, savedFiles);
     } else {
       const localSavePath = path.join(prototypesDir, currentRelativePath);
       await fs.ensureDir(path.dirname(localSavePath));
       await fs.copy(fullPath, localSavePath);
-      
+
       savedFiles.push({
         filename: currentRelativePath,
         localPath: localSavePath
@@ -346,11 +345,11 @@ async function saveFilesToDisk(dirPath, relativePath, prototypeId, savedFiles) {
 async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploadedFiles, failedFiles = []) {
   const files = await fs.readdir(dirPath, { withFileTypes: true });
   console.log(`Processing ${files.length} items in ${dirPath}`);
-  
+
   for (const file of files) {
     const fullPath = path.join(dirPath, file.name);
     const currentRelativePath = relativePath ? path.join(relativePath, file.name) : file.name;
-    
+
     if (file.isDirectory()) {
       console.log(`  Directory: ${currentRelativePath}`);
       await uploadExtractedFiles(fullPath, currentRelativePath, prototypeId, uploadedFiles, failedFiles);
@@ -359,14 +358,14 @@ async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploaded
       try {
         const fileBuffer = await fs.readFile(fullPath);
         const key = `${prototypeId}/${currentRelativePath}`;
-        
+
         const uploadParams = {
           Bucket: BUCKET_NAME,
           Key: key,
           Body: fileBuffer,
           ContentType: getContentType(file.name)
         };
-        
+
         const result = await s3.upload(uploadParams).promise();
         uploadedFiles.push({
           filename: currentRelativePath,
@@ -383,7 +382,7 @@ async function uploadExtractedFiles(dirPath, relativePath, prototypeId, uploaded
       }
     }
   }
-  
+
   if (failedFiles.length > 0) {
     const errorMessage = `Failed to upload ${failedFiles.length} files: ${failedFiles.map(f => f.filename).join(', ')}`;
     const error = new Error(errorMessage);
@@ -421,7 +420,7 @@ fastify.post('/upload', async (request, reply) => {
         // Check if this is a zip file
         if (part.mimetype === 'application/zip' || (part.filename && part.filename.toLowerCase().endsWith('.zip'))) {
           fastify.log.info(`Processing zip file: ${part.filename || 'unknown'}`);
-          
+
           // Extract zip and upload all contents
           try {
             const extractedFiles = await extractAndUploadZip(buffer, prototypeId, writeToDisk);
@@ -440,7 +439,7 @@ fastify.post('/upload', async (request, reply) => {
             }
             throw error;
           }
-          
+
           fastify.log.info(`Extracted and uploaded ${extractedFiles.length} files from ${part.filename || 'zip file'}`);
         } else {
           // Handle individual file upload
@@ -465,13 +464,13 @@ fastify.post('/upload', async (request, reply) => {
               details: error.message
             });
           }
-          
+
           const fileInfo = {
             filename: filename,
             s3Location: result.Location,
             key: result.Key
           };
-          
+
           // Save to disk if requested
           if (writeToDisk) {
             const localPath = path.resolve(PROTOTYPES_DIR, prototypeId, 'files', filename);
@@ -479,7 +478,7 @@ fastify.post('/upload', async (request, reply) => {
             await fs.writeFile(localPath, buffer);
             fileInfo.localPath = localPath;
           }
-          
+
           uploadedFiles.push(fileInfo);
         }
       } else if (part.fieldname === 'prototypeId') {
@@ -537,11 +536,11 @@ fastify.post('/build', async (request, reply) => {
     };
 
     const objects = await s3.listObjectsV2(listParams).promise();
-    
+
     if (!objects.Contents || objects.Contents.length === 0) {
       await fs.remove(tempProjectPath);
-      return reply.code(404).send({ 
-        error: `No files found for prototype ${prototypeId}` 
+      return reply.code(404).send({
+        error: `No files found for prototype ${prototypeId}`
       });
     }
 
@@ -551,11 +550,11 @@ fastify.post('/build', async (request, reply) => {
         Bucket: BUCKET_NAME,
         Key: object.Key
       };
-      
+
       const data = await s3.getObject(downloadParams).promise();
       const relativePath = object.Key.replace(`${prototypeId}/`, '');
       const localPath = path.join(tempProjectPath, relativePath);
-      
+
       await fs.ensureDir(path.dirname(localPath));
       await fs.writeFile(localPath, data.Body);
     });
@@ -571,7 +570,7 @@ fastify.post('/build', async (request, reply) => {
       fastify.log.info(`Build completed successfully for job ${jobId}`);
     } catch (error) {
       fastify.log.error(`Build failed for job ${jobId}:`, error.message);
-      
+
       // Return build failure with logs
       return reply.code(500).send({
         jobId,
@@ -583,7 +582,7 @@ fastify.post('/build', async (request, reply) => {
         buildFailed: true
       });
     }
-    
+
     const { outputPath, buildLog } = buildResult;
 
     // Upload build output to S3
@@ -593,7 +592,7 @@ fastify.post('/build', async (request, reply) => {
       uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
     } catch (error) {
       fastify.log.error(`S3 upload failed for job ${jobId}:`, error);
-      
+
       // If there were some successful uploads, include them in the response
       if (error.successfulUploads && error.successfulUploads.length > 0) {
         return reply.code(207).send({
@@ -609,18 +608,18 @@ fastify.post('/build', async (request, reply) => {
             location: result.Location
           })),
           message: `Build completed but S3 upload partially failed: ${error.successfulUploads.length} files uploaded, ${error.failedUploads.length} failed`,
-          buildUrl: error.successfulUploads.some(f => f.Key.endsWith('index.html')) 
-            ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html` 
+          buildUrl: error.successfulUploads.some(f => f.Key.endsWith('index.html'))
+            ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`
             : null
         });
       }
-      
+
       // Complete failure
       throw new Error(`S3 upload failed: ${error.message}`);
     }
 
     fastify.log.info(`Uploaded ${uploadResults.length} built files for job ${jobId}`);
-    
+
     // Save build output to disk if requested
     let localBuildPath = null;
     if (write_to_disk) {
@@ -647,17 +646,17 @@ fastify.post('/build', async (request, reply) => {
         location: result.Location
       }))
     };
-    
+
     if (write_to_disk && localBuildPath) {
       response.localBuildPath = localBuildPath;
       response.localBuildUrl = `file://${localBuildPath}/index.html`;
     }
-    
+
     return response;
 
   } catch (error) {
     fastify.log.error(`Build failed for job ${jobId}:`, error);
-    
+
     // Cleanup on error
     try {
       const tempProjectPath = path.join('/tmp', `project-${jobId}`);
@@ -702,15 +701,15 @@ fastify.post('/build-and-deploy', async (request, reply) => {
         const filename = part.filename || 'unknown';
         const mimetype = part.mimetype || '';
         const isZip = mimetype === 'application/zip' || filename.toLowerCase().endsWith('.zip');
-        
+
         if (isZip) {
           fastify.log.info(`Processing zip file for build-and-deploy: ${filename}`);
-          
+
           // Extract zip for building (no S3 upload)
           const { extractDir, tempDir: extractTempDir } = await extractZipForBuilding(buffer, prototypeId, writeToDisk);
           projectDir = extractDir;
           tempDir = extractTempDir;
-          
+
           fastify.log.info(`Extracted project files for building`);
           break; // Only process first zip file
         } else {
@@ -742,7 +741,7 @@ fastify.post('/build-and-deploy', async (request, reply) => {
       fastify.log.info(`Build completed successfully for job ${jobId}`);
     } catch (error) {
       fastify.log.error(`Build failed for build-and-deploy job ${jobId}:`, error.message);
-      
+
       // Return build failure with logs
       return reply.code(500).send({
         jobId,
@@ -754,10 +753,10 @@ fastify.post('/build-and-deploy', async (request, reply) => {
         buildFailed: true
       });
     }
-    
+
     const { outputPath, buildLog } = buildResult;
     fastify.log.info(`Build output path: ${outputPath}`);
-    
+
     // Check what files were built
     const builtFiles = await fs.readdir(outputPath, { withFileTypes: true });
     fastify.log.info(`Built files found: ${builtFiles.map(f => f.name).join(', ')}`);
@@ -770,7 +769,7 @@ fastify.post('/build-and-deploy', async (request, reply) => {
       uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
     } catch (error) {
       fastify.log.error(`S3 upload failed for build-and-deploy job ${jobId}:`, error);
-      
+
       // If there were some successful uploads, include them in the response
       if (error.successfulUploads && error.successfulUploads.length > 0) {
         return reply.code(207).send({
@@ -786,12 +785,12 @@ fastify.post('/build-and-deploy', async (request, reply) => {
             location: result.Location
           })),
           message: `Build completed but S3 upload partially failed: ${error.successfulUploads.length} files uploaded, ${error.failedUploads.length} failed`,
-          buildUrl: error.successfulUploads.some(f => f.Key.endsWith('index.html')) 
-            ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html` 
+          buildUrl: error.successfulUploads.some(f => f.Key.endsWith('index.html'))
+            ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`
             : null
         });
       }
-      
+
       // Complete failure
       throw new Error(`S3 upload failed: ${error.message}`);
     }
@@ -800,7 +799,7 @@ fastify.post('/build-and-deploy', async (request, reply) => {
     if (uploadResults.length > 0) {
       fastify.log.info(`Sample uploaded file: ${uploadResults[0].Key}`);
     }
-    
+
     // Save build output to disk if requested
     let localBuildPath = null;
     if (writeToDisk) {
@@ -829,18 +828,18 @@ fastify.post('/build-and-deploy', async (request, reply) => {
         location: result.Location
       }))
     };
-    
+
     if (writeToDisk && localBuildPath) {
       response.localBuildPath = localBuildPath;
       response.localBuildUrl = `file://${localBuildPath}/index.html`;
     }
-    
+
     return response;
 
   } catch (error) {
     fastify.log.error(`Build-and-deploy failed for job ${jobId}:`, error);
     fastify.log.error(`Error stack:`, error.stack);
-    
+
     // Cleanup on error
     try {
       if (tempDir) {
@@ -874,7 +873,7 @@ fastify.post('/dev-server', async (request, reply) => {
     const parts = request.parts();
 
     for await (const part of parts) {
-      if (part.file) {
+      if (part.file && part.fieldname === 'files') {
         if (!prototypeId) {
           return reply.code(400).send({
             error: 'prototypeId must be provided before file uploads'
@@ -885,15 +884,15 @@ fastify.post('/dev-server', async (request, reply) => {
         const filename = part.filename || 'unknown';
         const mimetype = part.mimetype || '';
         const isZip = mimetype === 'application/zip' || filename.toLowerCase().endsWith('.zip');
-        
+
         if (isZip) {
           fastify.log.info(`Processing zip file for dev server: ${filename}`);
-          
+
           // Extract zip for dev server
           const { extractDir, tempDir: extractTempDir } = await extractZipForBuilding(buffer, prototypeId, false);
           projectDir = extractDir;
           tempDir = extractTempDir;
-          
+
           fastify.log.info(`Extracted project files for dev server`);
           break;
         } else {
@@ -982,7 +981,7 @@ fastify.post('/dev-server', async (request, reply) => {
         const output = data.toString();
         startupLogs.push(output);
         fastify.log.info(`Expo stdout: ${output.trim()}`);
-        
+
         // Look for various tunnel URL patterns
         const patterns = [
           /https?:\/\/[a-zA-Z0-9-]+\.exp\.direct/g,
@@ -991,7 +990,7 @@ fastify.post('/dev-server', async (request, reply) => {
           /Tunnel:\s+(https?:\/\/[a-zA-Z0-9.-]+)/g,
           /🌐\s+Metro waiting on\s+(https?:\/\/[a-zA-Z0-9.-]+)/g
         ];
-        
+
         for (const pattern of patterns) {
           const matches = [...output.matchAll(pattern)];
           if (matches.length > 0) {
@@ -1007,11 +1006,11 @@ fastify.post('/dev-server', async (request, reply) => {
             }
           }
         }
-        
+
         // Also look for "Tunnel ready" messages and try to find tunnel URL
         if (output.includes('Tunnel ready') || output.includes('tunnel is ready') || output.includes('Tunnel connected')) {
           fastify.log.info('Tunnel ready detected, attempting to find tunnel URL...');
-          
+
           // Sometimes the URL isn't in the same message, try to get it from ngrok API
           setTimeout(async () => {
             try {
@@ -1030,7 +1029,7 @@ fastify.post('/dev-server', async (request, reply) => {
                   }
                 }
               }
-              
+
               // If no ngrok API, try to construct likely tunnel URL
               // Modern expo often uses format like https://abc123-user-project.exp.direct
               const possibleUrl = `https://localhost-${devPort}.exp.direct`;
@@ -1038,7 +1037,7 @@ fastify.post('/dev-server', async (request, reply) => {
               tunnelUrl = possibleUrl;
               clearTimeout(timeout);
               resolve(tunnelUrl);
-              
+
             } catch (error) {
               fastify.log.error('Failed to get tunnel URL from API:', error.message);
             }
@@ -1071,7 +1070,7 @@ fastify.post('/dev-server', async (request, reply) => {
       fastify.log.error(`Failed to start dev server for ${prototypeId}:`, error.message);
       expoProcess.kill();
       if (tempDir) await fs.remove(tempDir);
-      
+
       return reply.code(500).send({
         error: 'Failed to start dev server',
         details: error.message,
@@ -1117,7 +1116,7 @@ fastify.post('/dev-server', async (request, reply) => {
 
   } catch (error) {
     fastify.log.error(`Dev server startup failed for job ${jobId}:`, error);
-    
+
     // Cleanup on error
     if (tempDir) {
       try {
@@ -1150,10 +1149,10 @@ fastify.delete('/dev-server/:prototypeId', async (request, reply) => {
 
   try {
     const devServerInfo = runningDevServers.get(prototypeId);
-    
+
     // Kill the process
     devServerInfo.process.kill('SIGTERM');
-    
+
     // Force kill after 5 seconds if it doesn't close gracefully
     setTimeout(() => {
       if (!devServerInfo.process.killed) {
@@ -1215,7 +1214,7 @@ fastify.get('/dev-server/:prototypeId/logs', async (request, reply) => {
   }
 
   const devServerInfo = runningDevServers.get(prototypeId);
-  
+
   return {
     prototypeId,
     logs: devServerInfo.logs || [],

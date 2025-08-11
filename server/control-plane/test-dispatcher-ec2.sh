@@ -6,7 +6,7 @@
 #   bash test-dispatcher-ec2.sh <control-plane-ip> # Test real EC2 control plane
 #   DIRECT_WORKER=<worker-ip> bash test-dispatcher-ec2.sh # Test worker directly
 
-PROTOTYPE_ID="test-dispatcher-1754867913"
+PROTOTYPE_ID="test-dispatcher-1754867915"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZIP_FILE="$SCRIPT_DIR/test-project.zip"
 
@@ -47,6 +47,7 @@ fi
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$TARGET_URL" \
   -F "prototypeId=$PROTOTYPE_ID" \
   -F "writeToDisK=true" \
+  -F "hotReload=true" \
   -F "files=@test-project.zip" \
   --max-time $TIMEOUT)
 
