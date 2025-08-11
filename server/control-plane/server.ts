@@ -102,11 +102,11 @@ fastify.post(
         `Processing build request for prototype: ${prototypeId}`
       );
 
-      const result = await dispatcherService.processDispatchRequest(
+      const result = await dispatcherService.processDispatchRequest({
         prototypeId,
         zipBuffer,
-        hotReload
-      );
+        hotReload,
+      });
 
       return reply.send({
         success: true,
