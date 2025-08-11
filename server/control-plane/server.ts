@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { DispatcherService } from "./DispatcherService";
 import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
 import { EC2Client } from "@aws-sdk/client-ec2";
@@ -53,7 +54,7 @@ const fastify = Fastify({
 fastify.register(cors, { origin: true, credentials: true });
 
 // Register multipart plugin for file uploads
-fastify.register(import("@fastify/multipart"));
+fastify.register(multipart);
 
 let dispatcherService: DispatcherService;
 
@@ -104,7 +105,6 @@ fastify.post(
       const result = await dispatcherService.processDispatchRequest(
         prototypeId,
         zipBuffer,
-        writeToDisK,
         hotReload
       );
 

@@ -30,7 +30,6 @@ export class DispatcherService {
   public async processDispatchRequest(
     prototypeId: string,
     zipBuffer: Buffer,
-    writeToDisk: boolean = false,
     hotReload: boolean = false
   ): Promise<any> {
     try {
@@ -86,6 +85,8 @@ export class DispatcherService {
           type: hotReload ? "hot_reload" : "build",
           last_touched: Math.floor(Date.now() / 1000),
         };
+
+        console.log("Updated build: ", updatedBuild);
 
         await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
         return buildResponse;
@@ -148,8 +149,8 @@ export class DispatcherService {
         status: "running",
         last_touched: Math.floor(Date.now() / 1000),
       };
-      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
-      console.log("New build: ", newBuild);
+      await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
+      console.log("New build: ", updatedBuild);
 
       return buildResponse;
     } catch (error) {
