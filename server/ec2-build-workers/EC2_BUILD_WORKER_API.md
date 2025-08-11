@@ -339,6 +339,56 @@ curl http://localhost:3002/dev-servers
 
 ---
 
+### 7. Delete Build from Local Disk
+
+**Endpoint**: `DELETE /build/:prototypeId`
+
+**Description**: Deletes a prototype's build files and source files from the local disk storage. This removes the entire prototype directory from the EC2 instance.
+
+**Path Parameters**:
+- `prototypeId` (string): Unique identifier for the prototype
+
+**Request Example**:
+```bash
+curl -X DELETE http://localhost:3002/build/my-prototype-123
+```
+
+**Success Response** (200):
+```json
+{
+  "prototypeId": "my-prototype-123",
+  "status": "deleted",
+  "message": "Build successfully deleted from local disk",
+  "deletedPath": "/path/to/prototypes/my-prototype-123"
+}
+```
+
+**Not Found Response** (404):
+```json
+{
+  "error": "Build not found for this prototype",
+  "prototypeId": "my-prototype-123"
+}
+```
+
+**Bad Request Response** (400):
+```json
+{
+  "error": "prototypeId is required"
+}
+```
+
+**Error Response** (500):
+```json
+{
+  "error": "Failed to delete build from local disk",
+  "prototypeId": "my-prototype-123",
+  "details": "Error message details"
+}
+```
+
+---
+
 ## Data Models
 
 ### BuildLogEntry
