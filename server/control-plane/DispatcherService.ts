@@ -13,43 +13,17 @@ dotenv.config();
 export class DispatcherService {
   private autoScalingClient: AutoScalingClient;
   private ec2Client: EC2Client;
-  private cache!: GlideClient; // Valkey GLIDE client
+  private cache: GlideClient;
   private allocateSha: string | null = null;
 
-  constructor() {
-    this.autoScalingClient = new AutoScalingClient({
-      region: process.env.AWS_REGION!,
-    });
-
-    this.ec2Client = new EC2Client({
-      region: process.env.AWS_REGION!,
-    });
-
-    const endpointHost = process.env.CACHE_HOST!;
-    const port = parseInt(process.env.CACHE_PORT!);
-    const username = process.env.CACHE_USERNAME!;
-    const password = process.env.CACHE_PASSWORD!;
-
-    const initCache = async (): Promise<void> => {
-      try {
-        this.cache = await GlideClient.createClient({
-          addresses: [{ host: endpointHost, port }],
-          useTLS: true,
-          credentials: {
-            username,
-            password,
-          },
-          clientName: "control-plane",
-          requestTimeout: 2000,
-        });
-        console.log("Valkey cache initialized successfully");
-      } catch (error) {
-        console.error("Failed to initialize Valkey cache:", error);
-        throw error;
-      }
-    };
-
-    void initCache();
+  constructor(
+    cache: GlideClient,
+    ec2Client: EC2Client,
+    autoScalingClient: AutoScalingClient
+  ) {
+    this.cache = cache;
+    this.ec2Client = ec2Client;
+    this.autoScalingClient = autoScalingClient;
   }
 
   // Process build request with zipped files
