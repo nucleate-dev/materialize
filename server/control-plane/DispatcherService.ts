@@ -88,61 +88,136 @@ export class DispatcherService {
     void initCache();
   }
 
-  // Get least loaded worker instance
-  // private async getLeastLoadedWorker() {
-  //   try {
-  //     const instances = await this.getActiveWorkerInstances();
+  // Process build request with zipped files
+  public async processDispatchRequest(
+    prototypeId: string,
+    zipBuffer: Buffer,
+    writeToDisk: boolean = false,
+    hotReload: boolean = false
+  ): Promise<any> {
+    try {
+      // Check if build already exists
+      const activeBuildKey = `active_build:${prototypeId}`;
+      const existingBuildJson = await this.cache.get(activeBuildKey);
 
-  //     if (instances.length === 0) {
-  //       throw new Error("No active worker instances available");
-  //     }
+      if (existingBuildJson) {
+        let existingBuild: ActiveBuild = JSON.parse(
+          existingBuildJson as string
+        );
+        console.log("Found existing build: ", existingBuild);
 
-  //     // Get load information for each instance from Cache
-  //     const instanceLoads: {
-  //       instance: any;
-  //       activeBuilds: number;
-  //       availablePorts: number;
-  //     }[] = [];
+        if (hotReload && existingBuild.port === "") {
+          console.log("Existing build being transitioned to hot reload");
+          let allocatedPort: number | undefined;
+          const port = await this.acquireFreePort(
+            existingBuild.worker_private_ip
+          );
+          if (port === null) {
+            throw new Error(
+              `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`
+            );
+          }
+          allocatedPort = port;
+          existingBuild = {
+            ...existingBuild,
+            port: allocatedPort,
+          };
+          await this.cache.set(activeBuildKey, JSON.stringify(existingBuild));
+        }
 
-  //     for (const instance of instances) {
-  //       const ip = instance.PrivateIpAddress;
+        const formData = this.constructFormData(
+          prototypeId,
+          zipBuffer,
+          existingBuild.port ? Number(existingBuild.port) : undefined
+        );
 
-  //       // Count active builds for this instance
-  //       const activeBuildsKey = `active_builds:${ip}`;
-  //       const activeBuilds = await this.cache.scard(activeBuildsKey);
+        const buildResponse: BuildResponse = hotReload
+          ? await this.sendWorkerLiveDevServerRequest(
+              existingBuild.worker_private_ip,
+              formData
+            )
+          : await this.sendWorkerBuildRequest(
+              existingBuild.worker_private_ip,
+              formData
+            );
 
-  //       // Count available ports for this instance
-  //       const portRegistryKey = `port_registry:${ip}`;
-  //       const totalPorts =
-  //         parseInt(process.env.MAX_PORT!) - parseInt(process.env.MIN_PORT!);
-  //       const usedPorts = await this.cache.scard(portRegistryKey);
-  //       const availablePorts = totalPorts - usedPorts;
+        // Update the existing build with new timestamp and URL
+        const updatedBuild: ActiveBuild = {
+          ...existingBuild,
+          url: buildResponse.buildUrl,
+          type: hotReload ? "hot_reload" : "build",
+          last_touched: Math.floor(Date.now() / 1000),
+        };
 
-  //       instanceLoads.push({
-  //         instance,
-  //         activeBuilds,
-  //         availablePorts,
-  //       });
-  //     }
+        await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
+        return buildResponse;
+      }
 
-  //     // Sort by load priority:
-  //     // 1. Prioritize instances with available ports (for hot reload capability)
-  //     // 2. Then by lowest number of active builds
-  //     instanceLoads.sort((a, b) => {
-  //       // First, prioritize instances with available ports
-  //       if (a.availablePorts > 0 && b.availablePorts === 0) return -1;
-  //       if (a.availablePorts === 0 && b.availablePorts > 0) return 1;
+      // If build does not exist, create a new build
+      const instances = await this.getActiveWorkerInstances();
+      const workerIp = instances[0].PrivateIpAddress;
+      console.log("No existing build found, creating a new build:");
+      console.log("Instance to push to: ", workerIp);
 
-  //       // Then sort by number of active builds (least loaded first)
-  //       return a.activeBuilds - b.activeBuilds;
-  //     });
+      // Acquire a free port if hot reload is requested
+      let allocatedPort: number | undefined;
+      if (hotReload) {
+        const port = await this.acquireFreePort(workerIp);
+        if (port === null) {
+          throw new Error(
+            `No available ports on worker ${workerIp} for hot reload`
+          );
+        }
+        allocatedPort = port;
+        console.log(`Allocated port ${allocatedPort} for hot reload`);
+      }
 
-  //     return instanceLoads[0].instance;
-  //   } catch (error) {
-  //     console.error("Error getting least loaded worker:", error);
-  //     throw error;
-  //   }
-  // }
+      // Create new build entry in cache PRIOR to sending reques to build worker, in case build worker request fails
+      const newBuild: ActiveBuild = {
+        worker_host: instances[0].InstanceId,
+        worker_private_ip: workerIp,
+        port: allocatedPort || "",
+        url: "",
+        type: hotReload ? "hot_reload" : "build",
+        status: "running",
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
+
+      // construct and send request to appropriate build worker
+      const formData = this.constructFormData(
+        prototypeId,
+        zipBuffer,
+        allocatedPort
+      );
+      let buildResponse: BuildResponse | null = null;
+      if (hotReload) {
+        buildResponse = await this.sendWorkerLiveDevServerRequest(
+          workerIp,
+          formData
+        );
+      } else {
+        buildResponse = await this.sendWorkerBuildRequest(workerIp, formData);
+      }
+
+      // Create new build entry in cache
+      const updatedBuild: ActiveBuild = {
+        worker_host: instances[0].InstanceId,
+        worker_private_ip: workerIp,
+        port: allocatedPort || "",
+        url: hotReload ? buildResponse.tunnelUrl : buildResponse.buildUrl,
+        type: hotReload ? "hot_reload" : "build",
+        status: "running",
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
+      console.log("New build: ", newBuild);
+
+      return buildResponse;
+    } catch (error) {
+      throw error;
+    }
+  }
 
   // Get active EC2 instances from Auto Scaling Group
   private async getActiveWorkerInstances() {
@@ -281,7 +356,6 @@ export class DispatcherService {
   private constructFormData(
     prototypeId: string,
     zipBuffer: Buffer,
-    writeToDisk: boolean,
     port?: number
   ) {
     const formData = new FormData();
@@ -296,116 +370,59 @@ export class DispatcherService {
     return formData;
   }
 
-  // Process build request with zipped files
-  public async processBuildRequest(
-    prototypeId: string,
-    zipBuffer: Buffer,
-    writeToDisk: boolean = false,
-    hotReload: boolean = false
-  ): Promise<any> {
-    try {
-      // Check if build already exists
-      const activeBuildKey = `active_build:${prototypeId}`;
-      const existingBuildJson = await this.cache.get(activeBuildKey);
+  // Get least loaded worker instance
+  // private async getLeastLoadedWorker() {
+  //   try {
+  //     const instances = await this.getActiveWorkerInstances();
 
-      if (existingBuildJson) {
-        const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
-        );
-        console.log("Found existing build: ", existingBuild);
+  //     if (instances.length === 0) {
+  //       throw new Error("No active worker instances available");
+  //     }
 
-        const formData = this.constructFormData(
-          prototypeId,
-          zipBuffer,
-          writeToDisk,
-          existingBuild.port ? Number(existingBuild.port) : undefined
-        );
+  //     // Get load information for each instance from Cache
+  //     const instanceLoads: {
+  //       instance: any;
+  //       activeBuilds: number;
+  //       availablePorts: number;
+  //     }[] = [];
 
-        const buildResponse: BuildResponse = hotReload
-          ? await this.sendWorkerLiveDevServerRequest(
-              existingBuild.worker_private_ip,
-              formData
-            )
-          : await this.sendWorkerBuildRequest(
-              existingBuild.worker_private_ip,
-              formData
-            );
+  //     for (const instance of instances) {
+  //       const ip = instance.PrivateIpAddress;
 
-        // Update the existing build with new timestamp and URL
-        const updatedBuild: ActiveBuild = {
-          ...existingBuild,
-          url: buildResponse.buildUrl,
-          last_touched: Math.floor(Date.now() / 1000),
-        };
+  //       // Count active builds for this instance
+  //       const activeBuildsKey = `active_builds:${ip}`;
+  //       const activeBuilds = await this.cache.scard(activeBuildsKey);
 
-        await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
-        return buildResponse;
-      }
+  //       // Count available ports for this instance
+  //       const portRegistryKey = `port_registry:${ip}`;
+  //       const totalPorts =
+  //         parseInt(process.env.MAX_PORT!) - parseInt(process.env.MIN_PORT!);
+  //       const usedPorts = await this.cache.scard(portRegistryKey);
+  //       const availablePorts = totalPorts - usedPorts;
 
-      // If build does not exist, create a new build
-      const instances = await this.getActiveWorkerInstances();
-      const workerIp = instances[0].PrivateIpAddress;
-      console.log("No existing build found, creating a new build:");
-      console.log("Instance to push to: ", workerIp);
+  //       instanceLoads.push({
+  //         instance,
+  //         activeBuilds,
+  //         availablePorts,
+  //       });
+  //     }
 
-      // Acquire a free port if hot reload is requested
-      let allocatedPort: number | undefined;
-      if (hotReload) {
-        const port = await this.acquireFreePort(workerIp);
-        if (port === null) {
-          throw new Error(
-            `No available ports on worker ${workerIp} for hot reload`
-          );
-        }
-        allocatedPort = port;
-        console.log(`Allocated port ${allocatedPort} for hot reload`);
-      }
+  //     // Sort by load priority:
+  //     // 1. Prioritize instances with available ports (for hot reload capability)
+  //     // 2. Then by lowest number of active builds
+  //     instanceLoads.sort((a, b) => {
+  //       // First, prioritize instances with available ports
+  //       if (a.availablePorts > 0 && b.availablePorts === 0) return -1;
+  //       if (a.availablePorts === 0 && b.availablePorts > 0) return 1;
 
-      // Create new build entry in cache PRIOR to sending reques to build worker, in case build worker request fails
-      const newBuild: ActiveBuild = {
-        worker_host: instances[0].InstanceId,
-        worker_private_ip: workerIp,
-        port: allocatedPort || "",
-        url: "",
-        type: hotReload ? "hot_reload" : "build",
-        status: "running",
-        last_touched: Math.floor(Date.now() / 1000),
-      };
-      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
+  //       // Then sort by number of active builds (least loaded first)
+  //       return a.activeBuilds - b.activeBuilds;
+  //     });
 
-      // construct and send request to appropriate build worker
-      const formData = this.constructFormData(
-        prototypeId,
-        zipBuffer,
-        writeToDisk,
-        allocatedPort
-      );
-      let buildResponse: BuildResponse | null = null;
-      if (hotReload) {
-        buildResponse = await this.sendWorkerLiveDevServerRequest(
-          workerIp,
-          formData
-        );
-      } else {
-        buildResponse = await this.sendWorkerBuildRequest(workerIp, formData);
-      }
-
-      // Create new build entry in cache
-      const updatedBuild: ActiveBuild = {
-        worker_host: instances[0].InstanceId,
-        worker_private_ip: workerIp,
-        port: allocatedPort || "",
-        url: hotReload ? buildResponse.tunnelUrl : buildResponse.buildUrl,
-        type: hotReload ? "hot_reload" : "build",
-        status: "running",
-        last_touched: Math.floor(Date.now() / 1000),
-      };
-      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
-      console.log("New build: ", newBuild);
-
-      return buildResponse;
-    } catch (error) {
-      throw error;
-    }
-  }
+  //     return instanceLoads[0].instance;
+  //   } catch (error) {
+  //     console.error("Error getting least loaded worker:", error);
+  //     throw error;
+  //   }
+  // }
 }
