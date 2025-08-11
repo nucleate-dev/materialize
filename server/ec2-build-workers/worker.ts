@@ -579,6 +579,62 @@ async function saveFilesToDisk(
   }
 }
 
+/**
+ * Builds and deploys a project from an existing project directory
+ */
+async function buildAndDeployFromExistingProject(
+  projectDir: string,
+  prototypeId: string,
+): Promise<{ buildUrl: string; buildLog: BuildLogEntry[] }> {
+  let buildResult: BuildResult;
+  try {
+    buildResult = await buildProject(projectDir, prototypeId);
+  } catch (error) {
+    if (error instanceof BuildError) {
+      throw error;
+    }
+    throw new BuildError(`Build process failed: ${error.message}`, []);
+  }
+
+  const { outputPath, buildLog } = buildResult;
+  const buildS3Prefix = `${prototypeId}/dist`;
+  let uploadResults: S3.ManagedUpload.SendData[];
+
+  try {
+    uploadResults = await uploadDirectoryToS3(outputPath, buildS3Prefix);
+  } catch (error) {
+    if (error instanceof S3UploadError) {
+      // If some files failed to upload, we still want to return the buildUrl if index.html was uploaded
+      const hasIndexHtml = error.successfulUploads.some((f) =>
+        f.Key.endsWith("index.html"),
+      );
+      if (hasIndexHtml) {
+        return {
+          buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+          buildLog,
+        };
+      }
+      throw error;
+    }
+    throw error;
+  }
+
+  // Cleanup build output directory
+  await fs
+    .rm(path.dirname(outputPath), { recursive: true, force: true })
+    .catch((err) =>
+      fastifyApp.log.error(
+        `Failed to cleanup build output ${path.dirname(outputPath)}:`,
+        err.message,
+      ),
+    );
+
+  return {
+    buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+    buildLog,
+  };
+}
+
 // --- API Endpoints ---
 
 fastifyApp.get(
@@ -1038,6 +1094,26 @@ fastifyApp.delete(
     }
 
     try {
+      // Build and deploy the project before stopping the dev server
+      let buildUrl: string | null = null;
+      let buildLog: BuildLogEntry[] = [];
+      let buildSuccess = false;
+
+      try {
+        const buildResult = await buildAndDeployFromExistingProject(
+          devServerInfo.projectDir,
+          prototypeId,
+        );
+        buildUrl = buildResult.buildUrl;
+        buildLog = buildResult.buildLog;
+        buildSuccess = true;
+        fastifyApp.log.info(`Successfully built and deployed ${prototypeId} before stopping dev server`);
+      } catch (buildError: any) {
+        fastifyApp.log.error(`Failed to build and deploy ${prototypeId} before stopping dev server:`, buildError.message);
+        // Continue with stopping the dev server even if build fails
+      }
+
+      // Stop the dev server
       devServerInfo.process.kill("SIGTERM");
       // Force kill after 5 seconds
       setTimeout(() => {
@@ -1051,11 +1127,23 @@ fastifyApp.delete(
 
       runningDevServers.delete(prototypeId);
       fastifyApp.log.info(`Dev server stopped for ${prototypeId}`);
-      return {
+
+      const response: any = {
         prototypeId,
         status: "stopped",
         message: "Dev server stopped successfully",
+        buildSuccess,
       };
+
+      if (buildSuccess && buildUrl) {
+        response.buildUrl = buildUrl;
+        response.buildLog = buildLog;
+        response.message = "Dev server stopped and project built/deployed successfully";
+      } else if (!buildSuccess) {
+        response.buildError = "Failed to build and deploy project before stopping dev server";
+      }
+
+      return response;
     } catch (error: any) {
       return reply
         .code(500)
@@ -1118,6 +1206,26 @@ fastifyApp.delete(
     }
 
     try {
+      // Build and deploy the project before stopping the dev server
+      let buildUrl: string | null = null;
+      let buildLog: BuildLogEntry[] = [];
+      let buildSuccess = false;
+
+      try {
+        const buildResult = await buildAndDeployFromExistingProject(
+          targetDevServer.projectDir,
+          targetPrototypeId,
+        );
+        buildUrl = buildResult.buildUrl;
+        buildLog = buildResult.buildLog;
+        buildSuccess = true;
+        fastifyApp.log.info(`Successfully built and deployed ${targetPrototypeId} before stopping dev server on port ${portNumber}`);
+      } catch (buildError: any) {
+        fastifyApp.log.error(`Failed to build and deploy ${targetPrototypeId} before stopping dev server on port ${portNumber}:`, buildError.message);
+        // Continue with stopping the dev server even if build fails
+      }
+
+      // Stop the dev server
       targetDevServer.process.kill("SIGTERM");
       // Force kill after 5 seconds
       setTimeout(() => {
@@ -1133,12 +1241,24 @@ fastifyApp.delete(
       fastifyApp.log.info(
         `Dev server stopped on port ${portNumber} for prototype ${targetPrototypeId}`,
       );
-      return {
+
+      const response: any = {
         prototypeId: targetPrototypeId,
         port: portNumber,
         status: "stopped",
         message: "Dev server stopped successfully by port number",
+        buildSuccess,
       };
+
+      if (buildSuccess && buildUrl) {
+        response.buildUrl = buildUrl;
+        response.buildLog = buildLog;
+        response.message = "Dev server stopped by port number and project built/deployed successfully";
+      } else if (!buildSuccess) {
+        response.buildError = "Failed to build and deploy project before stopping dev server";
+      }
+
+      return response;
     } catch (error: any) {
       return reply
         .code(500)

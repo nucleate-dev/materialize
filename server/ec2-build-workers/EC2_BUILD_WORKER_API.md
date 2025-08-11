@@ -194,7 +194,7 @@ curl -X POST http://localhost:3002/dev-server \
 
 **Endpoint**: `DELETE /dev-server/:prototypeId`
 
-**Description**: Stops a running development server for a specific prototype.
+**Description**: Stops a running development server for a specific prototype. Before stopping, it automatically builds and deploys the project to S3, returning the build URL in the response.
 
 **Path Parameters**:
 - `prototypeId` (string): Unique identifier for the prototype
@@ -209,7 +209,21 @@ curl -X DELETE http://localhost:3002/dev-server/my-prototype-123
 {
   "prototypeId": "my-prototype-123",
   "status": "stopped",
-  "message": "Dev server stopped successfully"
+  "message": "Dev server stopped and project built/deployed successfully",
+  "buildSuccess": true,
+  "buildUrl": "https://materialize-sites.s3.amazonaws.com/my-prototype-123/dist/index.html",
+  "buildLog": [...]
+}
+```
+
+**Success Response (Build Failed)** (200):
+```json
+{
+  "prototypeId": "my-prototype-123",
+  "status": "stopped",
+  "message": "Dev server stopped successfully",
+  "buildSuccess": false,
+  "buildError": "Failed to build and deploy project before stopping dev server"
 }
 ```
 
@@ -235,7 +249,7 @@ curl -X DELETE http://localhost:3002/dev-server/my-prototype-123
 
 **Endpoint**: `DELETE /dev-server/port/:port`
 
-**Description**: Stops a running development server by port number.
+**Description**: Stops a running development server by port number. Before stopping, it automatically builds and deploys the project to S3, returning the build URL in the response.
 
 **Path Parameters**:
 - `port` (string): Port number the dev server is running on
@@ -251,7 +265,22 @@ curl -X DELETE http://localhost:3002/dev-server/port/19006
   "prototypeId": "my-prototype-123",
   "port": 19006,
   "status": "stopped",
-  "message": "Dev server stopped successfully by port number"
+  "message": "Dev server stopped by port number and project built/deployed successfully",
+  "buildSuccess": true,
+  "buildUrl": "https://materialize-sites.s3.amazonaws.com/my-prototype-123/dist/index.html",
+  "buildLog": [...]
+}
+```
+
+**Success Response (Build Failed)** (200):
+```json
+{
+  "prototypeId": "my-prototype-123",
+  "port": 19006,
+  "status": "stopped",
+  "message": "Dev server stopped successfully by port number",
+  "buildSuccess": false,
+  "buildError": "Failed to build and deploy project before stopping dev server"
 }
 ```
 
