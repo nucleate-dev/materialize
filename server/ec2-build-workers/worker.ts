@@ -7,7 +7,8 @@ import fastify, {
   FastifyReply,
   FastifyRequest,
 } from "fastify";
-import fs from "fs-extra";
+import { createReadStream } from "node:fs";
+import fs from "node:fs/promises";
 import path from "path";
 import unzipper from "unzipper";
 import { promisify } from "util";
@@ -136,11 +137,74 @@ const execAsync = promisify(exec);
 
 const PORT = parseInt(process.env.PORT || "3002", 10);
 const PROTOTYPES_DIR = process.env.PROTOTYPES_DIR || "./prototypes";
+const BUILD_TEMP_DIR =
+  process.env.BUILD_TEMP_DIR ||
+  path.join(require("os").homedir(), "build-worker", "temp");
 
 // Track running dev servers
 const runningDevServers = new Map<string, DevServerInfo>();
 
 // --- Utility Functions ---
+
+/**
+ * Cleans up old temporary files and build artifacts to free up disk space
+ */
+async function cleanupOldFiles(): Promise<void> {
+  const maxAge = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+  const now = Date.now();
+
+  try {
+    // Clean up build temp directories
+    await fs.mkdir(BUILD_TEMP_DIR, { recursive: true }); // Ensure directory exists
+    const tmpEntries = await fs.readdir(BUILD_TEMP_DIR);
+    for (const entryName of tmpEntries) {
+      if (
+        entryName.startsWith("build-") ||
+        entryName.startsWith("extract-build-")
+      ) {
+        const fullPath = path.join(BUILD_TEMP_DIR, entryName);
+        try {
+          const stats = await fs.stat(fullPath);
+          if (!stats.isDirectory()) continue;
+          if (now - stats.mtime.getTime() > maxAge) {
+            await fs.rm(fullPath, { recursive: true, force: true });
+            console.log(`Cleaned up old temp directory: ${fullPath}`);
+          }
+        } catch (error) {
+          // Ignore errors for individual files
+        }
+      }
+    }
+
+    // Clean up old prototypes directories if they exist
+    try {
+      const prototypeEntries = await fs.readdir(PROTOTYPES_DIR);
+      for (const entryName of prototypeEntries) {
+        const fullPath = path.join(PROTOTYPES_DIR, entryName);
+        try {
+          const stats = await fs.stat(fullPath);
+          if (!stats.isDirectory()) continue;
+          if (now - stats.mtime.getTime() > maxAge) {
+            await fs.rm(fullPath, { recursive: true, force: true });
+            console.log(`Cleaned up old prototype directory: ${fullPath}`);
+          }
+        } catch (error) {
+          // Ignore errors for individual directories
+        }
+      }
+    } catch (error: any) {
+      if (error.code !== "ENOENT") {
+        console.error(
+          "Error during prototype directory cleanup:",
+          error.message,
+        );
+      }
+      // Ignore error if the main prototypes directory doesn't exist
+    }
+  } catch (error: any) {
+    console.error("Error during cleanup:", error.message);
+  }
+}
 
 /**
  * Builds the Expo project for the web platform.
@@ -152,8 +216,11 @@ async function buildProject(
   projectPath: string,
   prototypeId: string,
 ): Promise<BuildResult> {
-  const tempDir = path.join("/tmp", `build-${prototypeId}`);
+  const tempDir = path.join(BUILD_TEMP_DIR, `build-${prototypeId}`);
   const buildLog: BuildLogEntry[] = [];
+
+  // Cleanup any existing temp directory first
+  await fs.rm(tempDir, { recursive: true, force: true });
 
   const logStep = (
     step: string,
@@ -177,21 +244,54 @@ async function buildProject(
   };
 
   try {
-    await fs.ensureDir(tempDir);
+    await fs.mkdir(tempDir, { recursive: true });
     logStep("Create build directory", true, `Created: ${tempDir}`);
 
-    await fs.copy(projectPath, tempDir);
+    await fs.cp(projectPath, tempDir, { recursive: true });
     logStep(
       "Copy project files",
       true,
       `Copied from ${projectPath} to ${tempDir}`,
     );
 
+    // Check available disk space before installing dependencies
+    try {
+      const { stdout: dfOutput } = await execAsync(
+        `df ${BUILD_TEMP_DIR} --output=avail`,
+        { cwd: tempDir },
+      );
+      const availableKB = parseInt(dfOutput.split("\n")[1].trim());
+      const availableMB = Math.floor(availableKB / 1024);
+      logStep("Check disk space", true, `Available space: ${availableMB}MB`);
+
+      if (availableMB < 500) {
+        // Less than 500MB available
+        throw new Error(
+          `Insufficient disk space: only ${availableMB}MB available. Need at least 500MB.`,
+        );
+      }
+    } catch (error: any) {
+      if (error.message.includes("Insufficient disk space")) {
+        logStep("Check disk space", false, "", error.message);
+        throw error;
+      }
+      // If df command fails, continue (might be different system)
+      logStep(
+        "Check disk space",
+        true,
+        "Unable to check disk space, proceeding",
+      );
+    }
+
     console.log(`Installing dependencies for build ${prototypeId}...`);
     try {
-      const { stdout, stderr } = await execAsync("bun install --no-save", {
-        cwd: tempDir,
-      });
+      const { stdout, stderr } = await execAsync(
+        "bun install --no-save --no-cache",
+        {
+          cwd: tempDir,
+          timeout: 300000, // 5 minute timeout for installs
+        },
+      );
       logStep("Install dependencies", true, stdout, stderr);
     } catch (error: any) {
       logStep(
@@ -200,6 +300,8 @@ async function buildProject(
         error.stdout || "",
         error.stderr || error.message,
       );
+      // Always cleanup on install failure to free up space
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
       throw error;
     }
 
@@ -223,7 +325,9 @@ async function buildProject(
     }
 
     const expoDistPath = path.join(tempDir, "dist");
-    if (!(await fs.pathExists(expoDistPath))) {
+    try {
+      await fs.stat(expoDistPath);
+    } catch (error) {
       const errorMsg = "Expo export did not create dist folder";
       logStep("Verify build output", false, "", errorMsg);
       throw new Error(errorMsg);
@@ -244,7 +348,14 @@ async function buildProject(
   } catch (error: any) {
     console.error(`Build error for ${prototypeId}:`, error.message);
     // Cleanup on error before throwing
-    await fs.remove(tempDir);
+    await fs
+      .rm(tempDir, { recursive: true, force: true })
+      .catch((cleanupError) => {
+        console.error(
+          `Failed to cleanup temp dir ${tempDir}:`,
+          cleanupError.message,
+        );
+      });
     throw new BuildError(error.message, buildLog);
   }
 }
@@ -259,15 +370,16 @@ async function uploadDirectoryToS3(
   localPath: string,
   s3KeyPrefix: string,
 ): Promise<S3.ManagedUpload.SendData[]> {
-  const files = await fs.readdir(localPath, { withFileTypes: true });
+  const files = await fs.readdir(localPath);
   const uploadResults: S3.ManagedUpload.SendData[] = [];
   const failedUploads: FailedUpload[] = [];
 
-  for (const file of files) {
-    const localFilePath = path.join(localPath, file.name);
-    const s3Key = `${s3KeyPrefix}/${file.name}`;
+  for (const fileName of files) {
+    const localFilePath = path.join(localPath, fileName);
+    const s3Key = `${s3KeyPrefix}/${fileName}`;
 
-    if (file.isDirectory()) {
+    const stats = await fs.stat(localFilePath);
+    if (stats.isDirectory()) {
       try {
         const subDirResults = await uploadDirectoryToS3(localFilePath, s3Key);
         uploadResults.push(...subDirResults);
@@ -289,7 +401,7 @@ async function uploadDirectoryToS3(
             Bucket: BUCKET_NAME,
             Key: s3Key,
             Body: fileBuffer,
-            ContentType: getContentType(file.name),
+            ContentType: getContentType(fileName),
           })
           .promise();
         uploadResults.push(result);
@@ -348,30 +460,30 @@ async function extractZipForBuilding(
   prototypeId: string,
   writeToDisk = false,
 ): Promise<{ extractDir: string; tempDir: string }> {
-  const tempDir = path.join("/tmp", `extract-build-${uuidv4()}`);
+  const tempDir = path.join(BUILD_TEMP_DIR, `extract-build-${uuidv4()}`);
   const zipPath = path.join(tempDir, "upload.zip");
 
   console.log(`Extracting zip file for building to ${tempDir}`);
   console.log(`Zip buffer size: ${zipBuffer.length} bytes`);
 
   try {
-    await fs.ensureDir(tempDir);
+    await fs.mkdir(tempDir, { recursive: true });
     await fs.writeFile(zipPath, zipBuffer);
 
     const extractDir = path.join(tempDir, "extracted");
-    await fs.ensureDir(extractDir);
+    await fs.mkdir(extractDir, { recursive: true });
 
     console.log(`Created extract directory: ${extractDir}`);
 
     // Extract zip file using buffer approach
     try {
-      const zipBuffer = await fs.readFile(zipPath);
-      const directory = await unzipper.Open.buffer(zipBuffer);
+      const zipFileBuffer = await fs.readFile(zipPath);
+      const directory = await unzipper.Open.buffer(zipFileBuffer);
 
       for (const file of directory.files) {
         if (file.type === "File") {
           const filePath = path.join(extractDir, file.path);
-          await fs.ensureDir(path.dirname(filePath));
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
           const content = await file.buffer();
           await fs.writeFile(filePath, content);
         }
@@ -397,17 +509,15 @@ async function extractZipForBuilding(
           reject(error);
         });
 
-        fs.createReadStream(zipPath).pipe(extractStream);
+        createReadStream(zipPath).pipe(extractStream);
       });
     }
 
     // Check what was extracted
-    const extractedContents = await fs.readdir(extractDir, {
-      withFileTypes: true,
-    });
+    const extractedContents = await fs.readdir(extractDir);
     console.log(
       `Extracted ${extractedContents.length} items:`,
-      extractedContents.map((f) => f.name),
+      extractedContents,
     );
 
     if (writeToDisk) {
@@ -421,7 +531,7 @@ async function extractZipForBuilding(
     return { extractDir, tempDir };
   } catch (error) {
     console.error("extractZipForBuilding error:", error);
-    await fs.remove(tempDir);
+    await fs.rm(tempDir, { recursive: true, force: true });
     throw error;
   }
 }
@@ -440,15 +550,16 @@ async function saveFilesToDisk(
   savedFiles: { filename: string; localPath: string }[],
 ): Promise<void> {
   const prototypesDir = path.resolve(PROTOTYPES_DIR, prototypeId, "files");
-  await fs.ensureDir(prototypesDir);
+  await fs.mkdir(prototypesDir, { recursive: true });
 
-  const files = await fs.readdir(dirPath, { withFileTypes: true });
+  const files = await fs.readdir(dirPath);
 
-  for (const file of files) {
-    const fullPath = path.join(dirPath, file.name);
-    const currentRelativePath = path.join(relativePath, file.name);
+  for (const fileName of files) {
+    const fullPath = path.join(dirPath, fileName);
+    const currentRelativePath = path.join(relativePath, fileName);
 
-    if (file.isDirectory()) {
+    const stats = await fs.stat(fullPath);
+    if (stats.isDirectory()) {
       await saveFilesToDisk(
         fullPath,
         currentRelativePath,
@@ -457,8 +568,8 @@ async function saveFilesToDisk(
       );
     } else {
       const localSavePath = path.join(prototypesDir, currentRelativePath);
-      await fs.ensureDir(path.dirname(localSavePath));
-      await fs.copy(fullPath, localSavePath);
+      await fs.mkdir(path.dirname(localSavePath), { recursive: true });
+      await fs.copyFile(fullPath, localSavePath);
 
       savedFiles.push({
         filename: currentRelativePath,
@@ -591,16 +702,32 @@ fastifyApp.post(
       let localBuildPath: string | null = null;
       if (writeToDisk) {
         localBuildPath = path.resolve(PROTOTYPES_DIR, prototypeId, "build");
-        await fs.ensureDir(localBuildPath);
-        await fs.copy(outputPath, localBuildPath);
+        await fs.mkdir(localBuildPath, { recursive: true });
+        await fs.cp(outputPath, localBuildPath, { recursive: true });
         fastifyApp.log.info(
           `Saved build output to local disk: ${localBuildPath}`,
         );
       }
 
-      // Cleanup
-      if (tempDir) await fs.remove(tempDir);
-      await fs.remove(path.dirname(outputPath));
+      // Cleanup temp directories
+      if (tempDir) {
+        await fs
+          .rm(tempDir, { recursive: true, force: true })
+          .catch((err) =>
+            fastifyApp.log.error(
+              `Failed to cleanup tempDir ${tempDir}:`,
+              err.message,
+            ),
+          );
+      }
+      await fs
+        .rm(path.dirname(outputPath), { recursive: true, force: true })
+        .catch((err) =>
+          fastifyApp.log.error(
+            `Failed to cleanup build output ${path.dirname(outputPath)}:`,
+            err.message,
+          ),
+        );
 
       const response: any = {
         jobId,
@@ -624,12 +751,25 @@ fastifyApp.post(
       return response;
     } catch (error: any) {
       fastifyApp.log.error(`Build-and-deploy failed for job ${jobId}:`, error);
-      if (tempDir)
+
+      // Ensure cleanup happens on any failure
+      if (tempDir) {
         await fs
-          .remove(tempDir)
+          .rm(tempDir, { recursive: true, force: true })
           .catch((cleanupError) =>
-            fastifyApp.log.error("Cleanup failed:", cleanupError),
+            fastifyApp.log.error("Cleanup failed:", cleanupError.message),
           );
+      }
+      if (projectDir && projectDir.startsWith(BUILD_TEMP_DIR)) {
+        await fs
+          .rm(path.dirname(projectDir), { recursive: true, force: true })
+          .catch((cleanupError) =>
+            fastifyApp.log.error(
+              "Project cleanup failed:",
+              cleanupError.message,
+            ),
+          );
+      }
 
       return reply.code(500).send({
         jobId,
@@ -716,7 +856,10 @@ fastifyApp.post(
       );
       fastifyApp.log.info(`Using tunnel subdomain: ${tunnelSubdomain}`);
 
-      await execAsync("bun install --no-save", { cwd: projectDir });
+      await execAsync("bun install --no-save --no-cache", {
+        cwd: projectDir,
+        timeout: 300000, // 5 minute timeout
+      });
       // @expo/ngrok is pre-installed globally during EC2 setup
 
       const expoProcess = spawn(
@@ -829,7 +972,7 @@ fastifyApp.post(
       expoProcess.on("close", () => {
         runningDevServers.delete(prototypeId!);
         if (tempDir)
-          fs.remove(tempDir).catch((err) =>
+          fs.rm(tempDir, { recursive: true, force: true }).catch((err) =>
             fastifyApp.log.error(`Cleanup failed for ${prototypeId}:`, err),
           );
       });
@@ -847,10 +990,26 @@ fastifyApp.post(
         `Dev server startup failed for job ${jobId}:`,
         error,
       );
-      if (tempDir)
+
+      // Cleanup on dev server startup failure
+      if (tempDir) {
         await fs
-          .remove(tempDir)
-          .catch((e) => fastifyApp.log.error("Cleanup failed:", e));
+          .rm(tempDir, { recursive: true, force: true })
+          .catch((e) =>
+            fastifyApp.log.error("Dev server cleanup failed:", e.message),
+          );
+      }
+      if (projectDir && projectDir.startsWith(BUILD_TEMP_DIR)) {
+        await fs
+          .rm(path.dirname(projectDir), { recursive: true, force: true })
+          .catch((e) =>
+            fastifyApp.log.error(
+              "Dev server project cleanup failed:",
+              e.message,
+            ),
+          );
+      }
+
       return reply.code(500).send({
         jobId,
         prototypeId: prototypeId || "unknown",
@@ -887,7 +1046,7 @@ fastifyApp.delete(
       }, 5000);
 
       if (devServerInfo.tempDir) {
-        await fs.remove(devServerInfo.tempDir);
+        await fs.rm(devServerInfo.tempDir, { recursive: true, force: true });
       }
 
       runningDevServers.delete(prototypeId);
@@ -967,7 +1126,7 @@ fastifyApp.delete(
       }, 5000);
 
       if (targetDevServer.tempDir) {
-        await fs.remove(targetDevServer.tempDir);
+        await fs.rm(targetDevServer.tempDir, { recursive: true, force: true });
       }
 
       runningDevServers.delete(targetPrototypeId);
@@ -1001,6 +1160,22 @@ fastifyApp.get(
     return { runningServers: servers, count: servers.length };
   },
 );
+
+// --- Cleanup Scheduler ---
+
+// Run cleanup every 30 minutes
+setInterval(
+  async () => {
+    console.log("Running periodic cleanup...");
+    await cleanupOldFiles();
+  },
+  30 * 60 * 1000,
+);
+
+// Run initial cleanup on startup
+cleanupOldFiles().catch((error) => {
+  console.error("Initial cleanup failed:", error.message);
+});
 
 // --- Server Start ---
 

@@ -46,8 +46,8 @@ fi
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$TARGET_URL" \
   -F "prototypeId=$PROTOTYPE_ID" \
-  -F "writeToDisK=true" \
-  -F "hotReload=true" \
+  -F "writeToDisk=true" \
+  -F "hotReload=false" \
   -F "files=@test-project.zip" \
   --max-time $TIMEOUT)
 

@@ -44,7 +44,7 @@ echo "- Source files: ./prototypes/$PROTOTYPE_ID/files/"
 echo "- Build files: ./prototypes/$PROTOTYPE_ID/build/"
 echo "- S3 build URL: Check response above for buildUrl"
 
-# Check if local files were created (relative to the project root where worker.js runs)
+# Check if local files were created (relative to the project root where worker.ts runs)
 PROTOTYPES_PATH="../prototypes/$PROTOTYPE_ID"
 if [ -d "$PROTOTYPES_PATH" ]; then
     echo -e "\n✅ Local prototype directory created:"
