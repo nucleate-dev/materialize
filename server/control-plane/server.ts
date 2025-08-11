@@ -3,6 +3,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { DispatcherService } from "./DispatcherService";
+import { CleanupService } from "./CleanupService";
 import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { GlideClient } from "@valkey/valkey-glide";
@@ -57,6 +58,7 @@ fastify.register(cors, { origin: true, credentials: true });
 fastify.register(multipart);
 
 let dispatcherService: DispatcherService;
+let cleanupService: CleanupService;
 
 // Remove schema for multipart endpoint since we handle form data directly
 
@@ -183,6 +185,9 @@ const start = async () => {
       autoScalingClient
     );
 
+    // Create cleanup service with cache
+    cleanupService = new CleanupService(cache);
+
     await fastify.listen({
       port: 3000,
       host: "0.0.0.0",
@@ -197,6 +202,10 @@ const start = async () => {
 const close = async () => {
   fastify.log.info("Shutting down...");
   try {
+    // Stop cleanup services
+    if (cleanupService) {
+      cleanupService.stopCleanupServices();
+    }
     await fastify.close();
   } finally {
     process.exit(0);
