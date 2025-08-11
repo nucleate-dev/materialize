@@ -1,108 +1,38 @@
-import { CONFIG, REDIS_KEYS } from "./config";
+import { GlideClient } from "@valkey/valkey-glide";
+import { CONFIG } from "./config";
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
+  private cache: GlideClient;
+
   constructor() {
     this.cleanupIntervals = [];
     this.startCleanupServices();
+    // TODO take in Valkey Elasticache client in the constructor
   }
   // Cleanup idle hot reload services
   async cleanupIdleHotReload() {
-    try {
-      const activeBuilds = await redis.hgetall(REDIS_KEYS.ACTIVE_BUILDS);
-      const now = Date.now();
-
-      for (const [prototypeId, buildInfoStr] of Object.entries(activeBuilds)) {
-        const buildInfo = JSON.parse(buildInfoStr as string);
-
-        if (
-          buildInfo.isHotReload &&
-          now - buildInfo.lastUpdated > CONFIG.IDLE_TIMEOUT_HOT_RELOAD
-        ) {
-          fastify.log.info(
-            `Cleaning up idle hot reload for prototype ${prototypeId}`
-          );
-
-          // Stop metro bundler on worker
-          try {
-            await this.sendWorkerRequest(buildInfo.workerIp, {
-              action: "stop-metro",
-              prototypeId,
-              port: buildInfo.port,
-            });
-          } catch (error) {
-            fastify.log.warn(
-              `Failed to stop metro for ${prototypeId}:`,
-              error.message
-            );
-          }
-
-          // Release port
-          if (buildInfo.port) {
-            await this.releasePort(buildInfo.workerIp, buildInfo.port);
-          }
-
-          // Convert to static build
-          buildInfo.isHotReload = false;
-          buildInfo.port = null;
-          await redis.hset(
-            REDIS_KEYS.ACTIVE_BUILDS,
-            prototypeId,
-            JSON.stringify(buildInfo)
-          );
-        }
-      }
-    } catch (error) {
-      fastify.log.error("Error during hot reload cleanup:", error);
-    }
+    console.log("Cleaning up idle hot reload services");
+    // 1. Get all active builds from the cache
+    // 2. For every active build, check the last_touched timestamp
+    // 3. If the last_touched timestamp is older than the idle timeout for hot reload and the build has a port assigned:
+    //    - Dispatch a request to the build worker to kill the hot reload server
+    //    - Remove the port from the active build and update the cache with the new URL returned from the request
+    //    - Release the port in the cache port registry
   }
 
   // Cleanup old builds and files
   async cleanupOldBuilds() {
-    try {
-      const activeBuilds = await redis.hgetall(REDIS_KEYS.ACTIVE_BUILDS);
-      const now = Date.now();
-
-      for (const [prototypeId, buildInfoStr] of Object.entries(activeBuilds)) {
-        const buildInfo = JSON.parse(buildInfoStr as string);
-
-        if (now - buildInfo.lastUpdated > CONFIG.IDLE_TIMEOUT_CLEANUP) {
-          fastify.log.info(
-            `Cleaning up old build for prototype ${prototypeId}`
-          );
-
-          // Clean up files on worker
-          try {
-            await this.sendWorkerRequest(buildInfo.workerIp, {
-              action: "cleanup",
-              prototypeId,
-            });
-          } catch (error) {
-            fastify.log.warn(
-              `Failed to cleanup files for ${prototypeId}:`,
-              error.message
-            );
-          }
-
-          // Release port if hot reload
-          if (buildInfo.isHotReload && buildInfo.port) {
-            await this.releasePort(buildInfo.workerIp, buildInfo.port);
-          }
-
-          // Remove from active builds
-          await redis.hdel(REDIS_KEYS.ACTIVE_BUILDS, prototypeId);
-
-          // Decrement worker load
-          await redis.hincrby(REDIS_KEYS.WORKER_LOAD, buildInfo.workerIp, -1);
-        }
-      }
-    } catch (error) {
-      fastify.log.error("Error during build cleanup:", error);
-    }
+    console.log("Cleaning up active builds from the cache");
+    // 1. Get all active builds from the cache
+    // 2. For every active build, check the last_touched timestamp
+    // 3. If the last_touched timestamp is older than the idle timeout for builds:
+    //    - Dispatch a request to the build worker to delete the build files
+    //    - Remove the active build from the cache
   }
 
   // Start cleanup services
-  startCleanupServices() {
+  private startCleanupServices() {
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(
@@ -111,16 +41,16 @@ export class CleanupService {
       )
     );
 
-    // File cleanup every 20 minutes
+    // File cleanup every 15 minutes
     this.cleanupIntervals.push(
       setInterval(() => this.cleanupOldBuilds(), CONFIG.CLEANUP_INTERVAL_FILES)
     );
 
-    fastify.log.info("Cleanup services started");
+    console.log("Cleanup services started");
   }
 
   // Stop cleanup services
-  stopCleanupServices() {
+  public stopCleanupServices() {
     this.cleanupIntervals.forEach((interval) => clearInterval(interval));
     this.cleanupIntervals = [];
   }
