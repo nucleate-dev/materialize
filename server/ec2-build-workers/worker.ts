@@ -804,7 +804,7 @@ fastifyApp.post(
         response.localBuildUrl = `file://${localBuildPath}/index.html`;
       }
 
-      return response;
+      return reply.send(response);
     } catch (error: any) {
       fastifyApp.log.error(`Build-and-deploy failed for job ${jobId}:`, error);
 
@@ -1150,7 +1150,7 @@ fastifyApp.delete(
           "Failed to build and deploy project before stopping dev server";
       }
 
-      return response;
+      return reply.send(response);
     } catch (error: any) {
       return reply
         .code(500)
@@ -1272,7 +1272,7 @@ fastifyApp.delete(
           "Failed to build and deploy project before stopping dev server";
       }
 
-      return response;
+      return reply.send(response);
     } catch (error: any) {
       return reply
         .code(500)
