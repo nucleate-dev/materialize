@@ -203,21 +203,7 @@ async function buildProject(
       throw error;
     }
 
-    console.log("Installing Expo CLI...");
-    try {
-      const { stdout, stderr } = await execAsync("npm install -g @expo/cli", {
-        cwd: tempDir,
-      });
-      logStep("Install Expo CLI", true, stdout, stderr);
-    } catch (error: any) {
-      logStep(
-        "Install Expo CLI",
-        false,
-        error.stdout || "",
-        error.stderr || error.message,
-      );
-      throw error;
-    }
+    // Expo CLI is pre-installed globally during EC2 setup
 
     console.log(`Building Expo project for web platform...`);
     try {
@@ -731,11 +717,7 @@ fastifyApp.post(
       fastifyApp.log.info(`Using tunnel subdomain: ${tunnelSubdomain}`);
 
       await execAsync("npm install", { cwd: projectDir });
-      await execAsync("npm install -g @expo/ngrok@^4.1.0", {
-        cwd: projectDir,
-      }).catch((e) =>
-        fastifyApp.log.warn(`Could not install @expo/ngrok: ${e.message}`),
-      );
+      // @expo/ngrok is pre-installed globally during EC2 setup
 
       const expoProcess = spawn(
         "npx",
