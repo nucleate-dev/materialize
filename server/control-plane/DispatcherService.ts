@@ -201,6 +201,7 @@ export class DispatcherService {
     opts?: { start?: number; end?: number; hint?: number }
   ): Promise<number | null> {
     if (!this.allocateSha) {
+      console.log("Loading allocate SHA");
       this.allocateSha = String(
         await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA])
       );
@@ -221,6 +222,7 @@ export class DispatcherService {
       end,
       hint,
     ]);
+    console.log("port result: ", res);
     return res ? Number(res) : null;
   }
 
@@ -266,7 +268,7 @@ export class DispatcherService {
         );
         return response.data;
       } catch (error) {
-        console.log("Error sending worker request: ", error);
+        console.log("Error sending worker request: ");
         throw error;
       }
     }
@@ -280,7 +282,6 @@ export class DispatcherService {
   ) {
     const formData = new FormData();
     formData.append("prototypeId", prototypeId);
-    formData.append("write_to_disk", writeToDisk.toString());
     formData.append("files", zipBuffer, {
       filename: "project.zip",
       contentType: "application/zip",
