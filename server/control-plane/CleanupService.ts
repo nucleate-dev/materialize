@@ -1,5 +1,6 @@
 import { GlideClient } from "@valkey/valkey-glide";
 import { CONFIG } from "./config";
+import axios from "axios";
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -15,11 +16,8 @@ export class CleanupService {
     console.log("Cleaning up idle hot reload services");
 
     try {
-      // Get all active build keys using scan command
-      const activeBuildKeys = (await this.cache.customCommand([
-        "KEYS",
-        "active_build:*",
-      ])) as string[];
+      // Get all active build keys using SCAN command
+      const activeBuildKeys = await this.scanKeys("active_build:*");
 
       if (!activeBuildKeys || activeBuildKeys.length === 0) {
         console.log("No active builds found for hot reload cleanup");
@@ -90,11 +88,8 @@ export class CleanupService {
     console.log("Cleaning up old builds from the cache");
 
     try {
-      // Get all active build keys
-      const activeBuildKeys = (await this.cache.customCommand([
-        "KEYS",
-        "active_build:*",
-      ])) as string[];
+      // Get all active build keys using SCAN command
+      const activeBuildKeys = await this.scanKeys("active_build:*");
 
       if (!activeBuildKeys || activeBuildKeys.length === 0) {
         console.log("No active builds found for cleanup");
@@ -167,7 +162,7 @@ export class CleanupService {
     this.cleanupIntervals = [];
   }
 
-  // Placeholder function to dispatch kill hot reload request to build worker
+  // Dispatch kill hot reload request to build worker
   private async dispatchKillHotReloadDevServerRequest(
     workerIp: string,
     prototypeId: string,
@@ -177,15 +172,39 @@ export class CleanupService {
       `Dispatching kill hot reload request to worker ${workerIp} for prototype ${prototypeId} on port ${port}`
     );
 
-    // TODO: Implement actual request to build worker
-    // This should make an HTTP request to the build worker to kill the hot reload server
-    // and return the new build URL
+    try {
+      const response = await axios.delete(
+        `http://${workerIp}:3002/dev-server/port/${port}`,
+        {
+          timeout: 30000, // 30 second timeout
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-    // Placeholder response
-    return {
-      success: true,
-      buildUrl: `https://materializeui.com/builds/${prototypeId}`,
-    };
+      console.log(
+        `Successfully killed hot reload server on port ${port} for prototype ${prototypeId}`
+      );
+
+      return {
+        success: true,
+        buildUrl:
+          response.data.buildUrl ||
+          `https://materializeui.com/builds/${prototypeId}`,
+      };
+    } catch (error) {
+      console.error(
+        `Error killing hot reload server on worker ${workerIp} port ${port}:`,
+        error
+      );
+
+      // Return a fallback response even if the request fails
+      return {
+        success: false,
+        buildUrl: `https://materializeui.com/builds/${prototypeId}`,
+      };
+    }
   }
 
   // Placeholder function to dispatch delete build request to build worker
@@ -206,6 +225,33 @@ export class CleanupService {
       success: true,
       message: `Build files for prototype ${prototypeId} deleted successfully`,
     };
+  }
+
+  // Helper method to scan for keys matching a pattern
+  private async scanKeys(pattern: string): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor = "0";
+
+    do {
+      try {
+        const result = (await this.cache.customCommand([
+          "SCAN",
+          cursor,
+          "MATCH",
+          pattern,
+          "COUNT",
+          "100",
+        ])) as [string, string[]];
+
+        cursor = result[0];
+        keys.push(...result[1]);
+      } catch (error) {
+        console.error(`Error scanning keys with pattern ${pattern}:`, error);
+        break;
+      }
+    } while (cursor !== "0");
+
+    return keys;
   }
 
   // Release a port in the cache port registry
