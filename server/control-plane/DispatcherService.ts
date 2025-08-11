@@ -10,6 +10,21 @@ import FormData from "form-data";
 
 dotenv.config();
 
+interface ActiveBuild {
+  worker_host: string;
+  worker_private_ip: string;
+  port: string | number;
+  url: string;
+  type: "build" | "hot_reload";
+  status: "starting" | "running" | "error" | "stopped";
+  last_touched: number;
+}
+
+interface BuildResponse {
+  buildUrl: string;
+  // Add other fields as needed
+}
+
 export class DispatcherService {
   private autoScalingClient: AutoScalingClient;
   private ec2Client: EC2Client;
@@ -177,64 +192,129 @@ export class DispatcherService {
   // Send request to worker
   private async sendWorkerRequest(
     workerIp: string,
+    hotReload: boolean,
     formData: FormData
   ): Promise<any> {
-    try {
-      const response = await axios.post(
-        `http://${workerIp}:3002/build-and-deploy`,
-        formData,
-        {
-          timeout: 300000,
-          headers: {
-            ...formData.getHeaders(),
-          },
-        }
-      );
-      return response.data;
-    } catch (error) {
-      console.log("Error sending worker request: ", error);
-      throw error;
+    if (!hotReload) {
+      try {
+        const response = await axios.post(
+          `http://${workerIp}:3002/build-and-deploy`,
+          formData,
+          {
+            timeout: 300000,
+            headers: {
+              ...formData.getHeaders(),
+            },
+          }
+        );
+        return response.data;
+      } catch (error) {
+        console.log("Error sending worker request: ", error);
+        throw error;
+      }
+    } else {
+      try {
+        const response = await axios.post(
+          `http://${workerIp}:3002/dev-server`,
+          formData,
+          {
+            timeout: 300000,
+            headers: {
+              ...formData.getHeaders(),
+            },
+          }
+        );
+        return response.data;
+      } catch (error) {
+        console.log("Error sending worker request: ", error);
+        throw error;
+      }
     }
+  }
+
+  private constructFormData(
+    prototypeId: string,
+    zipBuffer: Buffer,
+    writeToDisk: boolean
+  ) {
+    const formData = new FormData();
+    formData.append("prototypeId", prototypeId);
+    formData.append("write_to_disk", writeToDisk.toString());
+    formData.append("files", zipBuffer, {
+      filename: "project.zip",
+      contentType: "application/zip",
+    });
+    return formData;
   }
 
   // Process build request with zipped files
   public async processBuildRequest(
     prototypeId: string,
     zipBuffer: Buffer,
-    writeToDisk: boolean = false
+    writeToDisk: boolean = false,
+    hotReload: boolean = false
   ): Promise<any> {
     try {
       // Check if build already exists
-      // If build already exists, send update to the existing worker
-      //   - load the build info from the Elasticache ActiveBuildRegistry
-      //   - send the update to the worker (if hot reload vs regular build send to appropriate endpoint)
-      //   - update the timestamp in the Elasticache ActiveBuildRegistry
-      //   - return the result
-      // If build does not exist, create a new build
+      const activeBuildKey = `active_build:${prototypeId}`;
+      const existingBuildJson = await this.cache.get(activeBuildKey);
+
+      if (existingBuildJson) {
+        const existingBuild: ActiveBuild = JSON.parse(
+          existingBuildJson as string
+        );
+        console.log("Found existing build: ", existingBuild);
+
+        const buildResponse: BuildResponse = await this.sendWorkerRequest(
+          existingBuild.worker_private_ip,
+          hotReload,
+          this.constructFormData(prototypeId, zipBuffer, writeToDisk)
+        ); // TODO optionally send hot reload vs build
+
+        // Update the existing build with new timestamp and URL
+        const updatedBuild: ActiveBuild = {
+          ...existingBuild,
+          url: buildResponse.buildUrl,
+          last_touched: Math.floor(Date.now() / 1000),
+        };
+
+        await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
+        return buildResponse;
+      }
+
+      // TODO: If build does not exist, create a new build
       //   - get the least loaded worker
       //   - acquire a free port if hot reload
       //   - create a new build info and add to the Elasticache ActiveBuildRegistry
       //   - Optional: increment the worker load in elasticache
       //   - send the build request to the worker (either /build or /hot-reload)
       //   - return the result
-
-      // For now, get the first available worker
       const instances = await this.getActiveWorkerInstances();
-      console.log("Instance to push to: ", instances[0]);
-
       const workerIp = instances[0].PrivateIpAddress;
+      console.log("No existing build found, creating a new build:");
+      console.log("Instance to push to: ", workerIp);
 
-      // Create FormData to send to worker
-      const formData = new FormData();
-      formData.append("prototypeId", prototypeId);
-      formData.append("write_to_disk", writeToDisk.toString());
-      formData.append("files", zipBuffer, {
-        filename: "project.zip",
-        contentType: "application/zip",
-      });
+      const buildResponse: BuildResponse = await this.sendWorkerRequest(
+        workerIp,
+        hotReload,
+        this.constructFormData(prototypeId, zipBuffer, writeToDisk)
+      );
 
-      const result = await this.sendWorkerRequest(workerIp, formData);
-      return result;
+      // Create new build entry in cache
+      const newBuild: ActiveBuild = {
+        worker_host: instances[0].InstanceId,
+        worker_private_ip: workerIp,
+        port: "",
+        url: buildResponse.buildUrl,
+        type: "build",
+        status: "running",
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+
+      console.log("New build: ", newBuild);
+
+      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
+      return buildResponse;
     } catch (error) {
       throw error;
     }
