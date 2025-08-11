@@ -1107,9 +1107,14 @@ fastifyApp.delete(
         buildUrl = buildResult.buildUrl;
         buildLog = buildResult.buildLog;
         buildSuccess = true;
-        fastifyApp.log.info(`Successfully built and deployed ${prototypeId} before stopping dev server`);
+        fastifyApp.log.info(
+          `Successfully built and deployed ${prototypeId} before stopping dev server`,
+        );
       } catch (buildError: any) {
-        fastifyApp.log.error(`Failed to build and deploy ${prototypeId} before stopping dev server:`, buildError.message);
+        fastifyApp.log.error(
+          `Failed to build and deploy ${prototypeId} before stopping dev server:`,
+          buildError.message,
+        );
         // Continue with stopping the dev server even if build fails
       }
 
@@ -1138,9 +1143,11 @@ fastifyApp.delete(
       if (buildSuccess && buildUrl) {
         response.buildUrl = buildUrl;
         response.buildLog = buildLog;
-        response.message = "Dev server stopped and project built/deployed successfully";
+        response.message =
+          "Dev server stopped and project built/deployed successfully";
       } else if (!buildSuccess) {
-        response.buildError = "Failed to build and deploy project before stopping dev server";
+        response.buildError =
+          "Failed to build and deploy project before stopping dev server";
       }
 
       return response;
@@ -1219,9 +1226,14 @@ fastifyApp.delete(
         buildUrl = buildResult.buildUrl;
         buildLog = buildResult.buildLog;
         buildSuccess = true;
-        fastifyApp.log.info(`Successfully built and deployed ${targetPrototypeId} before stopping dev server on port ${portNumber}`);
+        fastifyApp.log.info(
+          `Successfully built and deployed ${targetPrototypeId} before stopping dev server on port ${portNumber}`,
+        );
       } catch (buildError: any) {
-        fastifyApp.log.error(`Failed to build and deploy ${targetPrototypeId} before stopping dev server on port ${portNumber}:`, buildError.message);
+        fastifyApp.log.error(
+          `Failed to build and deploy ${targetPrototypeId} before stopping dev server on port ${portNumber}:`,
+          buildError.message,
+        );
         // Continue with stopping the dev server even if build fails
       }
 
@@ -1253,9 +1265,11 @@ fastifyApp.delete(
       if (buildSuccess && buildUrl) {
         response.buildUrl = buildUrl;
         response.buildLog = buildLog;
-        response.message = "Dev server stopped by port number and project built/deployed successfully";
+        response.message =
+          "Dev server stopped by port number and project built/deployed successfully";
       } else if (!buildSuccess) {
-        response.buildError = "Failed to build and deploy project before stopping dev server";
+        response.buildError =
+          "Failed to build and deploy project before stopping dev server";
       }
 
       return response;
