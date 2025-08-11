@@ -118,6 +118,655 @@ interface DevServerParams {
   prototypeId: string;
 }
 
+/**
+ * Enhanced npm install with real-time logging and progress monitoring
+ */
+async function verboseNpmInstall(
+  projectDir: string,
+  logStep: Function,
+): Promise<void> {
+  const startTime = Date.now();
+  const npmCacheDir = path.join(BUILD_TEMP_DIR, ".npm-cache");
+  await fs.mkdir(npmCacheDir, { recursive: true });
+
+  logStep("Starting npm install", true, `Project dir: ${projectDir}`);
+
+  // Check what we're about to install
+  try {
+    const packageJson = JSON.parse(
+      await fs.readFile(path.join(projectDir, "package.json"), "utf8"),
+    );
+    const depCount =
+      Object.keys(packageJson.dependencies || {}).length +
+      Object.keys(packageJson.devDependencies || {}).length;
+    logStep(
+      "Package analysis",
+      true,
+      `Found ${depCount} direct dependencies\n` +
+        `Dependencies: ${Object.keys(packageJson.dependencies || {})
+          .slice(0, 5)
+          .join(
+            ", ",
+          )}${Object.keys(packageJson.dependencies || {}).length > 5 ? "..." : ""}\n` +
+        `DevDependencies: ${Object.keys(packageJson.devDependencies || {})
+          .slice(0, 5)
+          .join(
+            ", ",
+          )}${Object.keys(packageJson.devDependencies || {}).length > 5 ? "..." : ""}`,
+    );
+  } catch (error: any) {
+    logStep("Package analysis failed", false, "", error.message);
+  }
+
+  // Use spawn for real-time output
+  const npmArgs = [
+    "ci",
+    // `--cache`,
+    // npmCacheDir,
+    "--prefer-offline",
+    "--no-audit",
+    "--no-fund",
+    "--maxsockets",
+    "10",
+    "--fetch-retry-maxtimeout",
+    "120000",
+    "--fetch-retry-mintimeout",
+    "20000",
+    "--fetch-timeout",
+    "300000",
+    "--loglevel",
+    "info", // More verbose for debugging
+    "--timing", // Show timing information
+    "--progress",
+    "true", // Show progress
+  ];
+
+  const env = {
+    ...process.env,
+    CI: "1",
+    NODE_OPTIONS: "--max-old-space-size=1536",
+    NPM_CONFIG_MAXSOCKETS: "8",
+  };
+
+  logStep("npm command", true, `npm ${npmArgs.join(" ")}`);
+
+  return new Promise((resolve, reject) => {
+    const npmProcess = spawn("npm", npmArgs, {
+      cwd: projectDir,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let lastProgress = Date.now();
+    let packageCount = 0;
+    let currentPackage = "";
+
+    // Monitor stdout for progress
+    npmProcess.stdout.on("data", (data) => {
+      const output = data.toString();
+      stdout += output;
+
+      // Log interesting lines in real-time
+      const lines = output.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Track package installations
+        if (trimmed.includes("npm info")) {
+          const match = trimmed.match(/npm info\s+(\S+)/);
+          if (match) {
+            currentPackage = match[1];
+            packageCount++;
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(
+              `[${elapsed}s] Installing package ${packageCount}: ${currentPackage}`,
+            );
+          }
+        }
+
+        // Track download progress
+        else if (trimmed.includes("fetch")) {
+          console.log(`[FETCH] ${trimmed}`);
+        }
+
+        // Track extraction
+        else if (trimmed.includes("extract")) {
+          console.log(`[EXTRACT] ${trimmed}`);
+        }
+
+        // Track builds
+        else if (trimmed.includes("build") || trimmed.includes("rebuild")) {
+          console.log(`[BUILD] ${trimmed}`);
+        }
+
+        // Track timing info
+        else if (trimmed.includes("Timing")) {
+          console.log(`[TIMING] ${trimmed}`);
+        }
+
+        // Track warnings/errors
+        else if (trimmed.includes("WARN") || trimmed.includes("ERROR")) {
+          console.log(
+            `[${trimmed.includes("WARN") ? "WARN" : "ERROR"}] ${trimmed}`,
+          );
+        }
+
+        // Track progress percentage
+        else if (trimmed.includes("%") && trimmed.includes("/")) {
+          console.log(`[PROGRESS] ${trimmed}`);
+        }
+      }
+
+      lastProgress = Date.now();
+    });
+
+    // Monitor stderr
+    npmProcess.stderr.on("data", (data) => {
+      const output = data.toString();
+      stderr += output;
+
+      // Log stderr in real-time (often contains useful progress info)
+      const lines = output.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          console.log(`[STDERR] ${trimmed}`);
+        }
+      }
+
+      lastProgress = Date.now();
+    });
+
+    // Timeout handler - kill if no progress for too long
+    const progressTimeout = setInterval(() => {
+      const timeSinceProgress = Date.now() - lastProgress;
+      const totalTime = Date.now() - startTime;
+
+      if (timeSinceProgress > 120000) {
+        // 2 minutes of no output
+        console.log(
+          `[TIMEOUT] No output for ${(timeSinceProgress / 1000).toFixed(0)}s, killing npm process`,
+        );
+        clearInterval(progressTimeout);
+        npmProcess.kill("SIGTERM");
+        setTimeout(() => npmProcess.kill("SIGKILL"), 5000);
+        reject(
+          new Error(
+            `npm install timed out after ${(timeSinceProgress / 1000).toFixed(0)}s of inactivity (total time: ${(totalTime / 1000).toFixed(0)}s)`,
+          ),
+        );
+      } else if (totalTime > 600000) {
+        // 10 minute absolute timeout
+        console.log(`[ABSOLUTE TIMEOUT] npm install exceeded 10 minutes`);
+        clearInterval(progressTimeout);
+        npmProcess.kill("SIGTERM");
+        setTimeout(() => npmProcess.kill("SIGKILL"), 5000);
+        reject(new Error(`npm install exceeded 10 minute absolute timeout`));
+      }
+    }, 10000); // Check every 10 seconds
+
+    npmProcess.on("close", (code) => {
+      clearInterval(progressTimeout);
+      const totalTime = Date.now() - startTime;
+      const timeStr = (totalTime / 1000).toFixed(1);
+
+      if (code === 0) {
+        logStep(
+          "Install dependencies",
+          true,
+          `Completed successfully in ${timeStr}s\n` +
+            `Packages processed: ${packageCount}\n` +
+            `Last package: ${currentPackage}\n` +
+            `--- STDOUT ---\n${stdout}\n` +
+            `--- STDERR ---\n${stderr}`,
+          "",
+        );
+        resolve();
+      } else {
+        logStep(
+          "Install dependencies",
+          false,
+          `Failed with exit code ${code} after ${timeStr}s\n` +
+            `Packages processed: ${packageCount}\n` +
+            `Last package: ${currentPackage}\n` +
+            `--- STDOUT ---\n${stdout}`,
+          `Exit code: ${code}\n--- STDERR ---\n${stderr}`,
+        );
+        reject(new Error(`npm install failed with exit code ${code}`));
+      }
+    });
+
+    npmProcess.on("error", (error) => {
+      clearInterval(progressTimeout);
+      const totalTime = Date.now() - startTime;
+      logStep(
+        "Install dependencies",
+        false,
+        `Process error after ${(totalTime / 1000).toFixed(1)}s\n` +
+          `Packages processed: ${packageCount}\n` +
+          `--- STDOUT ---\n${stdout}`,
+        `Process error: ${error.message}\n--- STDERR ---\n${stderr}`,
+      );
+      reject(error);
+    });
+
+    // Log system resources periodically during install
+    const resourceMonitor = setInterval(async () => {
+      try {
+        const memInfo = await execAsync('free -m | grep "^Mem:"');
+        const [, total, used, free, shared, buffers, available] =
+          memInfo.stdout.split(/\s+/);
+        console.log(
+          `[RESOURCES] Memory: ${used}/${total}MB used, ${available}MB available`,
+        );
+
+        // Check if we're swapping
+        const swapInfo = await execAsync('free -m | grep "^Swap:"');
+        const [, swapTotal, swapUsed] = swapInfo.stdout.split(/\s+/);
+        if (parseInt(swapUsed) > 0) {
+          console.log(
+            `[RESOURCES] WARNING: Swapping detected! ${swapUsed}MB swap used`,
+          );
+        }
+      } catch (e) {
+        // Ignore resource monitoring errors
+      }
+    }, 30000); // Every 30 seconds
+
+    npmProcess.on("close", () => clearInterval(resourceMonitor));
+    npmProcess.on("error", () => clearInterval(resourceMonitor));
+  });
+}
+
+/**
+ * Verbose Expo build with real-time logging and progress monitoring
+ */
+async function verboseExpoBuild(
+  projectDir: string,
+  logStep: Function,
+): Promise<void> {
+  const startTime = Date.now();
+
+  logStep("Starting Expo build", true, `Project dir: ${projectDir}`);
+
+  // Pre-build analysis
+  try {
+    const appJsonPath = path.join(projectDir, "app.json");
+    const expoConfigPath = path.join(projectDir, "expo.json");
+
+    let config = null;
+    if (
+      await fs
+        .access(appJsonPath)
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      config = JSON.parse(await fs.readFile(appJsonPath, "utf8"));
+      logStep(
+        "Expo config",
+        true,
+        `Found app.json with name: ${config.expo?.name || config.name}`,
+      );
+    } else if (
+      await fs
+        .access(expoConfigPath)
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      config = JSON.parse(await fs.readFile(expoConfigPath, "utf8"));
+      logStep("Expo config", true, `Found expo.json with name: ${config.name}`);
+    }
+
+    if (config) {
+      const expo = config.expo || config;
+      logStep(
+        "Expo app info",
+        true,
+        `Name: ${expo.name}\n` +
+          `SDK Version: ${expo.sdkVersion}\n` +
+          `Platform: ${expo.platforms?.join(", ") || "not specified"}\n` +
+          `Web bundler: ${expo.web?.bundler || "default"}`,
+      );
+    }
+  } catch (error: any) {
+    logStep("Config analysis failed", false, "", error.message);
+  }
+
+  // Check for common issues before building
+  await prebuildChecks(projectDir, logStep);
+
+  const expoArgs = [
+    "export",
+    "--platform",
+    "web",
+    "--non-interactive",
+    "--max-workers",
+    "2", // Limit workers for t3a.small
+  ];
+
+  const env = {
+    ...process.env,
+    CI: "1",
+    EXPO_NO_TELEMETRY: "1",
+    NODE_OPTIONS: "--max-old-space-size=1536",
+    // Enable more verbose webpack output
+    EXPO_DEBUG: "1",
+    DEBUG: "expo:*",
+  };
+
+  logStep("Expo command", true, `npx expo ${expoArgs.join(" ")}`);
+
+  return new Promise((resolve, reject) => {
+    const expoProcess = spawn("npx", ["expo", ...expoArgs], {
+      cwd: projectDir,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let lastProgress = Date.now();
+    let buildPhase = "starting";
+    let bundleProgress = 0;
+
+    // Monitor stdout for build progress
+    expoProcess.stdout.on("data", (data) => {
+      const output = data.toString();
+      stdout += output;
+
+      const lines = output.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Track build phases
+        if (trimmed.includes("Starting Metro")) {
+          buildPhase = "metro-starting";
+          console.log(`[EXPO] 🚇 Starting Metro bundler...`);
+        } else if (trimmed.includes("Metro waiting")) {
+          buildPhase = "metro-waiting";
+          console.log(`[EXPO] ⏳ Metro waiting for connections...`);
+        } else if (trimmed.includes("Bundling")) {
+          buildPhase = "bundling";
+          console.log(`[EXPO] 📦 Bundling JavaScript...`);
+        } else if (trimmed.includes("Optimizing")) {
+          buildPhase = "optimizing";
+          console.log(`[EXPO] ⚡ Optimizing bundle...`);
+        } else if (trimmed.includes("Exporting")) {
+          buildPhase = "exporting";
+          console.log(`[EXPO] 📁 Exporting static files...`);
+        } else if (trimmed.includes("Export completed")) {
+          buildPhase = "completed";
+          console.log(`[EXPO] ✅ Export completed!`);
+        }
+
+        // Track bundle progress
+        else if (trimmed.includes("%") && trimmed.includes("bundle")) {
+          const progressMatch = trimmed.match(/(\d+)%/);
+          if (progressMatch) {
+            bundleProgress = parseInt(progressMatch[1]);
+            console.log(`[EXPO] 📊 Bundle progress: ${bundleProgress}%`);
+          }
+        }
+
+        // Track file processing
+        else if (
+          trimmed.includes("transform[") ||
+          trimmed.includes("Transforming")
+        ) {
+          console.log(`[EXPO] 🔄 ${trimmed}`);
+        }
+
+        // Track asset processing
+        else if (trimmed.includes("asset") && trimmed.includes("copying")) {
+          console.log(`[EXPO] 📷 ${trimmed}`);
+        }
+
+        // Track warnings
+        else if (trimmed.includes("warn") || trimmed.includes("WARNING")) {
+          console.log(`[EXPO WARN] ⚠️  ${trimmed}`);
+        }
+
+        // Track errors
+        else if (
+          trimmed.includes("error") ||
+          trimmed.includes("ERROR") ||
+          trimmed.includes("Failed")
+        ) {
+          console.log(`[EXPO ERROR] ❌ ${trimmed}`);
+        }
+
+        // Track dependency resolution
+        else if (
+          trimmed.includes("Resolving") ||
+          trimmed.includes("resolved")
+        ) {
+          console.log(`[EXPO] 🔍 ${trimmed}`);
+        }
+
+        // Track webpack output
+        else if (trimmed.includes("webpack") || trimmed.includes("chunks")) {
+          console.log(`[WEBPACK] 📦 ${trimmed}`);
+        }
+
+        // Track general progress
+        else if (trimmed.length > 10 && !trimmed.includes("undefined")) {
+          console.log(`[EXPO] ${trimmed}`);
+        }
+      }
+
+      lastProgress = Date.now();
+    });
+
+    // Monitor stderr
+    expoProcess.stderr.on("data", (data) => {
+      const output = data.toString();
+      stderr += output;
+
+      const lines = output.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          // Metro/Expo often outputs useful info to stderr
+          if (
+            trimmed.includes("Metro") ||
+            trimmed.includes("expo") ||
+            trimmed.includes("Bundling")
+          ) {
+            console.log(`[EXPO STDERR] ${trimmed}`);
+          } else if (trimmed.includes("warn") || trimmed.includes("WARN")) {
+            console.log(`[EXPO WARN] ⚠️  ${trimmed}`);
+          } else if (trimmed.includes("error") || trimmed.includes("ERROR")) {
+            console.log(`[EXPO ERROR] ❌ ${trimmed}`);
+          } else {
+            console.log(`[EXPO DEBUG] ${trimmed}`);
+          }
+        }
+      }
+
+      lastProgress = Date.now();
+    });
+
+    // Enhanced timeout handler
+    const progressTimeout = setInterval(() => {
+      const timeSinceProgress = Date.now() - lastProgress;
+      const totalTime = Date.now() - startTime;
+
+      console.log(
+        `[EXPO STATUS] Phase: ${buildPhase}, Bundle: ${bundleProgress}%, Time: ${(totalTime / 1000).toFixed(0)}s, Idle: ${(timeSinceProgress / 1000).toFixed(0)}s`,
+      );
+
+      if (timeSinceProgress > 180000) {
+        // 3 minutes of no output (Expo can be slow)
+        console.log(
+          `[EXPO TIMEOUT] No output for ${(timeSinceProgress / 1000).toFixed(0)}s in phase '${buildPhase}', killing process`,
+        );
+        clearInterval(progressTimeout);
+        expoProcess.kill("SIGTERM");
+        setTimeout(() => expoProcess.kill("SIGKILL"), 5000);
+        reject(
+          new Error(
+            `Expo build timed out after ${(timeSinceProgress / 1000).toFixed(0)}s of inactivity in phase '${buildPhase}' (total time: ${(totalTime / 1000).toFixed(0)}s)`,
+          ),
+        );
+      } else if (totalTime > 900000) {
+        // 15 minute absolute timeout
+        console.log(`[EXPO ABSOLUTE TIMEOUT] Build exceeded 15 minutes`);
+        clearInterval(progressTimeout);
+        expoProcess.kill("SIGTERM");
+        setTimeout(() => expoProcess.kill("SIGKILL"), 5000);
+        reject(new Error(`Expo build exceeded 15 minute absolute timeout`));
+      }
+    }, 15000); // Check every 15 seconds
+
+    expoProcess.on("close", (code) => {
+      clearInterval(progressTimeout);
+      const totalTime = Date.now() - startTime;
+      const timeStr = (totalTime / 1000).toFixed(1);
+
+      if (code === 0) {
+        logStep(
+          "Expo export",
+          true,
+          `✅ Completed successfully in ${timeStr}s\n` +
+            `Final phase: ${buildPhase}\n` +
+            `Bundle progress: ${bundleProgress}%\n` +
+            `--- STDOUT ---\n${stdout}\n` +
+            `--- STDERR ---\n${stderr}`,
+          "",
+        );
+        resolve();
+      } else {
+        logStep(
+          "Expo export",
+          false,
+          `❌ Failed with exit code ${code} after ${timeStr}s\n` +
+            `Failed in phase: ${buildPhase}\n` +
+            `Bundle progress: ${bundleProgress}%\n` +
+            `--- STDOUT ---\n${stdout}`,
+          `Exit code: ${code}\n--- STDERR ---\n${stderr}`,
+        );
+        reject(
+          new Error(
+            `Expo build failed with exit code ${code} in phase '${buildPhase}'`,
+          ),
+        );
+      }
+    });
+
+    expoProcess.on("error", (error) => {
+      clearInterval(progressTimeout);
+      const totalTime = Date.now() - startTime;
+      logStep(
+        "Expo export",
+        false,
+        `💥 Process error after ${(totalTime / 1000).toFixed(1)}s\n` +
+          `Phase when failed: ${buildPhase}\n` +
+          `--- STDOUT ---\n${stdout}`,
+        `Process error: ${error.message}\n--- STDERR ---\n${stderr}`,
+      );
+      reject(error);
+    });
+
+    // Monitor system resources during build
+    const resourceMonitor = setInterval(async () => {
+      try {
+        const memInfo = await execAsync('free -m | grep "^Mem:"');
+        const [, total, used, free, shared, buffers, available] =
+          memInfo.stdout.split(/\s+/);
+        console.log(
+          `[EXPO RESOURCES] Memory: ${used}/${total}MB used, ${available}MB available (Phase: ${buildPhase})`,
+        );
+
+        if (parseInt(available) < 200) {
+          console.log(
+            `[EXPO RESOURCES] ⚠️  LOW MEMORY WARNING: Only ${available}MB available!`,
+          );
+        }
+      } catch (e) {
+        // Ignore resource monitoring errors
+      }
+    }, 45000); // Every 45 seconds
+
+    expoProcess.on("close", () => clearInterval(resourceMonitor));
+    expoProcess.on("error", () => clearInterval(resourceMonitor));
+  });
+}
+
+/**
+ * Pre-build checks to catch common issues early
+ */
+async function prebuildChecks(
+  projectDir: string,
+  logStep: Function,
+): Promise<void> {
+  const checks = [];
+
+  // Check for package.json
+  try {
+    const packageJson = JSON.parse(
+      await fs.readFile(path.join(projectDir, "package.json"), "utf8"),
+    );
+    checks.push(`✅ package.json found`);
+
+    if (packageJson.dependencies?.expo) {
+      checks.push(`✅ Expo dependency found: ${packageJson.dependencies.expo}`);
+    } else {
+      checks.push(`⚠️  No Expo dependency in package.json`);
+    }
+
+    if (packageJson.main) {
+      checks.push(`✅ Entry point: ${packageJson.main}`);
+    }
+  } catch (error: any) {
+    checks.push(`❌ package.json issue: ${error.message}`);
+  }
+
+  // Check for node_modules
+  try {
+    await fs.stat(path.join(projectDir, "node_modules"));
+    checks.push(`✅ node_modules exists`);
+  } catch (error) {
+    checks.push(`❌ node_modules missing`);
+  }
+
+  // Check for common required files
+  const requiredFiles = ["App.js", "App.jsx", "App.ts", "App.tsx", "index.js"];
+  let foundEntryPoint = false;
+  for (const file of requiredFiles) {
+    try {
+      await fs.stat(path.join(projectDir, file));
+      checks.push(`✅ Entry point found: ${file}`);
+      foundEntryPoint = true;
+      break;
+    } catch (error) {
+      // Continue checking
+    }
+  }
+  if (!foundEntryPoint) {
+    checks.push(
+      `⚠️  No common entry point found (${requiredFiles.join(", ")})`,
+    );
+  }
+
+  // Check for metro config
+  const metroConfigs = ["metro.config.js", "metro.config.json"];
+  for (const config of metroConfigs) {
+    try {
+      await fs.stat(path.join(projectDir, config));
+      checks.push(`✅ Metro config: ${config}`);
+      break;
+    } catch (error) {
+      // Continue checking
+    }
+  }
+
+  logStep("Pre-build checks", true, checks.join("\n"));
+}
+
 // --- Initializations ---
 
 const fastifyApp: FastifyInstance = fastify({ logger: true });
@@ -295,21 +944,8 @@ async function buildProject(
 
     console.log(`Installing dependencies for build ${prototypeId}...`);
     try {
-      const { stdout, stderr } = await execAsync(
-        "npm install --no-save --cache /tmp/.npm",
-        {
-          cwd: tempDir,
-          timeout: 300000, // 5 minute timeout for installs
-        },
-      );
-      logStep("Install dependencies", true, stdout, stderr);
+      await verboseNpmInstall(tempDir, logStep);
     } catch (error: any) {
-      logStep(
-        "Install dependencies",
-        false,
-        error.stdout || "",
-        error.stderr || error.message,
-      );
       // Always cleanup on install failure to free up space
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
       throw error;
@@ -319,18 +955,8 @@ async function buildProject(
 
     console.log(`Building Expo project for web platform...`);
     try {
-      const { stdout, stderr } = await execAsync(
-        "npx expo export --platform web",
-        { cwd: tempDir },
-      );
-      logStep("Expo export", true, stdout, stderr);
+      await verboseExpoBuild(tempDir, logStep);
     } catch (error: any) {
-      logStep(
-        "Expo export",
-        false,
-        error.stdout || "",
-        error.stderr || error.message,
-      );
       throw error;
     }
 
