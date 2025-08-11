@@ -5,20 +5,84 @@ export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
 
-  constructor() {
+  constructor(cache: GlideClient) {
+    this.cache = cache;
     this.cleanupIntervals = [];
     this.startCleanupServices();
-    // TODO take in Valkey Elasticache client in the constructor
   }
   // Cleanup idle hot reload services
-  async cleanupIdleHotReload() {
+  private async cleanupIdleHotReload() {
     console.log("Cleaning up idle hot reload services");
-    // 1. Get all active builds from the cache
-    // 2. For every active build, check the last_touched timestamp
-    // 3. If the last_touched timestamp is older than the idle timeout for hot reload and the build has a port assigned:
-    //    - Dispatch a request to the build worker to kill the hot reload server
-    //    - Remove the port from the active build and update the cache with the new URL returned from the request
-    //    - Release the port in the cache port registry
+
+    try {
+      // Get all active build keys using scan command
+      const activeBuildKeys = (await this.cache.customCommand([
+        "KEYS",
+        "active_build:*",
+      ])) as string[];
+
+      if (!activeBuildKeys || activeBuildKeys.length === 0) {
+        console.log("No active builds found for hot reload cleanup");
+        return;
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
+
+      for (const buildKey of activeBuildKeys) {
+        try {
+          const buildJson = await this.cache.get(buildKey);
+          if (!buildJson) continue;
+
+          const build: ActiveBuild = JSON.parse(buildJson as string);
+
+          // Check if this is a hot reload build with a port assigned
+          if (!build.port || build.port === "") {
+            continue;
+          }
+
+          // Check if it's been idle too long
+          const timeSinceLastTouch = currentTime - build.last_touched;
+          if (!(timeSinceLastTouch > idleTimeoutSeconds)) {
+            continue;
+          }
+
+          console.log(`Cleaning up idle hot reload for prototype: ${buildKey}`);
+
+          // Extract prototype ID from the key (remove "active_build:" prefix)
+          const prototypeId = buildKey.replace("active_build:", "");
+
+          // Dispatch request to build worker to kill the hot reload server
+          const killResponse = await this.dispatchKillHotReloadDevServerRequest(
+            build.worker_private_ip,
+            prototypeId,
+            Number(build.port)
+          );
+
+          // Update the build in cache - remove port and update URL
+          const updatedBuild: ActiveBuild = {
+            ...build,
+            port: "",
+            url: killResponse.buildUrl,
+            type: "build",
+            last_touched: currentTime,
+          };
+          await this.cache.set(buildKey, JSON.stringify(updatedBuild));
+
+          // Release the port in the cache port registry
+          await this.releasePort(build.worker_private_ip, Number(build.port));
+
+          console.log(
+            `Successfully cleaned up hot reload for prototype: ${prototypeId}`
+          );
+        } catch (error) {
+          console.error(`Error processing build ${buildKey}:`, error);
+          // Continue with other builds
+        }
+      }
+    } catch (error) {
+      console.error("Error during hot reload cleanup:", error);
+    }
   }
 
   // Cleanup old builds and files
@@ -54,4 +118,55 @@ export class CleanupService {
     this.cleanupIntervals.forEach((interval) => clearInterval(interval));
     this.cleanupIntervals = [];
   }
+
+  // Placeholder function to dispatch kill hot reload request to build worker
+  private async dispatchKillHotReloadDevServerRequest(
+    workerIp: string,
+    prototypeId: string,
+    port: number
+  ): Promise<KillHotReloadResponse> {
+    console.log(
+      `Dispatching kill hot reload request to worker ${workerIp} for prototype ${prototypeId} on port ${port}`
+    );
+
+    // TODO: Implement actual request to build worker
+    // This should make an HTTP request to the build worker to kill the hot reload server
+    // and return the new build URL
+
+    // Placeholder response
+    return {
+      success: true,
+      buildUrl: `https://materializeui.com/builds/${prototypeId}`,
+    };
+  }
+
+  // Release a port in the cache port registry
+  private async releasePort(workerIp: string, port: number): Promise<void> {
+    try {
+      const key = `ports:${workerIp}:used`;
+      await this.cache.srem(key, [String(port)]);
+      console.log(`Released port ${port} for worker ${workerIp}`);
+    } catch (error) {
+      console.error(
+        `Error releasing port ${port} for worker ${workerIp}:`,
+        error
+      );
+    }
+  }
+}
+
+// Interface definitions
+interface ActiveBuild {
+  worker_host: string;
+  worker_private_ip: string;
+  port: string | number;
+  url: string;
+  type: "build" | "hot_reload";
+  status: "starting" | "running" | "error" | "stopped";
+  last_touched: number;
+}
+
+interface KillHotReloadResponse {
+  success: boolean;
+  buildUrl?: string;
 }
