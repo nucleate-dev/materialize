@@ -867,6 +867,7 @@ fastify.post('/dev-server', async (request, reply) => {
   let prototypeId = null;
   let projectDir = null;
   let tempDir = null;
+  let devPort = null;
 
   try {
     fastify.log.info(`Starting dev server job ${jobId}`);
@@ -902,6 +903,8 @@ fastify.post('/dev-server', async (request, reply) => {
         }
       } else if (part.fieldname === 'prototypeId') {
         prototypeId = part.value;
+      } else if (part.fieldname === 'port') {
+        devPort = parseInt(part.value);
       }
     }
 
@@ -913,6 +916,10 @@ fastify.post('/dev-server', async (request, reply) => {
       return reply.code(400).send({ error: 'No valid zip file provided' });
     }
 
+    if (!devPort) {
+      return reply.code(400).send({ error: 'Port number is required' });
+    }
+
     // Check if dev server already running for this prototype
     if (runningDevServers.has(prototypeId)) {
       return reply.code(409).send({
@@ -922,7 +929,7 @@ fastify.post('/dev-server', async (request, reply) => {
       });
     }
 
-    fastify.log.info(`Starting dev server for prototype ${prototypeId}, job ${jobId}`);
+    fastify.log.info(`Starting dev server for prototype ${prototypeId}, job ${jobId} on port ${devPort}`);
 
     // Install dependencies first
     try {
@@ -946,31 +953,7 @@ fastify.post('/dev-server', async (request, reply) => {
       // Continue anyway, tunnel might still work if already installed
     }
 
-    // Find an available port starting from 8082
-    let devPort = 8082;
-    while (devPort < 8090) {
-      try {
-        await new Promise((resolve, reject) => {
-          execAsync(`lsof -ti :${devPort}`).then(({ stdout }) => {
-            if (stdout.trim()) {
-              // Port is in use
-              reject(new Error(`Port ${devPort} in use`));
-            } else {
-              // Port is available
-              resolve();
-            }
-          }).catch(() => {
-            // lsof returns error when no processes found, which means port is available
-            resolve();
-          });
-        });
-        break; // Port is available
-      } catch (error) {
-        devPort++; // Try next port
-      }
-    }
-
-    fastify.log.info(`Using port ${devPort} for Expo dev server`);
+    fastify.log.info(`Using provided port ${devPort} for Expo dev server`);
 
     // Start the Expo dev server with tunnel
     const { spawn } = await import('child_process');
