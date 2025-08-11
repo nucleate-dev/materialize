@@ -41,7 +41,8 @@ interface ActiveBuild {
 }
 
 interface BuildResponse {
-  buildUrl: string;
+  buildUrl?: string;
+  tunnelUrl?: string;
   // Add other fields as needed
 }
 
@@ -88,60 +89,60 @@ export class DispatcherService {
   }
 
   // Get least loaded worker instance
-  private async getLeastLoadedWorker() {
-    try {
-      const instances = await this.getActiveWorkerInstances();
+  // private async getLeastLoadedWorker() {
+  //   try {
+  //     const instances = await this.getActiveWorkerInstances();
 
-      if (instances.length === 0) {
-        throw new Error("No active worker instances available");
-      }
+  //     if (instances.length === 0) {
+  //       throw new Error("No active worker instances available");
+  //     }
 
-      // Get load information for each instance from Cache
-      const instanceLoads: {
-        instance: any;
-        activeBuilds: number;
-        availablePorts: number;
-      }[] = [];
+  //     // Get load information for each instance from Cache
+  //     const instanceLoads: {
+  //       instance: any;
+  //       activeBuilds: number;
+  //       availablePorts: number;
+  //     }[] = [];
 
-      for (const instance of instances) {
-        const ip = instance.PrivateIpAddress;
+  //     for (const instance of instances) {
+  //       const ip = instance.PrivateIpAddress;
 
-        // Count active builds for this instance
-        const activeBuildsKey = `active_builds:${ip}`;
-        const activeBuilds = await this.cache.scard(activeBuildsKey);
+  //       // Count active builds for this instance
+  //       const activeBuildsKey = `active_builds:${ip}`;
+  //       const activeBuilds = await this.cache.scard(activeBuildsKey);
 
-        // Count available ports for this instance
-        const portRegistryKey = `port_registry:${ip}`;
-        const totalPorts =
-          parseInt(process.env.MAX_PORT!) - parseInt(process.env.MIN_PORT!);
-        const usedPorts = await this.cache.scard(portRegistryKey);
-        const availablePorts = totalPorts - usedPorts;
+  //       // Count available ports for this instance
+  //       const portRegistryKey = `port_registry:${ip}`;
+  //       const totalPorts =
+  //         parseInt(process.env.MAX_PORT!) - parseInt(process.env.MIN_PORT!);
+  //       const usedPorts = await this.cache.scard(portRegistryKey);
+  //       const availablePorts = totalPorts - usedPorts;
 
-        instanceLoads.push({
-          instance,
-          activeBuilds,
-          availablePorts,
-        });
-      }
+  //       instanceLoads.push({
+  //         instance,
+  //         activeBuilds,
+  //         availablePorts,
+  //       });
+  //     }
 
-      // Sort by load priority:
-      // 1. Prioritize instances with available ports (for hot reload capability)
-      // 2. Then by lowest number of active builds
-      instanceLoads.sort((a, b) => {
-        // First, prioritize instances with available ports
-        if (a.availablePorts > 0 && b.availablePorts === 0) return -1;
-        if (a.availablePorts === 0 && b.availablePorts > 0) return 1;
+  //     // Sort by load priority:
+  //     // 1. Prioritize instances with available ports (for hot reload capability)
+  //     // 2. Then by lowest number of active builds
+  //     instanceLoads.sort((a, b) => {
+  //       // First, prioritize instances with available ports
+  //       if (a.availablePorts > 0 && b.availablePorts === 0) return -1;
+  //       if (a.availablePorts === 0 && b.availablePorts > 0) return 1;
 
-        // Then sort by number of active builds (least loaded first)
-        return a.activeBuilds - b.activeBuilds;
-      });
+  //       // Then sort by number of active builds (least loaded first)
+  //       return a.activeBuilds - b.activeBuilds;
+  //     });
 
-      return instanceLoads[0].instance;
-    } catch (error) {
-      console.error("Error getting least loaded worker:", error);
-      throw error;
-    }
-  }
+  //     return instanceLoads[0].instance;
+  //   } catch (error) {
+  //     console.error("Error getting least loaded worker:", error);
+  //     throw error;
+  //   }
+  // }
 
   // Get active EC2 instances from Auto Scaling Group
   private async getActiveWorkerInstances() {
@@ -231,46 +232,49 @@ export class DispatcherService {
     await this.cache.srem(`ports:${workerIp}:used`, [String(port)]);
   }
 
-  // Send request to worker
-  private async sendWorkerRequest(
+  // Send build request to worker
+  private async sendWorkerBuildRequest(
     workerIp: string,
-    hotReload: boolean,
     formData: FormData
   ): Promise<any> {
-    if (!hotReload) {
-      try {
-        const response = await axios.post(
-          `http://${workerIp}:3002/build-and-deploy`,
-          formData,
-          {
-            timeout: 300000,
-            headers: {
-              ...formData.getHeaders(),
-            },
-          }
-        );
-        return response.data;
-      } catch (error) {
-        console.log("Error sending worker request: ", error);
-        throw error;
-      }
-    } else {
-      try {
-        const response = await axios.post(
-          `http://${workerIp}:3002/dev-server`,
-          formData,
-          {
-            timeout: 300000,
-            headers: {
-              ...formData.getHeaders(),
-            },
-          }
-        );
-        return response.data;
-      } catch (error) {
-        console.log("Error sending worker request: ");
-        throw error;
-      }
+    try {
+      const response = await axios.post(
+        `http://${workerIp}:3002/build-and-deploy`,
+        formData,
+        {
+          timeout: 300000,
+          headers: {
+            ...formData.getHeaders(),
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.log("Error sending worker build request: ", error);
+      throw error;
+    }
+  }
+
+  // Send live dev server request to worker
+  private async sendWorkerLiveDevServerRequest(
+    workerIp: string,
+    formData: FormData
+  ): Promise<any> {
+    try {
+      const response = await axios.post(
+        `http://${workerIp}:3002/dev-server`,
+        formData,
+        {
+          timeout: 300000,
+          headers: {
+            ...formData.getHeaders(),
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.log("Error sending worker live dev server request: ", error);
+      throw error;
     }
   }
 
@@ -310,16 +314,22 @@ export class DispatcherService {
         );
         console.log("Found existing build: ", existingBuild);
 
-        const buildResponse: BuildResponse = await this.sendWorkerRequest(
-          existingBuild.worker_private_ip,
-          hotReload,
-          this.constructFormData(
-            prototypeId,
-            zipBuffer,
-            writeToDisk,
-            existingBuild.port ? Number(existingBuild.port) : undefined
-          )
+        const formData = this.constructFormData(
+          prototypeId,
+          zipBuffer,
+          writeToDisk,
+          existingBuild.port ? Number(existingBuild.port) : undefined
         );
+
+        const buildResponse: BuildResponse = hotReload
+          ? await this.sendWorkerLiveDevServerRequest(
+              existingBuild.worker_private_ip,
+              formData
+            )
+          : await this.sendWorkerBuildRequest(
+              existingBuild.worker_private_ip,
+              formData
+            );
 
         // Update the existing build with new timestamp and URL
         const updatedBuild: ActiveBuild = {
@@ -351,31 +361,48 @@ export class DispatcherService {
         console.log(`Allocated port ${allocatedPort} for hot reload`);
       }
 
-      const buildResponse: BuildResponse = await this.sendWorkerRequest(
-        workerIp,
-        hotReload,
-        this.constructFormData(
-          prototypeId,
-          zipBuffer,
-          writeToDisk,
-          allocatedPort
-        )
-      );
-
-      // Create new build entry in cache
+      // Create new build entry in cache PRIOR to sending reques to build worker, in case build worker request fails
       const newBuild: ActiveBuild = {
         worker_host: instances[0].InstanceId,
         worker_private_ip: workerIp,
         port: allocatedPort || "",
-        url: buildResponse.buildUrl,
+        url: "",
         type: hotReload ? "hot_reload" : "build",
         status: "running",
         last_touched: Math.floor(Date.now() / 1000),
       };
+      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
 
+      // construct and send request to appropriate build worker
+      const formData = this.constructFormData(
+        prototypeId,
+        zipBuffer,
+        writeToDisk,
+        allocatedPort
+      );
+      let buildResponse: BuildResponse | null = null;
+      if (hotReload) {
+        buildResponse = await this.sendWorkerLiveDevServerRequest(
+          workerIp,
+          formData
+        );
+      } else {
+        buildResponse = await this.sendWorkerBuildRequest(workerIp, formData);
+      }
+
+      // Create new build entry in cache
+      const updatedBuild: ActiveBuild = {
+        worker_host: instances[0].InstanceId,
+        worker_private_ip: workerIp,
+        port: allocatedPort || "",
+        url: hotReload ? buildResponse.tunnelUrl : buildResponse.buildUrl,
+        type: hotReload ? "hot_reload" : "build",
+        status: "running",
+        last_touched: Math.floor(Date.now() / 1000),
+      };
+      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
       console.log("New build: ", newBuild);
 
-      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
       return buildResponse;
     } catch (error) {
       throw error;
