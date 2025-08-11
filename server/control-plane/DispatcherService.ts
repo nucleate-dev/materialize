@@ -27,124 +27,55 @@ export class DispatcherService {
   }
 
   // Process build request with zipped files
-  public async processDispatchRequest(
-    prototypeId: string,
-    zipBuffer: Buffer,
-    hotReload: boolean = false
-  ): Promise<any> {
+  public async processDispatchRequest({
+    prototypeId,
+    zipBuffer,
+    hotReload = false,
+  }: DispatchRequest): Promise<any> {
     try {
       // Check if build already exists
       const activeBuildKey = `active_build:${prototypeId}`;
       const existingBuildJson = await this.cache.get(activeBuildKey);
 
+      let workerIp: string;
+      let formData: FormData;
+      let existingBuild: ActiveBuild;
       if (existingBuildJson) {
-        let existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
+        const preDispatchResult = await this.handlePreDispatchForExistingBuild(
+          activeBuildKey,
+          existingBuildJson as string,
+          { prototypeId, zipBuffer, hotReload }
         );
-        console.log("Found existing build: ", existingBuild);
-
-        if (hotReload && existingBuild.port === "") {
-          console.log("Existing build being transitioned to hot reload");
-          let allocatedPort: number | undefined;
-          const port = await this.acquireFreePort(
-            existingBuild.worker_private_ip
-          );
-          if (port === null) {
-            throw new Error(
-              `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`
-            );
-          }
-          allocatedPort = port;
-          existingBuild = {
-            ...existingBuild,
-            port: allocatedPort,
-          };
-          await this.cache.set(activeBuildKey, JSON.stringify(existingBuild));
-        }
-
-        const formData = this.constructFormData(
-          prototypeId,
-          zipBuffer,
-          existingBuild.port ? Number(existingBuild.port) : undefined
+        workerIp = preDispatchResult.workerIp;
+        formData = preDispatchResult.formData;
+        existingBuild = preDispatchResult.existingBuild;
+      } else {
+        const preDispatchResult = await this.handlePreDispatchForNewBuild(
+          activeBuildKey,
+          { prototypeId, zipBuffer, hotReload }
         );
-
-        const buildResponse: BuildResponse = hotReload
-          ? await this.sendWorkerLiveDevServerRequest(
-              existingBuild.worker_private_ip,
-              formData
-            )
-          : await this.sendWorkerBuildRequest(
-              existingBuild.worker_private_ip,
-              formData
-            );
-
-        // Update the existing build with new timestamp and URL
-        const updatedBuild: ActiveBuild = {
-          ...existingBuild,
-          url: buildResponse.buildUrl,
-          type: hotReload ? "hot_reload" : "build",
-          last_touched: Math.floor(Date.now() / 1000),
-        };
-
-        console.log("Updated build: ", updatedBuild);
-
-        await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
-        return buildResponse;
+        workerIp = preDispatchResult.workerIp;
+        formData = preDispatchResult.formData;
+        existingBuild = preDispatchResult.existingBuild;
       }
 
-      // If build does not exist, create a new build
-      const instances = await this.getActiveWorkerInstances();
-      const workerIp = instances[0].PrivateIpAddress;
-      console.log("No existing build found, creating a new build:");
-      console.log("Instance to push to: ", workerIp);
-
-      // Acquire a free port if hot reload is requested
-      let allocatedPort: number | undefined;
-      if (hotReload) {
-        const port = await this.acquireFreePort(workerIp);
-        if (port === null) {
-          throw new Error(
-            `No available ports on worker ${workerIp} for hot reload`
-          );
-        }
-        allocatedPort = port;
-        console.log(`Allocated port ${allocatedPort} for hot reload`);
-      }
-
-      // Create new build entry in cache PRIOR to sending reques to build worker, in case build worker request fails
-      const newBuild: ActiveBuild = {
-        worker_host: instances[0].InstanceId,
-        worker_private_ip: workerIp,
-        port: allocatedPort || "",
-        url: "",
-        type: hotReload ? "hot_reload" : "build",
-        status: "running",
-        last_touched: Math.floor(Date.now() / 1000),
-      };
-      await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
-
-      // construct and send request to appropriate build worker
-      const formData = this.constructFormData(
-        prototypeId,
-        zipBuffer,
-        allocatedPort
-      );
       let buildResponse: BuildResponse | null = null;
+      let url: string;
       if (hotReload) {
         buildResponse = await this.sendWorkerLiveDevServerRequest(
           workerIp,
           formData
         );
+        url = buildResponse.tunnelUrl;
       } else {
         buildResponse = await this.sendWorkerBuildRequest(workerIp, formData);
+        url = buildResponse.buildUrl;
       }
 
       // Create new build entry in cache
       const updatedBuild: ActiveBuild = {
-        worker_host: instances[0].InstanceId,
-        worker_private_ip: workerIp,
-        port: allocatedPort || "",
-        url: hotReload ? buildResponse.tunnelUrl : buildResponse.buildUrl,
+        ...existingBuild,
+        url,
         type: hotReload ? "hot_reload" : "build",
         status: "running",
         last_touched: Math.floor(Date.now() / 1000),
@@ -152,10 +83,109 @@ export class DispatcherService {
       await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
       console.log("New build: ", updatedBuild);
 
+      console.log("Build response: ", buildResponse);
       return buildResponse;
     } catch (error) {
       throw error;
     }
+  }
+
+  private async handlePreDispatchForNewBuild(
+    activeBuildKey: string,
+    dispatchRequest: DispatchRequest
+  ): Promise<{
+    workerIp: string;
+    formData: FormData;
+    existingBuild: ActiveBuild;
+  }> {
+    console.log("No existing build found, creating a new build:");
+    const { prototypeId, zipBuffer, hotReload } = dispatchRequest;
+
+    // Get least loaded worker instance to assign to new build
+    const instances = await this.getActiveWorkerInstances();
+    const workerIp = instances[0].PrivateIpAddress;
+    console.log("Instance to push to: ", workerIp);
+
+    // Acquire a free port if hot reload is requested
+    let allocatedPort: number | undefined;
+    if (hotReload) {
+      const port = await this.acquireFreePort(workerIp);
+      if (port === null) {
+        throw new Error(
+          `No available ports on worker ${workerIp} for hot reload`
+        );
+      }
+      allocatedPort = port;
+      console.log(`Allocated port ${allocatedPort} for hot reload`);
+    }
+
+    // Create new build entry in cache PRIOR to sending reques to build worker, in case build worker request fails
+    const newBuild: ActiveBuild = {
+      worker_host: instances[0].InstanceId,
+      worker_private_ip: workerIp,
+      port: allocatedPort || "",
+      url: "",
+      type: hotReload ? "hot_reload" : "build",
+      status: "running",
+      last_touched: Math.floor(Date.now() / 1000),
+    };
+    await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
+
+    // construct request to send to the build worker
+    const formData = this.constructFormData(
+      prototypeId,
+      zipBuffer,
+      allocatedPort
+    );
+
+    return {
+      workerIp,
+      formData,
+      existingBuild: newBuild,
+    };
+  }
+
+  private async handlePreDispatchForExistingBuild(
+    activeBuildKey: string,
+    existingBuildJson: string,
+    dispatchRequest: DispatchRequest
+  ): Promise<{
+    workerIp: string;
+    formData: FormData;
+    existingBuild: ActiveBuild;
+  }> {
+    const { prototypeId, zipBuffer, hotReload } = dispatchRequest;
+    let existingBuild: ActiveBuild = JSON.parse(existingBuildJson);
+    console.log("Found existing build: ", existingBuild);
+
+    if (hotReload && existingBuild.port === "") {
+      console.log("Existing build being transitioned to hot reload");
+      let allocatedPort: number | undefined;
+      const port = await this.acquireFreePort(existingBuild.worker_private_ip);
+      if (port === null) {
+        throw new Error(
+          `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`
+        );
+      }
+      allocatedPort = port;
+      existingBuild = {
+        ...existingBuild,
+        port: allocatedPort,
+      };
+      await this.cache.set(activeBuildKey, JSON.stringify(existingBuild));
+    }
+
+    const formData = this.constructFormData(
+      prototypeId,
+      zipBuffer,
+      existingBuild.port ? Number(existingBuild.port) : undefined
+    );
+
+    return {
+      workerIp: existingBuild.worker_private_ip,
+      formData,
+      existingBuild,
+    };
   }
 
   // Get active EC2 instances from Auto Scaling Group
@@ -309,7 +339,7 @@ export class DispatcherService {
     return formData;
   }
 
-  // Get least loaded worker instance
+  // TODO: Get least loaded worker instance
   // private async getLeastLoadedWorker() {
   //   try {
   //     const instances = await this.getActiveWorkerInstances();
@@ -400,4 +430,10 @@ interface BuildResponse {
   buildUrl?: string;
   tunnelUrl?: string;
   // Add other fields as needed
+}
+
+interface DispatchRequest {
+  prototypeId: string;
+  zipBuffer: Buffer;
+  hotReload: boolean;
 }
