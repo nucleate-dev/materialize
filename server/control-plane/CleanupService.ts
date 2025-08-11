@@ -86,13 +86,61 @@ export class CleanupService {
   }
 
   // Cleanup old builds and files
-  async cleanupOldBuilds() {
-    console.log("Cleaning up active builds from the cache");
-    // 1. Get all active builds from the cache
-    // 2. For every active build, check the last_touched timestamp
-    // 3. If the last_touched timestamp is older than the idle timeout for builds:
-    //    - Dispatch a request to the build worker to delete the build files
-    //    - Remove the active build from the cache
+  private async cleanupOldBuilds() {
+    console.log("Cleaning up old builds from the cache");
+
+    try {
+      // Get all active build keys
+      const activeBuildKeys = (await this.cache.customCommand([
+        "KEYS",
+        "active_build:*",
+      ])) as string[];
+
+      if (!activeBuildKeys || activeBuildKeys.length === 0) {
+        console.log("No active builds found for cleanup");
+        return;
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const cleanupTimeoutSeconds = CONFIG.IDLE_TIMEOUT_CLEANUP / 1000;
+
+      for (const buildKey of activeBuildKeys) {
+        try {
+          const buildJson = await this.cache.get(buildKey);
+          if (!buildJson) continue;
+
+          const build: ActiveBuild = JSON.parse(buildJson as string);
+
+          // Check if it's been idle too long
+          const timeSinceLastTouch = currentTime - build.last_touched;
+          if (!(timeSinceLastTouch > cleanupTimeoutSeconds)) {
+            continue;
+          }
+
+          console.log(`Cleaning up old build: ${buildKey}`);
+          // Extract prototype ID from the key (remove "active_build:" prefix)
+          const prototypeId = buildKey.replace("active_build:", "");
+
+          // Dispatch request to build worker to delete the build files
+          const deleteResponse = await this.dispatchDeleteBuildRequest(
+            build.worker_private_ip,
+            prototypeId
+          );
+
+          if (deleteResponse.success) {
+            await this.cache.del([buildKey]);
+          }
+          console.log(
+            `Successfully cleaned up old build for prototype: ${prototypeId}`
+          );
+        } catch (error) {
+          console.error(`Error processing build ${buildKey}:`, error);
+          // Continue with other builds
+        }
+      }
+    } catch (error) {
+      console.error("Error during build cleanup:", error);
+    }
   }
 
   // Start cleanup services
@@ -140,6 +188,26 @@ export class CleanupService {
     };
   }
 
+  // Placeholder function to dispatch delete build request to build worker
+  private async dispatchDeleteBuildRequest(
+    workerIp: string,
+    prototypeId: string
+  ): Promise<DeleteBuildResponse> {
+    console.log(
+      `Dispatching delete build request to worker ${workerIp} for prototype ${prototypeId}`
+    );
+
+    // TODO: Implement actual request to build worker
+    // This should make an HTTP request to the build worker to delete the build files
+    // and return a success status
+
+    // Placeholder response
+    return {
+      success: true,
+      message: `Build files for prototype ${prototypeId} deleted successfully`,
+    };
+  }
+
   // Release a port in the cache port registry
   private async releasePort(workerIp: string, port: number): Promise<void> {
     try {
@@ -169,4 +237,9 @@ interface ActiveBuild {
 interface KillHotReloadResponse {
   success: boolean;
   buildUrl?: string;
+}
+
+interface DeleteBuildResponse {
+  success: boolean;
+  message?: string;
 }
