@@ -42,13 +42,13 @@ echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.bashrc
 echo "📦 Installing global npm packages..."
 
 # Expo CLI - required for building React Native projects
-bun install -g @expo/cli
+npm install -g @expo/cli
 
 # Expo ngrok - required for tunneling in dev mode
-bun install -g @expo/ngrok@^4.1.0
+npm install -g @expo/ngrok@^4.1.0
 
 # Additional build tools
-bun install -g typescript
+npm install -g typescript
 
 # Install essential system dependencies
 # echo "📦 Installing essential system dependencies..."

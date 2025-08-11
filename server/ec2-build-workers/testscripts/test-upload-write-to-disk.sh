@@ -10,13 +10,16 @@ ZIP_FILE="$SCRIPT_DIR/test-project.zip"
 echo "Testing build-and-deploy endpoint with write_to_disk enabled"
 echo "Prototype ID: $PROTOTYPE_ID"
 
-# Create zip file of the test project (excluding the test script itself and any existing zip)
+# Create zip file of the test project from the ../test directory
 echo "Creating zip file of test project..."
-cd "$SCRIPT_DIR"
-zip -r test-project.zip . -x "test-upload*.sh" "*.zip" "README.md"
+cd "$SCRIPT_DIR/../test"
+zip -r "$ZIP_FILE" . -x "node_modules/*" "*.zip" ".expo/*" "dist/*"
 
 echo "Zip file created with the following contents:"
-unzip -l test-project.zip
+unzip -l "$ZIP_FILE"
+
+# Return to original script directory
+cd "$SCRIPT_DIR"
 
 # Test the build-and-deploy endpoint with the zip file and write_to_disk enabled
 echo -e "\n\nTesting build-and-deploy endpoint with write_to_disk=true..."

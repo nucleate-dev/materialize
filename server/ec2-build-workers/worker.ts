@@ -286,7 +286,7 @@ async function buildProject(
     console.log(`Installing dependencies for build ${prototypeId}...`);
     try {
       const { stdout, stderr } = await execAsync(
-        "bun install --no-save --no-cache",
+        "npm install --no-save --cache /tmp/.npm",
         {
           cwd: tempDir,
           timeout: 300000, // 5 minute timeout for installs
@@ -310,7 +310,7 @@ async function buildProject(
     console.log(`Building Expo project for web platform...`);
     try {
       const { stdout, stderr } = await execAsync(
-        "bunx expo export --platform web",
+        "npx expo export --platform web",
         { cwd: tempDir },
       );
       logStep("Expo export", true, stdout, stderr);
@@ -912,14 +912,14 @@ fastifyApp.post(
       );
       fastifyApp.log.info(`Using tunnel subdomain: ${tunnelSubdomain}`);
 
-      await execAsync("bun install --no-save --no-cache", {
+      await execAsync("npm install --no-save --cache /tmp/.npm", {
         cwd: projectDir,
         timeout: 300000, // 5 minute timeout
       });
       // @expo/ngrok is pre-installed globally during EC2 setup
 
       const expoProcess = spawn(
-        "bunx",
+        "npx",
         [
           "expo",
           "start",
