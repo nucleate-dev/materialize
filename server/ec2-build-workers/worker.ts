@@ -132,7 +132,7 @@ AWS.config.update({
 });
 
 const s3 = new AWS.S3();
-const BUCKET_NAME = process.env.BUCKET_NAME || "materialize-sites";
+const BUCKET_NAME = "materialize-sites";
 const execAsync = promisify(exec);
 
 const PORT = parseInt(process.env.PORT || "3002", 10);
@@ -1302,7 +1302,7 @@ fastifyApp.delete(
     reply: FastifyReply,
   ) => {
     const { prototypeId } = request.params;
-    
+
     if (!prototypeId) {
       return reply.code(400).send({
         error: "prototypeId is required",
@@ -1311,12 +1311,12 @@ fastifyApp.delete(
 
     try {
       const prototypeBuildPath = path.resolve(PROTOTYPES_DIR, prototypeId);
-      
+
       // Check if the prototype directory exists
       try {
         await fs.stat(prototypeBuildPath);
       } catch (error: any) {
-        if (error.code === 'ENOENT') {
+        if (error.code === "ENOENT") {
           return reply.code(404).send({
             error: "Build not found for this prototype",
             prototypeId,
@@ -1327,9 +1327,11 @@ fastifyApp.delete(
 
       // Remove the entire prototype directory (includes both source files and build)
       await fs.rm(prototypeBuildPath, { recursive: true, force: true });
-      
-      fastifyApp.log.info(`Successfully deleted build for prototype ${prototypeId} from local disk`);
-      
+
+      fastifyApp.log.info(
+        `Successfully deleted build for prototype ${prototypeId} from local disk`,
+      );
+
       return {
         prototypeId,
         status: "deleted",
@@ -1337,8 +1339,11 @@ fastifyApp.delete(
         deletedPath: prototypeBuildPath,
       };
     } catch (error: any) {
-      fastifyApp.log.error(`Failed to delete build for ${prototypeId}:`, error.message);
-      
+      fastifyApp.log.error(
+        `Failed to delete build for ${prototypeId}:`,
+        error.message,
+      );
+
       return reply.code(500).send({
         error: "Failed to delete build from local disk",
         prototypeId,
