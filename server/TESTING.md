@@ -1,6 +1,6 @@
 # Testing Guide
 
-This guide explains how to test the React Native Web build service using the provided test scripts. The service supports both **zip file uploads** and **array-of-files uploads** for maximum flexibility.
+This guide explains how to test the React Native Web build service using the provided test scripts. The service uses **array-of-files uploads** for efficient file handling.
 
 ## Overview
 
@@ -8,9 +8,7 @@ The build service has two main components:
 1. **Control Plane** (`control-plane/`) - Routes requests to workers
 2. **EC2 Build Workers** (`ec2-build-workers/`) - Actually build and deploy the apps
 
-Both components support dual upload modes:
-- **Zip Mode**: Traditional zip file upload (backwards compatible)
-- **Array-of-Files Mode**: Individual files with manifest (new feature)
+The service uses **Array-of-Files Mode**: Individual files with manifest for secure and efficient uploads.
 
 ## Control Plane Testing
 
@@ -23,28 +21,18 @@ The control plane dispatcher routes requests to available EC2 workers.
 #### Usage Examples:
 
 ```bash
-# Test localhost with zip (default)
+# Test localhost (default)
 bash test-dispatcher-ec2.sh
 
-# Test localhost with array-of-files
-bash test-dispatcher-ec2.sh --mode files
-
-# Test EC2 control plane with zip
+# Test EC2 control plane
 bash test-dispatcher-ec2.sh 3.84.123.45
-
-# Test EC2 control plane with array-of-files  
-bash test-dispatcher-ec2.sh 3.84.123.45 --mode files
 
 # Test worker directly (bypasses dispatcher)
 DIRECT_WORKER=10.0.1.100 bash test-dispatcher-ec2.sh
-
-# Test worker directly with array-of-files
-DIRECT_WORKER=10.0.1.100 bash test-dispatcher-ec2.sh --mode files
 ```
 
 #### What It Tests:
-- **Zip Mode**: Creates zip from `control-plane/test/` directory and uploads
-- **Array-of-Files Mode**: Finds individual files and uploads with manifest
+- Finds individual files and uploads with manifest
 - Validates response format and build URL
 - Tests dispatcher routing to least-loaded worker
 
@@ -52,9 +40,7 @@ DIRECT_WORKER=10.0.1.100 bash test-dispatcher-ec2.sh --mode files
 ```
 Testing DispatcherService locally at: http://localhost:3000/dispatch
 Prototype ID: test-dispatcher-1234567890
-Upload mode: files
 
-=== ARRAY-OF-FILES MODE ===
 Found 15 files to upload:
   - package.json (id: file0)
   - app.json (id: file1)
@@ -77,16 +63,12 @@ The build workers handle the actual building and deployment.
 **Purpose**: Tests the `/build-and-deploy` endpoint that builds and uploads to S3.
 
 ```bash
-# Test with zip (default)
+# Test build and deploy
 bash testscripts/test-build-and-deploy.sh
-
-# Test with array-of-files
-bash testscripts/test-build-and-deploy.sh --mode files
 ```
 
 **What it does**:
-- **Zip Mode**: Creates zip of test project and uploads
-- **Array-of-Files Mode**: Uploads individual files with manifest
+- Uploads individual files with manifest
 - Runs full build process (npm install + expo export)
 - Uploads build output to S3
 - Returns build URL for iframe viewing
@@ -94,14 +76,11 @@ bash testscripts/test-build-and-deploy.sh --mode files
 **Expected Output**:
 ```
 Testing build-and-deploy endpoint with prototype ID: test-build-deploy-1234567890
-Upload mode: files
 
-=== ARRAY-OF-FILES MODE ===
 Preparing to upload 13 files using array-of-files mode...
 Generated manifest:
 {"files":[{"id":"file0","filename":"package.json"},{"id":"file1","filename":"app.json"},...]}
 
-Testing build-and-deploy endpoint with array-of-files...
 HTTP Status Code: 200
 
 ✅ SUCCESS: Request completed successfully!
@@ -114,14 +93,11 @@ HTTP Status Code: 200
 **Purpose**: Tests the `/dev-server` endpoint that starts hot-reloading development servers.
 
 ```bash
-# Test with zip (default)
+# Test dev server
 bash testscripts/test-dev-server.sh
 
-# Test with array-of-files
-bash testscripts/test-dev-server.sh --mode files
-
 # Test with custom port
-bash testscripts/test-dev-server.sh --mode files --port 8081
+bash testscripts/test-dev-server.sh --port 8081
 ```
 
 **What it does**:
@@ -133,10 +109,8 @@ bash testscripts/test-dev-server.sh --mode files --port 8081
 **Expected Output**:
 ```
 Testing dev-server endpoint with prototype ID: test-dev-server-1234567890
-Upload mode: files
 Dev port: 19006
 
-=== ARRAY-OF-FILES MODE ===
 Preparing to upload 13 files using array-of-files mode...
 
 ✅ SUCCESS: Dev server started successfully!
@@ -148,16 +122,9 @@ Preparing to upload 13 files using array-of-files mode...
    curl -X DELETE http://localhost:3002/dev-server/test-dev-server-1234567890
 ```
 
-#### 3. Legacy Test Scripts
-
-**`test-upload.sh`**: Tests the legacy upload + build endpoints separately
-**`test-raw-upload.sh`**: Tests individual file uploads to the old upload endpoint
-
-*Note: These are for backwards compatibility testing only.*
-
 ## Array-of-Files Format
 
-The new array-of-files format uses multipart form data with:
+The array-of-files format uses multipart form data with:
 
 ### Form Fields:
 - `prototypeId`: Unique identifier for the build
@@ -187,14 +154,14 @@ The new array-of-files format uses multipart form data with:
 ### 1. Free User Flow (Build Only)
 ```bash
 # Control plane test with build-only
-bash test-dispatcher-ec2.sh --mode files
+bash test-dispatcher-ec2.sh
 # Should return S3 URL for static hosting
 ```
 
 ### 2. Enterprise User Flow (Hot Reload)
 ```bash
 # Test dev server startup
-bash testscripts/test-dev-server.sh --mode files
+bash testscripts/test-dev-server.sh
 
 # Test dev server shutdown (builds and deploys before stopping)
 curl -X DELETE http://localhost:3002/dev-server/PROTOTYPE_ID
@@ -204,7 +171,7 @@ curl -X DELETE http://localhost:3002/dev-server/PROTOTYPE_ID
 ```bash
 # Test multiple concurrent builds
 for i in {1..5}; do
-  bash testscripts/test-build-and-deploy.sh --mode files &
+  bash testscripts/test-build-and-deploy.sh &
 done
 wait
 ```
@@ -244,7 +211,7 @@ Before running tests, ensure:
 
 ### Common Issues:
 
-**"No valid zip or file array provided"**
+**"No valid file array provided"**
 - Check that test files exist in the expected directories
 - Verify manifest JSON is valid
 - Ensure file IDs in manifest match uploaded files
