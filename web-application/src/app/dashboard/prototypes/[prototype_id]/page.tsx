@@ -132,6 +132,39 @@ export default function CreatePage() {
       setPrototype(data);
       setIsPublic(data.visibility === "PUBLIC");
       console.log("Successfully fetched prototype:", data);
+
+      // Call fetch-view API to get viewing URL
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const fetchViewResponse = await fetch('/api/prototype/fetch-view', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            prototype_id: prototypeId,
+            current_page: 'edit'
+          })
+        });
+
+        if (fetchViewResponse.ok) {
+          const fetchViewData = await fetchViewResponse.json();
+          console.log("Viewing URL:", fetchViewData.viewing_url);
+          console.log("Source:", fetchViewData.source);
+        } else {
+          console.error("Failed to fetch viewing URL:", fetchViewResponse.status);
+        }
+      } catch (fetchViewError) {
+        console.error("Error calling fetch-view API:", fetchViewError);
+      }
     }
 
     if (prototypeId) {
