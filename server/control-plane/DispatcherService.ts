@@ -60,7 +60,7 @@ export class DispatcherService {
         overrides: {
           containerOverrides: [
             {
-              name: "fastify-server",
+              name: "materialize-fargate-build-worker-container",
               environment: [
                 {
                   name: "PROTOTYPE_ID",
