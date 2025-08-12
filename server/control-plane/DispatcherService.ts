@@ -32,16 +32,111 @@ dotenv.config();
 
 export class DispatcherService {
   private ec2Client: EC2Client;
+  private ecsClient: ECSClient;
   private cache: GlideClient;
   // private allocateSha: string | null = null;
 
-  constructor(cache: GlideClient, ec2Client: EC2Client) {
+  constructor(cache: GlideClient, ec2Client: EC2Client, ecsClient: ECSClient) {
     this.cache = cache;
     this.ec2Client = ec2Client;
+    this.ecsClient = ecsClient;
   }
 
-  private async launchFargateInstance() {
-    const ecs = new ECSClient({ region: process.env.AWS_REGION! });
+  private async launchFargateInstance(
+    prototypeId: string
+  ): Promise<{ taskArn: string; privateIp: string }> {
+    try {
+      const runTaskInput = {
+        cluster: process.env.ECS_CLUSTER_NAME!,
+        taskDefinition: "fastify-build-worker",
+        launchType: "FARGATE" as const,
+        networkConfiguration: {
+          awsvpcConfiguration: {
+            subnets: process.env.ECS_SUBNETS?.split(",") || [],
+            securityGroups: process.env.ECS_SECURITY_GROUPS?.split(",") || [],
+            assignPublicIp: "ENABLED" as const,
+          },
+        },
+        overrides: {
+          containerOverrides: [
+            {
+              name: "fastify-server",
+              environment: [
+                {
+                  name: "PROTOTYPE_ID",
+                  value: prototypeId,
+                },
+                {
+                  name: "AWS_REGION",
+                  value: process.env.AWS_REGION!,
+                },
+              ],
+            },
+          ],
+        },
+        tags: [
+          {
+            key: "PrototypeId",
+            value: prototypeId,
+          },
+          {
+            key: "Service",
+            value: "materialize-build-worker",
+          },
+        ],
+      };
+
+      const command = new RunTaskCommand(runTaskInput);
+      const response = await this.ecsClient.send(command);
+
+      if (response.tasks && response.tasks.length > 0) {
+        const taskArn = response.tasks[0].taskArn!;
+        console.log(
+          `Successfully launched Fargate task: ${taskArn} for prototype: ${prototypeId}`
+        );
+
+        // Wait for task to be running and get private IP
+        await waitUntilTasksRunning(
+          { client: this.ecsClient, maxWaitTime: 300 }, // 5 min
+          {
+            cluster: process.env.ECS_CLUSTER_NAME!,
+            tasks: [taskArn],
+          }
+        );
+
+        // Describe the task to get the private IP
+        const describeCommand = new DescribeTasksCommand({
+          cluster: process.env.ECS_CLUSTER_NAME!,
+          tasks: [taskArn],
+        });
+        const describeResponse = await this.ecsClient.send(describeCommand);
+
+        const task = describeResponse.tasks?.[0];
+        const eni = task?.attachments?.[0]?.details?.find(
+          (detail) => detail.name === "networkInterfaceId"
+        )?.value;
+        let privateIp = "";
+
+        if (eni) {
+          // Get private IP from ENI details in task
+          const privateIpDetail = task?.attachments?.[0]?.details?.find(
+            (detail) => detail.name === "privateIPv4Address"
+          );
+          privateIp = privateIpDetail?.value || "";
+        }
+
+        return { taskArn, privateIp };
+      } else {
+        throw new Error("No task was created");
+      }
+    } catch (error) {
+      console.error("Failed to launch Fargate task:", error);
+      throw new Error(
+        `Failed to launch Fargate instance: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
   }
 
   // Precheck prototype status
@@ -143,7 +238,9 @@ export class DispatcherService {
           last_touched: Math.floor(Date.now() / 1000),
         };
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
-        const newFargateInstance = await this.launchFargateInstance();
+        const newFargateInstance = await this.launchFargateInstance(
+          prototypeId
+        );
 
         updatedBuildCacheData = {
           ...newBuildCacheData,
@@ -207,23 +304,29 @@ export class DispatcherService {
     formData: FormData
   ) {
     // TODO:
-    try {
-      const response = await axios.post(
-        `http://${fargatePrivateIp}:3002/dev-server`,
-        formData,
-        {
-          timeout: 300000,
-          headers: {
-            ...formData.getHeaders(),
-          },
-        }
-      );
-      return response.data;
-    } catch (error) {
-      console.log(
-        "There was an error dispatching the request to the fargate instance"
-      );
-    }
+    console.log("Dispatching request to fargate instance");
+    return {
+      fargatePrivateIp,
+      formData,
+      tunnelUrl: "https://tunnel.url",
+    };
+    // try {
+    //   const response = await axios.post(
+    //     `http://${fargatePrivateIp}:3002/dev-server`,
+    //     formData,
+    //     {
+    //       timeout: 300000,
+    //       headers: {
+    //         ...formData.getHeaders(),
+    //       },
+    //     }
+    //   );
+    //   return response.data;
+    // } catch (error) {
+    //   console.log(
+    //     "There was an error dispatching the request to the fargate instance"
+    //   );
+    // }
   }
 
   private constructFormData(
@@ -241,6 +344,12 @@ export class DispatcherService {
       formData.append("port", port.toString());
     }
     return formData;
+  }
+
+  public async launchFargateInstancePublic(
+    prototypeId: string
+  ): Promise<{ taskArn: string; privateIp: string }> {
+    return await this.launchFargateInstance(prototypeId);
   }
 }
 
