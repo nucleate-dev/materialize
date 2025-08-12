@@ -248,12 +248,14 @@ export async function POST(request: NextRequest) {
           // ------------------------------------------------------------------------------------------------
           // 9. Pre-build and dispatch requests
           // ------------------------------------------------------------------------------------------------
-          console.log("🚀 Dispatching build request regardless of precheck response");
-          
+          console.log(
+            "🚀 Dispatching build request regardless of precheck response",
+          );
+
           // Convert fileManager files to the format expected by dispatch endpoint
           const finalFiles = fileManager.getFinalState();
           const filesForDispatch: Record<string, string> = {};
-          
+
           // Convert PrototypeFiles to Record<string, string> format
           Object.entries(finalFiles).forEach(([filePath, file]) => {
             if (file.contents) {
