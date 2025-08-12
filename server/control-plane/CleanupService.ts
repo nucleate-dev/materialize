@@ -1,142 +1,82 @@
 import { GlideClient } from "@valkey/valkey-glide";
 import { CONFIG } from "./config";
 import axios from "axios";
+import { ECSClient, StopTaskCommand } from "@aws-sdk/client-ecs";
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
+  private ecsClient: ECSClient;
 
-  constructor(cache: GlideClient) {
+  constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
+    this.ecsClient = ecsClient;
     this.cleanupIntervals = [];
     this.startCleanupServices();
   }
   // Cleanup idle hot reload services
-  private async cleanupIdleHotReload() {
-    console.log("Cleaning up idle hot reload services");
 
-    try {
-      // Get all active build keys using SCAN command
-      const activeBuildKeys = await this.scanKeys("active_build:*");
+  private async cleanupIdleActiveBuilds() {
+    console.log("Cleaning up idle active builds");
 
-      if (!activeBuildKeys || activeBuildKeys.length === 0) {
-        console.log("No active builds found for hot reload cleanup");
-        return;
-      }
+    // get all active builds
+    const activeBuildKeys = await this.scanKeys("active_build:*");
 
-      const currentTime = Math.floor(Date.now() / 1000);
-      const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
-
-      for (const buildKey of activeBuildKeys) {
-        try {
-          const buildJson = await this.cache.get(buildKey);
-          if (!buildJson) continue;
-
-          const build: ActiveBuild = JSON.parse(buildJson as string);
-
-          // Check if this is a hot reload build with a port assigned
-          if (!build.port || build.port === "") {
-            continue;
-          }
-
-          // Check if it's been idle too long
-          const timeSinceLastTouch = currentTime - build.last_touched;
-          if (!(timeSinceLastTouch > idleTimeoutSeconds)) {
-            continue;
-          }
-
-          console.log(`Cleaning up idle hot reload for prototype: ${buildKey}`);
-
-          // Extract prototype ID from the key (remove "active_build:" prefix)
-          const prototypeId = buildKey.replace("active_build:", "");
-
-          // Dispatch request to build worker to kill the hot reload server
-          const killResponse = await this.dispatchKillHotReloadDevServerRequest(
-            build.worker_private_ip,
-            prototypeId,
-            Number(build.port)
-          );
-
-          // Update the build in cache - remove port and update URL
-          const updatedBuild: ActiveBuild = {
-            ...build,
-            port: "",
-            url: killResponse.buildUrl,
-            type: "build",
-            last_touched: currentTime,
-          };
-          await this.cache.set(buildKey, JSON.stringify(updatedBuild));
-
-          // Release the port in the cache port registry
-          await this.releasePort(build.worker_private_ip, Number(build.port));
-
-          console.log(
-            `Successfully cleaned up hot reload for prototype: ${prototypeId}`
-          );
-        } catch (error) {
-          console.error(`Error processing build ${buildKey}:`, error);
-          // Continue with other builds
-        }
-      }
-    } catch (error) {
-      console.error("Error during hot reload cleanup:", error);
+    if (!activeBuildKeys || activeBuildKeys.length === 0) {
+      console.log("No active builds found for hot reload cleanup");
+      return;
     }
-  }
 
-  // Cleanup old builds and files
-  private async cleanupOldBuilds() {
-    console.log("Cleaning up old builds from the cache");
+    const currentTime = Math.floor(Date.now() / 1000);
+    const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
 
-    try {
-      // Get all active build keys using SCAN command
-      const activeBuildKeys = await this.scanKeys("active_build:*");
+    // 1. Get all idle builds
+    const idleBuilds: Array<{ build: ActiveBuild; prototypeId: string; buildKey: string }> = [];
+    for (const buildKey of activeBuildKeys) {
+      const buildJson = await this.cache.get(buildKey);
+      if (!buildJson) continue;
 
-      if (!activeBuildKeys || activeBuildKeys.length === 0) {
-        console.log("No active builds found for cleanup");
-        return;
+      const build: ActiveBuild = JSON.parse(buildJson as string);
+      const timeSinceLastTouch = currentTime - build.last_touched;
+      if (timeSinceLastTouch > idleTimeoutSeconds) {
+        // Extract prototype ID from key: "active_build:prototype-id" -> "prototype-id"
+        const prototypeId = buildKey.replace("active_build:", "");
+        idleBuilds.push({ build, prototypeId, buildKey });
       }
+    }
 
-      const currentTime = Math.floor(Date.now() / 1000);
-      const cleanupTimeoutSeconds = CONFIG.IDLE_TIMEOUT_CLEANUP / 1000;
-
-      for (const buildKey of activeBuildKeys) {
-        try {
-          const buildJson = await this.cache.get(buildKey);
-          if (!buildJson) continue;
-
-          const build: ActiveBuild = JSON.parse(buildJson as string);
-
-          // Check if it's been idle too long
-          const timeSinceLastTouch = currentTime - build.last_touched;
-          if (!(timeSinceLastTouch > cleanupTimeoutSeconds)) {
-            continue;
-          }
-
-          console.log(`Cleaning up old build: ${buildKey}`);
-          // Extract prototype ID from the key (remove "active_build:" prefix)
-          const prototypeId = buildKey.replace("active_build:", "");
-
-          // Dispatch request to build worker to delete the build files
-          const deleteResponse = await this.dispatchDeleteBuildRequest(
-            build.worker_private_ip,
-            prototypeId
-          );
-
-          // Only remove from cache if the delete request was successful
-          if (deleteResponse.success) {
-            await this.cache.del([buildKey]);
-          }
-
-          console.log(
-            `Successfully cleaned up old build for prototype: ${prototypeId}`
-          );
-        } catch (error) {
-          console.error(`Error processing build ${buildKey}:`, error);
-          // Continue with other builds
+    // 2. For each idle build, clean it up
+    console.log(`Found ${idleBuilds.length} idle builds to clean up`);
+    
+    for (const { build, prototypeId, buildKey } of idleBuilds) {
+      console.log(`Cleaning up idle build for prototype: ${prototypeId}`);
+      
+      // a. dispatch a request to the fargate instance to kill the build
+      if (build.fargate_private_ip) {
+        const killResult = await this.dispatchKillDevServerRequest(
+          prototypeId, 
+          build.fargate_private_ip
+        );
+        if (!killResult.success) {
+          console.warn(`Failed to kill dev server for ${prototypeId}: ${killResult.error}`);
         }
       }
-    } catch (error) {
-      console.error("Error during build cleanup:", error);
+      
+      // b. Kill the fargate task using the task arn
+      if (build.fargate_task_arn) {
+        const terminateResult = await this.terminateFargateTask(build.fargate_task_arn);
+        if (!terminateResult.success) {
+          console.warn(`Failed to terminate Fargate task for ${prototypeId}: ${terminateResult.error}`);
+        }
+      }
+      
+      // c. remove the active build from the cache
+      try {
+        await this.cache.del(buildKey);
+        console.log(`Removed active build cache entry for prototype: ${prototypeId}`);
+      } catch (error) {
+        console.error(`Failed to remove cache entry for ${prototypeId}:`, error);
+      }
     }
   }
 
@@ -145,14 +85,9 @@ export class CleanupService {
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(
-        () => this.cleanupIdleHotReload(),
+        () => this.cleanupIdleActiveBuilds(),
         CONFIG.CLEANUP_INTERVAL_HOT_RELOAD
       )
-    );
-
-    // File cleanup every 15 minutes
-    this.cleanupIntervals.push(
-      setInterval(() => this.cleanupOldBuilds(), CONFIG.CLEANUP_INTERVAL_FILES)
     );
 
     console.log("Cleanup services started");
@@ -165,93 +100,55 @@ export class CleanupService {
   }
 
   // Dispatch kill hot reload request to build worker
-  private async dispatchKillHotReloadDevServerRequest(
-    workerIp: string,
+  private async dispatchKillDevServerRequest(
     prototypeId: string,
-    port: number
-  ): Promise<KillHotReloadResponse> {
-    console.log(
-      `Dispatching kill hot reload request to worker ${workerIp} for prototype ${prototypeId} on port ${port}`
-    );
-
+    fargatePrivateIp: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log(`Dispatching kill dev server request to ${fargatePrivateIp}:3002/dev-server for prototype: ${prototypeId}`);
+      
       const response = await axios.delete(
-        `http://${workerIp}:3002/dev-server/port/${port}`,
+        `http://${fargatePrivateIp}:3002/dev-server`,
         {
-          timeout: 30000, // 30 second timeout
+          data: { prototype_id: prototypeId },
+          timeout: 30000, // 30 seconds timeout for cleanup
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
         }
       );
-
-      // Check if the response indicates successful stop
-      if (response.data.status === "stopped") {
-        console.log(
-          `Successfully killed hot reload server on port ${port} for prototype ${prototypeId}`
-        );
-
-        return {
-          success: true,
-          buildUrl:
-            response.data.buildUrl ||
-            `https://materializeui.com/builds/${prototypeId}`,
-        };
-      } else {
-        // Worker returned an error
-        const errorMessage = response.data.error || "Unknown error from worker";
-        console.error(
-          `Worker failed to kill hot reload server on port ${port}: ${errorMessage}`
-        );
-      }
+      
+      console.log(`Successfully killed dev server for prototype: ${prototypeId}`);
+      return { success: true };
     } catch (error) {
-      console.error(
-        `Failed to kill hot reload server on worker ${workerIp} port ${port}:`,
-        error
-      );
-      throw error; // Re-throw the error so cleanup fails
+      console.error(`Failed to kill dev server for prototype ${prototypeId}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      };
     }
   }
 
-  // Dispatch delete build request to build worker
-  private async dispatchDeleteBuildRequest(
-    workerIp: string,
-    prototypeId: string
-  ): Promise<DeleteBuildResponse> {
-    console.log(
-      `Dispatching delete build request to worker ${workerIp} for prototype ${prototypeId}`
-    );
-
+  // Terminate Fargate task
+  private async terminateFargateTask(taskArn: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await axios.delete(
-        `http://${workerIp}:3002/build/${prototypeId}`,
-        {
-          timeout: 30000, // 30 second timeout
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.status === "deleted") {
-        console.log(
-          `Successfully deleted build files for prototype ${prototypeId} on worker ${workerIp}`
-        );
-        return {
-          success: true,
-        };
-      } else {
-        const errorMessage = response.data.error || "Unknown error from worker";
-        console.error(
-          `Worker failed to delete build for prototype ${prototypeId}: ${errorMessage}`
-        );
-      }
+      console.log(`Terminating Fargate task: ${taskArn}`);
+      
+      const command = new StopTaskCommand({
+        cluster: process.env.ECS_CLUSTER_NAME || "default",
+        task: taskArn,
+        reason: "Cleanup service - idle timeout",
+      });
+      
+      await this.ecsClient.send(command);
+      console.log(`Successfully terminated Fargate task: ${taskArn}`);
+      return { success: true };
     } catch (error) {
-      console.error(
-        `Failed to delete build files on worker ${workerIp} for prototype ${prototypeId}:`,
-        error
-      );
-      throw error; // Re-throw the error so cleanup can handle it appropriately
+      console.error(`Failed to terminate Fargate task ${taskArn}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      };
     }
   }
 
@@ -281,39 +178,13 @@ export class CleanupService {
 
     return keys;
   }
-
-  // Release a port in the cache port registry
-  private async releasePort(workerIp: string, port: number): Promise<void> {
-    try {
-      const key = `ports:${workerIp}:used`;
-      await this.cache.srem(key, [String(port)]);
-      console.log(`Released port ${port} for worker ${workerIp}`);
-    } catch (error) {
-      console.error(
-        `Error releasing port ${port} for worker ${workerIp}:`,
-        error
-      );
-    }
-  }
 }
 
 // Interface definitions
 interface ActiveBuild {
-  worker_host: string;
-  worker_private_ip: string;
-  port: string | number;
+  fargate_task_arn: string;
+  fargate_private_ip: string;
   url: string;
-  type: "build" | "hot_reload";
-  status: "starting" | "running" | "error" | "stopped";
+  status: "creating" | "updating" | "error" | "stable";
   last_touched: number;
-}
-
-interface KillHotReloadResponse {
-  success: boolean;
-  buildUrl?: string;
-}
-
-interface DeleteBuildResponse {
-  success: boolean;
-  message?: string;
 }

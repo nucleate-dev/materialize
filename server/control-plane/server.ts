@@ -334,8 +334,8 @@ const start = async () => {
     // Create dispatcher service with initialized clients
     dispatcherService = new DispatcherService(cache, ec2Client, ecsClient);
 
-    // Create cleanup service with cache
-    cleanupService = new CleanupService(cache);
+    // Create cleanup service with cache and ECS client
+    cleanupService = new CleanupService(cache, ecsClient);
 
     await fastify.listen({
       port: 3000,
