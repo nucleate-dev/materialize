@@ -31,7 +31,11 @@ export class CleanupService {
     const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
 
     // 1. Get all idle builds
-    const idleBuilds: Array<{ build: ActiveBuild; prototypeId: string; buildKey: string }> = [];
+    const idleBuilds: Array<{
+      build: ActiveBuild;
+      prototypeId: string;
+      buildKey: string;
+    }> = [];
     for (const buildKey of activeBuildKeys) {
       const buildJson = await this.cache.get(buildKey);
       if (!buildJson) continue;
@@ -47,35 +51,47 @@ export class CleanupService {
 
     // 2. For each idle build, clean it up
     console.log(`Found ${idleBuilds.length} idle builds to clean up`);
-    
+
     for (const { build, prototypeId, buildKey } of idleBuilds) {
       console.log(`Cleaning up idle build for prototype: ${prototypeId}`);
-      
+
       // a. dispatch a request to the fargate instance to kill the build
       if (build.fargate_private_ip) {
         const killResult = await this.dispatchKillDevServerRequest(
-          prototypeId, 
+          prototypeId,
           build.fargate_private_ip
         );
         if (!killResult.success) {
-          console.warn(`Failed to kill dev server for ${prototypeId}: ${killResult.error}`);
+          console.warn(
+            `Failed to kill dev server for ${prototypeId}: ${killResult.error}`
+          );
         }
       }
-      
+
       // b. Kill the fargate task using the task arn
       if (build.fargate_task_arn) {
-        const terminateResult = await this.terminateFargateTask(build.fargate_task_arn);
+        const terminateResult = await this.terminateFargateTask(
+          build.fargate_task_arn
+        );
         if (!terminateResult.success) {
-          console.warn(`Failed to terminate Fargate task for ${prototypeId}: ${terminateResult.error}`);
+          console.warn(
+            `Failed to terminate Fargate task for ${prototypeId}, leaving build as active: ${terminateResult.error}`
+          );
+          continue;
         }
       }
-      
+
       // c. remove the active build from the cache
       try {
-        await this.cache.del(buildKey);
-        console.log(`Removed active build cache entry for prototype: ${prototypeId}`);
+        await this.cache.del([buildKey]);
+        console.log(
+          `Removed active build cache entry for prototype: ${prototypeId}`
+        );
       } catch (error) {
-        console.error(`Failed to remove cache entry for ${prototypeId}:`, error);
+        console.error(
+          `Failed to remove cache entry for ${prototypeId}:`,
+          error
+        );
       }
     }
   }
@@ -84,10 +100,11 @@ export class CleanupService {
   private startCleanupServices() {
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
-      setInterval(
-        () => this.cleanupIdleActiveBuilds(),
-        CONFIG.CLEANUP_INTERVAL_HOT_RELOAD
-      )
+      setInterval(() => {
+        this.cleanupIdleActiveBuilds().catch((error) => {
+          console.error("Error in cleanupIdleActiveBuilds:", error);
+        });
+      }, CONFIG.CLEANUP_INTERVAL_HOT_RELOAD)
     );
 
     console.log("Cleanup services started");
@@ -105,49 +122,58 @@ export class CleanupService {
     fargatePrivateIp: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log(`Dispatching kill dev server request to ${fargatePrivateIp}:3002/dev-server for prototype: ${prototypeId}`);
-      
+      console.log(
+        `Dispatching kill dev server request to ${fargatePrivateIp}:3002/dev-server for prototype: ${prototypeId}`
+      );
+
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
         {
           data: { prototype_id: prototypeId },
           timeout: 30000, // 30 seconds timeout for cleanup
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         }
       );
-      
-      console.log(`Successfully killed dev server for prototype: ${prototypeId}`);
+
+      console.log(
+        `Successfully killed dev server for prototype: ${prototypeId}`
+      );
       return { success: true };
     } catch (error) {
-      console.error(`Failed to kill dev server for prototype ${prototypeId}:`, error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+      console.error(
+        `Failed to kill dev server for prototype ${prototypeId}:`,
+        error
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   // Terminate Fargate task
-  private async terminateFargateTask(taskArn: string): Promise<{ success: boolean; error?: string }> {
+  private async terminateFargateTask(
+    taskArn: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       console.log(`Terminating Fargate task: ${taskArn}`);
-      
+
       const command = new StopTaskCommand({
         cluster: process.env.ECS_CLUSTER_NAME || "default",
         task: taskArn,
         reason: "Cleanup service - idle timeout",
       });
-      
+
       await this.ecsClient.send(command);
       console.log(`Successfully terminated Fargate task: ${taskArn}`);
       return { success: true };
     } catch (error) {
       console.error(`Failed to terminate Fargate task ${taskArn}:`, error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
