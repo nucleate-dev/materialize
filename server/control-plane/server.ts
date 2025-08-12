@@ -4,7 +4,6 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { DispatcherService } from "./DispatcherService";
 import { CleanupService } from "./CleanupService";
-import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
 import { EC2Client } from "@aws-sdk/client-ec2";
 import { GlideClient } from "@valkey/valkey-glide";
 import * as dotenv from "dotenv";
@@ -38,9 +37,6 @@ interface FileData {
 // Initialize clients
 const initializeClients = async () => {
   // Initialize AWS clients
-  const autoScalingClient = new AutoScalingClient({
-    region: process.env.AWS_REGION!,
-  });
 
   const ec2Client = new EC2Client({
     region: process.env.AWS_REGION!,
@@ -65,14 +61,14 @@ const initializeClients = async () => {
 
   console.log("Valkey cache initialized successfully");
 
-  return { cache, ec2Client, autoScalingClient };
+  return { cache, ec2Client };
 };
 
 /**
  * Sanitizes relative paths to prevent directory traversal attacks
  */
 function sanitizeRelPath(p: string): string {
-  const path = require('path');
+  const path = require("path");
   // prevent ../ and absolute paths
   const norm = path.posix.normalize(p.replace(/\\/g, "/"));
   if (norm.startsWith("../") || path.isAbsolute(norm)) {
@@ -101,7 +97,8 @@ async function processArrayOfFiles(
             throw new Error("manifest.files must be an array");
           }
           for (const f of manifest.files) {
-            if (!f.id || !f.filename) throw new Error("Each manifest item needs id and filename");
+            if (!f.id || !f.filename)
+              throw new Error("Each manifest item needs id and filename");
             pendingMeta.set(f.id, { path: f.path, filename: f.filename });
           }
         } catch (e: any) {
@@ -125,7 +122,8 @@ async function processArrayOfFiles(
   for (const item of manifest.files) {
     const meta = pendingMeta.get(item.id);
     const buf = pendingFiles.get(item.id);
-    if (!meta || !buf) throw new Error(`Missing file or metadata for id=${item.id}`);
+    if (!meta || !buf)
+      throw new Error(`Missing file or metadata for id=${item.id}`);
 
     const relDir = meta.path ? sanitizeRelPath(meta.path) : "";
     const relFile = sanitizeRelPath(
@@ -145,14 +143,14 @@ async function processArrayOfFiles(
  * Creates a zip buffer from array of files
  */
 async function createZipFromFiles(files: FileData[]): Promise<Buffer> {
-  const JSZip = require('jszip');
+  const JSZip = require("jszip");
   const zip = new JSZip();
 
   for (const file of files) {
     zip.file(file.relativePath, file.content);
   }
 
-  return await zip.generateAsync({ type: 'nodebuffer' });
+  return await zip.generateAsync({ type: "nodebuffer" });
 }
 
 const fastify = Fastify({
@@ -188,7 +186,10 @@ fastify.post(
         if (part.type === "field") {
           if (part.fieldname === "prototypeId") {
             prototypeId = part.value as string;
-          } else if (part.fieldname === "writeToDisK" || part.fieldname === "writeToDisk") {
+          } else if (
+            part.fieldname === "writeToDisK" ||
+            part.fieldname === "writeToDisk"
+          ) {
             writeToDisK = part.value === "true" || part.value === true;
           } else if (part.fieldname === "hotReload") {
             hotReload = part.value === "true" || part.value === true;
@@ -203,14 +204,18 @@ fastify.post(
       }
 
       // Try array-of-files first
-      async function* iterAgain() { for (const p of collected) yield p; }
-      
+      async function* iterAgain() {
+        for (const p of collected) yield p;
+      }
+
       try {
         const arrayResult = await processArrayOfFiles(iterAgain());
         if (arrayResult) {
           // Convert array-of-files to zip for backwards compatibility with DispatcherService
           zipBuffer = await createZipFromFiles(arrayResult.files);
-          fastify.log.info(`Processed ${arrayResult.files.length} files from array-of-files format`);
+          fastify.log.info(
+            `Processed ${arrayResult.files.length} files from array-of-files format`
+          );
         }
       } catch (e: any) {
         // If manifest was present but invalid, fail early
@@ -225,14 +230,18 @@ fastify.post(
 
       // Fallback to zip file processing if array-of-files wasn't used
       if (!zipBuffer) {
-        const zipPart = collected.find(p => 
-          p.type === "file" && 
-          (p.mimetype === "application/zip" || p.filename?.toLowerCase().endsWith(".zip"))
+        const zipPart = collected.find(
+          (p) =>
+            p.type === "file" &&
+            (p.mimetype === "application/zip" ||
+              p.filename?.toLowerCase().endsWith(".zip"))
         );
-        
+
         if (zipPart) {
           zipBuffer = await zipPart.toBuffer();
-          fastify.log.info(`Received zip file: ${zipPart.filename || "unknown"}`);
+          fastify.log.info(
+            `Received zip file: ${zipPart.filename || "unknown"}`
+          );
         }
       }
 
@@ -283,6 +292,25 @@ fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
     });
   }
 });
+
+// Clear cache endpoint
+fastify.delete(
+  "/cache/clear",
+  async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { cache } = await initializeClients();
+      await cache.flushall();
+      fastify.log.info("Cache cleared successfully");
+      return { success: true, message: "All cache entries cleared" };
+    } catch (error) {
+      fastify.log.error(error, "Failed to clear cache");
+      return reply.status(500).send({
+        error: "Failed to clear cache",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
 
 // Status endpoint
 fastify.get(
@@ -388,14 +416,10 @@ fastify.post(
 const start = async () => {
   try {
     // Initialize clients first
-    const { cache, ec2Client, autoScalingClient } = await initializeClients();
+    const { cache, ec2Client } = await initializeClients();
 
     // Create dispatcher service with initialized clients
-    dispatcherService = new DispatcherService(
-      cache,
-      ec2Client,
-      autoScalingClient
-    );
+    dispatcherService = new DispatcherService(cache, ec2Client);
 
     // Create cleanup service with cache
     cleanupService = new CleanupService(cache);
