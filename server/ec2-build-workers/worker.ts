@@ -7,12 +7,11 @@ import fastify, {
   FastifyRequest,
 } from "fastify";
 import fs from "fs/promises";
-import path from "path";
 import { BuilderService } from "./BuilderService.js";
+import { ExpoDevServerService } from "./ExpoDevServerService.js";
 
 // Load environment variables
 dotenv.config();
-
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
@@ -42,6 +41,9 @@ const s3 = new AWS.S3();
 
 // Initialize BuilderService
 const builderService = new BuilderService(WORK_DIR, S3_BUCKET, s3);
+
+// Initialize ExpoDevServerService
+const expoDevServerService = new ExpoDevServerService(WORK_DIR);
 
 // --- Utility Functions ---
 
@@ -128,7 +130,6 @@ export function runCommand(
   });
 }
 
-
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
   logger: {
@@ -170,6 +171,22 @@ app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
 
 // Register builder endpoints
 builderService.registerRoutes(app);
+await expoDevServerService.register(app);
+
+// --- Graceful Shutdown Handling ---
+process.on("SIGTERM", async () => {
+  console.log("Received SIGTERM, shutting down gracefully...");
+  await expoDevServerService.shutdown();
+  await app.close();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log("Received SIGINT, shutting down gracefully...");
+  await expoDevServerService.shutdown();
+  await app.close();
+  process.exit(0);
+});
 
 // --- Start Server ---
 const start = async (): Promise<void> => {
