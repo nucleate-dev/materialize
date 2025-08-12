@@ -92,7 +92,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
 
 ### Container Configuration
 8. **Container details**:
-   - **Container name**: `fastify-server`
+   - **Container name**: `materialize-fargate-build-worker-container`
    - **Image URI**: `YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker:latest`
    - **Port mappings**: 
      - **Container port**: `3002`

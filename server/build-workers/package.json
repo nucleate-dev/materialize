@@ -12,7 +12,9 @@
     "test:build": "node --loader ts-node/esm testscripts/test-build-endpoint.ts",
     "test:deploy": "node --loader ts-node/esm testscripts/test-deploy-endpoint.ts",
     "test:build-deploy": "node --loader ts-node/esm testscripts/test-build-and-deploy-endpoint.ts",
-    "test:local": "node --loader ts-node/esm testscripts/test-build-and-deploy-endpoint.ts --local"
+    "test:local": "node --loader ts-node/esm testscripts/test-build-and-deploy-endpoint.ts --local",
+    "test:public-dev-server": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts",
+    "test:public-dev-server:local": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts --local"
   },
   "dependencies": {
     "@fastify/multipart": "^8.2.0",
