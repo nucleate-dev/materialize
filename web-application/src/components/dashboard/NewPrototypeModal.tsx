@@ -4,7 +4,6 @@ import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 import { Database } from "@/lib/types/database.types";
-import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   SparklesIcon,
@@ -139,19 +138,28 @@ export default function NewPrototypeModal({
     setIsCreating(true);
 
     try {
-      const result = await createPrototype(
-        supabase,
-        {
-          name: name.trim(),
-          owner_id: user.id,
-          project_id: selectedProject || null,
-          description: null,
-          prototype_context: null,
-          thumbnail_url: null,
-          visibility,
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      
+      if (!token) {
+        console.error("No authentication token available");
+        return;
+      }
+
+      const response = await fetch('/api/prototype/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        userPlan,
-      );
+        body: JSON.stringify({
+          name: name.trim(),
+          project_id: selectedProject || undefined,
+          visibility,
+        })
+      });
+
+      const result = await response.json();
 
       if (result.success) {
         // Reset form
@@ -159,7 +167,7 @@ export default function NewPrototypeModal({
         setSelectedProject(null);
         setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
         setTouched(false);
-        onCreated(result.data.id);
+        onCreated(result.data.prototype_id);
         onClose();
       } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal

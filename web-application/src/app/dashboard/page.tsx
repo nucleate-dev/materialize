@@ -12,7 +12,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
-import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
@@ -58,14 +57,26 @@ export default function DashboardPage() {
 
       let result;
       try {
-        result = await createPrototype(
-          supabase,
-          {
-            name: "New Prototype",
-            owner_id: user.id,
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        
+        if (!token) {
+          console.error("No authentication token available");
+          return;
+        }
+
+        const response = await fetch('/api/prototype/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
-          userPlan,
-        );
+          body: JSON.stringify({
+            name: "New Prototype",
+          })
+        });
+
+        result = await response.json();
       } catch (error) {
         console.error("Error creating prototype:", error);
         return;
@@ -76,13 +87,13 @@ export default function DashboardPage() {
           localStorage.setItem(
             "chat_intent",
             JSON.stringify({
-              prototype_id: result.data.id,
+              prototype_id: result.data.prototype_id,
               message: content,
             }),
           );
         }
 
-        router.push(`/dashboard/prototypes/${result.data.id}`);
+        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
       } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         setShowUpsellModal(true);
