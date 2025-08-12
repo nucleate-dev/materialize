@@ -21,7 +21,7 @@ export class DispatcherService {
   constructor(
     cache: GlideClient,
     ec2Client: EC2Client,
-    autoScalingClient: AutoScalingClient,
+    autoScalingClient: AutoScalingClient
   ) {
     this.cache = cache;
     this.ec2Client = ec2Client;
@@ -31,7 +31,7 @@ export class DispatcherService {
   // Precheck prototype status
   public async prototypeDispatchPrecheck(
     jwt: string,
-    prototypeId: string,
+    prototypeId: string
   ): Promise<{
     state: "dne" | "active_dev_server" | "active_build";
     status: "updating" | "error" | "stable" | null;
@@ -48,7 +48,7 @@ export class DispatcherService {
               Authorization: `Bearer ${jwt}`,
             },
           },
-        },
+        }
       );
 
       // 2. Verify JWT and get user
@@ -69,7 +69,7 @@ export class DispatcherService {
 
       if (prototypeError || !prototype) {
         throw new Error(
-          "Prototype not found or user does not have permissions",
+          "Prototype not found or user does not have permissions"
         );
       }
 
@@ -79,7 +79,7 @@ export class DispatcherService {
 
       if (existingBuildJson) {
         const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string,
+          existingBuildJson as string
         );
 
         // Determine state based on port
@@ -129,7 +129,7 @@ export class DispatcherService {
         const preDispatchResult = await this.handlePreDispatchForExistingBuild(
           activeBuildKey,
           existingBuildJson as string,
-          { prototypeId, zipBuffer, hotReload },
+          { prototypeId, zipBuffer, hotReload }
         );
         workerIp = preDispatchResult.workerIp;
         formData = preDispatchResult.formData;
@@ -137,7 +137,7 @@ export class DispatcherService {
       } else {
         const preDispatchResult = await this.handlePreDispatchForNewBuild(
           activeBuildKey,
-          { prototypeId, zipBuffer, hotReload },
+          { prototypeId, zipBuffer, hotReload }
         );
         workerIp = preDispatchResult.workerIp;
         formData = preDispatchResult.formData;
@@ -147,13 +147,29 @@ export class DispatcherService {
       let buildResponse: BuildResponse | null = null;
       let url: string;
       if (hotReload) {
-        buildResponse = await this.sendWorkerLiveDevServerRequest(
-          workerIp,
-          formData,
-        );
+        try {
+          buildResponse = await this.sendWorkerLiveDevServerRequest(
+            workerIp,
+            formData
+          );
+        } catch (error) {
+          await this.cache.set(
+            activeBuildKey,
+            JSON.stringify({ ...existingBuild, status: "error" })
+          );
+          throw error;
+        }
         url = buildResponse.tunnelUrl;
       } else {
-        buildResponse = await this.sendWorkerBuildRequest(workerIp, formData);
+        try {
+          buildResponse = await this.sendWorkerBuildRequest(workerIp, formData);
+        } catch (error) {
+          await this.cache.set(
+            activeBuildKey,
+            JSON.stringify({ ...existingBuild, status: "error" })
+          );
+          throw error;
+        }
         url = buildResponse.buildUrl;
       }
 
@@ -166,8 +182,6 @@ export class DispatcherService {
       };
       await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
       console.log("New build: ", updatedBuild);
-
-      console.log("Build response: ", buildResponse);
       return buildResponse;
     } catch (error) {
       throw error;
@@ -176,7 +190,7 @@ export class DispatcherService {
 
   private async handlePreDispatchForNewBuild(
     activeBuildKey: string,
-    dispatchRequest: DispatchRequest,
+    dispatchRequest: DispatchRequest
   ): Promise<{
     workerIp: string;
     formData: FormData;
@@ -196,7 +210,7 @@ export class DispatcherService {
       const port = await this.acquireFreePort(workerIp);
       if (port === null) {
         throw new Error(
-          `No available ports on worker ${workerIp} for hot reload`,
+          `No available ports on worker ${workerIp} for hot reload`
         );
       }
       allocatedPort = port;
@@ -219,7 +233,7 @@ export class DispatcherService {
     const formData = this.constructFormData(
       prototypeId,
       zipBuffer,
-      allocatedPort,
+      allocatedPort
     );
 
     return {
@@ -232,7 +246,7 @@ export class DispatcherService {
   private async handlePreDispatchForExistingBuild(
     activeBuildKey: string,
     existingBuildJson: string,
-    dispatchRequest: DispatchRequest,
+    dispatchRequest: DispatchRequest
   ): Promise<{
     workerIp: string;
     formData: FormData;
@@ -242,13 +256,19 @@ export class DispatcherService {
     let existingBuild: ActiveBuild = JSON.parse(existingBuildJson);
     console.log("Found existing build: ", existingBuild);
 
+    if (existingBuild.status === "updating") {
+      throw new Error(
+        "Cannot update existing build while it is currently updating"
+      );
+    }
+
     if (hotReload && existingBuild.port === "") {
       console.log("Existing build being transitioned to hot reload");
       let allocatedPort: number | undefined;
       const port = await this.acquireFreePort(existingBuild.worker_private_ip);
       if (port === null) {
         throw new Error(
-          `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`,
+          `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`
         );
       }
       allocatedPort = port;
@@ -264,7 +284,7 @@ export class DispatcherService {
     const formData = this.constructFormData(
       prototypeId,
       zipBuffer,
-      existingBuild.port ? Number(existingBuild.port) : undefined,
+      existingBuild.port ? Number(existingBuild.port) : undefined
     );
 
     return {
@@ -290,7 +310,7 @@ export class DispatcherService {
 
       // Get instance IDs that are InService
       const activeInstanceIds = asg.Instances.filter(
-        (instance) => instance.LifecycleState === "InService",
+        (instance) => instance.LifecycleState === "InService"
       )
         .map((instance) => instance.InstanceId!)
         .filter(Boolean);
@@ -329,17 +349,17 @@ export class DispatcherService {
   // Acquire a free port for hot reload
   private async acquireFreePort(
     workerIp: string,
-    opts?: { start?: number; end?: number; hint?: number },
+    opts?: { start?: number; end?: number; hint?: number }
   ): Promise<number | null> {
     if (!this.allocateSha) {
       console.log("Loading allocate SHA");
       this.allocateSha = String(
-        await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA]),
+        await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA])
       );
     }
     const key = `ports:${workerIp}:used`;
     const start = String(
-      opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000,
+      opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000
     );
     const end = String(opts?.end ?? parseInt(process.env.MAX_PORT!) ?? 4099);
     const hint = opts?.hint != null ? String(opts.hint) : "";
@@ -365,7 +385,7 @@ export class DispatcherService {
   // Send build request to worker
   private async sendWorkerBuildRequest(
     workerIp: string,
-    formData: FormData,
+    formData: FormData
   ): Promise<any> {
     try {
       const response = await axios.post(
@@ -376,11 +396,12 @@ export class DispatcherService {
           headers: {
             ...formData.getHeaders(),
           },
-        },
+        }
       );
       return response.data;
     } catch (error) {
       console.log("Error sending worker build request: ", error);
+      // TODO -- update build status to "error"
       throw error;
     }
   }
@@ -388,7 +409,7 @@ export class DispatcherService {
   // Send live dev server request to worker
   private async sendWorkerLiveDevServerRequest(
     workerIp: string,
-    formData: FormData,
+    formData: FormData
   ): Promise<any> {
     try {
       const response = await axios.post(
@@ -399,11 +420,12 @@ export class DispatcherService {
           headers: {
             ...formData.getHeaders(),
           },
-        },
+        }
       );
       return response.data;
     } catch (error) {
       console.log("Error sending worker live dev server request: ", error);
+      // TODO -- update build status to "error"
       throw error;
     }
   }
@@ -411,7 +433,7 @@ export class DispatcherService {
   private constructFormData(
     prototypeId: string,
     zipBuffer: Buffer,
-    port?: number,
+    port?: number
   ) {
     const formData = new FormData();
     formData.append("prototypeId", prototypeId);
