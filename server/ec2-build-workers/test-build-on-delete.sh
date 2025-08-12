@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 BASE_URL="${BASE_URL:-http://localhost:3002}"
-PROTOTYPE_ID="${PROTOTYPE_ID:-test-prototype-$(date +%s)}"
+PROTOTYPE_ID="${PROTOTYPE_ID:-$(date +%s)}"
 TEST_PROJECT_DIR="./test-project"
 
 echo "🧪 Testing build-on-delete functionality"

@@ -3,7 +3,7 @@
 # Test script for the new build-and-deploy endpoint with write_to_disk enabled
 # Usage: bash test-upload-write-to-disk.sh
 
-PROTOTYPE_ID="test-prototype-$(date +%s)"
+PROTOTYPE_ID="$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZIP_FILE="$SCRIPT_DIR/test-project.zip"
 

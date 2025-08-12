@@ -3,7 +3,7 @@
 # Test script for uploading individual files (no zip)
 # Usage: bash test-raw-upload.sh
 
-PROTOTYPE_ID="test-prototype-$(date +%s)"
+PROTOTYPE_ID="$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Testing individual file upload endpoint with prototype ID: $PROTOTYPE_ID"

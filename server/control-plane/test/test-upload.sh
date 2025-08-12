@@ -3,7 +3,7 @@
 # Test script for the file upload and build endpoints
 # Usage: bash test-upload.sh
 
-PROTOTYPE_ID="test-prototype-$(date +%s)"
+PROTOTYPE_ID="$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZIP_FILE="$SCRIPT_DIR/test-project.zip"
 
