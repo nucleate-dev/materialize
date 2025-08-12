@@ -806,6 +806,79 @@ const runningDevServers = new Map<string, DevServerInfo>();
 // --- Utility Functions ---
 
 /**
+ * Sanitizes relative paths to prevent directory traversal attacks
+ */
+function sanitizeRelPath(p: string): string {
+  // prevent ../ and absolute paths
+  const norm = path.posix.normalize(p.replace(/\\/g, "/"));
+  if (norm.startsWith("../") || path.isAbsolute(norm)) {
+    throw new Error(`Illegal path: ${p}`);
+  }
+  return norm;
+}
+
+/**
+ * Writes files from multipart form data based on a manifest
+ */
+async function writeMultipartFilesFromManifest(
+  partsIter: AsyncIterableIterator<any>,
+  baseDir: string
+): Promise<boolean> {
+  // Expect a 'manifest' field with JSON: { files: [{ id, path, filename }] }
+  let manifest: { files: Array<{ id: string; path?: string; filename: string }> } | null = null;
+  const pendingFiles = new Map<string, Buffer>();  // id -> buffer
+  const pendingMeta  = new Map<string, { path?: string; filename: string }>(); // id -> meta
+  let sawAnyFile = false;
+
+  for await (const part of partsIter) {
+    if (part.type === "field") {
+      if (part.fieldname === "manifest") {
+        try {
+          manifest = JSON.parse(String(part.value));
+          if (!manifest.files || !Array.isArray(manifest.files)) {
+            throw new Error("manifest.files must be an array");
+          }
+          for (const f of manifest.files) {
+            if (!f.id || !f.filename) throw new Error("Each manifest item needs id and filename");
+            pendingMeta.set(f.id, { path: f.path, filename: f.filename });
+          }
+        } catch (e: any) {
+          throw new Error(`Invalid manifest JSON: ${e.message}`);
+        }
+      }
+      // ignore other fields here; your outer handler already reads prototypeId, write_to_disk, etc.
+    } else if (part.type === "file" && part.fieldname === "files") {
+      // Each file part must include ?id=<same-as-manifest>
+      const id = (part.fields?.id?.value || part.filename || "").toString();
+      if (!id) throw new Error("Each files part must include an 'id' (use ?id=... on the field or filename)");
+      const buf = await part.toBuffer();
+      pendingFiles.set(id, buf);
+      sawAnyFile = true;
+    }
+  }
+
+  if (!manifest && !sawAnyFile) return false; // no file-array upload in this request
+
+  if (!manifest) throw new Error("Missing manifest for array-of-files upload");
+
+  // Write all files to disk
+  for (const item of manifest.files) {
+    const meta = pendingMeta.get(item.id);
+    const buf  = pendingFiles.get(item.id);
+    if (!meta || !buf) throw new Error(`Missing file or metadata for id=${item.id}`);
+
+    const relDir = meta.path ? sanitizeRelPath(meta.path) : "";
+    const relFile = sanitizeRelPath(path.posix.join(relDir, meta.filename));
+    const absFile = path.join(baseDir, relFile);
+
+    await fs.mkdir(path.dirname(absFile), { recursive: true });
+    await fs.writeFile(absFile, buf);
+  }
+
+  return true;
+}
+
+/**
  * Cleans up old temporary files and build artifacts to free up disk space
  */
 async function cleanupOldFiles(): Promise<void> {
@@ -1409,47 +1482,63 @@ fastifyApp.post(
     try {
       fastifyApp.log.info(`Starting build-and-deploy job ${jobId}`);
       const parts = request.parts();
+      const collected: any[] = [];
+      for await (const p of parts) collected.push(p);
 
-      for await (const part of parts) {
-        if (part.type === "field") {
-          if (part.fieldname === "prototypeId") {
-            prototypeId = part.value as string;
-          } else if (part.fieldname === "write_to_disk") {
-            writeToDisk = !(part.value === "false" || part.value === false);
-          }
-        } else if (part.type === "file") {
-          if (!prototypeId) {
-            return reply.code(400).send({
-              error: "prototypeId must be provided before file uploads",
-            });
-          }
-
-          const buffer = await part.toBuffer();
-          const isZip =
-            part.mimetype === "application/zip" ||
-            (part.filename && part.filename.toLowerCase().endsWith(".zip"));
-
-          if (isZip) {
-            fastifyApp.log.info(
-              `Processing zip file for build-and-deploy: ${part.filename}`,
-            );
-            const { extractDir, tempDir: extractTempDir } =
-              await extractZipForBuilding(buffer, prototypeId, writeToDisk);
-            projectDir = extractDir;
-            tempDir = extractTempDir; // Keep track of the outer temp dir for cleanup
-            break; // Process only the first zip file
-          } else {
-            return reply.code(400).send({
-              error: "build-and-deploy endpoint only supports zip files",
-            });
-          }
+      // Read prototypeId/write_to_disk first (from collected fields)
+      for (const part of collected) {
+        if (part.type === "field" && part.fieldname === "prototypeId") prototypeId = String(part.value);
+        if (part.type === "field" && part.fieldname === "write_to_disk") {
+          writeToDisk = !(part.value === "false" || part.value === false);
         }
       }
 
-      if (!prototypeId)
-        return reply.code(400).send({ error: "prototypeId is required" });
-      if (!projectDir)
-        return reply.code(400).send({ error: "No valid zip file provided" });
+      if (!prototypeId) return reply.code(400).send({ error: "prototypeId is required" });
+
+      // Prepare temp dirs
+      const { extractDir, tempDir: extractTempDir } = (() => {
+        const tempDir = path.join(BUILD_TEMP_DIR, `extract-build-${uuidv4()}`);
+        const extractDir = path.join(tempDir, "extracted");
+        return { extractDir, tempDir };
+      })();
+
+      await fs.mkdir(extractDir, { recursive: true });
+
+      // Try array-of-files path first
+      const filesWritten = await (async () => {
+        // Re-iterate the already collected parts via an async generator
+        async function* iterAgain() { for (const p of collected) yield p; }
+        try {
+          return await writeMultipartFilesFromManifest(iterAgain(), extractDir);
+        } catch (e: any) {
+          // If manifest was present but invalid, fail early
+          if (e.message?.includes("manifest")) throw e;
+          return false;
+        }
+      })();
+
+      if (filesWritten) {
+        // we built the directory from the array-of-files
+        projectDir = extractDir;
+        tempDir = extractTempDir;
+        if (writeToDisk) {
+          const saved: { filename: string; localPath: string }[] = [];
+          await saveFilesToDisk(extractDir, "", prototypeId, saved);
+        }
+      } else {
+        // Fallback: find a zip part as before
+        const zipPart = collected.find(
+          p => p.type === "file" &&
+          (p.mimetype === "application/zip" || p.filename?.toLowerCase().endsWith(".zip"))
+        );
+        if (!zipPart) {
+          return reply.code(400).send({ error: "No valid zip or file array provided" });
+        }
+        const buffer = await zipPart.toBuffer();
+        const res = await extractZipForBuilding(buffer, prototypeId, writeToDisk);
+        projectDir = res.extractDir;
+        tempDir = res.tempDir;
+      }
 
       fastifyApp.log.info(
         `Starting build-and-deploy for prototype ${prototypeId}, job ${jobId}`,
@@ -1604,46 +1693,60 @@ fastifyApp.post(
     try {
       fastifyApp.log.info(`Starting dev server job ${jobId}`);
       const parts = request.parts();
+      const collected: any[] = [];
+      for await (const p of parts) collected.push(p);
 
-      for await (const part of parts) {
-        if (part.type === "field") {
-          if (part.fieldname === "prototypeId") {
-            prototypeId = part.value as string;
-          } else if (part.fieldname === "port") {
-            devPort = parseInt(part.value as string, 10);
-          }
-        } else if (part.type === "file" && part.fieldname === "files") {
-          if (!prototypeId)
-            return reply.code(400).send({
-              error: "prototypeId must be provided before file uploads",
-            });
-
-          const buffer = await part.toBuffer();
-          const isZip =
-            part.mimetype === "application/zip" ||
-            (part.filename && part.filename.toLowerCase().endsWith(".zip"));
-
-          if (isZip) {
-            fastifyApp.log.info(
-              `Processing zip file for dev server: ${part.filename}`,
-            );
-            const { extractDir, tempDir: extractTempDir } =
-              await extractZipForBuilding(buffer, prototypeId, false);
-            projectDir = extractDir;
-            tempDir = extractTempDir;
-            break;
-          } else {
-            return reply
-              .code(400)
-              .send({ error: "dev-server endpoint only supports zip files" });
-          }
+      // Read prototypeId/write_to_disk/port first (from collected fields)
+      for (const part of collected) {
+        if (part.type === "field" && part.fieldname === "prototypeId") prototypeId = String(part.value);
+        if (part.type === "field" && part.fieldname === "port") {
+          devPort = parseInt(String(part.value), 10);
         }
       }
 
-      if (!prototypeId)
-        return reply.code(400).send({ error: "prototypeId is required" });
-      if (!projectDir)
-        return reply.code(400).send({ error: "No valid zip file provided" });
+      if (!prototypeId) return reply.code(400).send({ error: "prototypeId is required" });
+
+      // Prepare temp dirs
+      const { extractDir, tempDir: extractTempDir } = (() => {
+        const tempDir = path.join(BUILD_TEMP_DIR, `extract-build-${uuidv4()}`);
+        const extractDir = path.join(tempDir, "extracted");
+        return { extractDir, tempDir };
+      })();
+
+      await fs.mkdir(extractDir, { recursive: true });
+
+      // Try array-of-files path first
+      const filesWritten = await (async () => {
+        // Re-iterate the already collected parts via an async generator
+        async function* iterAgain() { for (const p of collected) yield p; }
+        try {
+          return await writeMultipartFilesFromManifest(iterAgain(), extractDir);
+        } catch (e: any) {
+          // If manifest was present but invalid, fail early
+          if (e.message?.includes("manifest")) throw e;
+          return false;
+        }
+      })();
+
+      if (filesWritten) {
+        // we built the directory from the array-of-files
+        projectDir = extractDir;
+        tempDir = extractTempDir;
+      } else {
+        // Fallback: find a zip part as before
+        const zipPart = collected.find(
+          p => p.type === "file" &&
+          (p.mimetype === "application/zip" || p.filename?.toLowerCase().endsWith(".zip"))
+        );
+        if (!zipPart) {
+          return reply.code(400).send({ error: "No valid zip or file array provided" });
+        }
+        const buffer = await zipPart.toBuffer();
+        const res = await extractZipForBuilding(buffer, prototypeId, false);
+        projectDir = res.extractDir;
+        tempDir = res.tempDir;
+      }
+
       if (!devPort) devPort = 19006; // Default Expo port
 
       if (runningDevServers.has(prototypeId)) {
