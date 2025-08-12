@@ -130,9 +130,10 @@ for i in "${!RELATIVE_FILES[@]}"; do
     
     # Verify file exists before adding to curl
     if [ -f "$ABS_FILE" ]; then
-        # FIXED: Use the relative file path as the filename so the server can match it to manifest
-        CURL_ARGS+=(-F "files=@$ABS_FILE;filename=$REL_FILE")
-        echo "  ✓ Added: $REL_FILE"
+        # FIXED: Include the unique ID field for each file so the server can properly match files
+        # The server expects part.fields.id.value to match the manifest ID
+        CURL_ARGS+=(-F "files=@$ABS_FILE;filename=$REL_FILE;id=$REL_FILE")
+        echo "  ✓ Added: $REL_FILE (id: $REL_FILE)"
     else
         echo "❌ ERROR: File $ABS_FILE does not exist!"
         exit 1

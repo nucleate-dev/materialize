@@ -120,7 +120,7 @@ export async function cleanupPrototypeS3Objects(
   try {
     const listCommand = new ListObjectsV2Command({
       Bucket: PROTOTYPE_BUCKET,
-      Prefix: `prototypes/${prototypeId}`,
+      Prefix: `${prototypeId}/`,
     });
 
     const listResult = await s3Client.send(listCommand);

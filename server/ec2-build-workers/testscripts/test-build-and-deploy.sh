@@ -48,9 +48,9 @@ for file in "${files_to_upload[@]}"; do
         
         # Create file entry in manifest
         if [ "$dir" = "." ]; then
-            manifest="$manifest{\"id\":\"file$file_count\",\"filename\":\"$filename\"}"
+            manifest="$manifest{\"id\":\"$file\",\"filename\":\"$filename\"}"
         else
-            manifest="$manifest{\"id\":\"file$file_count\",\"path\":\"$dir\",\"filename\":\"$filename\"}"
+            manifest="$manifest{\"id\":\"$file\",\"path\":\"$dir\",\"filename\":\"$filename\"}"
         fi
         ((file_count++))
     fi
@@ -68,12 +68,10 @@ CURL_CMD="$CURL_CMD -F \"write_to_disk=true\""
 CURL_CMD="$CURL_CMD -F \"manifest=$manifest\""
 
 # Add each file with corresponding ID
-file_index=0
 for file in "${files_to_upload[@]}"; do
     if [ -f "$file" ]; then
-        CURL_CMD="$CURL_CMD -F \"files=@$file;filename=file$file_index\""
-        echo "  - $file (id: file$file_index)"
-        ((file_index++))
+        CURL_CMD="$CURL_CMD -F \"files=@$file;filename=$file;id=$file\""
+        echo "  - $file (id: $file)"
     else
         echo "  - WARNING: $file not found, skipping"
     fi

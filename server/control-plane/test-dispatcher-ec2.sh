@@ -158,11 +158,11 @@ elif [ "$MODE" = "files" ]; then
         
         # Create file entry in manifest
         if [ "$dir" = "." ]; then
-            manifest="$manifest{\"id\":\"file$file_count\",\"filename\":\"$filename\"}"
+            manifest="$manifest{\"id\":\"$file\",\"filename\":\"$filename\"}"
         else
-            manifest="$manifest{\"id\":\"file$file_count\",\"path\":\"$dir\",\"filename\":\"$filename\"}"
+            manifest="$manifest{\"id\":\"$file\",\"path\":\"$dir\",\"filename\":\"$filename\"}"
         fi
-        echo "  - $file (id: file$file_count)"
+        echo "  - $file (id: $file)"
         ((file_count++))
     done
     manifest="$manifest]}"
@@ -187,11 +187,9 @@ elif [ "$MODE" = "files" ]; then
     CURL_CMD="$CURL_CMD -F \"manifest=$manifest\""
     
     # Add each file with corresponding ID
-    file_index=0
     for file in "${actual_files[@]}"; do
         if [ -f "$file" ]; then
-            CURL_CMD="$CURL_CMD -F \"files=@$file;filename=file$file_index\""
-            ((file_index++))
+            CURL_CMD="$CURL_CMD -F \"files=@$file;filename=$file;id=$file\""
         fi
     done
     
