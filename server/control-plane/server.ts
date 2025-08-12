@@ -5,6 +5,11 @@ import multipart from "@fastify/multipart";
 import { DispatcherService } from "./DispatcherService";
 import { CleanupService } from "./CleanupService";
 import { EC2Client } from "@aws-sdk/client-ec2";
+import {
+  ECSClient,
+  RunTaskCommand,
+  type RunTaskCommandInput,
+} from "@aws-sdk/client-ecs";
 import { GlideClient } from "@valkey/valkey-glide";
 import * as dotenv from "dotenv";
 
@@ -16,6 +21,10 @@ interface StatusParams {
 
 interface PrecheckBody {
   jwt: string;
+  prototype_id: string;
+}
+
+interface LaunchFargateBody {
   prototype_id: string;
 }
 
@@ -42,6 +51,10 @@ const initializeClients = async () => {
     region: process.env.AWS_REGION!,
   });
 
+  const ecsClient = new ECSClient({
+    region: process.env.AWS_REGION!,
+  });
+
   // Initialize Valkey client
   const endpointHost = process.env.CACHE_HOST!;
   const port = parseInt(process.env.CACHE_PORT!);
@@ -61,7 +74,7 @@ const initializeClients = async () => {
 
   console.log("Valkey cache initialized successfully");
 
-  return { cache, ec2Client };
+  return { cache, ec2Client, ecsClient };
 };
 
 /**
@@ -173,7 +186,6 @@ fastify.post(
   async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       let prototypeId: string | null = null;
-      let writeToDisK = false;
       let hotReload = false;
       let zipBuffer: Buffer | null = null;
 
@@ -186,11 +198,6 @@ fastify.post(
         if (part.type === "field") {
           if (part.fieldname === "prototypeId") {
             prototypeId = part.value as string;
-          } else if (
-            part.fieldname === "writeToDisK" ||
-            part.fieldname === "writeToDisk"
-          ) {
-            writeToDisK = part.value === "true" || part.value === true;
           } else if (part.fieldname === "hotReload") {
             hotReload = part.value === "true" || part.value === true;
           }
@@ -412,14 +419,57 @@ fastify.post(
   }
 );
 
+// Launch Fargate instance endpoint
+fastify.post(
+  "/launch-fargate-instance",
+  async (
+    request: FastifyRequest<{ Body: LaunchFargateBody }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { prototype_id } = request.body;
+
+      if (!prototype_id) {
+        return reply.status(400).send({
+          error: "prototype_id is required",
+        });
+      }
+
+      fastify.log.info(
+        `Launching Fargate instance for prototype: ${prototype_id}`
+      );
+
+      const result = await dispatcherService.launchFargateInstancePublic(
+        prototype_id
+      );
+
+      return reply.send({
+        success: true,
+        prototype_id,
+        task_arn: result.taskArn,
+        private_ip: result.privateIp,
+        message: "Fargate instance launched successfully",
+      });
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      fastify.log.error(e, "Failed to launch Fargate instance:");
+
+      return reply.status(500).send({
+        error: "Failed to launch Fargate instance",
+        message: e.message,
+      });
+    }
+  }
+);
+
 // Start server
 const start = async () => {
   try {
     // Initialize clients first
-    const { cache, ec2Client } = await initializeClients();
+    const { cache, ec2Client, ecsClient } = await initializeClients();
 
     // Create dispatcher service with initialized clients
-    dispatcherService = new DispatcherService(cache, ec2Client);
+    dispatcherService = new DispatcherService(cache, ec2Client, ecsClient);
 
     // Create cleanup service with cache
     cleanupService = new CleanupService(cache);
