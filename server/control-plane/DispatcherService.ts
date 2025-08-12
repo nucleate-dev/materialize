@@ -224,7 +224,6 @@ export class DispatcherService {
     framework,
     files,
     file_scope,
-    hot_reload,
   }: DispatchRequest): Promise<any> {
     try {
       // Check if build already exists
@@ -344,9 +343,9 @@ export class DispatcherService {
     file_scope,
   }: {
     prototype_id: string;
-    framework: 'expo_react_native' | 'react';
+    framework: "expo_react_native" | "react";
     files: Record<string, string>;
-    file_scope: 'updates' | 'complete';
+    file_scope: "updates" | "complete";
   }) {
     return {
       prototype_id,
@@ -363,26 +362,6 @@ export class DispatcherService {
   }
 }
 
-// const ALLOCATE_LUA = `
-// local usedKey = KEYS[1]
-// local startP = tonumber(ARGV[1]) or 4000
-// local endP   = tonumber(ARGV[2]) or 4099
-// local range  = endP - startP + 1
-// if range <= 0 then return nil end
-// local hint = tonumber(ARGV[3] or "")
-// local offset = 0
-// if hint and hint >= startP and hint <= endP then
-//   offset = hint - startP
-// end
-// for i = 0, range - 1 do
-//   local p = startP + ((offset + i) % range)
-//   if redis.call('SADD', usedKey, tostring(p)) == 1 then
-//     return tostring(p)
-//   end
-// end
-// return nil
-// `;
-
 interface ActiveBuild {
   fargate_task_arn: string;
   fargate_private_ip: string;
@@ -393,8 +372,7 @@ interface ActiveBuild {
 
 interface DispatchRequest {
   prototype_id: string;
-  framework: 'expo_react_native' | 'react';
+  framework: "expo_react_native" | "react";
   files: Record<string, string>;
-  file_scope: 'updates' | 'complete';
-  hot_reload: boolean;
+  file_scope: "updates" | "complete";
 }

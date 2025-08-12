@@ -29,10 +29,11 @@ interface LaunchFargateBody {
 }
 
 interface DispatchRequestBody {
+  jwt: string;
   prototype_id: string;
-  framework: 'expo_react_native' | 'react';
+  framework?: "expo_react_native" | "react";
   files: Record<string, string>; // Map<file_name, file_contents>
-  file_scope: 'updates' | 'complete';
+  file_scope: "updates" | "complete";
   hot_reload?: boolean;
 }
 
@@ -70,7 +71,6 @@ const initializeClients = async () => {
   return { cache, ec2Client, ecsClient };
 };
 
-
 const fastify = Fastify({
   logger: true,
   bodyLimit: 20 * 1024 * 1024, // 20MB
@@ -88,22 +88,26 @@ fastify.post(
     reply: FastifyReply
   ) => {
     try {
-      const { prototype_id, framework, files, file_scope, hot_reload } = request.body;
+      const { jwt, prototype_id, framework, files, file_scope, hot_reload } =
+        request.body;
 
       // Validation
+      if (!jwt) {
+        return reply.status(400).send({
+          error: "jwt is required",
+        });
+      }
+
       if (!prototype_id) {
         return reply.status(400).send({
           error: "prototype_id is required",
         });
       }
 
-      if (!framework) {
-        return reply.status(400).send({
-          error: "framework is required",
-        });
-      }
+      // Default framework to expo_react_native if not provided
+      const selectedFramework = framework || "expo_react_native";
 
-      if (!files || typeof files !== 'object') {
+      if (!files || typeof files !== "object") {
         return reply.status(400).send({
           error: "files is required and must be an object",
         });
@@ -127,10 +131,9 @@ fastify.post(
 
       const result = await dispatcherService.processDispatchRequest({
         prototype_id,
-        framework,
+        framework: selectedFramework,
         files,
         file_scope,
-        hot_reload: hot_reload || false,
       });
 
       return reply.send({
@@ -179,36 +182,6 @@ fastify.delete(
       return reply.status(500).send({
         error: "Failed to clear cache",
         message: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-);
-
-// Status endpoint
-fastify.get(
-  "/status/:prototypeId",
-  async (
-    request: FastifyRequest<{ Params: StatusParams }>,
-    reply: FastifyReply
-  ) => {
-    try {
-      // const { prototypeId } = request.params;
-      // const activeBuild = await redis.hget(REDIS_KEYS.ACTIVE_BUILDS, prototypeId);
-
-      // if (!activeBuild) {
-      //   return reply.status(404).send({ error: "Prototype not found" });
-      // }
-
-      return {
-        worker: "EC2 instance 1",
-        port: null,
-        url: "materializeui.com",
-        hotReload: false,
-        status: [],
-      };
-    } catch (error) {
-      return reply.status(500).send({
-        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
