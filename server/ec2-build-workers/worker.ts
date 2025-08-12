@@ -1,5 +1,6 @@
 import AWS from "aws-sdk";
 import { execSync, spawn, SpawnOptions } from "child_process";
+import dotenv from "dotenv";
 import fastify, {
   FastifyInstance,
   FastifyReply,
@@ -8,6 +9,9 @@ import fastify, {
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+
+// Load environment variables
+dotenv.config();
 
 // --- Types ---
 interface BuildLogEntry {
@@ -64,12 +68,15 @@ interface BuildAndDeployResponse {
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
 const WORK_DIR = process.env.WORK_DIR || "/tmp/fargate-builds";
-const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
 // --- AWS Setup ---
+// --- AWS Setup ---
 AWS.config.update({
   region: AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   httpOptions: {
     timeout: 300000, // 5 minutes
     connectTimeout: 60000, // 1 minute
@@ -77,17 +84,46 @@ AWS.config.update({
   maxRetries: 3,
 });
 
+// Verify credentials are loaded
+if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+  console.error("Missing AWS credentials in environment variables");
+  process.exit(1);
+}
+
 const s3 = new AWS.S3();
 
 // --- Utility Functions ---
 function isBinaryFile(filename: string): boolean {
   const ext = path.extname(filename).toLowerCase();
   const binaryExtensions = [
-    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svg',
-    '.ttf', '.otf', '.woff', '.woff2', '.eot',
-    '.mp4', '.mp3', '.wav', '.ogg', '.webm',
-    '.pdf', '.zip', '.tar', '.gz', '.rar',
-    '.exe', '.dmg', '.app', '.deb', '.rpm'
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".bmp",
+    ".ico",
+    ".svg",
+    ".ttf",
+    ".otf",
+    ".woff",
+    ".woff2",
+    ".eot",
+    ".mp4",
+    ".mp3",
+    ".wav",
+    ".ogg",
+    ".webm",
+    ".pdf",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".rar",
+    ".exe",
+    ".dmg",
+    ".app",
+    ".deb",
+    ".rpm",
   ];
   return binaryExtensions.includes(ext);
 }
@@ -171,7 +207,7 @@ async function writeProjectFiles(
     // Write file content
     if (file.isBase64) {
       // Decode base64 content to binary
-      const binaryContent = Buffer.from(file.content, 'base64');
+      const binaryContent = Buffer.from(file.content, "base64");
       await fs.writeFile(filePath, binaryContent);
     } else {
       // Write as UTF-8 text
