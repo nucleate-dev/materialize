@@ -1,16 +1,19 @@
 import multipart from "@fastify/multipart";
 import AWS, { S3 } from "aws-sdk";
 import { ChildProcess, exec, spawn } from "child_process";
+import { createHash } from "crypto";
 import dotenv from "dotenv";
 import fastify, {
   FastifyInstance,
   FastifyReply,
   FastifyRequest,
 } from "fastify";
-import { createReadStream } from "fs";
+import { createReadStream, createWriteStream } from "fs";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
+import { Transform } from "stream";
+import { pipeline } from "stream/promises";
 import { promisify } from "util";
 import { v4 as uuidv4 } from "uuid";
 
@@ -775,10 +778,10 @@ fastifyApp.register(multipart, {
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB per file
     files: 100,
-    fields: 50,
+    fields: 100,
     fieldSize: 10 * 1024 * 1024, // 10MB for field values (manifest)
   },
-  attachFieldsToBody: false,
+  attachFieldsToBody: true,
   // Add timeout for reading parts
   throwFileSizeLimit: false,
 });
@@ -915,46 +918,123 @@ async function cleanupOldFiles(): Promise<void> {
       ) {
         const fullPath = path.join(BUILD_TEMP_DIR, entryName);
         try {
-          const stats = await fs.stat(fullPath);
-          if (!stats.isDirectory()) continue;
-          if (now - stats.mtime.getTime() > maxAge) {
+          const stat = await fs.stat(fullPath);
+          if (now - stat.mtime.getTime() > maxAge) {
             await fs.rm(fullPath, { recursive: true, force: true });
-            console.log(`Cleaned up old temp directory: ${fullPath}`);
+            console.log(`🧹 Cleaned up old temp directory: ${entryName}`);
           }
-        } catch (error) {
-          // Ignore errors for individual files
+        } catch (e) {
+          // Ignore errors for individual entries
         }
       }
     }
 
-    // Clean up old prototypes directories if they exist
-    try {
-      const prototypeEntries = await fs.readdir(PROTOTYPES_DIR);
-      for (const entryName of prototypeEntries) {
-        const fullPath = path.join(PROTOTYPES_DIR, entryName);
+    // Clean up extracted builds
+    const extractedDir = path.join(BUILD_TEMP_DIR, "extracted");
+    if (
+      await fs
+        .access(extractedDir)
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      const extractedEntries = await fs.readdir(extractedDir);
+      for (const entryName of extractedEntries) {
+        const fullPath = path.join(extractedDir, entryName);
         try {
-          const stats = await fs.stat(fullPath);
-          if (!stats.isDirectory()) continue;
-          if (now - stats.mtime.getTime() > maxAge) {
+          const stat = await fs.stat(fullPath);
+          if (now - stat.mtime.getTime() > maxAge) {
             await fs.rm(fullPath, { recursive: true, force: true });
-            console.log(`Cleaned up old prototype directory: ${fullPath}`);
+            console.log(`🧹 Cleaned up old extracted build: ${entryName}`);
           }
-        } catch (error) {
-          // Ignore errors for individual directories
+        } catch (e) {
+          // Ignore errors for individual entries
         }
       }
-    } catch (error: any) {
-      if (error.code !== "ENOENT") {
-        console.error(
-          "Error during prototype directory cleanup:",
-          error.message,
+    }
+  } catch (error) {
+    console.warn("Failed to cleanup old files:", error);
+  }
+}
+
+/**
+ * Processes file parts using streaming to avoid memory accumulation
+ */
+async function processFilePartStreaming(
+  part: any,
+  id: string,
+  tempDir: string,
+  maxFileSize: number,
+): Promise<{ filePath: string; size: number }> {
+  const tempFilePath = path.join(tempDir, `upload-${id}-${Date.now()}`);
+  const writeStream = createWriteStream(tempFilePath);
+
+  let totalSize = 0;
+  const hashStream = createHash("sha256");
+
+  // Create transform stream to track size and hash
+  const sizeTracker = new Transform({
+    transform(chunk, encoding, callback) {
+      totalSize += chunk.length;
+      if (totalSize > maxFileSize) {
+        return callback(
+          new Error(
+            `File ${id} exceeds maximum size of ${maxFileSize / 1024 / 1024}MB`,
+          ),
         );
       }
-      // Ignore error if the main prototypes directory doesn't exist
-    }
-  } catch (error: any) {
-    console.error("Error during cleanup:", error.message);
+      hashStream.update(chunk);
+      callback(null, chunk);
+    },
+  });
+
+  try {
+    await pipeline(part.file, sizeTracker, writeStream);
+    return { filePath: tempFilePath, size: totalSize };
+  } catch (error) {
+    // Cleanup temp file on error
+    await fs.unlink(tempFilePath).catch(() => {});
+    throw error;
   }
+}
+
+/**
+ * Cleanup temporary files created during streaming
+ */
+async function cleanupTempFiles(tempFileMap: Map<string, any>): Promise<void> {
+  const cleanupPromises: Promise<void>[] = [];
+
+  for (const [id, fileInfo] of tempFileMap.entries()) {
+    if (fileInfo.tempFilePath) {
+      cleanupPromises.push(
+        fs.unlink(fileInfo.tempFilePath).catch((error) => {
+          console.warn(
+            `Failed to cleanup temp file ${fileInfo.tempFilePath}:`,
+            error.message,
+          );
+        }),
+      );
+    }
+  }
+
+  if (cleanupPromises.length > 0) {
+    await Promise.allSettled(cleanupPromises);
+    console.log(`🧹 Cleaned up ${cleanupPromises.length} temporary files`);
+  }
+
+  tempFileMap.clear();
+}
+
+/**
+ * Log memory usage for monitoring
+ */
+function logMemoryUsage(context: string) {
+  const usage = process.memoryUsage();
+  console.log(`[MEMORY] ${context}:`, {
+    rss: `${Math.round(usage.rss / 1024 / 1024)}MB`,
+    heapUsed: `${Math.round(usage.heapUsed / 1024 / 1024)}MB`,
+    heapTotal: `${Math.round(usage.heapTotal / 1024 / 1024)}MB`,
+    external: `${Math.round(usage.external / 1024 / 1024)}MB`,
+  });
 }
 
 /**
@@ -1367,7 +1447,7 @@ async function buildAndDeployFromExistingProject(
       );
       if (hasIndexHtml) {
         return {
-          buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+          buildUrl: `https://${prototypeId}.render.materializeui.com`,
           buildLog,
         };
       }
@@ -1387,7 +1467,7 @@ async function buildAndDeployFromExistingProject(
     );
 
   return {
-    buildUrl: `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`,
+    buildUrl: `https://${prototypeId}.render.materializeui.com`,
     buildLog,
   };
 }
@@ -1415,6 +1495,14 @@ fastifyApp.post(
     let writeToDisk = true;
     let projectDir: string | null = null;
     let tempDir: string | null = null;
+    const tempFiles = new Map<
+      string,
+      {
+        tempFilePath: string;
+        meta: { path?: string; filename: string };
+        size: number;
+      }
+    >();
 
     try {
       console.log(`🚀 [${jobId}] Starting build-and-deploy job`);
@@ -1428,19 +1516,17 @@ fastifyApp.post(
         `📊 [${jobId}] Content-Length: ${request.headers["content-length"]}`,
       );
 
-      // FIXED: Process multipart data more efficiently without collecting everything in memory
       const parts = request.parts();
 
       // Read fields first to get prototypeId and write_to_disk
       let manifest: {
         files: Array<{ id: string; path?: string; filename: string }>;
       } | null = null;
-      const tempFiles = new Map<
-        string,
-        { buffer: Buffer; meta: { path?: string; filename: string } }
-      >();
 
       console.log(`📦 [${jobId}] Beginning multipart processing...`);
+
+      // Monitor memory usage before file processing
+      logMemoryUsage(`Before processing files for job ${jobId}`);
 
       let partCount = 0;
       for await (const part of parts) {
@@ -1491,42 +1577,43 @@ fastifyApp.post(
 
           // FIXED: Add file size limits and streaming for large files
           const maxFileSize = 50 * 1024 * 1024; // 50MB per file
-          let fileBuffer: Buffer;
 
           try {
-            // FIXED: Use streaming with size limit instead of toBuffer() for large files
-            const chunks: Buffer[] = [];
-            let totalSize = 0;
-
-            for await (const chunk of part.file) {
-              totalSize += chunk.length;
-              if (totalSize > maxFileSize) {
-                throw new Error(
-                  `File ${id} exceeds maximum size of ${maxFileSize / 1024 / 1024}MB`,
-                );
-              }
-              chunks.push(chunk);
+            // Create temp directory if it doesn't exist yet
+            if (!tempDir) {
+              tempDir = path.join(BUILD_TEMP_DIR, `build-job-${jobId}`);
+              await fs.mkdir(tempDir, { recursive: true });
             }
 
-            fileBuffer = Buffer.concat(chunks);
-            console.log(
-              `📁 [${jobId}] File ${id} processed: ${fileBuffer.length} bytes`,
+            const { filePath, size } = await processFilePartStreaming(
+              part,
+              id,
+              tempDir,
+              maxFileSize,
             );
+
+            console.log(
+              `📁 [${jobId}] File ${id} streamed to temp file: ${size} bytes`,
+            );
+
+            // Store temp file path instead of buffer
+            tempFiles.set(id, {
+              tempFilePath: filePath,
+              meta: { path: "", filename: id }, // Will be updated from manifest
+              size,
+            });
           } catch (error: any) {
             throw new Error(`Failed to process file ${id}: ${error.message}`);
           }
-
-          // Store temporarily until we have manifest
-          tempFiles.set(id, {
-            buffer: fileBuffer,
-            meta: { path: "", filename: id }, // Will be updated from manifest
-          });
         }
       }
 
       console.log(
         `📦 [${jobId}] Completed multipart parsing. Processed ${partCount} parts`,
       );
+
+      // Monitor memory usage after file processing
+      logMemoryUsage(`After processing files for job ${jobId}`);
 
       // FIXED: Validate required fields
       if (!prototypeId) {
@@ -1545,48 +1632,74 @@ fastifyApp.post(
         `🏷️  [${jobId}] Processing prototype: ${prototypeId} (writeToDisk: ${writeToDisk})`,
       );
 
-      // FIXED: Create temp directories with better error handling
-      tempDir = path.join(BUILD_TEMP_DIR, `build-job-${jobId}`);
-      projectDir = path.join(tempDir, "source");
+      // FIXED: Create project directory (tempDir already created during file processing)
+      projectDir = path.join(tempDir!, "source");
 
       try {
         await fs.mkdir(projectDir, { recursive: true });
-        console.log(`📁 [${jobId}] Created temp directories: ${tempDir}`);
+        console.log(`📁 [${jobId}] Created project directory: ${projectDir}`);
       } catch (error: any) {
-        throw new Error(`Failed to create temp directory: ${error.message}`);
+        throw new Error(`Failed to create project directory: ${error.message}`);
       }
 
       console.log(
         `📋 [${jobId}] Writing ${manifest.files.length} files to disk...`,
       );
 
-      for (const fileInfo of manifest.files) {
-        const tempFile = tempFiles.get(fileInfo.id);
-        if (!tempFile) {
-          throw new Error(
-            `File ${fileInfo.id} referenced in manifest but not found in uploaded files`,
+      const tempFilesToCleanup: string[] = [];
+
+      try {
+        for (const fileInfo of manifest.files) {
+          const tempFile = tempFiles.get(fileInfo.id);
+          if (!tempFile) {
+            throw new Error(
+              `File ${fileInfo.id} referenced in manifest but not found in uploaded files`,
+            );
+          }
+
+          const relDir = fileInfo.path ? sanitizeRelPath(fileInfo.path) : "";
+          const relFile = sanitizeRelPath(
+            path.posix.join(relDir, fileInfo.filename),
           );
+          const absFile = path.join(projectDir, relFile);
+
+          try {
+            await fs.mkdir(path.dirname(absFile), { recursive: true });
+
+            // Move temp file instead of writing buffer
+            await fs.rename(tempFile.tempFilePath, absFile);
+            console.log(
+              `📁 [${jobId}] Moved file: ${relFile} (${tempFile.size} bytes)`,
+            );
+          } catch (error: any) {
+            // If rename fails, try copy + delete (cross-filesystem compatibility)
+            try {
+              await fs.copyFile(tempFile.tempFilePath, absFile);
+              tempFilesToCleanup.push(tempFile.tempFilePath);
+              console.log(
+                `📁 [${jobId}] Copied file: ${relFile} (${tempFile.size} bytes)`,
+              );
+            } catch (copyError: any) {
+              throw new Error(
+                `Failed to write file ${fileInfo.filename}: ${copyError.message}`,
+              );
+            }
+          }
+        }
+      } finally {
+        // Cleanup any remaining temp files
+        for (const tempFilePath of tempFilesToCleanup) {
+          await fs.unlink(tempFilePath).catch(() => {}); // Ignore cleanup errors
         }
 
-        const relDir = fileInfo.path ? sanitizeRelPath(fileInfo.path) : "";
-        const relFile = sanitizeRelPath(
-          path.posix.join(relDir, fileInfo.filename),
-        );
-        const absFile = path.join(projectDir, relFile);
+        // Clear temp files map to free references
+        tempFiles.clear();
 
-        try {
-          await fs.mkdir(path.dirname(absFile), { recursive: true });
-          await fs.writeFile(absFile, tempFile.buffer);
-          console.log(`📁 [${jobId}] Wrote file: ${relFile}`);
-        } catch (error: any) {
-          throw new Error(
-            `Failed to write file ${fileInfo.filename}: ${error.message}`,
-          );
-        }
+        // Monitor memory usage after cleanup
+        logMemoryUsage(`After cleanup for job ${jobId}`);
       }
 
-      // FIXED: Clear temp files from memory immediately
-      tempFiles.clear();
+      // Temp files are cleaned up in the finally block above
 
       console.log(
         `✅ [${jobId}] Successfully wrote ${manifest.files.length} files to project directory`,
@@ -1689,7 +1802,7 @@ fastifyApp.post(
             buildUrl: error.successfulUploads.some((f) =>
               f.Key.endsWith("index.html"),
             )
-              ? `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`
+              ? `https://${prototypeId}.render.materializeui.com`
               : null,
           });
         }
@@ -1713,7 +1826,7 @@ fastifyApp.post(
         .rm(path.dirname(outputPath), { recursive: true, force: true })
         .catch(() => {});
 
-      const buildUrl = `https://${BUCKET_NAME}.s3.amazonaws.com/${buildS3Prefix}/index.html`;
+      const buildUrl = `https://${prototypeId}.render.materializeui.com`;
       console.log(`🎉 [${jobId}] Build and deploy completed successfully!`);
       console.log(`🌐 [${jobId}] Live URL: ${buildUrl}`);
 
@@ -1743,6 +1856,10 @@ fastifyApp.post(
       fastifyApp.log.error(`Build-and-deploy failed for job ${jobId}:`, error);
 
       // FIXED: Better cleanup on error
+      if (tempFiles.size > 0) {
+        await cleanupTempFiles(tempFiles);
+      }
+
       if (tempDir) {
         await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
       }
