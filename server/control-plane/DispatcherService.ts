@@ -7,6 +7,8 @@ import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import * as dotenv from "dotenv";
 import { GlideClient } from "@valkey/valkey-glide";
 import FormData from "form-data";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./types/supabase";
 
 dotenv.config();
 
@@ -24,6 +26,91 @@ export class DispatcherService {
     this.cache = cache;
     this.ec2Client = ec2Client;
     this.autoScalingClient = autoScalingClient;
+  }
+
+  // Precheck prototype status
+  public async prototypeDispatchPrecheck(
+    jwt: string,
+    prototypeId: string
+  ): Promise<{
+    state: "dne" | "active_dev_server" | "active_build";
+    status: "updating" | "error" | "stable" | null;
+    viewing_url: string;
+  }> {
+    try {
+      // 1. Create Anon Supabase client with JWT
+      const supabase = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+            },
+          },
+        }
+      );
+
+      // 2. Verify JWT and get user
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser(jwt);
+      if (authError || !user) {
+        throw new Error("Invalid JWT or user not authenticated");
+      }
+
+      // 3. Attempt to fetch prototype from database to verify permissions
+      const { data: prototype, error: prototypeError } = await supabase
+        .from("prototypes")
+        .select("*")
+        .eq("id", prototypeId)
+        .single();
+
+      if (prototypeError || !prototype) {
+        throw new Error(
+          "Prototype not found or user does not have permissions"
+        );
+      }
+
+      // 4. Check active build in cache
+      const activeBuildKey = `active_build:${prototypeId}`;
+      const existingBuildJson = await this.cache.get(activeBuildKey);
+
+      if (existingBuildJson) {
+        const existingBuild: ActiveBuild = JSON.parse(
+          existingBuildJson as string
+        );
+
+        // Determine state based on port
+        const state =
+          existingBuild.port === null || existingBuild.port === ""
+            ? "active_build"
+            : "active_dev_server";
+
+        return {
+          state,
+          status: existingBuild.status,
+          viewing_url: existingBuild.url || this.getS3Url(prototypeId),
+        };
+      } else {
+        // No active build, return S3 URL
+        return {
+          state: "dne",
+          status: null,
+          viewing_url: this.getS3Url(prototypeId),
+        };
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private getS3Url(prototypeId: string): string {
+    // Construct S3/CloudFront URL for the prototype
+    const baseUrl =
+      process.env.S3_CLOUDFRONT_URL || "https://d123456789.cloudfront.net";
+    return `${baseUrl}/${prototypeId}/index.html`;
   }
 
   // Process build request with zipped files
@@ -76,8 +163,7 @@ export class DispatcherService {
       const updatedBuild: ActiveBuild = {
         ...existingBuild,
         url,
-        type: hotReload ? "hot_reload" : "build",
-        status: "running",
+        status: "stable",
         last_touched: Math.floor(Date.now() / 1000),
       };
       await this.cache.set(activeBuildKey, JSON.stringify(updatedBuild));
@@ -119,14 +205,14 @@ export class DispatcherService {
       console.log(`Allocated port ${allocatedPort} for hot reload`);
     }
 
-    // Create new build entry in cache PRIOR to sending reques to build worker, in case build worker request fails
+    // Create new build entry in cache PRIOR to sending request to build worker, in case build worker request fails
+    // and because status needs to be updated to "updating"
     const newBuild: ActiveBuild = {
       worker_host: instances[0].InstanceId,
       worker_private_ip: workerIp,
       port: allocatedPort || "",
       url: "",
-      type: hotReload ? "hot_reload" : "build",
-      status: "running",
+      status: "updating",
       last_touched: Math.floor(Date.now() / 1000),
     };
     await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
@@ -172,8 +258,10 @@ export class DispatcherService {
         ...existingBuild,
         port: allocatedPort,
       };
-      await this.cache.set(activeBuildKey, JSON.stringify(existingBuild));
     }
+
+    existingBuild.status = "updating";
+    await this.cache.set(activeBuildKey, JSON.stringify(existingBuild));
 
     const formData = this.constructFormData(
       prototypeId,
@@ -421,8 +509,7 @@ interface ActiveBuild {
   worker_private_ip: string;
   port: string | number;
   url: string;
-  type: "build" | "hot_reload";
-  status: "starting" | "running" | "error" | "stopped";
+  status: "updating" | "error" | "stable";
   last_touched: number;
 }
 

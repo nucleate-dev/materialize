@@ -15,6 +15,11 @@ interface StatusParams {
   prototypeId: string;
 }
 
+interface PrecheckBody {
+  jwt: string;
+  prototype_id: string;
+}
+
 // Initialize clients
 const initializeClients = async () => {
   // Initialize AWS clients
@@ -167,6 +172,76 @@ fastify.get(
     } catch (error) {
       return reply.status(500).send({
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+// Prototype dispatch precheck endpoint
+fastify.post(
+  "/dispatch-precheck",
+  async (
+    request: FastifyRequest<{ Body: PrecheckBody }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { jwt, prototype_id } = request.body;
+
+      if (!jwt) {
+        return reply.status(400).send({
+          error: "JWT is required",
+        });
+      }
+
+      if (!prototype_id) {
+        return reply.status(400).send({
+          error: "prototype_id is required",
+        });
+      }
+
+      fastify.log.info(
+        `Processing precheck request for prototype: ${prototype_id}`
+      );
+
+      const result = await dispatcherService.prototypeDispatchPrecheck(
+        jwt,
+        prototype_id
+      );
+
+      return reply.send({
+        success: true,
+        state: result.state,
+        status: result.status,
+        viewing_url: result.viewing_url,
+      });
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      fastify.log.error(e, "Precheck request failed:");
+
+      // Check if it's an authentication or permission error
+      if (
+        e.message.includes("Invalid JWT") ||
+        e.message.includes("not authenticated")
+      ) {
+        return reply.status(401).send({
+          error: "Unauthorized",
+          message: e.message,
+        });
+      }
+
+      if (
+        e.message.includes("Prototype not found") ||
+        e.message.includes("does not have permissions")
+      ) {
+        return reply.status(404).send({
+          error: "Prototype not found",
+          message: e.message,
+        });
+      }
+
+      return reply.status(500).send({
+        error: "Internal server error",
+        message: e.message,
       });
     }
   }
