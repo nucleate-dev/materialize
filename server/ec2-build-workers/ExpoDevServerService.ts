@@ -456,15 +456,7 @@ export class ExpoDevServerService {
 
       this.state.process = spawn(
         "npx",
-        [
-          "expo",
-          "start",
-          "--web",
-          "--tunnel",
-          "--port",
-          port.toString(),
-          "--non-interactive",
-        ],
+        ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
         {
           cwd: projectDir,
           env: {
