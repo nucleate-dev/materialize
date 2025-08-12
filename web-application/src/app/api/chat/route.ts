@@ -158,7 +158,36 @@ export async function POST(request: NextRequest) {
     const fileManager = new FileManager(snackFiles, prototype_id); // NO DB PERSISTENCE
 
     // ------------------------------------------------------------------------------------------------
-    // 4. Load/generate additional project context
+    // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
+    // ------------------------------------------------------------------------------------------------
+    const precheckResponse = await fetch(
+      `${process.env.SERVER_ENDPOINT!}/dispatch-precheck`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jwt: token,
+          prototype_id: "1813ea64-0a08-4d30-bed8-059d84e22a1d",
+        }),
+      },
+    );
+
+    const precheckData = await precheckResponse.json();
+    console.log("Dispatch precheck response:", precheckData);
+    if (precheckData.status === "updating") {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot chat while a build is currently in progress. Materialize agents won't be able to build your files.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // 5. Load/generate additional project context
     // ------------------------------------------------------------------------------------------------
     const lastMessage = messages[messages.length - 1];
     let userMessage = lastMessage.content;
@@ -183,14 +212,14 @@ export async function POST(request: NextRequest) {
     }
 
     // ------------------------------------------------------------------------------------------------
-    // 5. Start streamed response to the client
+    // 6. Start streamed response to the client
     // ------------------------------------------------------------------------------------------------
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
           // ------------------------------------------------------------------------------------------------
-          // 6. Execute planning phase
+          // 7. Execute planning phase
           // ------------------------------------------------------------------------------------------------
           const finalResponse = await handlePlanningPhase(
             messages,
@@ -203,7 +232,7 @@ export async function POST(request: NextRequest) {
           );
 
           // ------------------------------------------------------------------------------------------------
-          // 7. Execute execution phase
+          // 8. Execute execution phase
           // ------------------------------------------------------------------------------------------------
           await handleExecutionPhase(
             finalResponse,
@@ -215,6 +244,28 @@ export async function POST(request: NextRequest) {
             encoder,
             chat_session_id,
           );
+
+          // ------------------------------------------------------------------------------------------------
+          // 9. TODO -- pre-build and check for any errors, and if so then fix
+          // ------------------------------------------------------------------------------------------------
+          if (precheckData.state === "dne") {
+            // TODO -- dispatch build request with only uploaded files
+            if (userTier === ProductKeys.PRO_SUBSCRIPTION) {
+              // TODO -- dispatch hot reload request
+            } else {
+              // TODO -- dispatch traditional build request
+            }
+          } else if (
+            precheckData.state === "active_dev_server" ||
+            precheckData.state === "active_build"
+          ) {
+            // TODO -- dispatch build request with only uploaded files
+            if (userTier === ProductKeys.PRO_SUBSCRIPTION) {
+              // TODO -- dispatch hot reload request
+            } else {
+              // TODO -- dispatch traditional build request
+            }
+          }
 
           // ------------------------------------------------------------------------------------------------
           // 8. Track API usage and get updated count
@@ -230,10 +281,18 @@ export async function POST(request: NextRequest) {
             // For users with subscription, use their billing period
             let periodStart = startOfMonthISO;
             let periodEnd = new Date().toISOString();
-            
-            if (userSubscription && userSubscription.current_period_start && userSubscription.current_period_end) {
-              periodStart = new Date(userSubscription.current_period_start * 1000).toISOString();
-              periodEnd = new Date(userSubscription.current_period_end * 1000).toISOString();
+
+            if (
+              userSubscription &&
+              userSubscription.current_period_start &&
+              userSubscription.current_period_end
+            ) {
+              periodStart = new Date(
+                userSubscription.current_period_start * 1000,
+              ).toISOString();
+              periodEnd = new Date(
+                userSubscription.current_period_end * 1000,
+              ).toISOString();
             }
 
             const { count: newCount } = await supabase
@@ -244,7 +303,9 @@ export async function POST(request: NextRequest) {
               .lte("created_at", periodEnd);
 
             updatedMessageCount = newCount || 0;
-            console.log(`Updated message count for user ${userID}: ${updatedMessageCount}`);
+            console.log(
+              `Updated message count for user ${userID}: ${updatedMessageCount}`,
+            );
           } catch (countError) {
             console.error("Error fetching updated message count:", countError);
           }
