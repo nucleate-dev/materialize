@@ -9,15 +9,14 @@ import {
 
 // Initialize S3 client
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
+  region: "us-east-2",
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
 });
 
-const PROTOTYPE_BUCKET =
-  process.env.S3_PROTOTYPE_BUCKET || "materialize-prototypes";
+const PROTOTYPE_BUCKET = "materialize-sites";
 
 export interface S3CopyResult {
   success: boolean;

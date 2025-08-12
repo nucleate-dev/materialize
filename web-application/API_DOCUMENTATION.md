@@ -111,7 +111,7 @@ JWT_SECRET=your_jwt_secret
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
-S3_PROTOTYPE_BUCKET=materialize-prototypes
+S3_PROTOTYPE_BUCKET=materialize-sites
 ```
 
 ## Example Usage
