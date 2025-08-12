@@ -9,6 +9,7 @@ import fastify, {
 import fs from "fs/promises";
 import { BuilderService } from "./BuilderService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
+import { PublicApiService } from "./PublicApiService.js";
 
 // Load environment variables
 dotenv.config();
@@ -44,6 +45,9 @@ const builderService = new BuilderService(WORK_DIR, S3_BUCKET, s3);
 
 // Initialize ExpoDevServerService
 const expoDevServerService = new ExpoDevServerService(WORK_DIR);
+
+// Initialize PublicApiService
+const publicApiService = new PublicApiService(builderService, expoDevServerService, WORK_DIR);
 
 // --- Utility Functions ---
 
@@ -172,6 +176,9 @@ app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
 // Register builder endpoints
 builderService.registerRoutes(app);
 await expoDevServerService.register(app);
+
+// Register public API endpoints
+publicApiService.registerRoutes(app);
 
 // --- Graceful Shutdown Handling ---
 process.on("SIGTERM", async () => {
