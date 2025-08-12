@@ -28,19 +28,12 @@ interface LaunchFargateBody {
   prototype_id: string;
 }
 
-interface FileManifestItem {
-  id: string;
-  path?: string;
-  filename: string;
-}
-
-interface FileManifest {
-  files: FileManifestItem[];
-}
-
-interface FileData {
-  content: Buffer;
-  relativePath: string;
+interface DispatchRequestBody {
+  prototype_id: string;
+  framework: 'expo_react_native' | 'react';
+  files: Record<string, string>; // Map<file_name, file_contents>
+  file_scope: 'updates' | 'complete';
+  hot_reload?: boolean;
 }
 
 // Initialize clients
@@ -77,94 +70,6 @@ const initializeClients = async () => {
   return { cache, ec2Client, ecsClient };
 };
 
-/**
- * Sanitizes relative paths to prevent directory traversal attacks
- */
-function sanitizeRelPath(p: string): string {
-  const path = require("path");
-  // prevent ../ and absolute paths
-  const norm = path.posix.normalize(p.replace(/\\/g, "/"));
-  if (norm.startsWith("../") || path.isAbsolute(norm)) {
-    throw new Error(`Illegal path: ${p}`);
-  }
-  return norm;
-}
-
-/**
- * Processes array-of-files from multipart form data
- */
-async function processArrayOfFiles(
-  partsIter: AsyncIterableIterator<any>
-): Promise<{ files: FileData[]; manifest: FileManifest } | null> {
-  let manifest: FileManifest | null = null;
-  const pendingFiles = new Map<string, Buffer>();
-  const pendingMeta = new Map<string, { path?: string; filename: string }>();
-  let sawAnyFile = false;
-
-  for await (const part of partsIter) {
-    if (part.type === "field") {
-      if (part.fieldname === "manifest") {
-        try {
-          manifest = JSON.parse(String(part.value));
-          if (!manifest || !manifest.files || !Array.isArray(manifest.files)) {
-            throw new Error("manifest.files must be an array");
-          }
-          for (const f of manifest.files) {
-            if (!f.id || !f.filename)
-              throw new Error("Each manifest item needs id and filename");
-            pendingMeta.set(f.id, { path: f.path, filename: f.filename });
-          }
-        } catch (e: any) {
-          throw new Error(`Invalid manifest JSON: ${e.message}`);
-        }
-      }
-    } else if (part.type === "file" && part.fieldname === "files") {
-      const id = (part.fields?.id?.value || part.filename || "").toString();
-      if (!id) throw new Error("Each files part must include an 'id'");
-      const buf = await part.toBuffer();
-      pendingFiles.set(id, buf);
-      sawAnyFile = true;
-    }
-  }
-
-  if (!manifest && !sawAnyFile) return null;
-  if (!manifest) throw new Error("Missing manifest for array-of-files upload");
-
-  // Process files according to manifest
-  const files: FileData[] = [];
-  for (const item of manifest.files) {
-    const meta = pendingMeta.get(item.id);
-    const buf = pendingFiles.get(item.id);
-    if (!meta || !buf)
-      throw new Error(`Missing file or metadata for id=${item.id}`);
-
-    const relDir = meta.path ? sanitizeRelPath(meta.path) : "";
-    const relFile = sanitizeRelPath(
-      relDir ? `${relDir}/${meta.filename}` : meta.filename
-    );
-
-    files.push({
-      content: buf,
-      relativePath: relFile,
-    });
-  }
-
-  return { files, manifest };
-}
-
-/**
- * Creates a zip buffer from array of files
- */
-async function createZipFromFiles(files: FileData[]): Promise<Buffer> {
-  const JSZip = require("jszip");
-  const zip = new JSZip();
-
-  for (const file of files) {
-    zip.file(file.relativePath, file.content);
-  }
-
-  return await zip.generateAsync({ type: "nodebuffer" });
-}
 
 const fastify = Fastify({
   logger: true,
@@ -172,105 +77,65 @@ const fastify = Fastify({
 });
 fastify.register(cors, { origin: true, credentials: true });
 
-// Register multipart plugin for file uploads
-fastify.register(multipart);
-
 let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
-
-// Remove schema for multipart endpoint since we handle form data directly
 
 // Routes
 fastify.post(
   "/dispatch",
-  async (request: FastifyRequest, reply: FastifyReply) => {
+  async (
+    request: FastifyRequest<{ Body: DispatchRequestBody }>,
+    reply: FastifyReply
+  ) => {
     try {
-      let prototypeId: string | null = null;
-      let hotReload = false;
-      let zipBuffer: Buffer | null = null;
+      const { prototype_id, framework, files, file_scope, hot_reload } = request.body;
 
-      const parts = (request as any).parts();
-      const collected: any[] = [];
-      for await (const p of parts) collected.push(p);
-
-      // First pass: extract form fields
-      for (const part of collected) {
-        if (part.type === "field") {
-          if (part.fieldname === "prototypeId") {
-            prototypeId = part.value as string;
-          } else if (part.fieldname === "hotReload") {
-            hotReload = part.value === "true" || part.value === true;
-          }
-        }
-      }
-
-      if (!prototypeId) {
+      // Validation
+      if (!prototype_id) {
         return reply.status(400).send({
-          error: "prototypeId is required",
+          error: "prototype_id is required",
         });
       }
 
-      // Try array-of-files first
-      async function* iterAgain() {
-        for (const p of collected) yield p;
-      }
-
-      try {
-        const arrayResult = await processArrayOfFiles(iterAgain());
-        if (arrayResult) {
-          // Convert array-of-files to zip for backwards compatibility with DispatcherService
-          zipBuffer = await createZipFromFiles(arrayResult.files);
-          fastify.log.info(
-            `Processed ${arrayResult.files.length} files from array-of-files format`
-          );
-        }
-      } catch (e: any) {
-        // If manifest was present but invalid, fail early
-        if (e.message?.includes("manifest")) {
-          return reply.status(400).send({
-            error: "Invalid array-of-files format",
-            details: e.message,
-          });
-        }
-        // Otherwise, fall through to zip processing
-      }
-
-      // Fallback to zip file processing if array-of-files wasn't used
-      if (!zipBuffer) {
-        const zipPart = collected.find(
-          (p) =>
-            p.type === "file" &&
-            (p.mimetype === "application/zip" ||
-              p.filename?.toLowerCase().endsWith(".zip"))
-        );
-
-        if (zipPart) {
-          zipBuffer = await zipPart.toBuffer();
-          fastify.log.info(
-            `Received zip file: ${zipPart.filename || "unknown"}`
-          );
-        }
-      }
-
-      if (!zipBuffer) {
+      if (!framework) {
         return reply.status(400).send({
-          error: "No valid zip file or file array provided",
+          error: "framework is required",
+        });
+      }
+
+      if (!files || typeof files !== 'object') {
+        return reply.status(400).send({
+          error: "files is required and must be an object",
+        });
+      }
+
+      if (!file_scope) {
+        return reply.status(400).send({
+          error: "file_scope is required",
+        });
+      }
+
+      if (Object.keys(files).length === 0) {
+        return reply.status(400).send({
+          error: "files cannot be empty",
         });
       }
 
       fastify.log.info(
-        `Processing build request for prototype: ${prototypeId}`
+        `Processing dispatch request for prototype: ${prototype_id}`
       );
 
       const result = await dispatcherService.processDispatchRequest({
-        prototypeId,
-        zipBuffer,
-        hotReload,
+        prototype_id,
+        framework,
+        files,
+        file_scope,
+        hot_reload: hot_reload || false,
       });
 
       return reply.send({
         success: true,
-        prototypeId,
+        prototype_id,
         url: result.buildUrl || "materializeui.com",
         buildErrors: result.buildLog || [],
         status: result.status || "success",

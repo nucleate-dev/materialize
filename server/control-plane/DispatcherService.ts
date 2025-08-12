@@ -220,12 +220,15 @@ export class DispatcherService {
   }
 
   public async processDispatchRequest({
-    prototypeId,
-    zipBuffer,
+    prototype_id,
+    framework,
+    files,
+    file_scope,
+    hot_reload,
   }: DispatchRequest): Promise<any> {
     try {
       // Check if build already exists
-      const activeBuildKey = `active_build:${prototypeId}`;
+      const activeBuildKey = `active_build:${prototype_id}`;
       const existingBuildJson = await this.cache.get(activeBuildKey);
 
       let updatedBuildCacheData: ActiveBuild;
@@ -233,13 +236,13 @@ export class DispatcherService {
         const newBuildCacheData: ActiveBuild = {
           fargate_task_arn: "",
           fargate_private_ip: "",
-          url: this.getS3Url(prototypeId),
+          url: this.getS3Url(prototype_id),
           status: "creating",
           last_touched: Math.floor(Date.now() / 1000),
         };
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
         const newFargateInstance = await this.launchFargateInstance(
-          prototypeId
+          prototype_id
         );
 
         updatedBuildCacheData = {
@@ -266,12 +269,17 @@ export class DispatcherService {
       );
 
       // TODO: Dispatch request to fargate instance (this.dispatchFormedRequestToFargateInstance())
-      const formData = this.constructFormData(prototypeId, zipBuffer);
+      const requestBody = this.constructRequestBody({
+        prototype_id,
+        framework,
+        files,
+        file_scope,
+      });
       try {
         const fargateResponse =
           await this.dispatchFormedRequestToFargateInstance(
             updatedBuildCacheData.fargate_private_ip,
-            formData
+            requestBody
           );
         console.log("Fargate responded");
         updatedBuildCacheData.status = "stable";
@@ -301,23 +309,23 @@ export class DispatcherService {
 
   private async dispatchFormedRequestToFargateInstance(
     fargatePrivateIp: string,
-    formData: FormData
+    requestBody: any
   ) {
     // TODO:
     console.log("Dispatching request to fargate instance");
     return {
       fargatePrivateIp,
-      formData,
+      requestBody,
       tunnelUrl: "https://tunnel.url",
     };
     // try {
     //   const response = await axios.post(
     //     `http://${fargatePrivateIp}:3002/dev-server`,
-    //     formData,
+    //     requestBody,
     //     {
     //       timeout: 300000,
     //       headers: {
-    //         ...formData.getHeaders(),
+    //         'Content-Type': 'application/json',
     //       },
     //     }
     //   );
@@ -329,21 +337,23 @@ export class DispatcherService {
     // }
   }
 
-  private constructFormData(
-    prototypeId: string,
-    zipBuffer: Buffer,
-    port?: number
-  ) {
-    const formData = new FormData();
-    formData.append("prototypeId", prototypeId);
-    formData.append("files", zipBuffer, {
-      filename: "project.zip",
-      contentType: "application/zip",
-    });
-    if (port) {
-      formData.append("port", port.toString());
-    }
-    return formData;
+  private constructRequestBody({
+    prototype_id,
+    framework,
+    files,
+    file_scope,
+  }: {
+    prototype_id: string;
+    framework: 'expo_react_native' | 'react';
+    files: Record<string, string>;
+    file_scope: 'updates' | 'complete';
+  }) {
+    return {
+      prototype_id,
+      framework,
+      files,
+      file_scope,
+    };
   }
 
   public async launchFargateInstancePublic(
@@ -382,7 +392,9 @@ interface ActiveBuild {
 }
 
 interface DispatchRequest {
-  prototypeId: string;
-  zipBuffer: Buffer;
-  hotReload: boolean;
+  prototype_id: string;
+  framework: 'expo_react_native' | 'react';
+  files: Record<string, string>;
+  file_scope: 'updates' | 'complete';
+  hot_reload: boolean;
 }
