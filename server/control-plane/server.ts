@@ -37,6 +37,36 @@ interface DispatchRequestBody {
   hot_reload?: boolean;
 }
 
+interface CodeError {
+  message: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  type: "build" | "runtime" | "dependency" | "syntax";
+}
+
+interface CodeWarning {
+  message: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  type: "build" | "deprecation" | "performance" | "unused";
+}
+
+interface DispatchResponse {
+  status: "success" | "error";
+  viewing_url: string;
+  errors: CodeError[];
+  warnings: CodeWarning[];
+}
+
+interface FargateDevServerResponse {
+  status: "success" | "error";
+  tunnel_url?: string;
+  build_errors: CodeError[];
+  build_warnings: CodeWarning[];
+}
+
 // Initialize clients
 const initializeClients = async () => {
   // Initialize AWS clients
@@ -136,20 +166,15 @@ fastify.post(
         file_scope,
       });
 
-      return reply.send({
-        success: true,
-        prototype_id,
-        url: result.buildUrl || "materializeui.com",
-        buildErrors: result.buildLog || [],
-        status: result.status || "success",
-        result,
-      });
+      return reply.send(result);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       fastify.log.error(e, "Build request failed:");
       return reply.status(500).send({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        status: "error",
+        viewing_url: "",
+        build_errors: [],
+        build_warnings: [],
       });
     }
   }

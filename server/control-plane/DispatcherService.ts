@@ -224,7 +224,12 @@ export class DispatcherService {
     framework,
     files,
     file_scope,
-  }: DispatchRequest): Promise<any> {
+  }: DispatchRequest): Promise<{
+    status: "success" | "error";
+    viewing_url: string;
+    build_errors: CodeError[];
+    build_warnings: CodeWarning[];
+  }> {
     try {
       // Check if build already exists
       const activeBuildKey = `active_build:${prototype_id}`;
@@ -282,14 +287,22 @@ export class DispatcherService {
           );
         console.log("Fargate responded");
         updatedBuildCacheData.status = "stable";
-        updatedBuildCacheData.url = fargateResponse.tunnelUrl;
+        updatedBuildCacheData.url =
+          fargateResponse.tunnel_url || this.getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
         await this.cache.set(
           activeBuildKey,
           JSON.stringify(updatedBuildCacheData)
         );
         console.log(updatedBuildCacheData);
-        return fargateResponse;
+
+        return {
+          status: fargateResponse.status,
+          viewing_url:
+            fargateResponse.tunnel_url || this.getS3Url(prototype_id),
+          build_errors: fargateResponse.build_errors,
+          build_warnings: fargateResponse.build_warnings,
+        };
       } catch (error) {
         console.log(
           "There was an error dispatching the request to the fargate instance"
@@ -299,41 +312,55 @@ export class DispatcherService {
           activeBuildKey,
           JSON.stringify(updatedBuildCacheData)
         );
-        throw error;
+        return {
+          status: "error",
+          viewing_url: this.getS3Url(prototype_id),
+          build_errors: [],
+          build_warnings: [],
+        };
       }
     } catch (error) {
-      throw error;
+      console.log("Error processing dispatch request:", error);
+      return {
+        status: "error",
+        viewing_url: this.getS3Url(prototype_id),
+        build_errors: [],
+        build_warnings: [],
+      };
     }
   }
 
   private async dispatchFormedRequestToFargateInstance(
     fargatePrivateIp: string,
     requestBody: any
-  ) {
-    // TODO:
-    console.log("Dispatching request to fargate instance");
-    return {
-      fargatePrivateIp,
-      requestBody,
-      tunnelUrl: "https://tunnel.url",
-    };
-    // try {
-    //   const response = await axios.post(
-    //     `http://${fargatePrivateIp}:3002/dev-server`,
-    //     requestBody,
-    //     {
-    //       timeout: 300000,
-    //       headers: {
-    //         'Content-Type': 'application/json',
-    //       },
-    //     }
-    //   );
-    //   return response.data;
-    // } catch (error) {
-    //   console.log(
-    //     "There was an error dispatching the request to the fargate instance"
-    //   );
-    // }
+  ): Promise<FargateDevServerResponse> {
+    try {
+      console.log(
+        `Dispatching request to fargate instance at ${fargatePrivateIp}:3002/dev-server`
+      );
+
+      const response = await axios.post(
+        `http://${fargatePrivateIp}:3002/dev-server`,
+        requestBody,
+        {
+          timeout: 300000, // 5 minutes
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Fargate instance responded successfully");
+      return response.data as FargateDevServerResponse;
+    } catch (error) {
+      console.error("Error dispatching request to fargate instance:", error);
+      return {
+        status: "error",
+        tunnel_url: null,
+        build_errors: [],
+        build_warnings: [],
+      };
+    }
   }
 
   private constructRequestBody({
@@ -368,6 +395,29 @@ interface ActiveBuild {
   url: string;
   status: "creating" | "updating" | "error" | "stable";
   last_touched: number;
+}
+
+interface CodeError {
+  message: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  type: "build" | "runtime" | "dependency" | "syntax";
+}
+
+interface CodeWarning {
+  message: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  type: "build" | "deprecation" | "performance" | "unused";
+}
+
+interface FargateDevServerResponse {
+  status: "success" | "error";
+  tunnel_url?: string;
+  build_errors: CodeError[];
+  build_warnings: CodeWarning[];
 }
 
 interface DispatchRequest {
