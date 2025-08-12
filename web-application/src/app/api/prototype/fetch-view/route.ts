@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
 
           // If active dev-server or build exists, return that URL
           if (precheckData.success && precheckData.viewing_url) {
+            console.log("returning active instance url from precheck");
             return NextResponse.json({
               viewing_url: precheckData.viewing_url,
               source: "active_instance",
