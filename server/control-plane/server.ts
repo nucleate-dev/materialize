@@ -284,6 +284,22 @@ fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
   }
 });
 
+// Clear cache endpoint
+fastify.delete("/cache/clear", async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { cache } = await initializeClients();
+    await cache.flushall();
+    fastify.log.info("Cache cleared successfully");
+    return { success: true, message: "All cache entries cleared" };
+  } catch (error) {
+    fastify.log.error(error, "Failed to clear cache");
+    return reply.status(500).send({
+      error: "Failed to clear cache",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 // Status endpoint
 fastify.get(
   "/status/:prototypeId",
