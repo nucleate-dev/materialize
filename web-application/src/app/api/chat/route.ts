@@ -331,38 +331,36 @@ export async function POST(request: NextRequest) {
 
           // Get the updated message count for the current billing period
           let updatedMessageCount = 0;
-          try {
-            // For users with subscription, use their billing period
-            let periodStart = startOfMonthISO;
-            let periodEnd = new Date().toISOString();
+          // For users with subscription, use their billing period
+          let periodStart = startOfMonthISO;
+          let periodEnd = new Date().toISOString();
 
-            if (
-              userSubscription &&
-              userSubscription.current_period_start &&
-              userSubscription.current_period_end
-            ) {
-              periodStart = new Date(
-                userSubscription.current_period_start * 1000,
-              ).toISOString();
-              periodEnd = new Date(
-                userSubscription.current_period_end * 1000,
-              ).toISOString();
-            }
+          if (
+            userSubscription &&
+            userSubscription.current_period_start &&
+            userSubscription.current_period_end
+          ) {
+            periodStart = new Date(
+              userSubscription.current_period_start * 1000,
+            ).toISOString();
+            periodEnd = new Date(
+              userSubscription.current_period_end * 1000,
+            ).toISOString();
+          }
 
-            const { count: newCount } = await supabase
-              .from("api_usage")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", userID)
-              .gte("created_at", periodStart)
-              .lte("created_at", periodEnd);
-
-            updatedMessageCount = newCount || 0;
-            console.log(
-              `Updated message count for user ${userID}: ${updatedMessageCount}`,
-            );
-          } catch (countError) {
+          const { count: newCount, error: countError } = await supabase
+            .from("api_usage")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", userID)
+            .gte("created_at", periodStart)
+            .lte("created_at", periodEnd);
+          if (countError) {
             console.error("Error fetching updated message count:", countError);
           }
+          updatedMessageCount = newCount || 0;
+          console.log(
+            `Updated message count for user ${userID}: ${updatedMessageCount}`,
+          );
 
           // Send updated message count to client
           controller.enqueue(
