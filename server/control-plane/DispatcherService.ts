@@ -1,13 +1,13 @@
-import axios from "axios";
 import {
   AutoScalingClient,
   DescribeAutoScalingGroupsCommand,
 } from "@aws-sdk/client-auto-scaling";
-import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
-import * as dotenv from "dotenv";
-import { GlideClient } from "@valkey/valkey-glide";
-import FormData from "form-data";
+import { DescribeInstancesCommand, EC2Client } from "@aws-sdk/client-ec2";
 import { createClient } from "@supabase/supabase-js";
+import { GlideClient } from "@valkey/valkey-glide";
+import axios from "axios";
+import * as dotenv from "dotenv";
+import FormData from "form-data";
 import type { Database } from "./types/supabase";
 
 dotenv.config();
@@ -21,7 +21,7 @@ export class DispatcherService {
   constructor(
     cache: GlideClient,
     ec2Client: EC2Client,
-    autoScalingClient: AutoScalingClient
+    autoScalingClient: AutoScalingClient,
   ) {
     this.cache = cache;
     this.ec2Client = ec2Client;
@@ -31,7 +31,7 @@ export class DispatcherService {
   // Precheck prototype status
   public async prototypeDispatchPrecheck(
     jwt: string,
-    prototypeId: string
+    prototypeId: string,
   ): Promise<{
     state: "dne" | "active_dev_server" | "active_build";
     status: "updating" | "error" | "stable" | null;
@@ -48,7 +48,7 @@ export class DispatcherService {
               Authorization: `Bearer ${jwt}`,
             },
           },
-        }
+        },
       );
 
       // 2. Verify JWT and get user
@@ -69,7 +69,7 @@ export class DispatcherService {
 
       if (prototypeError || !prototype) {
         throw new Error(
-          "Prototype not found or user does not have permissions"
+          "Prototype not found or user does not have permissions",
         );
       }
 
@@ -79,7 +79,7 @@ export class DispatcherService {
 
       if (existingBuildJson) {
         const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
+          existingBuildJson as string,
         );
 
         // Determine state based on port
@@ -108,9 +108,7 @@ export class DispatcherService {
 
   private getS3Url(prototypeId: string): string {
     // Construct S3/CloudFront URL for the prototype
-    const baseUrl =
-      process.env.S3_CLOUDFRONT_URL || "https://d123456789.cloudfront.net";
-    return `${baseUrl}/${prototypeId}/index.html`;
+    return `${prototypeId}.render.materializeui.com/`;
   }
 
   // Process build request with zipped files
@@ -131,7 +129,7 @@ export class DispatcherService {
         const preDispatchResult = await this.handlePreDispatchForExistingBuild(
           activeBuildKey,
           existingBuildJson as string,
-          { prototypeId, zipBuffer, hotReload }
+          { prototypeId, zipBuffer, hotReload },
         );
         workerIp = preDispatchResult.workerIp;
         formData = preDispatchResult.formData;
@@ -139,7 +137,7 @@ export class DispatcherService {
       } else {
         const preDispatchResult = await this.handlePreDispatchForNewBuild(
           activeBuildKey,
-          { prototypeId, zipBuffer, hotReload }
+          { prototypeId, zipBuffer, hotReload },
         );
         workerIp = preDispatchResult.workerIp;
         formData = preDispatchResult.formData;
@@ -151,7 +149,7 @@ export class DispatcherService {
       if (hotReload) {
         buildResponse = await this.sendWorkerLiveDevServerRequest(
           workerIp,
-          formData
+          formData,
         );
         url = buildResponse.tunnelUrl;
       } else {
@@ -178,7 +176,7 @@ export class DispatcherService {
 
   private async handlePreDispatchForNewBuild(
     activeBuildKey: string,
-    dispatchRequest: DispatchRequest
+    dispatchRequest: DispatchRequest,
   ): Promise<{
     workerIp: string;
     formData: FormData;
@@ -198,7 +196,7 @@ export class DispatcherService {
       const port = await this.acquireFreePort(workerIp);
       if (port === null) {
         throw new Error(
-          `No available ports on worker ${workerIp} for hot reload`
+          `No available ports on worker ${workerIp} for hot reload`,
         );
       }
       allocatedPort = port;
@@ -221,7 +219,7 @@ export class DispatcherService {
     const formData = this.constructFormData(
       prototypeId,
       zipBuffer,
-      allocatedPort
+      allocatedPort,
     );
 
     return {
@@ -234,7 +232,7 @@ export class DispatcherService {
   private async handlePreDispatchForExistingBuild(
     activeBuildKey: string,
     existingBuildJson: string,
-    dispatchRequest: DispatchRequest
+    dispatchRequest: DispatchRequest,
   ): Promise<{
     workerIp: string;
     formData: FormData;
@@ -250,7 +248,7 @@ export class DispatcherService {
       const port = await this.acquireFreePort(existingBuild.worker_private_ip);
       if (port === null) {
         throw new Error(
-          `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`
+          `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`,
         );
       }
       allocatedPort = port;
@@ -266,7 +264,7 @@ export class DispatcherService {
     const formData = this.constructFormData(
       prototypeId,
       zipBuffer,
-      existingBuild.port ? Number(existingBuild.port) : undefined
+      existingBuild.port ? Number(existingBuild.port) : undefined,
     );
 
     return {
@@ -292,7 +290,7 @@ export class DispatcherService {
 
       // Get instance IDs that are InService
       const activeInstanceIds = asg.Instances.filter(
-        (instance) => instance.LifecycleState === "InService"
+        (instance) => instance.LifecycleState === "InService",
       )
         .map((instance) => instance.InstanceId!)
         .filter(Boolean);
@@ -331,17 +329,17 @@ export class DispatcherService {
   // Acquire a free port for hot reload
   private async acquireFreePort(
     workerIp: string,
-    opts?: { start?: number; end?: number; hint?: number }
+    opts?: { start?: number; end?: number; hint?: number },
   ): Promise<number | null> {
     if (!this.allocateSha) {
       console.log("Loading allocate SHA");
       this.allocateSha = String(
-        await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA])
+        await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA]),
       );
     }
     const key = `ports:${workerIp}:used`;
     const start = String(
-      opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000
+      opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000,
     );
     const end = String(opts?.end ?? parseInt(process.env.MAX_PORT!) ?? 4099);
     const hint = opts?.hint != null ? String(opts.hint) : "";
@@ -367,7 +365,7 @@ export class DispatcherService {
   // Send build request to worker
   private async sendWorkerBuildRequest(
     workerIp: string,
-    formData: FormData
+    formData: FormData,
   ): Promise<any> {
     try {
       const response = await axios.post(
@@ -378,7 +376,7 @@ export class DispatcherService {
           headers: {
             ...formData.getHeaders(),
           },
-        }
+        },
       );
       return response.data;
     } catch (error) {
@@ -390,7 +388,7 @@ export class DispatcherService {
   // Send live dev server request to worker
   private async sendWorkerLiveDevServerRequest(
     workerIp: string,
-    formData: FormData
+    formData: FormData,
   ): Promise<any> {
     try {
       const response = await axios.post(
@@ -401,7 +399,7 @@ export class DispatcherService {
           headers: {
             ...formData.getHeaders(),
           },
-        }
+        },
       );
       return response.data;
     } catch (error) {
@@ -413,7 +411,7 @@ export class DispatcherService {
   private constructFormData(
     prototypeId: string,
     zipBuffer: Buffer,
-    port?: number
+    port?: number,
   ) {
     const formData = new FormData();
     formData.append("prototypeId", prototypeId);

@@ -18,8 +18,6 @@ const s3Client = new S3Client({
 
 const PROTOTYPE_BUCKET =
   process.env.S3_PROTOTYPE_BUCKET || "materialize-prototypes";
-const CLOUDFRONT_URL =
-  process.env.CLOUDFRONT_URL || "https://d1234567890.cloudfront.net";
 
 export interface S3CopyResult {
   success: boolean;
@@ -111,17 +109,7 @@ export async function copyDefaultAppToPrototype(
  * Get the viewing URL for a prototype
  */
 export function getPrototypeViewingUrl(prototypeId: string): string {
-  return `${CLOUDFRONT_URL}/prototypes/${prototypeId}/index.html`;
-}
-
-/**
- * Get S3 bucket information
- */
-export function getS3BucketInfo(): S3BucketInfo {
-  return {
-    bucketName: PROTOTYPE_BUCKET,
-    cloudfrontUrl: CLOUDFRONT_URL,
-  };
+  return `https://${prototypeId}.render.materializeui.com`;
 }
 
 /**
