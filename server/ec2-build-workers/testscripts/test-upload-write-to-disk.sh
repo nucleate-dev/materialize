@@ -1,25 +1,19 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Test script for the build-and-deploy endpoint with a file array and manifest.
-# This script sends individual files instead of a single zip archive.
-#
-# DEPENDENCY: This script requires 'jq' to be installed for JSON manipulation.
-# (e.g., 'sudo apt-get install jq' or 'brew install jq')
-#
-# Usage: bash test-upload-write-to-disk.sh
+# Fixed test script for the build-and-deploy endpoint
+# Usage: bash fixed-test-upload.sh
 
 # --- Pre-flight Check ---
 if ! command -v jq &> /dev/null
 then
     echo "ERROR: 'jq' is not installed, but is required by this script."
-    echo "Please install it (e.g., 'sudo apt-get install jq' or 'brew install jq') and try again."
     exit 1
 fi
 
 # --- Configuration ---
 PROTOTYPE_ID="test-$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEST_PROJECT_DIR="$SCRIPT_DIR/../test" # Assumes a 'test' directory with the project source
+TEST_PROJECT_DIR="$SCRIPT_DIR/../test"
 
 echo "Testing build-and-deploy endpoint with file array and write_to_disk=true"
 echo "Prototype ID: $PROTOTYPE_ID"
@@ -30,107 +24,101 @@ if [ ! -d "$TEST_PROJECT_DIR" ]; then
     exit 1
 fi
 
-# --- Main Logic ---
-
-# Navigate to the test project directory to get relative paths
+# Navigate to the test project directory
 cd "$TEST_PROJECT_DIR"
 
-# 1. Generate the manifest JSON
-echo "Generating file manifest..."
+# 1. Get files with ABSOLUTE paths so we can access them from anywhere
+echo "Finding files..."
+mapfile -t RELATIVE_FILES < <(find . -type f -not -path "./node_modules/*" -not -path "./.expo/*" -not -path "./dist/*" -not -name "*.zip" | sed 's|^\./||')
+echo "Found ${#RELATIVE_FILES[@]} files to process."
+
+# Create arrays for both relative paths (for manifest) and absolute paths (for curl)
+ABSOLUTE_FILES=()
+for REL_FILE in "${RELATIVE_FILES[@]}"; do
+    ABS_FILE="$TEST_PROJECT_DIR/$REL_FILE"
+    ABSOLUTE_FILES+=("$ABS_FILE")
+    echo "File: $REL_FILE -> $ABS_FILE"
+done
+
+# 2. Generate the manifest JSON using relative paths
+echo -e "\nGenerating file manifest..."
 MANIFEST_ENTRIES=""
 
-# Find all files, excluding specified patterns, and process them
-# The 'while read' loop is safer for filenames with spaces
-while IFS= read -r FILE; do
-    # Use the relative path as the unique ID, as required by the server
-    ID="$FILE"
-    # Get the directory path; handle files in the root directory
-    FILE_PATH=$(dirname "$FILE")
+for REL_FILE in "${RELATIVE_FILES[@]}"; do
+    ID="$REL_FILE"
+    FILE_PATH=$(dirname "$REL_FILE")
     [ "$FILE_PATH" == "." ] && FILE_PATH=""
-    # Get the filename
-    FILENAME=$(basename "$FILE")
+    FILENAME=$(basename "$REL_FILE")
 
-    # Create a JSON object for the file using jq for safe escaping
+    echo "Manifest entry: ID=$ID, Path='$FILE_PATH', Filename=$FILENAME"
+
     ENTRY=$(jq -n \
       --arg id "$ID" \
       --arg path "$FILE_PATH" \
       --arg filename "$FILENAME" \
       '{id: $id, path: $path, filename: $filename}')
 
-    # Append the entry to our list, adding a comma if it's not the first one
     [ -z "$MANIFEST_ENTRIES" ] && MANIFEST_ENTRIES="$ENTRY" || MANIFEST_ENTRIES="$MANIFEST_ENTRIES,$ENTRY"
-done < <(find . -type f -not -path "./node_modules/*" -not -path "./.expo/*" -not -path "./dist/*" -not -name "*.zip" | sed 's|^\./||')
+done
 
-# Construct the final manifest JSON string
 MANIFEST_JSON="{\"files\":[$MANIFEST_ENTRIES]}"
-echo "Manifest generated for $(echo "$MANIFEST_ENTRIES" | grep -o '{' | wc -l) files."
+echo -e "\nManifest JSON:"
+echo "$MANIFEST_JSON" | jq .
 
-# 2. Build the curl command arguments dynamically
+# 3. Build curl command using absolute file paths
 echo -e "\nBuilding curl command..."
 CURL_ARGS=()
 CURL_ARGS+=(-F "prototypeId=$PROTOTYPE_ID")
 CURL_ARGS+=(-F "write_to_disk=true")
 CURL_ARGS+=(-F "manifest=$MANIFEST_JSON")
 
-# Add each file to the curl arguments array
-while IFS= read -r FILE; do
-    ID="$FILE"
-    # The format 'files=@<filepath>;id=<id>' attaches the ID to the multipart file part
-    CURL_ARGS+=(-F "files=@$FILE;id=$ID")
-done < <(find . -type f -not -path "./node_modules/*" -not -path "./.expo/*" -not -path "./dist/*" -not -name "*.zip" | sed 's|^\./||')
+echo -e "\nAdding files to curl command (with absolute paths)..."
+for i in "${!RELATIVE_FILES[@]}"; do
+    REL_FILE="${RELATIVE_FILES[$i]}"
+    ABS_FILE="${ABSOLUTE_FILES[$i]}"
+    
+    echo "Adding file: $REL_FILE (from $ABS_FILE)"
+    
+    # Verify file exists before adding to curl
+    if [ -f "$ABS_FILE" ]; then
+        FILE_SIZE=$(wc -c < "$ABS_FILE")
+        echo "  File size: $FILE_SIZE bytes"
+        # Use relative file path as the filename for the server
+        CURL_ARGS+=(-F "files=@$ABS_FILE;filename=$REL_FILE")
+    else
+        echo "  ERROR: File $ABS_FILE does not exist!"
+        exit 1
+    fi
+done
 
-
-# Return to the original script directory before making the call
-cd "$SCRIPT_DIR"
-
-# 3. Test the build-and-deploy endpoint
+# We can now run curl from any directory since we're using absolute paths
 echo -e "\nTesting build-and-deploy endpoint..."
-# Use process substitution to pass arguments safely, and add --verbose for debugging if needed
-BUILD_DEPLOY_RESPONSE=$(curl -s -X POST http://localhost:3002/build-and-deploy "${CURL_ARGS[@]}")
+echo "Current directory: $(pwd)"
+echo "Curl will read files using absolute paths"
+
+# Test with timeout
+BUILD_DEPLOY_RESPONSE=$(curl -s --max-time 120 -X POST http://localhost:3002/build-and-deploy "${CURL_ARGS[@]}")
 
 echo "Build-and-Deploy Response:"
-# Pipe to jq for pretty printing if the response is JSON
 if jq -e . >/dev/null 2>&1 <<<"$BUILD_DEPLOY_RESPONSE"; then
   echo "$BUILD_DEPLOY_RESPONSE" | jq .
 else
   echo "$BUILD_DEPLOY_RESPONSE"
 fi
 
-echo -e "\n\nTesting health endpoint..."
-# Test health endpoint
-curl -s http://localhost:3002/health | jq .
-
-echo -e "\n\nDone! Process completed:"
-echo "✅ Sent file array with manifest"
-echo "✅ Server should have built the project"
-echo "✅ Server should have uploaded built files to S3"
-echo "✅ Server should have saved files locally because write_to_disk=true"
-echo ""
-echo "Files should be saved locally at (relative to where the server is running):"
-echo "- Source files: ./prototypes/$PROTOTYPE_ID/files/"
-echo "- Build files: ./prototypes/$PROTOTYPE_ID/build/"
-
-# 4. Check if local files were created (relative to the project root where worker.ts runs)
-PROTOTYPES_PATH="./prototypes/$PROTOTYPE_ID" # Assuming the script is run from the same level as the 'prototypes' dir
-if [ -d "$PROTOTYPES_PATH" ]; then
-    echo -e "\n✅ Local prototype directory created:"
-    ls -l "$PROTOTYPES_PATH/"
-
-    if [ -d "$PROTOTYPES_PATH/files" ]; then
-        echo -e "\n📁 Source files directory content:"
-        ls -l "$PROTOTYPES_PATH/files/"
-    else
-        echo -e "\n❌ Source files directory not found at $PROTOTYPES_PATH/files"
-    fi
-
-    if [ -d "$PROTOTYPES_PATH/build" ]; then
-        echo -e "\n🏗️  Build files directory content:"
-        ls -l "$PROTOTYPES_PATH/build/"
-    else
-        echo -e "\n❌ Build files directory not found at $PROTOTYPES_PATH/build"
-    fi
-else
-    echo -e "\n❌ No local prototype directory found at '$PROTOTYPES_PATH'"
+# Check if we got an empty response
+if [ -z "$BUILD_DEPLOY_RESPONSE" ]; then
+    echo "WARNING: Got empty response from server. This might indicate:"
+    echo "1. Server timeout during processing"
+    echo "2. Server error without proper error response"
+    echo "3. Network issues"
+    echo ""
+    echo "Try checking the server logs for more details."
 fi
 
-echo -e "\nCleanup complete. No temporary files were created."
+echo -e "\n\nTesting health endpoint..."
+curl -s http://localhost:3002/health | jq .
+
+echo -e "\n\nDone! If successful, files should be at:"
+echo "- Source files: ./prototypes/$PROTOTYPE_ID/files/"
+echo "- Build files: ./prototypes/$PROTOTYPE_ID/build/"
