@@ -2,7 +2,6 @@
 
 import { posthogClient, supabase } from "@/ClientConstants";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
-import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -57,16 +56,20 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-              const protoResult = await createPrototype(
-                supabase,
-                {
-                  name: "New Prototype",
-                  owner_id: data.session.user.id,
+              const response = await fetch('/api/prototype/create', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${data.session.access_token}`
                 },
-                userPlan,
-              );
+                body: JSON.stringify({
+                  name: "New Prototype",
+                })
+              });
+
+              const protoResult = await response.json();
               if (protoResult.success) {
-                prototypeId = protoResult.data.id;
+                prototypeId = protoResult.data.prototype_id;
               }
             } catch (protoError) {
               console.error("Error creating prototype:", protoError);

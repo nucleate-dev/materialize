@@ -4,7 +4,6 @@ import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
-import { createPrototype } from "@/lib/utils/prototypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
@@ -99,26 +98,33 @@ export default function PrototypePage() {
 
       // Create new prototype
       const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const result = await createPrototype(
-        supabase,
-        {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      
+      if (!token) {
+        console.error("No authentication token available");
+        return;
+      }
+
+      const response = await fetch('/api/prototype/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           name: clonedPrototypeName,
           description: prototype.description,
-          owner_id: user.id,
           project_id: prototype.project_id,
-          prototype_context: prototype.prototype_context,
-          visibility: "SELF" as const,
-        },
-        userPlan,
-        Object.values(prototypeFiles).map((file) => ({
-          name: file.name,
-          contents: file.contents,
-        })),
-      );
+          prototype_id: prototypeId, // For forking
+          visibility: "SELF",
+        })
+      });
 
+      const result = await response.json();
       if (result.success) {
         // Navigate to the new prototype in dashboard
-        router.push(`/dashboard/prototypes/${result.data.id}`);
+        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
       } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         setShowUpsellModal(true);
