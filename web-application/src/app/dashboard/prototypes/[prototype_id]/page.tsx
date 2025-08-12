@@ -8,6 +8,7 @@ import ExpoSnackViewer, {
   ExpoSnackViewerRef,
 } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
-import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import { useUser } from "@/hooks/useUser";
+import { Database } from "@/lib/types/database.types";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -41,7 +41,7 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -53,6 +53,7 @@ export default function CreatePage() {
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
+  const [viewingUrl, setViewingUrl] = useState<string | null>(null);
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -137,11 +138,11 @@ export default function CreatePage() {
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
-        
+
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
-        
+
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
@@ -159,6 +160,7 @@ export default function CreatePage() {
           const fetchViewData = await fetchViewResponse.json();
           console.log("Viewing URL:", fetchViewData.viewing_url);
           console.log("Source:", fetchViewData.source);
+          setViewingUrl(fetchViewData.viewing_url);
         } else {
           console.error("Failed to fetch viewing URL:", fetchViewResponse.status);
         }
@@ -211,7 +213,7 @@ export default function CreatePage() {
       const clonedPrototypeName = `${prototype.name} (Copy)`;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      
+
       if (!token) {
         console.error("No authentication token available");
         return;
@@ -367,11 +369,10 @@ export default function CreatePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "w-2/5 min-w-[420px] flex"
-          } flex-col relative z-10`}
+          className={`${isMobile
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "w-2/5 min-w-[420px] flex"
+            } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -416,11 +417,10 @@ export default function CreatePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "w-3/5 min-w-[500px] flex"
-          } flex-col relative z-10`}
+          className={`${isMobile
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "w-3/5 min-w-[500px] flex"
+            } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -481,6 +481,22 @@ export default function CreatePage() {
                 <div className="relative h-full">
                   {isPreviewView ? (
                     <div className="h-full flex flex-col">
+                      {/* Viewing URL Display */}
+                      {viewingUrl && (
+                        <div className="p-3 border-b border-border bg-muted/30">
+                          <div className="flex items-center justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(viewingUrl, '_blank')}
+                              className="flex items-center space-x-2"
+                            >
+                              <DevicePhoneMobileIcon className="w-4 h-4" />
+                              <span>Live URL</span>
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       <ExpoSnackViewer
                         ref={snackViewerRef}
                         files={fileSystem.state.files}
@@ -495,11 +511,10 @@ export default function CreatePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${
-                          isMobile
-                            ? "w-full max-h-[200px] border-b"
-                            : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                        } border-border`}
+                        className={`${isMobile
+                          ? "w-full max-h-[200px] border-b"
+                          : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                          } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -579,11 +594,10 @@ export default function CreatePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+                  }`}
               >
                 <input
                   type="checkbox"
