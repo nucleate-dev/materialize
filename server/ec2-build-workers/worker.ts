@@ -21,6 +21,7 @@ interface BuildLogEntry {
 interface FileInput {
   path: string;
   content: string;
+  isBase64?: boolean;
 }
 
 interface BuildRequest {
@@ -79,6 +80,18 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 // --- Utility Functions ---
+function isBinaryFile(filename: string): boolean {
+  const ext = path.extname(filename).toLowerCase();
+  const binaryExtensions = [
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svg',
+    '.ttf', '.otf', '.woff', '.woff2', '.eot',
+    '.mp4', '.mp3', '.wav', '.ogg', '.webm',
+    '.pdf', '.zip', '.tar', '.gz', '.rar',
+    '.exe', '.dmg', '.app', '.deb', '.rpm'
+  ];
+  return binaryExtensions.includes(ext);
+}
+
 async function checkSystemResources(): Promise<{
   disk: string;
   memory: string;
@@ -156,7 +169,14 @@ async function writeProjectFiles(
     await fs.mkdir(fileDir, { recursive: true });
 
     // Write file content
-    await fs.writeFile(filePath, file.content, "utf8");
+    if (file.isBase64) {
+      // Decode base64 content to binary
+      const binaryContent = Buffer.from(file.content, 'base64');
+      await fs.writeFile(filePath, binaryContent);
+    } else {
+      // Write as UTF-8 text
+      await fs.writeFile(filePath, file.content, "utf8");
+    }
   }
 }
 

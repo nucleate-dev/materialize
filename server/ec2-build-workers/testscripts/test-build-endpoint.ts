@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 interface FileInput {
   path: string;
   content: string;
+  isBase64?: boolean;
 }
 
 // Handle --local flag
@@ -17,6 +18,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEST_DIR = path.join(__dirname, "../test");
 const PROTOTYPE_ID = `test-build-${Date.now()}`;
+
+function isBinaryFile(filename: string): boolean {
+  const ext = path.extname(filename).toLowerCase();
+  const binaryExtensions = [
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svg',
+    '.ttf', '.otf', '.woff', '.woff2', '.eot',
+    '.mp4', '.mp3', '.wav', '.ogg', '.webm',
+    '.pdf', '.zip', '.tar', '.gz', '.rar',
+    '.exe', '.dmg', '.app', '.deb', '.rpm'
+  ];
+  return binaryExtensions.includes(ext);
+}
 
 async function readAllFiles(
   dir: string,
@@ -35,18 +48,26 @@ async function readAllFiles(
       const subFiles = await readAllFiles(fullPath, itemRelativePath);
       files.push(...subFiles);
     } else if (stats.isFile()) {
-      // Skip certain file types that shouldn't be sent
-      // if (item.endsWith('.png') || item.endsWith('.ttf') || item.endsWith('.jpg') || item.endsWith('.jpeg') || item.endsWith('.gif')) {
-      //   console.log(`⏭️  Skipping binary file: ${itemRelativePath}`);
-      //   continue;
-      // }
-
       try {
-        const content = await fs.readFile(fullPath, "utf8");
-        files.push({
-          path: itemRelativePath,
-          content,
-        });
+        if (isBinaryFile(item)) {
+          // Read binary file as base64
+          const binaryContent = await fs.readFile(fullPath);
+          const base64Content = binaryContent.toString('base64');
+          console.log(`📦 Reading binary file as base64: ${itemRelativePath}`);
+          files.push({
+            path: itemRelativePath,
+            content: base64Content,
+            isBase64: true,
+          });
+        } else {
+          // Read text file as UTF-8
+          const content = await fs.readFile(fullPath, "utf8");
+          files.push({
+            path: itemRelativePath,
+            content,
+            isBase64: false,
+          });
+        }
       } catch (error) {
         console.warn(`⚠️  Could not read file ${itemRelativePath}:`, error);
       }
