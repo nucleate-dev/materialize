@@ -4,7 +4,6 @@ import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
   Card,
@@ -29,8 +28,9 @@ export default function PrototypePage() {
   const prototypeId = params?.prototype_id;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [prototypeFiles, setPrototypeFiles] = useState<Record<string, PrototypeFile>>({});
-  const { userPlan } = useSubscriptionAccess();
+  const [prototypeFiles, setPrototypeFiles] = useState<
+    Record<string, PrototypeFile>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
@@ -77,6 +77,42 @@ export default function PrototypePage() {
         );
 
         setPrototypeFiles(filesObject);
+
+        // Call fetch-view API to get viewing URL
+        try {
+          const session = await supabase.auth.getSession();
+          const token = session.data.session?.access_token;
+
+          const headers: HeadersInit = {
+            "Content-Type": "application/json",
+          };
+
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+
+          const fetchViewResponse = await fetch("/api/prototype/fetch-view", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              prototype_id: prototypeId,
+              current_page: "view",
+            }),
+          });
+
+          if (fetchViewResponse.ok) {
+            const fetchViewData = await fetchViewResponse.json();
+            console.log("Viewing URL:", fetchViewData.viewing_url);
+            console.log("Source:", fetchViewData.source);
+          } else {
+            console.error(
+              "Failed to fetch viewing URL:",
+              fetchViewResponse.status,
+            );
+          }
+        } catch (fetchViewError) {
+          console.error("Error calling fetch-view API:", fetchViewError);
+        }
       } catch (err) {
         console.error("Error fetching prototype data:", err);
         setError(
@@ -100,17 +136,17 @@ export default function PrototypePage() {
       const clonedPrototypeName = `${prototype.name} (Copy)`;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      
+
       if (!token) {
         console.error("No authentication token available");
         return;
       }
 
-      const response = await fetch('/api/prototype/create', {
-        method: 'POST',
+      const response = await fetch("/api/prototype/create", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: clonedPrototypeName,
@@ -118,7 +154,7 @@ export default function PrototypePage() {
           project_id: prototype.project_id,
           prototype_id: prototypeId, // For forking
           visibility: "SELF",
-        })
+        }),
       });
 
       const result = await response.json();
@@ -140,7 +176,6 @@ export default function PrototypePage() {
       setIsCloning(false);
     }
   };
-
 
   const handleUpdatePrototype = (updatedPrototype: Prototype) => {
     setPrototype(updatedPrototype);
@@ -190,28 +225,25 @@ export default function PrototypePage() {
   return (
     <>
       <div className="h-screen bg-background overflow-hidden">
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <PublicPrototypeHeader
-          prototype={prototype}
-          prototypeFiles={prototypeFiles}
-          isCloning={isCloning}
-          onClonePrototype={handleClonePrototype}
-          onUpdatePrototype={handleUpdatePrototype}
-        />
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <PublicPrototypeHeader
+            prototype={prototype}
+            prototypeFiles={prototypeFiles}
+            isCloning={isCloning}
+            onClonePrototype={handleClonePrototype}
+            onUpdatePrototype={handleUpdatePrototype}
+          />
 
-        {/* Main Content - ExpoSnackViewer */}
-        <div className="flex-1 p-8">
-          <Card className="h-full overflow-hidden">
-            <CardContent className="h-full p-0">
-              <ExpoSnackViewer
-                files={prototypeFiles}
-                hideControls={true}
-              />
-            </CardContent>
-          </Card>
+          {/* Main Content - ExpoSnackViewer */}
+          <div className="flex-1 p-8">
+            <Card className="h-full overflow-hidden">
+              <CardContent className="h-full p-0">
+                <ExpoSnackViewer files={prototypeFiles} hideControls={true} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
       </div>
 
       <ProPlanUpsellModal

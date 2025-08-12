@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 
 interface FetchViewBody {
@@ -24,6 +23,7 @@ interface FetchViewBody {
  * 4. Load S3 URL from CloudFront, return to client
  */
 export async function POST(req: NextRequest) {
+  console.log("Fetch view request received");
   try {
     const { prototype_id, current_page }: FetchViewBody = await req.json();
 
@@ -34,45 +34,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get JWT token if provided (optional for this endpoint)
+    // Get JWT token if provided (optional for this endpoint) & create supabase client
     const token = req.headers.get("authorization")?.split(" ")[1];
-    let userId: string | null = null;
-
     // Create Supabase client
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      },
     );
-
-    // If JWT token is provided, authenticate the user with Supabase
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-          sub: string;
-        };
-        userId = decoded.sub;
-
-        // Set the session with the provided JWT token
-        await supabase.auth.setSession({
-          access_token: token,
-          refresh_token: "", // Not needed for this use case
-        });
-      } catch (error) {
-        // Invalid token - continue as anonymous user
-        console.warn(
-          "Invalid JWT token provided, continuing as anonymous user",
-        );
-      }
-    }
+    const userId = (await supabase.auth.getUser()).data.user?.id;
 
     // Attempt to access prototype from DB to check viewing privileges
     const { data: prototypeData, error: prototypeError } = await supabase
       .from("prototypes")
-      .select("id, owner_id, title, description")
+      .select("id, owner_id")
       .eq("id", prototype_id)
       .single();
 
     if (prototypeError || !prototypeData) {
+      console.log("Prototype not found or access denied: ", prototypeError);
       return NextResponse.json(
         { error: "Prototype not found or access denied" },
         { status: 404 },
@@ -87,6 +71,9 @@ export async function POST(req: NextRequest) {
     ) {
       try {
         // Fetch dispatch-precheck from control plane
+        console.log(
+          "fetching dispatch-precheck to get active tunnel url if exists",
+        );
         const precheckResponse = await fetch(
           `${process.env.SERVER_ENDPOINT}/dispatch-precheck`,
           {
@@ -124,6 +111,7 @@ export async function POST(req: NextRequest) {
     // TODO: Load S3 URL from CloudFront
     // This should fetch the static build URL from S3/CloudFront
     // For now, return a placeholder URL
+    console.log("returning static build url");
     const staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
 
     return NextResponse.json({
