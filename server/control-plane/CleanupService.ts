@@ -203,7 +203,6 @@ export class CleanupService {
         console.error(
           `Worker failed to kill hot reload server on port ${port}: ${errorMessage}`
         );
-        throw new Error(`Worker error: ${errorMessage}`);
       }
     } catch (error) {
       console.error(
@@ -246,7 +245,6 @@ export class CleanupService {
         console.error(
           `Worker failed to delete build for prototype ${prototypeId}: ${errorMessage}`
         );
-        throw new Error(`Worker error: ${errorMessage}`);
       }
     } catch (error) {
       console.error(
