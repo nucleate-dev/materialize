@@ -248,77 +248,42 @@ export async function POST(request: NextRequest) {
           // ------------------------------------------------------------------------------------------------
           // 9. Pre-build and dispatch requests
           // ------------------------------------------------------------------------------------------------
-          if (precheckData.state === "dne") {
-            // Dispatch build request with files array
-            console.log("🚀 Dispatching build request - state is 'dne'");
-
-            try {
-              // Convert fileManager state to array of files
-              const filesArray = Object.entries(
-                fileManager.getFinalState(),
-              ).map(([filePath, file]) => ({
-                name: filePath,
-                contents: file.contents || "",
-              }));
-
-              const dispatchResponse = await fetch(
-                `${process.env.SERVER_ENDPOINT!}/dispatch`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    prototypeId: prototype_id,
-                    hotReload: false,
-                    files: filesArray,
-                  }),
-                },
-              );
-
-              const dispatchData = await dispatchResponse.json();
-              console.log("Dispatch response:", dispatchData);
-            } catch (dispatchError) {
-              console.error("Error dispatching build request:", dispatchError);
+          console.log("🚀 Dispatching build request regardless of precheck response");
+          
+          // Convert fileManager files to the format expected by dispatch endpoint
+          const finalFiles = fileManager.getFinalState();
+          const filesForDispatch: Record<string, string> = {};
+          
+          // Convert PrototypeFiles to Record<string, string> format
+          Object.entries(finalFiles).forEach(([filePath, file]) => {
+            if (file.contents) {
+              filesForDispatch[filePath] = file.contents;
             }
-          } else if (
-            precheckData.state === "active_dev_server" ||
-            precheckData.state === "active_build"
-          ) {
-            // For now, send ALL files regardless of state (as requested)
-            console.log(
-              "🚀 Dispatching build request - active instance exists",
+          });
+
+          try {
+            const dispatchResponse = await fetch(
+              `${process.env.SERVER_ENDPOINT!}/dispatch`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  jwt: token,
+                  prototype_id: prototype_id,
+                  framework: "expo_react_native",
+                  files: filesForDispatch,
+                  file_scope: "complete",
+                  hot_reload: false,
+                }),
+              },
             );
 
-            try {
-              // Convert fileManager state to array of files
-              const filesArray = Object.entries(
-                fileManager.getFinalState(),
-              ).map(([filePath, file]) => ({
-                name: filePath,
-                contents: file.contents || "",
-              }));
-
-              const dispatchResponse = await fetch(
-                `${process.env.SERVER_ENDPOINT!}/dispatch`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    prototypeId: prototype_id,
-                    hotReload: false,
-                    files: filesArray,
-                  }),
-                },
-              );
-
-              const dispatchData = await dispatchResponse.json();
-              console.log("Dispatch response:", dispatchData);
-            } catch (dispatchError) {
-              console.error("Error dispatching build request:", dispatchError);
-            }
+            const dispatchData = await dispatchResponse.json();
+            console.log("📦 Dispatch endpoint response:", dispatchData);
+          } catch (error) {
+            console.error("❌ Error calling dispatch endpoint:", error);
           }
 
           // ------------------------------------------------------------------------------------------------
