@@ -246,29 +246,83 @@ export async function POST(request: NextRequest) {
           );
 
           // ------------------------------------------------------------------------------------------------
-          // 9. TODO -- pre-build and check for any errors, and if so then fix
+          // 9. Pre-build and dispatch requests
           // ------------------------------------------------------------------------------------------------
           if (precheckData.state === "dne") {
-            // TODO -- dispatch build request with only uploaded files
-            if (userTier === ProductKeys.PRO_SUBSCRIPTION) {
-              // TODO -- dispatch hot reload request
-            } else {
-              // TODO -- dispatch traditional build request
+            // Dispatch build request with files array
+            console.log("🚀 Dispatching build request - state is 'dne'");
+
+            try {
+              // Convert fileManager state to array of files
+              const filesArray = Object.entries(
+                fileManager.getFinalState(),
+              ).map(([filePath, file]) => ({
+                name: filePath,
+                contents: file.contents || "",
+              }));
+
+              const dispatchResponse = await fetch(
+                `${process.env.SERVER_ENDPOINT!}/dispatch`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    prototypeId: prototype_id,
+                    hotReload: false,
+                    files: filesArray,
+                  }),
+                },
+              );
+
+              const dispatchData = await dispatchResponse.json();
+              console.log("Dispatch response:", dispatchData);
+            } catch (dispatchError) {
+              console.error("Error dispatching build request:", dispatchError);
             }
           } else if (
             precheckData.state === "active_dev_server" ||
             precheckData.state === "active_build"
           ) {
-            // TODO -- dispatch build request with only uploaded files
-            if (userTier === ProductKeys.PRO_SUBSCRIPTION) {
-              // TODO -- dispatch hot reload request
-            } else {
-              // TODO -- dispatch traditional build request
+            // For now, send ALL files regardless of state (as requested)
+            console.log(
+              "🚀 Dispatching build request - active instance exists",
+            );
+
+            try {
+              // Convert fileManager state to array of files
+              const filesArray = Object.entries(
+                fileManager.getFinalState(),
+              ).map(([filePath, file]) => ({
+                name: filePath,
+                contents: file.contents || "",
+              }));
+
+              const dispatchResponse = await fetch(
+                `${process.env.SERVER_ENDPOINT!}/dispatch`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    prototypeId: prototype_id,
+                    hotReload: false,
+                    files: filesArray,
+                  }),
+                },
+              );
+
+              const dispatchData = await dispatchResponse.json();
+              console.log("Dispatch response:", dispatchData);
+            } catch (dispatchError) {
+              console.error("Error dispatching build request:", dispatchError);
             }
           }
 
           // ------------------------------------------------------------------------------------------------
-          // 8. Track API usage and get updated count
+          // 10. Track API usage and get updated count
           // ------------------------------------------------------------------------------------------------
           await supabase.from("api_usage").insert({
             user_id: userID,
@@ -321,7 +375,7 @@ export async function POST(request: NextRequest) {
           );
 
           // ------------------------------------------------------------------------------------------------
-          // 9. If the user has an active subscription, send the usage data to Stripe
+          // 11. If the user has an active subscription, send the usage data to Stripe
           // ------------------------------------------------------------------------------------------------
           if (
             userTier === ProductKeys.PRO_SUBSCRIPTION &&
