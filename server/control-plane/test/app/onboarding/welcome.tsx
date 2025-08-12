@@ -1,8 +1,8 @@
-import { Text, StyleSheet, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -14,12 +14,12 @@ export default function WelcomeScreen() {
     >
       <ThemedView style={styles.content}>
         <ThemedText type="title" style={styles.title}>
-          Welcome to ZoltLabs
+          Welcome to materialize
         </ThemedText>
         <ThemedText style={styles.subtitle}>
           Your next great app starts here
         </ThemedText>
-        
+
         <Pressable
           style={styles.button}
           onPress={() => router.push('/onboarding/features')}

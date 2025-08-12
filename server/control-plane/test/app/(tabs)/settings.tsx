@@ -1,8 +1,8 @@
-import { ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAppStore } from '@/store/useAppStore';
 import { useRouter } from 'expo-router';
+import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 export default function SettingsScreen() {
   const { theme, setTheme, resetOnboarding: resetOnboardingState } = useAppStore();
@@ -36,13 +36,13 @@ export default function SettingsScreen() {
       <ThemedText type="title" style={styles.title}>
         Settings
       </ThemedText>
-      
+
       <ScrollView style={styles.content}>
         <ThemedView style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Appearance
           </ThemedText>
-          
+
           <ThemedText style={styles.label}>Theme</ThemedText>
           {themeOptions.map((option) => (
             <Pressable
@@ -72,15 +72,15 @@ export default function SettingsScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             About
           </ThemedText>
-          
+
           <ThemedView style={styles.infoItem}>
             <ThemedText style={styles.infoLabel}>Version</ThemedText>
             <ThemedText style={styles.infoValue}>1.0.0</ThemedText>
           </ThemedView>
-          
+
           <ThemedView style={styles.infoItem}>
             <ThemedText style={styles.infoLabel}>Template</ThemedText>
-            <ThemedText style={styles.infoValue}>ZoltLabs</ThemedText>
+            <ThemedText style={styles.infoValue}>materialize</ThemedText>
           </ThemedView>
         </ThemedView>
 
@@ -88,7 +88,7 @@ export default function SettingsScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Developer
           </ThemedText>
-          
+
           <Pressable
             style={styles.button}
             onPress={resetOnboarding}
