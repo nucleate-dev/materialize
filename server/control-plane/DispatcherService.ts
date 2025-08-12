@@ -9,6 +9,28 @@ import axios from "axios";
 import * as dotenv from "dotenv";
 import FormData from "form-data";
 import type { Database } from "./types/supabase";
+import {
+  ECSClient,
+  RunTaskCommand,
+  DescribeTasksCommand,
+  waitUntilTasksRunning, // optional helper waiter
+} from "@aws-sdk/client-ecs";
+
+type StartTaskOpts = {
+  region: string; // e.g. "us-east-2"
+  cluster: string; // ECS cluster name or ARN
+  taskDefinition: string; // Task def family:revision or full ARN
+  subnets: string[]; // VPC private subnets recommended
+  securityGroups: string[]; // SG that allows egress; inbound usually not needed
+  assignPublicIp?: "ENABLED" | "DISABLED"; // default DISABLED
+  containerName?: string; // name from your task def to override env/command
+  command?: string[]; // optional: override container command
+  env?: Record<string, string>; // optional: per-run env vars
+  cpu?: string; // optional: override task-level CPU (e.g., "1024")
+  memory?: string; // optional: override task-level Memory (e.g., "2048")
+  tags?: Record<string, string>;
+  enableExec?: boolean; // optional: enable ECS Exec into the task
+};
 
 dotenv.config();
 
@@ -28,13 +50,17 @@ export class DispatcherService {
     this.autoScalingClient = autoScalingClient;
   }
 
+  private async launchFargateInstance() {
+    const ecs = new ECSClient({ region: process.env.AWS_REGION! });
+  }
+
   // Precheck prototype status
   public async prototypeDispatchPrecheck(
     jwt: string,
     prototypeId: string
   ): Promise<{
     state: "dne" | "active_dev_server" | "active_build";
-    status: "updating" | "error" | "stable" | null;
+    status: "updating" | "error" | "stable" | "creating" | null;
     viewing_url: string;
   }> {
     try {
@@ -83,10 +109,7 @@ export class DispatcherService {
         );
 
         // Determine state based on port
-        const state =
-          existingBuild.port === null || existingBuild.port === ""
-            ? "active_build"
-            : "active_dev_server";
+        const state = existingBuild.status ? "active_dev_server" : "dne";
 
         return {
           state,
@@ -197,32 +220,18 @@ export class DispatcherService {
     existingBuild: ActiveBuild;
   }> {
     console.log("No existing build found, creating a new build:");
-    const { prototypeId, zipBuffer, hotReload } = dispatchRequest;
+    const { prototypeId, zipBuffer } = dispatchRequest;
 
     // Get least loaded worker instance to assign to new build
     const instances = await this.getActiveWorkerInstances();
     const workerIp = instances[0].PrivateIpAddress;
     console.log("Instance to push to: ", workerIp);
 
-    // Acquire a free port if hot reload is requested
-    let allocatedPort: number | undefined;
-    if (hotReload) {
-      const port = await this.acquireFreePort(workerIp);
-      if (port === null) {
-        throw new Error(
-          `No available ports on worker ${workerIp} for hot reload`
-        );
-      }
-      allocatedPort = port;
-      console.log(`Allocated port ${allocatedPort} for hot reload`);
-    }
-
     // Create new build entry in cache PRIOR to sending request to build worker, in case build worker request fails
     // and because status needs to be updated to "updating"
     const newBuild: ActiveBuild = {
-      worker_host: instances[0].InstanceId,
-      worker_private_ip: workerIp,
-      port: allocatedPort || "",
+      fargate_task_arn: instances[0].InstanceId,
+      fargate_private_ip: workerIp,
       url: "",
       status: "updating",
       last_touched: Math.floor(Date.now() / 1000),
@@ -230,11 +239,7 @@ export class DispatcherService {
     await this.cache.set(activeBuildKey, JSON.stringify(newBuild));
 
     // construct request to send to the build worker
-    const formData = this.constructFormData(
-      prototypeId,
-      zipBuffer,
-      allocatedPort
-    );
+    const formData = this.constructFormData(prototypeId, zipBuffer);
 
     return {
       workerIp,
@@ -262,33 +267,13 @@ export class DispatcherService {
       );
     }
 
-    if (hotReload && existingBuild.port === "") {
-      console.log("Existing build being transitioned to hot reload");
-      let allocatedPort: number | undefined;
-      const port = await this.acquireFreePort(existingBuild.worker_private_ip);
-      if (port === null) {
-        throw new Error(
-          `No available ports on worker ${existingBuild.worker_private_ip} for hot reload`
-        );
-      }
-      allocatedPort = port;
-      existingBuild = {
-        ...existingBuild,
-        port: allocatedPort,
-      };
-    }
-
     existingBuild.status = "updating";
     await this.cache.set(activeBuildKey, JSON.stringify(existingBuild));
 
-    const formData = this.constructFormData(
-      prototypeId,
-      zipBuffer,
-      existingBuild.port ? Number(existingBuild.port) : undefined
-    );
+    const formData = this.constructFormData(prototypeId, zipBuffer, undefined);
 
     return {
-      workerIp: existingBuild.worker_private_ip,
+      workerIp: existingBuild.fargate_private_ip,
       formData,
       existingBuild,
     };
@@ -347,35 +332,35 @@ export class DispatcherService {
   }
 
   // Acquire a free port for hot reload
-  private async acquireFreePort(
-    workerIp: string,
-    opts?: { start?: number; end?: number; hint?: number }
-  ): Promise<number | null> {
-    if (!this.allocateSha) {
-      console.log("Loading allocate SHA");
-      this.allocateSha = String(
-        await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA])
-      );
-    }
-    const key = `ports:${workerIp}:used`;
-    const start = String(
-      opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000
-    );
-    const end = String(opts?.end ?? parseInt(process.env.MAX_PORT!) ?? 4099);
-    const hint = opts?.hint != null ? String(opts.hint) : "";
+  // private async acquireFreePort(
+  //   workerIp: string,
+  //   opts?: { start?: number; end?: number; hint?: number }
+  // ): Promise<number | null> {
+  //   if (!this.allocateSha) {
+  //     console.log("Loading allocate SHA");
+  //     this.allocateSha = String(
+  //       await this.cache.customCommand(["SCRIPT", "LOAD", ALLOCATE_LUA])
+  //     );
+  //   }
+  //   const key = `ports:${workerIp}:used`;
+  //   const start = String(
+  //     opts?.start ?? parseInt(process.env.MIN_PORT!) ?? 4000
+  //   );
+  //   const end = String(opts?.end ?? parseInt(process.env.MAX_PORT!) ?? 4099);
+  //   const hint = opts?.hint != null ? String(opts.hint) : "";
 
-    const res = await this.cache.customCommand([
-      "EVALSHA",
-      this.allocateSha,
-      "1",
-      key,
-      start,
-      end,
-      hint,
-    ]);
-    console.log("port result: ", res);
-    return res ? Number(res) : null;
-  }
+  //   const res = await this.cache.customCommand([
+  //     "EVALSHA",
+  //     this.allocateSha,
+  //     "1",
+  //     key,
+  //     start,
+  //     end,
+  //     hint,
+  //   ]);
+  //   console.log("port result: ", res);
+  //   return res ? Number(res) : null;
+  // }
 
   // Release a port
   private async releasePort(workerIp: string, port: number): Promise<void> {
@@ -525,11 +510,10 @@ return nil
 `;
 
 interface ActiveBuild {
-  worker_host: string;
-  worker_private_ip: string;
-  port: string | number;
+  fargate_task_arn: string;
+  fargate_private_ip: string;
   url: string;
-  status: "updating" | "error" | "stable";
+  status: "creating" | "updating" | "error" | "stable";
   last_touched: number;
 }
 
