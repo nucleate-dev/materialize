@@ -492,22 +492,6 @@ export default function CreatePage() {
                 <div className="relative h-full">
                   {isPreviewView ? (
                     <div className="h-full flex flex-col">
-                      {/* Viewing URL Display */}
-                      {viewingUrl && (
-                        <div className="p-3 border-b border-border bg-muted/30">
-                          <div className="flex items-center justify-center">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(viewingUrl, "_blank")}
-                              className="flex items-center space-x-2"
-                            >
-                              <DevicePhoneMobileIcon className="w-4 h-4" />
-                              <span>Live URL</span>
-                            </Button>
-                          </div>
-                        </div>
-                      )}
                       <MaterializeRenderSection
                         viewing_url={viewingUrl ?? ""}
                         hideControls={true}
