@@ -8,9 +8,9 @@ import {
   cleanupPrototypeS3Objects,
   copyDefaultAppToPrototype,
   copyS3BucketContents,
+  getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
 } from "@/lib/utils/s3";
-import { getDefaultPrototypeFiles } from "@/templates/defaultApp";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -200,16 +200,23 @@ export async function POST(request: NextRequest) {
           `Successfully forked prototype: ${s3CopyResult.copiedObjects} files copied`,
         );
       } else {
-        // NEW CREATION: Use default app files and copy to S3
+        // NEW CREATION: Use default app files from S3 and copy to both Supabase and S3
         console.log(
-          `Creating new prototype ${newPrototypeId} with default files`,
+          `Creating new prototype ${newPrototypeId} with default files from S3`,
         );
 
-        // Insert default prototype files
-        const defaultFiles = getDefaultPrototypeFiles(newPrototypeId);
+        // Get default app files from S3 raw files
+        const defaultFilesResult = await getDefaultAppFilesFromS3(newPrototypeId);
+        if (!defaultFilesResult.success) {
+          throw new Error(
+            `Failed to get default files from S3: ${defaultFilesResult.error}`,
+          );
+        }
+
+        // Insert default prototype files into Supabase
         const { error: filesError } = await supabase
           .from("prototype_files")
-          .insert(defaultFiles);
+          .insert(defaultFilesResult.files!);
 
         if (filesError) {
           throw new Error(
@@ -217,7 +224,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Copy default app files to S3 for new prototype
+        // Copy default app files to S3 for new prototype (for hosting)
         const s3CopyResult = await copyDefaultAppToPrototype(newPrototypeId);
         if (!s3CopyResult.success) {
           throw new Error(
@@ -226,7 +233,7 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(
-          `Successfully created new prototype: ${s3CopyResult.copiedObjects} files copied`,
+          `Successfully created new prototype: ${defaultFilesResult.files!.length} files in DB, ${s3CopyResult.copiedObjects} files copied to S3`,
         );
       }
 

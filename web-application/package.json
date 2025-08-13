@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "pull-prototype": "node scripts/pull-prototype.js"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
@@ -89,6 +90,7 @@
     "@typescript-eslint/eslint-plugin": "^6.20.0",
     "@typescript-eslint/parser": "^6.20.0",
     "autoprefixer": "^10.0.1",
+    "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
     "eslint-config-next": "^15.0.0-canary.130",
     "typescript": "^5.3.3"

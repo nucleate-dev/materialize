@@ -3,6 +3,7 @@ import {
   CopyObjectCommandOutput,
   DeleteObjectCommand,
   DeleteObjectCommandOutput,
+  GetObjectCommand,
   ListObjectsV2Command,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -114,6 +115,85 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
 /**
  * Clean up S3 objects if prototype creation fails
  */
+/**
+ * Get default app files from S3 raw files and format for Supabase insertion
+ */
+export async function getDefaultAppFilesFromS3(
+  prototypeId: string,
+): Promise<{
+  success: boolean;
+  files?: Array<{
+    prototype_id: string;
+    name: string;
+    contents: string;
+  }>;
+  error?: string;
+}> {
+  try {
+    const sourcePrefix = "default-app-raw-files/";
+    
+    // List all files in the default-app-raw-files directory
+    const listCommand = new ListObjectsV2Command({
+      Bucket: PROTOTYPE_BUCKET,
+      Prefix: sourcePrefix,
+    });
+
+    const listResult = await s3Client.send(listCommand);
+
+    if (!listResult.Contents || listResult.Contents.length === 0) {
+      return {
+        success: false,
+        error: "No default app files found in S3",
+      };
+    }
+
+    const files: Array<{
+      prototype_id: string;
+      name: string;
+      contents: string;
+    }> = [];
+
+    // Get content for each file
+    for (const object of listResult.Contents) {
+      if (!object.Key) continue;
+
+      // Skip directory markers (objects ending with /)
+      if (object.Key.endsWith('/')) continue;
+
+      const getCommand = new GetObjectCommand({
+        Bucket: PROTOTYPE_BUCKET,
+        Key: object.Key,
+      });
+
+      const result = await s3Client.send(getCommand);
+      
+      if (result.Body) {
+        const content = await result.Body.transformToString();
+        
+        // Extract filename (remove the prefix)
+        const fileName = object.Key.replace(sourcePrefix, '');
+        
+        files.push({
+          prototype_id: prototypeId,
+          name: fileName,
+          contents: content,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      files,
+    };
+  } catch (error) {
+    console.error("Error getting default app files from S3:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function cleanupPrototypeS3Objects(
   prototypeId: string,
 ): Promise<void> {
