@@ -17,7 +17,7 @@ export class CleanupService {
   // Cleanup idle hot reload services
 
   private async cleanupIdleActiveBuilds() {
-    console.log("Cleaning up idle active builds");
+    console.log("Cleaning up idle active builds, current time: " + Date.now());
 
     // get all active builds
     const activeBuildKeys = await this.scanKeys("active_build:*");
@@ -161,7 +161,7 @@ export class CleanupService {
       console.log(`Terminating Fargate task: ${taskArn}`);
 
       const command = new StopTaskCommand({
-        cluster: process.env.ECS_CLUSTER_NAME || "default",
+        cluster: process.env.ECS_CLUSTER_NAME!,
         task: taskArn,
         reason: "Cleanup service - idle timeout",
       });
