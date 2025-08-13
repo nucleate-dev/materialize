@@ -152,6 +152,20 @@ export class DispatcherService {
         const existingBuild: ActiveBuild = JSON.parse(
           existingBuildJson as string
         );
+        // There is already an active dispatch request, return error
+        if (
+          existingBuild.status === "creating" ||
+          existingBuild.status === "updating"
+        ) {
+          return {
+            status: "error",
+            viewing_url: this.normalizeUrl(
+              existingBuild.url || this.getS3Url(prototype_id)
+            ),
+            build_errors: [],
+            build_warnings: [],
+          };
+        }
         updatedBuildCacheData = {
           ...existingBuild,
           status: "updating",
@@ -371,12 +385,6 @@ export class DispatcherService {
       files,
       file_scope,
     };
-  }
-
-  public async launchFargateInstancePublic(
-    prototypeId: string
-  ): Promise<{ taskArn: string; privateIp: string }> {
-    return await this.launchFargateInstance(prototypeId);
   }
 }
 
