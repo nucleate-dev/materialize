@@ -1,4 +1,3 @@
-import { EC2Client } from "@aws-sdk/client-ec2";
 import { createClient } from "@supabase/supabase-js";
 import { GlideClient } from "@valkey/valkey-glide";
 import axios from "axios";
@@ -14,14 +13,12 @@ import {
 dotenv.config();
 
 export class DispatcherService {
-  private ec2Client: EC2Client;
   private ecsClient: ECSClient;
   private cache: GlideClient;
   // private allocateSha: string | null = null;
 
-  constructor(cache: GlideClient, ec2Client: EC2Client, ecsClient: ECSClient) {
+  constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
-    this.ec2Client = ec2Client;
     this.ecsClient = ecsClient;
   }
 

@@ -3,7 +3,6 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import { DispatcherService } from "./DispatcherService";
 import { CleanupService } from "./CleanupService";
-import { EC2Client } from "@aws-sdk/client-ec2";
 import { ECSClient } from "@aws-sdk/client-ecs";
 import { GlideClient } from "@valkey/valkey-glide";
 import * as dotenv from "dotenv";
@@ -26,12 +25,6 @@ interface DispatchRequestBody {
 
 // Initialize clients
 const initializeClients = async () => {
-  // Initialize AWS clients
-
-  const ec2Client = new EC2Client({
-    region: process.env.AWS_REGION!,
-  });
-
   const ecsClient = new ECSClient({
     region: process.env.AWS_REGION!,
   });
@@ -55,7 +48,7 @@ const initializeClients = async () => {
 
   console.log("Valkey cache initialized successfully");
 
-  return { cache, ec2Client, ecsClient };
+  return { cache, ecsClient };
 };
 
 const fastify = Fastify({
@@ -260,17 +253,13 @@ fastify.post(
 const start = async () => {
   try {
     // Initialize clients first
-    const {
-      cache: cacheClient,
-      ec2Client,
-      ecsClient,
-    } = await initializeClients();
+    const { cache: cacheClient, ecsClient } = await initializeClients();
 
     // Assign to global variables
     cache = cacheClient;
 
     // Create dispatcher service with initialized clients
-    dispatcherService = new DispatcherService(cache, ec2Client, ecsClient);
+    dispatcherService = new DispatcherService(cache, ecsClient);
 
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cache, ecsClient);
