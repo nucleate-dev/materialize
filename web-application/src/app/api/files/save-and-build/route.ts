@@ -1,27 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { Database } from "@/lib/types/database.types";
 import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
-);
-
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-
-// Request validation schema
+// Request validation schema using Database Insert types
 const SaveAndBuildSchema = z.object({
-  files: z.array(z.object({
-    id: z.string().optional(),
-    name: z.string(),
-    contents: z.string(),
-    prototype_id: z.string().nullable(),
-    created_at: z.string().nullable().optional(),
-    updated_at: z.string().nullable().optional(),
-  })),
+  files: z.record(
+    z.string(),
+    z.object({
+      contents: z.string(),
+      name: z.string(),
+      prototype_id: z.string().optional(),
+      id: z.string().optional(),
+      created_at: z.string().optional(),
+      updated_at: z.string().optional(),
+    }),
+  ),
   prototype_id: z.string(),
 });
 
@@ -95,9 +89,9 @@ export async function POST(request: NextRequest) {
 
     if (!validationResult.success) {
       return NextResponse.json(
-        { 
-          error: "Invalid request body", 
-          details: validationResult.error.errors 
+        {
+          error: "Invalid request body",
+          details: validationResult.error.errors,
         },
         { status: 400 },
       );
@@ -122,14 +116,14 @@ export async function POST(request: NextRequest) {
 
     if (!precheckResponse.ok) {
       const precheckError = await precheckResponse.json();
-      
+
       if (precheckResponse.status === 401) {
         return NextResponse.json(
           { error: "Unauthorized", message: precheckError.message },
           { status: 401 },
         );
       }
-      
+
       if (precheckResponse.status === 404) {
         return NextResponse.json(
           { error: "Prototype not found", message: precheckError.message },
@@ -147,40 +141,34 @@ export async function POST(request: NextRequest) {
     console.log("Dispatch precheck response:", precheckData);
 
     // 4. Check if build is already in progress
-    if (precheckData.status === "updating" || precheckData.status === "creating") {
+    if (
+      precheckData.status === "updating" ||
+      precheckData.status === "creating"
+    ) {
       return NextResponse.json(
-        { 
-          error: "Build already in progress", 
-          message: "A build is currently in progress for this prototype. Please wait for it to complete." 
+        {
+          error: "Build already in progress",
+          message:
+            "A build is currently in progress for this prototype. Please wait for it to complete.",
         },
         { status: 409 },
       );
     }
 
     // 5. Save files to database using incremental approach
-    console.log(`Saving ${files.length} files to database for prototype ${prototype_id}`);
-
-    // Transform files array into the format expected by saveFilesToDatabase
-    const updatedFiles: Record<string, PrototypeFile> = {};
-    files.forEach((file) => {
-      updatedFiles[file.name] = {
-        id: file.id || "", // Will be generated for new files
-        name: file.name,
-        contents: file.contents,
-        prototype_id: file.prototype_id || prototype_id,
-        created_at: file.created_at || null,
-        updated_at: file.updated_at || null,
-      };
-    });
+    console.log(
+      `Saving ${Object.keys(files).length} files to database for prototype ${prototype_id}`,
+    );
 
     try {
-      await saveFilesToDatabaseWithAuth(token, prototype_id, updatedFiles);
+      await saveFilesToDatabaseWithAuth(token, prototype_id, files);
     } catch (saveError) {
       console.error("Error saving files to database:", saveError);
       return NextResponse.json(
-        { 
-          error: "Failed to save files", 
-          message: saveError instanceof Error ? saveError.message : "Unknown error"
+        {
+          error: "Failed to save files",
+          message:
+            saveError instanceof Error ? saveError.message : "Unknown error",
         },
         { status: 500 },
       );
@@ -188,13 +176,13 @@ export async function POST(request: NextRequest) {
 
     // 6. Transform files for dispatch API
     const filesForDispatch: Record<string, string> = {};
-    files.forEach((file) => {
-      filesForDispatch[file.name] = file.contents;
+    Object.entries(files).forEach(([filePath, file]) => {
+      filesForDispatch[filePath] = file.contents;
     });
 
     // 7. Dispatch build request
     console.log("Dispatching build request to server");
-    
+
     const dispatchResponse = await fetch(
       `${process.env.SERVER_ENDPOINT!}/dispatch`,
       {
@@ -216,24 +204,27 @@ export async function POST(request: NextRequest) {
     if (!dispatchResponse.ok) {
       const dispatchError = await dispatchResponse.json();
       console.error("Dispatch request failed:", dispatchError);
-      
+
       if (dispatchResponse.status === 401) {
         return NextResponse.json(
           { error: "Unauthorized", message: dispatchError.error_message },
           { status: 401 },
         );
       }
-      
+
       if (dispatchResponse.status === 404) {
         return NextResponse.json(
-          { error: "Prototype not found", message: dispatchError.error_message },
+          {
+            error: "Prototype not found",
+            message: dispatchError.error_message,
+          },
           { status: 404 },
         );
       }
 
       return NextResponse.json(
-        { 
-          error: "Build failed", 
+        {
+          error: "Build failed",
           message: dispatchError.error_message || "Unknown build error",
           build_errors: dispatchError.build_errors || [],
           build_warnings: dispatchError.build_warnings || [],
@@ -254,7 +245,6 @@ export async function POST(request: NextRequest) {
       build_warnings: dispatchData.build_warnings,
       message: "Files saved and build completed successfully",
     });
-
   } catch (error) {
     console.error("Save and build API error:", error);
     return NextResponse.json(
