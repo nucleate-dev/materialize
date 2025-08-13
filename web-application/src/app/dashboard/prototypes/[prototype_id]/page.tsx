@@ -64,7 +64,6 @@ export default function CreatePage() {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
@@ -211,57 +210,6 @@ export default function CreatePage() {
     }
   };
 
-  const handleSaveFiles = async () => {
-    if (!prototypeId || !user) {
-      console.error("Cannot save: missing prototype ID or user");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
-      if (!token) {
-        console.error("No authentication token available");
-        return;
-      }
-
-      const response = await fetch("/api/files/save-and-build", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          files: fileSystem.state.files,
-          prototype_id: prototypeId,
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        console.log("✅ Files saved and build completed successfully");
-        
-        // Update viewing URL if provided
-        if (result.viewing_url) {
-          setViewingUrl(result.viewing_url);
-        }
-        
-        // Force refresh the preview
-        if (renderRef.current) {
-          renderRef.current.forceRefresh();
-        }
-      } else {
-        console.error("Failed to save files:", result.error || result.message);
-      }
-    } catch (error) {
-      console.error("Error saving files:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleClonePrototype = async () => {
     if (!user || !prototype || !prototypeId) return;
@@ -587,12 +535,14 @@ export default function CreatePage() {
                           fileName={fileSystem.state.selectedFile}
                           onCreateFile={fileSystem.createFile}
                           onDeleteFile={fileSystem.deleteFile}
-                          onSaveFiles={handleSaveFiles}
                           availableFiles={Object.keys(fileSystem.state.files)}
                           canDelete={
                             Object.keys(fileSystem.state.files).length > 1
                           }
-                          isSaving={isSaving}
+                          prototypeId={prototypeId}
+                          files={fileSystem.state.files}
+                          onViewingUrlUpdate={setViewingUrl}
+                          onForceRefresh={() => renderRef.current?.forceRefresh()}
                         />
                       </div>
                     </div>

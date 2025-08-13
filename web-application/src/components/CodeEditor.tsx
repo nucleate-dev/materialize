@@ -1,6 +1,7 @@
 "use client";
 
 import Editor from "@monaco-editor/react";
+import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,8 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Database } from "@/lib/types/database.types";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
+
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 interface CodeEditorProps {
   value: string;
@@ -22,10 +26,13 @@ interface CodeEditorProps {
   fileName?: string;
   onCreateFile?: (fileName: string, initialContent?: string) => void;
   onDeleteFile?: (fileName: string) => void;
-  onSaveFiles?: () => void;
   availableFiles?: string[];
   canDelete?: boolean;
-  isSaving?: boolean;
+  // Props needed for save functionality
+  prototypeId?: string;
+  files?: Record<string, PrototypeFile>;
+  onViewingUrlUpdate?: (url: string) => void;
+  onForceRefresh?: () => void;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -36,10 +43,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   fileName,
   onCreateFile,
   onDeleteFile,
-  onSaveFiles,
   availableFiles = [],
   canDelete = true,
-  isSaving = false,
+  // Save functionality props
+  prototypeId,
+  files,
+  onViewingUrlUpdate,
+  onForceRefresh,
 }) => {
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
@@ -70,6 +80,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleCreateFile = () => {
     if (!newFileName.trim()) {
@@ -133,6 +144,58 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const handleModalClose = () => {
     setNewFileName("");
     setNewFileError("");
+  };
+
+  const handleSaveFiles = async () => {
+    if (!prototypeId || !files) {
+      console.error("Cannot save: missing prototype ID or files");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        console.error("No authentication token available");
+        return;
+      }
+
+      const response = await fetch("/api/files/save-and-build", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          files: files,
+          prototype_id: prototypeId,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        console.log("✅ Files saved and build completed successfully");
+        
+        // Update viewing URL if provided
+        if (result.viewing_url && onViewingUrlUpdate) {
+          onViewingUrlUpdate(result.viewing_url);
+        }
+        
+        // Force refresh the preview
+        if (onForceRefresh) {
+          onForceRefresh();
+        }
+      } else {
+        console.error("Failed to save files:", result.error || result.message);
+      }
+    } catch (error) {
+      console.error("Error saving files:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Configure Monaco Editor before it loads
@@ -272,12 +335,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             </span>
             {!readOnly && (
               <div className="flex items-center space-x-1">
-                {onSaveFiles && (
+                {prototypeId && files && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={onSaveFiles}
+                    onClick={handleSaveFiles}
                     disabled={isSaving}
                     title="Save files"
                   >
