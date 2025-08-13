@@ -210,7 +210,6 @@ export default function CreatePage() {
     }
   };
 
-
   const handleClonePrototype = async () => {
     if (!user || !prototype || !prototypeId) return;
 
@@ -542,7 +541,9 @@ export default function CreatePage() {
                           prototypeId={prototypeId}
                           files={fileSystem.state.files}
                           onViewingUrlUpdate={setViewingUrl}
-                          onForceRefresh={() => renderRef.current?.forceRefresh()}
+                          onForceRefresh={() =>
+                            renderRef.current?.forceRefresh()
+                          }
                         />
                       </div>
                     </div>
