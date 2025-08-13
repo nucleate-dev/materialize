@@ -564,15 +564,32 @@ export class BuilderService {
       );
     }
 
-    logger.log(
-      "Starting npm install",
-      true,
-      "Running: npm ci --prefer-offline --no-audit --no-fund",
-    );
+    // Check if package-lock.json exists to decide between npm ci vs npm install
+    const packageLockPath = path.join(projectDir, "package-lock.json");
+    let useNpmCi = false;
+    try {
+      await fs.stat(packageLockPath);
+      useNpmCi = true;
+      logger.log(
+        "Starting npm install",
+        true,
+        "Running: npm ci --prefer-offline --no-audit --no-fund (lockfile found)",
+      );
+    } catch (error) {
+      logger.log(
+        "Starting npm install",
+        true,
+        "Running: npm install --prefer-offline --no-audit --no-fund (no lockfile)",
+      );
+    }
+
+    const npmArgs = useNpmCi 
+      ? ["ci", "--prefer-offline", "--no-audit", "--no-fund"]
+      : ["install", "--prefer-offline", "--no-audit", "--no-fund"];
 
     const result = await this.runCommand(
       "npm",
-      ["ci", "--prefer-offline", "--no-audit", "--no-fund"],
+      npmArgs,
       projectDir,
       {
         CI: "1",
