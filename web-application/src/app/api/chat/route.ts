@@ -1,6 +1,7 @@
 import { ProductKeys } from "@/GlobalConstants";
 import { Database } from "@/lib/types/database.types";
 import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
+import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
@@ -246,17 +247,28 @@ export async function POST(request: NextRequest) {
           );
 
           // ------------------------------------------------------------------------------------------------
-          // 9. Pre-build and dispatch requests
+          // 9. Save updated files to database before dispatch
+          // ------------------------------------------------------------------------------------------------
+          const finalFiles = fileManager.getFinalState();
+          
+          try {
+            console.log("💾 Saving updated files to database before dispatch...");
+            await saveFilesToDatabaseWithAuth(token, prototype_id, finalFiles);
+            console.log("✅ Files successfully saved to database");
+          } catch (saveError) {
+            console.error("❌ Error saving files to database:", saveError);
+            // Continue with dispatch even if save fails - don't block user
+          }
+
+          // ------------------------------------------------------------------------------------------------
+          // 10. Pre-build and dispatch requests
           // ------------------------------------------------------------------------------------------------
           console.log(
             "🚀 Dispatching build request regardless of precheck response",
           );
 
-          // Convert fileManager files to the format expected by dispatch endpoint
-          const finalFiles = fileManager.getFinalState();
+          // Convert PrototypeFiles to Record<string, string> format for dispatch
           const filesForDispatch: Record<string, string> = {};
-
-          // Convert PrototypeFiles to Record<string, string> format
           Object.entries(finalFiles).forEach(([filePath, file]) => {
             if (file.contents) {
               filesForDispatch[filePath] = file.contents;
@@ -301,7 +313,7 @@ export async function POST(request: NextRequest) {
           }
 
           // ------------------------------------------------------------------------------------------------
-          // 10. Track API usage and get updated count
+          // 11. Track API usage and get updated count
           // ------------------------------------------------------------------------------------------------
           await supabase.from("api_usage").insert({
             user_id: userID,
@@ -352,7 +364,7 @@ export async function POST(request: NextRequest) {
           );
 
           // ------------------------------------------------------------------------------------------------
-          // 11. If the user has an active subscription, send the usage data to Stripe
+          // 12. If the user has an active subscription, send the usage data to Stripe
           // ------------------------------------------------------------------------------------------------
           if (
             userTier === ProductKeys.PRO_SUBSCRIPTION &&

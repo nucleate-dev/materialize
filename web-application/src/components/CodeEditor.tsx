@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Plus, Trash2 } from "lucide-react";
+import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 
 interface CodeEditorProps {
@@ -22,8 +22,10 @@ interface CodeEditorProps {
   fileName?: string;
   onCreateFile?: (fileName: string, initialContent?: string) => void;
   onDeleteFile?: (fileName: string) => void;
+  onSaveFiles?: () => void;
   availableFiles?: string[];
   canDelete?: boolean;
+  isSaving?: boolean;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -34,8 +36,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   fileName,
   onCreateFile,
   onDeleteFile,
+  onSaveFiles,
   availableFiles = [],
   canDelete = true,
+  isSaving = false,
 }) => {
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
@@ -268,6 +272,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             </span>
             {!readOnly && (
               <div className="flex items-center space-x-1">
+                {onSaveFiles && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={onSaveFiles}
+                    disabled={isSaving}
+                    title="Save files"
+                  >
+                    <Save className={`w-3 h-3 ${isSaving ? 'animate-pulse' : ''}`} />
+                  </Button>
+                )}
                 {onCreateFile && (
                   <Button
                     variant="ghost"

@@ -18,16 +18,13 @@ export interface FileSystemActions {
 
   // Database operations
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
-  saveFilesToDatabase: (
-    updatedFiles: Record<string, PrototypeFile>,
-  ) => Promise<void>;
   resetToDefault: (prototypeId: string) => Promise<void>;
 
   // Bulk file operations
   setFiles: (files: Record<string, PrototypeFile>) => void;
   applyFileUpdates: (
     updatedFiles: Record<string, PrototypeFile>,
-  ) => Promise<void>;
+  ) => void;
 
   // File management operations
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
@@ -123,53 +120,6 @@ export const useFileSystem = (
     }));
   }, []);
 
-  // Save files to database
-  const saveFilesToDatabase = useCallback(
-    async (updatedFiles: Record<string, PrototypeFile>) => {
-      if (!prototypeId) return;
-
-      for (const [filePath, fileData] of Object.entries(updatedFiles)) {
-        try {
-          // Check if file exists
-          const { data: existingFile } = await supabase
-            .from("prototype_files")
-            .select("id")
-            .eq("prototype_id", prototypeId)
-            .eq("name", filePath)
-            .maybeSingle();
-
-          if (existingFile) {
-            // Update existing file
-            const { error } = await supabase
-              .from("prototype_files")
-              .update({
-                contents: fileData.contents,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", existingFile.id);
-
-            if (error) {
-              console.error(`Error updating file ${filePath}:`, error);
-            }
-          } else {
-            // Create new file
-            const { error } = await supabase.from("prototype_files").insert({
-              prototype_id: prototypeId,
-              name: filePath,
-              contents: fileData.contents,
-            });
-
-            if (error) {
-              console.error(`Error creating file ${filePath}:`, error);
-            }
-          }
-        } catch (error) {
-          console.error(`Error saving file ${filePath}:`, error);
-        }
-      }
-    },
-    [prototypeId],
-  );
 
   // Reset to default files
   const resetToDefault = useCallback(
@@ -261,8 +211,8 @@ export const useFileSystem = (
 
   // Apply file updates from external sources (like chat API responses)
   const applyFileUpdates = useCallback(
-    async (updatedFiles: Record<string, PrototypeFile>) => {
-      // Update local state first
+    (updatedFiles: Record<string, PrototypeFile>) => {
+      // Update local state only - database persistence handled by server
       setFiles((prevFiles) => {
         const newFiles = { ...prevFiles };
         Object.entries(updatedFiles).forEach(([filePath, fileData]) => {
@@ -270,16 +220,8 @@ export const useFileSystem = (
         });
         return JSON.parse(JSON.stringify(newFiles)); // Deep copy for React detection
       });
-
-      // Persist to database
-      console.log(
-        "🔄 Saving file updates to database:",
-        Object.keys(updatedFiles),
-      );
-      await saveFilesToDatabase(updatedFiles);
-      console.log("✅ File updates saved to database");
     },
-    [saveFilesToDatabase],
+    [],
   );
 
   // Get content of specific file
@@ -405,7 +347,6 @@ export const useFileSystem = (
     selectFile,
     updateFileContent,
     loadFilesFromDatabase,
-    saveFilesToDatabase,
     resetToDefault,
     setFiles: handleSetFiles,
     applyFileUpdates,
