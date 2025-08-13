@@ -25,7 +25,7 @@ import {
 } from "react";
 
 interface MaterializeRenderSectionProps {
-  viewing_url: string;
+  viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
   onResetToDefault?: () => void;
   hideControls?: boolean;
 }
@@ -44,18 +44,12 @@ const MaterializeRenderSection = forwardRef<
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
 
-  // Normalize URL to ensure it has a protocol
-  const normalizedUrl =
-    viewing_url && !viewing_url.startsWith("http")
-      ? `https://${viewing_url}`
-      : viewing_url;
-
   // Ref for the iframe's contentWindow
   const webPreviewRef = useRef<Window | null>(null);
 
   // Force refresh method
   const forceRefresh = useCallback(() => {
-    if (normalizedUrl) {
+    if (viewing_url) {
       // Method 1: Try iframe refresh
       const iframe = document.querySelector(
         'iframe[title="React Native Preview"], iframe[title="React Native Web Preview"]',
@@ -71,7 +65,7 @@ const MaterializeRenderSection = forwardRef<
       // Method 2: Update refresh key to force React re-render
       setRefreshKey((prev) => prev + 1);
     }
-  }, [normalizedUrl]);
+  }, [viewing_url]);
 
   // Expose forceRefresh method to parent
   useImperativeHandle(
@@ -83,8 +77,8 @@ const MaterializeRenderSection = forwardRef<
   );
 
   const handleRefresh = () => {
-    if (webPreviewRef.current && normalizedUrl) {
-      webPreviewRef.current.location = normalizedUrl;
+    if (webPreviewRef.current && viewing_url) {
+      webPreviewRef.current.location = viewing_url;
     }
   };
 
@@ -126,8 +120,7 @@ const MaterializeRenderSection = forwardRef<
 
   useEffect(() => {
     console.log("render_viewing_url: ", viewing_url);
-    console.log("normalized_url: ", normalizedUrl);
-  }, [viewing_url, normalizedUrl]);
+  }, [viewing_url]);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -187,7 +180,7 @@ const MaterializeRenderSection = forwardRef<
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleRefresh}
-                disabled={!normalizedUrl}
+                disabled={!viewing_url}
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh Preview
@@ -205,7 +198,7 @@ const MaterializeRenderSection = forwardRef<
           </DropdownMenu>
         </div>
 
-        {!normalizedUrl ? (
+        {!viewing_url ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center bg-card p-8 rounded-lg border border-border">
               <p className="text-foreground text-lg font-medium">
@@ -275,7 +268,7 @@ const MaterializeRenderSection = forwardRef<
                   }}
                   className="w-full h-full"
                   title="React Native Preview"
-                  src={normalizedUrl}
+                  src={viewing_url}
                   sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
                 />
               </div>
@@ -320,7 +313,7 @@ const MaterializeRenderSection = forwardRef<
                 }}
                 className="w-full h-full min-h-[500px]"
                 title="React Native Web Preview"
-                src={normalizedUrl}
+                src={viewing_url}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
               />
             </div>

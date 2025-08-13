@@ -199,14 +199,14 @@ export class DispatcherService {
         return {
           state,
           status: existingBuild.status,
-          viewing_url: existingBuild.url || this.getS3Url(prototypeId),
+          viewing_url: this.normalizeUrl(existingBuild.url || this.getS3Url(prototypeId)),
         };
       } else {
         // No active build, return S3 URL
         return {
           state: "dne",
           status: null,
-          viewing_url: this.getS3Url(prototypeId),
+          viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
         };
       }
     } catch (error) {
@@ -217,6 +217,11 @@ export class DispatcherService {
   private getS3Url(prototypeId: string): string {
     // Construct S3/CloudFront URL for the prototype
     return `${prototypeId}.render.materializeui.com/`;
+  }
+
+  private normalizeUrl(url: string): string {
+    // Ensure URL has protocol (https://) for iframe loading
+    return url && !url.startsWith('http') ? `https://${url}` : url;
   }
 
   public async processDispatchRequest({
@@ -298,8 +303,9 @@ export class DispatcherService {
 
         return {
           status: fargateResponse.status,
-          viewing_url:
-            fargateResponse.tunnel_url || this.getS3Url(prototype_id),
+          viewing_url: this.normalizeUrl(
+            fargateResponse.tunnel_url || this.getS3Url(prototype_id)
+          ),
           build_errors: fargateResponse.build_errors,
           build_warnings: fargateResponse.build_warnings,
         };
@@ -314,7 +320,7 @@ export class DispatcherService {
         );
         return {
           status: "error",
-          viewing_url: this.getS3Url(prototype_id),
+          viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
           build_errors: [],
           build_warnings: [],
         };
@@ -323,7 +329,7 @@ export class DispatcherService {
       console.log("Error processing dispatch request:", error);
       return {
         status: "error",
-        viewing_url: this.getS3Url(prototype_id),
+        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
         build_errors: [],
         build_warnings: [],
       };
