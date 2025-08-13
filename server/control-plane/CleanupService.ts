@@ -17,7 +17,8 @@ export class CleanupService {
   // Cleanup idle hot reload services
 
   private async cleanupIdleActiveBuilds() {
-    console.log("Cleaning up idle active builds, current time: " + Date.now());
+    const currentTimeReadable = this.formatTimestampEST(Date.now());
+    console.log(`Cleaning up idle active builds, current time: ${Date.now()} (${currentTimeReadable})`);
 
     // get all active builds
     const activeBuildKeys = await this.scanKeys("active_build:*");
@@ -54,6 +55,11 @@ export class CleanupService {
 
     for (const { build, prototypeId, buildKey } of idleBuilds) {
       console.log(`Cleaning up idle build for prototype: ${prototypeId}`);
+      const lastTouchedReadable = this.formatTimestampEST(build.last_touched * 1000);
+      console.log(`active build cache data:`, {
+        ...build,
+        last_touched_readable: lastTouchedReadable
+      });
 
       // a. dispatch a request to the fargate instance to kill the build
       if (build.fargate_private_ip) {
@@ -203,6 +209,20 @@ export class CleanupService {
     } while (cursor !== "0");
 
     return keys;
+  }
+
+  // Helper method to format timestamp in EST
+  private formatTimestampEST(timestamp: number): string {
+    return new Date(timestamp).toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
   }
 }
 
