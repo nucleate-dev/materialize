@@ -417,6 +417,8 @@ export default function CreatePage() {
                   // Loading state
                   isLoading={isLoading}
                   setIsLoading={setIsLoading}
+                  // Viewing URL integration
+                  onViewingUrlUpdate={setViewingUrl}
                 />
               </div>
             </CardContent>

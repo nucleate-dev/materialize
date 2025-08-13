@@ -284,6 +284,18 @@ export async function POST(request: NextRequest) {
 
             const dispatchData = await dispatchResponse.json();
             console.log("📦 Dispatch endpoint response:", dispatchData);
+
+            // Stream the viewing URL to the client
+            if (dispatchData.viewing_url) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: "viewing_url",
+                    viewing_url: dispatchData.viewing_url,
+                  })}\n\n`,
+                ),
+              );
+            }
           } catch (error) {
             console.error("❌ Error calling dispatch endpoint:", error);
           }

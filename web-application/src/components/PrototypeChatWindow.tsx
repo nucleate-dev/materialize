@@ -27,6 +27,9 @@ export interface PrototypeChatWindowProps {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
 
+  // Viewing URL callback
+  onViewingUrlUpdate?: (viewingUrl: string) => void;
+
   onClearChat?: () => void;
 }
 
@@ -36,6 +39,7 @@ export default function PrototypeChatWindow({
   prototypeId,
   isLoading,
   setIsLoading,
+  onViewingUrlUpdate,
   onClearChat,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
@@ -371,6 +375,15 @@ export default function PrototypeChatWindow({
                     break;
                   }
 
+                  case "viewing_url": {
+                    // Handle viewing URL update from dispatcher
+                    console.log("Received viewing URL:", data.viewing_url);
+                    if (onViewingUrlUpdate && data.viewing_url) {
+                      onViewingUrlUpdate(data.viewing_url);
+                    }
+                    break;
+                  }
+
                   case "error": {
                     console.error("Streaming error:", data.error);
                     setIsExecutingOperations(false);
@@ -406,6 +419,7 @@ export default function PrototypeChatWindow({
       setIsExecutingOperations,
       setIsLoading,
       loadingDots,
+      onViewingUrlUpdate,
     ],
   );
 
