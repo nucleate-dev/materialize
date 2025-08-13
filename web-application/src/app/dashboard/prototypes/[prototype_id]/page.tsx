@@ -538,6 +538,12 @@ export default function CreatePage() {
                           canDelete={
                             Object.keys(fileSystem.state.files).length > 1
                           }
+                          prototypeId={prototypeId}
+                          files={fileSystem.state.files}
+                          onViewingUrlUpdate={setViewingUrl}
+                          onForceRefresh={() =>
+                            renderRef.current?.forceRefresh()
+                          }
                         />
                       </div>
                     </div>

@@ -21,7 +21,7 @@ export interface PrototypeChatWindowProps {
   // File system integration
   files: Record<string, PrototypeFile>;
   selectedFile: string;
-  onFilesUpdate: (files: Record<string, PrototypeFile>) => Promise<void>;
+  onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
 
   // Loading state
   isLoading: boolean;
