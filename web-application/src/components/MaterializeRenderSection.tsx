@@ -178,10 +178,7 @@ const MaterializeRenderSection = forwardRef<
                 Web View
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleRefresh}
-                disabled={!viewing_url}
-              >
+              <DropdownMenuItem onClick={handleRefresh} disabled={!viewing_url}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh Preview
               </DropdownMenuItem>
