@@ -4,10 +4,13 @@ import { supabase } from "@/ClientConstants";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
-import ExpoSnackViewer, {
-  ExpoSnackViewerRef,
-} from "@/components/ExpoSnackViewer";
+// import ExpoSnackViewer, {
+//   ExpoSnackViewerRef,
+// } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
+import MaterializeRenderSection, {
+  MaterializeRenderSectionRef,
+} from "@/components/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
@@ -41,7 +44,7 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -65,7 +68,7 @@ export default function CreatePage() {
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
-  const snackViewerRef = useRef<ExpoSnackViewerRef>(null);
+  const renderRef = useRef<MaterializeRenderSectionRef>(null);
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
@@ -140,20 +143,20 @@ export default function CreatePage() {
         const token = session.data.session?.access_token;
 
         const headers: HeadersInit = {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         };
 
         if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
+          headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const fetchViewResponse = await fetch('/api/prototype/fetch-view', {
-          method: 'POST',
+        const fetchViewResponse = await fetch("/api/prototype/fetch-view", {
+          method: "POST",
           headers,
           body: JSON.stringify({
             prototype_id: prototypeId,
-            current_page: 'edit'
-          })
+            current_page: "edit",
+          }),
         });
 
         if (fetchViewResponse.ok) {
@@ -162,7 +165,10 @@ export default function CreatePage() {
           console.log("Source:", fetchViewData.source);
           setViewingUrl(fetchViewData.viewing_url);
         } else {
-          console.error("Failed to fetch viewing URL:", fetchViewResponse.status);
+          console.error(
+            "Failed to fetch viewing URL:",
+            fetchViewResponse.status,
+          );
         }
       } catch (fetchViewError) {
         console.error("Error calling fetch-view API:", fetchViewError);
@@ -175,6 +181,7 @@ export default function CreatePage() {
   }, [prototypeId, router]);
 
   const handleResetToDefault = useCallback(async () => {
+    // TODO: api to replace the S3 bucket with the default app
     if (!prototypeId) {
       console.error("Reset failed: no prototype ID");
       return;
@@ -185,8 +192,8 @@ export default function CreatePage() {
       await fileSystem.resetToDefault(prototypeId);
 
       // Force refresh the preview
-      if (snackViewerRef.current) {
-        snackViewerRef.current.forceRefresh();
+      if (renderRef.current) {
+        renderRef.current.forceRefresh();
       }
 
       console.log("Successfully reset to default app");
@@ -195,7 +202,7 @@ export default function CreatePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [prototypeId, fileSystem, snackViewerRef]);
+  }, [prototypeId, fileSystem, renderRef]);
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined && fileSystem.state.selectedFile) {
@@ -219,11 +226,11 @@ export default function CreatePage() {
         return;
       }
 
-      const response = await fetch('/api/prototype/create', {
-        method: 'POST',
+      const response = await fetch("/api/prototype/create", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: clonedPrototypeName,
@@ -231,7 +238,7 @@ export default function CreatePage() {
           project_id: prototype.project_id,
           prototype_id: prototypeId, // For forking
           visibility: "SELF",
-        })
+        }),
       });
 
       const result = await response.json();
@@ -369,10 +376,11 @@ export default function CreatePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "w-2/5 min-w-[420px] flex"
-            } flex-col relative z-10`}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "w-2/5 min-w-[420px] flex"
+          } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -417,10 +425,11 @@ export default function CreatePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "w-3/5 min-w-[500px] flex"
-            } flex-col relative z-10`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "w-3/5 min-w-[500px] flex"
+          } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -488,7 +497,7 @@ export default function CreatePage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.open(viewingUrl, '_blank')}
+                              onClick={() => window.open(viewingUrl, "_blank")}
                               className="flex items-center space-x-2"
                             >
                               <DevicePhoneMobileIcon className="w-4 h-4" />
@@ -497,13 +506,18 @@ export default function CreatePage() {
                           </div>
                         </div>
                       )}
-                      <ExpoSnackViewer
+                      <MaterializeRenderSection
+                        viewing_url={viewingUrl ?? ""}
+                        hideControls={true}
+                        onResetToDefault={handleResetToDefault}
+                      />
+                      {/* <ExpoSnackViewer
                         ref={snackViewerRef}
                         files={fileSystem.state.files}
                         onResetToDefault={handleResetToDefault}
                         onCreateFile={fileSystem.createFile}
                         onDeleteFile={fileSystem.deleteFile}
-                      />
+                      /> */}
                     </div>
                   ) : (
                     <div
@@ -511,10 +525,11 @@ export default function CreatePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${isMobile
-                          ? "w-full max-h-[200px] border-b"
-                          : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                          } border-border`}
+                        className={`${
+                          isMobile
+                            ? "w-full max-h-[200px] border-b"
+                            : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                        } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -594,10 +609,11 @@ export default function CreatePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"

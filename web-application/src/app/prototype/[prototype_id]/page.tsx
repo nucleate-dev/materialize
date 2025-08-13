@@ -2,7 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
-import ExpoSnackViewer from "@/components/ExpoSnackViewer";
+// import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
@@ -17,6 +17,7 @@ import { useUser } from "@/hooks/useUser";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import MaterializeRenderSection from "@/components/MaterializeRenderSection";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -31,6 +32,7 @@ export default function PrototypePage() {
   const [prototypeFiles, setPrototypeFiles] = useState<
     Record<string, PrototypeFile>
   >({});
+  const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCloning, setIsCloning] = useState(false);
@@ -103,6 +105,7 @@ export default function PrototypePage() {
           if (fetchViewResponse.ok) {
             const fetchViewData = await fetchViewResponse.json();
             console.log("Viewing URL:", fetchViewData.viewing_url);
+            setViewingUrl(fetchViewData.viewing_url);
             console.log("Source:", fetchViewData.source);
           } else {
             console.error(
@@ -239,7 +242,11 @@ export default function PrototypePage() {
           <div className="flex-1 p-8">
             <Card className="h-full overflow-hidden">
               <CardContent className="h-full p-0">
-                <ExpoSnackViewer files={prototypeFiles} hideControls={true} />
+                <MaterializeRenderSection
+                  viewing_url={viewingUrl ?? ""}
+                  hideControls={true}
+                />
+                {/* <ExpoSnackViewer files={prototypeFiles} hideControls={true} /> */}
               </CardContent>
             </Card>
           </div>
