@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Database } from "@/lib/types/database.types";
+import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -156,66 +157,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Instantiate authenticated Supabase client
-    const authenticatedSupabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
-    );
-
-    // 6. Save files to database
+    // 5. Save files to database using incremental approach
     console.log(`Saving ${files.length} files to database for prototype ${prototype_id}`);
 
-    // Delete existing files for this prototype
-    const { error: deleteError } = await authenticatedSupabase
-      .from("prototype_files")
-      .delete()
-      .eq("prototype_id", prototype_id);
+    // Transform files array into the format expected by saveFilesToDatabase
+    const updatedFiles: Record<string, PrototypeFile> = {};
+    files.forEach((file) => {
+      updatedFiles[file.name] = {
+        id: file.id || "", // Will be generated for new files
+        name: file.name,
+        contents: file.contents,
+        prototype_id: file.prototype_id || prototype_id,
+        created_at: file.created_at || null,
+        updated_at: file.updated_at || null,
+      };
+    });
 
-    if (deleteError) {
-      console.error("Error deleting existing files:", deleteError);
+    try {
+      await saveFilesToDatabaseWithAuth(token, prototype_id, updatedFiles);
+    } catch (saveError) {
+      console.error("Error saving files to database:", saveError);
       return NextResponse.json(
-        { error: "Failed to delete existing files", message: deleteError.message },
+        { 
+          error: "Failed to save files", 
+          message: saveError instanceof Error ? saveError.message : "Unknown error"
+        },
         { status: 500 },
       );
     }
 
-    // Insert new files
-    const filesToInsert = files.map((file) => ({
-      name: file.name,
-      contents: file.contents,
-      prototype_id: prototype_id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-
-    const { error: insertError } = await authenticatedSupabase
-      .from("prototype_files")
-      .insert(filesToInsert);
-
-    if (insertError) {
-      console.error("Error inserting files:", insertError);
-      return NextResponse.json(
-        { error: "Failed to save files", message: insertError.message },
-        { status: 500 },
-      );
-    }
-
-    console.log("Successfully saved files to database");
-
-    // 7. Transform files for dispatch API
+    // 6. Transform files for dispatch API
     const filesForDispatch: Record<string, string> = {};
     files.forEach((file) => {
       filesForDispatch[file.name] = file.contents;
     });
 
-    // 8. Dispatch build request
+    // 7. Dispatch build request
     console.log("Dispatching build request to server");
     
     const dispatchResponse = await fetch(
@@ -266,9 +243,9 @@ export async function POST(request: NextRequest) {
     }
 
     const dispatchData: DispatchResponse = await dispatchResponse.json();
-    console.log("=æ Dispatch endpoint response:", dispatchData);
+    console.log("=ï¿½ Dispatch endpoint response:", dispatchData);
 
-    // 9. Return success response with viewing URL
+    // 8. Return success response with viewing URL
     return NextResponse.json({
       success: true,
       status: dispatchData.status,
