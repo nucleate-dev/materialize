@@ -142,6 +142,7 @@ fastify.post(
       );
 
       const result = await dispatcherService.processDispatchRequest({
+        jwt,
         prototype_id,
         framework: selectedFramework,
         files,
@@ -152,11 +153,34 @@ fastify.post(
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       fastify.log.error(e, "Build request failed:");
+
+      // Check if it's an authentication or permission error
+      if (
+        e.message.includes("Invalid JWT") ||
+        e.message.includes("not authenticated")
+      ) {
+        return reply.status(401).send({
+          error: "Unauthorized",
+          error_message: e.message,
+        });
+      }
+
+      if (
+        e.message.includes("Prototype not found") ||
+        e.message.includes("does not have permissions")
+      ) {
+        return reply.status(404).send({
+          error: "Prototype not found",
+          error_message: e.message,
+        });
+      }
+
       return reply.status(500).send({
         status: "error",
         viewing_url: "",
         build_errors: [],
         build_warnings: [],
+        error_message: e.message,
       });
     }
   }

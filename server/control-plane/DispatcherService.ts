@@ -25,6 +25,51 @@ export class DispatcherService {
     this.ecsClient = ecsClient;
   }
 
+  // Authentication and authorization utility
+  private async validateUserAndPrototypeOwner(
+    jwt: string,
+    prototypeId: string
+  ) {
+    // 1. Create Anon Supabase client with JWT
+    const supabase = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        },
+      }
+    );
+
+    // 2. Verify JWT and get user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(jwt);
+    if (authError || !user) {
+      throw new Error("Invalid JWT or user not authenticated");
+    }
+
+    // 3. Attempt to fetch prototype from database to verify permissions
+    const { data: prototype, error: prototypeError } = await supabase
+      .from("prototypes")
+      .select("*")
+      .eq("id", prototypeId)
+      .single();
+
+    if (prototypeError || !prototype) {
+      throw new Error("Prototype not found or user does not have permissions");
+    }
+
+    if (prototype.owner_id !== user.id) {
+      throw new Error("User does not have permissions to edit this prototype");
+    }
+
+    return { user, prototype };
+  }
+
   // Precheck prototype status
   public async prototypeDispatchPrecheck(
     jwt: string,
@@ -35,40 +80,8 @@ export class DispatcherService {
     viewing_url: string;
   }> {
     try {
-      // 1. Create Anon Supabase client with JWT
-      const supabase = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwt}`,
-            },
-          },
-        }
-      );
-
-      // 2. Verify JWT and get user
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser(jwt);
-      if (authError || !user) {
-        throw new Error("Invalid JWT or user not authenticated");
-      }
-
-      // 3. Attempt to fetch prototype from database to verify permissions
-      const { data: prototype, error: prototypeError } = await supabase
-        .from("prototypes")
-        .select("*")
-        .eq("id", prototypeId)
-        .single();
-
-      if (prototypeError || !prototype) {
-        throw new Error(
-          "Prototype not found or user does not have permissions"
-        );
-      }
+      // Authentication and authorization validation
+      await this.validateUserAndPrototypeOwner(jwt, prototypeId);
 
       // 4. Check active build in cache
       const activeBuildKey = `active_build:${prototypeId}`;
@@ -113,6 +126,7 @@ export class DispatcherService {
   }
 
   public async processDispatchRequest({
+    jwt,
     prototype_id,
     framework,
     files,
@@ -122,8 +136,12 @@ export class DispatcherService {
     viewing_url: string;
     build_errors: CodeError[];
     build_warnings: CodeWarning[];
+    error_message?: string;
   }> {
     try {
+      // Authentication and authorization validation
+      await this.validateUserAndPrototypeOwner(jwt, prototype_id);
+
       // Check if build already exists
       const activeBuildKey = `active_build:${prototype_id}`;
       const existingBuildJson = await this.cache.get(activeBuildKey);
@@ -164,6 +182,8 @@ export class DispatcherService {
             ),
             build_errors: [],
             build_warnings: [],
+            error_message:
+              "There is already an active dispatch request for this prototype",
           };
         }
         updatedBuildCacheData = {
@@ -225,15 +245,17 @@ export class DispatcherService {
           viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
           build_errors: [],
           build_warnings: [],
+          error_message: "There was a server error building the prototype.",
         };
       }
     } catch (error) {
-      console.log("Error processing dispatch request:", error);
+      const e = error instanceof Error ? error : new Error(String(error));
       return {
         status: "error",
         viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
         build_errors: [],
         build_warnings: [],
+        error_message: e.message,
       };
     }
   }
@@ -420,6 +442,7 @@ interface FargateDevServerResponse {
 }
 
 interface DispatchRequest {
+  jwt: string;
   prototype_id: string;
   framework: "expo_react_native" | "react";
   files: Record<string, string>;
