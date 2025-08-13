@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import { GlideClient } from "@valkey/valkey-glide";
 import axios from "axios";
 import * as dotenv from "dotenv";
-import FormData from "form-data";
 import type { Database } from "./types/supabase";
 import {
   ECSClient,
@@ -11,22 +10,6 @@ import {
   DescribeTasksCommand,
   waitUntilTasksRunning, // optional helper waiter
 } from "@aws-sdk/client-ecs";
-
-// type StartTaskOpts = {
-//   region: string; // e.g. "us-east-2"
-//   cluster: string; // ECS cluster name or ARN
-//   taskDefinition: string; // Task def family:revision or full ARN
-//   subnets: string[]; // VPC private subnets recommended
-//   securityGroups: string[]; // SG that allows egress; inbound usually not needed
-//   assignPublicIp?: "ENABLED" | "DISABLED"; // default DISABLED
-//   containerName?: string; // name from your task def to override env/command
-//   command?: string[]; // optional: override container command
-//   env?: Record<string, string>; // optional: per-run env vars
-//   cpu?: string; // optional: override task-level CPU (e.g., "1024")
-//   memory?: string; // optional: override task-level Memory (e.g., "2048")
-//   tags?: Record<string, string>;
-//   enableExec?: boolean; // optional: enable ECS Exec into the task
-// };
 
 dotenv.config();
 
@@ -40,6 +23,205 @@ export class DispatcherService {
     this.cache = cache;
     this.ec2Client = ec2Client;
     this.ecsClient = ecsClient;
+  }
+
+  // Precheck prototype status
+  public async prototypeDispatchPrecheck(
+    jwt: string,
+    prototypeId: string
+  ): Promise<{
+    state: "dne" | "active_dev_server" | "active_build";
+    status: "updating" | "error" | "stable" | "creating" | null;
+    viewing_url: string;
+  }> {
+    try {
+      // 1. Create Anon Supabase client with JWT
+      const supabase = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+            },
+          },
+        }
+      );
+
+      // 2. Verify JWT and get user
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser(jwt);
+      if (authError || !user) {
+        throw new Error("Invalid JWT or user not authenticated");
+      }
+
+      // 3. Attempt to fetch prototype from database to verify permissions
+      const { data: prototype, error: prototypeError } = await supabase
+        .from("prototypes")
+        .select("*")
+        .eq("id", prototypeId)
+        .single();
+
+      if (prototypeError || !prototype) {
+        throw new Error(
+          "Prototype not found or user does not have permissions"
+        );
+      }
+
+      // 4. Check active build in cache
+      const activeBuildKey = `active_build:${prototypeId}`;
+      const existingBuildJson = await this.cache.get(activeBuildKey);
+
+      if (existingBuildJson) {
+        const existingBuild: ActiveBuild = JSON.parse(
+          existingBuildJson as string
+        );
+
+        // Determine state based on port
+        const state = existingBuild.status ? "active_dev_server" : "dne";
+
+        return {
+          state,
+          status: existingBuild.status,
+          viewing_url: this.normalizeUrl(
+            existingBuild.url || this.getS3Url(prototypeId)
+          ),
+        };
+      } else {
+        // No active build, return S3 URL
+        return {
+          state: "dne",
+          status: null,
+          viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
+        };
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private getS3Url(prototypeId: string): string {
+    // Construct S3/CloudFront URL for the prototype
+    return `${prototypeId}.render.materializeui.com/`;
+  }
+
+  private normalizeUrl(url: string): string {
+    // Ensure URL has protocol (https://) for iframe loading
+    return url && !url.startsWith("http") ? `https://${url}` : url;
+  }
+
+  public async processDispatchRequest({
+    prototype_id,
+    framework,
+    files,
+    file_scope,
+  }: DispatchRequest): Promise<{
+    status: "success" | "error";
+    viewing_url: string;
+    build_errors: CodeError[];
+    build_warnings: CodeWarning[];
+  }> {
+    try {
+      // Check if build already exists
+      const activeBuildKey = `active_build:${prototype_id}`;
+      const existingBuildJson = await this.cache.get(activeBuildKey);
+
+      let updatedBuildCacheData: ActiveBuild;
+      if (!existingBuildJson) {
+        const newBuildCacheData: ActiveBuild = {
+          fargate_task_arn: "",
+          fargate_private_ip: "",
+          url: this.getS3Url(prototype_id),
+          status: "creating",
+          last_touched: Math.floor(Date.now() / 1000),
+        };
+        await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
+        const newFargateInstance = await this.launchFargateInstance(
+          prototype_id
+        );
+
+        updatedBuildCacheData = {
+          ...newBuildCacheData,
+          status: "updating",
+          fargate_task_arn: newFargateInstance.taskArn,
+          fargate_private_ip: newFargateInstance.privateIp,
+        };
+      } else {
+        const existingBuild: ActiveBuild = JSON.parse(
+          existingBuildJson as string
+        );
+        updatedBuildCacheData = {
+          ...existingBuild,
+          status: "updating",
+          fargate_task_arn: existingBuild.fargate_task_arn,
+          fargate_private_ip: existingBuild.fargate_private_ip,
+        };
+      }
+
+      await this.cache.set(
+        activeBuildKey,
+        JSON.stringify(updatedBuildCacheData)
+      );
+
+      // TODO: Dispatch request to fargate instance (this.dispatchFormedRequestToFargateInstance())
+      const requestBody = this.constructRequestBody({
+        prototype_id,
+        framework,
+        files,
+        file_scope,
+      });
+      try {
+        const fargateResponse =
+          await this.dispatchFormedRequestToFargateInstanceServer(
+            updatedBuildCacheData.fargate_private_ip,
+            requestBody
+          );
+        console.log("Fargate responded");
+        updatedBuildCacheData.status = "stable";
+        updatedBuildCacheData.url =
+          fargateResponse.tunnel_url || this.getS3Url(prototype_id);
+        updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
+        await this.cache.set(
+          activeBuildKey,
+          JSON.stringify(updatedBuildCacheData)
+        );
+        console.log(updatedBuildCacheData);
+
+        return {
+          status: fargateResponse.status,
+          viewing_url: this.normalizeUrl(
+            fargateResponse.tunnel_url || this.getS3Url(prototype_id)
+          ),
+          build_errors: fargateResponse.build_errors,
+          build_warnings: fargateResponse.build_warnings,
+        };
+      } catch (error) {
+        console.log(
+          "There was an error dispatching the request to the fargate instance"
+        );
+        updatedBuildCacheData.status = "error";
+        await this.cache.set(
+          activeBuildKey,
+          JSON.stringify(updatedBuildCacheData)
+        );
+        return {
+          status: "error",
+          viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
+          build_errors: [],
+          build_warnings: [],
+        };
+      }
+    } catch (error) {
+      console.log("Error processing dispatch request:", error);
+      return {
+        status: "error",
+        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
+        build_errors: [],
+        build_warnings: [],
+      };
+    }
   }
 
   private async launchFargateInstance(
@@ -139,204 +321,7 @@ export class DispatcherService {
     }
   }
 
-  // Precheck prototype status
-  public async prototypeDispatchPrecheck(
-    jwt: string,
-    prototypeId: string
-  ): Promise<{
-    state: "dne" | "active_dev_server" | "active_build";
-    status: "updating" | "error" | "stable" | "creating" | null;
-    viewing_url: string;
-  }> {
-    try {
-      // 1. Create Anon Supabase client with JWT
-      const supabase = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwt}`,
-            },
-          },
-        }
-      );
-
-      // 2. Verify JWT and get user
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser(jwt);
-      if (authError || !user) {
-        throw new Error("Invalid JWT or user not authenticated");
-      }
-
-      // 3. Attempt to fetch prototype from database to verify permissions
-      const { data: prototype, error: prototypeError } = await supabase
-        .from("prototypes")
-        .select("*")
-        .eq("id", prototypeId)
-        .single();
-
-      if (prototypeError || !prototype) {
-        throw new Error(
-          "Prototype not found or user does not have permissions"
-        );
-      }
-
-      // 4. Check active build in cache
-      const activeBuildKey = `active_build:${prototypeId}`;
-      const existingBuildJson = await this.cache.get(activeBuildKey);
-
-      if (existingBuildJson) {
-        const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
-        );
-
-        // Determine state based on port
-        const state = existingBuild.status ? "active_dev_server" : "dne";
-
-        return {
-          state,
-          status: existingBuild.status,
-          viewing_url: this.normalizeUrl(existingBuild.url || this.getS3Url(prototypeId)),
-        };
-      } else {
-        // No active build, return S3 URL
-        return {
-          state: "dne",
-          status: null,
-          viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
-        };
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  private getS3Url(prototypeId: string): string {
-    // Construct S3/CloudFront URL for the prototype
-    return `${prototypeId}.render.materializeui.com/`;
-  }
-
-  private normalizeUrl(url: string): string {
-    // Ensure URL has protocol (https://) for iframe loading
-    return url && !url.startsWith('http') ? `https://${url}` : url;
-  }
-
-  public async processDispatchRequest({
-    prototype_id,
-    framework,
-    files,
-    file_scope,
-  }: DispatchRequest): Promise<{
-    status: "success" | "error";
-    viewing_url: string;
-    build_errors: CodeError[];
-    build_warnings: CodeWarning[];
-  }> {
-    try {
-      // Check if build already exists
-      const activeBuildKey = `active_build:${prototype_id}`;
-      const existingBuildJson = await this.cache.get(activeBuildKey);
-
-      let updatedBuildCacheData: ActiveBuild;
-      if (!existingBuildJson) {
-        const newBuildCacheData: ActiveBuild = {
-          fargate_task_arn: "",
-          fargate_private_ip: "",
-          url: this.getS3Url(prototype_id),
-          status: "creating",
-          last_touched: Math.floor(Date.now() / 1000),
-        };
-        await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
-        const newFargateInstance = await this.launchFargateInstance(
-          prototype_id
-        );
-
-        updatedBuildCacheData = {
-          ...newBuildCacheData,
-          status: "updating",
-          fargate_task_arn: newFargateInstance.taskArn,
-          fargate_private_ip: newFargateInstance.privateIp,
-        };
-      } else {
-        const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
-        );
-        updatedBuildCacheData = {
-          ...existingBuild,
-          status: "updating",
-          fargate_task_arn: existingBuild.fargate_task_arn,
-          fargate_private_ip: existingBuild.fargate_private_ip,
-        };
-      }
-
-      await this.cache.set(
-        activeBuildKey,
-        JSON.stringify(updatedBuildCacheData)
-      );
-
-      // TODO: Dispatch request to fargate instance (this.dispatchFormedRequestToFargateInstance())
-      const requestBody = this.constructRequestBody({
-        prototype_id,
-        framework,
-        files,
-        file_scope,
-      });
-      try {
-        const fargateResponse =
-          await this.dispatchFormedRequestToFargateInstance(
-            updatedBuildCacheData.fargate_private_ip,
-            requestBody
-          );
-        console.log("Fargate responded");
-        updatedBuildCacheData.status = "stable";
-        updatedBuildCacheData.url =
-          fargateResponse.tunnel_url || this.getS3Url(prototype_id);
-        updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify(updatedBuildCacheData)
-        );
-        console.log(updatedBuildCacheData);
-
-        return {
-          status: fargateResponse.status,
-          viewing_url: this.normalizeUrl(
-            fargateResponse.tunnel_url || this.getS3Url(prototype_id)
-          ),
-          build_errors: fargateResponse.build_errors,
-          build_warnings: fargateResponse.build_warnings,
-        };
-      } catch (error) {
-        console.log(
-          "There was an error dispatching the request to the fargate instance"
-        );
-        updatedBuildCacheData.status = "error";
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify(updatedBuildCacheData)
-        );
-        return {
-          status: "error",
-          viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-          build_errors: [],
-          build_warnings: [],
-        };
-      }
-    } catch (error) {
-      console.log("Error processing dispatch request:", error);
-      return {
-        status: "error",
-        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        build_errors: [],
-        build_warnings: [],
-      };
-    }
-  }
-
-  private async dispatchFormedRequestToFargateInstance(
+  private async dispatchFormedRequestToFargateInstanceServer(
     fargatePrivateIp: string,
     requestBody: any
   ): Promise<FargateDevServerResponse> {

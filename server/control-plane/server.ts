@@ -1,30 +1,17 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import cors from "@fastify/cors";
-import multipart from "@fastify/multipart";
 import { DispatcherService } from "./DispatcherService";
 import { CleanupService } from "./CleanupService";
 import { EC2Client } from "@aws-sdk/client-ec2";
-import {
-  ECSClient,
-  RunTaskCommand,
-  type RunTaskCommandInput,
-} from "@aws-sdk/client-ecs";
+import { ECSClient } from "@aws-sdk/client-ecs";
 import { GlideClient } from "@valkey/valkey-glide";
 import * as dotenv from "dotenv";
 
 dotenv.config();
 
-interface StatusParams {
-  prototypeId: string;
-}
-
 interface PrecheckBody {
   jwt: string;
-  prototype_id: string;
-}
-
-interface LaunchFargateBody {
   prototype_id: string;
 }
 
@@ -35,36 +22,6 @@ interface DispatchRequestBody {
   files: Record<string, string>; // Map<file_name, file_contents>
   file_scope: "updates" | "complete";
   hot_reload?: boolean;
-}
-
-interface CodeError {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: "build" | "runtime" | "dependency" | "syntax";
-}
-
-interface CodeWarning {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: "build" | "deprecation" | "performance" | "unused";
-}
-
-interface DispatchResponse {
-  status: "success" | "error";
-  viewing_url: string;
-  errors: CodeError[];
-  warnings: CodeWarning[];
-}
-
-interface FargateDevServerResponse {
-  status: "success" | "error";
-  tunnel_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
 }
 
 // Initialize clients
@@ -109,8 +66,33 @@ fastify.register(cors, { origin: true, credentials: true });
 
 let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
+let cache: GlideClient;
 
 // Routes
+
+// Health check
+fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const result = await cache.ping();
+    if (result === "PONG") {
+      return reply.send({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      return reply.status(500).send({
+        status: "unhealthy",
+        error: `Cache ping returned: ${result}`,
+      });
+    }
+  } catch (error) {
+    return reply.status(500).send({
+      status: "unhealthy",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 fastify.post(
   "/dispatch",
   async (
@@ -175,38 +157,6 @@ fastify.post(
         viewing_url: "",
         build_errors: [],
         build_warnings: [],
-      });
-    }
-  }
-);
-
-// Health check
-fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    // await redis.ping();
-    return { status: "healthy", timestamp: new Date().toISOString() };
-  } catch (error) {
-    return reply.status(500).send({
-      status: "unhealthy",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
-
-// Clear cache endpoint
-fastify.delete(
-  "/cache/clear",
-  async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { cache } = await initializeClients();
-      await cache.flushall();
-      fastify.log.info("Cache cleared successfully");
-      return { success: true, message: "All cache entries cleared" };
-    } catch (error) {
-      fastify.log.error(error, "Failed to clear cache");
-      return reply.status(500).send({
-        error: "Failed to clear cache",
-        message: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -282,54 +232,18 @@ fastify.post(
   }
 );
 
-// Launch Fargate instance endpoint
-fastify.post(
-  "/launch-fargate-instance",
-  async (
-    request: FastifyRequest<{ Body: LaunchFargateBody }>,
-    reply: FastifyReply
-  ) => {
-    try {
-      const { prototype_id } = request.body;
-
-      if (!prototype_id) {
-        return reply.status(400).send({
-          error: "prototype_id is required",
-        });
-      }
-
-      fastify.log.info(
-        `Launching Fargate instance for prototype: ${prototype_id}`
-      );
-
-      const result = await dispatcherService.launchFargateInstancePublic(
-        prototype_id
-      );
-
-      return reply.send({
-        success: true,
-        prototype_id,
-        task_arn: result.taskArn,
-        private_ip: result.privateIp,
-        message: "Fargate instance launched successfully",
-      });
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      fastify.log.error(e, "Failed to launch Fargate instance:");
-
-      return reply.status(500).send({
-        error: "Failed to launch Fargate instance",
-        message: e.message,
-      });
-    }
-  }
-);
-
 // Start server
 const start = async () => {
   try {
     // Initialize clients first
-    const { cache, ec2Client, ecsClient } = await initializeClients();
+    const {
+      cache: cacheClient,
+      ec2Client,
+      ecsClient,
+    } = await initializeClients();
+
+    // Assign to global variables
+    cache = cacheClient;
 
     // Create dispatcher service with initialized clients
     dispatcherService = new DispatcherService(cache, ec2Client, ecsClient);
