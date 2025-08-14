@@ -6,6 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
+npm install -g expo-cli @expo/ngrok@^4.1.0
 # Install dependencies (including dev dependencies for building)
 RUN npm install
 
