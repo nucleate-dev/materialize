@@ -1,5 +1,5 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/types/database.types";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 type PrototypeFileInsert =
   Database["public"]["Tables"]["prototype_files"]["Insert"];
@@ -77,6 +77,8 @@ export async function saveFilesToDatabase(
             prototype_id: prototypeId,
             name: filePath,
             contents: fileData.contents,
+            file_type: "text",
+            storage_path: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
