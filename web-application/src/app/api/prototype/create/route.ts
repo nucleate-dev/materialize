@@ -6,8 +6,10 @@ import {
 } from "@/lib/utils/prototypeAuth";
 import {
   cleanupPrototypeS3Objects,
+  copyAssetInSupabaseStorage,
   copyDefaultAppToPrototype,
   copyS3BucketContents,
+  deletePrototypeAssetsFromStorage,
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
 } from "@/lib/utils/s3";
@@ -167,12 +169,40 @@ export async function POST(request: NextRequest) {
         }
 
         // Copy files to new prototype (with new prototype_id)
-        const filesToInsert: Database["public"]["Tables"]["prototype_files"]["Insert"][] =
-          filesResult.files!.map((file) => ({
-            prototype_id: newPrototypeId,
-            name: file.name,
-            contents: file.contents,
-          }));
+        // For assets, we need to copy them in Supabase Storage and update storage_path
+        const filesToInsert: Database["public"]["Tables"]["prototype_files"]["Insert"][] = [];
+        
+        for (const file of filesResult.files!) {
+          if (file.file_type === "asset") {
+            // Copy asset in Supabase Storage
+            const copyResult = await copyAssetInSupabaseStorage(
+              forkPrototypeId,
+              newPrototypeId,
+              file.name
+            );
+            
+            if (!copyResult.success) {
+              throw new Error(`Failed to copy asset ${file.name}: ${copyResult.error}`);
+            }
+            
+            filesToInsert.push({
+              prototype_id: newPrototypeId,
+              name: file.name,
+              contents: null,
+              file_type: "asset",
+              storage_path: copyResult.publicUrl!,
+            });
+          } else {
+            // Text file - just copy contents
+            filesToInsert.push({
+              prototype_id: newPrototypeId,
+              name: file.name,
+              contents: file.contents,
+              file_type: file.file_type,
+              storage_path: file.storage_path,
+            });
+          }
+        }
 
         const { error: filesError } = await supabase
           .from("prototype_files")
@@ -255,6 +285,9 @@ export async function POST(request: NextRequest) {
 
       // Clean up S3 objects
       await cleanupPrototypeS3Objects(newPrototypeId);
+      
+      // Clean up Supabase Storage assets
+      await deletePrototypeAssetsFromStorage(newPrototypeId);
 
       // Clean up database entry
       await supabase.from("prototypes").delete().eq("id", newPrototypeId);

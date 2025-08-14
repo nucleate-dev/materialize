@@ -66,11 +66,8 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Convert files map to FileInput array
-      const fileInputs: FileInput[] = Object.entries(files).map(([filePath, content]) => ({
-        path: filePath,
-        content: content,
-      }));
+      // Files are now already in FileInput format
+      const fileInputs: FileInput[] = files;
 
       // Handle file scope
       const projectDir = path.join(this.workDir, prototype_id);

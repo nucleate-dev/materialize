@@ -1,7 +1,7 @@
+import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
 
 // Request validation schema using Database Insert types
 const SaveAndBuildSchema = z.object({
@@ -160,8 +160,16 @@ export async function POST(request: NextRequest) {
       `Saving ${Object.keys(files).length} files to database for prototype ${prototype_id}`,
     );
 
+    // Add required file_type field to files
+    const filesWithType = Object.fromEntries(
+      Object.entries(files).map(([path, file]) => [
+        path,
+        { ...file, file_type: "text" as const },
+      ]),
+    );
+
     try {
-      await saveFilesToDatabaseWithAuth(token, prototype_id, files);
+      await saveFilesToDatabaseWithAuth(token, prototype_id, filesWithType);
     } catch (saveError) {
       console.error("Error saving files to database:", saveError);
       return NextResponse.json(

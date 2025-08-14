@@ -334,27 +334,33 @@ export type Database = {
       };
       prototype_files: {
         Row: {
-          contents: string;
+          contents: string | null;
           created_at: string | null;
+          file_type: "text" | "asset";
           id: string;
           name: string;
           prototype_id: string | null;
+          storage_path: string | null;
           updated_at: string | null;
         };
         Insert: {
-          contents: string;
+          contents?: string | null;
           created_at?: string | null;
+          file_type: "text" | "asset";
           id?: string;
           name: string;
           prototype_id?: string | null;
+          storage_path?: string | null;
           updated_at?: string | null;
         };
         Update: {
-          contents?: string;
+          contents?: string | null;
           created_at?: string | null;
+          file_type?: "text" | "asset";
           id?: string;
           name?: string;
           prototype_id?: string | null;
+          storage_path?: string | null;
           updated_at?: string | null;
         };
         Relationships: [

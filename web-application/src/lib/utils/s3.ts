@@ -7,6 +7,11 @@ import {
   ListObjectsV2Command,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseStorage = createClient(supabaseUrl, supabaseServiceKey);
 
 // Initialize S3 client
 const s3Client = new S3Client({
@@ -18,6 +23,7 @@ const s3Client = new S3Client({
 });
 
 const PROTOTYPE_BUCKET = "materialize-sites";
+const SUPABASE_STORAGE_BUCKET = "prototype-assets";
 
 export interface S3CopyResult {
   success: boolean;
@@ -28,6 +34,136 @@ export interface S3CopyResult {
 export interface S3BucketInfo {
   bucketName: string;
   cloudfrontUrl: string;
+}
+
+/**
+ * Upload binary asset to Supabase Storage
+ */
+export async function uploadAssetToSupabaseStorage(
+  prototypeId: string,
+  fileName: string,
+  fileContent: Buffer,
+): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+  try {
+    const filePath = `${prototypeId}/${fileName}`;
+    
+    const { error } = await supabaseStorage.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .upload(filePath, fileContent, {
+        contentType: getContentType(fileName),
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("Error uploading to Supabase Storage:", error);
+      return { success: false, error: error.message };
+    }
+
+    const { data: publicUrlData } = supabaseStorage.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .getPublicUrl(filePath);
+
+    return {
+      success: true,
+      publicUrl: publicUrlData.publicUrl,
+    };
+  } catch (error) {
+    console.error("Error in uploadAssetToSupabaseStorage:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Copy asset from one prototype to another in Supabase Storage
+ */
+export async function copyAssetInSupabaseStorage(
+  sourcePrototypeId: string,
+  targetPrototypeId: string,
+  fileName: string,
+): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+  try {
+    const sourceFilePath = `${sourcePrototypeId}/${fileName}`;
+    
+    // Download from source
+    const { data: sourceData, error: downloadError } = await supabaseStorage.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .download(sourceFilePath);
+
+    if (downloadError) {
+      return { success: false, error: downloadError.message };
+    }
+
+    // Upload to target
+    const fileBuffer = Buffer.from(await sourceData.arrayBuffer());
+    return await uploadAssetToSupabaseStorage(targetPrototypeId, fileName, fileBuffer);
+  } catch (error) {
+    console.error("Error in copyAssetInSupabaseStorage:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Delete assets for a prototype from Supabase Storage
+ */
+export async function deletePrototypeAssetsFromStorage(
+  prototypeId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: files, error: listError } = await supabaseStorage.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .list(prototypeId);
+
+    if (listError) {
+      return { success: false, error: listError.message };
+    }
+
+    if (!files || files.length === 0) {
+      return { success: true }; // No files to delete
+    }
+
+    const filesToDelete = files.map(file => `${prototypeId}/${file.name}`);
+    const { error: deleteError } = await supabaseStorage.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .remove(filesToDelete);
+
+    if (deleteError) {
+      return { success: false, error: deleteError.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in deletePrototypeAssetsFromStorage:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Get content type based on file extension
+ */
+function getContentType(fileName: string): string {
+  const ext = fileName.toLowerCase().split('.').pop();
+  const contentTypes: Record<string, string> = {
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'ico': 'image/x-icon',
+    'svg': 'image/svg+xml',
+    'ttf': 'font/ttf',
+    'otf': 'font/otf',
+    'woff': 'font/woff',
+    'woff2': 'font/woff2',
+  };
+  return contentTypes[ext || ''] || 'application/octet-stream';
 }
 
 /**
@@ -117,6 +253,7 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
  */
 /**
  * Get default app files from S3 raw files and format for Supabase insertion
+ * Also uploads binary assets to Supabase Storage
  */
 export async function getDefaultAppFilesFromS3(
   prototypeId: string,
@@ -125,7 +262,9 @@ export async function getDefaultAppFilesFromS3(
   files?: Array<{
     prototype_id: string;
     name: string;
-    contents: string;
+    contents: string | null;
+    file_type: "text" | "asset";
+    storage_path: string | null;
   }>;
   error?: string;
 }> {
@@ -150,7 +289,9 @@ export async function getDefaultAppFilesFromS3(
     const files: Array<{
       prototype_id: string;
       name: string;
-      contents: string;
+      contents: string | null;
+      file_type: "text" | "asset";
+      storage_path: string | null;
     }> = [];
 
     // Get content for each file
@@ -168,16 +309,44 @@ export async function getDefaultAppFilesFromS3(
       const result = await s3Client.send(getCommand);
       
       if (result.Body) {
-        const content = await result.Body.transformToString();
-        
         // Extract filename (remove the prefix)
         const fileName = object.Key.replace(sourcePrefix, '');
         
-        files.push({
-          prototype_id: prototypeId,
-          name: fileName,
-          contents: content,
-        });
+        // Check if this is a binary asset file
+        const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.ico', '.ttf', '.otf', '.woff', '.woff2', '.svg'];
+        const isBinaryFile = binaryExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+        
+        if (isBinaryFile) {
+          // Handle binary asset - upload to Supabase Storage
+          console.log(`Processing binary asset: ${fileName}`);
+          
+          const fileBuffer = Buffer.from(await result.Body.transformToByteArray());
+          const uploadResult = await uploadAssetToSupabaseStorage(prototypeId, fileName, fileBuffer);
+          
+          if (!uploadResult.success) {
+            console.error(`Failed to upload asset ${fileName}:`, uploadResult.error);
+            continue;
+          }
+          
+          files.push({
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: null,
+            file_type: "asset",
+            storage_path: uploadResult.publicUrl!,
+          });
+        } else {
+          // Handle text file - store in contents
+          const content = await result.Body.transformToString();
+          
+          files.push({
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: content,
+            file_type: "text",
+            storage_path: null,
+          });
+        }
       }
     }
 

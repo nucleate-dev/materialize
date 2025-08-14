@@ -69,7 +69,7 @@ export interface CodeWarning {
 export interface PublicDevServerStartRequest {
   prototype_id: string;
   framework: 'expo_react_native' | 'react';
-  files: Record<string, string>; // Map<file_name, file_contents>
+  files: FileInput[]; // Changed to support binary files with isBase64 flag
   file_scope: 'updates' | 'complete';
 }
 
