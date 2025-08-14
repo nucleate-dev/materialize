@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
 import { getDefaultSnackFiles } from "@/templates/defaultApp";
+import { useCallback, useEffect, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
@@ -22,9 +22,7 @@ export interface FileSystemActions {
 
   // Bulk file operations
   setFiles: (files: Record<string, PrototypeFile>) => void;
-  applyFileUpdates: (
-    updatedFiles: Record<string, PrototypeFile>,
-  ) => void;
+  applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => void;
 
   // File management operations
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
@@ -120,7 +118,6 @@ export const useFileSystem = (
     }));
   }, []);
 
-
   // Reset to default files
   const resetToDefault = useCallback(
     async (prototypeId: string) => {
@@ -144,6 +141,8 @@ export const useFileSystem = (
             prototype_id: prototypeId,
             name: fileName,
             contents: fileData.contents,
+            file_type: "text",
+            storage_path: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
