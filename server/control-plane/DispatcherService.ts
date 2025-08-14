@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { GlideClient } from "@valkey/valkey-glide";
 import axios from "axios";
 import * as dotenv from "dotenv";
-import type { Database } from "./types/supabase";
+import type { Database } from "./types/supabase.js";
 import {
   ECSClient,
   RunTaskCommand,
@@ -380,7 +380,7 @@ export class DispatcherService {
       console.error("Error dispatching request to fargate instance:", error);
       return {
         status: "error",
-        tunnel_url: null,
+        tunnel_url: undefined,
         build_errors: [],
         build_warnings: [],
       };

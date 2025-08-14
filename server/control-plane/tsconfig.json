@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "ES2022",
-    "moduleResolution": "nodenext",
-    "skipLibCheck": true
-  }
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": ["server.ts", "src/**/*.ts"]
 }

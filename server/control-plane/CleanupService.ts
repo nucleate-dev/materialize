@@ -1,5 +1,5 @@
 import { GlideClient } from "@valkey/valkey-glide";
-import { CONFIG } from "./config";
+import { CONFIG } from "./config.js";
 import axios from "axios";
 import { ECSClient, StopTaskCommand } from "@aws-sdk/client-ecs";
 
@@ -18,7 +18,9 @@ export class CleanupService {
 
   private async cleanupIdleActiveBuilds() {
     const currentTimeReadable = this.formatTimestampEST(Date.now());
-    console.log(`Cleaning up idle active builds, current time: ${Date.now()} (${currentTimeReadable})`);
+    console.log(
+      `Cleaning up idle active builds, current time: ${Date.now()} (${currentTimeReadable})`
+    );
 
     // get all active builds
     const activeBuildKeys = await this.scanKeys("active_build:*");
@@ -55,10 +57,12 @@ export class CleanupService {
 
     for (const { build, prototypeId, buildKey } of idleBuilds) {
       console.log(`Cleaning up idle build for prototype: ${prototypeId}`);
-      const lastTouchedReadable = this.formatTimestampEST(build.last_touched * 1000);
+      const lastTouchedReadable = this.formatTimestampEST(
+        build.last_touched * 1000
+      );
       console.log(`active build cache data:`, {
         ...build,
-        last_touched_readable: lastTouchedReadable
+        last_touched_readable: lastTouchedReadable,
       });
 
       // a. dispatch a request to the fargate instance to kill the build
@@ -213,15 +217,15 @@ export class CleanupService {
 
   // Helper method to format timestamp in EST
   private formatTimestampEST(timestamp: number): string {
-    return new Date(timestamp).toLocaleString('en-US', {
-      timeZone: 'America/New_York',
+    return new Date(timestamp).toLocaleString("en-US", {
+      timeZone: "America/New_York",
       hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
   }
 }
