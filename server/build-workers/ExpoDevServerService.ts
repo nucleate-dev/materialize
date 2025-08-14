@@ -194,9 +194,10 @@ export class ExpoDevServerService {
       // Install dependencies
       await this.installDependencies(this.state.projectDir);
 
-      // Start Expo dev server
+      // Start Expo dev server and wait for tunnel URL
       await this.startExpoProcess(this.state.projectDir, this.state.port);
 
+      // The tunnel URL should be set by now since startExpoProcess waits for it
       return {
         success: true,
         tunnelUrl: this.state.tunnelUrl || undefined,
@@ -481,16 +482,22 @@ export class ExpoDevServerService {
         const output = data.toString();
         this.state.addLog(`Expo ${source}: ${output.trim()}`);
 
-        // Look for tunnel URL
+        // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
         if (urlMatch && !resolved) {
+          this.state.addLog(`Found URLs in output: ${urlMatch.join(", ")}`);
+          
           const tunnelCandidates = urlMatch.filter(
             (url) =>
               !url.includes("localhost") &&
               !url.includes("127.0.0.1") &&
+              !url.includes("192.168.") &&
+              !url.includes("10.0.") &&
               (url.includes(".ngrok.io") ||
+                url.includes(".ngrok-free.app") ||
                 url.includes(".tunnel.dev") ||
-                url.includes(".exp.direct")),
+                url.includes(".exp.direct") ||
+                url.includes(".loca.lt")),
           );
 
           if (tunnelCandidates.length > 0) {
@@ -503,17 +510,35 @@ export class ExpoDevServerService {
           }
         }
 
-        // Check for tunnel ready message
-        if (
-          output.includes("Tunnel ready") &&
-          !this.state.tunnelUrl &&
-          !resolved
-        ) {
-          // Construct expected tunnel URL
-          this.state.tunnelUrl = `https://${tunnelSubdomain}.ngrok.io`;
+        // Check for various tunnel ready indicators
+        const tunnelReadyPatterns = [
+          "Tunnel ready",
+          "tunnel is online",
+          "tunnel URL:",
+          "Your tunnel URL is",
+          "Metro waiting on",
+          "exp://",
+        ];
+        
+        const isTunnelReady = tunnelReadyPatterns.some(pattern => 
+          output.toLowerCase().includes(pattern.toLowerCase())
+        );
+        
+        if (isTunnelReady && !this.state.tunnelUrl && !resolved) {
+          // Try to extract tunnel URL from output first
+          const tunnelUrlPattern = /(?:tunnel\s+(?:url|URL):\s*|Your\s+tunnel\s+URL\s+is\s*)(https?:\/\/[^\s\)]+)/i;
+          const tunnelMatch = output.match(tunnelUrlPattern);
+          
+          if (tunnelMatch && tunnelMatch[1]) {
+            this.state.tunnelUrl = tunnelMatch[1];
+          } else {
+            // Fallback: construct expected tunnel URL
+            this.state.tunnelUrl = `https://${tunnelSubdomain}.ngrok.io`;
+          }
+          
           this.state.status = "running";
           this.state.addLog(
-            `Tunnel ready, constructed URL: ${this.state.tunnelUrl}`,
+            `Tunnel ready detected, URL: ${this.state.tunnelUrl}`,
           );
           clearTimeout(timeout);
           resolved = true;
