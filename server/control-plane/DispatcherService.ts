@@ -395,7 +395,7 @@ export class DispatcherService {
   }: {
     prototype_id: string;
     framework: "expo_react_native" | "react";
-    files: Record<string, string>;
+    files: FileInput[];
     file_scope: "updates" | "complete";
   }) {
     return {
@@ -438,10 +438,16 @@ interface FargateDevServerResponse {
   build_warnings: CodeWarning[];
 }
 
+interface FileInput {
+  path: string;
+  content: string;
+  isBase64?: boolean;
+}
+
 interface DispatchRequest {
   jwt: string;
   prototype_id: string;
   framework: "expo_react_native" | "react";
-  files: Record<string, string>;
+  files: FileInput[];
   file_scope: "updates" | "complete";
 }

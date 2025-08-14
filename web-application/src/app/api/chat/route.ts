@@ -250,9 +250,11 @@ export async function POST(request: NextRequest) {
           // 9. Save updated files to database before dispatch
           // ------------------------------------------------------------------------------------------------
           const finalFiles = fileManager.getFinalState();
-          
+
           try {
-            console.log("💾 Saving updated files to database before dispatch...");
+            console.log(
+              "💾 Saving updated files to database before dispatch...",
+            );
             await saveFilesToDatabaseWithAuth(token, prototype_id, finalFiles);
             console.log("✅ Files successfully saved to database");
           } catch (saveError) {
@@ -267,11 +269,15 @@ export async function POST(request: NextRequest) {
             "🚀 Dispatching build request regardless of precheck response",
           );
 
-          // Convert PrototypeFiles to Record<string, string> format for dispatch
-          const filesForDispatch: Record<string, string> = {};
+          // Convert PrototypeFiles to FileInput[] format for dispatch
+          const filesForDispatch: Array<{ path: string; content: string; isBase64?: boolean }> = [];
           Object.entries(finalFiles).forEach(([filePath, file]) => {
             if (file.contents) {
-              filesForDispatch[filePath] = file.contents;
+              filesForDispatch.push({
+                path: filePath,
+                content: file.contents,
+                isBase64: false, // Text files, not base64 encoded
+              });
             }
           });
 
@@ -1376,9 +1382,7 @@ class FileManager {
 
     this.files.set(filePath, updatedFile);
 
-    console.log(
-      `✅ Successfully ${op}d file ${filePath} in memory (database updates handled by client)`,
-    );
+    console.log(`✅ Successfully ${op}d file ${filePath} in function memory`);
 
     // Database updates are handled by the client filesystem
     // The client will receive the updated files through the getFinalState() method

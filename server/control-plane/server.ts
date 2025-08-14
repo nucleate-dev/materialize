@@ -14,11 +14,17 @@ interface PrecheckBody {
   prototype_id: string;
 }
 
+interface FileInput {
+  path: string;
+  content: string;
+  isBase64?: boolean;
+}
+
 interface DispatchRequestBody {
   jwt: string;
   prototype_id: string;
   framework?: "expo_react_native" | "react";
-  files: Record<string, string>; // Map<file_name, file_contents>
+  files: FileInput[]; // Array of file objects
   file_scope: "updates" | "complete";
   hot_reload?: boolean;
 }
@@ -112,9 +118,9 @@ fastify.post(
       // Default framework to expo_react_native if not provided
       const selectedFramework = framework || "expo_react_native";
 
-      if (!files || typeof files !== "object") {
+      if (!files || !Array.isArray(files)) {
         return reply.status(400).send({
-          error: "files is required and must be an object",
+          error: "files is required and must be an array",
         });
       }
 
@@ -124,7 +130,7 @@ fastify.post(
         });
       }
 
-      if (Object.keys(files).length === 0) {
+      if (files.length === 0) {
         return reply.status(400).send({
           error: "files cannot be empty",
         });
