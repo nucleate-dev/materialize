@@ -3,6 +3,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { customlog } from "./logger.js";
 
 // --- Types ---
 interface FileInput {
@@ -150,6 +151,7 @@ export class ExpoDevServerService {
     const { prototypeId, files, port } = request.body;
 
     if (!prototypeId || !files || !Array.isArray(files) || files.length === 0) {
+      customlog("error", "Invalid startDevServer request:", { prototypeId, filesCount: files?.length });
       return reply.code(400).send({
         success: false,
         status: "error",
@@ -167,6 +169,7 @@ export class ExpoDevServerService {
           status: this.state.status,
         };
       } else {
+        customlog("warn", "Dev server already running for different prototype:", { currentPrototype: this.state.prototypeId, requestedPrototype: prototypeId });
         return reply.code(409).send({
           success: false,
           status: "error",
@@ -205,6 +208,7 @@ export class ExpoDevServerService {
         status: this.state.status,
       };
     } catch (error: any) {
+      customlog("error", "Failed to start dev server:", error.message, error.stack);
       this.state.status = "error";
       this.state.error = error.message;
       this.state.addLog(`Failed to start dev server: ${error.message}`);
@@ -225,6 +229,7 @@ export class ExpoDevServerService {
     const { files } = request.body;
 
     if (!files || !Array.isArray(files) || files.length === 0) {
+      customlog("error", "Invalid updateFiles request - missing files array:", { filesCount: files?.length });
       return reply.code(400).send({
         success: false,
         error: "files array is required",
@@ -232,6 +237,7 @@ export class ExpoDevServerService {
     }
 
     if (this.state.status !== "running" || !this.state.projectDir) {
+      customlog("error", "Cannot update files - dev server not running:", { status: this.state.status, hasProjectDir: !!this.state.projectDir });
       return reply.code(409).send({
         success: false,
         error: "No dev server currently running",
@@ -260,6 +266,7 @@ export class ExpoDevServerService {
         updatedFiles,
       };
     } catch (error: any) {
+      customlog("error", "Failed to update files:", error.message, error.stack);
       this.state.addLog(`Failed to update files: ${error.message}`);
 
       return reply.code(500).send({
@@ -271,8 +278,8 @@ export class ExpoDevServerService {
 
   // Get dev server status
   private async getStatus(
-    request: FastifyRequest,
-    reply: FastifyReply,
+    _request: FastifyRequest,
+    _reply: FastifyReply,
   ): Promise<DevServerStatusResponse> {
     return {
       status: this.state.status,
@@ -286,7 +293,7 @@ export class ExpoDevServerService {
 
   // Stop dev server
   private async stopDevServer(
-    request: FastifyRequest,
+    _request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<DevServerStopResponse> {
     if (this.state.status === "stopped") {
@@ -308,6 +315,7 @@ export class ExpoDevServerService {
         message: "Dev server stopped successfully",
       };
     } catch (error: any) {
+      customlog("error", "Failed to stop dev server:", error.message, error.stack);
       this.state.addLog(`Failed to stop dev server: ${error.message}`);
 
       return reply.code(500).send({
@@ -319,7 +327,7 @@ export class ExpoDevServerService {
 
   // Restart dev server
   private async restartDevServer(
-    request: FastifyRequest,
+    _request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<DevServerRestartResponse> {
     if (
@@ -327,6 +335,7 @@ export class ExpoDevServerService {
       !this.state.prototypeId ||
       !this.state.projectDir
     ) {
+      customlog("error", "Cannot restart - no dev server running:", { status: this.state.status, hasPrototypeId: !!this.state.prototypeId, hasProjectDir: !!this.state.projectDir });
       return reply.code(409).send({
         success: false,
         message: "No dev server running to restart",
@@ -334,7 +343,6 @@ export class ExpoDevServerService {
     }
 
     try {
-      const prototypeId = this.state.prototypeId;
       const projectDir = this.state.projectDir;
       const port = this.state.port || this.defaultPort;
 
@@ -352,6 +360,7 @@ export class ExpoDevServerService {
         message: "Dev server restarted successfully",
       };
     } catch (error: any) {
+      customlog("error", "Failed to restart dev server:", error.message, error.stack);
       this.state.status = "error";
       this.state.error = error.message;
       this.state.addLog(`Failed to restart dev server: ${error.message}`);
@@ -366,7 +375,7 @@ export class ExpoDevServerService {
   // Get logs
   private async getLogs(
     request: FastifyRequest<{ Querystring: { lines?: string } }>,
-    reply: FastifyReply,
+    _reply: FastifyReply,
   ): Promise<DevServerLogsResponse> {
     const lines = parseInt(request.query.lines || "50", 10);
     const logs = this.state.logs.slice(-lines);
@@ -430,12 +439,14 @@ export class ExpoDevServerService {
           resolve();
         } else {
           const error = `npm install failed with exit code ${code}: ${stderr}`;
+          customlog("error", "npm install failed:", { code, stderr, stdout });
           this.state.addLog(error);
           reject(new Error(error));
         }
       });
 
       npmProcess.on("error", (error) => {
+        customlog("error", "npm install process error:", error.message, error.stack);
         this.state.addLog(`npm install process error: ${error.message}`);
         reject(error);
       });
@@ -473,6 +484,7 @@ export class ExpoDevServerService {
       let resolved = false;
       const timeout = setTimeout(() => {
         if (!resolved) {
+          customlog("error", "Timeout waiting for tunnel URL after 60 seconds");
           resolved = true;
           reject(new Error("Timeout waiting for tunnel URL"));
         }
@@ -557,16 +569,19 @@ export class ExpoDevServerService {
         this.state.process.on("close", (code) => {
           this.state.addLog(`Expo process exited with code ${code}`);
           if (!resolved) {
+            customlog("error", "Expo process exited before tunnel URL found:", { code });
             this.state.status = "error";
             clearTimeout(timeout);
             resolved = true;
             reject(new Error(`Expo dev server exited with code ${code}`));
           } else if (code !== 0) {
+            customlog("warn", "Expo process exited with non-zero code:", { code });
             this.state.status = "error";
           }
         });
 
         this.state.process.on("error", (error) => {
+          customlog("error", "Expo process error:", error.message, error.stack);
           this.state.addLog(`Expo process error: ${error.message}`);
           if (!resolved) {
             this.state.status = "error";
@@ -602,6 +617,7 @@ export class ExpoDevServerService {
         await fs.rm(this.state.projectDir, { recursive: true, force: true });
         this.state.addLog("Cleaned up project directory");
       } catch (error: any) {
+        customlog("warn", "Failed to cleanup project directory:", this.state.projectDir, error.message);
         this.state.addLog(
           `Failed to cleanup project directory: ${error.message}`,
         );

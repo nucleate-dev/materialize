@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { BuilderService } from "./BuilderService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
+import { customlog } from "./logger.js";
 import {
   CodeError,
   CodeWarning,
@@ -49,6 +50,7 @@ export class PublicApiService {
     const { prototype_id, framework, files, file_scope } = request.body;
 
     if (!prototype_id || !framework || !files || !file_scope) {
+      customlog("error", "Missing required parameters:", { prototype_id, framework, files: files?.length, file_scope });
       reply.code(400);
       return {
         status: "error",
@@ -76,8 +78,8 @@ export class PublicApiService {
         // Remove existing directory if it exists
         try {
           await fs.rm(projectDir, { recursive: true, force: true });
-        } catch (error) {
-          // Directory might not exist, which is fine
+        } catch (error: any) {
+          customlog("debug", "Directory removal failed (expected for new projects):", error.message);
         }
         // Create new directory and write all files
         await fs.mkdir(projectDir, { recursive: true });
@@ -87,6 +89,7 @@ export class PublicApiService {
         try {
           await this.installDependenciesWithErrorParsing(projectDir, buildErrors, buildWarnings);
         } catch (error: any) {
+          customlog("error", "Dependency installation failed for complete scope:", error.message, error.stack);
           buildErrors.push({
             message: `Dependency installation failed: ${error.message}`,
             type: "dependency",
@@ -105,19 +108,21 @@ export class PublicApiService {
             try {
               await this.installDependenciesWithErrorParsing(projectDir, buildErrors, buildWarnings);
             } catch (error: any) {
+              customlog("error", "Dependency update failed for package.json change:", error.message, error.stack);
               buildErrors.push({
                 message: `Dependency update failed: ${error.message}`,
                 type: "dependency",
               });
             }
           }
-        } catch (error) {
-          // Directory doesn't exist, treat as complete scope
+        } catch (error: any) {
+          customlog("info", "Project directory doesn't exist, treating as complete scope:", error.message);
           await fs.mkdir(projectDir, { recursive: true });
           await this.writeProjectFiles(fileInputs, projectDir);
           try {
             await this.installDependenciesWithErrorParsing(projectDir, buildErrors, buildWarnings);
           } catch (error: any) {
+            customlog("error", "Dependency installation failed for new project directory:", error.message, error.stack);
             buildErrors.push({
               message: `Dependency installation failed: ${error.message}`,
               type: "dependency",
@@ -149,12 +154,14 @@ export class PublicApiService {
         if (startResponse.success && startResponse.tunnelUrl) {
           tunnelUrl = startResponse.tunnelUrl;
         } else if (startResponse.error) {
+          customlog("error", "Dev server start failed:", startResponse.error, startResponse);
           buildErrors.push({
             message: `Dev server start failed: ${startResponse.error}`,
             type: "runtime",
           });
         }
       } catch (error: any) {
+        customlog("error", "Failed to start dev server:", error.message, error.stack);
         buildErrors.push({
           message: `Failed to start dev server: ${error.message}`,
           type: "runtime",
@@ -168,6 +175,7 @@ export class PublicApiService {
         build_warnings: buildWarnings,
       };
     } catch (error: any) {
+      customlog("error", "Internal server error in startDevServer:", error.message, error.stack);
       reply.code(500);
       return {
         status: "error",
@@ -189,6 +197,7 @@ export class PublicApiService {
     const { prototype_id } = request.body;
 
     if (!prototype_id) {
+      customlog("error", "Missing prototype_id in stopDevServer request");
       reply.code(400);
       return {
         status: "error",
@@ -216,6 +225,7 @@ export class PublicApiService {
 
         await (this.expoDevServerService as any).stopDevServer(mockRequest, mockReply);
       } catch (error: any) {
+        customlog("warn", "Failed to stop dev server:", error.message, error.stack);
         buildWarnings.push({
           message: `Failed to stop dev server: ${error.message}`,
           type: "build",
@@ -231,6 +241,7 @@ export class PublicApiService {
         const files = await this.readAllFilesFromDirectory(projectDir);
         
         if (files.length === 0) {
+          customlog("error", "No files found in project directory:", projectDir);
           buildErrors.push({
             message: "No files found in project directory",
             type: "build",
@@ -262,6 +273,7 @@ export class PublicApiService {
               this.parseBuildLogForErrors(buildResponse.buildLog, buildErrors, buildWarnings);
             }
           } else if (buildResponse.error) {
+            customlog("error", "Build failed:", buildResponse.error, buildResponse.buildLog);
             buildErrors.push({
               message: `Build failed: ${buildResponse.error}`,
               type: "build",
@@ -274,6 +286,7 @@ export class PublicApiService {
           }
         }
       } catch (error: any) {
+        customlog("error", "Build process failed:", error.message, error.stack);
         buildErrors.push({
           message: `Build process failed: ${error.message}`,
           type: "build",
@@ -287,6 +300,7 @@ export class PublicApiService {
         build_warnings: buildWarnings,
       };
     } catch (error: any) {
+      customlog("error", "Internal server error in stopDevServer:", error.message, error.stack);
       reply.code(500);
       return {
         status: "error",
@@ -348,9 +362,8 @@ export class PublicApiService {
             });
           }
         }
-      } catch (error) {
-        // Directory might not exist or be accessible
-        console.warn(`Failed to read directory ${currentPath}:`, error);
+      } catch (error: any) {
+        customlog("warn", "Failed to read directory:", currentPath, error.message);
       }
     };
 
@@ -365,7 +378,7 @@ export class PublicApiService {
   ): Promise<void> {
     // Create a simple logger that captures output
     const logger = {
-      log: (step: string, success: boolean, output: string, error: string) => {
+      log: (_step: string, success: boolean, output: string, error: string) => {
         if (!success) {
           this.parseNpmOutput(error || output, buildErrors, buildWarnings);
         }
