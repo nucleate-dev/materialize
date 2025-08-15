@@ -41,7 +41,9 @@ export class CleanupService {
     }> = [];
     for (const buildKey of activeBuildKeys) {
       const buildJson = await this.cache.get(buildKey);
-      if (!buildJson) {continue;}
+      if (!buildJson) {
+        continue;
+      }
 
       const build: ActiveBuild = JSON.parse(buildJson as string);
       const timeSinceLastTouch = currentTime - build.last_touched;
@@ -150,6 +152,7 @@ export class CleanupService {
       console.log(
         `Successfully killed dev server for prototype: ${prototypeId}`,
       );
+      console.log(response.data);
       return { success: true };
     } catch (error) {
       console.error(

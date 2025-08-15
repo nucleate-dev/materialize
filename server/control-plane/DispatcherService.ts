@@ -229,6 +229,7 @@ export class DispatcherService {
           build_warnings: fargateResponse.build_warnings,
         };
       } catch (error) {
+        const e = error instanceof Error ? error : new Error(String(error));
         console.log(
           'There was an error dispatching the request to the fargate instance',
         );
@@ -242,7 +243,8 @@ export class DispatcherService {
           viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
           build_errors: [],
           build_warnings: [],
-          error_message: 'There was a server error building the prototype.',
+          error_message:
+            'There was a server error building the prototype. ' + e.message,
         };
       }
     } catch (error) {

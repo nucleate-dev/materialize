@@ -3,7 +3,10 @@ export const REDIS_KEYS = {
   PORT_REGISTRY: 'port_registry',
 };
 
+const SEC_IN_MIN = 60;
+const MILLIS_IN_SEC = 1000;
+
 export const CONFIG = {
-  IDLE_TIMEOUT_HOT_RELOAD: 5 * 60 * 1000, // 5 minutes
-  CLEANUP_INTERVAL_HOT_RELOAD: 2.5 * 60 * 1000, // 2.5 minutes
+  IDLE_TIMEOUT_HOT_RELOAD: 10 * SEC_IN_MIN * MILLIS_IN_SEC, // 10 minutes
+  CLEANUP_INTERVAL_HOT_RELOAD: 4 * SEC_IN_MIN * MILLIS_IN_SEC, // 4 minutes
 };
