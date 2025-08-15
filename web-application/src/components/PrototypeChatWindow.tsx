@@ -3,9 +3,9 @@
 import { supabase } from "@/ClientConstants";
 import ChatWindow from "@/components/ChatWindow";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
-import { Database } from "@/lib/types/database.types";
-import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useUser } from "@/hooks/useUser";
+import { Database } from "@/lib/types/database.types";
 import { useCallback, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 

@@ -393,7 +393,8 @@ export class PublicApiService {
     const logger = {
       log: (_step: string, success: boolean, output: string, error: string) => {
         if (!success) {
-          this.parseNpmOutput(error || output, buildErrors, buildWarnings);
+          const outputToProcess = error || output || '';
+          this.parseNpmOutput(outputToProcess, buildErrors, buildWarnings);
         }
       },
       getBuildLog: () => [],
@@ -409,6 +410,9 @@ export class PublicApiService {
     buildErrors: CodeError[],
     buildWarnings: CodeWarning[],
   ): void {
+    if (!output || typeof output !== 'string') {
+      return;
+    }
     const lines = output.split('\n');
     
     for (const line of lines) {

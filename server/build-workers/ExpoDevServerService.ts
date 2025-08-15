@@ -440,6 +440,10 @@ export class ExpoDevServerService {
     files: FileInput[],
     projectDir: string,
   ): Promise<void> {
+    this.state.addLog(`Processing ${files.length} files:`);
+    files.forEach((file, index) => {
+      this.state.addLog(`  ${index + 1}. ${file.path}`);
+    });
     for (const file of files) {
       const filePath = path.join(projectDir, file.path);
       const fileDir = path.dirname(filePath);
