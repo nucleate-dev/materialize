@@ -78,6 +78,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const editorLanguage = fileName ? getLanguageFromFileName(fileName) : language;
 
+  // Check if current file is an image asset
+  const isImageFile = (name: string) => {
+    const ext = name?.split('.').pop()?.toLowerCase();
+    return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico'].includes(ext || '');
+  };
+
+  // Get the current file data to check if it's an asset with storage_path
+  const currentFile = fileName && files ? files[fileName] : null;
+  const isAssetImage = currentFile?.file_type === 'asset' && fileName && isImageFile(fileName);
+  const imageUrl = isAssetImage ? currentFile?.storage_path : null;
+
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
@@ -339,7 +350,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           
           <div className="flex items-center space-x-2">
             <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
-              {editorLanguage}
+              {isAssetImage ? 'IMAGE ASSET' : editorLanguage}
             </span>
             {!readOnly && (
               <div className="flex items-center space-x-1">
@@ -383,42 +394,70 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       )}
       <div className="flex-1">
-        <Editor
-          height="100%"
-          language={editorLanguage}
-          value={value}
-          onChange={onChange}
-          theme="vs-dark"
-          beforeMount={beforeMount}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            lineNumbers: "on",
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            wordWrap: "on",
-            folding: true,
-            lineDecorationsWidth: 10,
-            lineNumbersMinChars: 3,
-            readOnly,
-            contextmenu: !readOnly,
-            quickSuggestions: !readOnly,
-            parameterHints: { enabled: !readOnly },
-            suggestOnTriggerCharacters: !readOnly,
-            acceptSuggestionOnEnter: readOnly ? "off" : "on",
-            tabCompletion: readOnly ? "off" : "on",
-            wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
-            scrollbar: {
-              vertical: 'visible',
-              horizontal: 'visible',
-              useShadows: true,
-              verticalHasArrows: true,
-              horizontalHasArrows: true,
-              verticalScrollbarSize: 14,
-              horizontalScrollbarSize: 14,
-            },
-          }}
-        />
+        {isAssetImage && imageUrl ? (
+          <div className="h-full flex items-center justify-center bg-muted/20 p-4">
+            <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
+              <img
+                src={imageUrl}
+                alt={fileName}
+                className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
+                onError={(e) => {
+                  console.error('Failed to load image:', imageUrl);
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <div className="text-center space-y-1">
+                <p className="text-sm font-medium text-foreground">{fileName}</p>
+                <p className="text-xs text-muted-foreground">Asset file • Click to view full size</p>
+                <a 
+                  href={imageUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-block px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                  View Full Size
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Editor
+            height="100%"
+            language={editorLanguage}
+            value={value}
+            onChange={onChange}
+            theme="vs-dark"
+            beforeMount={beforeMount}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              lineNumbers: "on",
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              wordWrap: "on",
+              folding: true,
+              lineDecorationsWidth: 10,
+              lineNumbersMinChars: 3,
+              readOnly,
+              contextmenu: !readOnly,
+              quickSuggestions: !readOnly,
+              parameterHints: { enabled: !readOnly },
+              suggestOnTriggerCharacters: !readOnly,
+              acceptSuggestionOnEnter: readOnly ? "off" : "on",
+              tabCompletion: readOnly ? "off" : "on",
+              wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
+              scrollbar: {
+                vertical: 'visible',
+                horizontal: 'visible',
+                useShadows: true,
+                verticalHasArrows: true,
+                horizontalHasArrows: true,
+                verticalScrollbarSize: 14,
+                horizontalScrollbarSize: 14,
+              },
+            }}
+          />
+        )}
       </div>
       
       {/* New File Modal */}
