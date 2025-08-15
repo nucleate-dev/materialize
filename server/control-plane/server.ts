@@ -1,11 +1,11 @@
-import Fastify from "fastify";
-import type { FastifyRequest, FastifyReply } from "fastify";
-import cors from "@fastify/cors";
-import { DispatcherService } from "./DispatcherService.js";
-import { CleanupService } from "./CleanupService.js";
-import { ECSClient } from "@aws-sdk/client-ecs";
-import { GlideClient } from "@valkey/valkey-glide";
-import * as dotenv from "dotenv";
+import Fastify from 'fastify';
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import cors from '@fastify/cors';
+import { DispatcherService } from './DispatcherService.js';
+import { CleanupService } from './CleanupService.js';
+import { ECSClient } from '@aws-sdk/client-ecs';
+import { GlideClient } from '@valkey/valkey-glide';
+import * as dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -23,9 +23,9 @@ interface FileInput {
 interface DispatchRequestBody {
   jwt: string;
   prototype_id: string;
-  framework?: "expo_react_native" | "react";
+  framework?: 'expo_react_native' | 'react';
   files: FileInput[]; // Array of file objects
-  file_scope: "updates" | "complete";
+  file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
 
@@ -48,11 +48,11 @@ const initializeClients = async () => {
       username,
       password,
     },
-    clientName: "control-plane",
+    clientName: 'control-plane',
     requestTimeout: 2000,
   });
 
-  console.log("Valkey cache initialized successfully");
+  console.log('Valkey cache initialized successfully');
 
   return { cache, ecsClient };
 };
@@ -70,33 +70,33 @@ let cache: GlideClient;
 // Routes
 
 // Health check
-fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
+fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const result = await cache.ping();
-    if (result === "PONG") {
+    if (result === 'PONG') {
       return reply.send({
-        status: "healthy",
+        status: 'healthy',
         timestamp: new Date().toISOString(),
       });
     } else {
       return reply.status(500).send({
-        status: "unhealthy",
+        status: 'unhealthy',
         error: `Cache ping returned: ${result}`,
       });
     }
   } catch (error) {
     return reply.status(500).send({
-      status: "unhealthy",
-      error: error instanceof Error ? error.message : "Unknown error",
+      status: 'unhealthy',
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
 
 fastify.post(
-  "/dispatch",
+  '/dispatch',
   async (
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ) => {
     try {
       const { jwt, prototype_id, framework, files, file_scope } = request.body;
@@ -104,39 +104,39 @@ fastify.post(
       // Validation
       if (!jwt) {
         return reply.status(400).send({
-          error: "jwt is required",
+          error: 'jwt is required',
         });
       }
 
       if (!prototype_id) {
         return reply.status(400).send({
-          error: "prototype_id is required",
+          error: 'prototype_id is required',
         });
       }
 
       // Default framework to expo_react_native if not provided
-      const selectedFramework = framework || "expo_react_native";
+      const selectedFramework = framework || 'expo_react_native';
 
       if (!files || !Array.isArray(files)) {
         return reply.status(400).send({
-          error: "files is required and must be an array",
+          error: 'files is required and must be an array',
         });
       }
 
       if (!file_scope) {
         return reply.status(400).send({
-          error: "file_scope is required",
+          error: 'file_scope is required',
         });
       }
 
       if (files.length === 0) {
         return reply.status(400).send({
-          error: "files cannot be empty",
+          error: 'files cannot be empty',
         });
       }
 
       fastify.log.info(
-        `Processing dispatch request for prototype: ${prototype_id}`
+        `Processing dispatch request for prototype: ${prototype_id}`,
       );
 
       const result = await dispatcherService.processDispatchRequest({
@@ -150,69 +150,69 @@ fastify.post(
       return reply.send(result);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      fastify.log.error(e, "Build request failed:");
+      fastify.log.error(e, 'Build request failed:');
 
       // Check if it's an authentication or permission error
       if (
-        e.message.includes("Invalid JWT") ||
-        e.message.includes("not authenticated")
+        e.message.includes('Invalid JWT') ||
+        e.message.includes('not authenticated')
       ) {
         return reply.status(401).send({
-          error: "Unauthorized",
+          error: 'Unauthorized',
           error_message: e.message,
         });
       }
 
       if (
-        e.message.includes("Prototype not found") ||
-        e.message.includes("does not have permissions")
+        e.message.includes('Prototype not found') ||
+        e.message.includes('does not have permissions')
       ) {
         return reply.status(404).send({
-          error: "Prototype not found",
+          error: 'Prototype not found',
           error_message: e.message,
         });
       }
 
       return reply.status(500).send({
-        status: "error",
-        viewing_url: "",
+        status: 'error',
+        viewing_url: '',
         build_errors: [],
         build_warnings: [],
         error_message: e.message,
       });
     }
-  }
+  },
 );
 
 // Prototype dispatch precheck endpoint
 fastify.post(
-  "/dispatch-precheck",
+  '/dispatch-precheck',
   async (
     request: FastifyRequest<{ Body: PrecheckBody }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ) => {
     try {
       const { jwt, prototype_id } = request.body;
 
       if (!jwt) {
         return reply.status(400).send({
-          error: "JWT is required",
+          error: 'JWT is required',
         });
       }
 
       if (!prototype_id) {
         return reply.status(400).send({
-          error: "prototype_id is required",
+          error: 'prototype_id is required',
         });
       }
 
       fastify.log.info(
-        `Processing precheck request for prototype: ${prototype_id}`
+        `Processing precheck request for prototype: ${prototype_id}`,
       );
 
       const result = await dispatcherService.prototypeDispatchPrecheck(
         jwt,
-        prototype_id
+        prototype_id,
       );
 
       return reply.send({
@@ -223,35 +223,35 @@ fastify.post(
       });
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      fastify.log.error(e, "Precheck request failed:");
+      fastify.log.error(e, 'Precheck request failed:');
 
       // Check if it's an authentication or permission error
       if (
-        e.message.includes("Invalid JWT") ||
-        e.message.includes("not authenticated")
+        e.message.includes('Invalid JWT') ||
+        e.message.includes('not authenticated')
       ) {
         return reply.status(401).send({
-          error: "Unauthorized",
+          error: 'Unauthorized',
           message: e.message,
         });
       }
 
       if (
-        e.message.includes("Prototype not found") ||
-        e.message.includes("does not have permissions")
+        e.message.includes('Prototype not found') ||
+        e.message.includes('does not have permissions')
       ) {
         return reply.status(404).send({
-          error: "Prototype not found",
+          error: 'Prototype not found',
           message: e.message,
         });
       }
 
       return reply.status(500).send({
-        error: "Internal server error",
+        error: 'Internal server error',
         message: e.message,
       });
     }
-  }
+  },
 );
 
 // Start server
@@ -271,9 +271,9 @@ const start = async () => {
 
     await fastify.listen({
       port: 3000,
-      host: "0.0.0.0",
+      host: '0.0.0.0',
     });
-    fastify.log.info("Control plane server started successfully");
+    fastify.log.info('Control plane server started successfully');
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
@@ -281,7 +281,7 @@ const start = async () => {
 };
 
 const close = async () => {
-  fastify.log.info("Shutting down...");
+  fastify.log.info('Shutting down...');
   try {
     // Stop cleanup services
     if (cleanupService) {
@@ -292,7 +292,7 @@ const close = async () => {
     process.exit(0);
   }
 };
-process.on("SIGINT", close);
-process.on("SIGTERM", close);
+process.on('SIGINT', close);
+process.on('SIGTERM', close);
 
 start();

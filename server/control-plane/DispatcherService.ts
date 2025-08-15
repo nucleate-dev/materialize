@@ -1,14 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
-import { GlideClient } from "@valkey/valkey-glide";
-import axios from "axios";
-import * as dotenv from "dotenv";
-import type { Database } from "./types/supabase.js";
+import { createClient } from '@supabase/supabase-js';
+import { GlideClient } from '@valkey/valkey-glide';
+import axios from 'axios';
+import * as dotenv from 'dotenv';
+import type { Database } from './types/supabase.js';
 import {
   ECSClient,
   RunTaskCommand,
   DescribeTasksCommand,
   waitUntilTasksRunning, // optional helper waiter
-} from "@aws-sdk/client-ecs";
+} from '@aws-sdk/client-ecs';
 
 dotenv.config();
 
@@ -25,7 +25,7 @@ export class DispatcherService {
   // Authentication and authorization utility
   private async validateUserAndPrototypeOwner(
     jwt: string,
-    prototypeId: string
+    prototypeId: string,
   ) {
     // 1. Create Anon Supabase client with JWT
     const supabase = createClient<Database>(
@@ -37,7 +37,7 @@ export class DispatcherService {
             Authorization: `Bearer ${jwt}`,
           },
         },
-      }
+      },
     );
 
     // 2. Verify JWT and get user
@@ -46,22 +46,22 @@ export class DispatcherService {
       error: authError,
     } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
-      throw new Error("Invalid JWT or user not authenticated");
+      throw new Error('Invalid JWT or user not authenticated');
     }
 
     // 3. Attempt to fetch prototype from database to verify permissions
     const { data: prototype, error: prototypeError } = await supabase
-      .from("prototypes")
-      .select("*")
-      .eq("id", prototypeId)
+      .from('prototypes')
+      .select('*')
+      .eq('id', prototypeId)
       .single();
 
     if (prototypeError || !prototype) {
-      throw new Error("Prototype not found or user does not have permissions");
+      throw new Error('Prototype not found or user does not have permissions');
     }
 
     if (prototype.owner_id !== user.id) {
-      throw new Error("User does not have permissions to edit this prototype");
+      throw new Error('User does not have permissions to edit this prototype');
     }
 
     return { user, prototype };
@@ -70,10 +70,10 @@ export class DispatcherService {
   // Precheck prototype status
   public async prototypeDispatchPrecheck(
     jwt: string,
-    prototypeId: string
+    prototypeId: string,
   ): Promise<{
-    state: "dne" | "active_dev_server" | "active_build";
-    status: "updating" | "error" | "stable" | "creating" | null;
+    state: 'dne' | 'active_dev_server' | 'active_build';
+    status: 'updating' | 'error' | 'stable' | 'creating' | null;
     viewing_url: string;
   }> {
     try {
@@ -86,23 +86,23 @@ export class DispatcherService {
 
       if (existingBuildJson) {
         const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
+          existingBuildJson as string,
         );
 
         // Determine state based on port
-        const state = existingBuild.status ? "active_dev_server" : "dne";
+        const state = existingBuild.status ? 'active_dev_server' : 'dne';
 
         return {
           state,
           status: existingBuild.status,
           viewing_url: this.normalizeUrl(
-            existingBuild.url || this.getS3Url(prototypeId)
+            existingBuild.url || this.getS3Url(prototypeId),
           ),
         };
       } else {
         // No active build, return S3 URL
         return {
-          state: "dne",
+          state: 'dne',
           status: null,
           viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
         };
@@ -119,7 +119,7 @@ export class DispatcherService {
 
   private normalizeUrl(url: string): string {
     // Ensure URL has protocol (https://) for iframe loading
-    return url && !url.startsWith("http") ? `https://${url}` : url;
+    return url && !url.startsWith('http') ? `https://${url}` : url;
   }
 
   public async processDispatchRequest({
@@ -129,7 +129,7 @@ export class DispatcherService {
     files,
     file_scope,
   }: DispatchRequest): Promise<{
-    status: "success" | "error";
+    status: 'success' | 'error';
     viewing_url: string;
     build_errors: CodeError[];
     build_warnings: CodeWarning[];
@@ -146,46 +146,46 @@ export class DispatcherService {
       let updatedBuildCacheData: ActiveBuild;
       if (!existingBuildJson) {
         const newBuildCacheData: ActiveBuild = {
-          fargate_task_arn: "",
-          fargate_private_ip: "",
+          fargate_task_arn: '',
+          fargate_private_ip: '',
           url: this.getS3Url(prototype_id),
-          status: "creating",
+          status: 'creating',
           last_touched: Math.floor(Date.now() / 1000),
         };
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
         const newFargateInstance = await this.launchFargateInstance(
-          prototype_id
+          prototype_id,
         );
 
         updatedBuildCacheData = {
           ...newBuildCacheData,
-          status: "updating",
+          status: 'updating',
           fargate_task_arn: newFargateInstance.taskArn,
           fargate_private_ip: newFargateInstance.privateIp,
         };
       } else {
         const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string
+          existingBuildJson as string,
         );
         // There is already an active dispatch request, return error
         if (
-          existingBuild.status === "creating" ||
-          existingBuild.status === "updating"
+          existingBuild.status === 'creating' ||
+          existingBuild.status === 'updating'
         ) {
           return {
-            status: "error",
+            status: 'error',
             viewing_url: this.normalizeUrl(
-              existingBuild.url || this.getS3Url(prototype_id)
+              existingBuild.url || this.getS3Url(prototype_id),
             ),
             build_errors: [],
             build_warnings: [],
             error_message:
-              "There is already an active dispatch request for this prototype",
+              'There is already an active dispatch request for this prototype',
           };
         }
         updatedBuildCacheData = {
           ...existingBuild,
-          status: "updating",
+          status: 'updating',
           fargate_task_arn: existingBuild.fargate_task_arn,
           fargate_private_ip: existingBuild.fargate_private_ip,
         };
@@ -193,7 +193,7 @@ export class DispatcherService {
 
       await this.cache.set(
         activeBuildKey,
-        JSON.stringify(updatedBuildCacheData)
+        JSON.stringify(updatedBuildCacheData),
       );
 
       // TODO: Dispatch request to fargate instance (this.dispatchFormedRequestToFargateInstance())
@@ -207,48 +207,48 @@ export class DispatcherService {
         const fargateResponse =
           await this.dispatchFormedRequestToFargateInstanceServer(
             updatedBuildCacheData.fargate_private_ip,
-            requestBody
+            requestBody,
           );
-        console.log("Fargate responded");
-        updatedBuildCacheData.status = "stable";
+        console.log('Fargate responded');
+        updatedBuildCacheData.status = 'stable';
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
         await this.cache.set(
           activeBuildKey,
-          JSON.stringify(updatedBuildCacheData)
+          JSON.stringify(updatedBuildCacheData),
         );
         console.log(updatedBuildCacheData);
 
         return {
           status: fargateResponse.status,
           viewing_url: this.normalizeUrl(
-            fargateResponse.tunnel_url || this.getS3Url(prototype_id)
+            fargateResponse.tunnel_url || this.getS3Url(prototype_id),
           ),
           build_errors: fargateResponse.build_errors,
           build_warnings: fargateResponse.build_warnings,
         };
       } catch (error) {
         console.log(
-          "There was an error dispatching the request to the fargate instance"
+          'There was an error dispatching the request to the fargate instance',
         );
-        updatedBuildCacheData.status = "error";
+        updatedBuildCacheData.status = 'error';
         await this.cache.set(
           activeBuildKey,
-          JSON.stringify(updatedBuildCacheData)
+          JSON.stringify(updatedBuildCacheData),
         );
         return {
-          status: "error",
+          status: 'error',
           viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
           build_errors: [],
           build_warnings: [],
-          error_message: "There was a server error building the prototype.",
+          error_message: 'There was a server error building the prototype.',
         };
       }
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       return {
-        status: "error",
+        status: 'error',
         viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
         build_errors: [],
         build_warnings: [],
@@ -258,31 +258,31 @@ export class DispatcherService {
   }
 
   private async launchFargateInstance(
-    prototypeId: string
+    prototypeId: string,
   ): Promise<{ taskArn: string; privateIp: string }> {
     try {
       const runTaskInput = {
         cluster: process.env.ECS_CLUSTER_NAME!,
-        taskDefinition: "fastify-build-worker",
-        launchType: "FARGATE" as const,
+        taskDefinition: 'fastify-build-worker',
+        launchType: 'FARGATE' as const,
         networkConfiguration: {
           awsvpcConfiguration: {
-            subnets: process.env.ECS_SUBNETS?.split(",") || [],
-            securityGroups: process.env.ECS_SECURITY_GROUPS?.split(",") || [],
-            assignPublicIp: "ENABLED" as const,
+            subnets: process.env.ECS_SUBNETS?.split(',') || [],
+            securityGroups: process.env.ECS_SECURITY_GROUPS?.split(',') || [],
+            assignPublicIp: 'ENABLED' as const,
           },
         },
         overrides: {
           containerOverrides: [
             {
-              name: "materialize-fargate-build-worker-container",
+              name: 'materialize-fargate-build-worker-container',
               environment: [
                 {
-                  name: "PROTOTYPE_ID",
+                  name: 'PROTOTYPE_ID',
                   value: prototypeId,
                 },
                 {
-                  name: "AWS_REGION",
+                  name: 'AWS_REGION',
                   value: process.env.AWS_REGION!,
                 },
               ],
@@ -291,12 +291,12 @@ export class DispatcherService {
         },
         tags: [
           {
-            key: "PrototypeId",
+            key: 'PrototypeId',
             value: prototypeId,
           },
           {
-            key: "Service",
-            value: "materialize-build-worker",
+            key: 'Service',
+            value: 'materialize-build-worker',
           },
         ],
       };
@@ -307,7 +307,7 @@ export class DispatcherService {
       if (response.tasks && response.tasks.length > 0) {
         const taskArn = response.tasks[0].taskArn!;
         console.log(
-          `Successfully launched Fargate task: ${taskArn} for prototype: ${prototypeId}`
+          `Successfully launched Fargate task: ${taskArn} for prototype: ${prototypeId}`,
         );
 
         // Wait for task to be running and get private IP
@@ -316,7 +316,7 @@ export class DispatcherService {
           {
             cluster: process.env.ECS_CLUSTER_NAME!,
             tasks: [taskArn],
-          }
+          },
         );
 
         // Describe the task to get the private IP
@@ -328,39 +328,39 @@ export class DispatcherService {
 
         const task = describeResponse.tasks?.[0];
         const eni = task?.attachments?.[0]?.details?.find(
-          (detail) => detail.name === "networkInterfaceId"
+          (detail) => detail.name === 'networkInterfaceId',
         )?.value;
-        let privateIp = "";
+        let privateIp = '';
 
         if (eni) {
           // Get private IP from ENI details in task
           const privateIpDetail = task?.attachments?.[0]?.details?.find(
-            (detail) => detail.name === "privateIPv4Address"
+            (detail) => detail.name === 'privateIPv4Address',
           );
-          privateIp = privateIpDetail?.value || "";
+          privateIp = privateIpDetail?.value || '';
         }
 
         return { taskArn, privateIp };
       } else {
-        throw new Error("No task was created");
+        throw new Error('No task was created');
       }
     } catch (error) {
-      console.error("Failed to launch Fargate task:", error);
+      console.error('Failed to launch Fargate task:', error);
       throw new Error(
         `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       );
     }
   }
 
   private async dispatchFormedRequestToFargateInstanceServer(
     fargatePrivateIp: string,
-    requestBody: any
+    requestBody: any,
   ): Promise<FargateDevServerResponse> {
     try {
       console.log(
-        `Dispatching request to fargate instance at ${fargatePrivateIp}:3002/dev-server`
+        `Dispatching request to fargate instance at ${fargatePrivateIp}:3002/dev-server`,
       );
 
       const response = await axios.post(
@@ -369,17 +369,17 @@ export class DispatcherService {
         {
           timeout: 300000, // 5 minutes
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
-        }
+        },
       );
 
-      console.log("Fargate instance responded successfully");
+      console.log('Fargate instance responded successfully');
       return response.data as FargateDevServerResponse;
     } catch (error) {
-      console.error("Error dispatching request to fargate instance:", error);
+      console.error('Error dispatching request to fargate instance:', error);
       return {
-        status: "error",
+        status: 'error',
         tunnel_url: undefined,
         build_errors: [],
         build_warnings: [],
@@ -394,9 +394,9 @@ export class DispatcherService {
     file_scope,
   }: {
     prototype_id: string;
-    framework: "expo_react_native" | "react";
+    framework: 'expo_react_native' | 'react';
     files: FileInput[];
-    file_scope: "updates" | "complete";
+    file_scope: 'updates' | 'complete';
   }) {
     return {
       prototype_id,
@@ -411,7 +411,7 @@ interface ActiveBuild {
   fargate_task_arn: string;
   fargate_private_ip: string;
   url: string;
-  status: "creating" | "updating" | "error" | "stable";
+  status: 'creating' | 'updating' | 'error' | 'stable';
   last_touched: number;
 }
 
@@ -420,7 +420,7 @@ interface CodeError {
   file?: string;
   line?: number;
   column?: number;
-  type: "build" | "runtime" | "dependency" | "syntax";
+  type: 'build' | 'runtime' | 'dependency' | 'syntax';
 }
 
 interface CodeWarning {
@@ -428,11 +428,11 @@ interface CodeWarning {
   file?: string;
   line?: number;
   column?: number;
-  type: "build" | "deprecation" | "performance" | "unused";
+  type: 'build' | 'deprecation' | 'performance' | 'unused';
 }
 
 interface FargateDevServerResponse {
-  status: "success" | "error";
+  status: 'success' | 'error';
   tunnel_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
@@ -447,7 +447,7 @@ interface FileInput {
 interface DispatchRequest {
   jwt: string;
   prototype_id: string;
-  framework: "expo_react_native" | "react";
+  framework: 'expo_react_native' | 'react';
   files: FileInput[];
-  file_scope: "updates" | "complete";
+  file_scope: 'updates' | 'complete';
 }

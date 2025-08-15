@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 const storage = Platform.OS !== 'web' ? new MMKV() : null;
 
 const getStoredValue = (key: string, defaultValue: any) => {
-  if (!storage) return defaultValue;
+  if (!storage) {return defaultValue;}
   
   if (typeof defaultValue === 'boolean') {
     return storage.getBoolean(key) ?? defaultValue;
@@ -14,7 +14,7 @@ const getStoredValue = (key: string, defaultValue: any) => {
 };
 
 const setStoredValue = (key: string, value: any) => {
-  if (!storage) return;
+  if (!storage) {return;}
   
   if (typeof value === 'boolean') {
     storage.set(key, value);

@@ -1,6 +1,6 @@
 export const REDIS_KEYS = {
-  ACTIVE_BUILDS: "active_build",
-  PORT_REGISTRY: "port_registry",
+  ACTIVE_BUILDS: 'active_build',
+  PORT_REGISTRY: 'port_registry',
 };
 
 export const CONFIG = {
