@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "pull-prototype": "node scripts/pull-prototype.js"
+    "pull-prototype": "node scripts/pull-prototype.js",
+    "gen:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > src/lib/types/database.types.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
@@ -93,6 +94,7 @@
     "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
     "eslint-config-next": "^15.0.0-canary.130",
+    "supabase": "^2.34.3",
     "typescript": "^5.3.3"
   }
 }

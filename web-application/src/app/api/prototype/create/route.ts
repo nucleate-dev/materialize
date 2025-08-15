@@ -170,25 +170,28 @@ export async function POST(request: NextRequest) {
 
         // Copy files to new prototype (with new prototype_id)
         // For assets, we need to copy them in Supabase Storage and update storage_path
-        const filesToInsert: Database["public"]["Tables"]["prototype_files"]["Insert"][] = [];
-        
+        const filesToInsert: Database["public"]["Tables"]["prototype_files"]["Insert"][] =
+          [];
+
         for (const file of filesResult.files!) {
           if (file.file_type === "asset") {
             // Copy asset in Supabase Storage
             const copyResult = await copyAssetInSupabaseStorage(
               forkPrototypeId,
               newPrototypeId,
-              file.name
+              file.name,
             );
-            
+
             if (!copyResult.success) {
-              throw new Error(`Failed to copy asset ${file.name}: ${copyResult.error}`);
+              throw new Error(
+                `Failed to copy asset ${file.name}: ${copyResult.error}`,
+              );
             }
-            
+
             filesToInsert.push({
               prototype_id: newPrototypeId,
               name: file.name,
-              contents: null,
+              contents: "", // Empty string for asset files since contents is required
               file_type: "asset",
               storage_path: copyResult.publicUrl!,
             });
@@ -236,7 +239,8 @@ export async function POST(request: NextRequest) {
         );
 
         // Get default app files from S3 raw files
-        const defaultFilesResult = await getDefaultAppFilesFromS3(newPrototypeId);
+        const defaultFilesResult =
+          await getDefaultAppFilesFromS3(newPrototypeId);
         if (!defaultFilesResult.success) {
           throw new Error(
             `Failed to get default files from S3: ${defaultFilesResult.error}`,
@@ -285,7 +289,7 @@ export async function POST(request: NextRequest) {
 
       // Clean up S3 objects
       await cleanupPrototypeS3Objects(newPrototypeId);
-      
+
       // Clean up Supabase Storage assets
       await deletePrototypeAssetsFromStorage(newPrototypeId);
 
