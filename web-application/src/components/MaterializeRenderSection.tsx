@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Settings,
   Smartphone,
+  Loader2,
 } from "lucide-react";
 import {
   forwardRef,
@@ -28,6 +29,7 @@ interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
   onResetToDefault?: () => void;
   hideControls?: boolean;
+  isBuilding?: boolean; // New prop to indicate if a build is in progress
 }
 
 export interface MaterializeRenderSectionRef {
@@ -39,7 +41,7 @@ type PreviewMode = "web" | "mobile";
 const MaterializeRenderSection = forwardRef<
   MaterializeRenderSectionRef,
   MaterializeRenderSectionProps
->(({ viewing_url, onResetToDefault, hideControls = false }, ref) => {
+>(({ viewing_url, onResetToDefault, hideControls = false, isBuilding = false }, ref) => {
   const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
@@ -122,6 +124,31 @@ const MaterializeRenderSection = forwardRef<
     console.log("render_viewing_url: ", viewing_url);
   }, [viewing_url]);
 
+  // Loading indicator component
+  const LoadingIndicator = ({ mode }: { mode: PreviewMode }) => (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center bg-card p-8 rounded-lg border border-border">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+        <p className="text-foreground text-lg font-medium mb-2">
+          Building Your App
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please wait while we compile and deploy your changes...
+        </p>
+        {mode === "mobile" && (
+          <p className="text-muted-foreground text-xs mt-2">
+            Mobile preview will load shortly
+          </p>
+        )}
+        {mode === "web" && (
+          <p className="text-muted-foreground text-xs mt-2">
+            Web preview will load shortly
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
@@ -195,7 +222,9 @@ const MaterializeRenderSection = forwardRef<
           </DropdownMenu>
         </div>
 
-        {!viewing_url ? (
+        {isBuilding ? (
+          <LoadingIndicator mode={previewMode} />
+        ) : !viewing_url ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center bg-card p-8 rounded-lg border border-border">
               <p className="text-foreground text-lg font-medium">

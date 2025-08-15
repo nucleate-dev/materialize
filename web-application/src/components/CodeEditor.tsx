@@ -33,6 +33,7 @@ interface CodeEditorProps {
   files?: Record<string, PrototypeFile>;
   onViewingUrlUpdate?: (url: string) => void;
   onForceRefresh?: () => void;
+  onBuildingStateChange?: (isBuilding: boolean) => void;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -50,6 +51,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   files,
   onViewingUrlUpdate,
   onForceRefresh,
+  onBuildingStateChange,
 }) => {
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
@@ -153,6 +155,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
 
     setIsSaving(true);
+    if (onBuildingStateChange) {
+      onBuildingStateChange(true);
+    }
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
@@ -195,6 +200,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       console.error("Error saving files:", error);
     } finally {
       setIsSaving(false);
+      if (onBuildingStateChange) {
+        onBuildingStateChange(false);
+      }
     }
   };
 

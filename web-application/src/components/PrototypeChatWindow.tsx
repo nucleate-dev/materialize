@@ -31,6 +31,7 @@ export interface PrototypeChatWindowProps {
   onViewingUrlUpdate?: (viewingUrl: string) => void;
 
   onClearChat?: () => void;
+  onBuildingStateChange?: (isBuilding: boolean) => void;
 }
 
 export default function PrototypeChatWindow({
@@ -41,6 +42,7 @@ export default function PrototypeChatWindow({
   setIsLoading,
   onViewingUrlUpdate,
   onClearChat,
+  onBuildingStateChange,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
   const [isExecutingOperations, setIsExecutingOperations] = useState(false);
@@ -225,6 +227,22 @@ export default function PrototypeChatWindow({
                     // Save updated files from planning
                     if (data.updatedFiles) {
                       await onFilesUpdate(data.updatedFiles);
+                    }
+                    break;
+                  }
+
+                  case "dispatch_start": {
+                    console.log("Received dispatch_start event");
+                    if (onBuildingStateChange) {
+                      onBuildingStateChange(true);
+                    }
+                    break;
+                  }
+
+                  case "dispatch_complete": {
+                    console.log("Received dispatch_complete event");
+                    if (onBuildingStateChange) {
+                      onBuildingStateChange(false);
                     }
                     break;
                   }
@@ -420,6 +438,7 @@ export default function PrototypeChatWindow({
       setIsLoading,
       loadingDots,
       onViewingUrlUpdate,
+      onBuildingStateChange,
     ],
   );
 

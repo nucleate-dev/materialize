@@ -57,6 +57,7 @@ export default function CreatePage() {
   const [isCopying, setIsCopying] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -419,6 +420,7 @@ export default function CreatePage() {
                   setIsLoading={setIsLoading}
                   // Viewing URL integration
                   onViewingUrlUpdate={setViewingUrl}
+                  onBuildingStateChange={setIsBuilding}
                 />
               </div>
             </CardContent>
@@ -495,6 +497,7 @@ export default function CreatePage() {
                       <MaterializeRenderSection
                         viewing_url={viewingUrl ?? ""}
                         hideControls={true}
+                        isBuilding={isBuilding}
                         onResetToDefault={handleResetToDefault}
                       />
                       {/* <ExpoSnackViewer
@@ -541,6 +544,7 @@ export default function CreatePage() {
                           prototypeId={prototypeId}
                           files={fileSystem.state.files}
                           onViewingUrlUpdate={setViewingUrl}
+                          onBuildingStateChange={setIsBuilding}
                           onForceRefresh={() =>
                             renderRef.current?.forceRefresh()
                           }

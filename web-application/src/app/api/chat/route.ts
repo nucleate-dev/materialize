@@ -281,6 +281,16 @@ export async function POST(request: NextRequest) {
             }
           });
 
+          // Stream dispatch start event to show loading indicator
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: "dispatch_start",
+                message: "Starting build process...",
+              })}\n\n`,
+            ),
+          );
+
           try {
             const dispatchResponse = await fetch(
               `${process.env.SERVER_ENDPOINT!}/dispatch`,
@@ -314,8 +324,31 @@ export async function POST(request: NextRequest) {
                 ),
               );
             }
+
+            // Stream dispatch completion event
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "dispatch_complete",
+                  success: true,
+                  message: "Build process completed successfully",
+                })}\n\n`,
+              ),
+            );
           } catch (error) {
             console.error("❌ Error calling dispatch endpoint:", error);
+            
+            // Stream dispatch completion event for error case
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "dispatch_complete",
+                  success: false,
+                  message: "Build process failed",
+                  error: error instanceof Error ? error.message : "Unknown error",
+                })}\n\n`,
+              ),
+            );
           }
 
           // ------------------------------------------------------------------------------------------------
