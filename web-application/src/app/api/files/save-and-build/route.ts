@@ -183,9 +183,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Transform files for dispatch API
-    const filesForDispatch: Record<string, string> = {};
+    const filesForDispatch: Array<{
+      path: string;
+      content: string;
+      isBase64?: boolean;
+    }> = [];
     Object.entries(files).forEach(([filePath, file]) => {
-      filesForDispatch[filePath] = file.contents;
+      filesForDispatch.push({
+        path: filePath,
+        content: file.contents,
+        isBase64: false, // Text files, not base64 encoded
+      });
     });
 
     // 7. Dispatch build request
@@ -204,7 +212,6 @@ export async function POST(request: NextRequest) {
           framework: "expo_react_native",
           files: filesForDispatch,
           file_scope: "complete",
-          hot_reload: false,
         }),
       },
     );

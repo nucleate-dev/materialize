@@ -99,8 +99,7 @@ fastify.post(
     reply: FastifyReply
   ) => {
     try {
-      const { jwt, prototype_id, framework, files, file_scope, hot_reload } =
-        request.body;
+      const { jwt, prototype_id, framework, files, file_scope } = request.body;
 
       // Validation
       if (!jwt) {
