@@ -355,11 +355,24 @@ export class PublicApiService {
           if (stats.isDirectory()) {
             await readDirectory(fullPath, itemRelativePath);
           } else if (stats.isFile()) {
-            const content = await fs.readFile(fullPath, "utf8");
-            files.push({
-              path: itemRelativePath,
-              content: content,
-            });
+            // Detect if file is binary and handle accordingly
+            const isBinary = this.detectBinaryFile(fullPath, item);
+            
+            if (isBinary) {
+              const binaryContent = await fs.readFile(fullPath);
+              files.push({
+                path: itemRelativePath,
+                content: binaryContent.toString('base64'),
+                isBase64: true,
+              });
+            } else {
+              const content = await fs.readFile(fullPath, "utf8");
+              files.push({
+                path: itemRelativePath,
+                content: content,
+                isBase64: false,
+              });
+            }
           }
         }
       } catch (error: any) {
@@ -457,5 +470,21 @@ export class PublicApiService {
         }
       }
     }
+  }
+
+  private detectBinaryFile(_filePath: string, fileName: string): boolean {
+    // Define common binary file extensions
+    const binaryExtensions = [
+      '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.webp', '.bmp', '.tiff',
+      '.woff', '.woff2', '.ttf', '.otf', '.eot',
+      '.mp4', '.webm', '.mov', '.avi', '.mkv',
+      '.mp3', '.wav', '.ogg', '.m4a', '.flac',
+      '.pdf', '.zip', '.tar', '.gz', '.7z', '.rar',
+      '.exe', '.dll', '.so', '.dylib',
+      '.bin', '.dat', '.db', '.sqlite'
+    ];
+    
+    const ext = path.extname(fileName).toLowerCase();
+    return binaryExtensions.includes(ext);
   }
 }

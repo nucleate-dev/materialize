@@ -9,6 +9,7 @@ import { customlog } from "./logger.js";
 interface FileInput {
   path: string;
   content: string;
+  isBase64?: boolean;
 }
 
 interface DevServerStartRequest {
@@ -254,8 +255,17 @@ export class ExpoDevServerService {
         // Ensure directory exists
         await fs.mkdir(fileDir, { recursive: true });
 
-        // Write file content
-        await fs.writeFile(filePath, file.content, "utf8");
+        // Write file content - handle binary vs text files
+        if (file.isBase64) {
+          // Handle binary files (images, fonts, etc.)
+          const binaryContent = Buffer.from(file.content, "base64");
+          await fs.writeFile(filePath, binaryContent);
+          this.state.addLog(`Updated binary file: ${file.path} (${binaryContent.length} bytes)`);
+        } else {
+          // Handle text files
+          await fs.writeFile(filePath, file.content, "utf8");
+          this.state.addLog(`Updated text file: ${file.path} (${file.content.length} chars)`);
+        }
         updatedFiles.push(file.path);
       }
 
@@ -399,8 +409,17 @@ export class ExpoDevServerService {
       // Ensure directory exists
       await fs.mkdir(fileDir, { recursive: true });
 
-      // Write file content
-      await fs.writeFile(filePath, file.content, "utf8");
+      // Write file content - handle binary vs text files
+      if (file.isBase64) {
+        // Handle binary files (images, fonts, etc.)
+        const binaryContent = Buffer.from(file.content, "base64");
+        await fs.writeFile(filePath, binaryContent);
+        this.state.addLog(`Wrote binary file: ${file.path} (${binaryContent.length} bytes)`);
+      } else {
+        // Handle text files
+        await fs.writeFile(filePath, file.content, "utf8");
+        this.state.addLog(`Wrote text file: ${file.path} (${file.content.length} chars)`);
+      }
     }
   }
 
