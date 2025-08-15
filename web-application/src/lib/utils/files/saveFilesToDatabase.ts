@@ -5,8 +5,8 @@ type PrototypeFileInsert =
   Database["public"]["Tables"]["prototype_files"]["Insert"];
 
 /**
- * Saves files to the database using an incremental approach.
- * Updates existing files or creates new ones as needed.
+ * Saves files to the database using batch upsert.
+ * Updates existing files or creates new ones as needed in a single operation.
  *
  * @param supabaseClient - Authenticated Supabase client
  * @param prototypeId - The prototype ID to save files for
@@ -22,103 +22,47 @@ export async function saveFilesToDatabase(
     throw new Error("Prototype ID is required");
   }
 
-  const saveResults: Array<{
-    filePath: string;
-    success: boolean;
-    error?: string;
-  }> = [];
+  const fileEntries = Object.entries(updatedFiles);
+  if (fileEntries.length === 0) {
+    console.log("No files to save");
+    return;
+  }
 
-  for (const [filePath, fileData] of Object.entries(updatedFiles)) {
-    try {
-      // Check if file exists
-      const { data: existingFile, error: selectError } = await supabaseClient
-        .from("prototype_files")
-        .select("id")
-        .eq("prototype_id", prototypeId)
-        .eq("name", filePath)
-        .maybeSingle();
+  console.log(`Saving ${fileEntries.length} files to database using batch upsert...`);
 
-      if (selectError) {
-        console.error(`Error checking existing file ${filePath}:`, selectError);
-        saveResults.push({
-          filePath,
-          success: false,
-          error: `Failed to check existing file: ${selectError.message}`,
-        });
-        continue;
-      }
+  try {
+    // Prepare data for upsert - convert to array format
+    const filesToUpsert = fileEntries.map(([filePath, fileData]) => ({
+      prototype_id: prototypeId,
+      name: filePath,
+      contents: fileData.contents,
+      file_type: fileData.file_type || "text",
+      storage_path: fileData.storage_path || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
 
-      if (existingFile) {
-        // Update existing file
-        const { error: updateError } = await supabaseClient
-          .from("prototype_files")
-          .update({
-            contents: fileData.contents,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingFile.id);
+    // Perform batch upsert using Supabase's upsert functionality
+    // This will insert new records or update existing ones based on unique constraints
+    const { data, error } = await supabaseClient
+      .from("prototype_files")
+      .upsert(filesToUpsert, {
+        onConflict: "prototype_id,name", // Unique constraint on prototype_id + name
+        ignoreDuplicates: false, // Update existing records instead of ignoring
+      })
+      .select("name");
 
-        if (updateError) {
-          console.error(`Error updating file ${filePath}:`, updateError);
-          saveResults.push({
-            filePath,
-            success: false,
-            error: `Failed to update file: ${updateError.message}`,
-          });
-        } else {
-          console.log(`✅ Updated existing file: ${filePath}`);
-          saveResults.push({ filePath, success: true });
-        }
-      } else {
-        // Create new file
-        const { error: insertError } = await supabaseClient
-          .from("prototype_files")
-          .insert({
-            prototype_id: prototypeId,
-            name: filePath,
-            contents: fileData.contents,
-            file_type: "text",
-            storage_path: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-
-        if (insertError) {
-          console.error(`Error creating file ${filePath}:`, insertError);
-          saveResults.push({
-            filePath,
-            success: false,
-            error: `Failed to create file: ${insertError.message}`,
-          });
-        } else {
-          console.log(`✅ Created new file: ${filePath}`);
-          saveResults.push({ filePath, success: true });
-        }
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error(`Error saving file ${filePath}:`, error);
-      saveResults.push({
-        filePath,
-        success: false,
-        error: `Unexpected error: ${errorMessage}`,
-      });
+    if (error) {
+      console.error("Error during batch upsert:", error);
+      throw new Error(`Failed to save files: ${error.message}`);
     }
+
+    console.log(`✅ Successfully saved ${data?.length || fileEntries.length} files to database`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error saving files to database:", error);
+    throw new Error(`Failed to save files: ${errorMessage}`);
   }
-
-  // Check if any saves failed
-  const failedSaves = saveResults.filter((result) => !result.success);
-
-  if (failedSaves.length > 0) {
-    const errorMessage = `Failed to save ${failedSaves.length} file(s): ${failedSaves
-      .map((result) => `${result.filePath} (${result.error})`)
-      .join(", ")}`;
-
-    throw new Error(errorMessage);
-  }
-
-  console.log(`✅ Successfully saved ${saveResults.length} files to database`);
 }
 
 /**
