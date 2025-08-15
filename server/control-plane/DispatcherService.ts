@@ -73,40 +73,46 @@ export class DispatcherService {
     prototypeId: string,
   ): Promise<{
     state: 'dne' | 'active_dev_server' | 'active_build';
-    status: 'updating' | 'error' | 'stable' | 'creating' | null;
+    status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
     viewing_url: string;
   }> {
     try {
       // Authentication and authorization validation
       await this.validateUserAndPrototypeOwner(jwt, prototypeId);
 
-      // 4. Check active build in cache
-      const activeBuildKey = `active_build:${prototypeId}`;
-      const existingBuildJson = await this.cache.get(activeBuildKey);
+      // Check current build pointer
+      const currentBuildId = await this.cache.get(
+        `proto:${prototypeId}:current`,
+      );
 
-      if (existingBuildJson) {
-        const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string,
-        );
+      if (currentBuildId) {
+        const activeBuildKey = `active_build:${currentBuildId}`;
+        const existingBuildJson = await this.cache.get(activeBuildKey);
 
-        // Determine state based on port
-        const state = existingBuild.status ? 'active_dev_server' : 'dne';
+        if (existingBuildJson) {
+          const existingBuild: ActiveBuild = JSON.parse(
+            existingBuildJson as string,
+          );
 
-        return {
-          state,
-          status: existingBuild.status,
-          viewing_url: this.normalizeUrl(
-            existingBuild.url || this.getS3Url(prototypeId),
-          ),
-        };
-      } else {
-        // No active build, return S3 URL
-        return {
-          state: 'dne',
-          status: null,
-          viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
-        };
+          // Determine state based on status
+          const state = 'active_dev_server';
+
+          return {
+            state,
+            status: existingBuild.status,
+            viewing_url: this.normalizeUrl(
+              existingBuild.url || this.getS3Url(prototypeId),
+            ),
+          };
+        }
       }
+
+      // No active build, return S3 URL
+      return {
+        state: 'dne',
+        status: null,
+        viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
+      };
     } catch (error) {
       throw error;
     }
@@ -139,20 +145,85 @@ export class DispatcherService {
       // Authentication and authorization validation
       await this.validateUserAndPrototypeOwner(jwt, prototype_id);
 
-      // Check if build already exists
-      const activeBuildKey = `active_build:${prototype_id}`;
-      const existingBuildJson = await this.cache.get(activeBuildKey);
+      // Generate unique build ID
+      const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const currentTime = Math.floor(Date.now() / 1000);
 
+      // Check if there's an existing current build
+      const currentBuildId = await this.cache.get(
+        `proto:${prototype_id}:current`,
+      );
+      let shouldCreateNewBuild = true;
+
+      if (currentBuildId) {
+        const activeBuildKey = `active_build:${currentBuildId}`;
+        const existingBuildJson = await this.cache.get(activeBuildKey);
+
+        if (existingBuildJson) {
+          const existingBuild: ActiveBuild = JSON.parse(
+            existingBuildJson as string,
+          );
+
+          // If build is cleaning, proceed with new build
+          if (existingBuild.status === 'cleaning') {
+            console.log(
+              `Existing build ${currentBuildId} is cleaning, creating new build`,
+            );
+            shouldCreateNewBuild = true;
+          }
+          // If build is actively working, return error
+          else if (
+            existingBuild.status === 'creating' ||
+            existingBuild.status === 'updating'
+          ) {
+            return {
+              status: 'error',
+              viewing_url: this.normalizeUrl(
+                existingBuild.url || this.getS3Url(prototype_id),
+              ),
+              build_errors: [],
+              build_warnings: [],
+              error_message:
+                'There is already an active dispatch request for this prototype',
+            };
+          }
+          // Reuse existing stable build
+          else {
+            shouldCreateNewBuild = false;
+          }
+        }
+      }
+
+      let activeBuildKey: string;
       let updatedBuildCacheData: ActiveBuild;
-      if (!existingBuildJson) {
+
+      if (shouldCreateNewBuild) {
+        // Create new build
+        activeBuildKey = `active_build:${buildId}`;
         const newBuildCacheData: ActiveBuild = {
           fargate_task_arn: '',
           fargate_private_ip: '',
           url: this.getS3Url(prototype_id),
           status: 'creating',
-          last_touched: Math.floor(Date.now() / 1000),
+          last_touched: currentTime,
         };
+
+        // Set the new build as active
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
+
+        // Update current pointer
+        await this.cache.set(`proto:${prototype_id}:current`, buildId);
+
+        // Add to builds ZSET
+        await this.cache.customCommand([
+          'ZADD',
+          `proto:${prototype_id}:builds`,
+          currentTime.toString(),
+          buildId,
+        ]);
+
         const newFargateInstance = await this.launchFargateInstance(
           prototype_id,
         );
@@ -164,30 +235,17 @@ export class DispatcherService {
           fargate_private_ip: newFargateInstance.privateIp,
         };
       } else {
+        // Reuse existing build
+        activeBuildKey = `active_build:${currentBuildId}`;
+        const existingBuildJson = await this.cache.get(activeBuildKey);
         const existingBuild: ActiveBuild = JSON.parse(
           existingBuildJson as string,
         );
-        // There is already an active dispatch request, return error
-        if (
-          existingBuild.status === 'creating' ||
-          existingBuild.status === 'updating'
-        ) {
-          return {
-            status: 'error',
-            viewing_url: this.normalizeUrl(
-              existingBuild.url || this.getS3Url(prototype_id),
-            ),
-            build_errors: [],
-            build_warnings: [],
-            error_message:
-              'There is already an active dispatch request for this prototype',
-          };
-        }
+
         updatedBuildCacheData = {
           ...existingBuild,
           status: 'updating',
-          fargate_task_arn: existingBuild.fargate_task_arn,
-          fargate_private_ip: existingBuild.fargate_private_ip,
+          last_touched: currentTime,
         };
       }
 
@@ -196,28 +254,41 @@ export class DispatcherService {
         JSON.stringify(updatedBuildCacheData),
       );
 
-      // TODO: Dispatch request to fargate instance (this.dispatchFormedRequestToFargateInstance())
+      // Dispatch request to fargate instance
       const requestBody = this.constructRequestBody({
         prototype_id,
         framework,
         files,
         file_scope,
       });
+
       try {
         const fargateResponse =
           await this.dispatchFormedRequestToFargateInstanceServer(
             updatedBuildCacheData.fargate_private_ip,
             requestBody,
           );
+
         console.log('Fargate responded');
         updatedBuildCacheData.status = 'stable';
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
+
         await this.cache.set(
           activeBuildKey,
           JSON.stringify(updatedBuildCacheData),
         );
+
+        // Update builds ZSET with new timestamp
+        const buildIdFromKey = activeBuildKey.replace('active_build:', '');
+        await this.cache.customCommand([
+          'ZADD',
+          `proto:${prototype_id}:builds`,
+          updatedBuildCacheData.last_touched.toString(),
+          buildIdFromKey,
+        ]);
+
         console.log(updatedBuildCacheData);
 
         return {
@@ -413,7 +484,7 @@ interface ActiveBuild {
   fargate_task_arn: string;
   fargate_private_ip: string;
   url: string;
-  status: 'creating' | 'updating' | 'error' | 'stable';
+  status: 'creating' | 'updating' | 'error' | 'stable' | 'cleaning';
   last_touched: number;
 }
 
