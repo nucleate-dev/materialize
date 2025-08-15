@@ -45,6 +45,8 @@ const MaterializeRenderSection = forwardRef<
   const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
+  const [isIframeLoading, setIsIframeLoading] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
 
   // Ref for the iframe's contentWindow
   const webPreviewRef = useRef<Window | null>(null);
@@ -52,6 +54,10 @@ const MaterializeRenderSection = forwardRef<
   // Force refresh method
   const forceRefresh = useCallback(() => {
     if (viewing_url) {
+      // Start loading state for refresh
+      setIsIframeLoading(true);
+      setIframeError(false);
+
       // Method 1: Try iframe refresh
       const iframe = document.querySelector(
         'iframe[title="React Native Preview"], iframe[title="React Native Web Preview"]',
@@ -80,12 +86,19 @@ const MaterializeRenderSection = forwardRef<
 
   const handleRefresh = () => {
     if (webPreviewRef.current && viewing_url) {
+      setIsIframeLoading(true);
+      setIframeError(false);
       webPreviewRef.current.location = viewing_url;
     }
   };
 
   const handleModeChange = (mode: PreviewMode) => {
     setPreviewMode(mode);
+    // Trigger loading state when switching preview modes
+    if (viewing_url) {
+      setIsIframeLoading(true);
+      setIframeError(false);
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -120,11 +133,29 @@ const MaterializeRenderSection = forwardRef<
     document.body.style.userSelect = "none";
   };
 
+  // Handle iframe loading events
+  const handleIframeLoad = useCallback(() => {
+    console.log("Iframe loaded successfully");
+    setIsIframeLoading(false);
+    setIframeError(false);
+  }, []);
+
+  const handleIframeError = useCallback(() => {
+    console.log("Iframe failed to load");
+    setIsIframeLoading(false);
+    setIframeError(true);
+  }, []);
+
+  // Start loading when viewing_url changes
   useEffect(() => {
     console.log("render_viewing_url: ", viewing_url);
+    if (viewing_url) {
+      setIsIframeLoading(true);
+      setIframeError(false);
+    }
   }, [viewing_url]);
 
-  // Loading indicator component
+  // Loading indicator component for build process
   const LoadingIndicator = ({ mode }: { mode: PreviewMode }) => (
     <div className="flex items-center justify-center h-full">
       <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -145,6 +176,49 @@ const MaterializeRenderSection = forwardRef<
             Web preview will load shortly
           </p>
         )}
+      </div>
+    </div>
+  );
+
+  // Connection loading overlay for iframe
+  const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+      <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
+        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
+        <p className="text-foreground font-medium mb-1">
+          Connecting to Preview
+        </p>
+        <p className="text-muted-foreground text-sm">
+          {mode === "mobile" ? "Loading mobile preview..." : "Loading web preview..."}
+        </p>
+      </div>
+    </div>
+  );
+
+  // Error overlay for iframe
+  const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+      <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
+        <div className="w-6 h-6 mx-auto mb-3 text-destructive">
+          ⚠️
+        </div>
+        <p className="text-foreground font-medium mb-1">
+          Connection Failed
+        </p>
+        <p className="text-muted-foreground text-sm mb-3">
+          Unable to load {mode === "mobile" ? "mobile" : "web"} preview
+        </p>
+        <Button
+          size="sm"
+          onClick={() => {
+            setIframeError(false);
+            setIsIframeLoading(true);
+            setRefreshKey(prev => prev + 1);
+          }}
+        >
+          <RefreshCw className="w-3 h-3 mr-1" />
+          Retry
+        </Button>
       </div>
     </div>
   );
@@ -287,16 +361,24 @@ const MaterializeRenderSection = forwardRef<
                   boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <iframe
-                  key={`mobile-${refreshKey}`}
-                  ref={(c) => {
-                    webPreviewRef.current = c?.contentWindow ?? null;
-                  }}
-                  className="w-full h-full"
-                  title="React Native Preview"
-                  src={viewing_url}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                />
+                <div className="relative w-full h-full">
+                  <iframe
+                    key={`mobile-${refreshKey}`}
+                    ref={(c) => {
+                      webPreviewRef.current = c?.contentWindow ?? null;
+                    }}
+                    className="w-full h-full"
+                    title="React Native Preview"
+                    src={viewing_url}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                    onLoad={handleIframeLoad}
+                    onError={handleIframeError}
+                  />
+                  {/* Show loading overlay when iframe is connecting */}
+                  {isIframeLoading && <ConnectionLoadingOverlay mode="mobile" />}
+                  {/* Show error overlay when iframe fails to load */}
+                  {iframeError && <ConnectionErrorOverlay mode="mobile" />}
+                </div>
               </div>
 
               {/* Resize handle */}
@@ -332,16 +414,24 @@ const MaterializeRenderSection = forwardRef<
                   Web Preview
                 </span>
               </div>
-              <iframe
-                key={`web-${refreshKey}`}
-                ref={(c) => {
-                  webPreviewRef.current = c?.contentWindow ?? null;
-                }}
-                className="w-full h-full min-h-[500px]"
-                title="React Native Web Preview"
-                src={viewing_url}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-              />
+              <div className="relative w-full h-full min-h-[500px]">
+                <iframe
+                  key={`web-${refreshKey}`}
+                  ref={(c) => {
+                    webPreviewRef.current = c?.contentWindow ?? null;
+                  }}
+                  className="w-full h-full"
+                  title="React Native Web Preview"
+                  src={viewing_url}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                  onLoad={handleIframeLoad}
+                  onError={handleIframeError}
+                />
+                {/* Show loading overlay when iframe is connecting */}
+                {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
+                {/* Show error overlay when iframe fails to load */}
+                {iframeError && <ConnectionErrorOverlay mode="web" />}
+              </div>
             </div>
           </div>
           /* --- END: Web preview --- */
