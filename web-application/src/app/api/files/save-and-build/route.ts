@@ -213,11 +213,27 @@ export async function POST(request: NextRequest) {
           files: filesForDispatch,
           file_scope: "complete",
         }),
+        // Set timeout to 5 minutes for build operations
+        signal: AbortSignal.timeout(300000),
       },
     );
 
     if (!dispatchResponse.ok) {
-      const dispatchError = await dispatchResponse.json();
+      let dispatchError;
+      try {
+        dispatchError = await dispatchResponse.json();
+      } catch (parseError) {
+        // Handle case where server returns HTML error page instead of JSON
+        const textResponse = await dispatchResponse.text();
+        console.error("Dispatch response is not JSON:", textResponse);
+        return NextResponse.json(
+          {
+            error: "Server error",
+            message: `Server returned status ${dispatchResponse.status}. Response was not valid JSON.`,
+          },
+          { status: 500 },
+        );
+      }
       console.error("Dispatch request failed:", dispatchError);
 
       if (dispatchResponse.status === 401) {
@@ -248,8 +264,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const dispatchData: DispatchResponse = await dispatchResponse.json();
-    console.log("=� Dispatch endpoint response:", dispatchData);
+    let dispatchData: DispatchResponse;
+    try {
+      dispatchData = await dispatchResponse.json();
+    } catch (parseError) {
+      // Handle case where successful response is not valid JSON
+      const textResponse = await dispatchResponse.text();
+      console.error("Successful dispatch response is not JSON:", textResponse);
+      return NextResponse.json(
+        {
+          error: "Server response error",
+          message: "Server returned a successful status but response was not valid JSON.",
+        },
+        { status: 500 },
+      );
+    }
+    console.log("📦 Dispatch endpoint response:", dispatchData);
 
     // 8. Return success response with viewing URL
     return NextResponse.json({
