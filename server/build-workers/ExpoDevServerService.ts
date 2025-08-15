@@ -474,127 +474,152 @@ export class ExpoDevServerService {
       "Setting up dependencies using pre-installed packages...",
     );
 
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Create node_modules directory
-        const nodeModulesPath = path.join(projectDir, "node_modules");
-        await fs.mkdir(nodeModulesPath, { recursive: true });
+    try {
+      // Create node_modules directory
+      const nodeModulesPath = path.join(projectDir, "node_modules");
+      await fs.mkdir(nodeModulesPath, { recursive: true });
 
-        // Link the pre-installed global packages
-        const globalPackages = [
-          "@expo/vector-icons",
-          "@react-navigation/native",
-          "expo",
-          "expo-font",
-          "expo-linking",
-          "expo-router",
-          "expo-splash-screen",
-          "expo-status-bar",
-          "expo-system-ui",
-          "expo-web-browser",
-          "react",
-          "react-dom",
-          "react-native",
-          "react-native-reanimated",
-          "react-native-safe-area-context",
-          "react-native-screens",
-          "react-native-web",
-        ];
+      // Define global packages and their paths
+      const globalPackages = [
+        "@expo/vector-icons",
+        "@react-navigation/native",
+        "expo",
+        "expo-font",
+        "expo-linking",
+        "expo-router",
+        "expo-splash-screen",
+        "expo-status-bar",
+        "expo-system-ui",
+        "expo-web-browser",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-native-reanimated",
+        "react-native-safe-area-context",
+        "react-native-screens",
+        "react-native-web",
+      ];
 
-        let linkedCount = 0;
-        for (const pkg of globalPackages) {
+      // Try multiple possible global npm modules paths
+      const possibleGlobalPaths = [
+        "/opt/preinstalled-packages/node_modules",  // Our optimized path
+        "/usr/local/lib/node_modules",              // Standard global path
+        "/app/node_modules"                         // Fallback local path
+      ];
+      
+      let linkedCount = 0;
+      for (const pkg of globalPackages) {
+        let linked = false;
+        
+        // Try each possible global path until we find the package
+        for (const globalBasePath of possibleGlobalPaths) {
           try {
-            const linkProcess = spawn("npm", ["link", pkg], {
-              cwd: projectDir,
-              env: {
-                ...process.env,
-                CI: "1",
-                NODE_OPTIONS: "--max-old-space-size=2048",
-              },
-              stdio: ["ignore", "pipe", "pipe"],
-            });
+            const globalPkgPath = path.join(globalBasePath, pkg);
+            const localPkgPath = path.join(nodeModulesPath, pkg);
 
-            await new Promise((linkResolve, linkReject) => {
-              linkProcess.on("close", (code) => {
-                if (code === 0) {
-                  linkedCount++;
-                  this.state.addLog(`Linked: ${pkg}`);
-                  linkResolve(void 0);
-                } else {
-                  this.state.addLog(
-                    `Failed to link ${pkg}, will install individually`,
-                  );
-                  linkResolve(void 0); // Don't reject, just continue
-                }
-              });
-
-              linkProcess.on("error", (error) => {
-                this.state.addLog(`Link error for ${pkg}: ${error.message}`);
-                linkResolve(void 0); // Don't reject, just continue
-              });
-            });
+            // Check if global package exists
+            await fs.access(globalPkgPath);
+            
+            // Create symlink for the package
+            await this.createSymlink(globalPkgPath, localPkgPath);
+            linkedCount++;
+            linked = true;
+            this.state.addLog(`Symlinked: ${pkg} from ${globalBasePath}`);
+            break; // Found and linked, move to next package
           } catch (error) {
-            this.state.addLog(`Link failed for ${pkg}: ${error}`);
-            // Continue with other packages
+            // Continue to next path
+            continue;
           }
         }
-
-        this.state.addLog(`Linked ${linkedCount} global packages`);
-
-        // Install any remaining dependencies
-        const npmProcess = spawn(
-          "npm",
-          ["install", "--prefer-offline", "--no-audit", "--no-fund"],
-          {
-            cwd: projectDir,
-            env: {
-              ...process.env,
-              CI: "1",
-              NODE_OPTIONS: "--max-old-space-size=2048",
-            },
-            stdio: ["ignore", "pipe", "pipe"],
-          },
-        );
-
-        let stdout = "";
-        let stderr = "";
-
-        npmProcess.stdout.on("data", (data) => {
-          stdout += data.toString();
-        });
-
-        npmProcess.stderr.on("data", (data) => {
-          stderr += data.toString();
-        });
-
-        npmProcess.on("close", (code) => {
-          if (code === 0) {
-            this.state.addLog(
-              "Dependencies ready (linked + installed remaining)",
-            );
-            resolve();
-          } else {
-            const error = `npm install failed with exit code ${code}: ${stderr}`;
-            customlog("error", "npm install failed:", { code, stderr, stdout });
-            this.state.addLog(error);
-            reject(new Error(error));
-          }
-        });
-
-        npmProcess.on("error", (error) => {
-          customlog(
-            "error",
-            "npm install process error:",
-            error.message,
-            error.stack,
-          );
-          this.state.addLog(`npm install process error: ${error.message}`);
-          reject(error);
-        });
-      } catch (error: any) {
-        this.state.addLog(`Setup dependencies error: ${error.message}`);
-        reject(error);
+        
+        if (!linked) {
+          this.state.addLog(`Package not found in any global path: ${pkg}, will install individually`);
+        }
       }
+
+      this.state.addLog(`Symlinked ${linkedCount}/${globalPackages.length} global packages`);
+
+      // Only run npm install if we need to install remaining dependencies
+      if (linkedCount < globalPackages.length) {
+        await this.runNpmInstall(projectDir);
+      } else {
+        this.state.addLog("All dependencies available via symlinks, skipping npm install");
+      }
+    } catch (error: any) {
+      this.state.addLog(`Setup dependencies error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async createSymlink(sourcePath: string, targetPath: string): Promise<void> {
+    try {
+      // Ensure parent directory exists
+      const targetDir = path.dirname(targetPath);
+      await fs.mkdir(targetDir, { recursive: true });
+
+      // Remove target if it exists
+      try {
+        await fs.unlink(targetPath);
+      } catch {
+        // Ignore if target doesn't exist
+      }
+
+      // Create symlink
+      await fs.symlink(sourcePath, targetPath, "dir");
+    } catch (error: any) {
+      throw new Error(`Failed to create symlink from ${sourcePath} to ${targetPath}: ${error.message}`);
+    }
+  }
+
+  private async runNpmInstall(projectDir: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const npmProcess = spawn(
+        "npm",
+        ["install", "--prefer-offline", "--no-audit", "--no-fund", "--production"],
+        {
+          cwd: projectDir,
+          env: {
+            ...process.env,
+            CI: "1",
+            NODE_OPTIONS: "--max-old-space-size=2048",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+
+      let stdout = "";
+      let stderr = "";
+
+      npmProcess.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      npmProcess.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      npmProcess.on("close", (code) => {
+        if (code === 0) {
+          this.state.addLog("Remaining dependencies installed successfully");
+          resolve();
+        } else {
+          const error = `npm install failed with exit code ${code}: ${stderr}`;
+          customlog("error", "npm install failed:", { code, stderr, stdout });
+          this.state.addLog(error);
+          reject(new Error(error));
+        }
+      });
+
+      npmProcess.on("error", (error) => {
+        customlog(
+          "error",
+          "npm install process error:",
+          error.message,
+          error.stack,
+        );
+        this.state.addLog(`npm install process error: ${error.message}`);
+        reject(error);
+      });
     });
   }
 
