@@ -46,7 +46,7 @@ export async function uploadAssetToSupabaseStorage(
 ): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
   try {
     const filePath = `${prototypeId}/${fileName}`;
-    
+
     const { error } = await supabaseStorage.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .upload(filePath, fileContent, {
@@ -86,11 +86,12 @@ export async function copyAssetInSupabaseStorage(
 ): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
   try {
     const sourceFilePath = `${sourcePrototypeId}/${fileName}`;
-    
+
     // Download from source
-    const { data: sourceData, error: downloadError } = await supabaseStorage.storage
-      .from(SUPABASE_STORAGE_BUCKET)
-      .download(sourceFilePath);
+    const { data: sourceData, error: downloadError } =
+      await supabaseStorage.storage
+        .from(SUPABASE_STORAGE_BUCKET)
+        .download(sourceFilePath);
 
     if (downloadError) {
       return { success: false, error: downloadError.message };
@@ -98,7 +99,11 @@ export async function copyAssetInSupabaseStorage(
 
     // Upload to target
     const fileBuffer = Buffer.from(await sourceData.arrayBuffer());
-    return await uploadAssetToSupabaseStorage(targetPrototypeId, fileName, fileBuffer);
+    return await uploadAssetToSupabaseStorage(
+      targetPrototypeId,
+      fileName,
+      fileBuffer,
+    );
   } catch (error) {
     console.error("Error in copyAssetInSupabaseStorage:", error);
     return {
@@ -127,7 +132,7 @@ export async function deletePrototypeAssetsFromStorage(
       return { success: true }; // No files to delete
     }
 
-    const filesToDelete = files.map(file => `${prototypeId}/${file.name}`);
+    const filesToDelete = files.map((file) => `${prototypeId}/${file.name}`);
     const { error: deleteError } = await supabaseStorage.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .remove(filesToDelete);
@@ -150,20 +155,20 @@ export async function deletePrototypeAssetsFromStorage(
  * Get content type based on file extension
  */
 function getContentType(fileName: string): string {
-  const ext = fileName.toLowerCase().split('.').pop();
+  const ext = fileName.toLowerCase().split(".").pop();
   const contentTypes: Record<string, string> = {
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'ico': 'image/x-icon',
-    'svg': 'image/svg+xml',
-    'ttf': 'font/ttf',
-    'otf': 'font/otf',
-    'woff': 'font/woff',
-    'woff2': 'font/woff2',
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    ico: "image/x-icon",
+    svg: "image/svg+xml",
+    ttf: "font/ttf",
+    otf: "font/otf",
+    woff: "font/woff",
+    woff2: "font/woff2",
   };
-  return contentTypes[ext || ''] || 'application/octet-stream';
+  return contentTypes[ext || ""] || "application/octet-stream";
 }
 
 /**
@@ -255,9 +260,7 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
  * Get default app files from S3 raw files and format for Supabase insertion
  * Also uploads binary assets to Supabase Storage
  */
-export async function getDefaultAppFilesFromS3(
-  prototypeId: string,
-): Promise<{
+export async function getDefaultAppFilesFromS3(prototypeId: string): Promise<{
   success: boolean;
   files?: Array<{
     prototype_id: string;
@@ -270,7 +273,7 @@ export async function getDefaultAppFilesFromS3(
 }> {
   try {
     const sourcePrefix = "default-app-raw-files/";
-    
+
     // List all files in the default-app-raw-files directory
     const listCommand = new ListObjectsV2Command({
       Bucket: PROTOTYPE_BUCKET,
@@ -299,7 +302,7 @@ export async function getDefaultAppFilesFromS3(
       if (!object.Key) continue;
 
       // Skip directory markers (objects ending with /)
-      if (object.Key.endsWith('/')) continue;
+      if (object.Key.endsWith("/")) continue;
 
       const getCommand = new GetObjectCommand({
         Bucket: PROTOTYPE_BUCKET,
@@ -307,27 +310,49 @@ export async function getDefaultAppFilesFromS3(
       });
 
       const result = await s3Client.send(getCommand);
-      
+
       if (result.Body) {
         // Extract filename (remove the prefix)
-        const fileName = object.Key.replace(sourcePrefix, '');
-        
+        const fileName = object.Key.replace(sourcePrefix, "");
+
         // Check if this is a binary asset file
-        const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.ico', '.ttf', '.otf', '.woff', '.woff2', '.svg'];
-        const isBinaryFile = binaryExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
-        
+        const binaryExtensions = [
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".gif",
+          ".ico",
+          ".ttf",
+          ".otf",
+          ".woff",
+          ".woff2",
+          ".svg",
+        ];
+        const isBinaryFile = binaryExtensions.some((ext) =>
+          fileName.toLowerCase().endsWith(ext),
+        );
+
         if (isBinaryFile) {
           // Handle binary asset - upload to Supabase Storage
           console.log(`Processing binary asset: ${fileName}`);
-          
-          const fileBuffer = Buffer.from(await result.Body.transformToByteArray());
-          const uploadResult = await uploadAssetToSupabaseStorage(prototypeId, fileName, fileBuffer);
-          
+
+          const fileBuffer = Buffer.from(
+            await result.Body.transformToByteArray(),
+          );
+          const uploadResult = await uploadAssetToSupabaseStorage(
+            prototypeId,
+            fileName,
+            fileBuffer,
+          );
+
           if (!uploadResult.success) {
-            console.error(`Failed to upload asset ${fileName}:`, uploadResult.error);
+            console.error(
+              `Failed to upload asset ${fileName}:`,
+              uploadResult.error,
+            );
             continue;
           }
-          
+
           files.push({
             prototype_id: prototypeId,
             name: fileName,
@@ -338,7 +363,7 @@ export async function getDefaultAppFilesFromS3(
         } else {
           // Handle text file - store in contents
           const content = await result.Body.transformToString();
-          
+
           files.push({
             prototype_id: prototypeId,
             name: fileName,
