@@ -3,6 +3,9 @@ import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+// Set max duration for Vercel serverless function to 3 minutes
+export const maxDuration = 180;
+
 // Request validation schema using Database Insert types
 const SaveAndBuildSchema = z.object({
   files: z.record(
