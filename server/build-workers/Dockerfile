@@ -6,8 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install Expo CLI and ngrok globally
-RUN npm install -g expo-cli @expo/ngrok@^4.1.0
+# Install Expo CLI, ngrok, and build tools globally
+RUN npm install -g expo-cli @expo/ngrok@^4.1.0 @react-native-community/bob husky
 
 # Pre-install all Expo dependencies globally for faster project creation
 RUN npm install -g \
