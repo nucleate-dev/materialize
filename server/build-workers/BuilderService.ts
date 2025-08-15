@@ -1,5 +1,5 @@
 import AWS from "aws-sdk";
-import { execSync } from "child_process";
+import { execSync, spawn, SpawnOptions } from "child_process";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
@@ -14,7 +14,6 @@ import {
   DeployResponse,
   FileInput,
 } from "./types.js";
-import { spawn, SpawnOptions } from "child_process";
 
 export class BuilderService {
   private readonly WORK_DIR: string;
@@ -548,59 +547,98 @@ export class BuilderService {
       throw new Error("package.json not found or invalid");
     }
 
+    // Create node_modules directory
     const nodeModulesPath = path.join(projectDir, "node_modules");
-    try {
-      await fs.stat(nodeModulesPath);
-      logger.log(
-        "Node modules check",
-        true,
-        "node_modules directory already exists",
-      );
-    } catch (error) {
-      logger.log(
-        "Node modules check",
-        true,
-        "node_modules directory does not exist, will create",
-      );
+    await fs.mkdir(nodeModulesPath, { recursive: true });
+
+    logger.log(
+      "Linking global packages",
+      true,
+      "Using npm link for pre-installed dependencies",
+    );
+
+    // Link the pre-installed global packages
+    const globalPackages = [
+      "@expo/vector-icons",
+      "@react-navigation/native",
+      "expo",
+      "expo-font",
+      "expo-linking",
+      "expo-router",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-system-ui",
+      "expo-web-browser",
+      "react",
+      "react-dom",
+      "react-native",
+      "react-native-reanimated",
+      "react-native-safe-area-context",
+      "react-native-screens",
+      "react-native-web",
+      "@babel/core",
+      "@types/react",
+      "jest",
+      "jest-expo",
+      "react-test-renderer",
+      "typescript",
+    ];
+
+    for (const pkg of globalPackages) {
+      try {
+        const result = await this.runCommand(
+          "npm",
+          ["link", pkg],
+          projectDir,
+          {
+            CI: "1",
+            NODE_OPTIONS: "--max-old-space-size=2048",
+          },
+          30000, // 30 seconds per link
+        );
+
+        if (result.code === 0) {
+          logger.log(`Linked global package: ${pkg}`);
+        } else {
+          logger.log(`Failed to link ${pkg}, falling back to install`);
+          // Fallback: install just this package if link fails
+          await this.runCommand(
+            "npm",
+            ["install", pkg, "--prefer-offline", "--no-audit", "--no-fund"],
+            projectDir,
+            {
+              CI: "1",
+              NODE_OPTIONS: "--max-old-space-size=2048",
+            },
+            60000,
+          );
+        }
+      } catch (error) {
+        logger.log(`Link/install failed for ${pkg}: ${error}`);
+        // Continue with other packages even if one fails
+      }
     }
 
-    // Check if package-lock.json exists to decide between npm ci vs npm install
-    const packageLockPath = path.join(projectDir, "package-lock.json");
-    let useNpmCi = false;
-    try {
-      await fs.stat(packageLockPath);
-      useNpmCi = true;
-      logger.log(
-        "Starting npm install",
-        true,
-        "Running: npm ci --prefer-offline --no-audit --no-fund (lockfile found)",
-      );
-    } catch (error) {
-      logger.log(
-        "Starting npm install",
-        true,
-        "Running: npm install --prefer-offline --no-audit --no-fund (no lockfile)",
-      );
-    }
-
-    const npmArgs = useNpmCi 
-      ? ["ci", "--prefer-offline", "--no-audit", "--no-fund"]
-      : ["install", "--prefer-offline", "--no-audit", "--no-fund"];
-
+    // Install any remaining dependencies that weren't globally installed
+    logger.log("Installing remaining dependencies");
     const result = await this.runCommand(
       "npm",
-      npmArgs,
+      ["install", "--prefer-offline", "--no-audit", "--no-fund"],
       projectDir,
       {
         CI: "1",
         NODE_OPTIONS: "--max-old-space-size=2048",
-        NPM_CONFIG_LOGLEVEL: "verbose",
       },
-      600000,
+      300000, // 5 minutes for remaining packages
     );
 
     if (result.code !== 0) {
-      logger.log("Install dependencies", false, result.stdout, result.stderr);
+      logger.log(
+        "Install remaining dependencies",
+        false,
+        result.stdout,
+        result.stderr,
+      );
       throw new Error(`npm install failed with exit code ${result.code}`);
     }
 
@@ -614,7 +652,7 @@ export class BuilderService {
       logger.log(
         "Install verification",
         true,
-        `node_modules created with ${nodeModulesContents.length} items`,
+        `node_modules ready with ${nodeModulesContents.length} items`,
       );
     } catch (error) {
       logger.log(
@@ -626,10 +664,9 @@ export class BuilderService {
     }
 
     logger.log(
-      "Install dependencies",
+      "Dependencies ready",
       true,
-      `Completed successfully\n${result.stdout}`,
-      result.stderr,
+      `Linked global packages and installed remaining dependencies`,
     );
   }
 

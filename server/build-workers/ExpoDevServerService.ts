@@ -152,7 +152,10 @@ export class ExpoDevServerService {
     const { prototypeId, files, port } = request.body;
 
     if (!prototypeId || !files || !Array.isArray(files) || files.length === 0) {
-      customlog("error", "Invalid startDevServer request:", { prototypeId, filesCount: files?.length });
+      customlog("error", "Invalid startDevServer request:", {
+        prototypeId,
+        filesCount: files?.length,
+      });
       return reply.code(400).send({
         success: false,
         status: "error",
@@ -170,7 +173,14 @@ export class ExpoDevServerService {
           status: this.state.status,
         };
       } else {
-        customlog("warn", "Dev server already running for different prototype:", { currentPrototype: this.state.prototypeId, requestedPrototype: prototypeId });
+        customlog(
+          "warn",
+          "Dev server already running for different prototype:",
+          {
+            currentPrototype: this.state.prototypeId,
+            requestedPrototype: prototypeId,
+          },
+        );
         return reply.code(409).send({
           success: false,
           status: "error",
@@ -209,7 +219,12 @@ export class ExpoDevServerService {
         status: this.state.status,
       };
     } catch (error: any) {
-      customlog("error", "Failed to start dev server:", error.message, error.stack);
+      customlog(
+        "error",
+        "Failed to start dev server:",
+        error.message,
+        error.stack,
+      );
       this.state.status = "error";
       this.state.error = error.message;
       this.state.addLog(`Failed to start dev server: ${error.message}`);
@@ -230,7 +245,9 @@ export class ExpoDevServerService {
     const { files } = request.body;
 
     if (!files || !Array.isArray(files) || files.length === 0) {
-      customlog("error", "Invalid updateFiles request - missing files array:", { filesCount: files?.length });
+      customlog("error", "Invalid updateFiles request - missing files array:", {
+        filesCount: files?.length,
+      });
       return reply.code(400).send({
         success: false,
         error: "files array is required",
@@ -238,7 +255,10 @@ export class ExpoDevServerService {
     }
 
     if (this.state.status !== "running" || !this.state.projectDir) {
-      customlog("error", "Cannot update files - dev server not running:", { status: this.state.status, hasProjectDir: !!this.state.projectDir });
+      customlog("error", "Cannot update files - dev server not running:", {
+        status: this.state.status,
+        hasProjectDir: !!this.state.projectDir,
+      });
       return reply.code(409).send({
         success: false,
         error: "No dev server currently running",
@@ -260,11 +280,15 @@ export class ExpoDevServerService {
           // Handle binary files (images, fonts, etc.)
           const binaryContent = Buffer.from(file.content, "base64");
           await fs.writeFile(filePath, binaryContent);
-          this.state.addLog(`Updated binary file: ${file.path} (${binaryContent.length} bytes)`);
+          this.state.addLog(
+            `Updated binary file: ${file.path} (${binaryContent.length} bytes)`,
+          );
         } else {
           // Handle text files
           await fs.writeFile(filePath, file.content, "utf8");
-          this.state.addLog(`Updated text file: ${file.path} (${file.content.length} chars)`);
+          this.state.addLog(
+            `Updated text file: ${file.path} (${file.content.length} chars)`,
+          );
         }
         updatedFiles.push(file.path);
       }
@@ -325,7 +349,12 @@ export class ExpoDevServerService {
         message: "Dev server stopped successfully",
       };
     } catch (error: any) {
-      customlog("error", "Failed to stop dev server:", error.message, error.stack);
+      customlog(
+        "error",
+        "Failed to stop dev server:",
+        error.message,
+        error.stack,
+      );
       this.state.addLog(`Failed to stop dev server: ${error.message}`);
 
       return reply.code(500).send({
@@ -345,7 +374,11 @@ export class ExpoDevServerService {
       !this.state.prototypeId ||
       !this.state.projectDir
     ) {
-      customlog("error", "Cannot restart - no dev server running:", { status: this.state.status, hasPrototypeId: !!this.state.prototypeId, hasProjectDir: !!this.state.projectDir });
+      customlog("error", "Cannot restart - no dev server running:", {
+        status: this.state.status,
+        hasPrototypeId: !!this.state.prototypeId,
+        hasProjectDir: !!this.state.projectDir,
+      });
       return reply.code(409).send({
         success: false,
         message: "No dev server running to restart",
@@ -370,7 +403,12 @@ export class ExpoDevServerService {
         message: "Dev server restarted successfully",
       };
     } catch (error: any) {
-      customlog("error", "Failed to restart dev server:", error.message, error.stack);
+      customlog(
+        "error",
+        "Failed to restart dev server:",
+        error.message,
+        error.stack,
+      );
       this.state.status = "error";
       this.state.error = error.message;
       this.state.addLog(`Failed to restart dev server: ${error.message}`);
@@ -414,61 +452,145 @@ export class ExpoDevServerService {
         // Handle binary files (images, fonts, etc.)
         const binaryContent = Buffer.from(file.content, "base64");
         await fs.writeFile(filePath, binaryContent);
-        this.state.addLog(`Wrote binary file: ${file.path} (${binaryContent.length} bytes)`);
+        this.state.addLog(
+          `Wrote binary file: ${file.path} (${binaryContent.length} bytes)`,
+        );
       } else {
         // Handle text files
         await fs.writeFile(filePath, file.content, "utf8");
-        this.state.addLog(`Wrote text file: ${file.path} (${file.content.length} chars)`);
+        this.state.addLog(
+          `Wrote text file: ${file.path} (${file.content.length} chars)`,
+        );
       }
     }
   }
 
   private async installDependencies(projectDir: string): Promise<void> {
-    this.state.addLog("Installing dependencies...");
+    this.state.addLog(
+      "Setting up dependencies using pre-installed packages...",
+    );
 
-    return new Promise((resolve, reject) => {
-      const npmProcess = spawn(
-        "npm",
-        ["ci", "--prefer-offline", "--no-audit", "--no-fund"],
-        {
-          cwd: projectDir,
-          env: {
-            ...process.env,
-            CI: "1",
-            NODE_OPTIONS: "--max-old-space-size=2048",
-          },
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Create node_modules directory
+        const nodeModulesPath = path.join(projectDir, "node_modules");
+        await fs.mkdir(nodeModulesPath, { recursive: true });
 
-      let stdout = "";
-      let stderr = "";
+        // Link the pre-installed global packages
+        const globalPackages = [
+          "@expo/vector-icons",
+          "@react-navigation/native",
+          "expo",
+          "expo-font",
+          "expo-linking",
+          "expo-router",
+          "expo-splash-screen",
+          "expo-status-bar",
+          "expo-system-ui",
+          "expo-web-browser",
+          "react",
+          "react-dom",
+          "react-native",
+          "react-native-reanimated",
+          "react-native-safe-area-context",
+          "react-native-screens",
+          "react-native-web",
+        ];
 
-      npmProcess.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
+        let linkedCount = 0;
+        for (const pkg of globalPackages) {
+          try {
+            const linkProcess = spawn("npm", ["link", pkg], {
+              cwd: projectDir,
+              env: {
+                ...process.env,
+                CI: "1",
+                NODE_OPTIONS: "--max-old-space-size=2048",
+              },
+              stdio: ["ignore", "pipe", "pipe"],
+            });
 
-      npmProcess.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
+            await new Promise((linkResolve, linkReject) => {
+              linkProcess.on("close", (code) => {
+                if (code === 0) {
+                  linkedCount++;
+                  this.state.addLog(`Linked: ${pkg}`);
+                  linkResolve(void 0);
+                } else {
+                  this.state.addLog(
+                    `Failed to link ${pkg}, will install individually`,
+                  );
+                  linkResolve(void 0); // Don't reject, just continue
+                }
+              });
 
-      npmProcess.on("close", (code) => {
-        if (code === 0) {
-          this.state.addLog("Dependencies installed successfully");
-          resolve();
-        } else {
-          const error = `npm install failed with exit code ${code}: ${stderr}`;
-          customlog("error", "npm install failed:", { code, stderr, stdout });
-          this.state.addLog(error);
-          reject(new Error(error));
+              linkProcess.on("error", (error) => {
+                this.state.addLog(`Link error for ${pkg}: ${error.message}`);
+                linkResolve(void 0); // Don't reject, just continue
+              });
+            });
+          } catch (error) {
+            this.state.addLog(`Link failed for ${pkg}: ${error}`);
+            // Continue with other packages
+          }
         }
-      });
 
-      npmProcess.on("error", (error) => {
-        customlog("error", "npm install process error:", error.message, error.stack);
-        this.state.addLog(`npm install process error: ${error.message}`);
+        this.state.addLog(`Linked ${linkedCount} global packages`);
+
+        // Install any remaining dependencies
+        const npmProcess = spawn(
+          "npm",
+          ["install", "--prefer-offline", "--no-audit", "--no-fund"],
+          {
+            cwd: projectDir,
+            env: {
+              ...process.env,
+              CI: "1",
+              NODE_OPTIONS: "--max-old-space-size=2048",
+            },
+            stdio: ["ignore", "pipe", "pipe"],
+          },
+        );
+
+        let stdout = "";
+        let stderr = "";
+
+        npmProcess.stdout.on("data", (data) => {
+          stdout += data.toString();
+        });
+
+        npmProcess.stderr.on("data", (data) => {
+          stderr += data.toString();
+        });
+
+        npmProcess.on("close", (code) => {
+          if (code === 0) {
+            this.state.addLog(
+              "Dependencies ready (linked + installed remaining)",
+            );
+            resolve();
+          } else {
+            const error = `npm install failed with exit code ${code}: ${stderr}`;
+            customlog("error", "npm install failed:", { code, stderr, stdout });
+            this.state.addLog(error);
+            reject(new Error(error));
+          }
+        });
+
+        npmProcess.on("error", (error) => {
+          customlog(
+            "error",
+            "npm install process error:",
+            error.message,
+            error.stack,
+          );
+          this.state.addLog(`npm install process error: ${error.message}`);
+          reject(error);
+        });
+      } catch (error: any) {
+        this.state.addLog(`Setup dependencies error: ${error.message}`);
         reject(error);
-      });
+      }
     });
   }
 
@@ -517,7 +639,7 @@ export class ExpoDevServerService {
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
         if (urlMatch && !resolved) {
           this.state.addLog(`Found URLs in output: ${urlMatch.join(", ")}`);
-          
+
           const tunnelCandidates = urlMatch.filter(
             (url) =>
               !url.includes("localhost") &&
@@ -550,23 +672,24 @@ export class ExpoDevServerService {
           "Metro waiting on",
           "exp://",
         ];
-        
-        const isTunnelReady = tunnelReadyPatterns.some(pattern => 
-          output.toLowerCase().includes(pattern.toLowerCase())
+
+        const isTunnelReady = tunnelReadyPatterns.some((pattern) =>
+          output.toLowerCase().includes(pattern.toLowerCase()),
         );
-        
+
         if (isTunnelReady && !this.state.tunnelUrl && !resolved) {
           // Try to extract tunnel URL from output first
-          const tunnelUrlPattern = /(?:tunnel\s+(?:url|URL):\s*|Your\s+tunnel\s+URL\s+is\s*)(https?:\/\/[^\s\)]+)/i;
+          const tunnelUrlPattern =
+            /(?:tunnel\s+(?:url|URL):\s*|Your\s+tunnel\s+URL\s+is\s*)(https?:\/\/[^\s\)]+)/i;
           const tunnelMatch = output.match(tunnelUrlPattern);
-          
+
           if (tunnelMatch && tunnelMatch[1]) {
             this.state.tunnelUrl = tunnelMatch[1];
           } else {
             // Fallback: construct expected tunnel URL
             this.state.tunnelUrl = `https://${tunnelSubdomain}.ngrok.io`;
           }
-          
+
           this.state.status = "running";
           this.state.addLog(
             `Tunnel ready detected, URL: ${this.state.tunnelUrl}`,
@@ -588,13 +711,17 @@ export class ExpoDevServerService {
         this.state.process.on("close", (code) => {
           this.state.addLog(`Expo process exited with code ${code}`);
           if (!resolved) {
-            customlog("error", "Expo process exited before tunnel URL found:", { code });
+            customlog("error", "Expo process exited before tunnel URL found:", {
+              code,
+            });
             this.state.status = "error";
             clearTimeout(timeout);
             resolved = true;
             reject(new Error(`Expo dev server exited with code ${code}`));
           } else if (code !== 0) {
-            customlog("warn", "Expo process exited with non-zero code:", { code });
+            customlog("warn", "Expo process exited with non-zero code:", {
+              code,
+            });
             this.state.status = "error";
           }
         });
@@ -636,7 +763,12 @@ export class ExpoDevServerService {
         await fs.rm(this.state.projectDir, { recursive: true, force: true });
         this.state.addLog("Cleaned up project directory");
       } catch (error: any) {
-        customlog("warn", "Failed to cleanup project directory:", this.state.projectDir, error.message);
+        customlog(
+          "warn",
+          "Failed to cleanup project directory:",
+          this.state.projectDir,
+          error.message,
+        );
         this.state.addLog(
           `Failed to cleanup project directory: ${error.message}`,
         );
