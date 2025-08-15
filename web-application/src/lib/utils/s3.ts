@@ -265,7 +265,7 @@ export async function getDefaultAppFilesFromS3(prototypeId: string): Promise<{
   files?: Array<{
     prototype_id: string;
     name: string;
-    contents: string | null;
+    contents: string;
     file_type: "text" | "asset";
     storage_path: string | null;
   }>;
@@ -292,7 +292,7 @@ export async function getDefaultAppFilesFromS3(prototypeId: string): Promise<{
     const files: Array<{
       prototype_id: string;
       name: string;
-      contents: string | null;
+      contents: string;
       file_type: "text" | "asset";
       storage_path: string | null;
     }> = [];
@@ -356,7 +356,7 @@ export async function getDefaultAppFilesFromS3(prototypeId: string): Promise<{
           files.push({
             prototype_id: prototypeId,
             name: fileName,
-            contents: null,
+            contents: "",
             file_type: "asset",
             storage_path: uploadResult.publicUrl!,
           });
