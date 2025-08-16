@@ -20,6 +20,7 @@ const SaveAndBuildSchema = z.object({
     }),
   ),
   prototype_id: z.string(),
+  file_scope: z.enum(["updates", "complete"]).optional().default("complete"),
 });
 
 // Dispatch precheck response types
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { files, prototype_id } = validationResult.data;
+    const { files, prototype_id, file_scope } = validationResult.data;
 
     // 3. Fetch dispatch-precheck to verify permissions and build status
     const precheckResponse = await fetch(
@@ -214,7 +215,7 @@ export async function POST(request: NextRequest) {
           prototype_id: prototype_id,
           framework: "expo_react_native",
           files: filesForDispatch,
-          file_scope: "complete",
+          file_scope: file_scope,
         }),
         // Set timeout to 5 minutes for build operations
         signal: AbortSignal.timeout(300000),

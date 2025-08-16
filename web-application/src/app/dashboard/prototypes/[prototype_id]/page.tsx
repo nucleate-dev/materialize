@@ -499,6 +499,10 @@ export default function CreatePage() {
                         hideControls={true}
                         isBuilding={isBuilding}
                         onResetToDefault={handleResetToDefault}
+                        prototypeId={prototypeId}
+                        files={fileSystem.state.files}
+                        onViewingUrlUpdate={setViewingUrl}
+                        onBuildingStateChange={setIsBuilding}
                       />
                       {/* <ExpoSnackViewer
                         ref={snackViewerRef}

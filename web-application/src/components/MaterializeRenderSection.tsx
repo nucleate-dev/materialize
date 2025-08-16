@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/ClientConstants";
+import { Database } from "@/lib/types/database.types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +17,7 @@ import {
   Settings,
   Smartphone,
   Loader2,
+  Play,
 } from "lucide-react";
 import {
   forwardRef,
@@ -25,11 +28,18 @@ import {
   useState,
 } from "react";
 
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
   onResetToDefault?: () => void;
   hideControls?: boolean;
   isBuilding?: boolean; // New prop to indicate if a build is in progress
+  // Props for dev server functionality
+  prototypeId?: string;
+  files?: Record<string, PrototypeFile>;
+  onViewingUrlUpdate?: (url: string) => void;
+  onBuildingStateChange?: (isBuilding: boolean) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -41,7 +51,16 @@ type PreviewMode = "web" | "mobile";
 const MaterializeRenderSection = forwardRef<
   MaterializeRenderSectionRef,
   MaterializeRenderSectionProps
->(({ viewing_url, onResetToDefault, hideControls = false, isBuilding = false }, ref) => {
+>(({ 
+  viewing_url, 
+  onResetToDefault, 
+  hideControls = false, 
+  isBuilding = false,
+  prototypeId,
+  files,
+  onViewingUrlUpdate,
+  onBuildingStateChange,
+}, ref) => {
   const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
   const [refreshKey, setRefreshKey] = useState(0);
   const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
@@ -83,6 +102,61 @@ const MaterializeRenderSection = forwardRef<
     }),
     [forceRefresh],
   );
+
+  // Function to start dev server with all files
+  const handleStartDevServer = async () => {
+    if (!prototypeId || !files || !onBuildingStateChange) {
+      console.error("Cannot start dev server: missing prototype ID, files, or building state callback");
+      return;
+    }
+
+    onBuildingStateChange(true);
+    
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        console.error("No authentication token available");
+        return;
+      }
+
+      console.log(`Starting dev server for prototype ${prototypeId} with ${Object.keys(files).length} files`);
+
+      const response = await fetch("/api/files/save-and-build", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          files: files,
+          prototype_id: prototypeId,
+          file_scope: "complete", // Send all files to properly initialize dev server
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        console.log("✅ Dev server started successfully");
+        
+        // Update viewing URL if provided
+        if (result.viewing_url && onViewingUrlUpdate) {
+          onViewingUrlUpdate(result.viewing_url);
+        }
+        
+        // Force refresh the preview to load the new dev server
+        forceRefresh();
+      } else {
+        console.error("Failed to start dev server:", result.error || result.message);
+      }
+    } catch (error) {
+      console.error("Error starting dev server:", error);
+    } finally {
+      onBuildingStateChange(false);
+    }
+  };
 
   const handleRefresh = () => {
     if (webPreviewRef.current && viewing_url) {
@@ -279,6 +353,19 @@ const MaterializeRenderSection = forwardRef<
                 Web View
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {prototypeId && files && onBuildingStateChange && (
+                <DropdownMenuItem 
+                  onClick={handleStartDevServer} 
+                  disabled={isBuilding || !prototypeId || !files}
+                >
+                  {isBuilding ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
+                  )}
+                  {isBuilding ? "Starting..." : "Start Dev Server"}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleRefresh} disabled={!viewing_url}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh Preview

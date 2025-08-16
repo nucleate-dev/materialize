@@ -34,6 +34,8 @@ interface CodeEditorProps {
   onViewingUrlUpdate?: (url: string) => void;
   onForceRefresh?: () => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
+  // Save behavior control
+  saveMode?: 'single-file' | 'all-files'; // Defaults to 'single-file' for better performance
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -52,6 +54,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onViewingUrlUpdate,
   onForceRefresh,
   onBuildingStateChange,
+  saveMode = 'single-file', // Default to single file saves
 }) => {
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
@@ -157,6 +160,81 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const handleModalClose = () => {
     setNewFileName("");
     setNewFileError("");
+  };
+
+  const handleSaveSingleFile = async () => {
+    if (!prototypeId || !fileName || value === undefined || !files) {
+      console.error("Cannot save: missing prototype ID, filename, file content, or files object");
+      return;
+    }
+
+    setIsSaving(true);
+    if (onBuildingStateChange) {
+      onBuildingStateChange(true);
+    }
+    
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        console.error("No authentication token available");
+        return;
+      }
+
+      // Create single file object in the expected format
+      const singleFileUpdate = {
+        [fileName]: {
+          contents: value,
+          name: fileName,
+          // Copy other properties from existing file if it exists
+          ...(files[fileName] && {
+            prototype_id: files[fileName].prototype_id,
+            id: files[fileName].id,
+            created_at: files[fileName].created_at,
+            updated_at: files[fileName].updated_at,
+          })
+        }
+      };
+
+      const response = await fetch("/api/files/save-and-build", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          files: singleFileUpdate,
+          prototype_id: prototypeId,
+          file_scope: "updates", // Use updates instead of complete
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        console.log("✅ Single file saved and updated successfully");
+        
+        // Update viewing URL if provided
+        if (result.viewing_url && onViewingUrlUpdate) {
+          onViewingUrlUpdate(result.viewing_url);
+        }
+        
+        // Force refresh the preview for hot reload
+        if (onForceRefresh) {
+          onForceRefresh();
+        }
+      } else {
+        console.error("Failed to save file:", result.error || result.message);
+      }
+    } catch (error) {
+      console.error("Error saving file:", error);
+    } finally {
+      setIsSaving(false);
+      if (onBuildingStateChange) {
+        onBuildingStateChange(false);
+      }
+    }
   };
 
   const handleSaveFiles = async () => {
@@ -359,9 +437,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={handleSaveFiles}
+                    onClick={saveMode === 'single-file' ? handleSaveSingleFile : handleSaveFiles}
                     disabled={isSaving}
-                    title="Save files"
+                    title={saveMode === 'single-file' ? "Save current file" : "Save all files"}
                   >
                     <Save className={`w-3 h-3 ${isSaving ? 'animate-pulse' : ''}`} />
                   </Button>
