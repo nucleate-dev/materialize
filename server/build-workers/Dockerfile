@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-RUN npm install -g expo-cli @expo/ngrok@^4.1.0 @expo/metro-runtime
+RUN mkdir -p /tmp/npm-cache && chmod 777 /tmp/npm-cache
+ENV NPM_CONFIG_CACHE=/tmp/npm-cache
+
 # Install dependencies (including dev dependencies for building)
 RUN npm install
 
