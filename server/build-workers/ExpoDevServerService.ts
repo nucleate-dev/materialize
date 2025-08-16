@@ -471,7 +471,7 @@ export class ExpoDevServerService {
     return new Promise((resolve, reject) => {
       const npmProcess = spawn(
         "npm",
-        ["ci", "--prefer-offline", "--no-audit", "--no-fund"],
+        ["install", "--prefer-offline", "--no-audit", "--no-fund"],
         {
           cwd: projectDir,
           env: {
