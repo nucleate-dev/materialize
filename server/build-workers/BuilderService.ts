@@ -4,6 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { installDependencies } from "./shared-utils.js";
 import {
   BuildAndDeployRequest,
   BuildAndDeployResponse,
@@ -237,7 +238,7 @@ export class BuilderService {
 
       logger.log("Starting dependency installation");
       const installStartTime = Date.now();
-      await this.installDependencies(buildDir, logger);
+      await installDependencies(buildDir, logger);
       const installDuration = Date.now() - installStartTime;
       logger.log(
         "Dependency installation completed",
@@ -357,7 +358,7 @@ export class BuilderService {
       logger.log("Writing project files");
       await this.writeProjectFiles(files, buildDir);
 
-      await this.installDependencies(buildDir, logger);
+      await installDependencies(buildDir, logger);
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
       logger.log("Starting deploy phase");
@@ -522,90 +523,6 @@ export class BuilderService {
     });
   }
 
-  private async installDependencies(
-    projectDir: string,
-    logger: any,
-  ): Promise<void> {
-    logger.log("Installing dependencies", true, `Project dir: ${projectDir}`);
-
-    const packageJsonPath = path.join(projectDir, "package.json");
-    try {
-      const packageJson = await fs.readFile(packageJsonPath, "utf8");
-      const packageData = JSON.parse(packageJson);
-      logger.log(
-        "Package.json found",
-        true,
-        `Dependencies: ${Object.keys(packageData.dependencies || {}).length}, Dev dependencies: ${Object.keys(packageData.devDependencies || {}).length}`,
-      );
-    } catch (error) {
-      logger.log(
-        "Package.json check",
-        false,
-        "",
-        `Failed to read package.json: ${error}`,
-      );
-      throw new Error("package.json not found or invalid");
-    }
-
-    logger.log("Installing dependencies...");
-    const result = await this.runCommand(
-      "npm",
-      [
-        "install",
-        "--prefer-offline",
-        "--no-audit",
-        "--no-fund",
-        "--legacy-peer-deps",
-        "--no-package-lock",
-        "--cache",
-        "/tmp/npm-cache",
-        "--maxsockets",
-        "1",
-      ],
-      projectDir,
-      {
-        CI: "1",
-        NODE_OPTIONS: "--max-old-space-size=2048",
-        NPM_CONFIG_CACHE: "/tmp/npm-cache",
-        NPM_CONFIG_PREFER_OFFLINE: "true",
-      },
-      300000, // 5 minutes
-    );
-
-    if (result.code !== 0) {
-      logger.log(
-        "Install dependencies",
-        false,
-        result.stdout,
-        result.stderr,
-      );
-      throw new Error(`npm install failed with exit code ${result.code}`);
-    }
-
-    const nodeModulesPath = path.join(projectDir, "node_modules");
-    try {
-      const nodeModulesStats = await fs.stat(nodeModulesPath);
-      if (!nodeModulesStats.isDirectory()) {
-        throw new Error("node_modules is not a directory");
-      }
-
-      const nodeModulesContents = await fs.readdir(nodeModulesPath);
-      logger.log(
-        "Install verification",
-        true,
-        `node_modules ready with ${nodeModulesContents.length} items`,
-      );
-    } catch (error) {
-      logger.log(
-        "Install verification",
-        false,
-        "",
-        `Failed to verify node_modules: ${error}`,
-      );
-    }
-
-    logger.log("Dependencies installed successfully");
-  }
 
   private async buildExpoProject(
     projectDir: string,

@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { customlog } from "./logger.js";
+import { installDependencies } from "./shared-utils.js";
 
 // --- Types ---
 interface FileInput {
@@ -206,7 +207,7 @@ export class ExpoDevServerService {
       this.state.addLog(`Wrote ${files.length} files to project directory`);
 
       // Install dependencies
-      await this.installDependencies(this.state.projectDir);
+      await installDependencies(this.state.projectDir, this.state);
 
       // Start Expo dev server and wait for tunnel URL
       await this.startExpoProcess(this.state.projectDir, this.state.port);
@@ -465,59 +466,6 @@ export class ExpoDevServerService {
     }
   }
 
-  private async installDependencies(projectDir: string): Promise<void> {
-    this.state.addLog("Installing dependencies...");
-
-    return new Promise((resolve, reject) => {
-      const npmProcess = spawn(
-        "npm",
-        ["install", "--prefer-offline", "--no-audit", "--no-fund"],
-        {
-          cwd: projectDir,
-          env: {
-            ...process.env,
-            CI: "1",
-            NODE_OPTIONS: "--max-old-space-size=2048",
-          },
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
-
-      let stdout = "";
-      let stderr = "";
-
-      npmProcess.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
-
-      npmProcess.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-
-      npmProcess.on("close", (code) => {
-        if (code === 0) {
-          this.state.addLog("Dependencies installed successfully");
-          resolve();
-        } else {
-          const error = `npm install failed with exit code ${code}: ${stderr}`;
-          customlog("error", "npm install failed:", { code, stderr, stdout });
-          this.state.addLog(error);
-          reject(new Error(error));
-        }
-      });
-
-      npmProcess.on("error", (error) => {
-        customlog(
-          "error",
-          "npm install process error:",
-          error.message,
-          error.stack,
-        );
-        this.state.addLog(`npm install process error: ${error.message}`);
-        reject(error);
-      });
-    });
-  }
 
   private async startExpoProcess(
     projectDir: string,
