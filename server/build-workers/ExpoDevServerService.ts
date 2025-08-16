@@ -440,10 +440,6 @@ export class ExpoDevServerService {
     files: FileInput[],
     projectDir: string,
   ): Promise<void> {
-    this.state.addLog(`Processing ${files.length} files:`);
-    files.forEach((file, index) => {
-      this.state.addLog(`  ${index + 1}. ${file.path}`);
-    });
     for (const file of files) {
       const filePath = path.join(projectDir, file.path);
       const fileDir = path.dirname(filePath);
@@ -470,112 +466,12 @@ export class ExpoDevServerService {
   }
 
   private async installDependencies(projectDir: string): Promise<void> {
-    this.state.addLog(
-      "Setting up dependencies using pre-installed packages...",
-    );
+    this.state.addLog("Installing dependencies...");
 
-    try {
-      // Create node_modules directory
-      const nodeModulesPath = path.join(projectDir, "node_modules");
-      await fs.mkdir(nodeModulesPath, { recursive: true });
-
-      // Define global packages and their paths
-      const globalPackages = [
-        "@expo/vector-icons",
-        "@react-navigation/native",
-        "expo",
-        "expo-font",
-        "expo-linking",
-        "expo-router",
-        "expo-splash-screen",
-        "expo-status-bar",
-        "expo-system-ui",
-        "expo-web-browser",
-        "react",
-        "react-dom",
-        "react-native",
-        "react-native-reanimated",
-        "react-native-safe-area-context",
-        "react-native-screens",
-        "react-native-web",
-      ];
-
-      // Try multiple possible global npm modules paths
-      const possibleGlobalPaths = [
-        "/opt/preinstalled-packages/node_modules",  // Our optimized path
-        "/usr/local/lib/node_modules",              // Standard global path
-        "/app/node_modules"                         // Fallback local path
-      ];
-      
-      let linkedCount = 0;
-      for (const pkg of globalPackages) {
-        let linked = false;
-        
-        // Try each possible global path until we find the package
-        for (const globalBasePath of possibleGlobalPaths) {
-          try {
-            const globalPkgPath = path.join(globalBasePath, pkg);
-            const localPkgPath = path.join(nodeModulesPath, pkg);
-
-            // Check if global package exists
-            await fs.access(globalPkgPath);
-            
-            // Create symlink for the package
-            await this.createSymlink(globalPkgPath, localPkgPath);
-            linkedCount++;
-            linked = true;
-            this.state.addLog(`Symlinked: ${pkg} from ${globalBasePath}`);
-            break; // Found and linked, move to next package
-          } catch (error) {
-            // Continue to next path
-            continue;
-          }
-        }
-        
-        if (!linked) {
-          this.state.addLog(`Package not found in any global path: ${pkg}, will install individually`);
-        }
-      }
-
-      this.state.addLog(`Symlinked ${linkedCount}/${globalPackages.length} global packages`);
-
-      // Only run npm install if we need to install remaining dependencies
-      if (linkedCount < globalPackages.length) {
-        await this.runNpmInstall(projectDir);
-      } else {
-        this.state.addLog("All dependencies available via symlinks, skipping npm install");
-      }
-    } catch (error: any) {
-      this.state.addLog(`Setup dependencies error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  private async createSymlink(sourcePath: string, targetPath: string): Promise<void> {
-    try {
-      // Ensure parent directory exists
-      const targetDir = path.dirname(targetPath);
-      await fs.mkdir(targetDir, { recursive: true });
-
-      // Remove target if it exists
-      try {
-        await fs.unlink(targetPath);
-      } catch {
-        // Ignore if target doesn't exist
-      }
-
-      // Create symlink
-      await fs.symlink(sourcePath, targetPath, "dir");
-    } catch (error: any) {
-      throw new Error(`Failed to create symlink from ${sourcePath} to ${targetPath}: ${error.message}`);
-    }
-  }
-
-  private async runNpmInstall(projectDir: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const npmProcess = spawn(
         "npm",
-        ["install", "--prefer-offline", "--no-audit", "--no-fund", "--production"],
+        ["ci", "--prefer-offline", "--no-audit", "--no-fund"],
         {
           cwd: projectDir,
           env: {
@@ -600,7 +496,7 @@ export class ExpoDevServerService {
 
       npmProcess.on("close", (code) => {
         if (code === 0) {
-          this.state.addLog("Remaining dependencies installed successfully");
+          this.state.addLog("Dependencies installed successfully");
           resolve();
         } else {
           const error = `npm install failed with exit code ${code}: ${stderr}`;
