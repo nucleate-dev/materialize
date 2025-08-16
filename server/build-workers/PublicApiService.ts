@@ -4,6 +4,7 @@ import path from "path";
 import { BuilderService } from "./BuilderService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { customlog } from "./logger.js";
+import { installDependencies } from "./shared-utils.js";
 import {
   CodeError,
   CodeWarning,
@@ -391,7 +392,7 @@ export class PublicApiService {
   ): Promise<void> {
     // Create a simple logger that captures output
     const logger = {
-      log: (_step: string, success: boolean, output: string, error: string) => {
+      log: (message: string, success: boolean = true, output: string = "", error: string = "") => {
         if (!success) {
           const outputToProcess = error || output || '';
           this.parseNpmOutput(outputToProcess, buildErrors, buildWarnings);
@@ -401,8 +402,8 @@ export class PublicApiService {
       getElapsedTime: () => 0,
     };
 
-    // Use BuilderService's installDependencies method
-    await (this.builderService as any).installDependencies(projectDir, logger);
+    // Use shared installDependencies function
+    await installDependencies(projectDir, logger);
   }
 
   private parseNpmOutput(
