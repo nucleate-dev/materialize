@@ -173,8 +173,16 @@ export async function POST(request: NextRequest) {
         const filesToInsert: Database["public"]["Tables"]["prototype_files"]["Insert"][] =
           [];
 
+        console.log(`📁 Processing ${filesResult.files!.length} files for new prototype`);
+        const sourceAssets = filesResult.files!.filter(f => f.file_type === "asset");
+        const sourceTexts = filesResult.files!.filter(f => f.file_type === "text");
+        console.log(`📊 Source files: ${sourceTexts.length} text, ${sourceAssets.length} assets`);
+        console.log(`🔍 Source assets:`, sourceAssets.map(a => ({ name: a.name, storage_path: a.storage_path })));
+
         for (const file of filesResult.files!) {
           if (file.file_type === "asset") {
+            console.log(`🔄 Copying asset: ${file.name} from ${file.storage_path}`);
+            
             // Copy asset in Supabase Storage
             const copyResult = await copyAssetInSupabaseStorage(
               forkPrototypeId,
@@ -183,10 +191,13 @@ export async function POST(request: NextRequest) {
             );
 
             if (!copyResult.success) {
+              console.error(`❌ Failed to copy asset ${file.name}:`, copyResult.error);
               throw new Error(
                 `Failed to copy asset ${file.name}: ${copyResult.error}`,
               );
             }
+
+            console.log(`✅ Asset copied: ${file.name} → ${copyResult.publicUrl}`);
 
             filesToInsert.push({
               prototype_id: newPrototypeId,
@@ -197,6 +208,7 @@ export async function POST(request: NextRequest) {
             });
           } else {
             // Text file - just copy contents
+            console.log(`📝 Copying text file: ${file.name} (${file.contents?.length || 0} chars)`);
             filesToInsert.push({
               prototype_id: newPrototypeId,
               name: file.name,
@@ -206,15 +218,36 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+        
+        console.log(`💾 Files to insert: ${filesToInsert.length} total`);
+        const assetsToInsert = filesToInsert.filter(f => f.file_type === "asset");
+        const textsToInsert = filesToInsert.filter(f => f.file_type === "text");
+        console.log(`📋 Insert breakdown: ${textsToInsert.length} text, ${assetsToInsert.length} assets`);
 
         const { error: filesError } = await supabase
           .from("prototype_files")
           .insert(filesToInsert);
 
         if (filesError) {
+          console.error("❌ Error inserting files:", filesError);
           throw new Error(
             `Failed to copy prototype files: ${filesError.message}`,
           );
+        }
+
+        console.log(`✅ Successfully inserted ${filesToInsert.length} files to database`);
+        
+        // Verify what got saved
+        const { data: savedFiles, error: verifyError } = await supabase
+          .from("prototype_files")
+          .select("name, file_type, storage_path")
+          .eq("prototype_id", newPrototypeId);
+          
+        if (!verifyError && savedFiles) {
+          const savedAssets = savedFiles.filter(f => f.file_type === "asset");
+          const savedTexts = savedFiles.filter(f => f.file_type === "text");
+          console.log(`🔍 Verification: ${savedTexts.length} text, ${savedAssets.length} assets saved`);
+          console.log(`📄 Saved assets:`, savedAssets.map(a => ({ name: a.name, has_storage_path: !!a.storage_path })));
         }
 
         // Copy S3 bucket contents

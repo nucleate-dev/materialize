@@ -86,6 +86,7 @@ export async function copyAssetInSupabaseStorage(
 ): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
   try {
     const sourceFilePath = `${sourcePrototypeId}/${fileName}`;
+    console.log(`🔄 Copying asset from storage: ${sourceFilePath}`);
 
     // Download from source
     const { data: sourceData, error: downloadError } =
@@ -94,18 +95,24 @@ export async function copyAssetInSupabaseStorage(
         .download(sourceFilePath);
 
     if (downloadError) {
+      console.log(`❌ Download failed for ${sourceFilePath}:`, downloadError.message);
       return { success: false, error: downloadError.message };
     }
 
+    console.log(`✅ Downloaded asset: ${fileName} (${sourceData.size} bytes)`);
+
     // Upload to target
     const fileBuffer = Buffer.from(await sourceData.arrayBuffer());
-    return await uploadAssetToSupabaseStorage(
+    const uploadResult = await uploadAssetToSupabaseStorage(
       targetPrototypeId,
       fileName,
       fileBuffer,
     );
+    
+    console.log(`📤 Upload result for ${fileName}:`, { success: uploadResult.success, url: uploadResult.publicUrl });
+    return uploadResult;
   } catch (error) {
-    console.error("Error in copyAssetInSupabaseStorage:", error);
+    console.error("❌ Error in copyAssetInSupabaseStorage:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
