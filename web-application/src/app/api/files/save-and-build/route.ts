@@ -1,4 +1,8 @@
 import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
+import { convertPrototypeFilesForBuildWorker } from "@/lib/utils/buildWorkerUtils";
+import { getPrototypeFiles } from "@/lib/utils/prototypeAuth";
+import { Database } from "@/lib/types/database.types";
+import { createClient } from '@supabase/supabase-js';
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -186,19 +190,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Transform files for dispatch API
-    const filesForDispatch: Array<{
+    // 6. Prepare files for dispatch API - merge changed text files with existing assets
+    const supabase = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    );
+
+    // Get existing files to find assets
+    const prototypeFilesResult = await getPrototypeFiles(supabase, prototype_id);
+    
+    if (!prototypeFilesResult.success || !prototypeFilesResult.files) {
+      return NextResponse.json(
+        {
+          error: "Failed to fetch prototype files",
+          message: prototypeFilesResult.message || "Could not retrieve all files for build",
+        },
+        { status: 500 },
+      );
+    }
+
+    // Separate assets from text files
+    const existingAssets = prototypeFilesResult.files.filter(file => file.file_type === 'asset');
+    console.log(`🔍 Found ${existingAssets.length} existing assets:`, existingAssets.map(a => a.name));
+    
+    // Convert existing assets to build worker format
+    const assetFilesForDispatch = await convertPrototypeFilesForBuildWorker(existingAssets);
+    console.log(`✅ Converted ${assetFilesForDispatch.length} assets for dispatch`);
+    
+    // Convert changed text files to build worker format
+    const textFilesForDispatch: Array<{
       path: string;
       content: string;
-      isBase64?: boolean;
+      isBase64: boolean;
     }> = [];
+    
     Object.entries(files).forEach(([filePath, file]) => {
-      filesForDispatch.push({
+      textFilesForDispatch.push({
         path: filePath,
         content: file.contents,
-        isBase64: false, // Text files, not base64 encoded
+        isBase64: false, // Text files from CodeEditor are never base64
       });
     });
+
+    // Merge text files + assets for dispatch (preserves hot reload + includes assets)
+    const filesForDispatch = [...textFilesForDispatch, ...assetFilesForDispatch];
 
     // 7. Dispatch build request
     console.log("Dispatching build request to server");

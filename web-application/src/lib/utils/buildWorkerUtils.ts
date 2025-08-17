@@ -25,15 +25,17 @@ export async function convertPrototypeFilesForBuildWorker(
       });
     } else if (file.file_type === "asset" && file.storage_path) {
       // Binary asset - fetch from Supabase Storage and convert to base64
+      console.log(`🔍 Converting asset ${file.name} from storage_path: ${file.storage_path}`);
       try {
         const response = await fetch(file.storage_path);
         if (!response.ok) {
-          console.error(`Failed to fetch asset ${file.name}:`, response.statusText);
+          console.error(`❌ Failed to fetch asset ${file.name}:`, response.statusText);
           continue;
         }
 
         const arrayBuffer = await response.arrayBuffer();
         const base64Content = Buffer.from(arrayBuffer).toString('base64');
+        console.log(`✅ Asset ${file.name} converted to base64 (${base64Content.length} chars)`);
 
         fileInputs.push({
           path: file.name,
@@ -41,10 +43,13 @@ export async function convertPrototypeFilesForBuildWorker(
           isBase64: true,
         });
       } catch (error) {
-        console.error(`Error fetching asset ${file.name}:`, error);
+        console.error(`❌ Error fetching asset ${file.name}:`, error);
         // Skip this asset if we can't fetch it
         continue;
       }
+    } else if (file.file_type === "asset") {
+      // Asset without storage_path - this shouldn't happen
+      console.warn(`⚠️ Asset ${file.name} has no storage_path, skipping`);
     }
   }
 
