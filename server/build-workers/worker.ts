@@ -47,7 +47,11 @@ const builderService = new BuilderService(WORK_DIR, S3_BUCKET, s3);
 const expoDevServerService = new ExpoDevServerService(WORK_DIR);
 
 // Initialize PublicApiService
-const publicApiService = new PublicApiService(builderService, expoDevServerService, WORK_DIR);
+const publicApiService = new PublicApiService(
+  builderService,
+  expoDevServerService,
+  WORK_DIR,
+);
 
 // --- Utility Functions ---
 
@@ -97,8 +101,6 @@ export function runCommand(
     childProcess.stderr?.on("data", (data: Buffer) => {
       const output = data.toString();
       stderr += output;
-      // Log real-time output
-      console.error(`[STDERR] ${output.trim()}`);
     });
 
     // Handle process exit

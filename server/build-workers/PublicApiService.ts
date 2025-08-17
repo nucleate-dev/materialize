@@ -88,6 +88,16 @@ export class PublicApiService {
 
       // Files are now already in FileInput format
       const fileInputs: FileInput[] = files;
+      
+      // Log file types being processed
+      const textFiles = fileInputs.filter(f => !f.isBase64);
+      const binaryFiles = fileInputs.filter(f => f.isBase64);
+      customlog("info", "Processing files:", { 
+        total: fileInputs.length, 
+        text: textFiles.length, 
+        binary: binaryFiles.length,
+        binaryPaths: binaryFiles.map(f => f.path)
+      });
 
       // Handle file scope
       const projectDir = path.join(this.workDir, prototype_id);
@@ -431,8 +441,10 @@ export class PublicApiService {
       if (file.isBase64) {
         const binaryContent = Buffer.from(file.content, "base64");
         await fs.writeFile(filePath, binaryContent);
+        customlog("debug", `📄 Wrote binary: ${file.path} (${binaryContent.length} bytes)`);
       } else {
         await fs.writeFile(filePath, file.content, "utf8");
+        customlog("debug", `📝 Wrote text: ${file.path} (${file.content.length} chars)`);
       }
     }
   }

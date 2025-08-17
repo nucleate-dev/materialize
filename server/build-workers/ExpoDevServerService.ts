@@ -441,6 +441,11 @@ export class ExpoDevServerService {
     files: FileInput[],
     projectDir: string,
   ): Promise<void> {
+    // Log file breakdown
+    const textFiles = files.filter(f => !f.isBase64);
+    const binaryFiles = files.filter(f => f.isBase64);
+    this.state.addLog(`📊 Writing ${files.length} files: ${textFiles.length} text, ${binaryFiles.length} binary`);
+    
     for (const file of files) {
       const filePath = path.join(projectDir, file.path);
       const fileDir = path.dirname(filePath);

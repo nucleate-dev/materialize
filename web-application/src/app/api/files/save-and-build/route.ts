@@ -239,6 +239,8 @@ export async function POST(request: NextRequest) {
       });
     });
 
+    console.log(`📦 Dispatch summary: ${textFilesForDispatch.length} text files + ${assetFilesForDispatch.length} assets`);
+
     // Merge text files + assets for dispatch (preserves hot reload + includes assets)
     const filesForDispatch = [...textFilesForDispatch, ...assetFilesForDispatch];
 
