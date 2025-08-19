@@ -26,7 +26,10 @@ export class DispatcherService {
   private async validateUserAndPrototypeOwner(
     jwt: string,
     prototypeId: string,
-  ): Promise<{ user: User; prototype: Database['public']['Tables']['prototypes']['Row'] }> {
+  ): Promise<{
+    user: User;
+    prototype: Database['public']['Tables']['prototypes']['Row'];
+  }> {
     // 1. Create Anon Supabase client with JWT
     const supabase = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -224,8 +227,9 @@ export class DispatcherService {
           buildId,
         ]);
 
-        const newFargateInstance =
-          await this.launchFargateInstance(prototype_id);
+        const newFargateInstance = await this.launchFargateInstance(
+          prototype_id,
+        );
 
         updatedBuildCacheData = {
           ...newBuildCacheData,
@@ -474,7 +478,12 @@ export class DispatcherService {
     framework: 'expo_react_native' | 'react';
     files: FileInput[];
     file_scope: 'updates' | 'complete';
-  }): { prototype_id: string; framework: 'expo_react_native' | 'react'; files: FileInput[]; file_scope: 'updates' | 'complete' } {
+  }): {
+    prototype_id: string;
+    framework: 'expo_react_native' | 'react';
+    files: FileInput[];
+    file_scope: 'updates' | 'complete';
+  } {
     return {
       prototype_id,
       framework,
