@@ -29,7 +29,7 @@ export default [
       'curly': 'error',
       
       // Code style rules
-      'indent': ['error', 2],
+      'indent': ['error', 2, { 'SwitchCase': 1 }],
       'quotes': ['error', 'single', { allowTemplateLiterals: true }],
       'semi': ['error', 'always'],
       'comma-dangle': ['error', 'always-multiline'],
