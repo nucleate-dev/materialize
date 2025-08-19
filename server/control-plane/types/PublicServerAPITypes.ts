@@ -28,14 +28,24 @@ export interface CodeWarning {
 }
 
 // ============================================================================
+// STANDARD ERROR RESPONSE
+// ============================================================================
+
+export interface StandardErrorResponse {
+  error: string;
+  message: string;
+}
+
+// ============================================================================
 // /health ENDPOINT
 // ============================================================================
 
-export interface HealthResponse {
-  status: 'healthy' | 'unhealthy';
+export interface HealthSuccessResponse {
+  status: 'healthy';
   timestamp: string;
-  error?: string;
 }
+
+export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 
 // ============================================================================
 // /dispatch ENDPOINT
@@ -65,20 +75,10 @@ export interface DispatchErrorResponse {
   error_message: string;
 }
 
-export interface DispatchValidationErrorResponse {
-  error: string;
-}
-
-export interface DispatchAuthErrorResponse {
-  error: 'Unauthorized' | 'Prototype not found';
-  error_message: string;
-}
-
 export type DispatchResponse =
   | DispatchSuccessResponse
   | DispatchErrorResponse
-  | DispatchValidationErrorResponse
-  | DispatchAuthErrorResponse;
+  | StandardErrorResponse;
 
 // ============================================================================
 // /dispatch-precheck ENDPOINT
@@ -96,25 +96,9 @@ export interface DispatchPrecheckSuccessResponse {
   viewing_url: string;
 }
 
-export interface DispatchPrecheckValidationErrorResponse {
-  error: string;
-}
-
-export interface DispatchPrecheckAuthErrorResponse {
-  error: 'Unauthorized' | 'Prototype not found';
-  message: string;
-}
-
-export interface DispatchPrecheckServerErrorResponse {
-  error: 'Internal server error';
-  message: string;
-}
-
 export type DispatchPrecheckResponse =
   | DispatchPrecheckSuccessResponse
-  | DispatchPrecheckValidationErrorResponse
-  | DispatchPrecheckAuthErrorResponse
-  | DispatchPrecheckServerErrorResponse;
+  | StandardErrorResponse;
 
 // ============================================================================
 // /cache/clear ENDPOINT
@@ -126,14 +110,7 @@ export interface CacheClearSuccessResponse {
   timestamp: string;
 }
 
-export interface CacheClearErrorResponse {
-  error: string;
-  message: string;
-}
-
-export type CacheClearResponse =
-  | CacheClearSuccessResponse
-  | CacheClearErrorResponse;
+export type CacheClearResponse = CacheClearSuccessResponse | StandardErrorResponse;
 
 // ============================================================================
 // HTTP STATUS CODE MAPPINGS
@@ -151,6 +128,12 @@ export const HTTP_STATUS = {
 // TYPE GUARDS
 // ============================================================================
 
+export function isStandardErrorResponse(
+  response: any,
+): response is StandardErrorResponse {
+  return 'error' in response && 'message' in response;
+}
+
 export function isDispatchSuccessResponse(
   response: DispatchResponse,
 ): response is DispatchSuccessResponse {
@@ -161,6 +144,12 @@ export function isDispatchErrorResponse(
   response: DispatchResponse,
 ): response is DispatchErrorResponse {
   return 'status' in response && response.status === 'error';
+}
+
+export function isHealthSuccessResponse(
+  response: HealthResponse,
+): response is HealthSuccessResponse {
+  return 'status' in response && response.status === 'healthy';
 }
 
 export function isPrecheckSuccessResponse(

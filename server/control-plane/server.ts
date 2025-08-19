@@ -80,14 +80,14 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
       });
     } else {
       return reply.status(500).send({
-        status: 'unhealthy',
-        error: `Cache ping returned: ${result}`,
+        error: 'Internal Server Error',
+        message: `Cache ping returned: ${result}`,
       });
     }
   } catch (error) {
     return reply.status(500).send({
-      status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -104,13 +104,15 @@ fastify.post(
       // Validation
       if (!jwt) {
         return reply.status(400).send({
-          error: 'jwt is required',
+          error: 'Bad Request',
+          message: 'jwt is required',
         });
       }
 
       if (!prototype_id) {
         return reply.status(400).send({
-          error: 'prototype_id is required',
+          error: 'Bad Request',
+          message: 'prototype_id is required',
         });
       }
 
@@ -119,19 +121,22 @@ fastify.post(
 
       if (!files || !Array.isArray(files)) {
         return reply.status(400).send({
-          error: 'files is required and must be an array',
+          error: 'Bad Request',
+          message: 'files is required and must be an array',
         });
       }
 
       if (!file_scope) {
         return reply.status(400).send({
-          error: 'file_scope is required',
+          error: 'Bad Request',
+          message: 'file_scope is required',
         });
       }
 
       if (files.length === 0) {
         return reply.status(400).send({
-          error: 'files cannot be empty',
+          error: 'Bad Request',
+          message: 'files cannot be empty',
         });
       }
 
@@ -159,7 +164,7 @@ fastify.post(
       ) {
         return reply.status(401).send({
           error: 'Unauthorized',
-          error_message: e.message,
+          message: e.message,
         });
       }
 
@@ -168,17 +173,14 @@ fastify.post(
         e.message.includes('does not have permissions')
       ) {
         return reply.status(404).send({
-          error: 'Prototype not found',
-          error_message: e.message,
+          error: 'Not Found',
+          message: e.message,
         });
       }
 
       return reply.status(500).send({
-        status: 'error',
-        viewing_url: '',
-        build_errors: [],
-        build_warnings: [],
-        error_message: e.message,
+        error: 'Internal Server Error',
+        message: e.message,
       });
     }
   },
@@ -198,7 +200,7 @@ fastify.delete('/cache/clear', async (request: FastifyRequest, reply: FastifyRep
     const e = error instanceof Error ? error : new Error(String(error));
     fastify.log.error(e, 'Failed to clear cache:');
     return reply.status(500).send({
-      error: 'Failed to clear cache',
+      error: 'Internal Server Error',
       message: e.message,
     });
   }
@@ -216,13 +218,15 @@ fastify.post(
 
       if (!jwt) {
         return reply.status(400).send({
-          error: 'JWT is required',
+          error: 'Bad Request',
+          message: 'JWT is required',
         });
       }
 
       if (!prototype_id) {
         return reply.status(400).send({
-          error: 'prototype_id is required',
+          error: 'Bad Request',
+          message: 'prototype_id is required',
         });
       }
 
@@ -267,7 +271,7 @@ fastify.post(
       }
 
       return reply.status(500).send({
-        error: 'Internal server error',
+        error: 'Internal Server Error',
         message: e.message,
       });
     }
