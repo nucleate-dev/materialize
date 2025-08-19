@@ -21,16 +21,15 @@ import {
   type FileScope,
   isActiveBuild,
   S3_URL_TEMPLATE,
-} from './types/DispatcherServiceTypes.js';
+} from './types/InternalTypes.js';
 import {
   type FileInput,
-  type DispatchResponse,
   type DispatchRequestBody,
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckResponse,
   StandardErrorResponse,
   isStandardErrorResponse,
-} from './types/PublicServerAPITypes.js';
+} from './types/PublicAPITypes.js';
 import type { Database } from './types/supabase.js';
 
 dotenv.config();
@@ -64,97 +63,265 @@ export class DispatcherService {
   private async handleDispatch(
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
-  ): Promise<DispatchResponse> {
+  ): Promise<void> {
+    const { jwt, prototype_id, framework, files, file_scope } = request.body;
+
+    // Validation
+    if (!jwt) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'jwt is required',
+      });
+    }
+
+    if (!prototype_id) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'prototype_id is required',
+      });
+    }
+
+    // Default framework to expo_react_native if not provided
+    const selectedFramework = framework || 'expo_react_native';
+
+    if (!files || !Array.isArray(files)) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'files is required and must be an array',
+      });
+    }
+
+    if (!file_scope) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'file_scope is required',
+      });
+    }
+
+    if (files.length === 0) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'files cannot be empty',
+      });
+    }
+
+    console.log(`Processing dispatch request for prototype: ${prototype_id}`);
+
+    // Authentication and authorization validation
+    const userAccessValidationResult = await this.validateUserAndPrototypeOwner(
+      jwt,
+      prototype_id,
+    );
+
+    if (isStandardErrorResponse(userAccessValidationResult)) {
+      // Set appropriate status code based on error type and send response
+      if (userAccessValidationResult.error === 'Unauthorized') {
+        return reply.status(401).send(userAccessValidationResult);
+      } else if (
+        userAccessValidationResult.error === 'Not Found' ||
+        userAccessValidationResult.error === 'Forbidden'
+      ) {
+        return reply.status(404).send(userAccessValidationResult);
+      } else {
+        return reply.status(500).send(userAccessValidationResult);
+      }
+    }
+
     try {
-      const { jwt, prototype_id, framework, files, file_scope } = request.body;
+      // Generate unique build ID
+      const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const currentTime = Math.floor(Date.now() / 1000);
 
-      // Validation
-      if (!jwt) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'jwt is required',
-        } as any;
+      // Check if there's an existing current build
+      const currentBuildId = await this.cache.get(
+        CACHE_KEYS.protoCurrentBuild(prototype_id),
+      );
+      let shouldCreateNewBuild = true;
+
+      if (currentBuildId) {
+        const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
+        const existingBuildJson = await this.cache.get(activeBuildKey);
+
+        if (existingBuildJson) {
+          const parsedBuild = JSON.parse(existingBuildJson as string);
+          if (!isActiveBuild(parsedBuild)) {
+            return reply.status(500).send({
+              error: 'Internal Server Error',
+              message: 'Invalid build data in cache',
+            });
+          }
+          const existingBuild: ActiveBuild = parsedBuild;
+
+          // If build is cleaning, proceed with new build
+          if (existingBuild.status === 'cleaning') {
+            console.log(
+              `Existing build ${currentBuildId} is cleaning, creating new build`,
+            );
+            shouldCreateNewBuild = true;
+          }
+          // If build is actively working, return error
+          else if (
+            existingBuild.status === 'creating' ||
+            existingBuild.status === 'updating'
+          ) {
+            return reply.status(409).send({
+              error: 'Conflict',
+              message:
+                'There is already an active dispatch request for this prototype',
+            });
+          }
+          // Reuse existing stable build
+          else {
+            shouldCreateNewBuild = false;
+          }
+        }
       }
 
-      if (!prototype_id) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'prototype_id is required',
-        } as any;
+      let activeBuildKey: string;
+      let updatedBuildCacheData: ActiveBuild;
+
+      if (shouldCreateNewBuild) {
+        // Create new build
+        activeBuildKey = CACHE_KEYS.activeBuild(buildId);
+        const newBuildCacheData: ActiveBuild = {
+          fargate_task_arn: '',
+          fargate_private_ip: '',
+          url: this.getS3Url(prototype_id),
+          status: 'creating',
+          last_touched: currentTime,
+        };
+
+        // Set the new build as active
+        await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
+
+        // Update current pointer
+        await this.cache.set(
+          CACHE_KEYS.protoCurrentBuild(prototype_id),
+          buildId,
+        );
+
+        // Add to builds ZSET
+        await this.cache.customCommand([
+          'ZADD',
+          CACHE_KEYS.protoBuilds(prototype_id),
+          currentTime.toString(),
+          buildId,
+        ]);
+
+        const newFargateInstance = await this.launchFargateInstance(
+          prototype_id,
+        );
+
+        updatedBuildCacheData = {
+          ...newBuildCacheData,
+          status: 'updating',
+          fargate_task_arn: newFargateInstance.taskArn,
+          fargate_private_ip: newFargateInstance.privateIp,
+        };
+      } else {
+        // Reuse existing build
+        activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
+        const existingBuildJson = await this.cache.get(activeBuildKey);
+        const parsedBuild = JSON.parse(existingBuildJson as string);
+        if (!isActiveBuild(parsedBuild)) {
+          return reply.status(500).send({
+            error: 'Internal Server Error',
+            message: 'Invalid build data in cache',
+          });
+        }
+        const existingBuild: ActiveBuild = parsedBuild;
+
+        updatedBuildCacheData = {
+          ...existingBuild,
+          status: 'updating',
+          last_touched: currentTime,
+        };
       }
 
-      // Default framework to expo_react_native if not provided
-      const selectedFramework = framework || 'expo_react_native';
+      await this.cache.set(
+        activeBuildKey,
+        JSON.stringify(updatedBuildCacheData),
+      );
 
-      if (!files || !Array.isArray(files)) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'files is required and must be an array',
-        } as any;
-      }
-
-      if (!file_scope) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'file_scope is required',
-        } as any;
-      }
-
-      if (files.length === 0) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'files cannot be empty',
-        } as any;
-      }
-
-      console.log(`Processing dispatch request for prototype: ${prototype_id}`);
-
-      const result = await this.processDispatchRequest({
-        jwt,
+      // Dispatch request to fargate instance
+      const requestBody = this.constructRequestBody({
         prototype_id,
         framework: selectedFramework,
         files,
         file_scope,
       });
 
-      return result;
+      try {
+        const fargateResponse =
+          await this.dispatchFormedRequestToFargateInstanceServer(
+            updatedBuildCacheData.fargate_private_ip,
+            requestBody,
+          );
+
+        console.log('Fargate responded');
+        updatedBuildCacheData.status = 'stable';
+        updatedBuildCacheData.url =
+          fargateResponse.tunnel_url || this.getS3Url(prototype_id);
+        updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
+
+        await this.cache.set(
+          activeBuildKey,
+          JSON.stringify(updatedBuildCacheData),
+        );
+
+        // Update builds ZSET with new timestamp
+        const buildIdFromKey = activeBuildKey.replace('active_build:', '');
+        await this.cache.customCommand([
+          'ZADD',
+          CACHE_KEYS.protoBuilds(prototype_id),
+          updatedBuildCacheData.last_touched.toString(),
+          buildIdFromKey,
+        ]);
+
+        console.log(updatedBuildCacheData);
+
+        if (fargateResponse.status === 'success') {
+          return reply.send({
+            status: 'success',
+            viewing_url: this.normalizeUrl(
+              fargateResponse.tunnel_url || this.getS3Url(prototype_id),
+            ),
+            build_errors: fargateResponse.build_errors,
+            build_warnings: fargateResponse.build_warnings,
+          });
+        } else {
+          return reply.status(500).send({
+            error: 'Build Failed',
+            message: 'Build failed on fargate instance',
+          });
+        }
+      } catch (error) {
+        const e = error instanceof Error ? error : new Error(String(error));
+        console.log(
+          'There was an error dispatching the request to the fargate instance',
+        );
+        updatedBuildCacheData.status = 'error';
+        await this.cache.set(
+          activeBuildKey,
+          JSON.stringify(updatedBuildCacheData),
+        );
+
+        return reply.status(500).send({
+          error: 'Internal Server Error',
+          message:
+            'There was a server error building the prototype. ' + e.message,
+        });
+      }
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      console.error('Build request failed:', e);
+      console.error('Dispatch request failed:', e);
 
-      // Check if it's an authentication or permission error
-      if (
-        e.message.includes('Invalid JWT') ||
-        e.message.includes('not authenticated')
-      ) {
-        reply.status(401);
-        return {
-          error: 'Unauthorized',
-          message: e.message,
-        } as any;
-      }
-
-      if (
-        e.message.includes('Prototype not found') ||
-        e.message.includes('does not have permissions')
-      ) {
-        reply.status(404);
-        return {
-          error: 'Not Found',
-          message: e.message,
-        } as any;
-      }
-
-      reply.status(500);
-      return {
+      return reply.status(500).send({
         error: 'Internal Server Error',
         message: e.message,
-      } as any;
+      });
     }
   }
 
@@ -219,7 +386,7 @@ export class DispatcherService {
             reply.status(500);
             return {
               error: 'Internal Server Error',
-              message: 'Invalid build data in cache',
+              message: 'Invalid build data in storage',
             };
           }
           const existingBuild: ActiveBuild = parsedBuild;
@@ -250,220 +417,6 @@ export class DispatcherService {
         error: 'Internal Server Error',
         message: e.message,
       });
-    }
-  }
-
-  public async processDispatchRequest({
-    jwt,
-    prototype_id,
-    framework,
-    files,
-    file_scope,
-  }: DispatchRequestBody): Promise<DispatchResponse> {
-    // Authentication and authorization validation
-    const validationResult = await this.validateUserAndPrototypeOwner(
-      jwt,
-      prototype_id,
-    );
-
-    if (isStandardErrorResponse(validationResult)) {
-      // Convert to DispatchResponse error format
-      return validationResult;
-    }
-
-    try {
-      // Generate unique build ID
-      const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-      const currentTime = Math.floor(Date.now() / 1000);
-
-      // Check if there's an existing current build
-      const currentBuildId = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototype_id),
-      );
-      let shouldCreateNewBuild = true;
-
-      if (currentBuildId) {
-        const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuildJson = await this.cache.get(activeBuildKey);
-
-        if (existingBuildJson) {
-          const parsedBuild = JSON.parse(existingBuildJson as string);
-          if (!isActiveBuild(parsedBuild)) {
-            throw new Error('Invalid build data in cache');
-          }
-          const existingBuild: ActiveBuild = parsedBuild;
-
-          // If build is cleaning, proceed with new build
-          if (existingBuild.status === 'cleaning') {
-            console.log(
-              `Existing build ${currentBuildId} is cleaning, creating new build`,
-            );
-            shouldCreateNewBuild = true;
-          }
-          // If build is actively working, return error
-          else if (
-            existingBuild.status === 'creating' ||
-            existingBuild.status === 'updating'
-          ) {
-            return {
-              error: 'Concurrent dispatch request',
-              viewing_url: this.normalizeUrl(
-                existingBuild.url || this.getS3Url(prototype_id),
-              ),
-              message:
-                'There is already an active dispatch request for this prototype',
-            };
-          }
-          // Reuse existing stable build
-          else {
-            shouldCreateNewBuild = false;
-          }
-        }
-      }
-
-      let activeBuildKey: string;
-      let updatedBuildCacheData: ActiveBuild;
-
-      if (shouldCreateNewBuild) {
-        // Create new build
-        activeBuildKey = CACHE_KEYS.activeBuild(buildId);
-        const newBuildCacheData: ActiveBuild = {
-          fargate_task_arn: '',
-          fargate_private_ip: '',
-          url: this.getS3Url(prototype_id),
-          status: 'creating',
-          last_touched: currentTime,
-        };
-
-        // Set the new build as active
-        await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
-
-        // Update current pointer
-        await this.cache.set(
-          CACHE_KEYS.protoCurrentBuild(prototype_id),
-          buildId,
-        );
-
-        // Add to builds ZSET
-        await this.cache.customCommand([
-          'ZADD',
-          CACHE_KEYS.protoBuilds(prototype_id),
-          currentTime.toString(),
-          buildId,
-        ]);
-
-        const newFargateInstance = await this.launchFargateInstance(
-          prototype_id,
-        );
-
-        updatedBuildCacheData = {
-          ...newBuildCacheData,
-          status: 'updating',
-          fargate_task_arn: newFargateInstance.taskArn,
-          fargate_private_ip: newFargateInstance.privateIp,
-        };
-      } else {
-        // Reuse existing build
-        activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuildJson = await this.cache.get(activeBuildKey);
-        const parsedBuild = JSON.parse(existingBuildJson as string);
-        if (!isActiveBuild(parsedBuild)) {
-          throw new Error('Invalid build data in cache');
-        }
-        const existingBuild: ActiveBuild = parsedBuild;
-
-        updatedBuildCacheData = {
-          ...existingBuild,
-          status: 'updating',
-          last_touched: currentTime,
-        };
-      }
-
-      await this.cache.set(
-        activeBuildKey,
-        JSON.stringify(updatedBuildCacheData),
-      );
-
-      // Dispatch request to fargate instance
-      const requestBody = this.constructRequestBody({
-        prototype_id,
-        framework: framework || 'expo_react_native',
-        files,
-        file_scope,
-      });
-
-      try {
-        const fargateResponse =
-          await this.dispatchFormedRequestToFargateInstanceServer(
-            updatedBuildCacheData.fargate_private_ip,
-            requestBody,
-          );
-
-        console.log('Fargate responded');
-        updatedBuildCacheData.status = 'stable';
-        updatedBuildCacheData.url =
-          fargateResponse.tunnel_url || this.getS3Url(prototype_id);
-        updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify(updatedBuildCacheData),
-        );
-
-        // Update builds ZSET with new timestamp
-        const buildIdFromKey = activeBuildKey.replace('active_build:', '');
-        await this.cache.customCommand([
-          'ZADD',
-          CACHE_KEYS.protoBuilds(prototype_id),
-          updatedBuildCacheData.last_touched.toString(),
-          buildIdFromKey,
-        ]);
-
-        console.log(updatedBuildCacheData);
-
-        if (fargateResponse.status === 'success') {
-          return {
-            status: 'success',
-            viewing_url: this.normalizeUrl(
-              fargateResponse.tunnel_url || this.getS3Url(prototype_id),
-            ),
-            build_errors: fargateResponse.build_errors,
-            build_warnings: fargateResponse.build_warnings,
-          };
-        } else {
-          return {
-            error: 'Build failure',
-            viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-            message:
-              'There was an internal server error building the prototype',
-          };
-        }
-      } catch (error) {
-        const e = error instanceof Error ? error : new Error(String(error));
-        console.log(
-          'There was an error dispatching the request to the fargate instance',
-        );
-        updatedBuildCacheData.status = 'error';
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify(updatedBuildCacheData),
-        );
-        return {
-          error: 'Internal server error',
-          viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-          message:
-            'There was a server error building the prototype. ' + e.message,
-        };
-      }
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      return {
-        error: 'Internal server error',
-        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        message: e.message,
-      };
     }
   }
 
