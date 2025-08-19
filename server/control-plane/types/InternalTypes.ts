@@ -1,12 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import type { Database } from './supabase.js';
-import type {
-  FileInput,
-  CodeError,
-  CodeWarning,
-  DispatchRequestBody,
-  DispatchPrecheckSuccessResponse,
-} from './PublicServerAPITypes.js';
+import type { FileInput, CodeError, CodeWarning } from './PublicAPITypes.js';
 
 // ============================================================================
 // CORE DOMAIN TYPES
