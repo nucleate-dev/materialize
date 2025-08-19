@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
-    "prebuild": "npm run lint:check"
+    "sync-types": "node scripts/sync-types.js",
+    "prebuild": "npm run lint:check && npm run sync-types"
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^5.2.0",

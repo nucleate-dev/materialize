@@ -29,6 +29,7 @@ import {
   type DispatchPrecheckResponse,
   StandardErrorResponse,
   isStandardErrorResponse,
+  HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 
@@ -66,31 +67,31 @@ export class DispatcherService {
     // 1. Parse and Validate Body
     const { jwt, prototype_id, framework, files, file_scope } = request.body;
     if (!jwt) {
-      return reply.status(400).send({
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
         message: 'jwt is required',
       });
     }
     if (!prototype_id) {
-      return reply.status(400).send({
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
         message: 'prototype_id is required',
       });
     }
     if (!files || !Array.isArray(files)) {
-      return reply.status(400).send({
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
         message: 'files is required and must be an array',
       });
     }
     if (!file_scope) {
-      return reply.status(400).send({
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
         message: 'file_scope is required',
       });
     }
     if (files.length === 0) {
-      return reply.status(400).send({
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
         message: 'files cannot be empty',
       });
@@ -106,14 +107,20 @@ export class DispatcherService {
     );
     if (isStandardErrorResponse(userAccessValidationResult)) {
       if (userAccessValidationResult.error === 'Unauthorized') {
-        return reply.status(401).send(userAccessValidationResult);
+        return reply
+          .status(HTTP_STATUS.UNAUTHORIZED)
+          .send(userAccessValidationResult);
       } else if (
         userAccessValidationResult.error === 'Not Found' ||
         userAccessValidationResult.error === 'Forbidden'
       ) {
-        return reply.status(404).send(userAccessValidationResult);
+        return reply
+          .status(HTTP_STATUS.NOT_FOUND)
+          .send(userAccessValidationResult);
       } else {
-        return reply.status(500).send(userAccessValidationResult);
+        return reply
+          .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+          .send(userAccessValidationResult);
       }
     }
 
@@ -134,7 +141,7 @@ export class DispatcherService {
         if (existingBuildJson) {
           const parsedBuild = JSON.parse(existingBuildJson as string);
           if (!isActiveBuild(parsedBuild)) {
-            return reply.status(500).send({
+            return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
               error: 'Internal Server Error',
               message: 'Invalid build data in cache',
             });
@@ -152,7 +159,7 @@ export class DispatcherService {
             existingBuild.status === 'updating'
           ) {
             // If build is actively working, return error
-            return reply.status(409).send({
+            return reply.status(HTTP_STATUS.CONFLICT).send({
               error: 'Conflict',
               message:
                 'There is already an active dispatch request for this prototype',
@@ -214,7 +221,7 @@ export class DispatcherService {
         const existingBuildJson = await this.cache.get(activeBuildKey);
         const parsedBuild = JSON.parse(existingBuildJson as string);
         if (!isActiveBuild(parsedBuild)) {
-          return reply.status(500).send({
+          return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             error: 'Internal Server Error',
             message: 'Invalid build data in cache',
           });
@@ -271,7 +278,7 @@ export class DispatcherService {
         console.log(updatedBuildCacheData);
 
         if (fargateResponse.status === 'success') {
-          return reply.send({
+          return reply.status(HTTP_STATUS.OK).send({
             status: 'success',
             viewing_url: this.normalizeUrl(
               fargateResponse.tunnel_url || this.getS3Url(prototype_id),
@@ -280,7 +287,7 @@ export class DispatcherService {
             build_warnings: fargateResponse.build_warnings,
           });
         } else {
-          return reply.status(500).send({
+          return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             error: 'Build Failed',
             message: 'Build failed on fargate instance',
           });
@@ -296,7 +303,7 @@ export class DispatcherService {
           JSON.stringify(updatedBuildCacheData),
         );
 
-        return reply.status(500).send({
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           error: 'Internal Server Error',
           message:
             'There was a server error building the prototype. ' + e.message,
@@ -306,7 +313,7 @@ export class DispatcherService {
       const e = error instanceof Error ? error : new Error(String(error));
       console.error('Dispatch request failed:', e);
 
-      return reply.status(500).send({
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
         message: e.message,
       });
@@ -320,14 +327,14 @@ export class DispatcherService {
     // 1. Parse and Validate Body
     const { jwt, prototype_id } = request.body;
     if (!jwt) {
-      reply.status(400);
+      reply.status(HTTP_STATUS.BAD_REQUEST);
       return {
         error: 'Bad Request',
         message: 'JWT is required',
       };
     }
     if (!prototype_id) {
-      reply.status(400);
+      reply.status(HTTP_STATUS.BAD_REQUEST);
       return {
         error: 'Bad Request',
         message: 'prototype_id is required',
@@ -343,14 +350,20 @@ export class DispatcherService {
     );
     if (isStandardErrorResponse(userAccessValidationResult)) {
       if (userAccessValidationResult.error === 'Unauthorized') {
-        return reply.status(401).send(userAccessValidationResult);
+        return reply
+          .status(HTTP_STATUS.UNAUTHORIZED)
+          .send(userAccessValidationResult);
       } else if (
         userAccessValidationResult.error === 'Not Found' ||
         userAccessValidationResult.error === 'Forbidden'
       ) {
-        return reply.status(404).send(userAccessValidationResult);
+        return reply
+          .status(HTTP_STATUS.NOT_FOUND)
+          .send(userAccessValidationResult);
       } else {
-        return reply.status(500).send(userAccessValidationResult);
+        return reply
+          .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+          .send(userAccessValidationResult);
       }
     }
 
@@ -367,7 +380,7 @@ export class DispatcherService {
         if (existingBuildJson) {
           const parsedBuild = JSON.parse(existingBuildJson as string);
           if (!isActiveBuild(parsedBuild)) {
-            reply.status(500);
+            reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
             return {
               error: 'Internal Server Error',
               message: 'Invalid build data in storage',
@@ -397,7 +410,7 @@ export class DispatcherService {
       const e = error instanceof Error ? error : new Error(String(error));
       console.error('Precheck cache operation failed:', e);
 
-      return reply.status(500).send({
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
         message: e.message,
       });
