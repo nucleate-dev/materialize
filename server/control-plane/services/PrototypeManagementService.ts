@@ -13,9 +13,7 @@ import type {
   CreatePrototypeSuccessResponse,
   CreatePrototypeErrorResponse,
 } from '../types/PublicAPITypes.js';
-import type { 
-  Database,
-} from '../types/supabase.js';
+import type { Database } from '../types/supabase.js';
 import type {
   PrototypeInsert,
   PrototypeFileInsert,
@@ -43,14 +41,20 @@ export class PrototypeManagementService {
 
   constructor(fastifyApp: FastifyInstance) {
     this.fastifyApp = fastifyApp;
-    
+
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
     this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    if (!this.supabaseUrl || !this.supabaseAnonKey || !this.supabaseServiceKey) {
-      throw new Error('Missing required Supabase environment variables for PrototypeManagementService');
+    if (
+      !this.supabaseUrl ||
+      !this.supabaseAnonKey ||
+      !this.supabaseServiceKey
+    ) {
+      throw new Error(
+        'Missing required Supabase environment variables for PrototypeManagementService',
+      );
     }
   }
 
@@ -59,7 +63,7 @@ export class PrototypeManagementService {
       '/prototype/fetch-viewing-url',
       this.handleFetchViewingUrl.bind(this),
     );
-    
+
     app.post<{ Body: CreatePrototypeRequestBody }>(
       '/prototype/create',
       this.handleCreatePrototype.bind(this),
@@ -245,7 +249,11 @@ export class PrototypeManagementService {
       const { userId, subscriptionPlan } = authResult;
 
       // 2. Check prototype limits for free users (5 max)
-      const limitCheck = await checkPrototypeLimit(supabase, userId, subscriptionPlan);
+      const limitCheck = await checkPrototypeLimit(
+        supabase,
+        userId,
+        subscriptionPlan,
+      );
       if (!limitCheck.canCreate) {
         const errorResponse: CreatePrototypeErrorResponse = {
           success: false,
@@ -291,7 +299,8 @@ export class PrototypeManagementService {
         description,
         owner_id: userId,
         project_id,
-        visibility: visibility || (subscriptionPlan === 'pro' ? 'SELF' : 'PUBLIC'),
+        visibility:
+          visibility || (subscriptionPlan === 'pro' ? 'SELF' : 'PUBLIC'),
       };
 
       const { data: newPrototype, error: prototypeError } = await supabase
@@ -317,22 +326,35 @@ export class PrototypeManagementService {
         // 5. Handle prototype files and S3 operations
         if (forkPrototypeId) {
           // FORK: Copy existing prototype files and S3 bucket
-          console.log(`Forking prototype ${forkPrototypeId} to ${newPrototypeId}`);
+          console.log(
+            `Forking prototype ${forkPrototypeId} to ${newPrototypeId}`,
+          );
 
           // Get files from source prototype
-          const filesResult = await getPrototypeFiles(supabase, forkPrototypeId);
+          const filesResult = await getPrototypeFiles(
+            supabase,
+            forkPrototypeId,
+          );
           if (!filesResult.success) {
-            throw new Error(filesResult.message || 'Failed to get prototype files');
+            throw new Error(
+              filesResult.message || 'Failed to get prototype files',
+            );
           }
 
           // Copy files to new prototype (with new prototype_id)
           const filesToInsert: PrototypeFileInsert[] = [];
 
-          console.log(`📁 Processing ${filesResult.files!.length} files for new prototype`);
-          
+          console.log(
+            `📁 Processing ${
+              filesResult.files!.length
+            } files for new prototype`,
+          );
+
           for (const file of filesResult.files!) {
             if (file.file_type === 'asset') {
-              console.log(`🔄 Copying asset: ${file.name} from ${file.storage_path}`);
+              console.log(
+                `🔄 Copying asset: ${file.name} from ${file.storage_path}`,
+              );
 
               // Copy asset in Supabase Storage
               const copyResult = await copyAssetInSupabaseStorage(
@@ -342,11 +364,18 @@ export class PrototypeManagementService {
               );
 
               if (!copyResult.success) {
-                console.error(`❌ Failed to copy asset ${file.name}:`, copyResult.error);
-                throw new Error(`Failed to copy asset ${file.name}: ${copyResult.error}`);
+                console.error(
+                  `❌ Failed to copy asset ${file.name}:`,
+                  copyResult.error,
+                );
+                throw new Error(
+                  `Failed to copy asset ${file.name}: ${copyResult.error}`,
+                );
               }
 
-              console.log(`✅ Asset copied: ${file.name} → ${copyResult.publicUrl}`);
+              console.log(
+                `✅ Asset copied: ${file.name} → ${copyResult.publicUrl}`,
+              );
 
               filesToInsert.push({
                 prototype_id: newPrototypeId,
@@ -357,7 +386,11 @@ export class PrototypeManagementService {
               });
             } else {
               // Text file - just copy contents
-              console.log(`📝 Copying text file: ${file.name} (${file.contents?.length || 0} chars)`);
+              console.log(
+                `📝 Copying text file: ${file.name} (${
+                  file.contents?.length || 0
+                } chars)`,
+              );
               filesToInsert.push({
                 prototype_id: newPrototypeId,
                 name: file.name,
@@ -376,39 +409,55 @@ export class PrototypeManagementService {
 
           if (filesError) {
             console.error('❌ Error inserting files:', filesError);
-            throw new Error(`Failed to copy prototype files: ${filesError.message}`);
+            throw new Error(
+              `Failed to copy prototype files: ${filesError.message}`,
+            );
           }
 
-          console.log(`✅ Successfully inserted ${filesToInsert.length} files to database`);
+          console.log(
+            `✅ Successfully inserted ${filesToInsert.length} files to database`,
+          );
 
           // Copy S3 bucket contents
           const sourcePrefix = `prototypes/${forkPrototypeId}`;
           const destinationPrefix = `prototypes/${newPrototypeId}`;
 
-          const s3CopyResult = await copyS3BucketContents(sourcePrefix, destinationPrefix);
+          const s3CopyResult = await copyS3BucketContents(
+            sourcePrefix,
+            destinationPrefix,
+          );
           if (!s3CopyResult.success) {
             throw new Error(`Failed to copy S3 bucket: ${s3CopyResult.error}`);
           }
 
-          console.log(`Successfully forked prototype: ${s3CopyResult.copiedObjects} files copied`);
+          console.log(
+            `Successfully forked prototype: ${s3CopyResult.copiedObjects} files copied`,
+          );
         } else {
           // NEW CREATION: Use default app files from S3 and copy to both Supabase and S3
-          console.log(`Creating new prototype ${newPrototypeId} with default files from S3`);
+          console.log(
+            `Creating new prototype ${newPrototypeId} with default files from S3`,
+          );
 
           // Get default app files from S3 raw files
-          const defaultFilesResult = await getDefaultAppFilesFromS3(newPrototypeId);
+          const defaultFilesResult = await getDefaultAppFilesFromS3(
+            newPrototypeId,
+          );
           if (!defaultFilesResult.success) {
-            throw new Error(`Failed to get default files from S3: ${defaultFilesResult.error}`);
+            throw new Error(
+              `Failed to get default files from S3: ${defaultFilesResult.error}`,
+            );
           }
 
           // Convert to PrototypeFileInsert format
-          const filesToInsert: PrototypeFileInsert[] = defaultFilesResult.files!.map(file => ({
-            prototype_id: file.prototype_id,
-            name: file.name,
-            contents: file.contents,
-            file_type: file.file_type,
-            storage_path: file.storage_path,
-          }));
+          const filesToInsert: PrototypeFileInsert[] =
+            defaultFilesResult.files!.map((file) => ({
+              prototype_id: file.prototype_id,
+              name: file.name,
+              contents: file.contents,
+              file_type: file.file_type,
+              storage_path: file.storage_path,
+            }));
 
           // Insert default prototype files into Supabase
           const { error: filesError } = await supabase
@@ -416,17 +465,23 @@ export class PrototypeManagementService {
             .insert(filesToInsert);
 
           if (filesError) {
-            throw new Error(`Failed to insert default files: ${filesError.message}`);
+            throw new Error(
+              `Failed to insert default files: ${filesError.message}`,
+            );
           }
 
           // Copy default app files to S3 for new prototype (for hosting)
           const s3CopyResult = await copyDefaultAppToPrototype(newPrototypeId);
           if (!s3CopyResult.success) {
-            throw new Error(`Failed to copy default app to S3: ${s3CopyResult.error}`);
+            throw new Error(
+              `Failed to copy default app to S3: ${s3CopyResult.error}`,
+            );
           }
 
           console.log(
-            `Successfully created new prototype: ${defaultFilesResult.files!.length} files in DB, ${s3CopyResult.copiedObjects} files copied to S3`,
+            `Successfully created new prototype: ${
+              defaultFilesResult.files!.length
+            } files in DB, ${s3CopyResult.copiedObjects} files copied to S3`,
           );
         }
 
