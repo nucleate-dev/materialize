@@ -37,7 +37,6 @@ dotenv.config();
 export class DispatcherService {
   private ecsClient: ECSClient;
   private cache: GlideClient;
-  // private allocateSha: string | null = null;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
@@ -64,57 +63,48 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
   ): Promise<void> {
+    // 1. Parse and Validate Body
     const { jwt, prototype_id, framework, files, file_scope } = request.body;
-
-    // Validation
     if (!jwt) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'jwt is required',
       });
     }
-
     if (!prototype_id) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'prototype_id is required',
       });
     }
-
-    // Default framework to expo_react_native if not provided
-    const selectedFramework = framework || 'expo_react_native';
-
     if (!files || !Array.isArray(files)) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'files is required and must be an array',
       });
     }
-
     if (!file_scope) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'file_scope is required',
       });
     }
-
     if (files.length === 0) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'files cannot be empty',
       });
     }
+    const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
     console.log(`Processing dispatch request for prototype: ${prototype_id}`);
 
-    // Authentication and authorization validation
+    // 2. Authentication and authorization validation
     const userAccessValidationResult = await this.validateUserAndPrototypeOwner(
       jwt,
       prototype_id,
     );
-
     if (isStandardErrorResponse(userAccessValidationResult)) {
-      // Set appropriate status code based on error type and send response
       if (userAccessValidationResult.error === 'Unauthorized') {
         return reply.status(401).send(userAccessValidationResult);
       } else if (
@@ -129,17 +119,14 @@ export class DispatcherService {
 
     try {
       // Generate unique build ID
-      const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
       const currentTime = Math.floor(Date.now() / 1000);
 
       // Check if there's an existing current build
       const currentBuildId = await this.cache.get(
         CACHE_KEYS.protoCurrentBuild(prototype_id),
       );
-      let shouldCreateNewBuild = true;
 
+      let shouldCreateNewBuild = true;
       if (currentBuildId) {
         const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
@@ -160,20 +147,18 @@ export class DispatcherService {
               `Existing build ${currentBuildId} is cleaning, creating new build`,
             );
             shouldCreateNewBuild = true;
-          }
-          // If build is actively working, return error
-          else if (
+          } else if (
             existingBuild.status === 'creating' ||
             existingBuild.status === 'updating'
           ) {
+            // If build is actively working, return error
             return reply.status(409).send({
               error: 'Conflict',
               message:
                 'There is already an active dispatch request for this prototype',
             });
-          }
-          // Reuse existing stable build
-          else {
+          } else {
+            // Reuse existing stable build
             shouldCreateNewBuild = false;
           }
         }
@@ -183,6 +168,9 @@ export class DispatcherService {
       let updatedBuildCacheData: ActiveBuild;
 
       if (shouldCreateNewBuild) {
+        const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
         // Create new build
         activeBuildKey = CACHE_KEYS.activeBuild(buildId);
         const newBuildCacheData: ActiveBuild = {
@@ -260,7 +248,7 @@ export class DispatcherService {
             requestBody,
           );
 
-        console.log('Fargate responded');
+        console.log('Fargate responded: ', fargateResponse);
         updatedBuildCacheData.status = 'stable';
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
@@ -329,9 +317,8 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
   ): Promise<DispatchPrecheckResponse> {
+    // 1. Parse and Validate Body
     const { jwt, prototype_id } = request.body;
-
-    // Validation
     if (!jwt) {
       reply.status(400);
       return {
@@ -339,7 +326,6 @@ export class DispatcherService {
         message: 'JWT is required',
       };
     }
-
     if (!prototype_id) {
       reply.status(400);
       return {
@@ -350,14 +336,12 @@ export class DispatcherService {
 
     console.log(`Processing precheck request for prototype: ${prototype_id}`);
 
-    // Authentication and authorization validation
+    // 2. Authentication and authorization validation
     const userAccessValidationResult = await this.validateUserAndPrototypeOwner(
       jwt,
       prototype_id,
     );
-
     if (isStandardErrorResponse(userAccessValidationResult)) {
-      // Set appropriate status code based on error type
       if (userAccessValidationResult.error === 'Unauthorized') {
         return reply.status(401).send(userAccessValidationResult);
       } else if (
