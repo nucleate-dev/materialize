@@ -268,13 +268,7 @@ export class DispatcherService {
 
     if (isStandardErrorResponse(validationResult)) {
       // Convert to DispatchResponse error format
-      return {
-        status: 'error',
-        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        build_errors: [],
-        build_warnings: [],
-        error_message: validationResult.message,
-      };
+      return validationResult;
     }
 
     try {
@@ -314,13 +308,11 @@ export class DispatcherService {
             existingBuild.status === 'updating'
           ) {
             return {
-              status: 'error',
+              error: 'Concurrent dispatch request',
               viewing_url: this.normalizeUrl(
                 existingBuild.url || this.getS3Url(prototype_id),
               ),
-              build_errors: [],
-              build_warnings: [],
-              error_message:
+              message:
                 'There is already an active dispatch request for this prototype',
             };
           }
@@ -442,11 +434,10 @@ export class DispatcherService {
           };
         } else {
           return {
-            status: 'error',
+            error: 'Build failure',
             viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-            build_errors: fargateResponse.build_errors,
-            build_warnings: fargateResponse.build_warnings,
-            error_message: 'Build failed on fargate instance',
+            message:
+              'There was an internal server error building the prototype',
           };
         }
       } catch (error) {
@@ -460,22 +451,18 @@ export class DispatcherService {
           JSON.stringify(updatedBuildCacheData),
         );
         return {
-          status: 'error',
+          error: 'Internal server error',
           viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-          build_errors: [],
-          build_warnings: [],
-          error_message:
+          message:
             'There was a server error building the prototype. ' + e.message,
         };
       }
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       return {
-        status: 'error',
+        error: 'Internal server error',
         viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        build_errors: [],
-        build_warnings: [],
-        error_message: e.message,
+        message: e.message,
       };
     }
   }

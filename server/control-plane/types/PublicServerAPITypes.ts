@@ -68,11 +68,9 @@ export interface DispatchSuccessResponse {
 }
 
 export interface DispatchErrorResponse {
-  status: 'error';
+  error: string;
+  message: string;
   viewing_url: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
-  error_message: string;
 }
 
 export type DispatchResponse =
