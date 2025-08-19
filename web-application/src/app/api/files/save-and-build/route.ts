@@ -10,9 +10,6 @@ import { z } from "zod";
 // Set max duration for Vercel serverless function to 3 minutes
 export const maxDuration = 180;
 
-// Define the PrototypeFile type to match MaterializeRenderSection
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-
 // Request validation schema using Database Row types to match MaterializeRenderSection
 const SaveAndBuildSchema = z.object({
   files: z.record(
@@ -173,7 +170,7 @@ export async function POST(request: NextRequest) {
     // 5. Save only text files to database (don't overwrite existing assets)
     // Filter to only include text files from the editor - exclude asset files
     const textFilesOnly = Object.fromEntries(
-      Object.entries(files).filter(([path, file]) => {
+      Object.entries(files).filter(([, file]) => {
         // Only include files that are already text type or don't have a file_type yet
         // This prevents us from overwriting asset files that were loaded from database
         return !file.file_type || file.file_type === "text";
