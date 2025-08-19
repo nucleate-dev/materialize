@@ -219,10 +219,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           onViewingUrlUpdate(result.viewing_url);
         }
         
-        // Force refresh the preview for hot reload
-        if (onForceRefresh) {
-          onForceRefresh();
-        }
       } else {
         console.error("Failed to update file:", result.error || result.message);
         
@@ -294,10 +290,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           onViewingUrlUpdate(result.viewing_url);
         }
         
-        // Force refresh the preview for hot reload
-        if (onForceRefresh) {
-          onForceRefresh();
-        }
       } else {
         console.error("Failed to update files:", result.error || result.message);
         

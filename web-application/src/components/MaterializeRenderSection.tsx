@@ -182,7 +182,7 @@ const MaterializeRenderSection = forwardRef<
     setPreviewMode(mode);
     // Trigger loading state when switching preview modes
     if (viewing_url) {
-      setIsIframeLoading(true);
+      setIsIframeLoading(false);
       setIframeError(false);
     }
   };
