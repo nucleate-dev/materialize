@@ -184,22 +184,22 @@ export class DispatcherService {
     console.log(`Processing precheck request for prototype: ${prototype_id}`);
 
     // Authentication and authorization validation
-    const validationResult = await this.validateUserAndPrototypeOwner(
+    const userAccessValidationResult = await this.validateUserAndPrototypeOwner(
       jwt,
       prototype_id,
     );
 
-    if (isStandardErrorResponse(validationResult)) {
+    if (isStandardErrorResponse(userAccessValidationResult)) {
       // Set appropriate status code based on error type
-      if (validationResult.error === 'Unauthorized') {
-        return reply.status(401).send(validationResult);
+      if (userAccessValidationResult.error === 'Unauthorized') {
+        return reply.status(401).send(userAccessValidationResult);
       } else if (
-        validationResult.error === 'Not Found' ||
-        validationResult.error === 'Forbidden'
+        userAccessValidationResult.error === 'Not Found' ||
+        userAccessValidationResult.error === 'Forbidden'
       ) {
-        return reply.status(404).send(validationResult);
+        return reply.status(404).send(userAccessValidationResult);
       } else {
-        return reply.status(500).send(validationResult);
+        return reply.status(500).send(userAccessValidationResult);
       }
     }
 
