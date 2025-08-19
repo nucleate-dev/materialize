@@ -2,6 +2,15 @@ import { GlideClient } from '@valkey/valkey-glide';
 import { CONFIG } from './config.js';
 import axios from 'axios';
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
+import {
+  type ActiveBuild,
+  type CleanupOperationResult,
+  type IdleBuildInfo,
+  type CleanupStats,
+  CACHE_KEYS,
+  CACHE_PATTERNS,
+  isActiveBuild,
+} from './types/InternalTypes.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -16,29 +25,32 @@ export class CleanupService {
   }
   // Cleanup idle hot reload services
 
-  private async cleanupIdleActiveBuilds(): Promise<void> {
+  private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
     const currentTimeReadable = this.formatTimestampEST(Date.now());
     console.log(
       `Cleaning up idle active builds, current time: ${Date.now()} (${currentTimeReadable})`,
     );
 
     // get all active builds
-    const activeBuildKeys = await this.scanKeys('active_build:*');
+    const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
+
+    const stats: CleanupStats = {
+      totalBuildsScanned: activeBuildKeys?.length || 0,
+      idleBuildsFound: 0,
+      successfulCleanups: 0,
+      failedCleanups: 0,
+    };
 
     if (!activeBuildKeys || activeBuildKeys.length === 0) {
       console.log('No active builds found for hot reload cleanup');
-      return;
+      return stats;
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
     const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
 
     // 1. Get all idle builds
-    const idleBuilds: Array<{
-      build: ActiveBuild;
-      buildId: string;
-      buildKey: string;
-    }> = [];
+    const idleBuilds: IdleBuildInfo[] = [];
     
     for (const buildKey of activeBuildKeys) {
       const buildJson = await this.cache.get(buildKey);
@@ -46,7 +58,12 @@ export class CleanupService {
         continue;
       }
 
-      const build: ActiveBuild = JSON.parse(buildJson as string);
+      const parsedBuild = JSON.parse(buildJson as string);
+      if (!isActiveBuild(parsedBuild)) {
+        console.warn(`Invalid build data found in cache for key: ${buildKey}`);
+        continue;
+      }
+      const build: ActiveBuild = parsedBuild;
       
       // Skip if already cleaning
       if (build.status === 'cleaning') {
@@ -62,6 +79,7 @@ export class CleanupService {
     }
 
     // 2. For each idle build, clean it up
+    stats.idleBuildsFound = idleBuilds.length;
     console.log(`Found ${idleBuilds.length} idle builds to clean up`);
 
     for (const { build, buildId, buildKey } of idleBuilds) {
@@ -85,6 +103,7 @@ export class CleanupService {
         console.log(`Set build ${buildId} status to cleaning`);
       } catch (error) {
         console.error(`Failed to set cleaning status for ${buildId}:`, error);
+        stats.failedCleanups++;
         continue;
       }
 
@@ -113,6 +132,7 @@ export class CleanupService {
           console.warn(
             `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
           );
+          stats.failedCleanups++;
           continue;
         }
       }
@@ -126,35 +146,43 @@ export class CleanupService {
         // Remove from builds ZSET
         await this.cache.customCommand([
           'ZREM',
-          `proto:${prototypeId}:builds`,
+          CACHE_KEYS.protoBuilds(prototypeId),
           buildId,
         ]);
         console.log(`Removed ${buildId} from builds ZSET for prototype ${prototypeId}`);
         
         // If this was the current build, remove the current pointer
-        const currentBuildId = await this.cache.get(`proto:${prototypeId}:current`);
+        const currentBuildId = await this.cache.get(CACHE_KEYS.protoCurrentBuild(prototypeId));
         if (currentBuildId === buildId) {
-          await this.cache.del([`proto:${prototypeId}:current`]);
+          await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
           console.log(`Removed current pointer for prototype ${prototypeId}`);
         }
         
+        stats.successfulCleanups++;
       } catch (error) {
         console.error(
           `Failed to remove cache entries for ${buildId}:`,
           error,
         );
+        stats.failedCleanups++;
       }
     }
+
+    console.log('Cleanup completed:', stats);
+    return stats;
   }
 
   // Start cleanup services
   private startCleanupServices(): void {
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
-      setInterval(() => {
-        this.cleanupIdleActiveBuilds().catch((error) => {
+      setInterval(async () => {
+        try {
+          const stats = await this.cleanupIdleActiveBuilds();
+          console.log(`Cleanup cycle completed with stats:`, stats);
+        } catch (error) {
           console.error('Error in cleanupIdleActiveBuilds:', error);
-        });
+        }
       }, CONFIG.CLEANUP_INTERVAL_HOT_RELOAD),
     );
 
@@ -171,7 +199,7 @@ export class CleanupService {
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<CleanupOperationResult> {
     try {
       console.log(
         `Dispatching kill dev server request to ${fargatePrivateIp}:3002/dev-server for prototype: ${prototypeId}`,
@@ -208,7 +236,7 @@ export class CleanupService {
   // Terminate Fargate task
   private async terminateFargateTask(
     taskArn: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<CleanupOperationResult> {
     try {
       console.log(`Terminating Fargate task: ${taskArn}`);
 
@@ -272,11 +300,3 @@ export class CleanupService {
   }
 }
 
-// Interface definitions
-interface ActiveBuild {
-  fargate_task_arn: string;
-  fargate_private_ip: string;
-  url: string;
-  status: 'creating' | 'updating' | 'error' | 'stable' | 'cleaning';
-  last_touched: number;
-}

@@ -93,6 +93,28 @@ export interface BuildCreationContext {
 }
 
 // ============================================================================
+// CLEANUP SERVICE TYPES
+// ============================================================================
+
+export interface CleanupOperationResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface IdleBuildInfo {
+  build: ActiveBuild;
+  buildId: string;
+  buildKey: string;
+}
+
+export interface CleanupStats {
+  totalBuildsScanned: number;
+  idleBuildsFound: number;
+  successfulCleanups: number;
+  failedCleanups: number;
+}
+
+// ============================================================================
 // ERROR HANDLING TYPES
 // ============================================================================
 
@@ -143,6 +165,11 @@ export const CACHE_KEYS = {
   protoCurrentBuild: (prototypeId: string) => `proto:${prototypeId}:current`,
   protoBuilds: (prototypeId: string) => `proto:${prototypeId}:builds`,
   activeBuild: (buildId: string) => `active_build:${buildId}`,
+} as const;
+
+export const CACHE_PATTERNS = {
+  allActiveBuilds: 'active_build:*',
+  protoBuilds: (prototypeId: string) => `proto:${prototypeId}:*`,
 } as const;
 
 export const BUILD_TIMEOUTS = {
