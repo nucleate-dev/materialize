@@ -184,6 +184,26 @@ fastify.post(
   },
 );
 
+// Clear cache endpoint (for development/testing)
+fastify.delete('/cache/clear', async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    await cache.flushall();
+    fastify.log.info('Cache cleared successfully');
+    return reply.send({
+      success: true,
+      message: 'Cache cleared successfully',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const e = error instanceof Error ? error : new Error(String(error));
+    fastify.log.error(e, 'Failed to clear cache:');
+    return reply.status(500).send({
+      error: 'Failed to clear cache',
+      message: e.message,
+    });
+  }
+});
+
 // Prototype dispatch precheck endpoint
 fastify.post(
   '/dispatch-precheck',
