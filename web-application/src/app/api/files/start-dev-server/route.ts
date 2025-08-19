@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Fetch dispatch-precheck to verify permissions and build status
     const precheckResponse = await fetch(
-      `${process.env.SERVER_ENDPOINT!}/dispatch-precheck`,
+      `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dispatch-precheck`,
       {
         method: "POST",
         headers: {
@@ -173,11 +173,13 @@ export async function POST(request: NextRequest) {
     // 5. Save only text files to database (don't overwrite existing assets)
     // Filter to only include text files from the editor - exclude asset files
     const textFilesOnly = Object.fromEntries(
-      files.filter((file) => {
-        // Only include files that are already text type or don't have a file_type yet
-        // This prevents us from overwriting asset files that were loaded from database
-        return !file.file_type || file.file_type === "text";
-      }).map((file) => [file.name, file])
+      files
+        .filter((file) => {
+          // Only include files that are already text type or don't have a file_type yet
+          // This prevents us from overwriting asset files that were loaded from database
+          return !file.file_type || file.file_type === "text";
+        })
+        .map((file) => [file.name, file]),
     );
 
     console.log(
@@ -286,7 +288,7 @@ export async function POST(request: NextRequest) {
     console.log("Dispatching dev server start request to server");
 
     const dispatchResponse = await fetch(
-      `${process.env.SERVER_ENDPOINT!}/dispatch`,
+      `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dispatch`,
       {
         method: "POST",
         headers: {

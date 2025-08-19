@@ -113,6 +113,22 @@ export type CacheClearResponse =
   | StandardErrorResponse;
 
 // ============================================================================
+// /payments/manage-billing ENDPOINT
+// ============================================================================
+
+export interface ManageBillingRequestBody {
+  // No body parameters - user ID comes from JWT
+}
+
+export interface ManageBillingSuccessResponse {
+  redirect_url: string;
+}
+
+export type ManageBillingResponse =
+  | ManageBillingSuccessResponse
+  | StandardErrorResponse;
+
+// ============================================================================
 // HTTP STATUS CODE MAPPINGS
 // ============================================================================
 

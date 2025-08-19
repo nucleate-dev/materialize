@@ -3,6 +3,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import { DispatcherService } from './services/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
+import { StripeManagementService } from './services/StripeManagementService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';
@@ -48,6 +49,7 @@ fastify.register(cors, { origin: true, credentials: true });
 
 let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
+let stripeManagementService: StripeManagementService;
 let cache: GlideClient;
 
 // Health check
@@ -111,6 +113,10 @@ const start = async (): Promise<void> => {
 
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cache, ecsClient);
+
+    // Create stripe management service and register routes
+    stripeManagementService = new StripeManagementService();
+    stripeManagementService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,

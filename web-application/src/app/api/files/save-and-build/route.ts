@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     console.log("🔍 [save-and-build] File scope:", file_scope);
     // 3. Fetch dispatch-precheck to verify permissions and build status
     const precheckResponse = await fetch(
-      `${process.env.SERVER_ENDPOINT!}/dispatch-precheck`,
+      `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dispatch-precheck`,
       {
         method: "POST",
         headers: {
@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
     console.log("Dispatching build request to server");
 
     const dispatchResponse = await fetch(
-      `${process.env.SERVER_ENDPOINT!}/dispatch`,
+      `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dispatch`,
       {
         method: "POST",
         headers: {

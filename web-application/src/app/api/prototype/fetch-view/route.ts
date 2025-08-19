@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
           "fetching dispatch-precheck to get active tunnel url if exists",
         );
         const precheckResponse = await fetch(
-          `${process.env.SERVER_ENDPOINT}/dispatch-precheck`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/dispatch-precheck`,
           {
             method: "POST",
             headers: {

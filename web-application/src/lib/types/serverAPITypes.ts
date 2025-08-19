@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-19T19:56:06.481Z
+// Last synced: 2025-08-19T20:13:19.995Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -119,6 +119,22 @@ export interface CacheClearSuccessResponse {
 
 export type CacheClearResponse =
   | CacheClearSuccessResponse
+  | StandardErrorResponse;
+
+// ============================================================================
+// /payments/manage-billing ENDPOINT
+// ============================================================================
+
+export interface ManageBillingRequestBody {
+  // No body parameters - user ID comes from JWT
+}
+
+export interface ManageBillingSuccessResponse {
+  redirect_url: string;
+}
+
+export type ManageBillingResponse =
+  | ManageBillingSuccessResponse
   | StandardErrorResponse;
 
 // ============================================================================

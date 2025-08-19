@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
     // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
     // ------------------------------------------------------------------------------------------------
     const precheckResponse = await fetch(
-      `${process.env.SERVER_ENDPOINT!}/dispatch-precheck`,
+      `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dispatch-precheck`,
       {
         method: "POST",
         headers: {
@@ -270,7 +270,11 @@ export async function POST(request: NextRequest) {
           );
 
           // Convert PrototypeFiles to FileInput[] format for dispatch
-          const filesForDispatch: Array<{ path: string; content: string; isBase64?: boolean }> = [];
+          const filesForDispatch: Array<{
+            path: string;
+            content: string;
+            isBase64?: boolean;
+          }> = [];
           Object.entries(finalFiles).forEach(([filePath, file]) => {
             if (file.contents) {
               filesForDispatch.push({
@@ -293,7 +297,7 @@ export async function POST(request: NextRequest) {
 
           try {
             const dispatchResponse = await fetch(
-              `${process.env.SERVER_ENDPOINT!}/dispatch`,
+              `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dispatch`,
               {
                 method: "POST",
                 headers: {
@@ -337,7 +341,7 @@ export async function POST(request: NextRequest) {
             );
           } catch (error) {
             console.error("❌ Error calling dispatch endpoint:", error);
-            
+
             // Stream dispatch completion event for error case
             controller.enqueue(
               encoder.encode(
@@ -345,7 +349,8 @@ export async function POST(request: NextRequest) {
                   type: "dispatch_complete",
                   success: false,
                   message: "Build process failed",
-                  error: error instanceof Error ? error.message : "Unknown error",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
                 })}\n\n`,
               ),
             );
