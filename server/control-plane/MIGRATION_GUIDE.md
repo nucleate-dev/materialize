@@ -153,6 +153,41 @@ curl -X POST http://localhost:3000/prototype/fetch-viewing-url \
 - Validates user access through prototype ownership
 - Optional JWT authentication for enhanced features
 
+#### Client-Side Migration:
+- ✅ **Updated `prototype/[prototype_id]/page.tsx`**: Now uses control-plane endpoint with type safety
+- ✅ **Updated `dashboard/prototypes/[prototype_id]/page.tsx`**: Now uses control-plane endpoint with type safety
+- ✅ **Type Safety**: Uses synced types from `serverAPITypes.ts` with proper type guards
+- ✅ **Environment Variable**: Uses `NEXT_PUBLIC_SERVER_ENDPOINT` from .env
+
+**Before:**
+```typescript
+const fetchViewResponse = await fetch("/api/prototype/fetch-view", {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    prototype_id: prototypeId,
+    current_page: "edit",
+  }),
+});
+```
+
+**After:**
+```typescript
+const fetchViewResponse = await fetch(`${serverEndpoint}/prototype/fetch-viewing-url`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    prototype_id: prototypeId,
+    current_page: "edit",
+  } as FetchViewingUrlRequestBody),
+});
+
+const fetchViewData: FetchViewingUrlResponse = await fetchViewResponse.json();
+if ('viewing_url' in fetchViewData) {
+  setViewingUrl(fetchViewData.viewing_url);
+}
+```
+
 ---
 
 ## Environment Variables Setup

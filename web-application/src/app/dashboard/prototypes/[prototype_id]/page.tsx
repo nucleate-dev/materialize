@@ -28,6 +28,10 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
+import type { 
+  FetchViewingUrlRequestBody, 
+  FetchViewingUrlResponse 
+} from "@/lib/types/serverAPITypes";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -138,10 +142,16 @@ export default function CreatePage() {
       setIsPublic(data.visibility === "PUBLIC");
       console.log("Successfully fetched prototype:", data);
 
-      // Call fetch-view API to get viewing URL
+      // Call fetch-viewing-url API to get viewing URL
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+
+        if (!serverEndpoint) {
+          console.error("Server endpoint not configured");
+          return;
+        }
 
         const headers: HeadersInit = {
           "Content-Type": "application/json",
@@ -151,20 +161,24 @@ export default function CreatePage() {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const fetchViewResponse = await fetch("/api/prototype/fetch-view", {
+        const fetchViewResponse = await fetch(`${serverEndpoint}/prototype/fetch-viewing-url`, {
           method: "POST",
           headers,
           body: JSON.stringify({
             prototype_id: prototypeId,
             current_page: "edit",
-          }),
+          } as FetchViewingUrlRequestBody),
         });
 
         if (fetchViewResponse.ok) {
-          const fetchViewData = await fetchViewResponse.json();
-          console.log("Viewing URL:", fetchViewData.viewing_url);
-          console.log("Source:", fetchViewData.source);
-          setViewingUrl(fetchViewData.viewing_url);
+          const fetchViewData: FetchViewingUrlResponse = await fetchViewResponse.json();
+          if ('viewing_url' in fetchViewData) {
+            console.log("Viewing URL:", fetchViewData.viewing_url);
+            console.log("Source:", fetchViewData.source);
+            setViewingUrl(fetchViewData.viewing_url);
+          } else {
+            console.error("Error in fetch-viewing-url response:", fetchViewData);
+          }
         } else {
           console.error(
             "Failed to fetch viewing URL:",
@@ -172,7 +186,7 @@ export default function CreatePage() {
           );
         }
       } catch (fetchViewError) {
-        console.error("Error calling fetch-view API:", fetchViewError);
+        console.error("Error calling fetch-viewing-url API:", fetchViewError);
       }
     }
 
