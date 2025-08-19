@@ -1,8 +1,4 @@
-import { Database } from "@/lib/types/database.types";
-import { convertPrototypeFilesForBuildWorker } from "@/lib/utils/buildWorkerUtils";
 import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
-import { getPrototypeFiles } from "@/lib/utils/prototypeAuth";
-import { createClient } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -148,10 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     const precheckData: PrecheckResponse = await precheckResponse.json();
-    console.log(
-      "🔍 [update-files] Dispatch precheck response:",
-      precheckData,
-    );
+    console.log("🔍 [update-files] Dispatch precheck response:", precheckData);
 
     // 4. Check if build is already in progress
     if (

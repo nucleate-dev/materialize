@@ -35,7 +35,7 @@ interface CodeEditorProps {
   onForceRefresh?: () => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
   // Save behavior control
-  saveMode?: 'single-file' | 'all-files'; // Defaults to 'single-file' for better performance
+  saveMode?: "single-file" | "all-files"; // Defaults to 'single-file' for better performance
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -52,44 +52,49 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   prototypeId,
   files,
   onViewingUrlUpdate,
-  onForceRefresh,
+  // onForceRefresh,
   onBuildingStateChange,
-  saveMode = 'single-file', // Default to single file saves
+  saveMode = "single-file", // Default to single file saves
 }) => {
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
-    const ext = name?.split('.').pop()?.toLowerCase();
+    const ext = name?.split(".").pop()?.toLowerCase();
     switch (ext) {
-      case 'js':
-      case 'jsx':
-        return 'javascript';
-      case 'ts':
-      case 'tsx':
-        return 'typescript';
-      case 'json':
-        return 'json';
-      case 'md':
-        return 'markdown';
-      case 'css':
-        return 'css';
-      case 'html':
-        return 'html';
+      case "js":
+      case "jsx":
+        return "javascript";
+      case "ts":
+      case "tsx":
+        return "typescript";
+      case "json":
+        return "json";
+      case "md":
+        return "markdown";
+      case "css":
+        return "css";
+      case "html":
+        return "html";
       default:
-        return 'javascript';
+        return "javascript";
     }
   };
 
-  const editorLanguage = fileName ? getLanguageFromFileName(fileName) : language;
+  const editorLanguage = fileName
+    ? getLanguageFromFileName(fileName)
+    : language;
 
   // Check if current file is an image asset
   const isImageFile = (name: string) => {
-    const ext = name?.split('.').pop()?.toLowerCase();
-    return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico'].includes(ext || '');
+    const ext = name?.split(".").pop()?.toLowerCase();
+    return ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico"].includes(
+      ext || "",
+    );
   };
 
   // Get the current file data to check if it's an asset with storage_path
   const currentFile = fileName && files ? files[fileName] : null;
-  const isAssetImage = currentFile?.file_type === 'asset' && fileName && isImageFile(fileName);
+  const isAssetImage =
+    currentFile?.file_type === "asset" && fileName && isImageFile(fileName);
   const imageUrl = isAssetImage ? currentFile?.storage_path : null;
 
   const [showNewFileModal, setShowNewFileModal] = useState(false);
@@ -113,28 +118,30 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // Validate file name (basic validation)
     const fileName = newFileName.trim();
     if (!/^[a-zA-Z0-9._/-]+$/.test(fileName)) {
-      setNewFileError("Invalid file name. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.");
+      setNewFileError(
+        "Invalid file name. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.",
+      );
       return;
     }
 
     // Get default content based on file extension
     const getDefaultContent = (name: string) => {
-      const ext = name.split('.').pop()?.toLowerCase();
+      const ext = name.split(".").pop()?.toLowerCase();
       switch (ext) {
-        case 'js':
-        case 'jsx':
-          return `import React from 'react';\nimport { View, Text } from 'react-native';\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}() {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
-        case 'ts':
-        case 'tsx':
-          return `import React from 'react';\nimport { View, Text } from 'react-native';\n\ninterface Props {}\n\nexport default function ${name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '')}({}: Props) {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
-        case 'json':
-          return '{\n  \n}';
-        case 'md':
-          return `# ${name.split('.')[0]}\n\nAdd your content here.`;
-        case 'css':
-          return '/* Add your styles here */';
+        case "js":
+        case "jsx":
+          return `import React from 'react';\nimport { View, Text } from 'react-native';\n\nexport default function ${name.split(".")[0].replace(/[^a-zA-Z0-9]/g, "")}() {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+        case "ts":
+        case "tsx":
+          return `import React from 'react';\nimport { View, Text } from 'react-native';\n\ninterface Props {}\n\nexport default function ${name.split(".")[0].replace(/[^a-zA-Z0-9]/g, "")}({}: Props) {\n  return (\n    <View>\n      <Text>Hello from ${name}!</Text>\n    </View>\n  );\n}`;
+        case "json":
+          return "{\n  \n}";
+        case "md":
+          return `# ${name.split(".")[0]}\n\nAdd your content here.`;
+        case "css":
+          return "/* Add your styles here */";
         default:
-          return '';
+          return "";
       }
     };
 
@@ -164,7 +171,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const handleSaveSingleFile = async () => {
     if (!prototypeId || !fileName || value === undefined || !files) {
-      console.error("Cannot save: missing prototype ID, filename, file content, or files object");
+      console.error(
+        "Cannot save: missing prototype ID, filename, file content, or files object",
+      );
       return;
     }
 
@@ -172,7 +181,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     if (onBuildingStateChange) {
       onBuildingStateChange(true);
     }
-    
+
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
@@ -183,19 +192,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       // Create single file object in the array format expected by update-files API
-      const singleFileUpdate = [{
-        contents: value,
-        name: fileName,
-        file_type: files[fileName]?.file_type || "text" as const,
-        prototype_id: files[fileName]?.prototype_id || prototypeId,
-        // Copy other properties from existing file if it exists
-        ...(files[fileName] && {
-          id: files[fileName].id,
-          storage_path: files[fileName].storage_path,
-          created_at: files[fileName].created_at,
-          updated_at: files[fileName].updated_at,
-        })
-      }];
+      const singleFileUpdate = [
+        {
+          contents: value,
+          name: fileName,
+          file_type: files[fileName]?.file_type || ("text" as const),
+          prototype_id: files[fileName]?.prototype_id || prototypeId,
+          // Copy other properties from existing file if it exists
+          ...(files[fileName] && {
+            id: files[fileName].id,
+            storage_path: files[fileName].storage_path,
+            created_at: files[fileName].created_at,
+            updated_at: files[fileName].updated_at,
+          }),
+        },
+      ];
 
       const response = await fetch("/api/files/update-files", {
         method: "POST",
@@ -210,21 +221,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       });
 
       const result = await response.json();
-      
+
       if (response.ok && result.success) {
         console.log("✅ Single file updated successfully in dev server");
-        
+
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.viewing_url);
         }
-        
       } else {
         console.error("Failed to update file:", result.error || result.message);
-        
+
         // If no active dev server, provide helpful message
         if (result.error === "No active dev server") {
-          console.log("💡 Tip: Start a dev server first, then try saving files again");
+          console.log(
+            "💡 Tip: Start a dev server first, then try saving files again",
+          );
         }
       }
     } catch (error) {
@@ -260,7 +272,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       const filesArray = Object.entries(files).map(([path, file]) => ({
         contents: file.contents,
         name: path,
-        file_type: file.file_type || "text" as const,
+        file_type: file.file_type || ("text" as const),
         prototype_id: file.prototype_id || prototypeId,
         id: file.id,
         storage_path: file.storage_path,
@@ -281,21 +293,25 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       });
 
       const result = await response.json();
-      
+
       if (response.ok && result.success) {
         console.log("✅ All files updated successfully in dev server");
-        
+
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.viewing_url);
         }
-        
       } else {
-        console.error("Failed to update files:", result.error || result.message);
-        
+        console.error(
+          "Failed to update files:",
+          result.error || result.message,
+        );
+
         // If no active dev server, provide helpful message
         if (result.error === "No active dev server") {
-          console.log("💡 Tip: Start a dev server first, then try saving files again");
+          console.log(
+            "💡 Tip: Start a dev server first, then try saving files again",
+          );
         }
       }
     } catch (error) {
@@ -309,7 +325,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   // Configure Monaco Editor before it loads
-  const beforeMount = (monaco: typeof import('monaco-editor')) => {
+  const beforeMount = (monaco: typeof import("monaco-editor")) => {
     // Configure TypeScript compiler options to be less strict
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.Latest,
@@ -417,9 +433,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }`,
     ];
 
-    extraLibs.forEach(lib => {
-      monaco.languages.typescript.typescriptDefaults.addExtraLib(lib, 'react-native-types.d.ts');
-      monaco.languages.typescript.javascriptDefaults.addExtraLib(lib, 'react-native-types.d.ts');
+    extraLibs.forEach((lib) => {
+      monaco.languages.typescript.typescriptDefaults.addExtraLib(
+        lib,
+        "react-native-types.d.ts",
+      );
+      monaco.languages.typescript.javascriptDefaults.addExtraLib(
+        lib,
+        "react-native-types.d.ts",
+      );
     });
   };
 
@@ -438,10 +460,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
-              {isAssetImage ? 'IMAGE ASSET' : editorLanguage}
+              {isAssetImage ? "IMAGE ASSET" : editorLanguage}
             </span>
             {!readOnly && (
               <div className="flex items-center space-x-1">
@@ -450,11 +472,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={saveMode === 'single-file' ? handleSaveSingleFile : handleSaveFiles}
+                    onClick={
+                      saveMode === "single-file"
+                        ? handleSaveSingleFile
+                        : handleSaveFiles
+                    }
                     disabled={isSaving}
-                    title={saveMode === 'single-file' ? "Save current file" : "Save all files"}
+                    title={
+                      saveMode === "single-file"
+                        ? "Save current file"
+                        : "Save all files"
+                    }
                   >
-                    <Save className={`w-3 h-3 ${isSaving ? 'animate-pulse' : ''}`} />
+                    <Save
+                      className={`w-3 h-3 ${isSaving ? "animate-pulse" : ""}`}
+                    />
                   </Button>
                 )}
                 {onCreateFile && (
@@ -493,16 +525,20 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 alt={fileName}
                 className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
                 onError={(e) => {
-                  console.error('Failed to load image:', imageUrl);
-                  (e.target as HTMLImageElement).style.display = 'none';
+                  console.error("Failed to load image:", imageUrl);
+                  (e.target as HTMLImageElement).style.display = "none";
                 }}
               />
               <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-foreground">{fileName}</p>
-                <p className="text-xs text-muted-foreground">Asset file • Click to view full size</p>
-                <a 
-                  href={imageUrl} 
-                  target="_blank" 
+                <p className="text-sm font-medium text-foreground">
+                  {fileName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Asset file • Click to view full size
+                </p>
+                <a
+                  href={imageUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                 >
@@ -538,8 +574,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               tabCompletion: readOnly ? "off" : "on",
               wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
               scrollbar: {
-                vertical: 'visible',
-                horizontal: 'visible',
+                vertical: "visible",
+                horizontal: "visible",
                 useShadows: true,
                 verticalHasArrows: true,
                 horizontalHasArrows: true,
@@ -550,14 +586,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           />
         )}
       </div>
-      
+
       {/* New File Modal */}
-      <Dialog open={showNewFileModal} onOpenChange={(open) => {
-        setShowNewFileModal(open);
-        if (!open) {
-          handleModalClose();
-        }
-      }}>
+      <Dialog
+        open={showNewFileModal}
+        onOpenChange={(open) => {
+          setShowNewFileModal(open);
+          if (!open) {
+            handleModalClose();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create New File</DialogTitle>
@@ -598,17 +637,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           </div>
 
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setShowNewFileModal(false)}
-            >
+            <Button variant="ghost" onClick={() => setShowNewFileModal(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreateFile}
-            >
-              Create File
-            </Button>
+            <Button onClick={handleCreateFile}>Create File</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -622,22 +654,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete <span className="font-mono font-medium text-foreground">{fileName}</span>?
-              This action cannot be undone.
+              Are you sure you want to delete{" "}
+              <span className="font-mono font-medium text-foreground">
+                {fileName}
+              </span>
+              ? This action cannot be undone.
             </p>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setShowDeleteConfirm(false)}
-            >
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDeleteFile}
-            >
+            <Button variant="destructive" onClick={confirmDeleteFile}>
               Delete File
             </Button>
           </DialogFooter>
