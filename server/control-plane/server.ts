@@ -30,7 +30,7 @@ interface DispatchRequestBody {
 }
 
 // Initialize clients
-const initializeClients = async () => {
+const initializeClients = async (): Promise<{ cache: GlideClient; ecsClient: ECSClient }> => {
   const ecsClient = new ECSClient({
     region: process.env.AWS_REGION!,
   });
@@ -279,7 +279,7 @@ fastify.post(
 );
 
 // Start server
-const start = async () => {
+const start = async (): Promise<void> => {
   try {
     // Initialize clients first
     const { cache: cacheClient, ecsClient } = await initializeClients();
@@ -304,7 +304,7 @@ const start = async () => {
   }
 };
 
-const close = async () => {
+const close = async (): Promise<void> => {
   fastify.log.info('Shutting down...');
   try {
     // Stop cleanup services

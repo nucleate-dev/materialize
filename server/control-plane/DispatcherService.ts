@@ -4,7 +4,7 @@ import {
   RunTaskCommand,
   waitUntilTasksRunning, // optional helper waiter
 } from '@aws-sdk/client-ecs';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type User } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
@@ -26,7 +26,7 @@ export class DispatcherService {
   private async validateUserAndPrototypeOwner(
     jwt: string,
     prototypeId: string,
-  ) {
+  ): Promise<{ user: User; prototype: Database['public']['Tables']['prototypes']['Row'] }> {
     // 1. Create Anon Supabase client with JWT
     const supabase = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -400,16 +400,14 @@ export class DispatcherService {
 
         const task = describeResponse.tasks?.[0];
         const eni = task?.attachments?.[0]?.details?.find(
-          (detail: { name: string; value: string }) =>
-            detail.name === 'networkInterfaceId',
+          (detail) => detail.name === 'networkInterfaceId',
         )?.value;
         let privateIp = '';
 
         if (eni) {
           // Get private IP from ENI details in task
           const privateIpDetail = task?.attachments?.[0]?.details?.find(
-            (detail: { name: string; value: string }) =>
-              detail.name === 'privateIPv4Address',
+            (detail) => detail.name === 'privateIPv4Address',
           );
           privateIp = privateIpDetail?.value || '';
         }
@@ -430,7 +428,12 @@ export class DispatcherService {
 
   private async dispatchFormedRequestToFargateInstanceServer(
     fargatePrivateIp: string,
-    requestBody: any,
+    requestBody: {
+      prototype_id: string;
+      framework: 'expo_react_native' | 'react';
+      files: FileInput[];
+      file_scope: 'updates' | 'complete';
+    },
   ): Promise<FargateDevServerResponse> {
     try {
       console.log(
@@ -471,7 +474,7 @@ export class DispatcherService {
     framework: 'expo_react_native' | 'react';
     files: FileInput[];
     file_scope: 'updates' | 'complete';
-  }) {
+  }): { prototype_id: string; framework: 'expo_react_native' | 'react'; files: FileInput[]; file_scope: 'updates' | 'complete' } {
     return {
       prototype_id,
       framework,

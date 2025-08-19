@@ -129,9 +129,14 @@ export const HTTP_STATUS = {
 // ============================================================================
 
 export function isStandardErrorResponse(
-  response: any,
+  response: unknown,
 ): response is StandardErrorResponse {
-  return 'error' in response && 'message' in response;
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'error' in response &&
+    'message' in response
+  );
 }
 
 export function isDispatchSuccessResponse(
