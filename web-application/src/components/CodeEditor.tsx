@@ -182,22 +182,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         return;
       }
 
-      // Create single file object in the expected format
-      const singleFileUpdate = {
-        [fileName]: {
-          contents: value,
-          name: fileName,
-          // Copy other properties from existing file if it exists
-          ...(files[fileName] && {
-            prototype_id: files[fileName].prototype_id,
-            id: files[fileName].id,
-            created_at: files[fileName].created_at,
-            updated_at: files[fileName].updated_at,
-          })
-        }
-      };
+      // Create single file object in the array format expected by update-files API
+      const singleFileUpdate = [{
+        contents: value,
+        name: fileName,
+        file_type: files[fileName]?.file_type || "text" as const,
+        prototype_id: files[fileName]?.prototype_id || prototypeId,
+        // Copy other properties from existing file if it exists
+        ...(files[fileName] && {
+          id: files[fileName].id,
+          storage_path: files[fileName].storage_path,
+          created_at: files[fileName].created_at,
+          updated_at: files[fileName].updated_at,
+        })
+      }];
 
-      const response = await fetch("/api/files/save-and-build", {
+      const response = await fetch("/api/files/update-files", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -206,14 +206,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         body: JSON.stringify({
           files: singleFileUpdate,
           prototype_id: prototypeId,
-          file_scope: "updates", // Use updates instead of complete
         }),
       });
 
       const result = await response.json();
       
       if (response.ok && result.success) {
-        console.log("✅ Single file saved and updated successfully");
+        console.log("✅ Single file updated successfully in dev server");
         
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
@@ -225,10 +224,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           onForceRefresh();
         }
       } else {
-        console.error("Failed to save file:", result.error || result.message);
+        console.error("Failed to update file:", result.error || result.message);
+        
+        // If no active dev server, provide helpful message
+        if (result.error === "No active dev server") {
+          console.log("💡 Tip: Start a dev server first, then try saving files again");
+        }
       }
     } catch (error) {
-      console.error("Error saving file:", error);
+      console.error("Error updating file:", error);
     } finally {
       setIsSaving(false);
       if (onBuildingStateChange) {
