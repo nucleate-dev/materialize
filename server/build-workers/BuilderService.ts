@@ -523,7 +523,6 @@ export class BuilderService {
     });
   }
 
-
   private async buildExpoProject(
     projectDir: string,
     logger: any,
@@ -564,7 +563,6 @@ export class BuilderService {
       ["expo", "export", "--platform", "web"],
       projectDir,
       {
-        CI: "1",
         EXPO_NO_TELEMETRY: "1",
         NODE_OPTIONS: "--max-old-space-size=2048",
       },

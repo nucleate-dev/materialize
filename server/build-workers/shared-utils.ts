@@ -3,7 +3,12 @@ import fs from "fs/promises";
 import path from "path";
 
 export interface Logger {
-  log: (message: string, success?: boolean, output?: string, error?: string) => void;
+  log: (
+    message: string,
+    success?: boolean,
+    output?: string,
+    error?: string,
+  ) => void;
 }
 
 export interface SimpleLogger {
@@ -12,7 +17,7 @@ export interface SimpleLogger {
 
 export async function installDependencies(
   projectDir: string,
-  logger: Logger | SimpleLogger
+  logger: Logger | SimpleLogger,
 ): Promise<void> {
   if ("addLog" in logger) {
     logger.addLog("Installing dependencies...");
@@ -53,7 +58,6 @@ export async function installDependencies(
         cwd: projectDir,
         env: {
           ...process.env,
-          CI: "1",
           NODE_OPTIONS: "--max-old-space-size=2048",
         },
         stdio: ["ignore", "pipe", "pipe"],

@@ -2,7 +2,6 @@ import { ChildProcess, spawn } from "child_process";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
 import { customlog } from "./logger.js";
 import { installDependencies } from "./shared-utils.js";
 
@@ -198,8 +197,7 @@ export class ExpoDevServerService {
       this.state.addLog(`Starting dev server for prototype ${prototypeId}`);
 
       // Setup project directory
-      const projectId = uuidv4();
-      this.state.projectDir = path.join(this.workDir, projectId);
+      this.state.projectDir = path.join(this.workDir, prototypeId);
       await fs.mkdir(this.state.projectDir, { recursive: true });
 
       // Write project files
@@ -442,10 +440,12 @@ export class ExpoDevServerService {
     projectDir: string,
   ): Promise<void> {
     // Log file breakdown
-    const textFiles = files.filter(f => !f.isBase64);
-    const binaryFiles = files.filter(f => f.isBase64);
-    this.state.addLog(`📊 Writing ${files.length} files: ${textFiles.length} text, ${binaryFiles.length} binary`);
-    
+    const textFiles = files.filter((f) => !f.isBase64);
+    const binaryFiles = files.filter((f) => f.isBase64);
+    this.state.addLog(
+      `📊 Writing ${files.length} files: ${textFiles.length} text, ${binaryFiles.length} binary`,
+    );
+
     for (const file of files) {
       const filePath = path.join(projectDir, file.path);
       const fileDir = path.dirname(filePath);
@@ -471,7 +471,6 @@ export class ExpoDevServerService {
     }
   }
 
-
   private async startExpoProcess(
     projectDir: string,
     port: number,
@@ -492,7 +491,6 @@ export class ExpoDevServerService {
           cwd: projectDir,
           env: {
             ...process.env,
-            CI: "1",
             EXPO_NO_TELEMETRY: "1",
             EXPO_TUNNEL_SUBDOMAIN: tunnelSubdomain,
           },
