@@ -29,6 +29,7 @@ import {
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckResponse,
   StandardErrorResponse,
+  isStandardErrorResponse,
 } from './types/PublicServerAPITypes.js';
 import type { Database } from './types/supabase.js';
 
@@ -161,77 +162,51 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
   ): Promise<DispatchPrecheckResponse> {
-    try {
-      const { jwt, prototype_id } = request.body;
+    const { jwt, prototype_id } = request.body;
 
-      if (!jwt) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'JWT is required',
-        };
-      }
-
-      if (!prototype_id) {
-        reply.status(400);
-        return {
-          error: 'Bad Request',
-          message: 'prototype_id is required',
-        };
-      }
-
-      console.log(`Processing precheck request for prototype: ${prototype_id}`);
-
-      const result = await this.prototypeDispatchPrecheck(jwt, prototype_id);
-
-      return result;
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      console.error('Precheck request failed:', e);
-
-      // Check if it's an authentication or permission error
-      if (
-        e.message.includes('Invalid JWT') ||
-        e.message.includes('not authenticated')
-      ) {
-        reply.status(401);
-        return {
-          error: 'Unauthorized',
-          message: e.message,
-        };
-      }
-
-      if (
-        e.message.includes('Prototype not found') ||
-        e.message.includes('does not have permissions')
-      ) {
-        reply.status(404);
-        return {
-          error: 'Prototype not found',
-          message: e.message,
-        };
-      }
-
-      reply.status(500);
+    // Validation
+    if (!jwt) {
+      reply.status(400);
       return {
-        error: 'Internal Server Error',
-        message: e.message,
+        error: 'Bad Request',
+        message: 'JWT is required',
       };
     }
-  }
 
-  // Precheck prototype status
-  private async prototypeDispatchPrecheck(
-    jwt: string,
-    prototypeId: string,
-  ): Promise<DispatchPrecheckResponse> {
+    if (!prototype_id) {
+      reply.status(400);
+      return {
+        error: 'Bad Request',
+        message: 'prototype_id is required',
+      };
+    }
+
+    console.log(`Processing precheck request for prototype: ${prototype_id}`);
+
+    // Authentication and authorization validation
+    const validationResult = await this.validateUserAndPrototypeOwner(
+      jwt,
+      prototype_id,
+    );
+
+    if (isStandardErrorResponse(validationResult)) {
+      // Set appropriate status code based on error type
+      if (validationResult.error === 'Unauthorized') {
+        return reply.status(401).send(validationResult);
+      } else if (
+        validationResult.error === 'Not Found' ||
+        validationResult.error === 'Forbidden'
+      ) {
+        return reply.status(404).send(validationResult);
+      } else {
+        return reply.status(500).send(validationResult);
+      }
+    }
+
     try {
-      // Authentication and authorization validation
-      await this.validateUserAndPrototypeOwner(jwt, prototypeId);
-
       // Check current build pointer
       const currentBuildId = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototypeId),
+        CACHE_KEYS.protoCurrentBuild(prototype_id),
       );
 
       if (currentBuildId) {
@@ -241,19 +216,20 @@ export class DispatcherService {
         if (existingBuildJson) {
           const parsedBuild = JSON.parse(existingBuildJson as string);
           if (!isActiveBuild(parsedBuild)) {
-            throw new Error('Invalid build data in cache');
+            reply.status(500);
+            return {
+              error: 'Internal Server Error',
+              message: 'Invalid build data in cache',
+            };
           }
           const existingBuild: ActiveBuild = parsedBuild;
 
-          // Determine state based on status
-          const state = 'active_dev_server';
-
           return {
             success: true,
-            state,
+            state: 'active_dev_server', // ALWAYS ACTIVE DEV SERVER CURRENTLY
             status: existingBuild.status,
             viewing_url: this.normalizeUrl(
-              existingBuild.url || this.getS3Url(prototypeId),
+              existingBuild.url || this.getS3Url(prototype_id),
             ),
           };
         }
@@ -264,10 +240,16 @@ export class DispatcherService {
         success: true,
         state: 'dne',
         status: null,
-        viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
+        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
       };
     } catch (error) {
-      throw error;
+      const e = error instanceof Error ? error : new Error(String(error));
+      console.error('Precheck cache operation failed:', e);
+
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: e.message,
+      });
     }
   }
 
@@ -278,10 +260,24 @@ export class DispatcherService {
     files,
     file_scope,
   }: DispatchRequestBody): Promise<DispatchResponse> {
-    try {
-      // Authentication and authorization validation
-      await this.validateUserAndPrototypeOwner(jwt, prototype_id);
+    // Authentication and authorization validation
+    const validationResult = await this.validateUserAndPrototypeOwner(
+      jwt,
+      prototype_id,
+    );
 
+    if (isStandardErrorResponse(validationResult)) {
+      // Convert to DispatchResponse error format
+      return {
+        status: 'error',
+        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
+        build_errors: [],
+        build_warnings: [],
+        error_message: validationResult.message,
+      };
+    }
+
+    try {
       // Generate unique build ID
       const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
         .toString(36)
@@ -488,45 +484,63 @@ export class DispatcherService {
   private async validateUserAndPrototypeOwner(
     jwt: string,
     prototypeId: string,
-  ): Promise<AuthValidationResult> {
-    // 1. Create Anon Supabase client with JWT
-    const supabase = createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
+  ): Promise<AuthValidationResult | StandardErrorResponse> {
+    try {
+      // 1. Create Anon Supabase client with JWT
+      const supabase = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+            },
           },
         },
-      },
-    );
+      );
 
-    // 2. Verify JWT and get user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(jwt);
-    if (authError || !user) {
-      throw new Error('Invalid JWT or user not authenticated');
+      // 2. Verify JWT and get user
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser(jwt);
+      if (authError || !user) {
+        return {
+          error: 'Unauthorized',
+          message: 'Invalid JWT or user not authenticated',
+        };
+      }
+
+      // 3. Attempt to fetch prototype from database to verify permissions
+      const { data: prototype, error: prototypeError } = await supabase
+        .from('prototypes')
+        .select('*')
+        .eq('id', prototypeId)
+        .single();
+
+      if (prototypeError || !prototype) {
+        return {
+          error: 'Not Found',
+          message: 'Prototype not found or user does not have permissions',
+        };
+      }
+
+      if (prototype.owner_id !== user.id) {
+        return {
+          error: 'Forbidden',
+          message: 'User does not have permissions to edit this prototype',
+        };
+      }
+
+      return { user, prototype };
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      console.error('Validation error:', e);
+      return {
+        error: 'Internal Server Error',
+        message: 'Authentication validation failed',
+      };
     }
-
-    // 3. Attempt to fetch prototype from database to verify permissions
-    const { data: prototype, error: prototypeError } = await supabase
-      .from('prototypes')
-      .select('*')
-      .eq('id', prototypeId)
-      .single();
-
-    if (prototypeError || !prototype) {
-      throw new Error('Prototype not found or user does not have permissions');
-    }
-
-    if (prototype.owner_id !== user.id) {
-      throw new Error('User does not have permissions to edit this prototype');
-    }
-
-    return { user, prototype };
   }
 
   private async launchFargateInstance(
