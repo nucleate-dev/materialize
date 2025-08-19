@@ -58,10 +58,6 @@ export interface FargateInstanceInfo {
 // REQUEST AND RESPONSE TYPES (Use PublicServerAPITypes as source of truth)
 // ============================================================================
 
-// Re-export types from PublicServerAPITypes for internal use
-export type DispatchRequest = DispatchRequestBody;
-export type PrecheckResponse = DispatchPrecheckSuccessResponse;
-
 export interface FargateRequestBody {
   prototype_id: string;
   framework: Framework;

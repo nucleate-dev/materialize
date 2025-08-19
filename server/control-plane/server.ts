@@ -6,16 +6,14 @@ import { CleanupService } from './CleanupService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';
-import {
-  type DispatchRequestBody,
-  type DispatchPrecheckRequestBody,
-} from './types/PublicServerAPITypes.js';
 
 dotenv.config();
 
-
 // Initialize clients
-const initializeClients = async (): Promise<{ cache: GlideClient; ecsClient: ECSClient }> => {
+const initializeClients = async (): Promise<{
+  cache: GlideClient;
+  ecsClient: ECSClient;
+}> => {
   const ecsClient = new ECSClient({
     region: process.env.AWS_REGION!,
   });
@@ -52,8 +50,6 @@ let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
 let cache: GlideClient;
 
-// Routes
-
 // Health check
 fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -77,184 +73,21 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
   }
 });
 
-fastify.post(
-  '/dispatch',
-  async (
-    request: FastifyRequest<{ Body: DispatchRequestBody }>,
-    reply: FastifyReply,
-  ) => {
-    try {
-      const { jwt, prototype_id, framework, files, file_scope } = request.body;
-
-      // Validation
-      if (!jwt) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'jwt is required',
-        });
-      }
-
-      if (!prototype_id) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'prototype_id is required',
-        });
-      }
-
-      // Default framework to expo_react_native if not provided
-      const selectedFramework = framework || 'expo_react_native';
-
-      if (!files || !Array.isArray(files)) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'files is required and must be an array',
-        });
-      }
-
-      if (!file_scope) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'file_scope is required',
-        });
-      }
-
-      if (files.length === 0) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'files cannot be empty',
-        });
-      }
-
-      fastify.log.info(
-        `Processing dispatch request for prototype: ${prototype_id}`,
-      );
-
-      const result = await dispatcherService.processDispatchRequest({
-        jwt,
-        prototype_id,
-        framework: selectedFramework,
-        files,
-        file_scope,
-      });
-
-      return reply.send(result);
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      fastify.log.error(e, 'Build request failed:');
-
-      // Check if it's an authentication or permission error
-      if (
-        e.message.includes('Invalid JWT') ||
-        e.message.includes('not authenticated')
-      ) {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: e.message,
-        });
-      }
-
-      if (
-        e.message.includes('Prototype not found') ||
-        e.message.includes('does not have permissions')
-      ) {
-        return reply.status(404).send({
-          error: 'Not Found',
-          message: e.message,
-        });
-      }
-
-      return reply.status(500).send({
-        error: 'Internal Server Error',
-        message: e.message,
-      });
-    }
-  },
-);
-
 // Clear cache endpoint (for development/testing)
-fastify.delete('/cache/clear', async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    await cache.flushall();
-    fastify.log.info('Cache cleared successfully');
-    return reply.send({
-      success: true,
-      message: 'Cache cleared successfully',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    const e = error instanceof Error ? error : new Error(String(error));
-    fastify.log.error(e, 'Failed to clear cache:');
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: e.message,
-    });
-  }
-});
-
-// Prototype dispatch precheck endpoint
-fastify.post(
-  '/dispatch-precheck',
-  async (
-    request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
-    reply: FastifyReply,
-  ) => {
+fastify.delete(
+  '/cache/clear',
+  async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { jwt, prototype_id } = request.body;
-
-      if (!jwt) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'JWT is required',
-        });
-      }
-
-      if (!prototype_id) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'prototype_id is required',
-        });
-      }
-
-      fastify.log.info(
-        `Processing precheck request for prototype: ${prototype_id}`,
-      );
-
-      const result = await dispatcherService.prototypeDispatchPrecheck(
-        jwt,
-        prototype_id,
-      );
-
+      await cache.flushall();
+      fastify.log.info('Cache cleared successfully');
       return reply.send({
         success: true,
-        state: result.state,
-        status: result.status,
-        viewing_url: result.viewing_url,
+        message: 'Cache cleared successfully',
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      fastify.log.error(e, 'Precheck request failed:');
-
-      // Check if it's an authentication or permission error
-      if (
-        e.message.includes('Invalid JWT') ||
-        e.message.includes('not authenticated')
-      ) {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: e.message,
-        });
-      }
-
-      if (
-        e.message.includes('Prototype not found') ||
-        e.message.includes('does not have permissions')
-      ) {
-        return reply.status(404).send({
-          error: 'Prototype not found',
-          message: e.message,
-        });
-      }
-
+      fastify.log.error(e, 'Failed to clear cache:');
       return reply.status(500).send({
         error: 'Internal Server Error',
         message: e.message,
@@ -272,8 +105,9 @@ const start = async (): Promise<void> => {
     // Assign to global variables
     cache = cacheClient;
 
-    // Create dispatcher service with initialized clients
+    // Create dispatcher service with initialized clients and register routes
     dispatcherService = new DispatcherService(cache, ecsClient);
+    dispatcherService.registerRoutes(fastify);
 
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cache, ecsClient);

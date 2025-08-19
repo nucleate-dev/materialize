@@ -110,7 +110,9 @@ export interface CacheClearSuccessResponse {
   timestamp: string;
 }
 
-export type CacheClearResponse = CacheClearSuccessResponse | StandardErrorResponse;
+export type CacheClearResponse =
+  | CacheClearSuccessResponse
+  | StandardErrorResponse;
 
 // ============================================================================
 // HTTP STATUS CODE MAPPINGS
@@ -137,34 +139,4 @@ export function isStandardErrorResponse(
     'error' in response &&
     'message' in response
   );
-}
-
-export function isDispatchSuccessResponse(
-  response: DispatchResponse,
-): response is DispatchSuccessResponse {
-  return 'status' in response && response.status === 'success';
-}
-
-export function isDispatchErrorResponse(
-  response: DispatchResponse,
-): response is DispatchErrorResponse {
-  return 'status' in response && response.status === 'error';
-}
-
-export function isHealthSuccessResponse(
-  response: HealthResponse,
-): response is HealthSuccessResponse {
-  return 'status' in response && response.status === 'healthy';
-}
-
-export function isPrecheckSuccessResponse(
-  response: DispatchPrecheckResponse,
-): response is DispatchPrecheckSuccessResponse {
-  return 'success' in response && response.success === true;
-}
-
-export function isCacheClearSuccessResponse(
-  response: CacheClearResponse,
-): response is CacheClearSuccessResponse {
-  return 'success' in response && response.success === true;
 }

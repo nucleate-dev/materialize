@@ -8,24 +8,27 @@ import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   type ActiveBuild,
   type AuthValidationResult,
   BUILD_TIMEOUTS,
   CACHE_KEYS,
-  type DispatchRequest,
   type FargateDevServerResponse,
   type FargateInstanceInfo,
   type FargateRequestBody,
   type Framework,
   type FileScope,
   isActiveBuild,
-  type PrecheckResponse,
   S3_URL_TEMPLATE,
 } from './types/DispatcherServiceTypes.js';
 import {
   type FileInput,
   type DispatchResponse,
+  type DispatchRequestBody,
+  type DispatchPrecheckRequestBody,
+  type DispatchPrecheckResponse,
+  StandardErrorResponse,
 } from './types/PublicServerAPITypes.js';
 import type { Database } from './types/supabase.js';
 
@@ -41,56 +44,187 @@ export class DispatcherService {
     this.ecsClient = ecsClient;
   }
 
-  // Authentication and authorization utility
-  private async validateUserAndPrototypeOwner(
-    jwt: string,
-    prototypeId: string,
-  ): Promise<AuthValidationResult> {
-    // 1. Create Anon Supabase client with JWT
-    const supabase = createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        },
-      },
+  // Register routes with Fastify
+  public registerRoutes(app: FastifyInstance): void {
+    // POST /dispatch
+    app.post<{ Body: DispatchRequestBody }>(
+      '/dispatch',
+      this.handleDispatch.bind(this),
     );
 
-    // 2. Verify JWT and get user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(jwt);
-    if (authError || !user) {
-      throw new Error('Invalid JWT or user not authenticated');
+    // POST /dispatch-precheck
+    app.post<{ Body: DispatchPrecheckRequestBody }>(
+      '/dispatch-precheck',
+      this.handleDispatchPrecheck.bind(this),
+    );
+  }
+
+  // Route handlers
+  private async handleDispatch(
+    request: FastifyRequest<{ Body: DispatchRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<DispatchResponse> {
+    try {
+      const { jwt, prototype_id, framework, files, file_scope } = request.body;
+
+      // Validation
+      if (!jwt) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'jwt is required',
+        } as any;
+      }
+
+      if (!prototype_id) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'prototype_id is required',
+        } as any;
+      }
+
+      // Default framework to expo_react_native if not provided
+      const selectedFramework = framework || 'expo_react_native';
+
+      if (!files || !Array.isArray(files)) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'files is required and must be an array',
+        } as any;
+      }
+
+      if (!file_scope) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'file_scope is required',
+        } as any;
+      }
+
+      if (files.length === 0) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'files cannot be empty',
+        } as any;
+      }
+
+      console.log(`Processing dispatch request for prototype: ${prototype_id}`);
+
+      const result = await this.processDispatchRequest({
+        jwt,
+        prototype_id,
+        framework: selectedFramework,
+        files,
+        file_scope,
+      });
+
+      return result;
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      console.error('Build request failed:', e);
+
+      // Check if it's an authentication or permission error
+      if (
+        e.message.includes('Invalid JWT') ||
+        e.message.includes('not authenticated')
+      ) {
+        reply.status(401);
+        return {
+          error: 'Unauthorized',
+          message: e.message,
+        } as any;
+      }
+
+      if (
+        e.message.includes('Prototype not found') ||
+        e.message.includes('does not have permissions')
+      ) {
+        reply.status(404);
+        return {
+          error: 'Not Found',
+          message: e.message,
+        } as any;
+      }
+
+      reply.status(500);
+      return {
+        error: 'Internal Server Error',
+        message: e.message,
+      } as any;
     }
+  }
 
-    // 3. Attempt to fetch prototype from database to verify permissions
-    const { data: prototype, error: prototypeError } = await supabase
-      .from('prototypes')
-      .select('*')
-      .eq('id', prototypeId)
-      .single();
+  private async handleDispatchPrecheck(
+    request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<DispatchPrecheckResponse> {
+    try {
+      const { jwt, prototype_id } = request.body;
 
-    if (prototypeError || !prototype) {
-      throw new Error('Prototype not found or user does not have permissions');
+      if (!jwt) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'JWT is required',
+        };
+      }
+
+      if (!prototype_id) {
+        reply.status(400);
+        return {
+          error: 'Bad Request',
+          message: 'prototype_id is required',
+        };
+      }
+
+      console.log(`Processing precheck request for prototype: ${prototype_id}`);
+
+      const result = await this.prototypeDispatchPrecheck(jwt, prototype_id);
+
+      return result;
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      console.error('Precheck request failed:', e);
+
+      // Check if it's an authentication or permission error
+      if (
+        e.message.includes('Invalid JWT') ||
+        e.message.includes('not authenticated')
+      ) {
+        reply.status(401);
+        return {
+          error: 'Unauthorized',
+          message: e.message,
+        };
+      }
+
+      if (
+        e.message.includes('Prototype not found') ||
+        e.message.includes('does not have permissions')
+      ) {
+        reply.status(404);
+        return {
+          error: 'Prototype not found',
+          message: e.message,
+        };
+      }
+
+      reply.status(500);
+      return {
+        error: 'Internal Server Error',
+        message: e.message,
+      };
     }
-
-    if (prototype.owner_id !== user.id) {
-      throw new Error('User does not have permissions to edit this prototype');
-    }
-
-    return { user, prototype };
   }
 
   // Precheck prototype status
-  public async prototypeDispatchPrecheck(
+  private async prototypeDispatchPrecheck(
     jwt: string,
     prototypeId: string,
-  ): Promise<PrecheckResponse> {
+  ): Promise<DispatchPrecheckResponse> {
     try {
       // Authentication and authorization validation
       await this.validateUserAndPrototypeOwner(jwt, prototypeId);
@@ -137,23 +271,13 @@ export class DispatcherService {
     }
   }
 
-  private getS3Url(prototypeId: string): string {
-    // Construct S3/CloudFront URL for the prototype
-    return S3_URL_TEMPLATE(prototypeId);
-  }
-
-  private normalizeUrl(url: string): string {
-    // Ensure URL has protocol (https://) for iframe loading
-    return url && !url.startsWith('http') ? `https://${url}` : url;
-  }
-
   public async processDispatchRequest({
     jwt,
     prototype_id,
     framework,
     files,
     file_scope,
-  }: DispatchRequest): Promise<DispatchResponse> {
+  }: DispatchRequestBody): Promise<DispatchResponse> {
     try {
       // Authentication and authorization validation
       await this.validateUserAndPrototypeOwner(jwt, prototype_id);
@@ -229,7 +353,10 @@ export class DispatcherService {
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
 
         // Update current pointer
-        await this.cache.set(CACHE_KEYS.protoCurrentBuild(prototype_id), buildId);
+        await this.cache.set(
+          CACHE_KEYS.protoCurrentBuild(prototype_id),
+          buildId,
+        );
 
         // Add to builds ZSET
         await this.cache.customCommand([
@@ -357,6 +484,51 @@ export class DispatcherService {
     }
   }
 
+  // Authentication and authorization utility
+  private async validateUserAndPrototypeOwner(
+    jwt: string,
+    prototypeId: string,
+  ): Promise<AuthValidationResult> {
+    // 1. Create Anon Supabase client with JWT
+    const supabase = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        },
+      },
+    );
+
+    // 2. Verify JWT and get user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(jwt);
+    if (authError || !user) {
+      throw new Error('Invalid JWT or user not authenticated');
+    }
+
+    // 3. Attempt to fetch prototype from database to verify permissions
+    const { data: prototype, error: prototypeError } = await supabase
+      .from('prototypes')
+      .select('*')
+      .eq('id', prototypeId)
+      .single();
+
+    if (prototypeError || !prototype) {
+      throw new Error('Prototype not found or user does not have permissions');
+    }
+
+    if (prototype.owner_id !== user.id) {
+      throw new Error('User does not have permissions to edit this prototype');
+    }
+
+    return { user, prototype };
+  }
+
   private async launchFargateInstance(
     prototypeId: string,
   ): Promise<FargateInstanceInfo> {
@@ -412,7 +584,10 @@ export class DispatcherService {
 
         // Wait for task to be running and get private IP
         await waitUntilTasksRunning(
-          { client: this.ecsClient, maxWaitTime: BUILD_TIMEOUTS.FARGATE_LAUNCH_TIMEOUT },
+          {
+            client: this.ecsClient,
+            maxWaitTime: BUILD_TIMEOUTS.FARGATE_LAUNCH_TIMEOUT,
+          },
           {
             cluster: process.env.ECS_CLUSTER_NAME!,
             tasks: [taskArn],
@@ -504,5 +679,15 @@ export class DispatcherService {
       files,
       file_scope,
     };
+  }
+
+  private getS3Url(prototypeId: string): string {
+    // Construct S3/CloudFront URL for the prototype
+    return S3_URL_TEMPLATE(prototypeId);
+  }
+
+  private normalizeUrl(url: string): string {
+    // Ensure URL has protocol (https://) for iframe loading
+    return url && !url.startsWith('http') ? `https://${url}` : url;
   }
 }
