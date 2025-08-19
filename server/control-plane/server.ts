@@ -1,8 +1,8 @@
 import Fastify from 'fastify';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
-import { DispatcherService } from './DispatcherService.js';
-import { CleanupService } from './CleanupService.js';
+import { DispatcherService } from './services/DispatcherService.js';
+import { CleanupService } from './services/CleanupService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';

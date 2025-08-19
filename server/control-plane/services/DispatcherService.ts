@@ -21,7 +21,7 @@ import {
   type FileScope,
   isActiveBuild,
   S3_URL_TEMPLATE,
-} from './types/InternalTypes.js';
+} from '../types/InternalTypes.js';
 import {
   type FileInput,
   type DispatchRequestBody,
@@ -29,8 +29,8 @@ import {
   type DispatchPrecheckResponse,
   StandardErrorResponse,
   isStandardErrorResponse,
-} from './types/PublicAPITypes.js';
-import type { Database } from './types/supabase.js';
+} from '../types/PublicAPITypes.js';
+import type { Database } from '../types/supabase.js';
 
 dotenv.config();
 

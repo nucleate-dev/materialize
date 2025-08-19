@@ -1,5 +1,5 @@
 import { GlideClient } from '@valkey/valkey-glide';
-import { CONFIG } from './config.js';
+import { CONFIG } from '../config.js';
 import axios from 'axios';
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
 import {
@@ -10,7 +10,7 @@ import {
   CACHE_KEYS,
   CACHE_PATTERNS,
   isActiveBuild,
-} from './types/InternalTypes.js';
+} from '../types/InternalTypes.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
