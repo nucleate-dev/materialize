@@ -2,12 +2,31 @@ import {
   DescribeTasksCommand,
   ECSClient,
   RunTaskCommand,
-  waitUntilTasksRunning, // optional helper waiter
+  waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import { createClient, type User } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
+import {
+  type ActiveBuild,
+  type AuthValidationResult,
+  BUILD_TIMEOUTS,
+  CACHE_KEYS,
+  type DispatchRequest,
+  type FargateDevServerResponse,
+  type FargateInstanceInfo,
+  type FargateRequestBody,
+  type Framework,
+  type FileScope,
+  isActiveBuild,
+  type PrecheckResponse,
+  S3_URL_TEMPLATE,
+} from './types/DispatcherServiceTypes.js';
+import {
+  type FileInput,
+  type DispatchResponse,
+} from './types/PublicServerAPITypes.js';
 import type { Database } from './types/supabase.js';
 
 dotenv.config();
@@ -26,10 +45,7 @@ export class DispatcherService {
   private async validateUserAndPrototypeOwner(
     jwt: string,
     prototypeId: string,
-  ): Promise<{
-    user: User;
-    prototype: Database['public']['Tables']['prototypes']['Row'];
-  }> {
+  ): Promise<AuthValidationResult> {
     // 1. Create Anon Supabase client with JWT
     const supabase = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -74,33 +90,32 @@ export class DispatcherService {
   public async prototypeDispatchPrecheck(
     jwt: string,
     prototypeId: string,
-  ): Promise<{
-    state: 'dne' | 'active_dev_server' | 'active_build';
-    status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
-    viewing_url: string;
-  }> {
+  ): Promise<PrecheckResponse> {
     try {
       // Authentication and authorization validation
       await this.validateUserAndPrototypeOwner(jwt, prototypeId);
 
       // Check current build pointer
       const currentBuildId = await this.cache.get(
-        `proto:${prototypeId}:current`,
+        CACHE_KEYS.protoCurrentBuild(prototypeId),
       );
 
       if (currentBuildId) {
-        const activeBuildKey = `active_build:${currentBuildId}`;
+        const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
 
         if (existingBuildJson) {
-          const existingBuild: ActiveBuild = JSON.parse(
-            existingBuildJson as string,
-          );
+          const parsedBuild = JSON.parse(existingBuildJson as string);
+          if (!isActiveBuild(parsedBuild)) {
+            throw new Error('Invalid build data in cache');
+          }
+          const existingBuild: ActiveBuild = parsedBuild;
 
           // Determine state based on status
           const state = 'active_dev_server';
 
           return {
+            success: true,
             state,
             status: existingBuild.status,
             viewing_url: this.normalizeUrl(
@@ -112,6 +127,7 @@ export class DispatcherService {
 
       // No active build, return S3 URL
       return {
+        success: true,
         state: 'dne',
         status: null,
         viewing_url: this.normalizeUrl(this.getS3Url(prototypeId)),
@@ -123,7 +139,7 @@ export class DispatcherService {
 
   private getS3Url(prototypeId: string): string {
     // Construct S3/CloudFront URL for the prototype
-    return `${prototypeId}.render.materializeui.com/`;
+    return S3_URL_TEMPLATE(prototypeId);
   }
 
   private normalizeUrl(url: string): string {
@@ -137,13 +153,7 @@ export class DispatcherService {
     framework,
     files,
     file_scope,
-  }: DispatchRequest): Promise<{
-    status: 'success' | 'error';
-    viewing_url: string;
-    build_errors: CodeError[];
-    build_warnings: CodeWarning[];
-    error_message?: string;
-  }> {
+  }: DispatchRequest): Promise<DispatchResponse> {
     try {
       // Authentication and authorization validation
       await this.validateUserAndPrototypeOwner(jwt, prototype_id);
@@ -156,18 +166,20 @@ export class DispatcherService {
 
       // Check if there's an existing current build
       const currentBuildId = await this.cache.get(
-        `proto:${prototype_id}:current`,
+        CACHE_KEYS.protoCurrentBuild(prototype_id),
       );
       let shouldCreateNewBuild = true;
 
       if (currentBuildId) {
-        const activeBuildKey = `active_build:${currentBuildId}`;
+        const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
 
         if (existingBuildJson) {
-          const existingBuild: ActiveBuild = JSON.parse(
-            existingBuildJson as string,
-          );
+          const parsedBuild = JSON.parse(existingBuildJson as string);
+          if (!isActiveBuild(parsedBuild)) {
+            throw new Error('Invalid build data in cache');
+          }
+          const existingBuild: ActiveBuild = parsedBuild;
 
           // If build is cleaning, proceed with new build
           if (existingBuild.status === 'cleaning') {
@@ -204,7 +216,7 @@ export class DispatcherService {
 
       if (shouldCreateNewBuild) {
         // Create new build
-        activeBuildKey = `active_build:${buildId}`;
+        activeBuildKey = CACHE_KEYS.activeBuild(buildId);
         const newBuildCacheData: ActiveBuild = {
           fargate_task_arn: '',
           fargate_private_ip: '',
@@ -217,12 +229,12 @@ export class DispatcherService {
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
 
         // Update current pointer
-        await this.cache.set(`proto:${prototype_id}:current`, buildId);
+        await this.cache.set(CACHE_KEYS.protoCurrentBuild(prototype_id), buildId);
 
         // Add to builds ZSET
         await this.cache.customCommand([
           'ZADD',
-          `proto:${prototype_id}:builds`,
+          CACHE_KEYS.protoBuilds(prototype_id),
           currentTime.toString(),
           buildId,
         ]);
@@ -239,11 +251,13 @@ export class DispatcherService {
         };
       } else {
         // Reuse existing build
-        activeBuildKey = `active_build:${currentBuildId}`;
+        activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
-        const existingBuild: ActiveBuild = JSON.parse(
-          existingBuildJson as string,
-        );
+        const parsedBuild = JSON.parse(existingBuildJson as string);
+        if (!isActiveBuild(parsedBuild)) {
+          throw new Error('Invalid build data in cache');
+        }
+        const existingBuild: ActiveBuild = parsedBuild;
 
         updatedBuildCacheData = {
           ...existingBuild,
@@ -260,7 +274,7 @@ export class DispatcherService {
       // Dispatch request to fargate instance
       const requestBody = this.constructRequestBody({
         prototype_id,
-        framework,
+        framework: framework || 'expo_react_native',
         files,
         file_scope,
       });
@@ -287,21 +301,31 @@ export class DispatcherService {
         const buildIdFromKey = activeBuildKey.replace('active_build:', '');
         await this.cache.customCommand([
           'ZADD',
-          `proto:${prototype_id}:builds`,
+          CACHE_KEYS.protoBuilds(prototype_id),
           updatedBuildCacheData.last_touched.toString(),
           buildIdFromKey,
         ]);
 
         console.log(updatedBuildCacheData);
 
-        return {
-          status: fargateResponse.status,
-          viewing_url: this.normalizeUrl(
-            fargateResponse.tunnel_url || this.getS3Url(prototype_id),
-          ),
-          build_errors: fargateResponse.build_errors,
-          build_warnings: fargateResponse.build_warnings,
-        };
+        if (fargateResponse.status === 'success') {
+          return {
+            status: 'success',
+            viewing_url: this.normalizeUrl(
+              fargateResponse.tunnel_url || this.getS3Url(prototype_id),
+            ),
+            build_errors: fargateResponse.build_errors,
+            build_warnings: fargateResponse.build_warnings,
+          };
+        } else {
+          return {
+            status: 'error',
+            viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
+            build_errors: fargateResponse.build_errors,
+            build_warnings: fargateResponse.build_warnings,
+            error_message: 'Build failed on fargate instance',
+          };
+        }
       } catch (error) {
         const e = error instanceof Error ? error : new Error(String(error));
         console.log(
@@ -335,7 +359,7 @@ export class DispatcherService {
 
   private async launchFargateInstance(
     prototypeId: string,
-  ): Promise<{ taskArn: string; privateIp: string }> {
+  ): Promise<FargateInstanceInfo> {
     try {
       const runTaskInput = {
         cluster: process.env.ECS_CLUSTER_NAME!,
@@ -388,7 +412,7 @@ export class DispatcherService {
 
         // Wait for task to be running and get private IP
         await waitUntilTasksRunning(
-          { client: this.ecsClient, maxWaitTime: 300 }, // 5 min
+          { client: this.ecsClient, maxWaitTime: BUILD_TIMEOUTS.FARGATE_LAUNCH_TIMEOUT },
           {
             cluster: process.env.ECS_CLUSTER_NAME!,
             tasks: [taskArn],
@@ -432,12 +456,7 @@ export class DispatcherService {
 
   private async dispatchFormedRequestToFargateInstanceServer(
     fargatePrivateIp: string,
-    requestBody: {
-      prototype_id: string;
-      framework: 'expo_react_native' | 'react';
-      files: FileInput[];
-      file_scope: 'updates' | 'complete';
-    },
+    requestBody: FargateRequestBody,
   ): Promise<FargateDevServerResponse> {
     try {
       console.log(
@@ -448,7 +467,7 @@ export class DispatcherService {
         `http://${fargatePrivateIp}:3002/dev-server`,
         requestBody,
         {
-          timeout: 300000, // 5 minutes
+          timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -475,15 +494,10 @@ export class DispatcherService {
     file_scope,
   }: {
     prototype_id: string;
-    framework: 'expo_react_native' | 'react';
+    framework: Framework;
     files: FileInput[];
-    file_scope: 'updates' | 'complete';
-  }): {
-    prototype_id: string;
-    framework: 'expo_react_native' | 'react';
-    files: FileInput[];
-    file_scope: 'updates' | 'complete';
-  } {
+    file_scope: FileScope;
+  }): FargateRequestBody {
     return {
       prototype_id,
       framework,
@@ -491,49 +505,4 @@ export class DispatcherService {
       file_scope,
     };
   }
-}
-
-interface ActiveBuild {
-  fargate_task_arn: string;
-  fargate_private_ip: string;
-  url: string;
-  status: 'creating' | 'updating' | 'error' | 'stable' | 'cleaning';
-  last_touched: number;
-}
-
-interface CodeError {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: 'build' | 'runtime' | 'dependency' | 'syntax';
-}
-
-interface CodeWarning {
-  message: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  type: 'build' | 'deprecation' | 'performance' | 'unused';
-}
-
-interface FargateDevServerResponse {
-  status: 'success' | 'error';
-  tunnel_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
-}
-
-interface FileInput {
-  path: string;
-  content: string;
-  isBase64?: boolean;
-}
-
-interface DispatchRequest {
-  jwt: string;
-  prototype_id: string;
-  framework: 'expo_react_native' | 'react';
-  files: FileInput[];
-  file_scope: 'updates' | 'complete';
 }
