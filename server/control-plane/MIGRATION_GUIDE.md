@@ -93,6 +93,68 @@ const response = await fetch(`${serverEndpoint}/payments/manage-billing`, {
 
 ---
 
+### 2. `/prototype/fetch-viewing-url` (POST)
+
+**Original:** `@web-application/src/app/api/prototype/fetch-view/route.ts`  
+**Migrated to:** `@server/control-plane/services/PrototypeManagementService.ts`
+
+#### Changes Made:
+- ✅ **Service Creation**: Created `PrototypeManagementService.ts` with proper route registration
+- ✅ **Type Definitions**: Added types to `PublicAPITypes.ts`:
+  - `FetchViewingUrlRequestBody`
+  - `FetchViewingUrlSuccessResponse` 
+  - `FetchViewingUrlResponse`
+- ✅ **Route Renamed**: Changed from `/prototype/fetch-view` to `/prototype/fetch-viewing-url`
+- ✅ **Supabase Integration**: Uses existing Supabase configuration and database types
+- ✅ **Server Integration**: Registered service in `server.ts`
+
+#### API Details:
+- **Endpoint**: `POST /prototype/fetch-viewing-url`
+- **Authentication**: Optional Bearer JWT token in Authorization header
+- **Request Body**: `{ prototype_id: string, current_page?: 'view' | 'edit' | null }`
+- **Response**: `{ viewing_url: string, source: 'active_instance' | 'static_build' }` or error
+
+#### Example Usage:
+```bash
+curl -X POST http://localhost:3000/prototype/fetch-viewing-url \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prototype_id": "abc-123", "current_page": "edit"}'
+```
+
+#### Response Format:
+```typescript
+// Success (200)
+{
+  "viewing_url": "https://abc-123.render.materializeui.com/",
+  "source": "static_build"
+}
+
+// Error (400/404/500)
+{
+  "error": "Error Type",
+  "message": "Error description"
+}
+```
+
+#### Key Features:
+- **Anonymous Access**: Allows viewing prototypes without authentication for community features
+- **Owner Edit Mode**: When authenticated user owns prototype and `current_page` is 'edit', checks for active dev server
+- **Fallback Logic**: Falls back to static build URL if no active instance found
+- **Active Instance Detection**: Uses Fastify inject for efficient internal calls to dispatch-precheck endpoint
+
+#### Error Handling:
+- **400**: Missing or invalid prototype_id
+- **404**: Prototype not found or access denied
+- **500**: Internal server errors (Supabase, network issues)
+
+#### Database Integration:
+- Uses existing `prototypes` table from Supabase
+- Validates user access through prototype ownership
+- Optional JWT authentication for enhanced features
+
+---
+
 ## Environment Variables Setup
 
 Make sure to update your `.env` file with the following variables:
@@ -122,7 +184,7 @@ The following APIs are candidates for migration:
 - [ ] `/files/start-dev-server`
 - [ ] `/files/update-files`
 - [ ] `/prototype/create`
-- [ ] `/prototype/fetch-view`
+- [x] ~~`/prototype/fetch-view`~~ (migrated as `/prototype/fetch-viewing-url`)
 - [ ] `/chat`
 
 ## Migration Process

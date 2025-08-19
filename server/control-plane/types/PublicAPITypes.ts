@@ -142,6 +142,24 @@ export const HTTP_STATUS = {
 } as const;
 
 // ============================================================================
+// /prototype/fetch-viewing-url ENDPOINT
+// ============================================================================
+
+export interface FetchViewingUrlRequestBody {
+  prototype_id: string;
+  current_page?: 'view' | 'edit' | null;
+}
+
+export interface FetchViewingUrlSuccessResponse {
+  viewing_url: string;
+  source: 'active_instance' | 'static_build';
+}
+
+export type FetchViewingUrlResponse =
+  | FetchViewingUrlSuccessResponse
+  | StandardErrorResponse;
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 

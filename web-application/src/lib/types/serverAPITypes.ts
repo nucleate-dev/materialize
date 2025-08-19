@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-19T20:13:19.995Z
+// Last synced: 2025-08-19T21:45:28.199Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -149,6 +149,24 @@ export const HTTP_STATUS = {
   CONFLICT: 409,
   INTERNAL_SERVER_ERROR: 500,
 } as const;
+
+// ============================================================================
+// /prototype/fetch-viewing-url ENDPOINT
+// ============================================================================
+
+export interface FetchViewingUrlRequestBody {
+  prototype_id: string;
+  current_page?: 'view' | 'edit' | null;
+}
+
+export interface FetchViewingUrlSuccessResponse {
+  viewing_url: string;
+  source: 'active_instance' | 'static_build';
+}
+
+export type FetchViewingUrlResponse =
+  | FetchViewingUrlSuccessResponse
+  | StandardErrorResponse;
 
 // ============================================================================
 // TYPE GUARDS
