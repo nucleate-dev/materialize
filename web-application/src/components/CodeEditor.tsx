@@ -260,14 +260,26 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         return;
       }
 
-      const response = await fetch("/api/files/save-and-build", {
+      // Convert files from Record format to array format expected by update-files API
+      const filesArray = Object.entries(files).map(([path, file]) => ({
+        contents: file.contents,
+        name: path,
+        file_type: file.file_type || "text" as const,
+        prototype_id: file.prototype_id || prototypeId,
+        id: file.id,
+        storage_path: file.storage_path,
+        created_at: file.created_at,
+        updated_at: file.updated_at,
+      }));
+
+      const response = await fetch("/api/files/update-files", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          files: files,
+          files: filesArray,
           prototype_id: prototypeId,
         }),
       });
@@ -275,22 +287,27 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       const result = await response.json();
       
       if (response.ok && result.success) {
-        console.log("✅ Files saved and build completed successfully");
+        console.log("✅ All files updated successfully in dev server");
         
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.viewing_url);
         }
         
-        // Force refresh the preview
+        // Force refresh the preview for hot reload
         if (onForceRefresh) {
           onForceRefresh();
         }
       } else {
-        console.error("Failed to save files:", result.error || result.message);
+        console.error("Failed to update files:", result.error || result.message);
+        
+        // If no active dev server, provide helpful message
+        if (result.error === "No active dev server") {
+          console.log("💡 Tip: Start a dev server first, then try saving files again");
+        }
       }
     } catch (error) {
-      console.error("Error saving files:", error);
+      console.error("Error updating files:", error);
     } finally {
       setIsSaving(false);
       if (onBuildingStateChange) {

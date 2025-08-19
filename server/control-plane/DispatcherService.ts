@@ -1,14 +1,14 @@
+import {
+  DescribeTasksCommand,
+  ECSClient,
+  RunTaskCommand,
+  waitUntilTasksRunning, // optional helper waiter
+} from '@aws-sdk/client-ecs';
 import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import type { Database } from './types/supabase.js';
-import {
-  ECSClient,
-  RunTaskCommand,
-  DescribeTasksCommand,
-  waitUntilTasksRunning, // optional helper waiter
-} from '@aws-sdk/client-ecs';
 
 dotenv.config();
 
@@ -224,9 +224,8 @@ export class DispatcherService {
           buildId,
         ]);
 
-        const newFargateInstance = await this.launchFargateInstance(
-          prototype_id,
-        );
+        const newFargateInstance =
+          await this.launchFargateInstance(prototype_id);
 
         updatedBuildCacheData = {
           ...newBuildCacheData,
@@ -401,14 +400,16 @@ export class DispatcherService {
 
         const task = describeResponse.tasks?.[0];
         const eni = task?.attachments?.[0]?.details?.find(
-          (detail) => detail.name === 'networkInterfaceId',
+          (detail: { name: string; value: string }) =>
+            detail.name === 'networkInterfaceId',
         )?.value;
         let privateIp = '';
 
         if (eni) {
           // Get private IP from ENI details in task
           const privateIpDetail = task?.attachments?.[0]?.details?.find(
-            (detail) => detail.name === 'privateIPv4Address',
+            (detail: { name: string; value: string }) =>
+              detail.name === 'privateIPv4Address',
           );
           privateIp = privateIpDetail?.value || '';
         }
