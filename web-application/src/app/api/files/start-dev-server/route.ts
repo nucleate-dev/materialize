@@ -173,15 +173,15 @@ export async function POST(request: NextRequest) {
     // 5. Save only text files to database (don't overwrite existing assets)
     // Filter to only include text files from the editor - exclude asset files
     const textFilesOnly = Object.fromEntries(
-      Object.entries(files).filter(([, file]) => {
+      files.filter((file) => {
         // Only include files that are already text type or don't have a file_type yet
         // This prevents us from overwriting asset files that were loaded from database
         return !file.file_type || file.file_type === "text";
-      }),
+      }).map((file) => [file.name, file])
     );
 
     console.log(
-      `🔍 [start-dev-server] Saving ${Object.keys(textFilesOnly).length} text files to database for prototype ${prototype_id} (filtered from ${Object.keys(files).length} total files)`,
+      `🔍 [start-dev-server] Saving ${Object.keys(textFilesOnly).length} text files to database for prototype ${prototype_id} (filtered from ${files.length} total files)`,
     );
 
     // Only save text files - these are the files that were changed in the editor
@@ -264,9 +264,9 @@ export async function POST(request: NextRequest) {
       isBase64: boolean;
     }> = [];
 
-    Object.entries(files).forEach(([filePath, file]) => {
+    files.forEach((file) => {
       textFilesForDispatch.push({
-        path: filePath,
+        path: file.name,
         content: file.contents,
         isBase64: false, // Text files from CodeEditor are never base64
       });
