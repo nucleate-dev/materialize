@@ -1,8 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,14 +9,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Database } from "@/lib/types/database.types";
 import {
+  Loader2,
   Monitor,
+  Play,
   RefreshCw,
   RotateCcw,
   Settings,
   Smartphone,
-  Loader2,
-  Play,
 } from "lucide-react";
 import {
   forwardRef,
@@ -51,10 +51,10 @@ type PreviewMode = "web" | "mobile";
 const MaterializeRenderSection = forwardRef<
   MaterializeRenderSectionRef,
   MaterializeRenderSectionProps
->(({ 
-  viewing_url, 
-  onResetToDefault, 
-  hideControls = false, 
+>(({
+  viewing_url,
+  onResetToDefault,
+  hideControls = false,
   isBuilding = false,
   prototypeId,
   files,
@@ -111,7 +111,7 @@ const MaterializeRenderSection = forwardRef<
     }
 
     onBuildingStateChange(true);
-    
+
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
@@ -121,31 +121,43 @@ const MaterializeRenderSection = forwardRef<
         return;
       }
 
-      console.log(`Starting dev server for prototype ${prototypeId} with ${Object.keys(files).length} files`);
+      // Convert files from Record<string, PrototypeFile> to array format expected by API
+      const filesArray: PrototypeFile[] = Object.entries(files).map(([path, file]) => ({
+        contents: file.contents,
+        name: path, // Use the path as the name
+        file_type: file.file_type || "text" as const,
+        prototype_id: file.prototype_id || prototypeId,
+        id: file.id,
+        storage_path: file.storage_path,
+        created_at: file.created_at,
+        updated_at: file.updated_at,
+      }));
 
-      const response = await fetch("/api/files/save-and-build", {
+      console.log(`Starting dev server for prototype ${prototypeId} with ${filesArray.length} files`);
+
+      const response = await fetch("/api/files/start-dev-server", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          files: files,
+          files: filesArray,
           prototype_id: prototypeId,
           file_scope: "complete", // Send all files to properly initialize dev server
         }),
       });
 
       const result = await response.json();
-      
+
       if (response.ok && result.success) {
         console.log("✅ Dev server started successfully");
-        
+
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.viewing_url);
         }
-        
+
         // Force refresh the preview to load the new dev server
         forceRefresh();
       } else {
@@ -230,7 +242,7 @@ const MaterializeRenderSection = forwardRef<
   }, [viewing_url]);
 
   // Loading indicator component for build process
-  const LoadingIndicator = ({ mode }: { mode: PreviewMode }) => (
+  const LoadingIndicator = ({ mode }: { mode: PreviewMode; }) => (
     <div className="flex items-center justify-center h-full">
       <div className="text-center bg-card p-8 rounded-lg border border-border">
         <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
@@ -255,7 +267,7 @@ const MaterializeRenderSection = forwardRef<
   );
 
   // Connection loading overlay for iframe
-  const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+  const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
     <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
       <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -270,7 +282,7 @@ const MaterializeRenderSection = forwardRef<
   );
 
   // Error overlay for iframe
-  const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+  const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
     <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
       <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
         <div className="w-6 h-6 mx-auto mb-3 text-destructive">
@@ -354,8 +366,8 @@ const MaterializeRenderSection = forwardRef<
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {prototypeId && files && onBuildingStateChange && (
-                <DropdownMenuItem 
-                  onClick={handleStartDevServer} 
+                <DropdownMenuItem
+                  onClick={handleStartDevServer}
                   disabled={isBuilding || !prototypeId || !files}
                 >
                   {isBuilding ? (

@@ -108,9 +108,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { files, prototype_id, file_scope } = validationResult.data;
-    console.log("🔍 Files:", files.length);
-    console.log("🔍 Prototype ID:", prototype_id);
-    console.log("🔍 File scope:", file_scope);
+    console.log("🔍 [save-and-build] Files:", files.length);
+    console.log("🔍 [save-and-build] Prototype ID:", prototype_id);
+    console.log("🔍 [save-and-build] File scope:", file_scope);
     // 3. Fetch dispatch-precheck to verify permissions and build status
     const precheckResponse = await fetch(
       `${process.env.SERVER_ENDPOINT!}/dispatch-precheck`,
@@ -150,7 +150,10 @@ export async function POST(request: NextRequest) {
     }
 
     const precheckData: PrecheckResponse = await precheckResponse.json();
-    console.log("Dispatch precheck response:", precheckData);
+    console.log(
+      "🔍 [save-and-build] Dispatch precheck response:",
+      precheckData,
+    );
 
     // 4. Check if build is already in progress
     if (
@@ -178,7 +181,7 @@ export async function POST(request: NextRequest) {
     );
 
     console.log(
-      `Saving ${Object.keys(textFilesOnly).length} text files to database for prototype ${prototype_id} (filtered from ${Object.keys(files).length} total files)`,
+      `🔍 [save-and-build] Saving ${Object.keys(textFilesOnly).length} text files to database for prototype ${prototype_id} (filtered from ${Object.keys(files).length} total files)`,
     );
 
     // Only save text files - these are the files that were changed in the editor

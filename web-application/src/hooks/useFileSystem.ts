@@ -341,6 +341,7 @@ export const useFileSystem = (
     selectedFile,
     isLoading,
   };
+  console.log("🔍 [useFileSystem] Files:", files);
 
   const actions: FileSystemActions = {
     selectFile,
