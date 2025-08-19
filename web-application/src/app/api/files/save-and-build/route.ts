@@ -1,8 +1,8 @@
-import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
-import { convertPrototypeFilesForBuildWorker } from "@/lib/utils/buildWorkerUtils";
-import { getPrototypeFiles } from "@/lib/utils/prototypeAuth";
 import { Database } from "@/lib/types/database.types";
-import { createClient } from '@supabase/supabase-js';
+import { convertPrototypeFilesForBuildWorker } from "@/lib/utils/buildWorkerUtils";
+import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
+import { getPrototypeFiles } from "@/lib/utils/prototypeAuth";
+import { createClient } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -10,15 +10,20 @@ import { z } from "zod";
 // Set max duration for Vercel serverless function to 3 minutes
 export const maxDuration = 180;
 
-// Request validation schema using Database Insert types
+// Define the PrototypeFile type to match MaterializeRenderSection
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+
+// Request validation schema using Database Row types to match MaterializeRenderSection
 const SaveAndBuildSchema = z.object({
   files: z.record(
     z.string(),
     z.object({
       contents: z.string(),
       name: z.string(),
+      file_type: z.enum(["text", "asset"]).optional(),
       prototype_id: z.string().optional(),
       id: z.string().optional(),
+      storage_path: z.string().nullable().optional(),
       created_at: z.string().optional(),
       updated_at: z.string().optional(),
     }),
@@ -106,7 +111,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { files, prototype_id, file_scope } = validationResult.data;
-
+    console.log("🔍 Files:", files.length);
+    console.log("🔍 Prototype ID:", prototype_id);
+    console.log("🔍 File scope:", file_scope);
     // 3. Fetch dispatch-precheck to verify permissions and build status
     const precheckResponse = await fetch(
       `${process.env.SERVER_ENDPOINT!}/dispatch-precheck`,
@@ -163,21 +170,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Save files to database using incremental approach
-    console.log(
-      `Saving ${Object.keys(files).length} files to database for prototype ${prototype_id}`,
+    // 5. Save only text files to database (don't overwrite existing assets)
+    // Filter to only include text files from the editor - exclude asset files
+    const textFilesOnly = Object.fromEntries(
+      Object.entries(files).filter(([path, file]) => {
+        // Only include files that are already text type or don't have a file_type yet
+        // This prevents us from overwriting asset files that were loaded from database
+        return !file.file_type || file.file_type === "text";
+      }),
     );
 
-    // Add required file_type field to files
-    const filesWithType = Object.fromEntries(
-      Object.entries(files).map(([path, file]) => [
+    console.log(
+      `Saving ${Object.keys(textFilesOnly).length} text files to database for prototype ${prototype_id} (filtered from ${Object.keys(files).length} total files)`,
+    );
+
+    // Only save text files - these are the files that were changed in the editor
+    const textFilesWithType = Object.fromEntries(
+      Object.entries(textFilesOnly).map(([path, file]) => [
         path,
-        { ...file, file_type: "text" as const },
+        {
+          ...file,
+          file_type: "text" as const,
+          storage_path: null, // Text files don't have storage paths
+        },
       ]),
     );
 
     try {
-      await saveFilesToDatabaseWithAuth(token, prototype_id, filesWithType);
+      await saveFilesToDatabaseWithAuth(token, prototype_id, textFilesWithType);
     } catch (saveError) {
       console.error("Error saving files to database:", saveError);
       return NextResponse.json(
@@ -200,37 +220,50 @@ export async function POST(request: NextRequest) {
             Authorization: `Bearer ${token}`,
           },
         },
-      }
+      },
     );
 
     // Get existing files to find assets
-    const prototypeFilesResult = await getPrototypeFiles(supabase, prototype_id);
-    
+    const prototypeFilesResult = await getPrototypeFiles(
+      supabase,
+      prototype_id,
+    );
+
     if (!prototypeFilesResult.success || !prototypeFilesResult.files) {
       return NextResponse.json(
         {
           error: "Failed to fetch prototype files",
-          message: prototypeFilesResult.message || "Could not retrieve all files for build",
+          message:
+            prototypeFilesResult.message ||
+            "Could not retrieve all files for build",
         },
         { status: 500 },
       );
     }
 
     // Separate assets from text files
-    const existingAssets = prototypeFilesResult.files.filter(file => file.file_type === 'asset');
-    console.log(`🔍 Found ${existingAssets.length} existing assets:`, existingAssets.map(a => a.name));
-    
+    const existingAssets = prototypeFilesResult.files.filter(
+      (file) => file.file_type === "asset",
+    );
+    console.log(
+      `🔍 Found ${existingAssets.length} existing assets:`,
+      existingAssets.map((a) => a.name),
+    );
+
     // Convert existing assets to build worker format
-    const assetFilesForDispatch = await convertPrototypeFilesForBuildWorker(existingAssets);
-    console.log(`✅ Converted ${assetFilesForDispatch.length} assets for dispatch`);
-    
+    const assetFilesForDispatch =
+      await convertPrototypeFilesForBuildWorker(existingAssets);
+    console.log(
+      `✅ Converted ${assetFilesForDispatch.length} assets for dispatch`,
+    );
+
     // Convert changed text files to build worker format
     const textFilesForDispatch: Array<{
       path: string;
       content: string;
       isBase64: boolean;
     }> = [];
-    
+
     Object.entries(files).forEach(([filePath, file]) => {
       textFilesForDispatch.push({
         path: filePath,
@@ -239,10 +272,15 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    console.log(`📦 Dispatch summary: ${textFilesForDispatch.length} text files + ${assetFilesForDispatch.length} assets`);
+    console.log(
+      `📦 Dispatch summary: ${textFilesForDispatch.length} text files + ${assetFilesForDispatch.length} assets`,
+    );
 
     // Merge text files + assets for dispatch (preserves hot reload + includes assets)
-    const filesForDispatch = [...textFilesForDispatch, ...assetFilesForDispatch];
+    const filesForDispatch = [
+      ...textFilesForDispatch,
+      ...assetFilesForDispatch,
+    ];
 
     // 7. Dispatch build request
     console.log("Dispatching build request to server");
@@ -322,7 +360,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Server response error",
-          message: "Server returned a successful status but response was not valid JSON.",
+          message:
+            "Server returned a successful status but response was not valid JSON.",
         },
         { status: 500 },
       );
