@@ -6,28 +6,13 @@ import { CleanupService } from './CleanupService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';
+import {
+  type DispatchRequestBody,
+  type DispatchPrecheckRequestBody,
+} from './types/PublicServerAPITypes.js';
 
 dotenv.config();
 
-interface PrecheckBody {
-  jwt: string;
-  prototype_id: string;
-}
-
-interface FileInput {
-  path: string;
-  content: string;
-  isBase64?: boolean;
-}
-
-interface DispatchRequestBody {
-  jwt: string;
-  prototype_id: string;
-  framework?: 'expo_react_native' | 'react';
-  files: FileInput[]; // Array of file objects
-  file_scope: 'updates' | 'complete';
-  hot_reload?: boolean;
-}
 
 // Initialize clients
 const initializeClients = async (): Promise<{ cache: GlideClient; ecsClient: ECSClient }> => {
@@ -210,7 +195,7 @@ fastify.delete('/cache/clear', async (request: FastifyRequest, reply: FastifyRep
 fastify.post(
   '/dispatch-precheck',
   async (
-    request: FastifyRequest<{ Body: PrecheckBody }>,
+    request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
   ) => {
     try {
