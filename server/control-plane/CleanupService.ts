@@ -16,7 +16,7 @@ export class CleanupService {
   }
   // Cleanup idle hot reload services
 
-  private async cleanupIdleActiveBuilds() {
+  private async cleanupIdleActiveBuilds(): Promise<void> {
     const currentTimeReadable = this.formatTimestampEST(Date.now());
     console.log(
       `Cleaning up idle active builds, current time: ${Date.now()} (${currentTimeReadable})`,
@@ -148,7 +148,7 @@ export class CleanupService {
   }
 
   // Start cleanup services
-  private startCleanupServices() {
+  private startCleanupServices(): void {
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(() => {
@@ -162,7 +162,7 @@ export class CleanupService {
   }
 
   // Stop cleanup services
-  public stopCleanupServices() {
+  public stopCleanupServices(): void {
     this.cleanupIntervals.forEach((interval) => clearInterval(interval));
     this.cleanupIntervals = [];
   }
