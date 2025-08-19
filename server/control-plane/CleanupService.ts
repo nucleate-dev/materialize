@@ -51,7 +51,7 @@ export class CleanupService {
 
     // 1. Get all idle builds
     const idleBuilds: IdleBuildInfo[] = [];
-    
+
     for (const buildKey of activeBuildKeys) {
       const buildJson = await this.cache.get(buildKey);
       if (!buildJson) {
@@ -64,12 +64,12 @@ export class CleanupService {
         continue;
       }
       const build: ActiveBuild = parsedBuild;
-      
+
       // Skip if already cleaning
       if (build.status === 'cleaning') {
         continue;
       }
-      
+
       const timeSinceLastTouch = currentTime - build.last_touched;
       if (timeSinceLastTouch > idleTimeoutSeconds) {
         // Extract build ID from key: "active_build:build_id" -> "build_id"
@@ -97,7 +97,7 @@ export class CleanupService {
         ...build,
         status: 'cleaning',
       };
-      
+
       try {
         await this.cache.set(buildKey, JSON.stringify(cleaningBuild));
         console.log(`Set build ${buildId} status to cleaning`);
@@ -109,7 +109,7 @@ export class CleanupService {
 
       // Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
       const prototypeId = buildId.split('_')[1];
-      
+
       // a. dispatch a request to the fargate instance to kill the build
       if (build.fargate_private_ip) {
         const killResult = await this.dispatchKillDevServerRequest(
@@ -142,28 +142,29 @@ export class CleanupService {
         // Remove from active_build
         await this.cache.del([buildKey]);
         console.log(`Removed active build cache entry: ${buildId}`);
-        
+
         // Remove from builds ZSET
         await this.cache.customCommand([
           'ZREM',
           CACHE_KEYS.protoBuilds(prototypeId),
           buildId,
         ]);
-        console.log(`Removed ${buildId} from builds ZSET for prototype ${prototypeId}`);
-        
+        console.log(
+          `Removed ${buildId} from builds ZSET for prototype ${prototypeId}`,
+        );
+
         // If this was the current build, remove the current pointer
-        const currentBuildId = await this.cache.get(CACHE_KEYS.protoCurrentBuild(prototypeId));
+        const currentBuildId = await this.cache.get(
+          CACHE_KEYS.protoCurrentBuild(prototypeId),
+        );
         if (currentBuildId === buildId) {
           await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
           console.log(`Removed current pointer for prototype ${prototypeId}`);
         }
-        
+
         stats.successfulCleanups++;
       } catch (error) {
-        console.error(
-          `Failed to remove cache entries for ${buildId}:`,
-          error,
-        );
+        console.error(`Failed to remove cache entries for ${buildId}:`, error);
         stats.failedCleanups++;
       }
     }
@@ -299,4 +300,3 @@ export class CleanupService {
     });
   }
 }
-
