@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-19T21:56:55.730Z
+// Last synced: 2025-08-19T22:37:51.447Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -167,6 +167,36 @@ export interface FetchViewingUrlSuccessResponse {
 export type FetchViewingUrlResponse =
   | FetchViewingUrlSuccessResponse
   | StandardErrorResponse;
+
+// ============================================================================
+// /prototype/create ENDPOINT
+// ============================================================================
+
+export interface CreatePrototypeRequestBody {
+  name: string;
+  description?: string;
+  project_id?: string;
+  prototype_id?: string; // For forking an existing prototype
+  visibility?: 'PUBLIC' | 'SELF';
+}
+
+export interface CreatePrototypeSuccessResponse {
+  success: true;
+  data: {
+    prototype_id: string;
+    viewing_url: string;
+  };
+}
+
+export interface CreatePrototypeErrorResponse {
+  success: false;
+  error: 'UNAUTHORIZED' | 'PROTOTYPE_LIMIT_REACHED' | 'DATABASE_ERROR' | 'S3_ERROR' | 'INVALID_REQUEST';
+  message: string;
+}
+
+export type CreatePrototypeResponse =
+  | CreatePrototypeSuccessResponse
+  | CreatePrototypeErrorResponse;
 
 // ============================================================================
 // TYPE GUARDS

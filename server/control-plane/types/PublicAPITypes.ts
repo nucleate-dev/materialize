@@ -160,6 +160,36 @@ export type FetchViewingUrlResponse =
   | StandardErrorResponse;
 
 // ============================================================================
+// /prototype/create ENDPOINT
+// ============================================================================
+
+export interface CreatePrototypeRequestBody {
+  name: string;
+  description?: string;
+  project_id?: string;
+  prototype_id?: string; // For forking an existing prototype
+  visibility?: 'PUBLIC' | 'SELF';
+}
+
+export interface CreatePrototypeSuccessResponse {
+  success: true;
+  data: {
+    prototype_id: string;
+    viewing_url: string;
+  };
+}
+
+export interface CreatePrototypeErrorResponse {
+  success: false;
+  error: 'UNAUTHORIZED' | 'PROTOTYPE_LIMIT_REACHED' | 'DATABASE_ERROR' | 'S3_ERROR' | 'INVALID_REQUEST';
+  message: string;
+}
+
+export type CreatePrototypeResponse =
+  | CreatePrototypeSuccessResponse
+  | CreatePrototypeErrorResponse;
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 

@@ -115,6 +115,66 @@ export interface CleanupStats {
 }
 
 // ============================================================================
+// PROTOTYPE MANAGEMENT TYPES
+// ============================================================================
+
+export type SubscriptionPlanType = 'free' | 'pro' | 'team';
+
+export interface PrototypeAuthResult {
+  success: boolean;
+  userId: string;
+  subscriptionPlan: SubscriptionPlanType;
+  error?: string;
+  message?: string;
+}
+
+export interface PrototypeLimitCheck {
+  canCreate: boolean;
+  currentCount: number;
+  maxAllowed: number;
+  error?: string;
+  message?: string;
+}
+
+export interface PrototypeFile {
+  prototype_id: string;
+  name: string;
+  contents: string;
+  file_type: 'text' | 'asset';
+  storage_path: string | null;
+}
+
+export interface PrototypeFilesResult {
+  success: boolean;
+  files?: PrototypeFile[];
+  error?: string;
+  message?: string;
+}
+
+export interface S3CopyResult {
+  success: boolean;
+  error?: string;
+  copiedObjects: number;
+}
+
+export interface S3UploadResult {
+  success: boolean;
+  publicUrl?: string;
+  error?: string;
+}
+
+export interface DefaultFilesResult {
+  success: boolean;
+  files?: PrototypeFile[];
+  error?: string;
+}
+
+export type PrototypeInsert = Database['public']['Tables']['prototypes']['Insert'];
+export type PrototypeRow = Database['public']['Tables']['prototypes']['Row'];
+export type PrototypeFileRow = Database['public']['Tables']['prototype_files']['Row'];
+export type PrototypeFileInsert = Database['public']['Tables']['prototype_files']['Insert'];
+
+// ============================================================================
 // ERROR HANDLING TYPES
 // ============================================================================
 

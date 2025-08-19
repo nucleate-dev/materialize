@@ -190,6 +190,102 @@ if ('viewing_url' in fetchViewData) {
 
 ---
 
+### 3. `/prototype/create` (POST)
+
+**Original:** `@web-application/src/app/api/prototype/create/route.ts`  
+**Migrated to:** `@server/control-plane/services/PrototypeManagementService.ts`
+
+#### Changes Made:
+- ✅ **Service Extension**: Extended existing `PrototypeManagementService` with create functionality
+- ✅ **Type Definitions**: Added types to `PublicAPITypes.ts`:
+  - `CreatePrototypeRequestBody`
+  - `CreatePrototypeSuccessResponse`
+  - `CreatePrototypeErrorResponse`
+  - `CreatePrototypeResponse`
+- ✅ **Internal Types**: Added comprehensive internal types to `InternalTypes.ts`
+- ✅ **Utility Functions**: Created modular utility functions with full type safety:
+  - `utils/prototypeAuth.ts` - Authentication and limits checking
+  - `utils/s3Operations.ts` - S3 and Supabase Storage operations
+- ✅ **Dependencies**: Added AWS S3 SDK to package.json
+- ✅ **Error Handling**: Comprehensive cleanup on failure (S3, Supabase Storage, Database)
+
+#### API Details:
+- **Endpoint**: `POST /prototype/create`
+- **Authentication**: Required Bearer JWT token in Authorization header
+- **Request Body**: `{ name: string, description?: string, project_id?: string, prototype_id?: string, visibility?: 'PUBLIC' | 'SELF' }`
+- **Response**: `{ success: true, data: { prototype_id: string, viewing_url: string } }` or error
+
+#### Example Usage:
+```bash
+curl -X POST http://localhost:3000/prototype/create \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My New Prototype",
+    "description": "A test prototype",
+    "visibility": "PUBLIC"
+  }'
+```
+
+#### Forking Example:
+```bash
+curl -X POST http://localhost:3000/prototype/create \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Forked Prototype",
+    "prototype_id": "source-prototype-id-to-fork",
+    "visibility": "SELF"
+  }'
+```
+
+#### Response Format:
+```typescript
+// Success (200)
+{
+  "success": true,
+  "data": {
+    "prototype_id": "new-prototype-uuid",
+    "viewing_url": "https://new-prototype-uuid.render.materializeui.com/"
+  }
+}
+
+// Error (400/401/403/500)
+{
+  "success": false,
+  "error": "PROTOTYPE_LIMIT_REACHED",
+  "message": "Free plan allows maximum 5 prototypes. Upgrade to Pro for unlimited prototypes."
+}
+```
+
+#### Key Features:
+- **Authentication**: JWT token validation with Supabase Auth
+- **Subscription Limits**: Free users limited to 5 prototypes, Pro users unlimited
+- **Prototype Forking**: Complete duplication of existing prototypes including assets
+- **Asset Management**: Handles both text files and binary assets via Supabase Storage
+- **S3 Integration**: Copies default app files and manages prototype hosting
+- **Atomic Operations**: Complete rollback on any failure (database, S3, storage cleanup)
+- **Type Safety**: Comprehensive TypeScript types for all operations
+
+#### Error Handling:
+- **401**: Missing or invalid JWT token
+- **403**: Prototype limit reached for free users
+- **400**: Invalid request data (missing name, invalid visibility for free users)
+- **500**: Database errors, S3 errors, or internal server errors
+
+#### Dependencies Added:
+- `@aws-sdk/client-s3` for S3 operations
+- Uses existing Supabase client for database and storage operations
+- Integrates with existing authentication system
+
+#### Architecture:
+- **Modular Design**: Separated concerns into utility functions
+- **Service-Based**: Extends existing PrototypeManagementService
+- **Error Recovery**: Comprehensive cleanup mechanisms
+- **Type Safety**: Full TypeScript coverage with proper error types
+
+---
+
 ## Environment Variables Setup
 
 Make sure to update your `.env` file with the following variables:
@@ -218,7 +314,7 @@ The following APIs are candidates for migration:
 - [ ] `/files/save-and-build`
 - [ ] `/files/start-dev-server`
 - [ ] `/files/update-files`
-- [ ] `/prototype/create`
+- [x] ~~`/prototype/create`~~ (migrated with same route name)
 - [x] ~~`/prototype/fetch-view`~~ (migrated as `/prototype/fetch-viewing-url`)
 - [ ] `/chat`
 
