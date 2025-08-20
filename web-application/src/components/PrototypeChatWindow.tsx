@@ -507,7 +507,7 @@ export default function PrototypeChatWindow({
         }
 
         // Make a single streaming request that handles both planning and execution
-        const streamingResponse = await fetch("/api/chat", {
+        const streamingResponse = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

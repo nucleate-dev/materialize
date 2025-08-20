@@ -6,6 +6,7 @@ import { CleanupService } from './services/CleanupService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
+import { ChatService } from './services/ChatService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';
@@ -65,6 +66,7 @@ let cleanupService: CleanupService;
 let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
+let chatService: ChatService;
 let cache: GlideClient;
 
 // Health check
@@ -147,6 +149,10 @@ const start = async (): Promise<void> => {
     // Create development server service and register routes
     developmentServerService = new DevelopmentServerService(fastify);
     developmentServerService.registerRoutes(fastify);
+
+    // Create chat service and register routes
+    chatService = new ChatService(fastify);
+    chatService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,

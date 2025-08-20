@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-20T04:27:29.315Z
+// Last synced: 2025-08-20T05:14:38.335Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -238,6 +238,148 @@ export interface StartDevServerErrorResponse {
 export type StartDevServerResponse =
   | StartDevServerSuccessResponse
   | StartDevServerErrorResponse;
+
+// ============================================================================
+// /chat ENDPOINT
+// ============================================================================
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequestBody {
+  messages: ChatMessage[];
+  snackFiles: Record<string, PrototypeFileInput> | null;
+  chat_session_id: string;
+  prototype_id: string;
+}
+
+// Streaming response types for different event types
+export interface ChatStreamEventBase {
+  type: string;
+}
+
+export interface ChatStreamPlanningEvent extends ChatStreamEventBase {
+  type: 'planning';
+  content: string;
+  updatedFiles: Record<string, PrototypeFileInput>;
+  messageId?: string;
+}
+
+export interface ChatStreamExecutionStartEvent extends ChatStreamEventBase {
+  type: 'execution_start';
+  operations: {
+    id: string;
+    type: 'create' | 'modify' | 'delete' | 'move';
+    title: string;
+    description: string;
+    filePath: string;
+    newFilePath?: string;
+  }[];
+}
+
+export interface ChatStreamStepStartEvent extends ChatStreamEventBase {
+  type: 'step_start';
+  stepIndex: number;
+  operation: {
+    id: string;
+    type: 'create' | 'modify' | 'delete' | 'move';
+    title: string;
+    description: string;
+    filePath: string;
+    newFilePath?: string;
+  };
+}
+
+export interface ChatStreamStepCompleteEvent extends ChatStreamEventBase {
+  type: 'step_complete';
+  stepIndex: number;
+  operation: {
+    id: string;
+    type: 'create' | 'modify' | 'delete' | 'move';
+    title: string;
+    description: string;
+    filePath: string;
+    newFilePath?: string;
+  };
+  result: {
+    content: string;
+    updatedFiles: Record<string, PrototypeFileInput>;
+    hasResult: boolean;
+  };
+  success: boolean;
+}
+
+export interface ChatStreamStepErrorEvent extends ChatStreamEventBase {
+  type: 'step_error';
+  stepIndex: number;
+  operation: {
+    id: string;
+    type: 'create' | 'modify' | 'delete' | 'move';
+    title: string;
+    description: string;
+    filePath: string;
+    newFilePath?: string;
+  };
+  error: string;
+}
+
+export interface ChatStreamExecutionCompleteEvent extends ChatStreamEventBase {
+  type: 'execution_complete';
+  updatedFiles: Record<string, PrototypeFileInput>;
+}
+
+export interface ChatStreamDispatchStartEvent extends ChatStreamEventBase {
+  type: 'dispatch_start';
+  message: string;
+}
+
+export interface ChatStreamViewingUrlEvent extends ChatStreamEventBase {
+  type: 'viewing_url';
+  viewing_url: string;
+}
+
+export interface ChatStreamDispatchCompleteEvent extends ChatStreamEventBase {
+  type: 'dispatch_complete';
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+export interface ChatStreamUsageUpdateEvent extends ChatStreamEventBase {
+  type: 'usage_update';
+  messageCount: number;
+}
+
+export interface ChatStreamErrorEvent extends ChatStreamEventBase {
+  type: 'error';
+  error: string;
+}
+
+export type ChatStreamEvent =
+  | ChatStreamPlanningEvent
+  | ChatStreamExecutionStartEvent
+  | ChatStreamStepStartEvent
+  | ChatStreamStepCompleteEvent
+  | ChatStreamStepErrorEvent
+  | ChatStreamExecutionCompleteEvent
+  | ChatStreamDispatchStartEvent
+  | ChatStreamViewingUrlEvent
+  | ChatStreamDispatchCompleteEvent
+  | ChatStreamUsageUpdateEvent
+  | ChatStreamErrorEvent;
+
+// Error response for non-streaming scenarios
+export interface ChatErrorResponse {
+  error: string;
+  usage?: {
+    current: number;
+    limit: number;
+    tier: string;
+  };
+  details?: unknown;
+}
 
 // ============================================================================
 // TYPE GUARDS
