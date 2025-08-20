@@ -45,6 +45,7 @@ const initializeClients = async (): Promise<{
 
 const fastify = Fastify({
   logger: true,
+  disableRequestLogging: true,
   bodyLimit: 20 * 1024 * 1024, // 20MB
 });
 fastify.register(cors, { origin: true, credentials: true });
@@ -61,7 +62,7 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const result = await cache.ping();
     if (result === 'PONG') {
-      return reply.send({
+      return reply.status(200).send({
         status: 'healthy',
         timestamp: new Date().toISOString(),
       });

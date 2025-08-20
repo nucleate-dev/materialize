@@ -6,4 +6,4 @@ aws autoscaling start-instance-refresh \
 
 To see logs, SSH into an active EC2 instance and run:
 sudo tail -f /var/log/user-data.log
-sudo tail -n 200 /var/log/control-plane.log
+sudo tail -f /var/log/control-plane.log
