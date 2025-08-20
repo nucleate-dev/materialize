@@ -6,6 +6,13 @@ import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
+import { 
+  ChatRequestBody, 
+  ChatErrorResponse, 
+  ChatStreamEvent,
+  PrototypeFileInput,
+  ChatMessage as ServerChatMessage
+} from "@/lib/types/serverAPITypes";
 import { useCallback, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -224,9 +231,22 @@ export default function PrototypeChatWindow({
                       },
                     ]);
 
-                    // Save updated files from planning
+                    // Convert PrototypeFileInput back to PrototypeFile format and save updated files from planning
                     if (data.updatedFiles) {
-                      await onFilesUpdate(data.updatedFiles);
+                      const convertedFiles: Record<string, PrototypeFile> = {};
+                      Object.entries(data.updatedFiles as Record<string, PrototypeFileInput>).forEach(([path, fileInput]) => {
+                        convertedFiles[path] = {
+                          id: fileInput.id || uuidv4(),
+                          name: fileInput.name,
+                          contents: fileInput.contents,
+                          file_type: fileInput.file_type,
+                          prototype_id: fileInput.prototype_id,
+                          storage_path: fileInput.storage_path || null,
+                          created_at: fileInput.created_at || new Date().toISOString(),
+                          updated_at: fileInput.updated_at || new Date().toISOString(),
+                        };
+                      });
+                      await onFilesUpdate(convertedFiles);
                     }
                     break;
                   }
@@ -302,7 +322,21 @@ export default function PrototypeChatWindow({
                     const { stepIndex, result, success } = data;
 
                     if (success && result.updatedFiles) {
-                      await onFilesUpdate(result.updatedFiles);
+                      // Convert PrototypeFileInput back to PrototypeFile format
+                      const convertedFiles: Record<string, PrototypeFile> = {};
+                      Object.entries(result.updatedFiles as Record<string, PrototypeFileInput>).forEach(([path, fileInput]) => {
+                        convertedFiles[path] = {
+                          id: fileInput.id || uuidv4(),
+                          name: fileInput.name,
+                          contents: fileInput.contents,
+                          file_type: fileInput.file_type,
+                          prototype_id: fileInput.prototype_id,
+                          storage_path: fileInput.storage_path || null,
+                          created_at: fileInput.created_at || new Date().toISOString(),
+                          updated_at: fileInput.updated_at || new Date().toISOString(),
+                        };
+                      });
+                      await onFilesUpdate(convertedFiles);
                     }
 
                     // Update the execution message to show completion
@@ -365,7 +399,21 @@ export default function PrototypeChatWindow({
 
                     // Save final updated files
                     if (data.updatedFiles) {
-                      await onFilesUpdate(data.updatedFiles);
+                      // Convert PrototypeFileInput back to PrototypeFile format
+                      const convertedFiles: Record<string, PrototypeFile> = {};
+                      Object.entries(data.updatedFiles as Record<string, PrototypeFileInput>).forEach(([path, fileInput]) => {
+                        convertedFiles[path] = {
+                          id: fileInput.id || uuidv4(),
+                          name: fileInput.name,
+                          contents: fileInput.contents,
+                          file_type: fileInput.file_type,
+                          prototype_id: fileInput.prototype_id,
+                          storage_path: fileInput.storage_path || null,
+                          created_at: fileInput.created_at || new Date().toISOString(),
+                          updated_at: fileInput.updated_at || new Date().toISOString(),
+                        };
+                      });
+                      await onFilesUpdate(convertedFiles);
                     }
 
                     // Update final execution message
@@ -506,6 +554,34 @@ export default function PrototypeChatWindow({
           throw new Error("No access token available");
         }
 
+        // Convert files to the expected PrototypeFileInput format
+        const snackFiles: Record<string, PrototypeFileInput> = {};
+        Object.entries(files).forEach(([path, file]) => {
+          snackFiles[path] = {
+            contents: file.contents || "",
+            name: file.name,
+            file_type: file.file_type,
+            prototype_id: file.prototype_id,
+            id: file.id,
+            storage_path: file.storage_path,
+            created_at: file.created_at,
+            updated_at: file.updated_at,
+          };
+        });
+
+        // Convert messages to the expected ServerChatMessage format
+        const serverMessages: ServerChatMessage[] = [...prototypeChatMessages, userMessage].map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        }));
+
+        const requestBody: ChatRequestBody = {
+          messages: serverMessages,
+          snackFiles,
+          chat_session_id: prototypeChatSession.id,
+          prototype_id: prototypeId,
+        };
+
         // Make a single streaming request that handles both planning and execution
         const streamingResponse = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/chat`, {
           method: "POST",
@@ -514,16 +590,25 @@ export default function PrototypeChatWindow({
             Accept: "text/stream", // Signal that we want streaming
             Authorization: `Bearer ${session.session.access_token}`,
           },
-          body: JSON.stringify({
-            prototype_id: prototypeId,
-            chat_session_id: prototypeChatSession.id,
-            messages: [...prototypeChatMessages, userMessage],
-            snackFiles: files,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!streamingResponse.ok) {
-          throw new Error(`HTTP error! status: ${streamingResponse.status}`);
+          // Try to parse error response
+          try {
+            const errorData: ChatErrorResponse = await streamingResponse.json();
+            if (errorData.error) {
+              // Handle specific error cases
+              if (errorData.usage && errorData.usage.current >= errorData.usage.limit) {
+                setShowUpsellModal(true);
+                return;
+              }
+              throw new Error(errorData.error);
+            }
+          } catch (parseError) {
+            // If we can't parse the error, use generic message
+            throw new Error(`HTTP error! status: ${streamingResponse.status}`);
+          }
         }
 
         // Process the streaming response
