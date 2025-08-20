@@ -124,6 +124,8 @@ export class DispatcherService {
       }
     }
 
+    console.log('User access validation successful');
+
     try {
       // Generate unique build ID
       const currentTime = Math.floor(Date.now() / 1000);
@@ -135,6 +137,7 @@ export class DispatcherService {
 
       let shouldCreateNewBuild = true;
       if (currentBuildId) {
+        console.log('Current build ID found: ', currentBuildId);
         const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
 
@@ -175,6 +178,7 @@ export class DispatcherService {
       let updatedBuildCacheData: ActiveBuild;
 
       if (shouldCreateNewBuild) {
+        console.log('Creating new build');
         const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
           .toString(36)
           .substr(2, 9)}`;
@@ -191,11 +195,15 @@ export class DispatcherService {
         // Set the new build as active
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
 
+        console.log('Set cache data active build: ', buildId);
+
         // Update current pointer
         await this.cache.set(
           CACHE_KEYS.protoCurrentBuild(prototype_id),
           buildId,
         );
+
+        console.log('Set cache data current build: ', buildId);
 
         // Add to builds ZSET
         await this.cache.customCommand([
@@ -205,9 +213,13 @@ export class DispatcherService {
           buildId,
         ]);
 
+        console.log('Set cache data builds zset for this prototype: ', buildId);
+
+        console.log('Launching new fargate instance');
         const newFargateInstance = await this.launchFargateInstance(
           prototype_id,
         );
+        console.log('Fargate instance launched: ', newFargateInstance);
 
         updatedBuildCacheData = {
           ...newBuildCacheData,
@@ -217,6 +229,7 @@ export class DispatcherService {
         };
       } else {
         // Reuse existing build
+        console.log('Reusing existing build');
         activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
         const parsedBuild = JSON.parse(existingBuildJson as string);
@@ -240,6 +253,8 @@ export class DispatcherService {
         JSON.stringify(updatedBuildCacheData),
       );
 
+      console.log('Set cache data active build: ', activeBuildKey);
+
       // Dispatch request to fargate instance
       const requestBody = this.constructRequestBody({
         prototype_id,
@@ -249,6 +264,10 @@ export class DispatcherService {
       });
 
       try {
+        console.log(
+          'Dispatching request to fargate instance: ',
+          activeBuildKey,
+        );
         const fargateResponse =
           await this.dispatchFormedRequestToFargateInstanceServer(
             updatedBuildCacheData.fargate_private_ip,
