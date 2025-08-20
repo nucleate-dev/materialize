@@ -339,6 +339,7 @@ export class PrototypeManagementService {
             forkPrototypeId,
           );
           if (!filesResult.success) {
+            console.log('Failed to get prototype files', filesResult);
             throw new Error(
               filesResult.message || 'Failed to get prototype files',
             );
@@ -431,6 +432,7 @@ export class PrototypeManagementService {
             destinationPrefix,
           );
           if (!s3CopyResult.success) {
+            console.log('Failed to copy S3 bucket', s3CopyResult);
             throw new Error(`Failed to copy S3 bucket: ${s3CopyResult.error}`);
           }
 
@@ -449,6 +451,10 @@ export class PrototypeManagementService {
             newPrototypeId,
           );
           if (!defaultFilesResult.success) {
+            console.log(
+              'Failed to get default files from S3',
+              defaultFilesResult,
+            );
             throw new Error(
               `Failed to get default files from S3: ${defaultFilesResult.error}`,
             );
@@ -470,6 +476,7 @@ export class PrototypeManagementService {
             .insert(filesToInsert);
 
           if (filesError) {
+            console.log('Failed to insert default files', filesError);
             throw new Error(
               `Failed to insert default files: ${filesError.message}`,
             );
@@ -481,6 +488,7 @@ export class PrototypeManagementService {
             newPrototypeId,
           );
           if (!s3CopyResult.success) {
+            console.log('Failed to copy default app to S3', s3CopyResult);
             throw new Error(
               `Failed to copy default app to S3: ${s3CopyResult.error}`,
             );
