@@ -6,14 +6,14 @@ import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
-import { 
-  ChatRequestBody, 
-  ChatErrorResponse, 
+import {
+  ChatRequestBody,
+  ChatErrorResponse,
   ChatStreamEvent,
   PrototypeFileInput,
-  ChatMessage as ServerChatMessage
+  ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 type PrototypeChatSession =
@@ -58,6 +58,14 @@ export default function PrototypeChatWindow({
   const [prototypeChatMessages, setPrototypeChatMessages] = useState<
     PrototypeChatMessage[]
   >([]);
+
+  // Use ref to avoid stale closure issues in streaming
+  const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    prototypeChatSessionRef.current = prototypeChatSession;
+  }, [prototypeChatSession]);
   const [messageCount, setMessageCount] = useState<number>(0);
   const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
   const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
@@ -186,6 +194,7 @@ export default function PrototypeChatWindow({
   // Handle streaming execution updates
   const processStreamingResponse = useCallback(
     async (response: Response) => {
+      console.log("🔄 [CLIENT] Starting to process streaming response");
       if (!response.body) {
         throw new Error("No response body for streaming");
       }
@@ -202,39 +211,83 @@ export default function PrototypeChatWindow({
         newFilePath?: string;
       }> = [];
 
+      // Buffer for accumulating partial chunks
+      let buffer = "";
+
       try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            console.log("✅ [CLIENT] Stream reading completed");
+            break;
+          }
 
           const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
+          console.log("📦 [CLIENT] Received chunk:", chunk);
+
+          // Add chunk to buffer
+          buffer += chunk;
+
+          // Process complete lines from buffer
+          const lines = buffer.split("\n");
+
+          // Keep the last line in buffer (might be incomplete)
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
+            console.log("📝 [CLIENT] Processing line:", line);
             if (line.startsWith("data: ")) {
               try {
-                const data = JSON.parse(line.slice(6));
+                const jsonData = line.slice(6);
+                const data = JSON.parse(jsonData);
 
                 switch (data.type) {
                   case "planning": {
+                    console.log(
+                      "🧠 [CLIENT] Processing planning event, adding to UI",
+                    );
                     // Add planning message to UI
-                    setPrototypeChatMessages((prev) => [
-                      ...prev,
-                      {
+                    setPrototypeChatMessages((prev) => {
+                      const newMessage = {
                         id: data.messageId || uuidv4(),
-                        chat_session_id: prototypeChatSession?.id || "",
-                        role: "assistant",
-                        phase: "planning",
+                        chat_session_id:
+                          prototypeChatSessionRef.current?.id || "",
+                        role: "assistant" as const,
+                        phase: "planning" as const,
                         content: data.content,
                         created_at: new Date().toISOString(),
-                      },
-                    ]);
+                      };
+                      console.log(
+                        "🧠 [CLIENT] Adding planning message:",
+                        newMessage,
+                      );
+                      console.log(
+                        "🧠 [CLIENT] Previous messages count:",
+                        prev.length,
+                      );
+                      const newMessages = [...prev, newMessage];
+                      console.log(
+                        "🧠 [CLIENT] New messages count:",
+                        newMessages.length,
+                      );
+                      console.log(
+                        "🧠 [CLIENT] All messages after planning:",
+                        newMessages.map((m) => ({
+                          id: m.id,
+                          role: m.role,
+                          phase: m.phase,
+                        })),
+                      );
+                      return newMessages;
+                    });
 
                     // Convert PrototypeFileInput back to PrototypeFile format and save updated files from planning
                     if (data.updatedFiles) {
                       const convertedFiles: Record<string, PrototypeFile> = {};
-                      Object.entries(data.updatedFiles as Record<string, PrototypeFileInput>).forEach(([path, fileInput]) => {
+                      Object.entries(
+                        data.updatedFiles as Record<string, PrototypeFileInput>,
+                      ).forEach(([path, fileInput]) => {
                         convertedFiles[path] = {
                           id: fileInput.id || uuidv4(),
                           name: fileInput.name,
@@ -242,8 +295,10 @@ export default function PrototypeChatWindow({
                           file_type: fileInput.file_type,
                           prototype_id: fileInput.prototype_id,
                           storage_path: fileInput.storage_path || null,
-                          created_at: fileInput.created_at || new Date().toISOString(),
-                          updated_at: fileInput.updated_at || new Date().toISOString(),
+                          created_at:
+                            fileInput.created_at || new Date().toISOString(),
+                          updated_at:
+                            fileInput.updated_at || new Date().toISOString(),
                         };
                       });
                       await onFilesUpdate(convertedFiles);
@@ -268,14 +323,16 @@ export default function PrototypeChatWindow({
                   }
 
                   case "execution_start": {
+                    console.log("⚙️ [CLIENT] Processing execution_start event");
                     operations = data.operations;
                     executionMessageId = uuidv4();
 
                     const initialExecutionMessage: PrototypeChatMessage = {
                       id: executionMessageId,
-                      chat_session_id: prototypeChatSession?.id || "",
-                      role: "assistant",
-                      phase: "execution",
+                      chat_session_id:
+                        prototypeChatSessionRef.current?.id || "",
+                      role: "assistant" as const,
+                      phase: "execution" as const,
                       content: `🔄 Executing ${operations.length} operations...\n\n${operations
                         .map(
                           (op, index) =>
@@ -285,11 +342,18 @@ export default function PrototypeChatWindow({
                       created_at: new Date().toISOString(),
                     };
 
-                    setIsExecutingOperations(true);
-                    setPrototypeChatMessages((prev) => [
-                      ...prev,
+                    console.log(
+                      "⚙️ [CLIENT] Adding execution message:",
                       initialExecutionMessage,
-                    ]);
+                    );
+                    setIsExecutingOperations(true);
+                    setPrototypeChatMessages((prev) => {
+                      console.log(
+                        "⚙️ [CLIENT] Current messages count:",
+                        prev.length,
+                      );
+                      return [...prev, initialExecutionMessage];
+                    });
                     break;
                   }
 
@@ -324,7 +388,12 @@ export default function PrototypeChatWindow({
                     if (success && result.updatedFiles) {
                       // Convert PrototypeFileInput back to PrototypeFile format
                       const convertedFiles: Record<string, PrototypeFile> = {};
-                      Object.entries(result.updatedFiles as Record<string, PrototypeFileInput>).forEach(([path, fileInput]) => {
+                      Object.entries(
+                        result.updatedFiles as Record<
+                          string,
+                          PrototypeFileInput
+                        >,
+                      ).forEach(([path, fileInput]) => {
                         convertedFiles[path] = {
                           id: fileInput.id || uuidv4(),
                           name: fileInput.name,
@@ -332,8 +401,10 @@ export default function PrototypeChatWindow({
                           file_type: fileInput.file_type,
                           prototype_id: fileInput.prototype_id,
                           storage_path: fileInput.storage_path || null,
-                          created_at: fileInput.created_at || new Date().toISOString(),
-                          updated_at: fileInput.updated_at || new Date().toISOString(),
+                          created_at:
+                            fileInput.created_at || new Date().toISOString(),
+                          updated_at:
+                            fileInput.updated_at || new Date().toISOString(),
                         };
                       });
                       await onFilesUpdate(convertedFiles);
@@ -401,7 +472,9 @@ export default function PrototypeChatWindow({
                     if (data.updatedFiles) {
                       // Convert PrototypeFileInput back to PrototypeFile format
                       const convertedFiles: Record<string, PrototypeFile> = {};
-                      Object.entries(data.updatedFiles as Record<string, PrototypeFileInput>).forEach(([path, fileInput]) => {
+                      Object.entries(
+                        data.updatedFiles as Record<string, PrototypeFileInput>,
+                      ).forEach(([path, fileInput]) => {
                         convertedFiles[path] = {
                           id: fileInput.id || uuidv4(),
                           name: fileInput.name,
@@ -409,8 +482,10 @@ export default function PrototypeChatWindow({
                           file_type: fileInput.file_type,
                           prototype_id: fileInput.prototype_id,
                           storage_path: fileInput.storage_path || null,
-                          created_at: fileInput.created_at || new Date().toISOString(),
-                          updated_at: fileInput.updated_at || new Date().toISOString(),
+                          created_at:
+                            fileInput.created_at || new Date().toISOString(),
+                          updated_at:
+                            fileInput.updated_at || new Date().toISOString(),
                         };
                       });
                       await onFilesUpdate(convertedFiles);
@@ -457,7 +532,8 @@ export default function PrototypeChatWindow({
 
                     const errorMessage: PrototypeChatMessage = {
                       id: uuidv4(),
-                      chat_session_id: prototypeChatSession?.id || "",
+                      chat_session_id:
+                        prototypeChatSessionRef.current?.id || "",
                       role: "assistant",
                       content: `Sorry, I encountered an error: ${data.error}`,
                       created_at: new Date().toISOString(),
@@ -467,9 +543,22 @@ export default function PrototypeChatWindow({
                     setPrototypeChatMessages((prev) => [...prev, errorMessage]);
                     break;
                   }
+
+                  default: {
+                    console.log(
+                      "🔍 [CLIENT] Unhandled event type:",
+                      data.type,
+                      data,
+                    );
+                    break;
+                  }
                 }
               } catch (parseError) {
-                console.error("Error parsing streaming data:", parseError);
+                console.error(
+                  "❌ [CLIENT] Error parsing streaming data:",
+                  parseError,
+                );
+                console.error("❌ [CLIENT] Problematic line:", line);
               }
             }
           }
@@ -479,7 +568,6 @@ export default function PrototypeChatWindow({
       }
     },
     [
-      prototypeChatSession,
       onFilesUpdate,
       setPrototypeChatMessages,
       setIsExecutingOperations,
@@ -570,9 +658,12 @@ export default function PrototypeChatWindow({
         });
 
         // Convert messages to the expected ServerChatMessage format
-        const serverMessages: ServerChatMessage[] = [...prototypeChatMessages, userMessage].map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content
+        const serverMessages: ServerChatMessage[] = [
+          ...prototypeChatMessages,
+          userMessage,
+        ].map((msg) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
         }));
 
         const requestBody: ChatRequestBody = {
@@ -582,15 +673,42 @@ export default function PrototypeChatWindow({
           prototype_id: prototypeId,
         };
 
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        if (!serverEndpoint) {
+          throw new Error("NEXT_PUBLIC_SERVER_ENDPOINT is not configured");
+        }
+        const chatUrl = `${serverEndpoint}/chat`;
+
+        console.log("🌐 [CLIENT] Server endpoint:", serverEndpoint);
+        console.log("🌐 [CLIENT] Making request to:", chatUrl);
+        console.log("📋 [CLIENT] Request body:", {
+          messagesCount: serverMessages.length,
+          snackFilesCount: Object.keys(snackFiles).length,
+          chat_session_id: prototypeChatSession.id,
+          prototype_id: prototypeId,
+        });
+        console.log("🔑 [CLIENT] Headers:", {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          Authorization: `Bearer ${session.session.access_token?.substring(0, 20)}...`,
+        });
+
         // Make a single streaming request that handles both planning and execution
-        const streamingResponse = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/chat`, {
+        const streamingResponse = await fetch(chatUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Accept: "text/stream", // Signal that we want streaming
+            Accept: "text/event-stream", // Signal that we want streaming
             Authorization: `Bearer ${session.session.access_token}`,
+            "Cache-Control": "no-cache",
           },
           body: JSON.stringify(requestBody),
+        });
+
+        console.log("📡 [CLIENT] Response received:", {
+          status: streamingResponse.status,
+          statusText: streamingResponse.statusText,
+          headers: Object.fromEntries(streamingResponse.headers.entries()),
         });
 
         if (!streamingResponse.ok) {
@@ -599,7 +717,10 @@ export default function PrototypeChatWindow({
             const errorData: ChatErrorResponse = await streamingResponse.json();
             if (errorData.error) {
               // Handle specific error cases
-              if (errorData.usage && errorData.usage.current >= errorData.usage.limit) {
+              if (
+                errorData.usage &&
+                errorData.usage.current >= errorData.usage.limit
+              ) {
                 setShowUpsellModal(true);
                 return;
               }
@@ -614,7 +735,14 @@ export default function PrototypeChatWindow({
         // Process the streaming response
         await processStreamingResponse(streamingResponse);
       } catch (error) {
-        console.error("Error sending message:", error);
+        console.error("❌ [CLIENT] Error sending message:", error);
+        console.error("❌ [CLIENT] Error details:", {
+          name: error instanceof Error ? error.name : "Unknown",
+          message: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : "No stack trace",
+          serverEndpoint: serverEndpoint,
+          chatUrl: chatUrl,
+        });
 
         const errorMessage: PrototypeChatMessage = {
           id: uuidv4(),
@@ -692,6 +820,23 @@ export default function PrototypeChatWindow({
       console.error("Failed to parse chat_intent", err);
     }
   }, [prototypeId, prototypeChatSession, handleSendMessage]);
+
+  // Debug logging for messages
+  useEffect(() => {
+    console.log("🔍 [CHAT WINDOW] prototypeChatMessages updated:", {
+      count: prototypeChatMessages.length,
+      messages: prototypeChatMessages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        phase: msg.phase || "no_phase",
+        contentPreview: msg.content.substring(0, 100) + "...",
+      })),
+    });
+    console.log(
+      "🔍 [CHAT WINDOW] Full message objects:",
+      prototypeChatMessages,
+    );
+  }, [prototypeChatMessages]);
 
   return (
     <>

@@ -49,6 +49,16 @@ export default function ChatWindow({
   isAtLimit = false,
   loadingUsageCount = false,
 }: ChatWindowProps) {
+  
+  // Debug logging for messages
+  useEffect(() => {
+    console.log("🔍 [CHAT WINDOW COMPONENT] Received messages:", {
+      count: messages.length,
+      messageIds: messages.map(m => m.id),
+      roles: messages.map(m => m.role),
+      phases: messages.map(m => m.phase || 'no_phase')
+    });
+  }, [messages]);
   const [input, setInput] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -269,13 +279,20 @@ export default function ChatWindow({
     const isCodeVisible = expandedCodeBlocks.has(message.id);
     const hasCodeBlocks = messageContent.includes("```");
 
-    // Determine message type
-    const isPlanningMessage = message.content.includes("EXECUTION_PLAN");
-    const isExecutionMessage = message.content.includes("EXECUTION_STEP");
+    // Determine message type based on phase
+    const isPlanningMessage = message.phase === "planning";
+    const isExecutionMessage = message.phase === "execution";
 
-    // For planning messages, don't show any content - the plan UI handles everything
+    // For planning messages, show the content - don't return null
     if (isPlanningMessage) {
-      return null;
+      // Show planning content
+      return (
+        <div className="text-slate-700 dark:text-slate-300">
+          <div className="whitespace-pre-wrap">
+            {messageContent}
+          </div>
+        </div>
+      );
     }
 
     // For execution messages, show a clean implementation message
@@ -362,16 +379,16 @@ export default function ChatWindow({
           >
             <div className="relative z-10">
               {/* Message Type Badge */}
-              {!isUser && (isPlanningMessage || isExecutionMessage) && (
+              {!isUser && (message.phase === "planning" || message.phase === "execution") && (
                 <div className="mb-3">
                   <span
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                      isPlanningMessage
+                      message.phase === "planning"
                         ? "bg-primary/10 text-primary border-primary/20"
                         : "bg-secondary/10 text-secondary-foreground border-secondary/20"
                     }`}
                   >
-                    {isPlanningMessage
+                    {message.phase === "planning"
                       ? "Planning Phase"
                       : "Code Implementation"}
                   </span>

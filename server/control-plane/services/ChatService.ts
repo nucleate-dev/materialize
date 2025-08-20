@@ -93,6 +93,18 @@ export class ChatService {
   }
 
   public registerRoutes(app: FastifyInstance): void {
+    // OPTIONS /chat - Handle preflight requests
+    app.options('/chat', async (request, reply) => {
+      reply.headers({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '3600',
+      });
+      reply.status(200).send();
+    });
+
     // POST /chat
     app.post<{
       Body: ChatRequestBody;
@@ -324,7 +336,7 @@ export class ChatService {
       }
 
       // Check if this request expects streaming (new flow)
-      const expectsStreaming = request.headers.accept === 'text/stream';
+      const expectsStreaming = request.headers.accept === 'text/event-stream';
       if (!expectsStreaming) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error: 'Streaming is required for this endpoint.',
@@ -341,6 +353,7 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 7. Execute planning phase
             // ------------------------------------------------------------------------------------------------
+            console.log('🧠 [SERVER] Starting planning phase...');
             const finalResponse = await this.handlePlanningPhase(
               messages,
               userMessage,
@@ -354,6 +367,8 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 8. EXECUTE EXECUTION PHASE
             // ------------------------------------------------------------------------------------------------
+            console.log('⚙️ [SERVER] Starting execution phase...');
+            console.log('⚙️ [SERVER] Final planning response length:', finalResponse.length);
             await this.handleExecutionPhase(
               finalResponse,
               fileManager,
@@ -568,29 +583,42 @@ export class ChatService {
               }
             }
 
+            console.log('🔚 [SERVER] Stream controller closing normally');
             controller.close();
           } catch (error) {
-            console.error('Streaming error:', error);
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: 'error',
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : 'Internal server error',
-                })}\n\n`,
-              ),
-            );
-            controller.close();
+            console.error('💥 [SERVER] Streaming error in controller:', error);
+            try {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'error',
+                    error:
+                      error instanceof Error
+                        ? error.message
+                        : 'Internal server error',
+                  })}\n\n`,
+                ),
+              );
+            } catch (enqueueError) {
+              console.error('💥 [SERVER] Failed to enqueue error message:', enqueueError);
+            }
+            try {
+              controller.close();
+            } catch (closeError) {
+              console.error('💥 [SERVER] Failed to close controller:', closeError);
+            }
           }
         },
       });
 
       reply.raw.writeHead(200, {
-        'Content-Type': 'text/plain',
+        'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
       });
 
       const reader = stream.getReader();
@@ -599,13 +627,22 @@ export class ChatService {
           while (true) {
             const { done, value } = await reader.read();
             if (done) {
+              console.log('🔚 [SERVER] Stream completed successfully');
               break;
             }
+            console.log('📤 [SERVER] Writing stream chunk:', new TextDecoder().decode(value).substring(0, 100) + '...');
             reply.raw.write(value);
           }
         } catch (err) {
-          console.error('Stream error:', err);
+          console.error('💥 [SERVER] Stream error:', err);
+          // Send error event before closing
+          const errorEvent = `data: ${JSON.stringify({
+            type: 'error',
+            error: err instanceof Error ? err.message : 'Stream processing error',
+          })}\n\n`;
+          reply.raw.write(errorEvent);
         } finally {
+          console.log('🔚 [SERVER] Ending response stream');
           reply.raw.end();
         }
       };
@@ -958,14 +995,23 @@ Do NOT repeat the same tool call again.`;
       .single();
 
     // Send planning response
+    console.log('🧠 [SERVER] Sending planning event to client...');
+    const planningEvent = {
+      type: 'planning',
+      content: finalResponse,
+      updatedFiles: fileManager.getFinalState(),
+      messageId: planningMessage?.id,
+    };
+    console.log('🧠 [SERVER] Planning event:', {
+      type: planningEvent.type,
+      contentLength: planningEvent.content.length,
+      messageId: planningEvent.messageId,
+      updatedFilesCount: Object.keys(planningEvent.updatedFiles).length,
+    });
+    
     controller.enqueue(
       encoder.encode(
-        `data: ${JSON.stringify({
-          type: 'planning',
-          content: finalResponse,
-          updatedFiles: fileManager.getFinalState(),
-          messageId: planningMessage?.id,
-        })}\n\n`,
+        `data: ${JSON.stringify(planningEvent)}\n\n`,
       ),
     );
 
@@ -988,11 +1034,19 @@ Do NOT repeat the same tool call again.`;
     );
 
     // Check if the response contains an execution plan
+    console.log('⚙️ [SERVER] Checking for execution plan in response...');
+    console.log('⚙️ [SERVER] Response includes EXECUTION_PLAN:', finalResponse.includes('EXECUTION_PLAN'));
+    
     if (finalResponse.includes('EXECUTION_PLAN')) {
       const planningResult = this.extractExecutionPlan(finalResponse);
+      console.log('⚙️ [SERVER] Planning result:', {
+        hasPlan: planningResult.hasPlan,
+        operationsCount: planningResult.operations.length,
+      });
 
       if (planningResult.hasPlan && planningResult.operations.length > 0) {
         // Send execution start
+        console.log('⚙️ [SERVER] Sending execution_start event with', planningResult.operations.length, 'operations');
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
