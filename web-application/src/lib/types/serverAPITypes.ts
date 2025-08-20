@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-19T22:48:00.331Z
+// Last synced: 2025-08-20T03:56:11.249Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -197,6 +197,47 @@ export interface CreatePrototypeErrorResponse {
 export type CreatePrototypeResponse =
   | CreatePrototypeSuccessResponse
   | CreatePrototypeErrorResponse;
+
+// ============================================================================
+// /files/start-dev-server ENDPOINT
+// ============================================================================
+
+export interface PrototypeFileInput {
+  contents: string;
+  name: string;
+  file_type: 'text' | 'asset';
+  prototype_id: string;
+  id?: string;
+  storage_path?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StartDevServerRequestBody {
+  files: PrototypeFileInput[];
+  prototype_id: string;
+  file_scope?: 'updates' | 'complete';
+}
+
+export interface StartDevServerSuccessResponse {
+  success: true;
+  status: 'success' | 'error';
+  viewing_url: string;
+  build_errors: CodeError[];
+  build_warnings: CodeWarning[];
+  message: string;
+}
+
+export interface StartDevServerErrorResponse {
+  error: string;
+  message: string;
+  build_errors?: CodeError[];
+  build_warnings?: CodeWarning[];
+}
+
+export type StartDevServerResponse =
+  | StartDevServerSuccessResponse
+  | StartDevServerErrorResponse;
 
 // ============================================================================
 // TYPE GUARDS

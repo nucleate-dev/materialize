@@ -10,6 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Database } from "@/lib/types/database.types";
+import type {
+  StartDevServerRequestBody,
+  StartDevServerResponse,
+} from "@/lib/types/serverAPITypes";
 import {
   Loader2,
   Monitor,
@@ -135,7 +139,13 @@ const MaterializeRenderSection = forwardRef<
 
       console.log(`Starting dev server for prototype ${prototypeId} with ${filesArray.length} files`);
 
-      const response = await fetch("/api/files/start-dev-server", {
+      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+      if (!serverEndpoint) {
+        console.error("Server endpoint not configured");
+        return;
+      }
+
+      const response = await fetch(`${serverEndpoint}/files/start-dev-server`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -145,10 +155,10 @@ const MaterializeRenderSection = forwardRef<
           files: filesArray,
           prototype_id: prototypeId,
           file_scope: "complete", // Send all files to properly initialize dev server
-        }),
+        } as StartDevServerRequestBody),
       });
 
-      const result = await response.json();
+      const result: StartDevServerResponse = await response.json();
 
       if (response.ok && result.success) {
         console.log("✅ Dev server started successfully");

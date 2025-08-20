@@ -5,6 +5,7 @@ import { DispatcherService } from './services/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/PrototypeManagementService.js';
+import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';
@@ -52,6 +53,7 @@ let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
 let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
+let developmentServerService: DevelopmentServerService;
 let cache: GlideClient;
 
 // Health check
@@ -123,6 +125,10 @@ const start = async (): Promise<void> => {
     // Create prototype management service and register routes
     prototypeManagementService = new PrototypeManagementService(fastify);
     prototypeManagementService.registerRoutes(fastify);
+
+    // Create development server service and register routes
+    developmentServerService = new DevelopmentServerService(fastify);
+    developmentServerService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,

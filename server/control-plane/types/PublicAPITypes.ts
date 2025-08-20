@@ -190,6 +190,47 @@ export type CreatePrototypeResponse =
   | CreatePrototypeErrorResponse;
 
 // ============================================================================
+// /files/start-dev-server ENDPOINT
+// ============================================================================
+
+export interface PrototypeFileInput {
+  contents: string;
+  name: string;
+  file_type: 'text' | 'asset';
+  prototype_id: string;
+  id?: string;
+  storage_path?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StartDevServerRequestBody {
+  files: PrototypeFileInput[];
+  prototype_id: string;
+  file_scope?: 'updates' | 'complete';
+}
+
+export interface StartDevServerSuccessResponse {
+  success: true;
+  status: 'success' | 'error';
+  viewing_url: string;
+  build_errors: CodeError[];
+  build_warnings: CodeWarning[];
+  message: string;
+}
+
+export interface StartDevServerErrorResponse {
+  error: string;
+  message: string;
+  build_errors?: CodeError[];
+  build_warnings?: CodeWarning[];
+}
+
+export type StartDevServerResponse =
+  | StartDevServerSuccessResponse
+  | StartDevServerErrorResponse;
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
