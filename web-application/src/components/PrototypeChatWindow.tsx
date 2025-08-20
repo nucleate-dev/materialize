@@ -282,27 +282,7 @@ export default function PrototypeChatWindow({
                       return newMessages;
                     });
 
-                    // Convert PrototypeFileInput back to PrototypeFile format and save updated files from planning
-                    if (data.updatedFiles) {
-                      const convertedFiles: Record<string, PrototypeFile> = {};
-                      Object.entries(
-                        data.updatedFiles as Record<string, PrototypeFileInput>,
-                      ).forEach(([path, fileInput]) => {
-                        convertedFiles[path] = {
-                          id: fileInput.id || uuidv4(),
-                          name: fileInput.name,
-                          contents: fileInput.contents,
-                          file_type: fileInput.file_type,
-                          prototype_id: fileInput.prototype_id,
-                          storage_path: fileInput.storage_path || null,
-                          created_at:
-                            fileInput.created_at || new Date().toISOString(),
-                          updated_at:
-                            fileInput.updated_at || new Date().toISOString(),
-                        };
-                      });
-                      await onFilesUpdate(convertedFiles);
-                    }
+                    // Files will be refetched from database later
                     break;
                   }
 
@@ -385,30 +365,7 @@ export default function PrototypeChatWindow({
                   case "step_complete": {
                     const { stepIndex, result, success } = data;
 
-                    if (success && result.updatedFiles) {
-                      // Convert PrototypeFileInput back to PrototypeFile format
-                      const convertedFiles: Record<string, PrototypeFile> = {};
-                      Object.entries(
-                        result.updatedFiles as Record<
-                          string,
-                          PrototypeFileInput
-                        >,
-                      ).forEach(([path, fileInput]) => {
-                        convertedFiles[path] = {
-                          id: fileInput.id || uuidv4(),
-                          name: fileInput.name,
-                          contents: fileInput.contents,
-                          file_type: fileInput.file_type,
-                          prototype_id: fileInput.prototype_id,
-                          storage_path: fileInput.storage_path || null,
-                          created_at:
-                            fileInput.created_at || new Date().toISOString(),
-                          updated_at:
-                            fileInput.updated_at || new Date().toISOString(),
-                        };
-                      });
-                      await onFilesUpdate(convertedFiles);
-                    }
+                    // Files will be refetched from database later
 
                     // Update the execution message to show completion
                     if (executionMessageId) {
@@ -468,28 +425,7 @@ export default function PrototypeChatWindow({
                   case "execution_complete":
                     setIsExecutingOperations(false);
 
-                    // Save final updated files
-                    if (data.updatedFiles) {
-                      // Convert PrototypeFileInput back to PrototypeFile format
-                      const convertedFiles: Record<string, PrototypeFile> = {};
-                      Object.entries(
-                        data.updatedFiles as Record<string, PrototypeFileInput>,
-                      ).forEach(([path, fileInput]) => {
-                        convertedFiles[path] = {
-                          id: fileInput.id || uuidv4(),
-                          name: fileInput.name,
-                          contents: fileInput.contents,
-                          file_type: fileInput.file_type,
-                          prototype_id: fileInput.prototype_id,
-                          storage_path: fileInput.storage_path || null,
-                          created_at:
-                            fileInput.created_at || new Date().toISOString(),
-                          updated_at:
-                            fileInput.updated_at || new Date().toISOString(),
-                        };
-                      });
-                      await onFilesUpdate(convertedFiles);
-                    }
+                    // Files will be refetched from database later
 
                     // Update final execution message
                     if (executionMessageId) {

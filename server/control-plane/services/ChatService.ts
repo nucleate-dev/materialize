@@ -999,14 +999,12 @@ Do NOT repeat the same tool call again.`;
     const planningEvent = {
       type: 'planning',
       content: finalResponse,
-      updatedFiles: fileManager.getFinalState(),
       messageId: planningMessage?.id,
     };
     console.log('🧠 [SERVER] Planning event:', {
       type: planningEvent.type,
       contentLength: planningEvent.content.length,
       messageId: planningEvent.messageId,
-      updatedFilesCount: Object.keys(planningEvent.updatedFiles).length,
     });
     
     controller.enqueue(
@@ -1086,7 +1084,10 @@ Do NOT repeat the same tool call again.`;
                   type: 'step_complete',
                   stepIndex: i,
                   operation: operation,
-                  result: stepResult,
+                  result: {
+                    content: stepResult.content,
+                    hasResult: stepResult.hasResult,
+                  },
                   success: stepResult.hasResult,
                 })}\n\n`,
               ),
@@ -1114,7 +1115,6 @@ Do NOT repeat the same tool call again.`;
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'execution_complete',
-              updatedFiles: fileManager.getFinalState(),
             })}\n\n`,
           ),
         );
