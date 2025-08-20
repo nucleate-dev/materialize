@@ -3,16 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type {
   ChatRequestBody,
-  ChatStreamEvent,
   ChatErrorResponse,
   DispatchRequestBody,
   DispatchResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
-  PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import { ProductKeys } from '../../../web-application/src/GlobalConstants.js';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import jwt from 'jsonwebtoken';
@@ -29,6 +26,12 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+const ProductKeys = Object.freeze({
+  FREE_SUBSCRIPTION: "free",
+  TEAM_SUBSCRIPTION: "team",
+  PRO_SUBSCRIPTION: "pro",
+});
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -269,13 +272,13 @@ export class ChatService {
       let userMessage = lastMessage.content;
 
       // Always inject project context if available (prevents LLM hallucination)
-      console.log('<¨ Injecting Expo Snack project context for development...');
+      console.log('<ï¿½ Injecting Expo Snack project context for development...');
       const projectContext = this.getProjectContext(snackFiles);
       if (projectContext) {
         userMessage += projectContext;
         console.log(' Expo Snack project context successfully injected');
       } else {
-        console.log('  No relevant Expo Snack files found to inject');
+        console.log('ï¿½ No relevant Expo Snack files found to inject');
       }
 
       // Check if this request expects streaming (new flow)
@@ -319,7 +322,7 @@ export class ChatService {
 
             try {
               console.log(
-                '=¾ Saving updated files to database before dispatch...',
+                '=ï¿½ Saving updated files to database before dispatch...',
               );
               await this.saveFilesToDatabaseWithAuth(token, prototype_id, finalFiles);
               console.log(' Files successfully saved to database');
@@ -330,7 +333,7 @@ export class ChatService {
 
             // 10. Pre-build and dispatch requests
             console.log(
-              '=€ Dispatching build request regardless of precheck response',
+              '=ï¿½ Dispatching build request regardless of precheck response',
             );
 
             // Convert PrototypeFiles to FileInput[] format for dispatch
@@ -374,7 +377,7 @@ export class ChatService {
               });
 
               const dispatchData: DispatchResponse = JSON.parse(dispatchResponse.payload);
-              console.log('=æ Dispatch endpoint response:', dispatchData);
+              console.log('=ï¿½ Dispatch endpoint response:', dispatchData);
 
               // Stream the viewing URL to the client
               if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
@@ -614,7 +617,7 @@ export class ChatService {
           lastToolCall.name === currentCall.name &&
           lastToolCall.args === currentCall.args
         ) {
-          console.log('=« Detected duplicate tool call');
+          console.log('=ï¿½ Detected duplicate tool call');
 
           // If we have a valid plan, break the loop
           if (hasValidPlan) {
@@ -625,7 +628,7 @@ export class ChatService {
           } else {
             // Give the model feedback about duplicate tool calls and ask it to reflect
             console.log(
-              '  No valid plan yet, asking model to reflect on duplicate calls',
+              'ï¿½ No valid plan yet, asking model to reflect on duplicate calls',
             );
 
             const reflectionMessage = `= REFLECTION NEEDED: You just made a duplicate tool call (${currentCall.name} with the same arguments). This suggests you may be stuck in a loop or not processing the previous results effectively.
@@ -676,10 +679,10 @@ Do NOT repeat the same tool call again.`;
             // If it still tries to make tool calls after reflection, force completion
             if (response.toolCalls && response.toolCalls.length > 0) {
               console.log(
-                '  Model still trying to make tool calls after reflection, forcing plan creation',
+                'ï¿½ Model still trying to make tool calls after reflection, forcing plan creation',
               );
               finalResponse +=
-                '\n\n  Creating execution plan with available information...';
+                '\n\nï¿½ Creating execution plan with available information...';
               break;
             }
           }
@@ -783,7 +786,7 @@ Do NOT repeat the same tool call again.`;
 
       // Prevent infinite loops
       if (toolCallsMade > 50) {
-        finalResponse += `\n\n  Maximum tool calls reached (50).`;
+        finalResponse += `\n\nï¿½ Maximum tool calls reached (50).`;
         break;
       }
     }
@@ -795,7 +798,7 @@ Do NOT repeat the same tool call again.`;
       finalResponse.includes(']');
 
     if (!hasValidPlan) {
-      console.log('  No valid execution plan found, generating fallback plan');
+      console.log('ï¿½ No valid execution plan found, generating fallback plan');
 
       const fallbackResponse = await generateText({
         model: this.google('gemini-2.5-flash'),
@@ -949,7 +952,7 @@ Do NOT repeat the same tool call again.`;
         );
 
         // Save execution summary message to database
-        const executionSummary = `<‰ Execution completed! Successfully processed ${planningResult.operations.length} operations:\n\n${planningResult.operations
+        const executionSummary = `<ï¿½ Execution completed! Successfully processed ${planningResult.operations.length} operations:\n\n${planningResult.operations
           .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
           .join('\n')}`;
 
@@ -1076,7 +1079,7 @@ MANDATORY: Before creating this screen, you MUST:
           lastToolCall.args === currentCall.args
         ) {
           console.log(
-            '=« Detected duplicate tool call in execution, asking for reflection',
+            '=ï¿½ Detected duplicate tool call in execution, asking for reflection',
           );
 
           const reflectionMessage = `= EXECUTION REFLECTION: You just made a duplicate tool call during step execution (${currentCall.name} with the same arguments). This indicates you may be stuck or not processing previous results.
@@ -1131,10 +1134,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
           // If it still tries to make tool calls after reflection, force completion
           if (response.toolCalls && response.toolCalls.length > 0) {
             console.log(
-              '  Model still making tool calls after execution reflection, stopping',
+              'ï¿½ Model still making tool calls after execution reflection, stopping',
             );
             finalResponse +=
-              '\n\n  Step execution completed with available information.';
+              '\n\nï¿½ Step execution completed with available information.';
             break;
           }
 
@@ -1201,8 +1204,8 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
       // Prevent infinite loops
       if (toolCallsMade >= 50) {
-        console.log('  Step execution taking too long, forcing completion');
-        finalResponse += `\n\n  Step execution reached maximum attempts (50). Current progress saved.`;
+        console.log('ï¿½ Step execution taking too long, forcing completion');
+        finalResponse += `\n\nï¿½ Step execution reached maximum attempts (50). Current progress saved.`;
         break;
       }
 
@@ -1285,10 +1288,11 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
   // Get project context from the Expo Snack files instead of scanning filesystem
   private getProjectContext(snackFiles: PrototypeFiles | null): string {
     try {
-      console.log('= Building context from Expo Snack files...');
+      console.log('=
+ Building context from Expo Snack files...');
 
       if (!snackFiles || Object.keys(snackFiles).length === 0) {
-        console.log('  No snack files provided for context');
+        console.log('ï¿½ No snack files provided for context');
         return '';
       }
 
@@ -1363,7 +1367,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       let projectContext = '';
 
       if (relevantFiles.length > 0) {
-        projectContext = `\n\n<¨ EXPO SNACK PROJECT CONTEXT: The following files are available in this React Native project:\n`;
+        projectContext = `\n\n<ï¿½ EXPO SNACK PROJECT CONTEXT: The following files are available in this React Native project:\n`;
 
         const themeFiles = relevantFiles.filter((f) => f.category === 'theme');
         const componentFiles = relevantFiles.filter(
@@ -1475,7 +1479,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       storage_path: null,
     }));
 
-    console.log(`=¾ Saving ${fileUpdates.length} files to database...`);
+    console.log(`=ï¿½ Saving ${fileUpdates.length} files to database...`);
 
     // Use upsert to handle both inserts and updates
     const { error } = await supabase
