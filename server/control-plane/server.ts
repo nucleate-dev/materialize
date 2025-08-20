@@ -138,11 +138,14 @@ const start = async (): Promise<void> => {
     stripeManagementService.registerRoutes(fastify);
 
     // Create prototype management service and register routes
-    prototypeManagementService = new PrototypeManagementService(fastify);
+    prototypeManagementService = new PrototypeManagementService(
+      fastify,
+      s3Client,
+    );
     prototypeManagementService.registerRoutes(fastify);
 
     // Create development server service and register routes
-    developmentServerService = new DevelopmentServerService(fastify, s3Client);
+    developmentServerService = new DevelopmentServerService(fastify);
     developmentServerService.registerRoutes(fastify);
 
     await fastify.listen({
