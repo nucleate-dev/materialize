@@ -30,7 +30,9 @@ import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
 import type { 
   FetchViewingUrlRequestBody, 
-  FetchViewingUrlResponse 
+  FetchViewingUrlResponse,
+  CreatePrototypeRequestBody,
+  CreatePrototypeResponse,
 } from "@/lib/types/serverAPITypes";
 import {
   ChatBubbleLeftRightIcon,
@@ -241,7 +243,13 @@ export default function CreatePage() {
         return;
       }
 
-      const response = await fetch("/api/prototype/create", {
+      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+      if (!serverEndpoint) {
+        console.error("Server endpoint not configured");
+        return;
+      }
+
+      const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -253,10 +261,10 @@ export default function CreatePage() {
           project_id: prototype.project_id,
           prototype_id: prototypeId, // For forking
           visibility: "SELF",
-        }),
+        } as CreatePrototypeRequestBody),
       });
 
-      const result = await response.json();
+      const result: CreatePrototypeResponse = await response.json();
       if (result.success) {
         // Navigate to the new prototype in dashboard
         router.push(`/dashboard/prototypes/${result.data.prototype_id}`);

@@ -12,6 +12,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
+import type {
+  CreatePrototypeRequestBody,
+  CreatePrototypeResponse,
+} from "@/lib/types/serverAPITypes";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import {
   ArrowRight,
@@ -53,7 +57,7 @@ export default function DashboardPage() {
         return;
       }
 
-      let result;
+      let result: CreatePrototypeResponse;
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
@@ -63,7 +67,13 @@ export default function DashboardPage() {
           return;
         }
 
-        const response = await fetch("/api/prototype/create", {
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        if (!serverEndpoint) {
+          console.error("Server endpoint not configured");
+          return;
+        }
+
+        const response = await fetch(`${serverEndpoint}/prototype/create`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -71,7 +81,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             name: "New Prototype",
-          }),
+          } as CreatePrototypeRequestBody),
         });
 
         result = await response.json();

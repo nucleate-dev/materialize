@@ -3,6 +3,10 @@
 import { posthogClient, supabase } from "@/ClientConstants";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import type {
+  CreatePrototypeRequestBody,
+  CreatePrototypeResponse,
+} from "@/lib/types/serverAPITypes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
@@ -56,7 +60,13 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-              const response = await fetch('/api/prototype/create', {
+              const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+              if (!serverEndpoint) {
+                console.error("Server endpoint not configured");
+                return;
+              }
+
+              const response = await fetch(`${serverEndpoint}/prototype/create`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -64,10 +74,10 @@ export default function AuthCallback() {
                 },
                 body: JSON.stringify({
                   name: "New Prototype",
-                })
+                } as CreatePrototypeRequestBody)
               });
 
-              const protoResult = await response.json();
+              const protoResult: CreatePrototypeResponse = await response.json();
               if (protoResult.success) {
                 prototypeId = protoResult.data.prototype_id;
               }

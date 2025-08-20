@@ -4,6 +4,10 @@ import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 import { Database } from "@/lib/types/database.types";
+import type {
+  CreatePrototypeRequestBody,
+  CreatePrototypeResponse,
+} from "@/lib/types/serverAPITypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import {
   SparklesIcon,
@@ -146,7 +150,13 @@ export default function NewPrototypeModal({
         return;
       }
 
-      const response = await fetch('/api/prototype/create', {
+      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+      if (!serverEndpoint) {
+        console.error("Server endpoint not configured");
+        return;
+      }
+
+      const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,10 +166,10 @@ export default function NewPrototypeModal({
           name: name.trim(),
           project_id: selectedProject || undefined,
           visibility,
-        })
+        } as CreatePrototypeRequestBody)
       });
 
-      const result = await response.json();
+      const result: CreatePrototypeResponse = await response.json();
 
       if (result.success) {
         // Reset form
