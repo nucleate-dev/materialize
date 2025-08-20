@@ -171,7 +171,10 @@ export class PrototypeManagementService {
               precheckData.success &&
               precheckData.viewing_url
             ) {
-              console.log('Returning active instance URL from precheck');
+              console.log(
+                'Returning active instance URL from precheck: ',
+                precheckData.viewing_url,
+              );
               const successResponse: FetchViewingUrlSuccessResponse = {
                 viewing_url: precheckData.viewing_url,
                 source: 'active_instance',
@@ -422,9 +425,9 @@ export class PrototypeManagementService {
             `✅ Successfully inserted ${filesToInsert.length} files to database`,
           );
 
-          // Copy S3 bucket contents
-          const sourcePrefix = `prototypes/${forkPrototypeId}`;
-          const destinationPrefix = `prototypes/${newPrototypeId}`;
+          // Copy S3 bucket contents  
+          const sourcePrefix = forkPrototypeId; // Remove 'prototypes/' prefix
+          const destinationPrefix = newPrototypeId; // Remove 'prototypes/' prefix
 
           const s3CopyResult = await copyS3BucketContents(
             this.s3Client,
