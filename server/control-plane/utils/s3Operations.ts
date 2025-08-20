@@ -154,8 +154,9 @@ export async function copyS3BucketContents(
 ): Promise<S3CopyResult> {
   try {
     console.log(
-      `Copying S3 objects from ${sourcePrefix} to ${destinationPrefix}`,
+      `🔍 [S3] Starting copy operation from ${sourcePrefix} to ${destinationPrefix}`,
     );
+    console.log(`🪣 [S3] Using bucket: ${PROTOTYPE_BUCKET}`);
 
     // List all objects with the source prefix
     const listCommand = new ListObjectsV2Command({
@@ -163,22 +164,43 @@ export async function copyS3BucketContents(
       Prefix: sourcePrefix,
     });
 
+    console.log(`📋 [S3] Listing objects with prefix: ${sourcePrefix}`);
     const listResult = await s3Client.send(listCommand);
 
+    console.log(`📊 [S3] List operation result:`, {
+      ContentsCount: listResult.Contents?.length || 0,
+      IsTruncated: listResult.IsTruncated,
+      KeyCount: listResult.KeyCount,
+    });
+
     if (!listResult.Contents || listResult.Contents.length === 0) {
-      console.log('No objects found to copy');
+      console.log(
+        '⚠️ [S3] No objects found to copy - this might be the issue!',
+      );
+      console.log(
+        `🔍 [S3] Double-check that objects exist at: s3://${PROTOTYPE_BUCKET}/${sourcePrefix}`,
+      );
       return {
         success: true,
         copiedObjects: 0,
       };
     }
 
-    let copiedObjects = 0;
-    const copyPromises = [];
+    console.log(`📁 [S3] Found ${listResult.Contents.length} objects to copy:`);
+
+    let successfulCopies = 0;
+    let failedCopies = 0;
+    const copyResults: Promise<{
+      success: boolean;
+      sourceKey: string;
+      destinationKey: string;
+      error?: string;
+    }>[] = [];
 
     // Copy each object to the new destination
     for (const object of listResult.Contents) {
       if (!object.Key) {
+        console.log('⚠️ [S3] Skipping object with no key');
         continue;
       }
 
@@ -194,19 +216,73 @@ export async function copyS3BucketContents(
         Key: destinationKey,
       });
 
-      copyPromises.push(s3Client.send(copyCommand));
+      // Wrap each copy operation to track individual results
+      const copyOperation = s3Client
+        .send(copyCommand)
+        .then(() => {
+          return { success: true, sourceKey, destinationKey };
+        })
+        .catch((error) => {
+          return {
+            success: false,
+            sourceKey,
+            destinationKey,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          };
+        });
+
+      copyResults.push(copyOperation);
     }
 
-    // Wait for all copy operations to complete
-    await Promise.all(copyPromises);
-    copiedObjects = listResult.Contents.length;
+    console.log(
+      `⏳ [S3] Waiting for ${copyResults.length} copy operations to complete...`,
+    );
 
+    // Wait for all copy operations to complete and collect results
+    const results = await Promise.all(copyResults);
+
+    // Count successes and failures
+    results.forEach((result) => {
+      if (result.success) {
+        successfulCopies++;
+      } else {
+        failedCopies++;
+        console.error(
+          `💥 [S3] Copy failed - Source: ${result.sourceKey}, Destination: ${result.destinationKey}, Error: ${result.error}`,
+        );
+      }
+    });
+
+    console.log(`📈 [S3] Copy operation summary:`);
+    console.log(`  ✅ Successful copies: ${successfulCopies}`);
+    console.log(`  ❌ Failed copies: ${failedCopies}`);
+    console.log(`  📊 Total attempted: ${results.length}`);
+
+    if (failedCopies > 0) {
+      const errorMessage = `${failedCopies} out of ${results.length} copy operations failed`;
+      console.error(`🚨 [S3] ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        copiedObjects: successfulCopies,
+      };
+    }
+
+    console.log(`🎉 [S3] All copy operations completed successfully!`);
     return {
       success: true,
-      copiedObjects,
+      copiedObjects: successfulCopies,
     };
   } catch (error) {
-    console.error('Error copying S3 bucket contents:', error);
+    console.error('💥 [S3] Critical error in copyS3BucketContents:', error);
+
+    // Log additional details about the error
+    if (error instanceof Error) {
+      console.error(`🔍 [S3] Error name: ${error.name}`);
+      console.error(`🔍 [S3] Error message: ${error.message}`);
+      console.error(`🔍 [S3] Error stack: ${error.stack}`);
+    }
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -223,7 +299,7 @@ export async function copyDefaultAppToPrototype(
   prototypeId: string,
 ): Promise<S3CopyResult> {
   const sourcePrefix = 'default-app/dist';
-  const destinationPrefix = `prototypes/${prototypeId}`;
+  const destinationPrefix = prototypeId; // Remove 'prototypes/' prefix
 
   return copyS3BucketContents(s3Client, sourcePrefix, destinationPrefix);
 }
@@ -245,95 +321,158 @@ export async function getDefaultAppFilesFromS3(
   try {
     const sourcePrefix = 'default-app-raw-files/';
 
+    console.log(
+      `🔍 [S3] Getting default app files for prototype: ${prototypeId}`,
+    );
+    console.log(`📁 [S3] Looking for files with prefix: ${sourcePrefix}`);
+    console.log(`🪣 [S3] Using bucket: ${PROTOTYPE_BUCKET}`);
+
     // List all files in the default-app-raw-files directory
     const listCommand = new ListObjectsV2Command({
       Bucket: PROTOTYPE_BUCKET,
       Prefix: sourcePrefix,
     });
 
+    console.log(`📋 [S3] Listing objects with prefix: ${sourcePrefix}`);
     const listResult = await s3Client.send(listCommand);
 
+    console.log(`📊 [S3] List operation result:`, {
+      ContentsCount: listResult.Contents?.length || 0,
+      IsTruncated: listResult.IsTruncated,
+      KeyCount: listResult.KeyCount,
+    });
+
     if (!listResult.Contents || listResult.Contents.length === 0) {
+      console.error(`❌ [S3] No default app files found in S3!`);
+      console.error(
+        `🔍 [S3] Check if files exist at: s3://${PROTOTYPE_BUCKET}/${sourcePrefix}`,
+      );
       return {
         success: false,
         error: 'No default app files found in S3',
       };
     }
 
+    console.log(
+      `📁 [S3] Found ${listResult.Contents.length} default app files`,
+    );
+
     const files: PrototypeFile[] = [];
+    let processedFiles = 0;
+    let skippedFiles = 0;
+    let failedFiles = 0;
 
     for (const object of listResult.Contents) {
       if (!object.Key) {
+        console.log('⚠️ [S3] Skipping object with no key');
+        skippedFiles++;
         continue;
       }
 
       const fileName = object.Key.replace(sourcePrefix, '');
       if (!fileName) {
+        console.log(`⚠️ [S3] Skipping directory entry: ${object.Key}`);
+        skippedFiles++;
         continue;
-      } // Skip directory entries
+      }
 
       const getCommand = new GetObjectCommand({
         Bucket: PROTOTYPE_BUCKET,
         Key: object.Key,
       });
 
-      const objectData = await s3Client.send(getCommand);
+      try {
+        const objectData = await s3Client.send(getCommand);
 
-      if (!objectData.Body) {
-        continue;
-      }
-
-      // Determine if this is a binary asset or text file
-      const isAsset = /\.(png|jpg|jpeg|gif|ico|svg|ttf|woff|woff2|eot)$/i.test(
-        fileName,
-      );
-
-      if (isAsset) {
-        // For assets, we need to upload to Supabase Storage
-        const bodyBytes = await objectData.Body.transformToByteArray();
-        const buffer = Buffer.from(bodyBytes);
-
-        const uploadResult = await uploadAssetToSupabaseStorage(
-          prototypeId,
-          fileName,
-          buffer,
-        );
-
-        if (!uploadResult.success) {
-          console.error(
-            `Failed to upload asset ${fileName}:`,
-            uploadResult.error,
-          );
+        if (!objectData.Body) {
+          console.log(`⚠️ [S3] No body data for file: ${fileName}`);
+          skippedFiles++;
           continue;
         }
 
-        files.push({
-          prototype_id: prototypeId,
-          name: fileName,
-          contents: '', // Empty for assets
-          file_type: 'asset',
-          storage_path: uploadResult.publicUrl!,
-        });
-      } else {
-        // For text files, get the content
-        const content = await objectData.Body.transformToString();
+        // Determine if this is a binary asset or text file
+        const isAsset =
+          /\.(png|jpg|jpeg|gif|ico|svg|ttf|woff|woff2|eot)$/i.test(fileName);
 
-        files.push({
-          prototype_id: prototypeId,
-          name: fileName,
-          contents: content,
-          file_type: 'text',
-          storage_path: null,
-        });
+        if (isAsset) {
+          // For assets, we need to upload to Supabase Storage
+          const bodyBytes = await objectData.Body.transformToByteArray();
+          const buffer = Buffer.from(bodyBytes);
+          const uploadResult = await uploadAssetToSupabaseStorage(
+            prototypeId,
+            fileName,
+            buffer,
+          );
+
+          if (!uploadResult.success) {
+            console.error(
+              `❌ [Supabase] Failed to upload asset ${fileName}:`,
+              uploadResult.error,
+            );
+            failedFiles++;
+            continue;
+          }
+
+          files.push({
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: '', // Empty for assets
+            file_type: 'asset',
+            storage_path: uploadResult.publicUrl!,
+          });
+        } else {
+          // For text files, get the content
+          const content = await objectData.Body.transformToString();
+          files.push({
+            prototype_id: prototypeId,
+            name: fileName,
+            contents: content,
+            file_type: 'text',
+            storage_path: null,
+          });
+        }
+
+        processedFiles++;
+      } catch (fileError) {
+        console.error(`❌ [S3] Error processing file ${fileName}:`, fileError);
+        failedFiles++;
       }
     }
 
+    console.log(`📈 [S3] Default app files processing summary:`);
+    console.log(`  ✅ Successfully processed: ${processedFiles}`);
+    console.log(`  ⚠️ Skipped files: ${skippedFiles}`);
+    console.log(`  ❌ Failed files: ${failedFiles}`);
+    console.log(`  📊 Total files in result: ${files.length}`);
+
+    if (files.length === 0) {
+      console.error(`🚨 [S3] No files were successfully processed!`);
+      return {
+        success: false,
+        error: 'No files could be processed from default app files',
+      };
+    }
+
+    console.log(
+      `🎉 [S3] Successfully prepared ${files.length} default app files for insertion`,
+    );
     return {
       success: true,
       files,
     };
   } catch (error) {
-    console.error('Error getting default app files from S3:', error);
+    console.error(
+      '💥 [S3] Critical error getting default app files from S3:',
+      error,
+    );
+
+    // Log additional details about the error
+    if (error instanceof Error) {
+      console.error(`🔍 [S3] Error name: ${error.name}`);
+      console.error(`🔍 [S3] Error message: ${error.message}`);
+      console.error(`🔍 [S3] Error stack: ${error.stack}`);
+    }
+
     return {
       success: false,
       error:
@@ -352,7 +491,7 @@ export async function cleanupPrototypeS3Objects(
   prototypeId: string,
 ): Promise<void> {
   try {
-    const prefix = `prototypes/${prototypeId}`;
+    const prefix = prototypeId; // Remove 'prototypes/' prefix
 
     // List all objects with the prototype prefix
     const listCommand = new ListObjectsV2Command({
