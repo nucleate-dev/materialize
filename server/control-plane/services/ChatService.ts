@@ -10,6 +10,7 @@ import type {
   DispatchPrecheckResponse,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
+import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import jwt from 'jsonwebtoken';
@@ -27,10 +28,26 @@ interface ChatMessage {
   content: string;
 }
 
+interface FileManagerInterface {
+  handleToolCall(toolCall: {
+    function: { name: string; arguments: Record<string, unknown> };
+  }): {
+    error?: string;
+    success?: boolean;
+    filePath?: string;
+    contents?: string;
+    exists?: boolean;
+    operation?: string;
+    message?: string;
+    files?: Array<{ filePath: string; name: string; exists: boolean }>;
+  };
+  getFinalState(): PrototypeFiles;
+}
+
 const ProductKeys = Object.freeze({
-  FREE_SUBSCRIPTION: "free",
-  TEAM_SUBSCRIPTION: "team",
-  PRO_SUBSCRIPTION: "pro",
+  FREE_SUBSCRIPTION: 'free',
+  TEAM_SUBSCRIPTION: 'team',
+  PRO_SUBSCRIPTION: 'pro',
 });
 
 export class ChatService {
@@ -41,8 +58,8 @@ export class ChatService {
   private stripeSecretKey: string;
   private jwtSecret: string;
   private serverEndpoint: string;
-  
-  private google: any;
+
+  private google: ReturnType<typeof createGoogleGenerativeAI>;
   private stripe: Stripe;
 
   constructor(fastifyApp: FastifyInstance) {
@@ -64,16 +81,14 @@ export class ChatService {
       !this.jwtSecret ||
       !this.serverEndpoint
     ) {
-      throw new Error(
-        'Missing required environment variables for ChatService',
-      );
+      throw new Error('Missing required environment variables for ChatService');
     }
 
     // Initialize Google AI and Stripe
     this.google = createGoogleGenerativeAI({
       apiKey: this.googleAiApiKey,
     });
-    
+
     this.stripe = new Stripe(this.stripeSecretKey);
   }
 
@@ -132,7 +147,9 @@ export class ChatService {
     reply: FastifyReply,
   ): Promise<void> {
     try {
+      // ------------------------------------------------------------------------------------------------
       // 1. JWT Token validation -- must be an AUTHORIZED user
+      // ------------------------------------------------------------------------------------------------
       const token = request.headers.authorization?.split(' ')[1];
       if (!token || !request.headers.authorization?.startsWith('Bearer')) {
         console.error('No JWT token provided');
@@ -159,7 +176,9 @@ export class ChatService {
         } as ChatErrorResponse);
       }
 
+      // ------------------------------------------------------------------------------------------------
       // 2. Fetch user subscription and paywall the user if needed
+      // ------------------------------------------------------------------------------------------------
       const supabase = createClient<Database>(
         this.supabaseUrl,
         this.supabaseServiceKey,
@@ -237,17 +256,36 @@ export class ChatService {
         } as ChatErrorResponse);
       }
 
+      // ------------------------------------------------------------------------------------------------
       // 3. Parse request body
-      const { messages, snackFiles, chat_session_id, prototype_id } = request.body;
+      // ------------------------------------------------------------------------------------------------
+      const { messages, snackFiles, chat_session_id, prototype_id } =
+        request.body;
       if (!messages || !Array.isArray(messages)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error: 'Messages array is required',
         } as ChatErrorResponse);
       }
 
-      const fileManager = new this.FileManager(snackFiles, prototype_id);
+      // Convert snackFiles to compatible format
+      const convertedFiles: PrototypeFiles | null = snackFiles
+        ? Object.fromEntries(
+          Object.entries(snackFiles).map(([path, file]) => [
+            path,
+              {
+                ...file,
+                created_at: file.created_at || null,
+                updated_at: file.updated_at || null,
+              } as PrototypeFile,
+          ]),
+        )
+        : null;
 
+      const fileManager = new this.FileManager(convertedFiles, prototype_id);
+
+      // ------------------------------------------------------------------------------------------------
       // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
+      // ------------------------------------------------------------------------------------------------
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
@@ -257,9 +295,11 @@ export class ChatService {
         } as DispatchPrecheckRequestBody,
       });
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(precheckResponse.payload);
+      const precheckData: DispatchPrecheckResponse = JSON.parse(
+        precheckResponse.payload,
+      );
       console.log('Dispatch precheck response:', precheckData);
-      
+
       if ('success' in precheckData && precheckData.status === 'updating') {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:
@@ -267,13 +307,15 @@ export class ChatService {
         } as ChatErrorResponse);
       }
 
+      // ------------------------------------------------------------------------------------------------
       // 5. Load/generate additional project context
+      // ------------------------------------------------------------------------------------------------
       const lastMessage = messages[messages.length - 1];
       let userMessage = lastMessage.content;
 
       // Always inject project context if available (prevents LLM hallucination)
       console.log('<� Injecting Expo Snack project context for development...');
-      const projectContext = this.getProjectContext(snackFiles);
+      const projectContext = this.getProjectContext(convertedFiles);
       if (projectContext) {
         userMessage += projectContext;
         console.log(' Expo Snack project context successfully injected');
@@ -289,49 +331,77 @@ export class ChatService {
         } as ChatErrorResponse);
       }
 
+      // ------------------------------------------------------------------------------------------------
       // 6. Start streamed response to the client
+      // ------------------------------------------------------------------------------------------------
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
-        start: async (controller) => {
+        start: async (controller): Promise<void> => {
           try {
+            // ------------------------------------------------------------------------------------------------
             // 7. Execute planning phase
+            // ------------------------------------------------------------------------------------------------
             const finalResponse = await this.handlePlanningPhase(
               messages,
               userMessage,
               fileManager,
-              snackFiles,
+              convertedFiles,
               chat_session_id,
               controller,
               encoder,
             );
 
-            // 8. Execute execution phase
+            // ------------------------------------------------------------------------------------------------
+            // 8. EXECUTE EXECUTION PHASE
+            // ------------------------------------------------------------------------------------------------
             await this.handleExecutionPhase(
               finalResponse,
               fileManager,
               messages,
-              snackFiles,
+              convertedFiles,
               prototype_id,
               controller,
               encoder,
               chat_session_id,
             );
 
+            // ------------------------------------------------------------------------------------------------
             // 9. Save updated files to database before dispatch
+            // ------------------------------------------------------------------------------------------------
             const finalFiles = fileManager.getFinalState();
 
             try {
               console.log(
                 '=� Saving updated files to database before dispatch...',
               );
-              await this.saveFilesToDatabaseWithAuth(token, prototype_id, finalFiles);
+              // Convert PrototypeFiles to the format expected by the shared utility
+              const fileUpdatesForDatabase = Object.fromEntries(
+                Object.entries(finalFiles).map(([filePath, file]) => [
+                  filePath,
+                  {
+                    prototype_id: prototype_id,
+                    name: filePath,
+                    contents: file.contents || '',
+                    file_type: 'text' as const,
+                    storage_path: null,
+                  },
+                ]),
+              );
+
+              await saveFilesToDatabaseWithAuth(
+                token,
+                prototype_id,
+                fileUpdatesForDatabase,
+              );
               console.log(' Files successfully saved to database');
             } catch (saveError) {
               console.error('L Error saving files to database:', saveError);
               // Continue with dispatch even if save fails - don't block user
             }
 
+            // ------------------------------------------------------------------------------------------------
             // 10. Pre-build and dispatch requests
+            // ------------------------------------------------------------------------------------------------
             console.log(
               '=� Dispatching build request regardless of precheck response',
             );
@@ -376,7 +446,9 @@ export class ChatService {
                 } as DispatchRequestBody,
               });
 
-              const dispatchData: DispatchResponse = JSON.parse(dispatchResponse.payload);
+              const dispatchData: DispatchResponse = JSON.parse(
+                dispatchResponse.payload,
+              );
               console.log('=� Dispatch endpoint response:', dispatchData);
 
               // Stream the viewing URL to the client
@@ -418,7 +490,9 @@ export class ChatService {
               );
             }
 
+            // ------------------------------------------------------------------------------------------------
             // 11. Track API usage and get updated count
+            // ------------------------------------------------------------------------------------------------
             await supabase.from('api_usage').insert({
               user_id: userID,
               prototype_id: prototype_id || null,
@@ -450,7 +524,10 @@ export class ChatService {
               .gte('created_at', periodStart)
               .lte('created_at', periodEnd);
             if (countError) {
-              console.error('Error fetching updated message count:', countError);
+              console.error(
+                'Error fetching updated message count:',
+                countError,
+              );
             }
             updatedMessageCount = newCount || 0;
             console.log(
@@ -467,7 +544,9 @@ export class ChatService {
               ),
             );
 
+            // ------------------------------------------------------------------------------------------------
             // 12. If the user has an active subscription, send the usage data to Stripe
+            // ------------------------------------------------------------------------------------------------
             if (
               userTier === ProductKeys.PRO_SUBSCRIPTION &&
               userSubscription?.stripe_customer_id
@@ -508,13 +587,30 @@ export class ChatService {
         },
       });
 
-      return reply.raw.writeHead(200, {
+      reply.raw.writeHead(200, {
         'Content-Type': 'text/plain',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
       });
-      
-      return reply.raw.end(stream);
+
+      const reader = stream.getReader();
+      const pump = async (): Promise<void> => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+            reply.raw.write(value);
+          }
+        } catch (err) {
+          console.error('Stream error:', err);
+        } finally {
+          reply.raw.end();
+        }
+      };
+
+      await pump();
     } catch (error) {
       console.error('Chat API error:', error);
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
@@ -529,8 +625,8 @@ export class ChatService {
   private async handlePlanningPhase(
     messages: ChatMessage[],
     userMessage: string,
-    fileManager: any,
-    snackFiles: PrototypeFiles | null,
+    fileManager: FileManagerInterface,
+    convertedFiles: PrototypeFiles | null,
     chat_session_id: string,
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
@@ -547,39 +643,46 @@ export class ChatService {
       tools: {
         list_files: {
           description: 'List all files in the project to understand structure',
-          parameters: z.object({}),
+          inputSchema: z.object({}),
+          execute: async () => {
+            throw new Error('Tool execution should be handled by file manager');
+          },
         },
         read_file: {
           description: 'Read the contents of a specific file in the project',
-          parameters: z.object({
+          inputSchema: z.object({
             filePath: z
               .string()
               .describe(
-                "The file path to read (e.g., 'screens/PaywallScreen.js')",
+                'The file path to read (e.g., \'screens/PaywallScreen.js\')',
               ),
           }),
+          execute: async () => {
+            throw new Error('Tool execution should be handled by file manager');
+          },
         },
         write_file: {
           description: 'Write or update a file in the project',
-          parameters: z.object({
+          inputSchema: z.object({
             filePath: z.string().describe('The file path to write to'),
             contents: z.string().describe('The complete file contents'),
             operation: z
               .enum(['create', 'modify'])
               .default('create')
               .describe(
-                "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+                'REQUIRED: Use \'create\' for new files, \'modify\' for existing files (defaults to \'create\')',
               ),
           }),
+          execute: async () => {
+            throw new Error('Tool execution should be handled by file manager');
+          },
         },
       },
       messages: [
-        ...messages
-          .slice(0, -1)
-          .map((msg: ChatMessage) => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content,
-          })),
+        ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        })),
         {
           role: 'user' as const,
           content: userMessage,
@@ -609,7 +712,7 @@ export class ChatService {
         const currentToolCall = response.toolCalls[0];
         const currentCall = {
           name: currentToolCall.toolName,
-          args: JSON.stringify(currentToolCall.args),
+          args: JSON.stringify(currentToolCall.input),
         };
 
         if (
@@ -653,12 +756,10 @@ Do NOT repeat the same tool call again.`;
               model: this.google('gemini-2.5-flash'),
               system: this.PLANNING_PROMPT,
               messages: [
-                ...messages
-                  .slice(0, -1)
-                  .map((msg: ChatMessage) => ({
-                    role: msg.role as 'user' | 'assistant',
-                    content: msg.content,
-                  })),
+                ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+                  role: msg.role as 'user' | 'assistant',
+                  content: msg.content,
+                })),
                 {
                   role: 'user' as const,
                   content: userMessage,
@@ -699,7 +800,7 @@ Do NOT repeat the same tool call again.`;
           const result = fileManager.handleToolCall({
             function: {
               name: toolCall.toolName,
-              arguments: toolCall.args,
+              arguments: toolCall.input as Record<string, unknown>,
             },
           });
 
@@ -726,7 +827,8 @@ Do NOT repeat the same tool call again.`;
       let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
       // Only inject context every 5 tool calls to avoid confusion
       if (toolCallsMade % 5 === 0) {
-        const projectContextContinuation = this.getProjectContext(snackFiles);
+        const projectContextContinuation =
+          this.getProjectContext(convertedFiles);
         if (projectContextContinuation) {
           continuationMessage += projectContextContinuation;
         }
@@ -737,36 +839,50 @@ Do NOT repeat the same tool call again.`;
         system: this.PLANNING_PROMPT,
         tools: {
           list_files: {
-            description: 'List all files in the project to understand structure',
-            parameters: z.object({}),
+            description:
+              'List all files in the project to understand structure',
+            inputSchema: z.object({}),
+            execute: async () => {
+              throw new Error(
+                'Tool execution should be handled by file manager',
+              );
+            },
           },
           read_file: {
             description: 'Read the contents of a specific file in the project',
-            parameters: z.object({
+            inputSchema: z.object({
               filePath: z.string().describe('The file path to read'),
             }),
+            execute: async () => {
+              throw new Error(
+                'Tool execution should be handled by file manager',
+              );
+            },
           },
           write_file: {
             description: 'Write or update a file in the project',
-            parameters: z.object({
+            inputSchema: z.object({
               filePath: z.string().describe('The file path to write to'),
               contents: z.string().describe('The complete file contents'),
               operation: z
                 .enum(['create', 'modify'])
                 .default('create')
                 .describe(
-                  "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+                  'REQUIRED: Use \'create\' for new files, \'modify\' for existing files (defaults to \'create\')',
                 ),
             }),
+            execute: async () => {
+              throw new Error(
+                'Tool execution should be handled by file manager',
+              );
+            },
           },
         },
         messages: [
-          ...messages
-            .slice(0, -1)
-            .map((msg: ChatMessage) => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.content,
-            })),
+          ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+          })),
           {
             role: 'user' as const,
             content: userMessage,
@@ -806,12 +922,10 @@ Do NOT repeat the same tool call again.`;
           this.PLANNING_PROMPT +
           '\n\nCRITICAL: You MUST create an EXECUTION_PLAN in the exact format specified. Do not use any tools.',
         messages: [
-          ...messages
-            .slice(0, -1)
-            .map((msg: ChatMessage) => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.content,
-            })),
+          ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+          })),
           {
             role: 'user' as const,
             content: userMessage,
@@ -860,14 +974,14 @@ Do NOT repeat the same tool call again.`;
 
   private async handleExecutionPhase(
     finalResponse: string,
-    fileManager: any,
+    fileManager: FileManagerInterface,
     messages: ChatMessage[],
-    snackFiles: PrototypeFiles | null,
+    convertedFiles: PrototypeFiles | null,
     prototype_id: string,
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
     chat_session_id: string,
-  ) {
+  ): Promise<void> {
     const supabase = createClient<Database>(
       this.supabaseUrl,
       this.supabaseServiceKey,
@@ -908,8 +1022,7 @@ Do NOT repeat the same tool call again.`;
               operation,
               fileManager,
               messages,
-              snackFiles,
-              prototype_id,
+              convertedFiles,
             );
 
             // Send step completion
@@ -934,7 +1047,8 @@ Do NOT repeat the same tool call again.`;
                   type: 'step_error',
                   stepIndex: i,
                   operation: operation,
-                  error: error instanceof Error ? error.message : 'Unknown error',
+                  error:
+                    error instanceof Error ? error.message : 'Unknown error',
                 })}\n\n`,
               ),
             );
@@ -952,7 +1066,9 @@ Do NOT repeat the same tool call again.`;
         );
 
         // Save execution summary message to database
-        const executionSummary = `<� Execution completed! Successfully processed ${planningResult.operations.length} operations:\n\n${planningResult.operations
+        const executionSummary = `<� Execution completed! Successfully processed ${
+          planningResult.operations.length
+        } operations:\n\n${planningResult.operations
           .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
           .join('\n')}`;
 
@@ -976,11 +1092,14 @@ Do NOT repeat the same tool call again.`;
       filePath: string;
       newFilePath?: string;
     },
-    fileManager: any,
+    fileManager: FileManagerInterface,
     messages: ChatMessage[],
-    snackFiles: PrototypeFiles | null,
-    _prototype_id: string,
-  ) {
+    convertedFiles: PrototypeFiles | null,
+  ): Promise<{
+    content: string;
+    updatedFiles: PrototypeFiles;
+    hasResult: boolean;
+  }> {
     const executionContext = `
 EXECUTING STEP: ${operation.id}
 Type: ${operation.type}
@@ -1006,7 +1125,7 @@ MANDATORY: Before creating this screen, you MUST:
     let userMessage = `${context}\n\nOriginal request: ${lastMessage.content}`;
 
     // Always inject project context
-    const projectContext = this.getProjectContext(snackFiles);
+    const projectContext = this.getProjectContext(convertedFiles);
     if (projectContext) {
       userMessage += projectContext;
     }
@@ -1018,35 +1137,42 @@ MANDATORY: Before creating this screen, you MUST:
       tools: {
         list_files: {
           description: 'List all files in the project to understand structure',
-          parameters: z.object({}),
+          inputSchema: z.object({}),
+          execute: async () => {
+            throw new Error('Tool execution should be handled by file manager');
+          },
         },
         read_file: {
           description: 'Read the contents of a specific file in the project',
-          parameters: z.object({
+          inputSchema: z.object({
             filePath: z.string().describe('The file path to read'),
           }),
+          execute: async () => {
+            throw new Error('Tool execution should be handled by file manager');
+          },
         },
         write_file: {
           description: 'Write or update a file in the project',
-          parameters: z.object({
+          inputSchema: z.object({
             filePath: z.string().describe('The file path to write to'),
             contents: z.string().describe('The complete file contents'),
             operation: z
               .enum(['create', 'modify'])
               .default('create')
               .describe(
-                "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+                'REQUIRED: Use \'create\' for new files, \'modify\' for existing files (defaults to \'create\')',
               ),
           }),
+          execute: async () => {
+            throw new Error('Tool execution should be handled by file manager');
+          },
         },
       },
       messages: [
-        ...messages
-          .slice(0, -1)
-          .map((msg: ChatMessage) => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content,
-          })),
+        ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        })),
         {
           role: 'user' as const,
           content: userMessage,
@@ -1070,7 +1196,7 @@ MANDATORY: Before creating this screen, you MUST:
         const currentToolCall = response.toolCalls[0];
         const currentCall = {
           name: currentToolCall.toolName,
-          args: JSON.stringify(currentToolCall.args),
+          args: JSON.stringify(currentToolCall.input),
         };
 
         if (
@@ -1108,12 +1234,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             model: this.google('gemini-2.5-flash'),
             system: this.EXECUTION_PROMPT,
             messages: [
-              ...messages
-                .slice(0, -1)
-                .map((msg: ChatMessage) => ({
-                  role: msg.role as 'user' | 'assistant',
-                  content: msg.content,
-                })),
+              ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content,
+              })),
               {
                 role: 'user' as const,
                 content: userMessage,
@@ -1155,7 +1279,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
           const result = fileManager.handleToolCall({
             function: {
               name: toolCall.toolName,
-              arguments: toolCall.args,
+              arguments: toolCall.input as Record<string, unknown>,
             },
           });
 
@@ -1189,7 +1313,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             hasSuccessfulWriteOperation = true;
             break;
           }
-        } catch (e) {
+        } catch {
           // Ignore parse errors
         }
       }
@@ -1217,7 +1341,8 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       let continuationMessage = `Tool results:\n${toolResultsText}\n\nBased on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.`;
       // Only inject context every 3 tool calls to avoid confusion in execution
       if (toolCallsMade % 3 === 0) {
-        const projectContextContinuation = this.getProjectContext(snackFiles);
+        const projectContextContinuation =
+          this.getProjectContext(convertedFiles);
         if (projectContextContinuation) {
           continuationMessage += projectContextContinuation;
         }
@@ -1228,36 +1353,50 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
         system: this.EXECUTION_PROMPT,
         tools: {
           list_files: {
-            description: 'List all files in the project to understand structure',
-            parameters: z.object({}),
+            description:
+              'List all files in the project to understand structure',
+            inputSchema: z.object({}),
+            execute: async () => {
+              throw new Error(
+                'Tool execution should be handled by file manager',
+              );
+            },
           },
           read_file: {
             description: 'Read the contents of a specific file in the project',
-            parameters: z.object({
+            inputSchema: z.object({
               filePath: z.string().describe('The file path to read'),
             }),
+            execute: async () => {
+              throw new Error(
+                'Tool execution should be handled by file manager',
+              );
+            },
           },
           write_file: {
             description: 'Write or update a file in the project',
-            parameters: z.object({
+            inputSchema: z.object({
               filePath: z.string().describe('The file path to write to'),
               contents: z.string().describe('The complete file contents'),
               operation: z
                 .enum(['create', 'modify'])
                 .default('create')
                 .describe(
-                  "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+                  'REQUIRED: Use \'create\' for new files, \'modify\' for existing files (defaults to \'create\')',
                 ),
             }),
+            execute: async () => {
+              throw new Error(
+                'Tool execution should be handled by file manager',
+              );
+            },
           },
         },
         messages: [
-          ...messages
-            .slice(0, -1)
-            .map((msg: ChatMessage) => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.content,
-            })),
+          ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+          })),
           {
             role: 'user' as const,
             content: userMessage,
@@ -1288,16 +1427,18 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
   // Get project context from the Expo Snack files instead of scanning filesystem
   private getProjectContext(snackFiles: PrototypeFiles | null): string {
     try {
-      console.log('=
- Building context from Expo Snack files...');
+      console.log('🔍 Building context from Expo Snack files...');
 
       if (!snackFiles || Object.keys(snackFiles).length === 0) {
         console.log('� No snack files provided for context');
         return '';
       }
 
-      const relevantFiles: { path: string; content: string; category: string }[] =
-        [];
+      const relevantFiles: {
+        path: string;
+        content: string;
+        category: string;
+      }[] = [];
 
       // Look for theme-related files
       const themePatterns = [
@@ -1319,7 +1460,9 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
       // Analyze each snack file
       Object.entries(snackFiles).forEach(([filePath, file]) => {
-        if (!file.contents) return;
+        if (!file.contents) {
+          return;
+        }
 
         // Check if file matches theme patterns
         const isThemeRelated = themePatterns.some(
@@ -1373,7 +1516,9 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
         const componentFiles = relevantFiles.filter(
           (f) => f.category === 'component',
         );
-        const configFiles = relevantFiles.filter((f) => f.category === 'config');
+        const configFiles = relevantFiles.filter(
+          (f) => f.category === 'config',
+        );
 
         if (themeFiles.length > 0) {
           projectContext += `\n=== THEME/UI FILES ===\n`;
@@ -1435,13 +1580,16 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
       return {
         hasPlan: true,
-        operations: operations.map((op: any) => ({
-          id: op.id || `step_${Math.random().toString(36).substr(2, 9)}`,
-          type: op.type || 'modify',
-          title: op.title || 'Untitled operation',
-          description: op.description || '',
-          filePath: op.filePath || '',
-          newFilePath: op.newFilePath,
+        operations: operations.map((op: Record<string, unknown>) => ({
+          id:
+            (op.id as string) ||
+            `step_${Math.random().toString(36).substr(2, 9)}`,
+          type:
+            (op.type as 'create' | 'modify' | 'delete' | 'move') || 'modify',
+          title: (op.title as string) || 'Untitled operation',
+          description: (op.description as string) || '',
+          filePath: (op.filePath as string) || '',
+          newFilePath: op.newFilePath as string | undefined,
         })),
       };
     } catch (error) {
@@ -1450,69 +1598,33 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
     }
   }
 
-  // Save files to database
-  private async saveFilesToDatabaseWithAuth(
-    token: string,
-    prototype_id: string,
-    files: PrototypeFiles,
-  ): Promise<void> {
-    // Create authenticated Supabase client using JWT token
-    const supabase = createClient<Database>(
-      this.supabaseUrl,
-      this.supabaseServiceKey,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      },
-    );
-
-    // Convert files to the format expected by the database
-    const fileUpdates = Object.entries(files).map(([filePath, file]) => ({
-      id: file.id,
-      prototype_id: prototype_id,
-      name: filePath,
-      contents: file.contents || '',
-      file_type: 'text' as const,
-      storage_path: null,
-    }));
-
-    console.log(`=� Saving ${fileUpdates.length} files to database...`);
-
-    // Use upsert to handle both inserts and updates
-    const { error } = await supabase
-      .from('prototype_files')
-      .upsert(fileUpdates, {
-        onConflict: 'id',
-        ignoreDuplicates: false,
-      });
-
-    if (error) {
-      console.error('L Database save error:', error);
-      throw new Error(`Failed to save files to database: ${error.message}`);
-    }
-
-    console.log(' Files successfully saved to database');
-  }
+  // NOTE: saveFilesToDatabaseWithAuth method removed - now using shared utility from fileOperations.ts
 
   // File Manager class for handling file operations during chat
   private FileManager = class {
     private files: Map<string, PrototypeFile>;
     private prototypeId: string | null;
 
-    constructor(snackFiles: PrototypeFiles | null, prototypeId?: string) {
-      this.files = new Map(Object.entries(snackFiles || {}));
+    constructor(convertedFiles: PrototypeFiles | null, prototypeId?: string) {
+      this.files = new Map(Object.entries(convertedFiles || {}));
       this.prototypeId = prototypeId || null;
     }
 
     handleToolCall(toolCall: {
       function: { name: string; arguments: Record<string, unknown> };
-    }) {
+    }): {
+      error?: string;
+      success?: boolean;
+      filePath?: string;
+      contents?: string;
+      exists?: boolean;
+      operation?: string;
+      message?: string;
+      files?: Array<{ filePath: string; name: string; exists: boolean }>;
+    } {
       const { name, arguments: args } = toolCall.function;
 
-      console.log(`=' TOOL CALL: ${name}`, { arguments: args });
+      console.log(`🔧 TOOL CALL: ${name}`, { arguments: args });
 
       switch (name) {
         case 'read_file':
@@ -1533,7 +1645,13 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       }
     }
 
-    readFile(filePath: string) {
+    readFile(filePath: string): {
+      error?: string;
+      success?: boolean;
+      filePath?: string;
+      contents?: string;
+      exists?: boolean;
+    } {
       const file = this.files.get(filePath);
       if (!file) {
         return { error: `File not found: ${filePath}` };
@@ -1546,19 +1664,29 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       };
     }
 
-    writeFile(filePath: string, contents: string, operation?: string) {
+    writeFile(
+      filePath: string,
+      contents: string,
+      operation?: string,
+    ): {
+      error?: string;
+      success?: boolean;
+      filePath?: string;
+      operation?: string;
+      message?: string;
+    } {
       // Default to "create" if operation is not provided
       const op = operation || 'create';
       const existingFile = this.files.get(filePath);
 
       if (op === 'modify' && !existingFile) {
-        console.error(`L Cannot modify non-existent file: ${filePath}`);
+        console.error(`❌ Cannot modify non-existent file: ${filePath}`);
         return { error: `Cannot modify non-existent file: ${filePath}` };
       }
 
       if (op === 'create' && existingFile) {
         console.error(
-          `L File already exists: ${filePath}. Use 'modify' operation.`,
+          `❌ File already exists: ${filePath}. Use 'modify' operation.`,
         );
         return {
           error: `File already exists: ${filePath}. Use 'modify' operation.`,
@@ -1578,7 +1706,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
       this.files.set(filePath, updatedFile);
 
-      console.log(` Successfully ${op}d file ${filePath} in function memory`);
+      console.log(`✅ Successfully ${op}d file ${filePath} in function memory`);
 
       // Database updates are handled by the client filesystem
       // The client will receive the updated files through the getFinalState() method
@@ -1592,7 +1720,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       };
     }
 
-    listFiles() {
+    listFiles(): {
+      success: boolean;
+      files: Array<{ filePath: string; name: string; exists: boolean }>;
+      } {
       const fileList = Array.from(this.files.keys()).map((filePath) => ({
         filePath,
         name: this.files.get(filePath)?.name || filePath,
@@ -1603,7 +1734,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
     }
 
     // Get final state for updating database/snack
-    getFinalState() {
+    getFinalState(): PrototypeFiles {
       const result: PrototypeFiles = {};
       for (const [filePath, file] of this.files) {
         result[filePath] = file;
@@ -1614,8 +1745,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
   // AI prompts for planning and execution phases
   private readonly PLANNING_PROMPT = `You are a React Native development assistant in PLANNING mode. Your job is to create detailed execution plans and use tools to understand the current project structure.
-
-AVAILABLE TOOLS:
+  AVAILABLE TOOLS:
 - list_files: See all files in the project
 - read_file: Read content of specific files
 - write_file: Write or modify files (use sparingly in planning, mostly for execution)
