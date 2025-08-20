@@ -9,6 +9,7 @@ import { DevelopmentServerService } from './services/DevelopmentServerService.js
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import * as dotenv from 'dotenv';
+import { S3Client } from '@aws-sdk/client-s3';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ dotenv.config();
 const initializeClients = async (): Promise<{
   cache: GlideClient;
   ecsClient: ECSClient;
+  s3Client: S3Client;
 }> => {
   const ecsClient = new ECSClient({
     region: process.env.AWS_REGION!,
@@ -37,10 +39,18 @@ const initializeClients = async (): Promise<{
     clientName: 'control-plane',
     requestTimeout: 2000,
   });
-
   console.log('Valkey cache initialized successfully');
 
-  return { cache, ecsClient };
+  // Initialize S3 client
+  const s3Client = new S3Client({
+    region: process.env.AWS_REGION || 'us-east-2',
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+
+  return { cache, ecsClient, s3Client };
 };
 
 const fastify = Fastify({
@@ -107,7 +117,11 @@ fastify.delete(
 const start = async (): Promise<void> => {
   try {
     // Initialize clients first
-    const { cache: cacheClient, ecsClient } = await initializeClients();
+    const {
+      cache: cacheClient,
+      ecsClient,
+      s3Client,
+    } = await initializeClients();
 
     // Assign to global variables
     cache = cacheClient;
@@ -128,7 +142,7 @@ const start = async (): Promise<void> => {
     prototypeManagementService.registerRoutes(fastify);
 
     // Create development server service and register routes
-    developmentServerService = new DevelopmentServerService(fastify);
+    developmentServerService = new DevelopmentServerService(fastify, s3Client);
     developmentServerService.registerRoutes(fastify);
 
     await fastify.listen({

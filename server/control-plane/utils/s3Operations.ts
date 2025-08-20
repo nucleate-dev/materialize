@@ -14,15 +14,6 @@ import type {
   PrototypeFile,
 } from '../types/InternalTypes.js';
 
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-2',
-  // credentials: {
-  //   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-  //   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  // },
-});
-
 // Initialize Supabase storage client
 const supabaseStorage = createClient(
   process.env.SUPABASE_URL!,
@@ -157,6 +148,7 @@ export async function copyAssetInSupabaseStorage(
  * Copy S3 bucket contents from one prefix to another
  */
 export async function copyS3BucketContents(
+  s3Client: S3Client,
   sourcePrefix: string,
   destinationPrefix: string,
 ): Promise<S3CopyResult> {
@@ -227,12 +219,13 @@ export async function copyS3BucketContents(
  * Copy default app files to a new prototype bucket
  */
 export async function copyDefaultAppToPrototype(
+  s3Client: S3Client,
   prototypeId: string,
 ): Promise<S3CopyResult> {
   const sourcePrefix = 'default-app/dist';
   const destinationPrefix = `prototypes/${prototypeId}`;
 
-  return copyS3BucketContents(sourcePrefix, destinationPrefix);
+  return copyS3BucketContents(s3Client, sourcePrefix, destinationPrefix);
 }
 
 /**
@@ -246,6 +239,7 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
  * Get default app files from S3 raw files and format for Supabase insertion
  */
 export async function getDefaultAppFilesFromS3(
+  s3Client: S3Client,
   prototypeId: string,
 ): Promise<DefaultFilesResult> {
   try {
@@ -354,6 +348,7 @@ export async function getDefaultAppFilesFromS3(
  * Clean up S3 objects if prototype creation fails
  */
 export async function cleanupPrototypeS3Objects(
+  s3Client: S3Client,
   prototypeId: string,
 ): Promise<void> {
   try {

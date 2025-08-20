@@ -32,15 +32,18 @@ import {
   cleanupPrototypeS3Objects,
   deletePrototypeAssetsFromStorage,
 } from '../utils/s3Operations.js';
+import { S3Client } from '@aws-sdk/client-s3';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
   private supabaseUrl: string;
   private supabaseAnonKey: string;
   private supabaseServiceKey: string;
+  private s3Client: S3Client;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(fastifyApp: FastifyInstance, s3Client: S3Client) {
     this.fastifyApp = fastifyApp;
+    this.s3Client = s3Client;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
@@ -423,6 +426,7 @@ export class PrototypeManagementService {
           const destinationPrefix = `prototypes/${newPrototypeId}`;
 
           const s3CopyResult = await copyS3BucketContents(
+            this.s3Client,
             sourcePrefix,
             destinationPrefix,
           );
@@ -441,6 +445,7 @@ export class PrototypeManagementService {
 
           // Get default app files from S3 raw files
           const defaultFilesResult = await getDefaultAppFilesFromS3(
+            this.s3Client,
             newPrototypeId,
           );
           if (!defaultFilesResult.success) {
@@ -471,7 +476,10 @@ export class PrototypeManagementService {
           }
 
           // Copy default app files to S3 for new prototype (for hosting)
-          const s3CopyResult = await copyDefaultAppToPrototype(newPrototypeId);
+          const s3CopyResult = await copyDefaultAppToPrototype(
+            this.s3Client,
+            newPrototypeId,
+          );
           if (!s3CopyResult.success) {
             throw new Error(
               `Failed to copy default app to S3: ${s3CopyResult.error}`,
@@ -503,7 +511,7 @@ export class PrototypeManagementService {
         console.error('Error during prototype setup:', error);
 
         // Clean up S3 objects
-        await cleanupPrototypeS3Objects(newPrototypeId);
+        await cleanupPrototypeS3Objects(this.s3Client, newPrototypeId);
 
         // Clean up Supabase Storage assets
         await deletePrototypeAssetsFromStorage(newPrototypeId);

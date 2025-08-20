@@ -23,6 +23,7 @@ import {
   convertTextFilesToDatabaseFormat,
   saveFilesToDatabaseWithAuth,
 } from '../utils/fileOperations.js';
+import { S3Client } from '@aws-sdk/client-s3';
 
 export class DevelopmentServerService {
   private fastifyApp: FastifyInstance;
@@ -30,7 +31,7 @@ export class DevelopmentServerService {
   private supabaseAnonKey: string;
   private supabaseServiceKey: string;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(fastifyApp: FastifyInstance, s3Client: S3Client) {
     this.fastifyApp = fastifyApp;
 
     // Environment validation
