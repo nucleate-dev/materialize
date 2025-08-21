@@ -437,6 +437,7 @@ export default function CreatePage() {
                   files={fileSystem.state.files}
                   selectedFile={fileSystem.state.selectedFile}
                   onFilesUpdate={fileSystem.applyFileUpdates}
+                  onRefetchFiles={prototypeId ? () => fileSystem.loadFilesFromDatabase(prototypeId) : undefined}
                   // Loading state
                   isLoading={isLoading}
                   setIsLoading={setIsLoading}

@@ -13,8 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Database } from "@/lib/types/database.types";
-import type { 
-  FetchViewingUrlRequestBody, 
+import type {
+  FetchViewingUrlRequestBody,
   FetchViewingUrlResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
@@ -105,23 +105,30 @@ export default function PrototypePage() {
             headers["Authorization"] = `Bearer ${token}`;
           }
 
-          const fetchViewResponse = await fetch(`${serverEndpoint}/prototype/fetch-viewing-url`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              prototype_id: prototypeId,
-              current_page: "view",
-            } as FetchViewingUrlRequestBody),
-          });
+          const fetchViewResponse = await fetch(
+            `${serverEndpoint}/prototype/fetch-viewing-url`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                prototype_id: prototypeId,
+                current_page: "view",
+              } as FetchViewingUrlRequestBody),
+            },
+          );
 
           if (fetchViewResponse.ok) {
-            const fetchViewData: FetchViewingUrlResponse = await fetchViewResponse.json();
-            if ('viewing_url' in fetchViewData) {
+            const fetchViewData: FetchViewingUrlResponse =
+              await fetchViewResponse.json();
+            if ("viewing_url" in fetchViewData) {
               console.log("Viewing URL:", fetchViewData.viewing_url);
               setViewingUrl(fetchViewData.viewing_url);
               console.log("Source:", fetchViewData.source);
             } else {
-              console.error("Error in fetch-viewing-url response:", fetchViewData);
+              console.error(
+                "Error in fetch-viewing-url response:",
+                fetchViewData,
+              );
             }
           } else {
             console.error(

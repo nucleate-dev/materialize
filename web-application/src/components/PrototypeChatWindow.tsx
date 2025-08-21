@@ -28,6 +28,7 @@ export interface PrototypeChatWindowProps {
   files: Record<string, PrototypeFile>;
   selectedFile: string;
   onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
+  onRefetchFiles?: () => Promise<void>;
 
   // Loading state
   isLoading: boolean;
@@ -43,6 +44,7 @@ export interface PrototypeChatWindowProps {
 export default function PrototypeChatWindow({
   files,
   onFilesUpdate,
+  onRefetchFiles,
   prototypeId,
   isLoading,
   setIsLoading,
@@ -498,12 +500,24 @@ export default function PrototypeChatWindow({
             }
           }
         }
+
+        // Refetch files from database after successful stream completion
+        console.log("🔄 [CLIENT] Refetching files from database after chat completion");
+        if (onRefetchFiles) {
+          try {
+            await onRefetchFiles();
+            console.log("✅ [CLIENT] Files successfully refetched from database");
+          } catch (refetchError) {
+            console.error("❌ [CLIENT] Error refetching files:", refetchError);
+          }
+        }
       } finally {
         reader.releaseLock();
       }
     },
     [
       onFilesUpdate,
+      onRefetchFiles,
       setPrototypeChatMessages,
       setIsExecutingOperations,
       setIsLoading,
