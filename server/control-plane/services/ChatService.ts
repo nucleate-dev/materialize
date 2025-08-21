@@ -1,16 +1,15 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type {
   ChatRequestBody,
   ChatErrorResponse,
-  DispatchRequestBody,
-  DispatchResponse,
+  // DispatchRequestBody,
+  // DispatchResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import type { ChatExecutionOperation } from '../types/InternalTypes.js';
 import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
@@ -22,6 +21,7 @@ import {
   PLANNING_PROMPT,
   EXECUTION_PROMPT,
 } from '../utils/chat-utils/PROMPTS.js';
+import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -378,55 +378,52 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 8. EXECUTE EXECUTION PHASE
             // ------------------------------------------------------------------------------------------------
-            // console.log('⚙️ [SERVER] Starting execution phase...');
-            // console.log(
-            //   '⚙️ [SERVER] Operations to execute:',
-            //   planningResult.operations.length,
-            // );
-            // await this.handleExecutionPhase(
-            //   planningResult.operations,
-            //   fileManager,
-            //   messages,
-            //   convertedFiles,
-            //   prototype_id,
-            //   controller,
-            //   encoder,
-            //   chat_session_id,
-            // );
+            console.log('⚙️ [ChatService] Starting execution phase...');
+            await this.handleExecutionPhase(
+              supabase,
+              planningResult,
+              fileManager,
+              messages,
+              convertedFiles,
+              prototype_id,
+              controller,
+              encoder,
+              chat_session_id,
+            );
 
             // ------------------------------------------------------------------------------------------------
             // 9. Save updated files to database before dispatch
             // ------------------------------------------------------------------------------------------------
-            // const finalFiles = fileManager.getFinalState();
+            const finalFiles = fileManager.getFinalState();
 
-            // try {
-            //   console.log(
-            //     '=� Saving updated files to database before dispatch...',
-            //   );
-            //   // Convert PrototypeFiles to the format expected by the shared utility
-            //   const fileUpdatesForDatabase = Object.fromEntries(
-            //     Object.entries(finalFiles).map(([filePath, file]) => [
-            //       filePath,
-            //       {
-            //         prototype_id: prototype_id,
-            //         name: filePath,
-            //         contents: file.contents || '',
-            //         file_type: 'text' as const,
-            //         storage_path: null,
-            //       },
-            //     ]),
-            //   );
+            try {
+              console.log(
+                '=� Saving updated files to database before dispatch...',
+              );
+              // Convert PrototypeFiles to the format expected by the shared utility
+              const fileUpdatesForDatabase = Object.fromEntries(
+                Object.entries(finalFiles).map(([filePath, file]) => [
+                  filePath,
+                  {
+                    prototype_id: prototype_id,
+                    name: filePath,
+                    contents: file.contents || '',
+                    file_type: 'text' as const,
+                    storage_path: null,
+                  },
+                ]),
+              );
 
-            //   await saveFilesToDatabaseWithAuth(
-            //     token,
-            //     prototype_id,
-            //     fileUpdatesForDatabase,
-            //   );
-            //   console.log(' Files successfully saved to database');
-            // } catch (saveError) {
-            //   console.error('L Error saving files to database:', saveError);
-            //   // Continue with dispatch even if save fails - don't block user
-            // }
+              await saveFilesToDatabaseWithAuth(
+                token,
+                prototype_id,
+                fileUpdatesForDatabase,
+              );
+              console.log(' Files successfully saved to database');
+            } catch (saveError) {
+              console.error('L Error saving files to database:', saveError);
+              // Continue with dispatch even if save fails - don't block user
+            }
 
             // ------------------------------------------------------------------------------------------------
             // 10. Pre-build and dispatch requests
@@ -691,10 +688,7 @@ export class ChatService {
     chat_session_id: string,
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
-  ): Promise<{
-    operations: ChatExecutionOperation[];
-    planningMessage: string;
-  }> {
+  ): Promise<string> {
     const supabase = createClient<Database>(
       this.supabaseUrl,
       this.supabaseServiceKey,
@@ -926,48 +920,12 @@ export class ChatService {
       finalResponse,
     );
 
-    // Extract operations from the final response
-    const planningResult = this.extractExecutionPlan(finalResponse);
-    console.log('🧠 [ChatService] Extracted operations:', {
-      hasPlan: planningResult.hasPlan,
-      operationsCount: planningResult.operations.length,
-    });
-
-    let operations = planningResult.operations;
-
-    // If no operations were extracted, create a fallback operation
-    if (!planningResult.hasPlan || operations.length === 0) {
-      console.log(
-        '🧠 [ChatService] No operations extracted, creating fallback',
-      );
-      operations = [
-        {
-          id: 'fallback_operation',
-          type: 'modify' as const,
-          title: 'Complete user request',
-          description:
-            'Complete the user request based on the planning response',
-          filePath: 'App.js', // Default fallback file // TODO update to new app structure
-        },
-      ];
-    }
-
-    // Create consolidated planning message for client
-    const consolidatedPlanningMessage = `${finalResponse}\n\n## Execution Plan\n\nI will now execute the following steps:\n\n${operations
-      .map(
-        (op, index) =>
-          `${index + 1}. **${op.title}** (${op.type} - ${op.filePath})\n   ${
-            op.description
-          }`,
-      )
-      .join('\n\n')}`;
-
     // Save planning message to database
     const { data: planningMessage } = await supabase
       .from('prototype_chat_messages')
       .insert({
         chat_session_id: chat_session_id,
-        content: consolidatedPlanningMessage,
+        content: finalResponse,
         role: 'assistant',
         phase: 'planning',
       })
@@ -975,161 +933,153 @@ export class ChatService {
       .single();
 
     // Send planning response
-    console.log('🧠 [SERVER] Sending planning event to client...');
-    const planningEvent = {
-      type: 'planning',
-      content: consolidatedPlanningMessage,
-      messageId: planningMessage?.id,
-    };
-    console.log('🧠 [SERVER] Planning event:', {
-      type: planningEvent.type,
-      contentLength: planningEvent.content.length,
-      messageId: planningEvent.messageId,
-      operationsCount: operations.length,
-    });
-
+    console.log(
+      '🧠 [SERVER] Sending planning phase response to client...',
+      JSON.stringify({
+        type: 'planning',
+        content: finalResponse,
+        updatedFiles: fileManager.getFinalState(),
+        messageId: planningMessage?.id,
+      }),
+    );
     controller.enqueue(
-      encoder.encode(`data: ${JSON.stringify(planningEvent)}\n\n`),
+      encoder.encode(
+        `data: ${JSON.stringify({
+          type: 'planning',
+          content: finalResponse,
+          updatedFiles: fileManager.getFinalState(),
+          messageId: planningMessage?.id,
+        })}\n\n`,
+      ),
     );
 
-    return {
-      operations,
-      planningMessage: consolidatedPlanningMessage,
-    };
+    return finalResponse;
   }
 
   private async handleExecutionPhase(
-    operations: ChatExecutionOperation[],
+    supabase: SupabaseClient<Database>,
+    finalResponse: string,
     fileManager: FileManagerInterface,
-    messages: ChatMessage[],
-    convertedFiles: PrototypeFiles | null,
+    messages: { role: string; content: string }[],
+    snackFiles: PrototypeFiles | null,
     prototype_id: string,
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
     chat_session_id: string,
-  ): Promise<void> {
-    const supabase = createClient<Database>(
-      this.supabaseUrl,
-      this.supabaseServiceKey,
-    );
+  ) {
+    // Check if the response contains an execution plan
+    if (finalResponse.includes('EXECUTION_PLAN')) {
+      const planningResult = extractExecutionPlan(finalResponse);
 
-    // Execute operations directly passed from planning phase
-    console.log('⚙️ [SERVER] Starting execution with operations:', {
-      operationsCount: operations.length,
-    });
-
-    if (operations.length > 0) {
-      // Send execution start
-      console.log(
-        '⚙️ [SERVER] Sending execution_start event with',
-        operations.length,
-        'operations',
-      );
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'execution_start',
-            operations: operations,
-          })}\n\n`,
-        ),
-      );
-
-      // Execute each operation step by step
-      for (let i = 0; i < operations.length; i++) {
-        const operation = operations[i];
-
-        // Send step start
+      if (planningResult.hasPlan && planningResult.operations.length > 0) {
+        // Send execution start
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: 'step_start',
-              stepIndex: i,
-              operation: operation,
+              type: 'execution_start',
+              operations: planningResult.operations,
             })}\n\n`,
           ),
         );
 
-        try {
-          const stepResult = await this.executeStep(
-            operation,
-            fileManager,
-            messages,
-            convertedFiles,
-          );
+        // Execute each operation step by step
+        for (let i = 0; i < planningResult.operations.length; i++) {
+          const operation = planningResult.operations[i];
 
-          // Send step completion
+          // Send step start
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
-                type: 'step_complete',
+                type: 'step_start',
                 stepIndex: i,
                 operation: operation,
-                result: {
-                  content: stepResult.content,
-                  hasResult: stepResult.hasResult,
-                },
-                success: stepResult.hasResult,
               })}\n\n`,
             ),
           );
-        } catch (error) {
-          console.error(`Error executing step ${i + 1}:`, error);
 
-          // Send step error
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: 'step_error',
-                stepIndex: i,
-                operation: operation,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              })}\n\n`,
-            ),
-          );
+          try {
+            const stepResult = await this.executeStep(
+              operation,
+              fileManager,
+              messages,
+              snackFiles,
+              prototype_id,
+            );
+
+            console.log('🔄 [ChatService] streaming step result: ');
+            // Send step completion
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'step_complete',
+                  stepIndex: i,
+                  operation: operation,
+                  result: stepResult,
+                  success: stepResult.hasResult,
+                })}\n\n`,
+              ),
+            );
+          } catch (error) {
+            console.error(`Error executing step ${i + 1}:`, error);
+
+            // Send step error
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'step_error',
+                  stepIndex: i,
+                  operation: operation,
+                  error:
+                    error instanceof Error ? error.message : 'Unknown error',
+                })}\n\n`,
+              ),
+            );
+          }
         }
+
+        // Send execution complete
+        console.log('🔄 [ChatService] streaming execution complete result: ');
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'execution_complete',
+            })}\n\n`,
+          ),
+        );
+
+        // Save execution summary message to database
+        console.log('🔄 [ChatService] saving execution summary to database: ');
+        const executionSummary = `🎉 Execution completed! Successfully processed ${
+          planningResult.operations.length
+        } operations:\n\n${planningResult.operations
+          .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
+          .join('\n')}`;
+
+        await supabase.from('prototype_chat_messages').insert({
+          chat_session_id: chat_session_id,
+          content: executionSummary,
+          role: 'assistant' as const,
+          phase: 'execution',
+        });
       }
-
-      // Send execution complete
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'execution_complete',
-          })}\n\n`,
-        ),
-      );
-
-      // Save execution summary message to database
-      const executionSummary = `<� Execution completed! Successfully processed ${
-        operations.length
-      } operations:\n\n${operations
-        .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
-        .join('\n')}`;
-
-      await supabase.from('prototype_chat_messages').insert({
-        chat_session_id: chat_session_id,
-        content: executionSummary,
-        role: 'assistant' as const,
-        phase: 'execution',
-      });
-    } else {
-      console.log('⚙️ [SERVER] No operations to execute');
-      // Send execution complete even if no operations
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'execution_complete',
-          })}\n\n`,
-        ),
-      );
     }
   }
 
   // Helper function to execute a single step
   private async executeStep(
-    operation: ChatExecutionOperation,
+    operation: {
+      id: string;
+      type: 'create' | 'modify' | 'delete' | 'move';
+      title: string;
+      description: string;
+      filePath: string;
+      newFilePath?: string;
+    },
     fileManager: FileManagerInterface,
-    messages: ChatMessage[],
-    convertedFiles: PrototypeFiles | null,
+    messages: { role: string; content: string }[],
+    snackFiles: PrototypeFiles | null,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _prototype_id: string,
   ): Promise<{
     content: string;
     updatedFiles: PrototypeFiles;
@@ -1160,7 +1110,7 @@ MANDATORY: Before creating this screen, you MUST:
     let userMessage = `${context}\n\nOriginal request: ${lastMessage.content}`;
 
     // Always inject project context
-    const projectContext = this.getProjectContext(convertedFiles);
+    const projectContext = this.getProjectContext(snackFiles);
     if (projectContext) {
       userMessage += projectContext;
     }
@@ -1169,45 +1119,14 @@ MANDATORY: Before creating this screen, you MUST:
     let response = await generateText({
       model: this.google('gemini-2.5-flash'),
       system: EXECUTION_PROMPT,
-      tools: {
-        list_files: {
-          description: 'List all files in the project to understand structure',
-          inputSchema: z.object({}),
-          execute: async () => {
-            throw new Error('Tool execution should be handled by file manager');
-          },
-        },
-        read_file: {
-          description: 'Read the contents of a specific file in the project',
-          inputSchema: z.object({
-            filePath: z.string().describe('The file path to read'),
-          }),
-          execute: async () => {
-            throw new Error('Tool execution should be handled by file manager');
-          },
-        },
-        write_file: {
-          description: 'Write or update a file in the project',
-          inputSchema: z.object({
-            filePath: z.string().describe('The file path to write to'),
-            contents: z.string().describe('The complete file contents'),
-            operation: z
-              .enum(['create', 'modify'])
-              .default('create')
-              .describe(
-                "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
-              ),
-          }),
-          execute: async () => {
-            throw new Error('Tool execution should be handled by file manager');
-          },
-        },
-      },
+      tools: MODEL_TOOLS,
       messages: [
-        ...messages.slice(0, -1).map((msg: ChatMessage) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        })),
+        ...messages
+          .slice(0, -1)
+          .map((msg: { role: string; content: string }) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+          })),
         {
           role: 'user' as const,
           content: userMessage,
@@ -1223,7 +1142,7 @@ MANDATORY: Before creating this screen, you MUST:
     while (response.toolCalls && response.toolCalls.length > 0) {
       toolCallsMade += response.toolCalls.length;
       console.log(
-        `= Processing ${response.toolCalls.length} tool calls for step ${operation.id}`,
+        `🔄 Processing ${response.toolCalls.length} tool calls for step ${operation.id}`,
       );
 
       // Check for duplicate tool calls
@@ -1240,10 +1159,10 @@ MANDATORY: Before creating this screen, you MUST:
           lastToolCall.args === currentCall.args
         ) {
           console.log(
-            '=� Detected duplicate tool call in execution, asking for reflection',
+            '🚫 Detected duplicate tool call in execution, asking for reflection',
           );
 
-          const reflectionMessage = `= EXECUTION REFLECTION: You just made a duplicate tool call during step execution (${currentCall.name} with the same arguments). This indicates you may be stuck or not processing previous results.
+          const reflectionMessage = `🔄 EXECUTION REFLECTION: You just made a duplicate tool call during step execution (${currentCall.name} with the same arguments). This indicates you may be stuck or not processing previous results.
 
 CURRENT STEP: ${operation.title} (${operation.type})
 TARGET FILE: ${operation.filePath}
@@ -1269,10 +1188,12 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             model: this.google('gemini-2.5-flash'),
             system: EXECUTION_PROMPT,
             messages: [
-              ...messages.slice(0, -1).map((msg: ChatMessage) => ({
-                role: msg.role as 'user' | 'assistant',
-                content: msg.content,
-              })),
+              ...messages
+                .slice(0, -1)
+                .map((msg: { role: string; content: string }) => ({
+                  role: msg.role as 'user' | 'assistant',
+                  content: msg.content,
+                })),
               {
                 role: 'user' as const,
                 content: userMessage,
@@ -1293,10 +1214,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
           // If it still tries to make tool calls after reflection, force completion
           if (response.toolCalls && response.toolCalls.length > 0) {
             console.log(
-              '� Model still making tool calls after execution reflection, stopping',
+              '⚠️ Model still making tool calls after execution reflection, stopping',
             );
             finalResponse +=
-              '\n\n� Step execution completed with available information.';
+              '\n\n⚠️ Step execution completed with available information.';
             break;
           }
 
@@ -1323,7 +1244,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             result: JSON.stringify(result),
           });
         } catch (error) {
-          console.error(`L Tool call failed: ${toolCall.toolName}`, error);
+          console.error(`❌ Tool call failed: ${toolCall.toolName}`, error);
           toolResults.push({
             toolCallId: toolCall.toolCallId,
             result: JSON.stringify({
@@ -1356,15 +1277,15 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       const isStepComplete = hasSuccessfulWriteOperation;
 
       if (isStepComplete) {
-        console.log(` Step completed: ${operation.id} - ${operation.title}`);
-        finalResponse += `\n\n Step completed: ${operation.title}`;
+        console.log(`✅ Step completed: ${operation.id} - ${operation.title}`);
+        finalResponse += `\n\n✅ Step completed: ${operation.title}`;
         break;
       }
 
       // Prevent infinite loops
       if (toolCallsMade >= 50) {
-        console.log('� Step execution taking too long, forcing completion');
-        finalResponse += `\n\n� Step execution reached maximum attempts (50). Current progress saved.`;
+        console.log('⚠️ Step execution taking too long, forcing completion');
+        finalResponse += `\n\n⚠️ Step execution reached maximum attempts (50). Current progress saved.`;
         break;
       }
 
@@ -1376,8 +1297,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       let continuationMessage = `Tool results:\n${toolResultsText}\n\nBased on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.`;
       // Only inject context every 3 tool calls to avoid confusion in execution
       if (toolCallsMade % 3 === 0) {
-        const projectContextContinuation =
-          this.getProjectContext(convertedFiles);
+        const projectContextContinuation = this.getProjectContext(snackFiles);
         if (projectContextContinuation) {
           continuationMessage += projectContextContinuation;
         }
@@ -1386,52 +1306,14 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       response = await generateText({
         model: this.google('gemini-2.5-flash'),
         system: EXECUTION_PROMPT,
-        tools: {
-          list_files: {
-            description:
-              'List all files in the project to understand structure',
-            inputSchema: z.object({}),
-            execute: async () => {
-              throw new Error(
-                'Tool execution should be handled by file manager',
-              );
-            },
-          },
-          read_file: {
-            description: 'Read the contents of a specific file in the project',
-            inputSchema: z.object({
-              filePath: z.string().describe('The file path to read'),
-            }),
-            execute: async () => {
-              throw new Error(
-                'Tool execution should be handled by file manager',
-              );
-            },
-          },
-          write_file: {
-            description: 'Write or update a file in the project',
-            inputSchema: z.object({
-              filePath: z.string().describe('The file path to write to'),
-              contents: z.string().describe('The complete file contents'),
-              operation: z
-                .enum(['create', 'modify'])
-                .default('create')
-                .describe(
-                  "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
-                ),
-            }),
-            execute: async () => {
-              throw new Error(
-                'Tool execution should be handled by file manager',
-              );
-            },
-          },
-        },
+        tools: MODEL_TOOLS,
         messages: [
-          ...messages.slice(0, -1).map((msg: ChatMessage) => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content,
-          })),
+          ...messages
+            .slice(0, -1)
+            .map((msg: { role: string; content: string }) => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            })),
           {
             role: 'user' as const,
             content: userMessage,
@@ -1454,7 +1336,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       content: finalResponse,
       updatedFiles: fileManager.getFinalState(),
       hasResult:
-        finalResponse.includes(' Step completed') ||
+        finalResponse.includes('✅ Step completed') ||
         finalResponse.includes('Successfully'),
     };
   }
@@ -1584,87 +1466,6 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
     } catch (error) {
       console.warn('Could not build Expo Snack context:', error);
       return '';
-    }
-  }
-
-  // Extract execution plan from planning response
-  private extractExecutionPlan(text: string): {
-    hasPlan: boolean;
-    operations: ChatExecutionOperation[];
-  } {
-    try {
-      console.log(
-        '🔍 [SERVER] Extracting execution plan from text:',
-        text.substring(0, 500),
-      );
-      console.log(
-        '🔍 [SERVER] Text bytes:',
-        JSON.stringify(text.substring(0, 100)),
-      );
-
-      // Look for EXECUTION_PLAN (with or without markdown formatting) followed by JSON array
-      // Try multiple regex patterns to debug
-      console.log('🔍 [SERVER] Testing different regex patterns...');
-
-      const patterns = [
-        /\*\*EXECUTION_PLAN\*\*:\s*(\[[\s\S]*?\])/,
-        /EXECUTION_PLAN:\s*(\[[\s\S]*?\])/,
-        /EXECUTION_PLAN.*?(\[[\s\S]*?\])/,
-        /\*?\*?EXECUTION_PLAN\*?\*?:?\s*(\[[\s\S]*?\])/,
-      ];
-
-      let planMatch = null;
-      for (let i = 0; i < patterns.length; i++) {
-        const match = text.match(patterns[i]);
-        console.log(
-          `🔍 [SERVER] Pattern ${i + 1} result:`,
-          match ? 'FOUND' : 'NOT FOUND',
-        );
-        if (match) {
-          planMatch = match;
-          break;
-        }
-      }
-
-      console.log(
-        '🔍 [SERVER] Final plan match result:',
-        planMatch ? 'FOUND' : 'NOT FOUND',
-      );
-
-      if (!planMatch) {
-        console.log('🔍 [SERVER] No plan match found in text');
-        return { hasPlan: false, operations: [] };
-      }
-
-      const jsonStr = planMatch[1];
-      console.log('🔍 [SERVER] JSON string to parse:', jsonStr);
-      const operations = JSON.parse(jsonStr);
-      console.log('🔍 [SERVER] Parsed operations:', operations);
-
-      if (!Array.isArray(operations)) {
-        console.log('🔍 [SERVER] Operations is not an array');
-        return { hasPlan: false, operations: [] };
-      }
-
-      const result = {
-        hasPlan: true,
-        operations: operations.map((op: Record<string, unknown>) => ({
-          id:
-            (op.id as string) ||
-            `step_${Math.random().toString(36).substr(2, 9)}`,
-          type:
-            (op.type as 'create' | 'modify' | 'delete' | 'move') || 'modify',
-          title: (op.title as string) || 'Untitled operation',
-          description: (op.description as string) || '',
-          filePath: (op.filePath as string) || '',
-          newFilePath: op.newFilePath as string | undefined,
-        })),
-      };
-      console.log('🔍 [SERVER] Final extraction result:', result);
-      return result;
-    } catch (error) {
-      console.error('Error parsing execution plan:', error);
-      return { hasPlan: false, operations: [] };
     }
   }
 
