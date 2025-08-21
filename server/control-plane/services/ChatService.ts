@@ -428,93 +428,93 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 10. Pre-build and dispatch requests
             // ------------------------------------------------------------------------------------------------
-            // console.log(
-            //   '=� Dispatching build request regardless of precheck response',
-            // );
+            console.log(
+              '=� Dispatching build request regardless of precheck response',
+            );
 
-            // // Convert PrototypeFiles to FileInput[] format for dispatch
-            // const filesForDispatch: Array<{
-            //   path: string;
-            //   content: string;
-            //   isBase64?: boolean;
-            // }> = [];
-            // Object.entries(finalFiles).forEach(([filePath, file]) => {
-            //   if (file.contents) {
-            //     filesForDispatch.push({
-            //       path: filePath,
-            //       content: file.contents,
-            //       isBase64: false, // Text files, not base64 encoded
-            //     });
-            //   }
-            // });
+            // Convert PrototypeFiles to FileInput[] format for dispatch
+            const filesForDispatch: Array<{
+              path: string;
+              content: string;
+              isBase64?: boolean;
+            }> = [];
+            Object.entries(finalFiles).forEach(([filePath, file]) => {
+              if (file.contents) {
+                filesForDispatch.push({
+                  path: filePath,
+                  content: file.contents,
+                  isBase64: false, // Text files, not base64 encoded
+                });
+              }
+            });
 
-            // // Stream dispatch start event to show loading indicator
-            // controller.enqueue(
-            //   encoder.encode(
-            //     `data: ${JSON.stringify({
-            //       type: 'dispatch_start',
-            //       message: 'Starting build process...',
-            //     })}\n\n`,
-            //   ),
-            // );
+            // Stream dispatch start event to show loading indicator
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'dispatch_start',
+                  message: 'Starting build process...',
+                })}\n\n`,
+              ),
+            );
 
-            // try {
-            //   const dispatchResponse = await this.fastifyApp.inject({
-            //     method: 'POST',
-            //     url: '/dispatch',
-            //     payload: {
-            //       jwt: token,
-            //       prototype_id: prototype_id,
-            //       framework: 'expo_react_native',
-            //       files: filesForDispatch,
-            //       file_scope: 'complete',
-            //       hot_reload: false,
-            //     } as DispatchRequestBody,
-            //   });
+            try {
+              const dispatchResponse = await this.fastifyApp.inject({
+                method: 'POST',
+                url: '/dispatch',
+                payload: {
+                  jwt: token,
+                  prototype_id: prototype_id,
+                  framework: 'expo_react_native',
+                  files: filesForDispatch,
+                  file_scope: 'complete',
+                  hot_reload: false,
+                } as DispatchRequestBody,
+              });
 
-            //   const dispatchData: DispatchResponse = JSON.parse(
-            //     dispatchResponse.payload,
-            //   );
-            //   console.log('=� Dispatch endpoint response:', dispatchData);
+              const dispatchData: DispatchResponse = JSON.parse(
+                dispatchResponse.payload,
+              );
+              console.log('=� Dispatch endpoint response:', dispatchData);
 
-            //   // Stream the viewing URL to the client
-            //   if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
-            //     controller.enqueue(
-            //       encoder.encode(
-            //         `data: ${JSON.stringify({
-            //           type: 'viewing_url',
-            //           viewing_url: dispatchData.viewing_url,
-            //         })}\n\n`,
-            //       ),
-            //     );
-            //   }
+              // Stream the viewing URL to the client
+              if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: 'viewing_url',
+                      viewing_url: dispatchData.viewing_url,
+                    })}\n\n`,
+                  ),
+                );
+              }
 
-            //   // Stream dispatch completion event
-            //   controller.enqueue(
-            //     encoder.encode(
-            //       `data: ${JSON.stringify({
-            //         type: 'dispatch_complete',
-            //         success: true,
-            //         message: 'Build process completed successfully',
-            //       })}\n\n`,
-            //     ),
-            //   );
-            // } catch (error) {
-            //   console.error('L Error calling dispatch endpoint:', error);
+              // Stream dispatch completion event
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'dispatch_complete',
+                    success: true,
+                    message: 'Build process completed successfully',
+                  })}\n\n`,
+                ),
+              );
+            } catch (error) {
+              console.error('L Error calling dispatch endpoint:', error);
 
-            //   // Stream dispatch completion event for error case
-            //   controller.enqueue(
-            //     encoder.encode(
-            //       `data: ${JSON.stringify({
-            //         type: 'dispatch_complete',
-            //         success: false,
-            //         message: 'Build process failed',
-            //         error:
-            //           error instanceof Error ? error.message : 'Unknown error',
-            //       })}\n\n`,
-            //     ),
-            //   );
-            // }
+              // Stream dispatch completion event for error case
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'dispatch_complete',
+                    success: false,
+                    message: 'Build process failed',
+                    error:
+                      error instanceof Error ? error.message : 'Unknown error',
+                  })}\n\n`,
+                ),
+              );
+            }
 
             // ------------------------------------------------------------------------------------------------
             // 11. Track API usage and get updated count
