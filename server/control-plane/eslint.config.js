@@ -1,5 +1,6 @@
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
@@ -28,20 +29,15 @@ export default [
       'eqeqeq': 'error',
       'curly': 'error',
       
-      // Code style rules
-      'indent': ['error', 2, { 'SwitchCase': 1 }],
-      'quotes': ['error', 'single', { allowTemplateLiterals: true }],
-      'semi': ['error', 'always'],
-      'comma-dangle': ['error', 'always-multiline'],
-      'object-curly-spacing': ['error', 'always'],
-      'array-bracket-spacing': ['error', 'never'],
-      
       // Best practices
       'no-debugger': 'error',
       'no-alert': 'error',
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
+      
+      // Disable style rules that conflict with Prettier
+      ...prettierConfig.rules,
     },
   },
   {
