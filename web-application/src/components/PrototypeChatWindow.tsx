@@ -9,7 +9,6 @@ import { Database } from "@/lib/types/database.types";
 import {
   ChatRequestBody,
   ChatErrorResponse,
-  ChatStreamEvent,
   PrototypeFileInput,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
@@ -363,7 +362,7 @@ export default function PrototypeChatWindow({
                     break;
 
                   case "step_complete": {
-                    const { stepIndex, result, success } = data;
+                    const { stepIndex, success } = data;
 
                     // Files will be refetched from database later
 
@@ -585,11 +584,11 @@ export default function PrototypeChatWindow({
             contents: file.contents || "",
             name: file.name,
             file_type: file.file_type,
-            prototype_id: file.prototype_id,
+            prototype_id: file.prototype_id || "",
             id: file.id,
-            storage_path: file.storage_path,
-            created_at: file.created_at,
-            updated_at: file.updated_at,
+            storage_path: file.storage_path || "",
+            created_at: file.created_at || "",
+            updated_at: file.updated_at || "",
           };
         });
 
@@ -606,10 +605,10 @@ export default function PrototypeChatWindow({
           messages: serverMessages,
           snackFiles,
           chat_session_id: prototypeChatSession.id,
-          prototype_id: prototypeId,
+          prototype_id: prototypeId || "",
         };
 
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT!;
         if (!serverEndpoint) {
           throw new Error("NEXT_PUBLIC_SERVER_ENDPOINT is not configured");
         }
@@ -676,8 +675,8 @@ export default function PrototypeChatWindow({
           name: error instanceof Error ? error.name : "Unknown",
           message: error instanceof Error ? error.message : error,
           stack: error instanceof Error ? error.stack : "No stack trace",
-          serverEndpoint: serverEndpoint,
-          chatUrl: chatUrl,
+          serverEndpoint: process.env.NEXT_PUBLIC_SERVER_ENDPOINT!,
+          chatUrl: `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
         });
 
         const errorMessage: PrototypeChatMessage = {

@@ -13,6 +13,15 @@ export type BuildStatus =
   | 'stable'
   | 'cleaning';
 
+export interface ChatExecutionOperation {
+  id: string;
+  type: 'create' | 'modify' | 'delete' | 'move';
+  title: string;
+  description: string;
+  filePath: string;
+  newFilePath?: string;
+}
+
 export type Framework = 'expo_react_native' | 'react';
 
 export type FileScope = 'updates' | 'complete';
