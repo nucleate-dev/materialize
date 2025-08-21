@@ -699,44 +699,7 @@ export class ChatService {
     let response = await generateText({
       model: this.google('gemini-2.5-flash'),
       system: PLANNING_PROMPT,
-      tools: {
-        list_files: {
-          description: 'List all files in the project to understand structure',
-          inputSchema: z.object({}),
-          execute: async () => {
-            throw new Error('Tool execution should be handled by file manager');
-          },
-        },
-        read_file: {
-          description: 'Read the contents of a specific file in the project',
-          inputSchema: z.object({
-            filePath: z
-              .string()
-              .describe(
-                "The file path to read (e.g., 'screens/PaywallScreen.js')",
-              ),
-          }),
-          execute: async () => {
-            throw new Error('Tool execution should be handled by file manager');
-          },
-        },
-        write_file: {
-          description: 'Write or update a file in the project',
-          inputSchema: z.object({
-            filePath: z.string().describe('The file path to write to'),
-            contents: z.string().describe('The complete file contents'),
-            operation: z
-              .enum(['create', 'modify'])
-              .default('create')
-              .describe(
-                "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
-              ),
-          }),
-          execute: async () => {
-            throw new Error('Tool execution should be handled by file manager');
-          },
-        },
-      },
+      tools: MODEL_TOOLS,
       messages: [
         ...messages.slice(0, -1).map((msg: ChatMessage) => ({
           role: msg.role as 'user' | 'assistant',
@@ -760,12 +723,6 @@ export class ChatService {
         `= Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
       );
 
-      // Check if we already have a valid plan
-      const hasValidPlan =
-        finalResponse.includes('EXECUTION_PLAN') &&
-        finalResponse.includes('[') &&
-        finalResponse.includes(']');
-
       // Check for duplicate tool calls
       if (response.toolCalls.length === 1) {
         const currentToolCall = response.toolCalls[0];
@@ -775,7 +732,6 @@ export class ChatService {
         };
 
         if (
-          // Sourish: when will this ever be true?
           lastToolCall &&
           lastToolCall.name === currentCall.name &&
           lastToolCall.args === currentCall.args
@@ -783,6 +739,10 @@ export class ChatService {
           console.log('=� Detected duplicate tool call');
 
           // If we have a valid plan, break the loop
+          const hasValidPlan =
+            finalResponse.includes('EXECUTION_PLAN') &&
+            finalResponse.includes('[') &&
+            finalResponse.includes(']');
           if (hasValidPlan) {
             console.log(' Valid plan detected, proceeding');
             finalResponse +=
@@ -874,6 +834,8 @@ export class ChatService {
       let continuationMessage = `Tool results:\n${toolResultsText}\n\nContinue with your task.`;
       // Only inject context every 5 tool calls to avoid confusion
       if (toolCallsMade % 5 === 0) {
+        // Sourish: "toolCallsMade" is being incremented based on the # of tool calls per response. Is that always 1? If not,
+        // this condition may never be true actually
         const projectContextContinuation =
           this.getProjectContext(convertedFiles);
         if (projectContextContinuation) {
@@ -884,47 +846,7 @@ export class ChatService {
       response = await generateText({
         model: this.google('gemini-2.5-flash'),
         system: PLANNING_PROMPT,
-        tools: {
-          list_files: {
-            description:
-              'List all files in the project to understand structure',
-            inputSchema: z.object({}),
-            execute: async () => {
-              throw new Error(
-                'Tool execution should be handled by file manager',
-              );
-            },
-          },
-          read_file: {
-            description: 'Read the contents of a specific file in the project',
-            inputSchema: z.object({
-              filePath: z.string().describe('The file path to read'),
-            }),
-            execute: async () => {
-              throw new Error(
-                'Tool execution should be handled by file manager',
-              );
-            },
-          },
-          write_file: {
-            description: 'Write or update a file in the project',
-            inputSchema: z.object({
-              filePath: z.string().describe('The file path to write to'),
-              contents: z.string().describe('The complete file contents'),
-              operation: z
-                .enum(['create', 'modify'])
-                .default('create')
-                .describe(
-                  "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
-                ),
-            }),
-            execute: async () => {
-              throw new Error(
-                'Tool execution should be handled by file manager',
-              );
-            },
-          },
-        },
+        tools: MODEL_TOOLS,
         messages: [
           ...messages.slice(0, -1).map((msg: ChatMessage) => ({
             role: msg.role as 'user' | 'assistant',
@@ -961,7 +883,9 @@ export class ChatService {
       finalResponse.includes(']');
 
     if (!hasValidPlan) {
-      console.log('� No valid execution plan found, generating fallback plan');
+      console.log(
+        '�[ChatService] No valid execution plan found, generating fallback plan',
+      );
 
       const fallbackResponse = await generateText({
         model: this.google('gemini-2.5-flash'),
@@ -992,11 +916,14 @@ export class ChatService {
       finalResponse += '\n\n' + fallbackResponse.text;
     }
 
-    console.log('🧠 [SERVER] Planning phase final response:', finalResponse);
+    console.log(
+      '🧠 [ChatService] Planning phase final response:',
+      finalResponse,
+    );
 
     // Extract operations from the final response
     const planningResult = this.extractExecutionPlan(finalResponse);
-    console.log('🧠 [SERVER] Extracted operations:', {
+    console.log('🧠 [ChatService] Extracted operations:', {
       hasPlan: planningResult.hasPlan,
       operationsCount: planningResult.operations.length,
     });
@@ -1005,7 +932,9 @@ export class ChatService {
 
     // If no operations were extracted, create a fallback operation
     if (!planningResult.hasPlan || operations.length === 0) {
-      console.log('🧠 [SERVER] No operations extracted, creating fallback');
+      console.log(
+        '🧠 [ChatService] No operations extracted, creating fallback',
+      );
       operations = [
         {
           id: 'fallback_operation',
@@ -1013,7 +942,7 @@ export class ChatService {
           title: 'Complete user request',
           description:
             'Complete the user request based on the planning response',
-          filePath: 'App.js', // Default fallback file
+          filePath: 'App.js', // Default fallback file // TODO update to new app structure
         },
       ];
     }
@@ -1879,3 +1808,38 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
     }
   };
 }
+
+const MODEL_TOOLS = {
+  list_files: {
+    description: 'List all files in the project to understand structure',
+    inputSchema: z.object({}),
+    execute: async (): Promise<void> => {
+      throw new Error('Tool execution should be handled by file manager');
+    },
+  },
+  read_file: {
+    description: 'Read the contents of a specific file in the project',
+    inputSchema: z.object({
+      filePath: z.string().describe('The file path to read'),
+    }),
+    execute: async (): Promise<void> => {
+      throw new Error('Tool execution should be handled by file manager');
+    },
+  },
+  write_file: {
+    description: 'Write or update a file in the project',
+    inputSchema: z.object({
+      filePath: z.string().describe('The file path to write to'),
+      contents: z.string().describe('The complete file contents'),
+      operation: z
+        .enum(['create', 'modify'])
+        .default('create')
+        .describe(
+          "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
+        ),
+    }),
+    execute: async (): Promise<void> => {
+      throw new Error('Tool execution should be handled by file manager');
+    },
+  },
+};
