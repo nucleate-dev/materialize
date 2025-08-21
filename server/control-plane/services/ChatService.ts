@@ -370,230 +370,235 @@ export class ChatService {
               encoder,
             );
 
+            console.log(
+              '🧠 [ChatService] Planning result:',
+              JSON.stringify(planningResult, null, 2),
+            );
+
             // ------------------------------------------------------------------------------------------------
             // 8. EXECUTE EXECUTION PHASE
             // ------------------------------------------------------------------------------------------------
-            console.log('⚙️ [SERVER] Starting execution phase...');
-            console.log(
-              '⚙️ [SERVER] Operations to execute:',
-              planningResult.operations.length,
-            );
-            await this.handleExecutionPhase(
-              planningResult.operations,
-              fileManager,
-              messages,
-              convertedFiles,
-              prototype_id,
-              controller,
-              encoder,
-              chat_session_id,
-            );
+            // console.log('⚙️ [SERVER] Starting execution phase...');
+            // console.log(
+            //   '⚙️ [SERVER] Operations to execute:',
+            //   planningResult.operations.length,
+            // );
+            // await this.handleExecutionPhase(
+            //   planningResult.operations,
+            //   fileManager,
+            //   messages,
+            //   convertedFiles,
+            //   prototype_id,
+            //   controller,
+            //   encoder,
+            //   chat_session_id,
+            // );
 
             // ------------------------------------------------------------------------------------------------
             // 9. Save updated files to database before dispatch
             // ------------------------------------------------------------------------------------------------
-            const finalFiles = fileManager.getFinalState();
+            // const finalFiles = fileManager.getFinalState();
 
-            try {
-              console.log(
-                '=� Saving updated files to database before dispatch...',
-              );
-              // Convert PrototypeFiles to the format expected by the shared utility
-              const fileUpdatesForDatabase = Object.fromEntries(
-                Object.entries(finalFiles).map(([filePath, file]) => [
-                  filePath,
-                  {
-                    prototype_id: prototype_id,
-                    name: filePath,
-                    contents: file.contents || '',
-                    file_type: 'text' as const,
-                    storage_path: null,
-                  },
-                ]),
-              );
+            // try {
+            //   console.log(
+            //     '=� Saving updated files to database before dispatch...',
+            //   );
+            //   // Convert PrototypeFiles to the format expected by the shared utility
+            //   const fileUpdatesForDatabase = Object.fromEntries(
+            //     Object.entries(finalFiles).map(([filePath, file]) => [
+            //       filePath,
+            //       {
+            //         prototype_id: prototype_id,
+            //         name: filePath,
+            //         contents: file.contents || '',
+            //         file_type: 'text' as const,
+            //         storage_path: null,
+            //       },
+            //     ]),
+            //   );
 
-              await saveFilesToDatabaseWithAuth(
-                token,
-                prototype_id,
-                fileUpdatesForDatabase,
-              );
-              console.log(' Files successfully saved to database');
-            } catch (saveError) {
-              console.error('L Error saving files to database:', saveError);
-              // Continue with dispatch even if save fails - don't block user
-            }
+            //   await saveFilesToDatabaseWithAuth(
+            //     token,
+            //     prototype_id,
+            //     fileUpdatesForDatabase,
+            //   );
+            //   console.log(' Files successfully saved to database');
+            // } catch (saveError) {
+            //   console.error('L Error saving files to database:', saveError);
+            //   // Continue with dispatch even if save fails - don't block user
+            // }
 
             // ------------------------------------------------------------------------------------------------
             // 10. Pre-build and dispatch requests
             // ------------------------------------------------------------------------------------------------
-            console.log(
-              '=� Dispatching build request regardless of precheck response',
-            );
+            // console.log(
+            //   '=� Dispatching build request regardless of precheck response',
+            // );
 
             // Convert PrototypeFiles to FileInput[] format for dispatch
-            const filesForDispatch: Array<{
-              path: string;
-              content: string;
-              isBase64?: boolean;
-            }> = [];
-            Object.entries(finalFiles).forEach(([filePath, file]) => {
-              if (file.contents) {
-                filesForDispatch.push({
-                  path: filePath,
-                  content: file.contents,
-                  isBase64: false, // Text files, not base64 encoded
-                });
-              }
-            });
+            // const filesForDispatch: Array<{
+            //   path: string;
+            //   content: string;
+            //   isBase64?: boolean;
+            // }> = [];
+            // Object.entries(finalFiles).forEach(([filePath, file]) => {
+            //   if (file.contents) {
+            //     filesForDispatch.push({
+            //       path: filePath,
+            //       content: file.contents,
+            //       isBase64: false, // Text files, not base64 encoded
+            //     });
+            //   }
+            // });
 
             // Stream dispatch start event to show loading indicator
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: 'dispatch_start',
-                  message: 'Starting build process...',
-                })}\n\n`,
-              ),
-            );
+            // controller.enqueue(
+            //   encoder.encode(
+            //     `data: ${JSON.stringify({
+            //       type: 'dispatch_start',
+            //       message: 'Starting build process...',
+            //     })}\n\n`,
+            //   ),
+            // );
 
-            try {
-              const dispatchResponse = await this.fastifyApp.inject({
-                method: 'POST',
-                url: '/dispatch',
-                payload: {
-                  jwt: token,
-                  prototype_id: prototype_id,
-                  framework: 'expo_react_native',
-                  files: filesForDispatch,
-                  file_scope: 'complete',
-                  hot_reload: false,
-                } as DispatchRequestBody,
-              });
+            // try {
+            //   const dispatchResponse = await this.fastifyApp.inject({
+            //     method: 'POST',
+            //     url: '/dispatch',
+            //     payload: {
+            //       jwt: token,
+            //       prototype_id: prototype_id,
+            //       framework: 'expo_react_native',
+            //       files: filesForDispatch,
+            //       file_scope: 'complete',
+            //       hot_reload: false,
+            //     } as DispatchRequestBody,
+            //   });
 
-              const dispatchData: DispatchResponse = JSON.parse(
-                dispatchResponse.payload,
-              );
-              console.log('=� Dispatch endpoint response:', dispatchData);
+            //   const dispatchData: DispatchResponse = JSON.parse(
+            //     dispatchResponse.payload,
+            //   );
+            //   console.log('=� Dispatch endpoint response:', dispatchData);
 
-              // Stream the viewing URL to the client
-              if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: 'viewing_url',
-                      viewing_url: dispatchData.viewing_url,
-                    })}\n\n`,
-                  ),
-                );
-              }
+            //   // Stream the viewing URL to the client
+            //   if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
+            //     controller.enqueue(
+            //       encoder.encode(
+            //         `data: ${JSON.stringify({
+            //           type: 'viewing_url',
+            //           viewing_url: dispatchData.viewing_url,
+            //         })}\n\n`,
+            //       ),
+            //     );
+            //   }
 
-              // Stream dispatch completion event
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: 'dispatch_complete',
-                    success: true,
-                    message: 'Build process completed successfully',
-                  })}\n\n`,
-                ),
-              );
-            } catch (error) {
-              console.error('L Error calling dispatch endpoint:', error);
+            //   // Stream dispatch completion event
+            //   controller.enqueue(
+            //     encoder.encode(
+            //       `data: ${JSON.stringify({
+            //         type: 'dispatch_complete',
+            //         success: true,
+            //         message: 'Build process completed successfully',
+            //       })}\n\n`,
+            //     ),
+            //   );
+            // } catch (error) {
+            //   console.error('L Error calling dispatch endpoint:', error);
 
-              // Stream dispatch completion event for error case
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: 'dispatch_complete',
-                    success: false,
-                    message: 'Build process failed',
-                    error:
-                      error instanceof Error ? error.message : 'Unknown error',
-                  })}\n\n`,
-                ),
-              );
-            }
+            //   // Stream dispatch completion event for error case
+            //   controller.enqueue(
+            //     encoder.encode(
+            //       `data: ${JSON.stringify({
+            //         type: 'dispatch_complete',
+            //         success: false,
+            //         message: 'Build process failed',
+            //         error:
+            //           error instanceof Error ? error.message : 'Unknown error',
+            //       })}\n\n`,
+            //     ),
+            //   );
+            // }
 
             // ------------------------------------------------------------------------------------------------
             // 11. Track API usage and get updated count
             // ------------------------------------------------------------------------------------------------
-            await supabase.from('api_usage').insert({
-              user_id: userID,
-              prototype_id: prototype_id || null,
-            });
+            // await supabase.from('api_usage').insert({
+            //   user_id: userID,
+            //   prototype_id: prototype_id || null,
+            // });
 
-            // Get the updated message count for the current billing period
-            let updatedMessageCount = 0;
-            // For users with subscription, use their billing period
-            let periodStart = startOfMonthISO;
-            let periodEnd = new Date().toISOString();
+            // // Get the updated message count for the current billing period
+            // let updatedMessageCount = 0;
+            // // For users with subscription, use their billing period
+            // let periodStart = startOfMonthISO;
+            // let periodEnd = new Date().toISOString();
 
-            if (
-              userSubscription &&
-              userSubscription.current_period_start &&
-              userSubscription.current_period_end
-            ) {
-              periodStart = new Date(
-                userSubscription.current_period_start * 1000,
-              ).toISOString();
-              periodEnd = new Date(
-                userSubscription.current_period_end * 1000,
-              ).toISOString();
-            }
+            // if (
+            //   userSubscription &&
+            //   userSubscription.current_period_start &&
+            //   userSubscription.current_period_end
+            // ) {
+            //   periodStart = new Date(
+            //     userSubscription.current_period_start * 1000,
+            //   ).toISOString();
+            //   periodEnd = new Date(
+            //     userSubscription.current_period_end * 1000,
+            //   ).toISOString();
+            // }
 
-            const { count: newCount, error: countError } = await supabase
-              .from('api_usage')
-              .select('*', { count: 'exact', head: true })
-              .eq('user_id', userID)
-              .gte('created_at', periodStart)
-              .lte('created_at', periodEnd);
-            if (countError) {
-              console.error(
-                'Error fetching updated message count:',
-                countError,
-              );
-            }
-            updatedMessageCount = newCount || 0;
-            console.log(
-              `Updated message count for user ${userID}: ${updatedMessageCount}`,
-            );
+            // const { count: newCount, error: countError } = await supabase
+            //   .from('api_usage')
+            //   .select('*', { count: 'exact', head: true })
+            //   .eq('user_id', userID)
+            //   .gte('created_at', periodStart)
+            //   .lte('created_at', periodEnd);
+            // if (countError) {
+            //   console.error(
+            //     'Error fetching updated message count:',
+            //     countError,
+            //   );
+            // }
+            // updatedMessageCount = newCount || 0;
+            // console.log(
+            //   `Updated message count for user ${userID}: ${updatedMessageCount}`,
+            // );
 
-            // Send updated message count to client
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: 'usage_update',
-                  messageCount: updatedMessageCount,
-                })}\n\n`,
-              ),
-            );
+            // // Send updated message count to client
+            // controller.enqueue(
+            //   encoder.encode(
+            //     `data: ${JSON.stringify({
+            //       type: 'usage_update',
+            //       messageCount: updatedMessageCount,
+            //     })}\n\n`,
+            //   ),
+            // );
 
             // ------------------------------------------------------------------------------------------------
             // 12. If the user has an active subscription, send the usage data to Stripe
             // ------------------------------------------------------------------------------------------------
-            if (
-              userTier === ProductKeys.PRO_SUBSCRIPTION &&
-              userSubscription?.stripe_customer_id
-            ) {
-              try {
-                await this.stripe.billing.meterEvents.create({
-                  event_name: 'materialize_assistant_messages',
-                  payload: {
-                    stripe_customer_id: userSubscription.stripe_customer_id,
-                    value: '1',
-                  },
-                });
-                console.log(
-                  `Stripe meter event successfully sent for pro user ${userID}`,
-                );
-              } catch (stripeError) {
-                console.error('Error sending Stripe meter event:', stripeError);
-                // Don't fail the request if Stripe meter event fails
-              }
-            }
+            // if (
+            //   userTier === ProductKeys.PRO_SUBSCRIPTION &&
+            //   userSubscription?.stripe_customer_id
+            // ) {
+            //   try {
+            //     await this.stripe.billing.meterEvents.create({
+            //       event_name: 'materialize_assistant_messages',
+            //       payload: {
+            //         stripe_customer_id: userSubscription.stripe_customer_id,
+            //         value: '1',
+            //       },
+            //     });
+            //     console.log(
+            //       `Stripe meter event successfully sent for pro user ${userID}`,
+            //     );
+            //   } catch (stripeError) {
+            //     console.error('Error sending Stripe meter event:', stripeError);
+            //     // Don't fail the request if Stripe meter event fails
+            //   }
+            // }
 
-            console.log('🔚 [SERVER] Stream controller closing normally');
-            controller.close();
+            // console.log('🔚 [SERVER] Stream controller closing normally');
+            // controller.close();
           } catch (error) {
             console.error('💥 [SERVER] Streaming error in controller:', error);
             try {
