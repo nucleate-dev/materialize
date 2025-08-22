@@ -4,7 +4,6 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { installDependencies } from "./shared-utils.js";
 import {
   BuildAndDeployRequest,
   BuildAndDeployResponse,
@@ -14,7 +13,8 @@ import {
   DeployRequest,
   DeployResponse,
   FileInput,
-} from "./types.js";
+} from "./build-worker-api-types.js";
+import { installDependencies } from "./shared-utils.js";
 
 export class BuilderService {
   private readonly WORK_DIR: string;

@@ -91,3 +91,16 @@ export interface PublicDevServerStopResponse {
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
 }
+
+export interface PublicBuildAndDeployRequest {
+  prototype_id: string;
+  framework: 'expo_react_native' | 'react';
+  files: FileInput[];
+}
+
+export interface PublicBuildAndDeployResponse {
+  status: 'success' | 'error';
+  build_url?: string;
+  build_errors: CodeError[];
+  build_warnings: CodeWarning[];
+}

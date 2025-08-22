@@ -1,19 +1,21 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
-import { BuilderService } from "./BuilderService.js";
-import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { customlog } from "./logger.js";
-import { installDependencies } from "./shared-utils.js";
 import {
   CodeError,
   CodeWarning,
   FileInput,
+  PublicBuildAndDeployRequest,
+  PublicBuildAndDeployResponse,
   PublicDevServerStartRequest,
   PublicDevServerStartResponse,
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
-} from "./types.js";
+} from "./build-worker-api-types.js";
+import { BuilderService } from "./BuilderService.js";
+import { ExpoDevServerService } from "./ExpoDevServerService.js";
+import { customlog } from "./logger.js";
+import { installDependencies } from "./shared-utils.js";
 
 export class PublicApiService {
   private readonly builderService: BuilderService;
@@ -41,6 +43,12 @@ export class PublicApiService {
     app.delete<{ Body: PublicDevServerStopRequest }>(
       "/dev-server",
       this.stopDevServer.bind(this),
+    );
+
+    // POST /build-and-deploy
+    app.post<{ Body: PublicBuildAndDeployRequest }>(
+      "/build-and-deploy",
+      this.buildAndDeploy.bind(this),
     );
   }
 
@@ -88,15 +96,15 @@ export class PublicApiService {
 
       // Files are now already in FileInput format
       const fileInputs: FileInput[] = files;
-      
+
       // Log file types being processed
-      const textFiles = fileInputs.filter(f => !f.isBase64);
-      const binaryFiles = fileInputs.filter(f => f.isBase64);
-      customlog("info", "Processing files:", { 
-        total: fileInputs.length, 
-        text: textFiles.length, 
+      const textFiles = fileInputs.filter((f) => !f.isBase64);
+      const binaryFiles = fileInputs.filter((f) => f.isBase64);
+      customlog("info", "Processing files:", {
+        total: fileInputs.length,
+        text: textFiles.length,
         binary: binaryFiles.length,
-        binaryPaths: binaryFiles.map(f => f.path)
+        binaryPaths: binaryFiles.map((f) => f.path),
       });
 
       // Handle file scope
@@ -427,6 +435,147 @@ export class PublicApiService {
     }
   }
 
+  private async buildAndDeploy(
+    request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicBuildAndDeployResponse> {
+    const { prototype_id, framework, files } = request.body;
+
+    customlog("info", "POST /build-and-deploy request:", {
+      prototype_id,
+      framework,
+      files_count: files?.length,
+    });
+
+    if (!prototype_id || !framework || !files) {
+      customlog("error", "Missing required parameters:", {
+        prototype_id,
+        framework,
+        files: files?.length,
+      });
+      reply.code(400);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: "prototype_id, framework, and files are required",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+
+    try {
+      const buildErrors: CodeError[] = [];
+      const buildWarnings: CodeWarning[] = [];
+
+      // Files are already in FileInput format
+      const fileInputs: FileInput[] = files;
+
+      // Log file types being processed
+      const textFiles = fileInputs.filter((f) => !f.isBase64);
+      const binaryFiles = fileInputs.filter((f) => f.isBase64);
+      customlog("info", "Processing files for build and deploy:", {
+        total: fileInputs.length,
+        text: textFiles.length,
+        binary: binaryFiles.length,
+        binaryPaths: binaryFiles.map((f) => f.path),
+      });
+
+      // Use BuilderService to build and deploy
+      let buildUrl: string | undefined;
+
+      try {
+        const mockBuildRequest = {
+          body: {
+            prototypeId: prototype_id,
+            files: fileInputs,
+          },
+        } as FastifyRequest<{ Body: any }>;
+
+        const mockReply = {
+          code: () => mockReply,
+          send: (data: any) => data,
+        } as any;
+
+        const buildResponse = await this.builderService.buildAndDeployProject(
+          mockBuildRequest,
+          mockReply,
+        );
+
+        if (buildResponse.success && buildResponse.buildUrl) {
+          buildUrl = buildResponse.buildUrl;
+
+          // Parse build log for errors and warnings
+          if (buildResponse.buildLog) {
+            this.parseBuildLogForErrors(
+              buildResponse.buildLog,
+              buildErrors,
+              buildWarnings,
+            );
+          }
+        } else if (buildResponse.error) {
+          customlog(
+            "error",
+            "Build and deploy failed:",
+            buildResponse.error,
+            buildResponse.buildLog,
+          );
+          buildErrors.push({
+            message: `Build and deploy failed: ${buildResponse.error}`,
+            type: "build",
+          });
+
+          // Parse build log for additional context
+          if (buildResponse.buildLog) {
+            this.parseBuildLogForErrors(
+              buildResponse.buildLog,
+              buildErrors,
+              buildWarnings,
+            );
+          }
+        }
+      } catch (error: any) {
+        customlog(
+          "error",
+          "Build and deploy process failed:",
+          error.message,
+          error.stack,
+        );
+        buildErrors.push({
+          message: `Build and deploy process failed: ${error.message}`,
+          type: "build",
+        });
+      }
+
+      return {
+        status: buildErrors.length > 0 ? "error" : "success",
+        build_url: buildUrl,
+        build_errors: buildErrors,
+        build_warnings: buildWarnings,
+      };
+    } catch (error: any) {
+      customlog(
+        "error",
+        "Internal server error in buildAndDeploy:",
+        error.message,
+        error.stack,
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: `Internal server error: ${error.message}`,
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+  }
+
   // Helper methods
   private async writeProjectFiles(
     files: FileInput[],
@@ -441,10 +590,16 @@ export class PublicApiService {
       if (file.isBase64) {
         const binaryContent = Buffer.from(file.content, "base64");
         await fs.writeFile(filePath, binaryContent);
-        customlog("debug", `📄 Wrote binary: ${file.path} (${binaryContent.length} bytes)`);
+        customlog(
+          "debug",
+          `📄 Wrote binary: ${file.path} (${binaryContent.length} bytes)`,
+        );
       } else {
         await fs.writeFile(filePath, file.content, "utf8");
-        customlog("debug", `📝 Wrote text: ${file.path} (${file.content.length} chars)`);
+        customlog(
+          "debug",
+          `📝 Wrote text: ${file.path} (${file.content.length} chars)`,
+        );
       }
     }
   }
