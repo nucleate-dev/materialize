@@ -38,7 +38,6 @@ export interface DeployResponse {
 
 export interface BuildAndDeployRequest {
   prototypeId: string;
-  files: FileInput[];
 }
 
 export interface BuildAndDeployResponse {
@@ -95,7 +94,6 @@ export interface PublicDevServerStopResponse {
 export interface PublicBuildAndDeployRequest {
   prototype_id: string;
   framework: 'expo_react_native' | 'react';
-  files: FileInput[];
 }
 
 export interface PublicBuildAndDeployResponse {

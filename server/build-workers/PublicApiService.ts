@@ -85,17 +85,6 @@ export class PublicApiService {
 
       // Files are now already in FileInput format
       const fileInputs: FileInput[] = files;
-
-      // Log file types being processed
-      const textFiles = fileInputs.filter((f) => !f.isBase64);
-      const binaryFiles = fileInputs.filter((f) => f.isBase64);
-      customlog("info", "Processing files:", {
-        total: fileInputs.length,
-        text: textFiles.length,
-        binary: binaryFiles.length,
-        binaryPaths: binaryFiles.map((f) => f.path),
-      });
-
       // Handle file scope
       const projectDir = path.join(this.workDir, prototype_id);
 
@@ -428,26 +417,24 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
     reply: FastifyReply,
   ): Promise<PublicBuildAndDeployResponse> {
-    const { prototype_id, framework, files } = request.body;
+    const { prototype_id, framework } = request.body;
 
     customlog("info", "POST /build-and-deploy request:", {
       prototype_id,
       framework,
-      files_count: files?.length,
     });
 
-    if (!prototype_id || !framework || !files) {
+    if (!prototype_id || !framework) {
       customlog("error", "Missing required parameters:", {
         prototype_id,
         framework,
-        files: files?.length,
       });
       reply.code(400);
       return {
         status: "error",
         build_errors: [
           {
-            message: "prototype_id, framework, and files are required",
+            message: "prototype_id and framework are required",
             type: "build",
           },
         ],
@@ -459,18 +446,45 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Files are already in FileInput format
-      const fileInputs: FileInput[] = files;
+      // Check if project directory exists and read files from disk
+      const projectDir = path.join(this.workDir, prototype_id);
 
-      // Log file types being processed
-      const textFiles = fileInputs.filter((f) => !f.isBase64);
-      const binaryFiles = fileInputs.filter((f) => f.isBase64);
-      customlog("info", "Processing files for build and deploy:", {
-        total: fileInputs.length,
-        text: textFiles.length,
-        binary: binaryFiles.length,
-        binaryPaths: binaryFiles.map((f) => f.path),
-      });
+      try {
+        await fs.stat(projectDir);
+      } catch (error: any) {
+        customlog("error", "Project directory not found:", {
+          projectDir,
+          error: error.message,
+        });
+        return reply.code(404).send({
+          status: "error",
+          build_errors: [
+            {
+              message:
+                "Project not found. Please start dev server first to create project files.",
+              type: "build",
+            },
+          ],
+          build_warnings: [],
+        });
+      }
+
+      // Read all files from the project directory
+      const fileInputs = await this.readAllFilesFromDirectory(projectDir);
+
+      if (fileInputs.length === 0) {
+        customlog("error", "No files found in project directory:", projectDir);
+        return reply.code(400).send({
+          status: "error",
+          build_errors: [
+            {
+              message: "No files found in project directory",
+              type: "build",
+            },
+          ],
+          build_warnings: [],
+        });
+      }
 
       // Use BuilderService to build and deploy
       let buildUrl: string | undefined;
@@ -479,7 +493,6 @@ export class PublicApiService {
         const mockBuildRequest = {
           body: {
             prototypeId: prototype_id,
-            files: fileInputs,
           },
         } as FastifyRequest<{ Body: any }>;
 

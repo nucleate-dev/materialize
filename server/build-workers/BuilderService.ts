@@ -334,31 +334,43 @@ export class BuilderService {
     reply: FastifyReply,
   ): Promise<BuildAndDeployResponse> {
     const jobId = uuidv4();
-    const { prototypeId, files } = request.body;
+    const { prototypeId } = request.body;
     const logger = this.createLogger(jobId);
 
     logger.log(
       "Starting build and deploy",
       true,
-      `Job ID: ${jobId}, Prototype: ${prototypeId}, Files: ${files.length}`,
+      `Job ID: ${jobId}, Prototype: ${prototypeId}`,
     );
 
-    if (!prototypeId || !files || !Array.isArray(files) || files.length === 0) {
+    if (!prototypeId) {
       reply.code(400);
       return {
         success: false,
-        error: "prototypeId and files array are required",
+        error: "prototypeId is required",
         buildLog: logger.getBuildLog(),
       };
     }
 
-    const buildDir = path.join(this.WORK_DIR, jobId);
+    // Use the existing project directory instead of creating a new one
+    const buildDir = path.join(this.WORK_DIR, prototypeId);
 
     try {
-      logger.log("Writing project files");
-      await this.writeProjectFiles(files, buildDir);
+      // Check if project directory exists
+      try {
+        await fs.stat(buildDir);
+        logger.log("Using existing project directory", true, `Directory: ${buildDir}`);
+      } catch (error) {
+        reply.code(404);
+        return {
+          success: false,
+          error: "Project directory not found. Please start dev server first to create project files.",
+          buildLog: logger.getBuildLog(),
+        };
+      }
 
-      await installDependencies(buildDir, logger);
+      // No need to install dependencies again since they should already be installed
+      // when the dev server was started
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
       logger.log("Starting deploy phase");
@@ -391,14 +403,9 @@ export class BuilderService {
         buildLog: logger.getBuildLog(),
       };
     } finally {
-      try {
-        await fs.rm(buildDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.warn(
-          `Failed to cleanup build directory ${buildDir}:`,
-          cleanupError,
-        );
-      }
+      // Don't cleanup the build directory since it contains the original project files
+      // that might be needed for future operations
+      logger.log("Build and deploy completed, keeping project directory for future use");
     }
   }
 
