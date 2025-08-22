@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-22T03:19:01.499Z
+// Last synced: 2025-08-22T03:27:35.557Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -119,6 +119,29 @@ export interface CacheClearSuccessResponse {
 
 export type CacheClearResponse =
   | CacheClearSuccessResponse
+  | StandardErrorResponse;
+
+// ============================================================================
+// /payments/checkout ENDPOINT
+// ============================================================================
+
+export interface CheckoutRequestBody {
+  productID: 'free' | 'team' | 'pro';
+}
+
+export interface CheckoutSuccessResponse {
+  id: string; // Stripe session ID
+}
+
+export interface CheckoutErrorResponse {
+  id: null;
+  error: string;
+  message: string;
+}
+
+export type CheckoutResponse =
+  | CheckoutSuccessResponse
+  | CheckoutErrorResponse
   | StandardErrorResponse;
 
 // ============================================================================

@@ -113,6 +113,29 @@ export type CacheClearResponse =
   | StandardErrorResponse;
 
 // ============================================================================
+// /payments/checkout ENDPOINT
+// ============================================================================
+
+export interface CheckoutRequestBody {
+  productID: 'free' | 'team' | 'pro';
+}
+
+export interface CheckoutSuccessResponse {
+  id: string; // Stripe session ID
+}
+
+export interface CheckoutErrorResponse {
+  id: null;
+  error: string;
+  message: string;
+}
+
+export type CheckoutResponse =
+  | CheckoutSuccessResponse
+  | CheckoutErrorResponse
+  | StandardErrorResponse;
+
+// ============================================================================
 // /payments/manage-billing ENDPOINT
 // ============================================================================
 
