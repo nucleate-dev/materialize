@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
     "sync-types": "node scripts/sync-types.js",
-    "prebuild": "npm run lint:check && npm run sync-types"
+    "sync-build-worker-types": "node scripts/sync-build-worker-types.js",
+    "prebuild": "npm run lint:check && npm run sync-types && npm run sync-build-worker-types"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.7",
