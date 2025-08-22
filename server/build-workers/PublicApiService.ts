@@ -305,31 +305,6 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Stop the dev server using ExpoDevServerService
-      try {
-        const mockRequest = {} as FastifyRequest;
-        const mockReply = {
-          code: () => mockReply,
-          send: (data: any) => data,
-        } as any;
-
-        await (this.expoDevServerService as any).stopDevServer(
-          mockRequest,
-          mockReply,
-        );
-      } catch (error: any) {
-        customlog(
-          "warn",
-          "Failed to stop dev server:",
-          error.message,
-          error.stack,
-        );
-        buildWarnings.push({
-          message: `Failed to stop dev server: ${error.message}`,
-          type: "build",
-        });
-      }
-
       // Generate build using BuilderService
       const projectDir = path.join(this.workDir, prototype_id);
       let buildUrl: string | undefined;
@@ -404,6 +379,31 @@ export class PublicApiService {
         customlog("error", "Build process failed:", error.message, error.stack);
         buildErrors.push({
           message: `Build process failed: ${error.message}`,
+          type: "build",
+        });
+      }
+
+      // Stop the dev server using ExpoDevServerService
+      try {
+        const mockRequest = {} as FastifyRequest;
+        const mockReply = {
+          code: () => mockReply,
+          send: (data: any) => data,
+        } as any;
+
+        await (this.expoDevServerService as any).stopDevServer(
+          mockRequest,
+          mockReply,
+        );
+      } catch (error: any) {
+        customlog(
+          "warn",
+          "Failed to stop dev server:",
+          error.message,
+          error.stack,
+        );
+        buildWarnings.push({
+          message: `Failed to stop dev server: ${error.message}`,
           type: "build",
         });
       }
