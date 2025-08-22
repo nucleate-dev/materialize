@@ -50,7 +50,7 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -163,23 +163,30 @@ export default function CreatePage() {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const fetchViewResponse = await fetch(`${serverEndpoint}/prototype/fetch-viewing-url`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            prototype_id: prototypeId,
-            current_page: "edit",
-          } as FetchViewingUrlRequestBody),
-        });
+        const fetchViewResponse = await fetch(
+          `${serverEndpoint}/prototype/fetch-viewing-url`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              prototype_id: prototypeId,
+              current_page: "edit",
+            } as FetchViewingUrlRequestBody),
+          },
+        );
 
         if (fetchViewResponse.ok) {
-          const fetchViewData: FetchViewingUrlResponse = await fetchViewResponse.json();
-          if ('viewing_url' in fetchViewData) {
+          const fetchViewData: FetchViewingUrlResponse =
+            await fetchViewResponse.json();
+          if ("viewing_url" in fetchViewData) {
             console.log("Viewing URL:", fetchViewData.viewing_url);
             console.log("Source:", fetchViewData.source);
             setViewingUrl(fetchViewData.viewing_url);
           } else {
-            console.error("Error in fetch-viewing-url response:", fetchViewData);
+            console.error(
+              "Error in fetch-viewing-url response:",
+              fetchViewData,
+            );
           }
         } else {
           console.error(
@@ -399,10 +406,11 @@ export default function CreatePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${isMobile
+          className={`${
+            isMobile
               ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
               : "w-2/5 min-w-[420px] flex"
-            } flex-col relative z-10`}
+          } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -436,7 +444,11 @@ export default function CreatePage() {
                   files={fileSystem.state.files}
                   selectedFile={fileSystem.state.selectedFile}
                   onFilesUpdate={fileSystem.applyFileUpdates}
-                  onRefetchFiles={prototypeId ? () => fileSystem.loadFilesFromDatabase(prototypeId) : undefined}
+                  onRefetchFiles={
+                    prototypeId
+                      ? () => fileSystem.loadFilesFromDatabase(prototypeId)
+                      : undefined
+                  }
                   // Loading state
                   isLoading={isLoading}
                   setIsLoading={setIsLoading}
@@ -451,10 +463,11 @@ export default function CreatePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
+          className={`${
+            isMobile
               ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
               : "w-3/5 min-w-[500px] flex"
-            } flex-col relative z-10`}
+          } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -538,10 +551,11 @@ export default function CreatePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${isMobile
+                        className={`${
+                          isMobile
                             ? "w-full max-h-[200px] border-b"
                             : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                          } border-border`}
+                        } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -628,10 +642,11 @@ export default function CreatePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
-                  }`}
+                }`}
               >
                 <input
                   type="checkbox"
