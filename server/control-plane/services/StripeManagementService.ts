@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import * as dotenv from 'dotenv';
 import {
   type ManageBillingRequestBody,
+  type CheckoutRequestBody,
+  HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 
@@ -20,6 +22,15 @@ const supabase = createClient<Database>(
 );
 
 /**
+ * Product Keys for subscription plans
+ */
+const ProductKeys = Object.freeze({
+  FREE_SUBSCRIPTION: 'free',
+  TEAM_SUBSCRIPTION: 'team',
+  PRO_SUBSCRIPTION: 'pro',
+});
+
+/**
  * Exception Events for logging (migrated from web-application)
  */
 const ExceptionEvents = Object.freeze({
@@ -28,6 +39,8 @@ const ExceptionEvents = Object.freeze({
   NULL_USER_ID_FROM_JWT_TOKEN: 'NULL_USER_ID_FROM_JWT_TOKEN',
   USER_FETCH_ERROR: 'USER_FETCH_ERROR',
   STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR: 'STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR',
+  STRIPE_CHECKOUT_SESSION_CREATED: 'STRIPE_CHECKOUT_SESSION_CREATED',
+  STRIPE_CHECKOUT_SESSION_CREATION_ERROR: 'STRIPE_CHECKOUT_SESSION_CREATION_ERROR',
 });
 
 // const LoggingEventSource = Object.freeze({
@@ -43,11 +56,149 @@ export class StripeManagementService {
    * Register routes with Fastify
    */
   public registerRoutes(app: FastifyInstance): void {
+    // POST /payments/checkout
+    app.post<{ Body: CheckoutRequestBody }>(
+      '/payments/checkout',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['productID'],
+            properties: {
+              productID: { 
+                type: 'string', 
+                enum: ['free', 'team', 'pro']
+              },
+            },
+          },
+        },
+      },
+      this.handleCheckout.bind(this),
+    );
+
     // POST /payments/manage-billing
     app.post<{ Body: ManageBillingRequestBody }>(
       '/payments/manage-billing',
       this.handleManageBilling.bind(this),
     );
+  }
+
+  /**
+   * API Route Handler for Stripe Checkout Session creation.
+   *
+   * This function handles HTTP POST requests to create a Stripe Checkout session based on the product ID
+   * and payment flow. It configures the subscription options, sets the success and cancel URLs, and creates
+   * the checkout session for the user. The product can be "team" or "pro," determining which price ID to use.
+   *
+   * @param {FastifyRequest} request - The incoming request object. It expects a JSON body with:
+   *  - productID (string): The product ID ("team" or "pro") to determine the price (required).
+   *
+   * @param {FastifyReply} reply - The outgoing response object. It returns:
+   *  - HTTP 200 with the created Stripe session ID in the response body.
+   *  - HTTP 400 if there's an error creating the checkout session.
+   *  - HTTP 401 if JWT token is missing or invalid.
+   *
+   * Flow:
+   *  1. Validates JWT token and extracts user ID.
+   *  2. Determines the Stripe price ID based on the provided `productID`.
+   *  3. Creates a Stripe Checkout session with subscription mode.
+   *  4. Returns the session ID for frontend integration.
+   */
+  private async handleCheckout(
+    request: FastifyRequest<{ Body: CheckoutRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    // Extract JWT token from Authorization header
+    const authHeader = request.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+    
+    if (!token || !authHeader?.startsWith('Bearer ')) {
+      this.logError(ExceptionEvents.NO_JWT_TOKEN_PROVIDED, 'unknown', 'No token provided');
+      console.error('No token provided');
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        error: 'Unauthorized',
+        message: 'No token provided',
+      });
+    }
+
+    // Decode and validate JWT token
+    let userID: string | undefined;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      userID = decoded.sub;
+
+      // Validate that userID is present and valid
+      if (!userID || typeof userID !== 'string') {
+        console.error('Invalid or missing user ID from JWT token:', {
+          userID,
+          decodedPayload: decoded,
+        });
+        this.logError(ExceptionEvents.INVALID_JWT_TOKEN, 'unknown', 'Invalid user ID in token');
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error: 'Unauthorized',
+          message: 'Invalid user ID in token',
+        });
+      }
+    } catch (error) {
+      this.logError(ExceptionEvents.INVALID_JWT_TOKEN, 'unknown', 'Invalid token', error);
+      console.error('Invalid token: ', error);
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        error: 'Unauthorized', 
+        message: 'Invalid token',
+      });
+    }
+
+    const { productID } = request.body;
+
+    // Determine price ID based on product
+    let priceID = process.env.STRIPE_BASE_PRICE_ID as string;
+    if (productID === ProductKeys.TEAM_SUBSCRIPTION) {
+      priceID = process.env.STRIPE_TEAM_PRICE_ID as string;
+    } else if (productID === ProductKeys.PRO_SUBSCRIPTION) {
+      priceID = process.env.STRIPE_PRO_PRICE_ID as string;
+    }
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card', 'us_bank_account'],
+        line_items: [
+          {
+            price: priceID,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${process.env.SITE_BASE_URL}/dashboard`,
+        cancel_url: `${process.env.SITE_BASE_URL}`,
+        subscription_data: {
+          metadata: {
+            user_id: userID,
+          },
+        },
+      });
+
+      this.logSuccess(ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATED, userID, 'Checkout session created', {
+        product: productID,
+        sessionId: session.id,
+      });
+
+      return reply.status(HTTP_STATUS.OK).send({
+        id: session.id,
+      });
+
+    } catch (error) {
+      this.logError(
+        ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATION_ERROR,
+        userID,
+        'Exception creating checkout session',
+        error,
+      );
+      console.error('Exception creating checkout session: ', error);
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        id: null,
+        error: 'Checkout session creation failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
 
   /**
@@ -197,6 +348,24 @@ export class StripeManagementService {
     //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
     //     error: error,
     //     message: message,
+    //   },
+    // });
+  }
+
+  /**
+   * Log success events (simplified version of PostHog logging)
+   * TODO: Consider integrating with a proper logging service like PostHog
+   */
+  private logSuccess(event: string, userId: string, message: string, properties?: Record<string, unknown>): void {
+    console.log(`[${event}] User: ${userId}, Message: ${message}`, properties || '');
+    // TODO: Add PostHog or other analytics integration here
+    // posthog.capture({
+    //   distinctId: userId,
+    //   event: event,
+    //   properties: {
+    //     source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
+    //     message: message,
+    //     ...properties,
     //   },
     // });
   }
