@@ -410,13 +410,6 @@ export class BuilderService {
     app.post<{ Body: DeployRequest }>("/deploy", async (request, reply) => {
       return this.deployProject(request, reply);
     });
-
-    app.post<{ Body: BuildAndDeployRequest }>(
-      "/build-and-deploy",
-      async (request, reply) => {
-        return this.buildAndDeployProject(request, reply);
-      },
-    );
   }
 
   private async writeProjectFiles(

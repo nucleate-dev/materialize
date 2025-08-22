@@ -45,9 +45,9 @@ export class PublicApiService {
       this.stopDevServer.bind(this),
     );
 
-    // POST /build-deploy
+    // POST /build-and-deploy
     app.post<{ Body: PublicBuildAndDeployRequest }>(
-      "/build-deploy",
+      "/build-and-deploy",
       this.buildAndDeploy.bind(this),
     );
   }
@@ -430,7 +430,7 @@ export class PublicApiService {
   ): Promise<PublicBuildAndDeployResponse> {
     const { prototype_id, framework, files } = request.body;
 
-    customlog("info", "POST /build-deploy request:", {
+    customlog("info", "POST /build-and-deploy request:", {
       prototype_id,
       framework,
       files_count: files?.length,
