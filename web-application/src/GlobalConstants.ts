@@ -18,3 +18,4 @@ export const SubscriptionStatuses = Object.freeze({
 // FLAGS
 
 export const APPLY_CODE_IMMEDIATELY = true;
+export const SHOW_WHITEBOARDS = false;

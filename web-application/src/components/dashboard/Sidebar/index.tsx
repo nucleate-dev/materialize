@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/classNames";
 import { HorizontalModeToggle } from "@/components/horizontal-mode-toggle";
+import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import {
   ChevronLeft,
   ChevronRight,
@@ -75,12 +76,12 @@ const Sidebar = () => {
       label: "Prototypes",
       active: pathname?.includes("prototypes"),
     },
-    {
+    ...(SHOW_WHITEBOARDS ? [{
       href: "/dashboard/whiteboards",
       icon: SquareStack,
       label: "Whiteboards",
       active: pathname?.includes("whiteboards"),
-    },
+    }] : []),
   ];
 
   return (

@@ -11,6 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
+import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 
 export default function ProjectsHeader() {
   const { sidebarOpen, setSidebarOpen } = useSidebar();
@@ -32,12 +33,12 @@ export default function ProjectsHeader() {
       icon: RocketLaunchIcon,
       active: pathname?.includes("/prototypes"),
     },
-    {
+    ...(SHOW_WHITEBOARDS ? [{
       name: "Whiteboards",
       href: `/dashboard/projects/${projectId}/whiteboards`,
       icon: Square3Stack3DIcon,
       active: pathname?.includes("/whiteboards"),
-    },
+    }] : []),
     {
       name: "Settings",
       href: `/dashboard/projects/${projectId}/settings`,
