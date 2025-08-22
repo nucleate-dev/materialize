@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -291,49 +292,53 @@ const MaterializeRenderSection = forwardRef<
       </div>
     );
 
-    // Connection status indicator component
+    // Connection status indicator component using shadcn Badge
     const ConnectionStatusIndicator = () => {
       if (isIframeLoading) {
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-full">
+          <Badge 
+            variant="outline" 
+            className="gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950"
+          >
             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-              Connecting...
-            </span>
-          </div>
+            Connecting...
+          </Badge>
         );
       }
 
       if (iframeError) {
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-full">
+          <Badge 
+            variant="outline" 
+            className="gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-full hover:bg-red-50 dark:hover:bg-red-950"
+          >
             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span className="text-xs font-medium text-red-700 dark:text-red-300">
-              Connection Failed
-            </span>
-          </div>
+            Connection Failed
+          </Badge>
         );
       }
 
       if (isDevServer && viewing_url) {
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-full">
+          <Badge 
+            variant="outline" 
+            className="gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-full hover:bg-green-50 dark:hover:bg-green-950"
+          >
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-xs font-medium text-green-700 dark:text-green-300">
-              Connected
-            </span>
-          </div>
+            Connected
+          </Badge>
         );
       }
 
       if (viewing_url) {
         return (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-full">
+          <Badge 
+            variant="outline" 
+            className="gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-50 dark:hover:bg-blue-950"
+          >
             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-              Static Build
-            </span>
-          </div>
+            Static Build
+          </Badge>
         );
       }
 
