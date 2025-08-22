@@ -6,8 +6,8 @@ import type {
   ChatErrorResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
-  // DispatchRequestBody,
-  // DispatchResponse,
+  DispatchRequestBody,
+  DispatchResponse,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
@@ -426,11 +426,25 @@ export class ChatService {
             }
 
             // ------------------------------------------------------------------------------------------------
-            // 10. Pre-build and dispatch requests
+            // 10. Fetch assets from database and merge with text files for dispatch
             // ------------------------------------------------------------------------------------------------
             console.log(
-              '=� Dispatching build request regardless of precheck response',
+              '🔗 Fetching assets from database and preparing dispatch request',
             );
+
+            // Fetch all files for this prototype from database (including assets)
+            const { data: allPrototypeFiles, error: fetchError } =
+              await supabase
+                .from('prototype_files')
+                .select('*')
+                .eq('prototype_id', prototype_id);
+
+            if (fetchError) {
+              console.error('❌ Error fetching prototype files:', fetchError);
+              throw new Error(
+                `Failed to fetch prototype files: ${fetchError.message}`,
+              );
+            }
 
             // Convert PrototypeFiles to FileInput[] format for dispatch
             const filesForDispatch: Array<{
@@ -438,15 +452,41 @@ export class ChatService {
               content: string;
               isBase64?: boolean;
             }> = [];
+
+            // First, add all AI-generated text files (these override any existing files)
             Object.entries(finalFiles).forEach(([filePath, file]) => {
               if (file.contents) {
                 filesForDispatch.push({
                   path: filePath,
                   content: file.contents,
-                  isBase64: false, // Text files, not base64 encoded
+                  isBase64: false, // Text files from AI are never base64
                 });
               }
             });
+
+            // Then, add assets from database that aren't already included
+            const textFileNames = new Set(Object.keys(finalFiles));
+            (allPrototypeFiles || []).forEach((dbFile) => {
+              // Only include asset files that weren't modified by the AI
+              if (
+                dbFile.file_type === 'asset' &&
+                !textFileNames.has(dbFile.name)
+              ) {
+                filesForDispatch.push({
+                  path: dbFile.name,
+                  content: dbFile.contents || '',
+                  isBase64: dbFile.storage_path ? true : false, // Assets from storage are base64
+                });
+              }
+            });
+
+            console.log(
+              `📦 Dispatch summary: ${filesForDispatch.length} files total (${
+                Object.keys(finalFiles).length
+              } text files + ${
+                filesForDispatch.length - Object.keys(finalFiles).length
+              } assets)`,
+            );
 
             // Stream dispatch start event to show loading indicator
             controller.enqueue(
@@ -467,8 +507,8 @@ export class ChatService {
                   prototype_id: prototype_id,
                   framework: 'expo_react_native',
                   files: filesForDispatch,
-                  file_scope: 'complete',
-                  hot_reload: false,
+                  file_scope: 'updates',
+                  hot_reload: true,
                 } as DispatchRequestBody,
               });
 
@@ -966,7 +1006,7 @@ export class ChatService {
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
     chat_session_id: string,
-  ) {
+  ): Promise<void> {
     // Check if the response contains an execution plan
     if (finalResponse.includes('EXECUTION_PLAN')) {
       const planningResult = extractExecutionPlan(finalResponse);
