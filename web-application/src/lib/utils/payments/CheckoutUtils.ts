@@ -2,6 +2,10 @@ import { ProductKeys } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
 import { loadStripe } from "@stripe/stripe-js";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import type { 
+  CheckoutRequestBody, 
+  CheckoutResponse 
+} from "@/lib/types/serverAPITypes";
 
 /**
  * Handles the checkout process for a product by either creating a Stripe checkout session
@@ -53,35 +57,55 @@ export async function handleCheckout(
  * Initiates the Stripe checkout process by creating a checkout session and redirecting the user to the Stripe payment page.
  *
  * @param {string} productID - The ID of the product the user is purchasing.
- * @param {string} userID - The ID of the authenticated user initiating the purchase.
+ * @param {string} accessToken - The JWT access token of the authenticated user.
  *
  * Workflow:
  *  1. Loads the Stripe library using the publishable key from environment variables.
- *  2. Sends a `POST` request to the `/api/payments/checkout` API route with the product ID and user ID to create a Stripe checkout session.
+ *  2. Sends a `POST` request to the control-plane `/payments/checkout` endpoint with the product ID to create a Stripe checkout session.
  *  3. Receives the session ID from the response and redirects the user to the Stripe checkout page using `redirectToCheckout`.
  *
  * @throws If the Stripe library fails to load or the request to the backend fails, the function may throw an error.
  *
  * @example
  * // Example usage of handleRedirectToPaymentsPage
- * handleRedirectToPaymentsPage("prod_123", "user_456");
+ * handleRedirectToPaymentsPage("team", "jwt_access_token");
  */
 export async function handleRedirectToPaymentsPage(
   productID: string,
   accessToken: string,
-) {
+): Promise<void> {
   const stripe = await loadStripe(
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,
   );
-  const response = await fetch("/api/payments/checkout", {
+
+  const requestBody: CheckoutRequestBody = {
+    productID: productID as 'free' | 'team' | 'pro',
+  };
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`, {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      productID: productID,
-    }),
+    body: JSON.stringify(requestBody),
   });
-  const session = await response.json();
-  await stripe?.redirectToCheckout({ sessionId: session.id });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('Checkout request failed:', errorData);
+    throw new Error(`Checkout failed: ${errorData.message || 'Unknown error'}`);
+  }
+
+  const session: CheckoutResponse = await response.json();
+  
+  // Handle successful response
+  if ('id' in session && session.id) {
+    await stripe?.redirectToCheckout({ sessionId: session.id });
+  } else {
+    // Handle error response
+    const errorResponse = session as { error: string; message: string };
+    console.error('Checkout session creation failed:', errorResponse);
+    throw new Error(`Checkout failed: ${errorResponse.message || errorResponse.error}`);
+  }
 }

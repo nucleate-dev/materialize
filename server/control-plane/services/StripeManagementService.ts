@@ -38,9 +38,11 @@ const ExceptionEvents = Object.freeze({
   INVALID_JWT_TOKEN: 'INVALID_JWT_TOKEN',
   NULL_USER_ID_FROM_JWT_TOKEN: 'NULL_USER_ID_FROM_JWT_TOKEN',
   USER_FETCH_ERROR: 'USER_FETCH_ERROR',
-  STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR: 'STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR',
+  STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR:
+    'STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR',
   STRIPE_CHECKOUT_SESSION_CREATED: 'STRIPE_CHECKOUT_SESSION_CREATED',
-  STRIPE_CHECKOUT_SESSION_CREATION_ERROR: 'STRIPE_CHECKOUT_SESSION_CREATION_ERROR',
+  STRIPE_CHECKOUT_SESSION_CREATION_ERROR:
+    'STRIPE_CHECKOUT_SESSION_CREATION_ERROR',
 });
 
 // const LoggingEventSource = Object.freeze({
@@ -65,9 +67,9 @@ export class StripeManagementService {
             type: 'object',
             required: ['productID'],
             properties: {
-              productID: { 
-                type: 'string', 
-                enum: ['free', 'team', 'pro']
+              productID: {
+                type: 'string',
+                enum: ['free', 'team', 'pro'],
               },
             },
           },
@@ -111,9 +113,13 @@ export class StripeManagementService {
     // Extract JWT token from Authorization header
     const authHeader = request.headers.authorization;
     const token = authHeader?.split(' ')[1];
-    
+
     if (!token || !authHeader?.startsWith('Bearer ')) {
-      this.logError(ExceptionEvents.NO_JWT_TOKEN_PROVIDED, 'unknown', 'No token provided');
+      this.logError(
+        ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
+        'unknown',
+        'No token provided',
+      );
       console.error('No token provided');
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         error: 'Unauthorized',
@@ -124,7 +130,10 @@ export class StripeManagementService {
     // Decode and validate JWT token
     let userID: string | undefined;
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET!,
+      ) as jwt.JwtPayload;
       userID = decoded.sub;
 
       // Validate that userID is present and valid
@@ -133,17 +142,26 @@ export class StripeManagementService {
           userID,
           decodedPayload: decoded,
         });
-        this.logError(ExceptionEvents.INVALID_JWT_TOKEN, 'unknown', 'Invalid user ID in token');
+        this.logError(
+          ExceptionEvents.INVALID_JWT_TOKEN,
+          'unknown',
+          'Invalid user ID in token',
+        );
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           error: 'Unauthorized',
           message: 'Invalid user ID in token',
         });
       }
     } catch (error) {
-      this.logError(ExceptionEvents.INVALID_JWT_TOKEN, 'unknown', 'Invalid token', error);
+      this.logError(
+        ExceptionEvents.INVALID_JWT_TOKEN,
+        'unknown',
+        'Invalid token',
+        error,
+      );
       console.error('Invalid token: ', error);
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized', 
+        error: 'Unauthorized',
         message: 'Invalid token',
       });
     }
@@ -159,6 +177,7 @@ export class StripeManagementService {
     }
 
     try {
+      console.log('🔄 [StripeManagementService] Creating checkout session...');
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card', 'us_bank_account'],
         line_items: [
@@ -176,15 +195,19 @@ export class StripeManagementService {
         },
       });
 
-      this.logSuccess(ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATED, userID, 'Checkout session created', {
-        product: productID,
-        sessionId: session.id,
-      });
+      this.logSuccess(
+        ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATED,
+        userID,
+        'Checkout session created',
+        {
+          product: productID,
+          sessionId: session.id,
+        },
+      );
 
       return reply.status(HTTP_STATUS.OK).send({
         id: session.id,
       });
-
     } catch (error) {
       this.logError(
         ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATION_ERROR,
@@ -247,9 +270,13 @@ export class StripeManagementService {
     // Extract JWT token from Authorization header
     const authHeader = request.headers.authorization;
     const token = authHeader?.split(' ')[1];
-    
+
     if (!token || !authHeader?.startsWith('Bearer ')) {
-      this.logError(ExceptionEvents.NO_JWT_TOKEN_PROVIDED, 'unknown', 'No token provided');
+      this.logError(
+        ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
+        'unknown',
+        'No token provided',
+      );
       console.error('No token provided');
       return reply.status(401).send({
         error: 'Unauthorized',
@@ -260,10 +287,18 @@ export class StripeManagementService {
     // Decode and validate JWT token
     let userID: string | undefined;
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET!,
+      ) as jwt.JwtPayload;
       userID = decoded.sub;
     } catch (error) {
-      this.logError(ExceptionEvents.INVALID_JWT_TOKEN, 'unknown', 'Invalid token', error);
+      this.logError(
+        ExceptionEvents.INVALID_JWT_TOKEN,
+        'unknown',
+        'Invalid token',
+        error,
+      );
       console.error('Invalid token: ', error);
       return reply.status(401).send({
         error: 'Unauthorized',
@@ -273,7 +308,11 @@ export class StripeManagementService {
 
     // Validate user ID
     if (userID === null || userID === undefined) {
-      this.logError(ExceptionEvents.NULL_USER_ID_FROM_JWT_TOKEN, 'unknown', 'Missing user ID');
+      this.logError(
+        ExceptionEvents.NULL_USER_ID_FROM_JWT_TOKEN,
+        'unknown',
+        'Missing user ID',
+      );
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'Missing user ID. User is not authenticated.',
@@ -318,7 +357,6 @@ export class StripeManagementService {
       return reply.send({
         redirect_url: session.url,
       });
-
     } catch (error) {
       this.logError(
         ExceptionEvents.STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR,
@@ -338,8 +376,16 @@ export class StripeManagementService {
    * Log error events (simplified version of PostHog logging)
    * TODO: Consider integrating with a proper logging service like PostHog
    */
-  private logError(event: string, userId: string, message: string, error?: unknown): void {
-    console.error(`[${event}] User: ${userId}, Message: ${message}`, error || '');
+  private logError(
+    event: string,
+    userId: string,
+    message: string,
+    error?: unknown,
+  ): void {
+    console.error(
+      `[${event}] User: ${userId}, Message: ${message}`,
+      error || '',
+    );
     // TODO: Add PostHog or other analytics integration here
     // posthog.capture({
     //   distinctId: userId,
@@ -356,8 +402,16 @@ export class StripeManagementService {
    * Log success events (simplified version of PostHog logging)
    * TODO: Consider integrating with a proper logging service like PostHog
    */
-  private logSuccess(event: string, userId: string, message: string, properties?: Record<string, unknown>): void {
-    console.log(`[${event}] User: ${userId}, Message: ${message}`, properties || '');
+  private logSuccess(
+    event: string,
+    userId: string,
+    message: string,
+    properties?: Record<string, unknown>,
+  ): void {
+    console.log(
+      `[${event}] User: ${userId}, Message: ${message}`,
+      properties || '',
+    );
     // TODO: Add PostHog or other analytics integration here
     // posthog.capture({
     //   distinctId: userId,
