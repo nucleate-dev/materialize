@@ -28,11 +28,11 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
-import type { 
-  FetchViewingUrlRequestBody, 
-  FetchViewingUrlResponse,
+import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
+  FetchViewingUrlRequestBody,
+  FetchViewingUrlResponse,
 } from "@/lib/types/serverAPITypes";
 import {
   ChatBubbleLeftRightIcon,
@@ -50,7 +50,7 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -399,11 +399,10 @@ export default function CreatePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${
-            isMobile
+          className={`${isMobile
               ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
               : "w-2/5 min-w-[420px] flex"
-          } flex-col relative z-10`}
+            } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -452,11 +451,10 @@ export default function CreatePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
+          className={`${isMobile
               ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
               : "w-3/5 min-w-[500px] flex"
-          } flex-col relative z-10`}
+            } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -519,7 +517,6 @@ export default function CreatePage() {
                     <div className="h-full flex flex-col">
                       <MaterializeRenderSection
                         viewing_url={viewingUrl ?? ""}
-                        hideControls={true}
                         isBuilding={isBuilding}
                         onResetToDefault={handleResetToDefault}
                         prototypeId={prototypeId}
@@ -541,11 +538,10 @@ export default function CreatePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${
-                          isMobile
+                        className={`${isMobile
                             ? "w-full max-h-[200px] border-b"
                             : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                        } border-border`}
+                          } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -632,11 +628,10 @@ export default function CreatePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
+                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
-                }`}
+                  }`}
               >
                 <input
                   type="checkbox"

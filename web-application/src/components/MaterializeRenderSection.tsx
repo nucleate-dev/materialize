@@ -37,7 +37,6 @@ type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
   onResetToDefault?: () => void;
-  hideControls?: boolean;
   isBuilding?: boolean; // New prop to indicate if a build is in progress
   // Props for dev server functionality
   prototypeId?: string;
@@ -60,7 +59,6 @@ const MaterializeRenderSection = forwardRef<
     {
       viewing_url,
       onResetToDefault,
-      hideControls = false,
       isBuilding = false,
       prototypeId,
       files,
@@ -74,6 +72,9 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
+
+    // Determine if connected to dev server vs static build
+    const isDevServer = viewing_url?.includes('.ngrok.io') || false;
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -290,6 +291,55 @@ const MaterializeRenderSection = forwardRef<
       </div>
     );
 
+    // Connection status indicator component
+    const ConnectionStatusIndicator = () => {
+      if (isIframeLoading) {
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-full">
+            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Connecting...
+            </span>
+          </div>
+        );
+      }
+
+      if (iframeError) {
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-full">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span className="text-xs font-medium text-red-700 dark:text-red-300">
+              Connection Failed
+            </span>
+          </div>
+        );
+      }
+
+      if (isDevServer && viewing_url) {
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-full">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="text-xs font-medium text-green-700 dark:text-green-300">
+              Connected
+            </span>
+          </div>
+        );
+      }
+
+      if (viewing_url) {
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-full">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+              Static Build
+            </span>
+          </div>
+        );
+      }
+
+      return null;
+    };
+
     // Connection loading overlay for iframe
     const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
@@ -333,32 +383,13 @@ const MaterializeRenderSection = forwardRef<
 
     return (
       <div className="flex flex-col h-full bg-background">
-        {/* Header */}
-        {!hideControls && (
-          <div className="flex items-center justify-between p-6 bg-muted/30 border-b border-border">
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-muted-foreground"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <span className="text-sm font-medium text-foreground">
-                React Native Preview
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Preview */}
         <div className="flex-1 relative flex items-center justify-center bg-background p-8">
+          {/* Floating Connection Status Indicator */}
+          <div className="absolute top-4 left-4 z-10">
+            <ConnectionStatusIndicator />
+          </div>
+
           {/* Floating Options Button */}
           <div className="absolute top-4 right-4 z-10">
             <DropdownMenu>
@@ -407,7 +438,7 @@ const MaterializeRenderSection = forwardRef<
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh Preview
                 </DropdownMenuItem>
-                {!hideControls && onResetToDefault && (
+                {onResetToDefault && (
                   <DropdownMenuItem
                     onClick={onResetToDefault}
                     className="text-destructive focus:text-destructive"

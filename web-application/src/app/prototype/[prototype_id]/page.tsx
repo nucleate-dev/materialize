@@ -3,8 +3,9 @@
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 // import ExpoSnackViewer from "@/components/ExpoSnackViewer";
-import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
+import MaterializeRenderSection from "@/components/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import {
   Card,
   CardContent,
@@ -12,25 +13,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
 import type {
-  FetchViewingUrlRequestBody,
-  FetchViewingUrlResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
+  FetchViewingUrlRequestBody,
+  FetchViewingUrlResponse,
 } from "@/lib/types/serverAPITypes";
-import { useUser } from "@/hooks/useUser";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import MaterializeRenderSection from "@/components/MaterializeRenderSection";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function PrototypePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const router = useRouter();
   const prototypeId = params?.prototype_id;
 
@@ -273,9 +273,7 @@ export default function PrototypePage() {
               <CardContent className="h-full p-0">
                 <MaterializeRenderSection
                   viewing_url={viewingUrl ?? ""}
-                  hideControls={true}
                 />
-                {/* <ExpoSnackViewer files={prototypeFiles} hideControls={true} /> */}
               </CardContent>
             </Card>
           </div>
