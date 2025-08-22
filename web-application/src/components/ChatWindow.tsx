@@ -285,7 +285,7 @@ export default function ChatWindow({
                               {operation.title}
                             </span>
                           </div>
-                          <code className="px-2 py-1 bg-muted rounded text-xs text-muted-foreground">
+                          <code className="px-2 py-1 bg-muted rounded text-xs text-muted-foreground break-all max-w-[200px] truncate" title={operation.filePath}>
                             {operation.filePath}
                           </code>
                         </div>
