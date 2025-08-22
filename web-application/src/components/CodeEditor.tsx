@@ -13,6 +13,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Database } from "@/lib/types/database.types";
+import type {
+  UpdateFilesRequestBody,
+  UpdateFilesResponse,
+} from "@/lib/types/serverAPITypes";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 
@@ -198,31 +202,40 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           name: fileName,
           file_type: files[fileName]?.file_type || ("text" as const),
           prototype_id: files[fileName]?.prototype_id || prototypeId,
-          // Copy other properties from existing file if it exists
+          // Copy other properties from existing file if it exists, converting null to undefined
           ...(files[fileName] && {
             id: files[fileName].id,
-            storage_path: files[fileName].storage_path,
-            created_at: files[fileName].created_at,
-            updated_at: files[fileName].updated_at,
+            storage_path: files[fileName].storage_path || undefined,
+            created_at: files[fileName].created_at || undefined,
+            updated_at: files[fileName].updated_at || undefined,
           }),
         },
       ];
 
-      const response = await fetch("/api/files/update-files", {
+      const requestBody: UpdateFilesRequestBody = {
+        files: singleFileUpdate,
+        prototype_id: prototypeId,
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          files: singleFileUpdate,
-          prototype_id: prototypeId,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      const result = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Update files request failed:', errorData);
+        throw new Error(`Update failed: ${errorData.message || 'Unknown error'}`);
+      }
 
-      if (response.ok && result.success) {
+      const result: UpdateFilesResponse = await response.json();
+
+      // Handle successful response
+      if ('success' in result && result.success) {
         console.log("✅ Single file updated successfully in dev server");
 
         // Update viewing URL if provided
@@ -230,10 +243,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           onViewingUrlUpdate(result.viewing_url);
         }
       } else {
-        console.error("Failed to update file:", result.error || result.message);
+        // Handle error response
+        const errorResponse = result as { error: string; message: string };
+        console.error("Failed to update file:", errorResponse.error || errorResponse.message);
 
         // If no active dev server, provide helpful message
-        if (result.error === "No active dev server") {
+        if (errorResponse.error === "No active dev server") {
           console.log(
             "💡 Tip: Start a dev server first, then try saving files again",
           );
@@ -275,26 +290,35 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         file_type: file.file_type || ("text" as const),
         prototype_id: file.prototype_id || prototypeId,
         id: file.id,
-        storage_path: file.storage_path,
-        created_at: file.created_at,
-        updated_at: file.updated_at,
+        storage_path: file.storage_path || undefined,
+        created_at: file.created_at || undefined,
+        updated_at: file.updated_at || undefined,
       }));
 
-      const response = await fetch("/api/files/update-files", {
+      const requestBody: UpdateFilesRequestBody = {
+        files: filesArray,
+        prototype_id: prototypeId,
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          files: filesArray,
-          prototype_id: prototypeId,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      const result = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Update files request failed:', errorData);
+        throw new Error(`Update failed: ${errorData.message || 'Unknown error'}`);
+      }
 
-      if (response.ok && result.success) {
+      const result: UpdateFilesResponse = await response.json();
+
+      // Handle successful response
+      if ('success' in result && result.success) {
         console.log("✅ All files updated successfully in dev server");
 
         // Update viewing URL if provided
@@ -302,13 +326,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           onViewingUrlUpdate(result.viewing_url);
         }
       } else {
+        // Handle error response
+        const errorResponse = result as { error: string; message: string };
         console.error(
           "Failed to update files:",
-          result.error || result.message,
+          errorResponse.error || errorResponse.message,
         );
 
         // If no active dev server, provide helpful message
-        if (result.error === "No active dev server") {
+        if (errorResponse.error === "No active dev server") {
           console.log(
             "💡 Tip: Start a dev server first, then try saving files again",
           );
