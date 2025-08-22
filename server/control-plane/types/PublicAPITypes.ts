@@ -213,6 +213,36 @@ export type CreatePrototypeResponse =
   | CreatePrototypeErrorResponse;
 
 // ============================================================================
+// /files/update-files ENDPOINT
+// ============================================================================
+
+export interface UpdateFilesRequestBody {
+  files: PrototypeFileInput[];
+  prototype_id: string;
+}
+
+export interface UpdateFilesSuccessResponse {
+  success: true;
+  status: 'success' | 'error';
+  viewing_url: string;
+  build_errors: CodeError[];
+  build_warnings: CodeWarning[];
+  message: string;
+}
+
+export interface UpdateFilesErrorResponse {
+  error: string;
+  message: string;
+  build_errors?: CodeError[];
+  build_warnings?: CodeWarning[];
+}
+
+export type UpdateFilesResponse =
+  | UpdateFilesSuccessResponse
+  | UpdateFilesErrorResponse
+  | StandardErrorResponse;
+
+// ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
 

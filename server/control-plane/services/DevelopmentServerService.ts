@@ -5,6 +5,8 @@ import type {
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
   StartDevServerErrorResponse,
+  UpdateFilesRequestBody,
+  UpdateFilesResponse,
   StandardErrorResponse,
   DispatchRequestBody,
   DispatchPrecheckRequestBody,
@@ -60,6 +62,42 @@ export class DevelopmentServerService {
   }
 
   public registerRoutes(app: FastifyInstance): void {
+    // POST /files/update-files
+    app.post<{
+      Body: UpdateFilesRequestBody;
+    }>(
+      '/files/update-files',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['files', 'prototype_id'],
+            properties: {
+              files: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['contents', 'name', 'file_type', 'prototype_id'],
+                  properties: {
+                    contents: { type: 'string' },
+                    name: { type: 'string' },
+                    file_type: { type: 'string', enum: ['text', 'asset'] },
+                    prototype_id: { type: 'string' },
+                    id: { type: 'string' },
+                    storage_path: { type: ['string', 'null'] },
+                    created_at: { type: 'string' },
+                    updated_at: { type: 'string' },
+                  },
+                },
+              },
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleUpdateFiles.bind(this),
+    );
+
     // POST /files/start-dev-server
     app.post<{
       Body: StartDevServerRequestBody;
@@ -96,6 +134,211 @@ export class DevelopmentServerService {
       },
       this.handleStartDevServer.bind(this),
     );
+  }
+
+  private async handleUpdateFiles(
+    request: FastifyRequest<{ Body: UpdateFilesRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const { files, prototype_id } = request.body;
+
+      console.log('🔍 [update-files] Files:', files.length);
+      console.log('🔍 [update-files] Prototype ID:', prototype_id);
+
+      // 1. Authenticate JWT and get user info
+      const token = request.headers.authorization?.split(' ')[1];
+      if (!token || !request.headers.authorization?.startsWith('Bearer')) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error: 'Unauthorized',
+          message: 'No token provided',
+        } as StandardErrorResponse);
+      }
+
+      const supabase = createClient<Database>(
+        this.supabaseUrl,
+        this.supabaseServiceKey,
+      );
+
+      const authResult = await authenticatePrototypeUser(supabase, token);
+      if (!authResult.success) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error: 'Unauthorized',
+          message: authResult.message || 'Authentication failed',
+        } as StandardErrorResponse);
+      }
+
+      const jwtToken = token;
+
+      // 2. Perform dispatch precheck to verify permissions and build status
+      const precheckResponse = await this.fastifyApp.inject({
+        method: 'POST',
+        url: '/dispatch-precheck',
+        payload: {
+          jwt: jwtToken,
+          prototype_id: prototype_id,
+        } as DispatchPrecheckRequestBody,
+      });
+
+      if (precheckResponse.statusCode !== 200) {
+        const errorData = JSON.parse(precheckResponse.payload);
+        console.error('Dispatch precheck failed:', errorData);
+
+        if (precheckResponse.statusCode === 401) {
+          return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+            error: 'Unauthorized',
+            message: 'Access denied for this prototype',
+          } as StandardErrorResponse);
+        }
+
+        if (precheckResponse.statusCode === 404) {
+          return reply.status(HTTP_STATUS.NOT_FOUND).send({
+            error: 'Prototype not found',
+            message: 'The specified prototype could not be found',
+          } as StandardErrorResponse);
+        }
+
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          error: 'Precheck failed',
+          message: errorData.message || 'Unknown precheck error',
+        } as StandardErrorResponse);
+      }
+
+      const precheckData: DispatchPrecheckResponse = JSON.parse(
+        precheckResponse.payload,
+      );
+
+      console.log('🔍 [update-files] Dispatch precheck response:', precheckData);
+
+      // 3. Check if build is already in progress
+      if (this.isBuildInProgress(precheckData)) {
+        return reply.status(HTTP_STATUS.CONFLICT).send({
+          error: 'Build already in progress',
+          message:
+            'A dev server operation is currently in progress for this prototype. Please wait for it to complete.',
+        } as StandardErrorResponse);
+      }
+
+      // 4. Check if there's an active dev server to update
+      if ('success' in precheckData && precheckData.state === 'dne') {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          error: 'No active dev server',
+          message:
+            'No active dev server found for this prototype. Please start a dev server first.',
+        } as StandardErrorResponse);
+      }
+
+      // 5. Save only text files to database (don't overwrite existing assets)
+      const textFilesOnly = filterTextFiles(files);
+      const textFilesWithType = convertTextFilesToDatabaseFormat(textFilesOnly);
+
+      console.log(
+        `🔍 [update-files] Saving ${
+          Object.keys(textFilesWithType).length
+        } text files to database for prototype ${prototype_id} (filtered from ${
+          files.length
+        } total files)`,
+      );
+
+      try {
+        await saveFilesToDatabaseWithAuth(
+          jwtToken,
+          prototype_id,
+          textFilesWithType,
+        );
+      } catch (saveError) {
+        console.error('Error saving files to database:', saveError);
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          error: 'Failed to save files',
+          message:
+            saveError instanceof Error ? saveError.message : 'Unknown error',
+        } as StandardErrorResponse);
+      }
+
+      // 6. Convert files to build worker format for dispatch (updates only)
+      const textFilesForDispatch =
+        convertPrototypeFileInputsToFileInputs(files);
+
+      console.log(
+        `📦 Update dispatch summary: ${textFilesForDispatch.length} files (updates only)`,
+      );
+
+      // 7. Dispatch update request with file_scope: "updates"
+      console.log('📦 Dispatching file update request to server');
+
+      const dispatchResponse = await this.fastifyApp.inject({
+        method: 'POST',
+        url: '/dispatch',
+        payload: {
+          jwt: jwtToken,
+          prototype_id: prototype_id,
+          framework: 'expo_react_native',
+          files: textFilesForDispatch,
+          file_scope: 'updates', // This is the key difference - only update files, don't rebuild
+        } as DispatchRequestBody,
+      });
+
+      if (dispatchResponse.statusCode !== 200) {
+        const errorData = JSON.parse(dispatchResponse.payload);
+        console.error('Dispatch request failed:', errorData);
+
+        if (dispatchResponse.statusCode === 401) {
+          return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+            error: 'Unauthorized',
+            message: 'Authentication failed during dispatch',
+          } as StandardErrorResponse);
+        }
+
+        if (dispatchResponse.statusCode === 404) {
+          return reply.status(HTTP_STATUS.NOT_FOUND).send({
+            error: 'Prototype not found',
+            message: 'Prototype not found during dispatch',
+          } as StandardErrorResponse);
+        }
+
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          error: 'File update failed',
+          message: errorData.message || 'Unknown file update error',
+          build_errors: errorData.build_errors || [],
+          build_warnings: errorData.build_warnings || [],
+        } as UpdateFilesResponse);
+      }
+
+      const dispatchData: DispatchResponse = JSON.parse(
+        dispatchResponse.payload,
+      );
+
+      console.log('📦 Dispatch endpoint response:', dispatchData);
+
+      // 8. Return success response with viewing URL
+      if ('status' in dispatchData && dispatchData.status === 'success') {
+        return reply.status(HTTP_STATUS.OK).send({
+          success: true,
+          status: dispatchData.status,
+          viewing_url: dispatchData.viewing_url,
+          build_errors: dispatchData.build_errors || [],
+          build_warnings: dispatchData.build_warnings || [],
+          message: 'Files updated successfully in dev server',
+        } as UpdateFilesResponse);
+      } else {
+        // Handle error response
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          error: 'File update failed',
+          message:
+            'error' in dispatchData
+              ? dispatchData.error
+              : 'Unknown file update error',
+          build_errors: 'build_errors' in dispatchData ? dispatchData.build_errors : [],
+          build_warnings: 'build_warnings' in dispatchData ? dispatchData.build_warnings : [],
+        } as UpdateFilesResponse);
+      }
+    } catch (error) {
+      console.error('Update files API error:', error);
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      } as StandardErrorResponse);
+    }
   }
 
   private async handleStartDevServer(
