@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-08-22T03:48:35.856Z
+// Last synced: 2025-08-22T18:04:05.464Z
 
 export interface BuildLogEntry {
   step: string;
@@ -47,7 +47,6 @@ export interface DeployResponse {
 
 export interface BuildAndDeployRequest {
   prototypeId: string;
-  files: FileInput[];
 }
 
 export interface BuildAndDeployResponse {
@@ -104,7 +103,6 @@ export interface PublicDevServerStopResponse {
 export interface PublicBuildAndDeployRequest {
   prototype_id: string;
   framework: 'expo_react_native' | 'react';
-  files: FileInput[];
 }
 
 export interface PublicBuildAndDeployResponse {
