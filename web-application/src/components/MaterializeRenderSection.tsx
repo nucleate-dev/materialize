@@ -75,7 +75,7 @@ const MaterializeRenderSection = forwardRef<
     const [iframeError, setIframeError] = useState(false);
 
     // Determine if connected to dev server vs static build
-    const isDevServer = viewing_url?.includes('.ngrok.io') || false;
+    const isDevServer = viewing_url?.includes(".ngrok.io") || false;
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -175,7 +175,7 @@ const MaterializeRenderSection = forwardRef<
 
         const result: StartDevServerResponse = await response.json();
 
-        if (response.ok && 'success' in result && result.success) {
+        if (response.ok && "success" in result && result.success) {
           console.log("✅ Dev server started successfully");
 
           // Update viewing URL if provided
@@ -186,7 +186,8 @@ const MaterializeRenderSection = forwardRef<
           // Force refresh the preview to load the new dev server
           forceRefresh();
         } else {
-          const errorMessage = 'error' in result ? result.error : result.message;
+          const errorMessage =
+            "error" in result ? result.error : result.message;
           console.error("Failed to start dev server:", errorMessage);
         }
       } catch (error) {
@@ -296,8 +297,8 @@ const MaterializeRenderSection = forwardRef<
     const ConnectionStatusIndicator = () => {
       if (isIframeLoading) {
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950"
           >
             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -308,8 +309,8 @@ const MaterializeRenderSection = forwardRef<
 
       if (iframeError) {
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-full hover:bg-red-50 dark:hover:bg-red-950"
           >
             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
@@ -320,8 +321,8 @@ const MaterializeRenderSection = forwardRef<
 
       if (isDevServer && viewing_url) {
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-full hover:bg-green-50 dark:hover:bg-green-950"
           >
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -332,8 +333,8 @@ const MaterializeRenderSection = forwardRef<
 
       if (viewing_url) {
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-50 dark:hover:bg-blue-950"
           >
             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
