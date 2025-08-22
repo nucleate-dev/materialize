@@ -58,17 +58,6 @@ export class PublicApiService {
   ): Promise<PublicDevServerStartResponse> {
     const { prototype_id, framework, files, file_scope } = request.body;
 
-    // Log the request body if file_scope is not "complete"
-    if (file_scope !== "complete") {
-      customlog("info", "POST /dev-server request body (non-complete scope):", {
-        prototype_id,
-        framework,
-        file_scope,
-        files_count: files?.length,
-        files: files,
-      });
-    }
-
     if (!prototype_id || !framework || !files || !file_scope) {
       customlog("error", "Missing required parameters:", {
         prototype_id,
