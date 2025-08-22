@@ -247,10 +247,6 @@ export default function ChatWindow({
     const isUser = message.role === "user";
     const planData = planningData.get(message.id);
 
-    if (isUser) {
-      console.log("🐛 [DEBUG] Rendering user message:", { id: message.id, content: message.content, contentLength: message.content?.length });
-    }
-
     return (
       <div
         key={message.id}

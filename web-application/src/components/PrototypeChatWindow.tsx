@@ -566,7 +566,6 @@ export default function PrototypeChatWindow({
       }
 
       // 1. INSERT USER MESSAGE TO DB
-      console.log("🐛 [DEBUG] Inserting user message with content:", content);
       const { data: userMessage, error: insertError } = await supabase
         .from("prototype_chat_messages")
         .insert({
@@ -580,7 +579,6 @@ export default function PrototypeChatWindow({
         console.error("Error inserting user message:", insertError);
         return;
       }
-      console.log("🐛 [DEBUG] User message returned from DB:", userMessage);
       setPrototypeChatMessages(prev => [...prev, userMessage]);
 
       // 2. SEND MESSAGE TO CHAT API
