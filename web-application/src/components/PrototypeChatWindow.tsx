@@ -7,12 +7,12 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/database.types";
 import {
-  ChatRequestBody,
   ChatErrorResponse,
+  ChatRequestBody,
   PrototypeFileInput,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 type PrototypeChatSession =
@@ -566,6 +566,7 @@ export default function PrototypeChatWindow({
       }
 
       // 1. INSERT USER MESSAGE TO DB
+      console.log("🐛 [DEBUG] Inserting user message with content:", content);
       const { data: userMessage, error: insertError } = await supabase
         .from("prototype_chat_messages")
         .insert({
@@ -579,7 +580,8 @@ export default function PrototypeChatWindow({
         console.error("Error inserting user message:", insertError);
         return;
       }
-      setPrototypeChatMessages([...prototypeChatMessages, userMessage]);
+      console.log("🐛 [DEBUG] User message returned from DB:", userMessage);
+      setPrototypeChatMessages(prev => [...prev, userMessage]);
 
       // 2. SEND MESSAGE TO CHAT API
       try {

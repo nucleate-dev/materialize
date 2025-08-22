@@ -85,8 +85,6 @@ export const useFileSystem = (
             setSelectedFile(availableFile);
           }
         }
-
-        console.log("Fetched prototype files:", filesDict);
       } catch (error) {
         console.error("Error loading files:", error);
       } finally {
@@ -341,7 +339,6 @@ export const useFileSystem = (
     selectedFile,
     isLoading,
   };
-  console.log("🔍 [useFileSystem] Files:", files);
 
   const actions: FileSystemActions = {
     selectFile,

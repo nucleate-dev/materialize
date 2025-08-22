@@ -17,13 +17,10 @@ import {
   CodeBracketIcon,
   EyeIcon,
   EyeSlashIcon,
-  PaperAirplaneIcon,
-  PlayIcon,
-  SparklesIcon,
-  TrashIcon,
+  PaperAirplaneIcon, SparklesIcon,
+  TrashIcon
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
-import PlanningView from "./PlanningView";
 
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
@@ -73,13 +70,9 @@ export default function ChatWindow({
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(
     new Set(),
   );
-  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
   const [planningData, setPlanningData] = useState<
     Map<string, PlanningExtractionResult>
   >(new Map());
-  const [currentExecutingOperation, setCurrentExecutingOperation] = useState<
-    string | null
-  >(null);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -167,113 +160,6 @@ export default function ChatWindow({
     });
   };
 
-  const togglePlanVisibility = (messageId: string) => {
-    setExpandedPlans((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleExecutePlannedStep = async (operationId: string) => {
-    const message = messages.find((msg) => {
-      const planData = planningData.get(msg.id);
-      return planData?.operations.some((op) => op.id === operationId);
-    });
-
-    if (!message) return;
-
-    const planData = planningData.get(message.id);
-    if (!planData) return;
-
-    // Find the operation
-    const operation = planData.operations.find((op) => op.id === operationId);
-    if (!operation) return;
-
-    // Get execution steps for this operation
-    const stepOperations = planData.executionSteps[operationId];
-    if (!stepOperations) {
-      console.warn(`No execution steps found for operation ${operationId}`);
-      return;
-    }
-
-    setCurrentExecutingOperation(operationId);
-
-    try {
-      // Update operation status to in_progress
-      setPlanningData((prev) => {
-        const newMap = new Map(prev);
-        const messageData = newMap.get(message.id);
-        if (messageData) {
-          const updatedOperations = messageData.operations.map((op) =>
-            op.id === operationId
-              ? { ...op, status: "in_progress" as const }
-              : op,
-          );
-          newMap.set(message.id, {
-            ...messageData,
-            operations: updatedOperations,
-          });
-        }
-        return newMap;
-      });
-
-      // Update operation status to completed
-      setPlanningData((prev) => {
-        const newMap = new Map(prev);
-        const messageData = newMap.get(message.id);
-        if (messageData) {
-          const updatedOperations = messageData.operations.map((op) =>
-            op.id === operationId
-              ? { ...op, status: "completed" as const }
-              : op,
-          );
-          newMap.set(message.id, {
-            ...messageData,
-            operations: updatedOperations,
-          });
-        }
-        return newMap;
-      });
-
-      // Show a success message based on operation type
-      console.log(
-        `✅ ${operation.type === "create" ? "Created" : operation.type === "modify" ? "Updated" : operation.type === "delete" ? "Deleted" : "Moved"} ${operation.filePath}`,
-      );
-    } catch (error) {
-      console.error(`Error executing operation ${operationId}:`, error);
-
-      // Update operation status to error
-      setPlanningData((prev) => {
-        const newMap = new Map(prev);
-        const messageData = newMap.get(message.id);
-        if (messageData) {
-          const updatedOperations = messageData.operations.map((op) =>
-            op.id === operationId
-              ? {
-                ...op,
-                status: "error" as const,
-                error:
-                  error instanceof Error ? error.message : "Unknown error",
-              }
-              : op,
-          );
-          newMap.set(message.id, {
-            ...messageData,
-            operations: updatedOperations,
-          });
-        }
-        return newMap;
-      });
-    } finally {
-      setCurrentExecutingOperation(null);
-    }
-  };
-
   const renderMessageContent = (message: PrototypeChatMessage) => {
     const messageContent = message.content;
     const isCodeVisible = expandedCodeBlocks.has(message.id);
@@ -282,6 +168,10 @@ export default function ChatWindow({
     // Determine message type based on phase
     const isPlanningMessage = message.phase === "planning";
     const isExecutionMessage = message.phase === "execution";
+
+    if (messageContent.includes("EXECUTION_PLAN")) {
+      return null;
+    }
 
     // For planning messages, show the content - don't return null
     if (isPlanningMessage) {
@@ -357,6 +247,10 @@ export default function ChatWindow({
     const isUser = message.role === "user";
     const planData = planningData.get(message.id);
 
+    if (isUser) {
+      console.log("🐛 [DEBUG] Rendering user message:", { id: message.id, content: message.content, contentLength: message.content?.length });
+    }
+
     return (
       <div
         key={message.id}
@@ -366,46 +260,16 @@ export default function ChatWindow({
           {/* Message Bubble */}
           <div
             className={`p-4 rounded-lg ${isUser
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-card-foreground border border-border"
+              ? "bg-primary text-primary-foreground"
+              : "bg-card text-card-foreground border border-border"
               }`}
           >
             <div className="relative z-10">
-              {/* Message Type Badge */}
-              {!isUser && (message.phase === "planning" || message.phase === "execution") && (
-                <div className="mb-3">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${message.phase === "planning"
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : "bg-secondary/10 text-secondary-foreground border-secondary/20"
-                      }`}
-                  >
-                    {message.phase === "planning"
-                      ? "Planning Phase"
-                      : "Code Implementation"}
-                  </span>
-                </div>
-              )}
 
               {/* Planning Summary at the top (more prominent) */}
               {!isUser && planData && planData.hasPlan && (
                 <div className="mb-4">
                   <div className="p-4 rounded-lg bg-muted border border-border">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-primary text-primary-foreground">
-                        <PlayIcon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-foreground text-base">
-                          This is the plan:
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-medium">
-                          {planData.operations.length} step
-                          {planData.operations.length !== 1 ? "s" : ""} planned
-                          for execution
-                        </p>
-                      </div>
-                    </div>
 
                     {/* Compact plan overview */}
                     <div className="space-y-2">
@@ -435,17 +299,13 @@ export default function ChatWindow({
                 </div>
               )}
 
-              {renderMessageContent(message)}
-
-              {/* Detailed Planning View */}
-              {!isUser && planData && planData.hasPlan && (
-                <PlanningView
-                  operations={planData.operations}
-                  isExpanded={expandedPlans.has(message.id)}
-                  onToggleExpanded={() => togglePlanVisibility(message.id)}
-                  onExecuteStep={handleExecutePlannedStep}
-                  currentExecutingId={currentExecutingOperation}
-                />
+              {/* Message Content */}
+              {isUser ? (
+                <div className="whitespace-pre-wrap break-words leading-relaxed">
+                  {message.content}
+                </div>
+              ) : (
+                renderMessageContent(message)
               )}
 
               {/* Action Buttons Container */}
@@ -476,8 +336,8 @@ export default function ChatWindow({
               {/* Timestamp */}
               <div
                 className={`text-xs mt-3 font-medium ${isUser
-                    ? "text-primary-foreground/70"
-                    : "text-muted-foreground"
+                  ? "text-primary-foreground/70"
+                  : "text-muted-foreground"
                   }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
@@ -615,8 +475,8 @@ export default function ChatWindow({
           ) : (
             <p
               className={`text-xs font-medium ${isAtLimit
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-muted-foreground"
+                ? "text-red-600 dark:text-red-400"
+                : "text-muted-foreground"
                 }`}
             >
               Messages: {messageCount}/{messageLimit}
@@ -659,8 +519,8 @@ export default function ChatWindow({
             type="submit"
             disabled={isDisabled}
             className={`p-3 rounded-lg transition-colors ${!isDisabled
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-muted text-muted-foreground cursor-not-allowed"
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
               }`}
             title={
               isAtLimit
