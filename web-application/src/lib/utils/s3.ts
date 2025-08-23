@@ -95,7 +95,10 @@ export async function copyAssetInSupabaseStorage(
         .download(sourceFilePath);
 
     if (downloadError) {
-      console.log(`❌ Download failed for ${sourceFilePath}:`, downloadError.message);
+      console.log(
+        `❌ Download failed for ${sourceFilePath}:`,
+        downloadError.message,
+      );
       return { success: false, error: downloadError.message };
     }
 
@@ -108,8 +111,11 @@ export async function copyAssetInSupabaseStorage(
       fileName,
       fileBuffer,
     );
-    
-    console.log(`📤 Upload result for ${fileName}:`, { success: uploadResult.success, url: uploadResult.publicUrl });
+
+    console.log(`📤 Upload result for ${fileName}:`, {
+      success: uploadResult.success,
+      url: uploadResult.publicUrl,
+    });
     return uploadResult;
   } catch (error) {
     console.error("❌ Error in copyAssetInSupabaseStorage:", error);
@@ -247,7 +253,7 @@ export async function copyS3BucketContents(
 export async function copyDefaultAppToPrototype(
   prototypeId: string,
 ): Promise<S3CopyResult> {
-  const sourcePrefix = "default-app/dist";
+  const sourcePrefix = "default-app";
   const destinationPrefix = `${prototypeId}`;
 
   return copyS3BucketContents(sourcePrefix, destinationPrefix);
