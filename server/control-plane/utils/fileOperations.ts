@@ -1,25 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { FileInput, PrototypeFileInput } from '../types/PublicAPITypes.js';
+import type { PrototypeFileInput } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 
 type PrototypeFileInsert =
   Database['public']['Tables']['prototype_files']['Insert'];
-
-// ============================================================================
-// FILE CONVERSION UTILITIES
-// ============================================================================
-/**
- * Convert PrototypeFileInput array to FileInput array for dispatch
- */
-export function convertPrototypeFileInputsToFileInputs(
-  files: PrototypeFileInput[],
-): FileInput[] {
-  return files.map((file) => ({
-    path: file.name,
-    content: file.contents,
-    isBase64: false, // Text files from CodeEditor are never base64
-  }));
-}
 
 /**
  * Filter files to only include text files
