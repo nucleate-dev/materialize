@@ -11,7 +11,7 @@ export type PrototypeAssetInput =
   Database['public']['Tables']['prototype_assets']['Row'];
 
 export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
-  content: string; // base64 encoded string
+  contents: string; // base64 encoded string
 };
 
 export interface CodeError {

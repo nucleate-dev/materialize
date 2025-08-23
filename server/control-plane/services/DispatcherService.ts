@@ -673,7 +673,7 @@ export class DispatcherService {
 
         assetInputs.push({
           ...asset,
-          content: base64Content,
+          contents: base64Content,
         });
         console.log(`✅ Successfully converted asset: ${asset.name}`);
       } catch (error) {

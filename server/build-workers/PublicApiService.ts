@@ -16,6 +16,10 @@ import {
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
 } from "./types/BuildWorkerTypes.js";
+import {
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+} from "./types/PublicAPITypes.js";
 
 export class PublicApiService {
   private readonly builderService: BuilderService;
@@ -56,7 +60,7 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
-    const { prototype_id, framework, files, file_scope } = request.body;
+    const { prototype_id, framework, files, assets, file_scope } = request.body;
 
     if (!prototype_id || !framework || !files || !file_scope) {
       customlog("error", "Missing required parameters:", {
@@ -83,8 +87,6 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Files are now already in FileInput format
-      const fileInputs: FileInput[] = files;
       // Handle file scope
       const projectDir = path.join(this.workDir, prototype_id);
 
@@ -101,7 +103,7 @@ export class PublicApiService {
         }
         // Create new directory and write all files
         await fs.mkdir(projectDir, { recursive: true });
-        await this.writeProjectFiles(fileInputs, projectDir);
+        await this.writeProjectFiles(files, assets, projectDir);
 
         // Install dependencies for new project
         try {
@@ -127,11 +129,11 @@ export class PublicApiService {
         try {
           await fs.stat(projectDir);
           // Update only the provided files
-          await this.writeProjectFiles(fileInputs, projectDir);
+          await this.writeProjectFiles(files, assets, projectDir);
 
           // Check if package.json was updated and reinstall if needed
-          const packageJsonUpdated = fileInputs.some(
-            (file) => file.path === "package.json",
+          const packageJsonUpdated = files.some(
+            (file) => file.name === "package.json",
           );
           if (packageJsonUpdated) {
             try {
@@ -160,7 +162,7 @@ export class PublicApiService {
             error.message,
           );
           await fs.mkdir(projectDir, { recursive: true });
-          await this.writeProjectFiles(fileInputs, projectDir);
+          await this.writeProjectFiles(files, assets, projectDir);
           try {
             await this.installDependenciesWithErrorParsing(
               projectDir,
@@ -190,7 +192,8 @@ export class PublicApiService {
         const mockRequest = {
           body: {
             prototypeId: prototype_id,
-            files: fileInputs,
+            files: files,
+            assets: assets,
           },
         } as FastifyRequest<{ Body: any }>;
 
@@ -580,29 +583,35 @@ export class PublicApiService {
 
   // Helper methods
   private async writeProjectFiles(
-    files: FileInput[],
+    files: PrototypeFileInput[],
+    assets: PrototypeAssetInputWithContent[],
     projectDir: string,
   ): Promise<void> {
+    // Handle text files
     for (const file of files) {
-      const filePath = path.join(projectDir, file.path);
+      const filePath = path.join(projectDir, file.name);
       const fileDir = path.dirname(filePath);
 
       await fs.mkdir(fileDir, { recursive: true });
+      await fs.writeFile(filePath, file.contents, "utf8");
+      customlog(
+        "debug",
+        `📝 Wrote text: ${file.name} (${file.contents.length} chars)`,
+      );
+    }
 
-      if (file.isBase64) {
-        const binaryContent = Buffer.from(file.content, "base64");
-        await fs.writeFile(filePath, binaryContent);
-        customlog(
-          "debug",
-          `📄 Wrote binary: ${file.path} (${binaryContent.length} bytes)`,
-        );
-      } else {
-        await fs.writeFile(filePath, file.content, "utf8");
-        customlog(
-          "debug",
-          `📝 Wrote text: ${file.path} (${file.content.length} chars)`,
-        );
-      }
+    // Handle binary assets
+    for (const asset of assets) {
+      const filePath = path.join(projectDir, asset.name);
+      const fileDir = path.dirname(filePath);
+
+      await fs.mkdir(fileDir, { recursive: true });
+      const binaryContent = Buffer.from(asset.contents, "base64");
+      await fs.writeFile(filePath, binaryContent);
+      customlog(
+        "debug",
+        `📄 Wrote binary: ${asset.name} (${binaryContent.length} bytes)`,
+      );
     }
   }
 

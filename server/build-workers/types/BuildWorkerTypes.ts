@@ -1,4 +1,7 @@
-import { PrototypeAssetInput, PrototypeFileInput } from "./PublicAPITypes.js";
+import {
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+} from "./PublicAPITypes.js";
 
 export interface BuildLogEntry {
   step: string;
@@ -71,7 +74,7 @@ export interface PublicDevServerStartRequest {
   prototype_id: string;
   framework: "expo_react_native" | "react";
   files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
+  assets: PrototypeAssetInputWithContent[];
   file_scope: "updates" | "complete";
 }
 
