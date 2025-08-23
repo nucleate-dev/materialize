@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { FileInput, PrototypeFileInput } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import type { PrototypeFileInput, FileInput } from '../types/PublicAPITypes.js';
-import type { PrototypeFile } from '../types/InternalTypes.js';
 
 type PrototypeFileInsert =
   Database['public']['Tables']['prototype_files']['Insert'];
@@ -9,60 +8,6 @@ type PrototypeFileInsert =
 // ============================================================================
 // FILE CONVERSION UTILITIES
 // ============================================================================
-
-/**
- * Convert database prototype files to build worker format
- * Downloads binary assets and converts them to base64
- */
-export async function convertPrototypeFilesForBuildWorker(
-  prototypeFiles: PrototypeFile[],
-): Promise<FileInput[]> {
-  const fileInputs: FileInput[] = [];
-
-  for (const file of prototypeFiles) {
-    if (file.file_type === 'text') {
-      // Text file - use contents directly
-      fileInputs.push({
-        path: file.name,
-        content: file.contents!,
-        isBase64: false,
-      });
-    } else if (file.file_type === 'asset' && file.storage_path) {
-      // Binary asset - fetch from Supabase Storage and convert to base64
-      console.log(
-        `🔍 Converting asset ${file.name} from storage_path: ${file.storage_path}`,
-      );
-      try {
-        const response = await fetch(file.storage_path);
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch asset: ${response.status} ${response.statusText}`,
-          );
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const base64Content = Buffer.from(arrayBuffer).toString('base64');
-
-        fileInputs.push({
-          path: file.name,
-          content: base64Content,
-          isBase64: true,
-        });
-
-        console.log(
-          `✅ Converted asset ${file.name} to base64 (${base64Content.length} chars)`,
-        );
-      } catch (error) {
-        console.error(`❌ Failed to convert asset ${file.name}:`, error);
-        // Continue with other files - don't fail the entire operation
-        continue;
-      }
-    }
-  }
-
-  return fileInputs;
-}
-
 /**
  * Convert PrototypeFileInput array to FileInput array for dispatch
  */
