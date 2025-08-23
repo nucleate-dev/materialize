@@ -152,8 +152,12 @@ function selectiveDeploy(paths) {
     );
   }
 
-  // npm install if needed
-  const postScript = `
+  // Check if package.json was included in the deploy
+  const packageJsonIncluded = items.some(({ rel }) => rel === "package.json");
+
+  // npm install only if package.json was included
+  const postScript = packageJsonIncluded
+    ? `
   set -euxo pipefail
   cd ${remoteBase}
   if [ -f package.json ]; then
@@ -177,6 +181,9 @@ function selectiveDeploy(paths) {
     fi
   fi
   echo "✅ Selective deploy complete"
+`
+    : `
+  echo "✅ Selective deploy complete - skipped npm install since package.json not included"
 `;
   runRemoteBash(postScript);
 }
