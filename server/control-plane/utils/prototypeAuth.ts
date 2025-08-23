@@ -1,4 +1,4 @@
-import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { SupabaseClient, User, createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import type { Database } from '../types/supabase.js';
 import type {
@@ -52,7 +52,8 @@ export async function authenticatePrototypeUser(
       };
     }
 
-    const subscriptionPlan: SubscriptionPlanType = (subscription?.plan_id as SubscriptionPlanType) || 'free';
+    const subscriptionPlan: SubscriptionPlanType =
+      (subscription?.plan_id as SubscriptionPlanType) || 'free';
 
     return {
       success: true,
@@ -161,7 +162,7 @@ export async function getPrototypeFiles(
     }
 
     // Convert to our internal type
-    const prototypeFiles: PrototypeFile[] = files.map(file => ({
+    const prototypeFiles: PrototypeFile[] = files.map((file) => ({
       prototype_id: file.prototype_id || prototypeId,
       name: file.name,
       contents: file.contents || '',
@@ -192,7 +193,7 @@ interface JWTPayload {
 /**
  * Validate a JWT token using JWT_SECRET and return userId if valid
  */
-export function validateJWTToken(token: string): string | null {
+export async function validateJWTToken(token: string): Promise<User | null> {
   try {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
@@ -200,15 +201,38 @@ export function validateJWTToken(token: string): string | null {
       return null;
     }
 
-    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
-    
+    jwt.verify(token, jwtSecret) as JWTPayload;
+
     // Extract user ID from the decoded token
     // Assuming the token contains a 'sub' or 'userId' field
-    return decoded.sub || decoded.userId || decoded.user_id || null;
+    // decoded.sub || decoded.userId || decoded.user_id || null;
   } catch (error) {
     console.error('JWT validation error:', error);
     return null;
   }
+
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabaseClient.auth.getUser(token);
+
+  if (authError || !user) {
+    return null;
+  }
+
+  return user;
 }
 
 /**
@@ -217,19 +241,24 @@ export function validateJWTToken(token: string): string | null {
 export async function checkUserHasPrototypeViewingAccess(
   prototypeId: string,
   jwtToken?: string,
-): Promise<Database['public']['Tables']['prototypes']['Row'] | null> {
+): Promise<{
+  user: User | null;
+  prototype: Database['public']['Tables']['prototypes']['Row'];
+} | null> {
   try {
     // Create Supabase client with or without JWT
     const supabaseClient = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_ANON_KEY!,
-      jwtToken ? {
-        global: {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        },
-      } : undefined,
+      jwtToken
+        ? {
+            global: {
+              headers: {
+                Authorization: `Bearer ${jwtToken}`,
+              },
+            },
+          }
+        : undefined,
     );
 
     const { data: prototype, error } = await supabaseClient
@@ -242,7 +271,12 @@ export async function checkUserHasPrototypeViewingAccess(
       return null;
     }
 
-    return prototype;
+    let user: User | null = null;
+    if (jwtToken) {
+      user = await validateJWTToken(jwtToken);
+    }
+
+    return { user, prototype };
   } catch (error) {
     console.error('Error checking prototype viewing access:', error);
     return null;
@@ -255,28 +289,33 @@ export async function checkUserHasPrototypeViewingAccess(
 export async function checkUserHasPrototypeEditAccess(
   prototypeId: string,
   jwtToken?: string,
-): Promise<boolean> {
+): Promise<{
+  user: User;
+  prototype: Database['public']['Tables']['prototypes']['Row'];
+  canEdit: boolean;
+} | null> {
   try {
     if (!jwtToken) {
-      return false;
+      return null;
     }
 
-    // Validate JWT and get user ID
-    const userId = validateJWTToken(jwtToken);
-    if (!userId) {
-      return false;
-    }
-
-    // Get prototype to check ownership
-    const prototype = await checkUserHasPrototypeViewingAccess(prototypeId, jwtToken);
-    if (!prototype) {
-      return false;
+    // Get prototype to check ownership && validate JWT
+    const { user, prototype } = (await checkUserHasPrototypeViewingAccess(
+      prototypeId,
+      jwtToken,
+    )) || { user: null, prototype: null };
+    if (prototype === null || user === null) {
+      return null;
     }
 
     // Check if user is the owner
-    return prototype.owner_id === userId;
+    if (prototype.owner_id === user.id) {
+      return { user, prototype, canEdit: true };
+    } else {
+      return null;
+    }
   } catch (error) {
     console.error('Error checking prototype edit access:', error);
-    return false;
+    return null;
   }
 }

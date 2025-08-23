@@ -101,6 +101,12 @@ export interface BuildCreationContext {
   existingBuild?: ActiveBuild;
 }
 
+export interface SubscriptionInfo {
+  userPlan: SubscriptionPlanType;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+}
+
 // ============================================================================
 // CLEANUP SERVICE TYPES
 // ============================================================================
@@ -178,10 +184,13 @@ export interface DefaultFilesResult {
   error?: string;
 }
 
-export type PrototypeInsert = Database['public']['Tables']['prototypes']['Insert'];
+export type PrototypeInsert =
+  Database['public']['Tables']['prototypes']['Insert'];
 export type PrototypeRow = Database['public']['Tables']['prototypes']['Row'];
-export type PrototypeFileRow = Database['public']['Tables']['prototype_files']['Row'];
-export type PrototypeFileInsert = Database['public']['Tables']['prototype_files']['Insert'];
+export type PrototypeFileRow =
+  Database['public']['Tables']['prototype_files']['Row'];
+export type PrototypeFileInsert =
+  Database['public']['Tables']['prototype_files']['Insert'];
 
 // ============================================================================
 // ERROR HANDLING TYPES

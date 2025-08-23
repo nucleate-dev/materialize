@@ -425,7 +425,7 @@ export class PrototypeManagementService {
             `✅ Successfully inserted ${filesToInsert.length} files to database`,
           );
 
-          // Copy S3 bucket contents  
+          // Copy S3 bucket contents
           const sourcePrefix = forkPrototypeId; // Remove 'prototypes/' prefix
           const destinationPrefix = newPrototypeId; // Remove 'prototypes/' prefix
 
