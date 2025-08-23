@@ -25,6 +25,7 @@ import {
   convertTextFilesToDatabaseFormat,
   saveFilesToDatabaseWithAuth,
 } from '../utils/fileOperations.js';
+import { hasExceededUsageLimit } from '../utils/subscriptionChecks.js';
 
 export class DevelopmentServerService {
   private fastifyApp: FastifyInstance;
@@ -365,15 +366,27 @@ export class DevelopmentServerService {
           message: 'No token provided',
         } as StandardErrorResponse);
       }
-
-      if (!(await checkUserHasPrototypeEditAccess(prototype_id, token))) {
+      const authResponse = await checkUserHasPrototypeEditAccess(
+        prototype_id,
+        token,
+      );
+      if (authResponse === null || !authResponse.canEdit) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           error: 'Unauthorized',
           message: 'Access denied for this prototype',
         } as StandardErrorResponse);
       }
 
-      // 2. Perform dispatch precheck to verify permissions and build status
+      // 2. Paywall check this user
+      if (await hasExceededUsageLimit(token, authResponse.user.id)) {
+        return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
+          error: 'Payment required',
+          message:
+            'You have reached your monthly usage limit. Please upgrade to a paid plan to continue.',
+        } as StandardErrorResponse);
+      }
+
+      // 3. Perform dispatch precheck to verify permissions and build status
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
@@ -383,7 +396,7 @@ export class DevelopmentServerService {
         } as DispatchPrecheckRequestBody,
       });
 
-      if (precheckResponse.statusCode !== 200) {
+      if (precheckResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(precheckResponse.payload);
         console.error('Dispatch precheck failed:', errorData);
 
