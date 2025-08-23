@@ -1,14 +1,18 @@
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
-import type { Database } from '../types/supabase.js';
+import type { Database } from "../types/supabase.js";
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
 
 export type PrototypeFileInput =
-  Database['public']['Tables']['prototype_files']['Row'];
+  Database["public"]["Tables"]["prototype_files"]["Row"];
 export type PrototypeAssetInput =
-  Database['public']['Tables']['prototype_assets']['Row'];
+  Database["public"]["Tables"]["prototype_assets"]["Row"];
+
+export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
+  content: string; // base64 encoded string
+};
 
 export interface FileInput {
   path: string;
@@ -21,7 +25,7 @@ export interface CodeError {
   file?: string;
   line?: number;
   column?: number;
-  type: 'build' | 'runtime' | 'dependency' | 'syntax';
+  type: "build" | "runtime" | "dependency" | "syntax";
 }
 
 export interface CodeWarning {
@@ -29,7 +33,7 @@ export interface CodeWarning {
   file?: string;
   line?: number;
   column?: number;
-  type: 'build' | 'deprecation' | 'performance' | 'unused';
+  type: "build" | "deprecation" | "performance" | "unused";
 }
 
 // ============================================================================
@@ -46,7 +50,7 @@ export interface StandardErrorResponse {
 // ============================================================================
 
 export interface HealthSuccessResponse {
-  status: 'healthy';
+  status: "healthy";
   timestamp: string;
 }
 
@@ -59,15 +63,15 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 export interface DispatchRequestBody {
   jwt: string;
   prototype_id: string;
-  framework?: 'expo_react_native' | 'react';
+  framework?: "expo_react_native" | "react";
   files: PrototypeFileInput[];
   assets: PrototypeAssetInput[];
-  file_scope: 'updates' | 'complete';
+  file_scope: "updates" | "complete";
   hot_reload?: boolean;
 }
 
 export interface DispatchSuccessResponse {
-  status: 'success';
+  status: "success";
   viewing_url: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
@@ -95,8 +99,8 @@ export interface DispatchPrecheckRequestBody {
 
 export interface DispatchPrecheckSuccessResponse {
   success: true;
-  state: 'dne' | 'active_dev_server' | 'active_build';
-  status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
+  state: "dne" | "active_dev_server" | "active_build";
+  status: "updating" | "error" | "stable" | "creating" | "cleaning" | null;
   viewing_url: string;
 }
 
@@ -123,7 +127,7 @@ export type CacheClearResponse =
 // ============================================================================
 
 export interface CheckoutRequestBody {
-  productID: 'free' | 'team' | 'pro';
+  productID: "free" | "team" | "pro";
 }
 
 export interface CheckoutSuccessResponse {
@@ -177,12 +181,12 @@ export const HTTP_STATUS = {
 
 export interface FetchViewingUrlRequestBody {
   prototype_id: string;
-  current_page?: 'view' | 'edit' | null;
+  current_page?: "view" | "edit" | null;
 }
 
 export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
-  source: 'active_instance' | 'static_build';
+  source: "active_instance" | "static_build";
 }
 
 export type FetchViewingUrlResponse =
@@ -198,7 +202,7 @@ export interface CreatePrototypeRequestBody {
   description?: string;
   project_id?: string;
   prototype_id?: string; // For forking an existing prototype
-  visibility?: 'PUBLIC' | 'SELF';
+  visibility?: "PUBLIC" | "SELF";
 }
 
 export interface CreatePrototypeSuccessResponse {
@@ -212,11 +216,11 @@ export interface CreatePrototypeSuccessResponse {
 export interface CreatePrototypeErrorResponse {
   success: false;
   error:
-    | 'UNAUTHORIZED'
-    | 'PROTOTYPE_LIMIT_REACHED'
-    | 'DATABASE_ERROR'
-    | 'S3_ERROR'
-    | 'INVALID_REQUEST';
+    | "UNAUTHORIZED"
+    | "PROTOTYPE_LIMIT_REACHED"
+    | "DATABASE_ERROR"
+    | "S3_ERROR"
+    | "INVALID_REQUEST";
   message: string;
 }
 
@@ -235,7 +239,7 @@ export interface UpdateFilesRequestBody {
 
 export interface UpdateFilesSuccessResponse {
   success: true;
-  status: 'success' | 'error';
+  status: "success" | "error";
   viewing_url: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
@@ -262,12 +266,12 @@ export interface StartDevServerRequestBody {
   files: PrototypeFileInput[];
   assets: PrototypeAssetInput[];
   prototype_id: string;
-  file_scope?: 'updates' | 'complete';
+  file_scope?: "updates" | "complete";
 }
 
 export interface StartDevServerSuccessResponse {
   success: true;
-  status: 'success' | 'error';
+  status: "success" | "error";
   viewing_url: string;
   message: string;
 }
@@ -286,7 +290,7 @@ export type StartDevServerResponse =
 // ============================================================================
 
 export interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
@@ -303,17 +307,17 @@ export interface ChatStreamEventBase {
 }
 
 export interface ChatStreamPlanningEvent extends ChatStreamEventBase {
-  type: 'planning';
+  type: "planning";
   content: string;
   updatedFiles: Record<string, PrototypeFileInput>;
   messageId?: string;
 }
 
 export interface ChatStreamExecutionStartEvent extends ChatStreamEventBase {
-  type: 'execution_start';
+  type: "execution_start";
   operations: {
     id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
+    type: "create" | "modify" | "delete" | "move";
     title: string;
     description: string;
     filePath: string;
@@ -322,11 +326,11 @@ export interface ChatStreamExecutionStartEvent extends ChatStreamEventBase {
 }
 
 export interface ChatStreamStepStartEvent extends ChatStreamEventBase {
-  type: 'step_start';
+  type: "step_start";
   stepIndex: number;
   operation: {
     id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
+    type: "create" | "modify" | "delete" | "move";
     title: string;
     description: string;
     filePath: string;
@@ -335,11 +339,11 @@ export interface ChatStreamStepStartEvent extends ChatStreamEventBase {
 }
 
 export interface ChatStreamStepCompleteEvent extends ChatStreamEventBase {
-  type: 'step_complete';
+  type: "step_complete";
   stepIndex: number;
   operation: {
     id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
+    type: "create" | "modify" | "delete" | "move";
     title: string;
     description: string;
     filePath: string;
@@ -354,11 +358,11 @@ export interface ChatStreamStepCompleteEvent extends ChatStreamEventBase {
 }
 
 export interface ChatStreamStepErrorEvent extends ChatStreamEventBase {
-  type: 'step_error';
+  type: "step_error";
   stepIndex: number;
   operation: {
     id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
+    type: "create" | "modify" | "delete" | "move";
     title: string;
     description: string;
     filePath: string;
@@ -368,34 +372,34 @@ export interface ChatStreamStepErrorEvent extends ChatStreamEventBase {
 }
 
 export interface ChatStreamExecutionCompleteEvent extends ChatStreamEventBase {
-  type: 'execution_complete';
+  type: "execution_complete";
   updatedFiles: Record<string, PrototypeFileInput>;
 }
 
 export interface ChatStreamDispatchStartEvent extends ChatStreamEventBase {
-  type: 'dispatch_start';
+  type: "dispatch_start";
   message: string;
 }
 
 export interface ChatStreamViewingUrlEvent extends ChatStreamEventBase {
-  type: 'viewing_url';
+  type: "viewing_url";
   viewing_url: string;
 }
 
 export interface ChatStreamDispatchCompleteEvent extends ChatStreamEventBase {
-  type: 'dispatch_complete';
+  type: "dispatch_complete";
   success: boolean;
   message: string;
   error?: string;
 }
 
 export interface ChatStreamUsageUpdateEvent extends ChatStreamEventBase {
-  type: 'usage_update';
+  type: "usage_update";
   messageCount: number;
 }
 
 export interface ChatStreamErrorEvent extends ChatStreamEventBase {
-  type: 'error';
+  type: "error";
   error: string;
 }
 
@@ -431,9 +435,9 @@ export function isStandardErrorResponse(
   response: unknown,
 ): response is StandardErrorResponse {
   return (
-    typeof response === 'object' &&
+    typeof response === "object" &&
     response !== null &&
-    'error' in response &&
-    'message' in response
+    "error" in response &&
+    "message" in response
   );
 }

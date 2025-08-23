@@ -1,6 +1,10 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
+import { BuilderService } from "./BuilderService.js";
+import { ExpoDevServerService } from "./ExpoDevServerService.js";
+import { customlog } from "./logger.js";
+import { installDependencies } from "./shared-utils.js";
 import {
   CodeError,
   CodeWarning,
@@ -11,11 +15,7 @@ import {
   PublicDevServerStartResponse,
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
-} from "./build-worker-api-types.js";
-import { BuilderService } from "./BuilderService.js";
-import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { customlog } from "./logger.js";
-import { installDependencies } from "./shared-utils.js";
+} from "./types/BuildWorkerTypes.js";
 
 export class PublicApiService {
   private readonly builderService: BuilderService;
