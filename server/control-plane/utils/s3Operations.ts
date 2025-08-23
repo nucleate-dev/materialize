@@ -219,7 +219,7 @@ export async function copyS3BucketContents(
 
       const copyCommand = new CopyObjectCommand({
         Bucket: PROTOTYPE_BUCKET,
-        CopySource: encodeURIComponent(`${PROTOTYPE_BUCKET}/${sourceKey}`),
+        CopySource: `${PROTOTYPE_BUCKET}/${encodeURIComponent(sourceKey)}`,
         Key: destinationKey,
       });
 
