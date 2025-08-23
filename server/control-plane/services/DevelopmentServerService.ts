@@ -12,14 +12,11 @@ import type {
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   DispatchResponse,
+  FileInput,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
+import { authenticatePrototypeUser } from '../utils/prototypeAuth.js';
 import {
-  authenticatePrototypeUser,
-  getPrototypeFiles,
-} from '../utils/prototypeAuth.js';
-import {
-  convertPrototypeFilesForBuildWorker,
   convertPrototypeFileInputsToFileInputs,
   filterTextFiles,
   convertTextFilesToDatabaseFormat,
@@ -443,48 +440,63 @@ export class DevelopmentServerService {
         } as StartDevServerErrorResponse);
       }
 
-      // Get existing files to find assets
-      // TODO: This is a hack to get the assets for the dev server. We should just pass them from the client, don't need to refetch everything from supabase.
-      const prototypeFilesResult = await getPrototypeFiles(
-        supabaseClient,
-        prototype_id,
+      // Separate assets from text files from the client-sent files
+      const assetFiles = files.filter((file) => file.file_type === 'asset');
+      const textFiles = files.filter(
+        (file) => file.file_type === 'text' || !file.file_type,
       );
 
-      if (!prototypeFilesResult.success || !prototypeFilesResult.files) {
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Failed to fetch prototype files',
-          message:
-            prototypeFilesResult.message ||
-            'Could not retrieve all files for dev server',
-        } as StartDevServerErrorResponse);
-      }
-
-      // Separate assets from text files
-      const existingAssets = prototypeFilesResult.files.filter(
-        (file) => file.file_type === 'asset',
+      console.log(
+        `🔍 Received ${assetFiles.length} assets from client:`,
+        assetFiles.map((a) => a.name),
       );
       console.log(
-        `🔍 Found ${existingAssets.length} existing assets:`,
-        existingAssets.map((a) => a.name),
+        `🔍 Received ${textFiles.length} text files from client:`,
+        textFiles.map((t) => t.name),
       );
 
-      // Convert existing assets to build worker format
-      const assetFilesForDispatch = await convertPrototypeFilesForBuildWorker(
-        existingAssets,
-      );
+      // Convert assets to build worker format - download from storage and convert to base64
+      const assetFilesForDispatch: FileInput[] = [];
+      for (const assetFile of assetFiles) {
+        if (assetFile.file_type === 'asset' && assetFile.storage_path) {
+          console.log(
+            `🔍 Converting asset ${assetFile.name} from storage_path: ${assetFile.storage_path}`,
+          );
+          try {
+            const response = await fetch(assetFile.storage_path);
+            if (!response.ok) {
+              console.error(
+                `Failed to fetch asset ${assetFile.name}: ${response.status} ${response.statusText}`,
+              );
+              continue;
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            const base64Content = Buffer.from(arrayBuffer).toString('base64');
+
+            assetFilesForDispatch.push({
+              path: assetFile.name,
+              content: base64Content,
+              isBase64: true,
+            });
+            console.log(`✅ Successfully converted asset: ${assetFile.name}`);
+          } catch (error) {
+            console.error(`Error converting asset ${assetFile.name}:`, error);
+          }
+        }
+      }
       console.log(
         `✅ Converted ${assetFilesForDispatch.length} assets for dispatch`,
       );
 
-      // Convert changed text files to build worker format
+      // Convert text files to build worker format
       const textFilesForDispatch =
-        convertPrototypeFileInputsToFileInputs(files);
+        convertPrototypeFileInputsToFileInputs(textFiles);
 
       console.log(
         `📦 Dispatch summary: ${textFilesForDispatch.length} text files + ${assetFilesForDispatch.length} assets`,
       );
 
-      // Merge text files + assets for dispatch (preserves hot reload + includes assets)
+      // Merge text files + assets for dispatch (all files from client)
       const filesForDispatch = [
         ...textFilesForDispatch,
         ...assetFilesForDispatch,
