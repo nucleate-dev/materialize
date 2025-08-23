@@ -1,3 +1,5 @@
+import { PrototypeAssetInput, PrototypeFileInput } from "./PublicAPITypes.js";
+
 export interface BuildLogEntry {
   step: string;
   success: boolean;
@@ -54,7 +56,7 @@ export interface CodeError {
   file?: string;
   line?: number;
   column?: number;
-  type: 'build' | 'runtime' | 'dependency' | 'syntax';
+  type: "build" | "runtime" | "dependency" | "syntax";
 }
 
 export interface CodeWarning {
@@ -62,18 +64,19 @@ export interface CodeWarning {
   file?: string;
   line?: number;
   column?: number;
-  type: 'build' | 'deprecation' | 'performance' | 'unused';
+  type: "build" | "deprecation" | "performance" | "unused";
 }
 
 export interface PublicDevServerStartRequest {
   prototype_id: string;
-  framework: 'expo_react_native' | 'react';
-  files: FileInput[]; // Changed to support binary files with isBase64 flag
-  file_scope: 'updates' | 'complete';
+  framework: "expo_react_native" | "react";
+  files: PrototypeFileInput[];
+  assets: PrototypeAssetInput[];
+  file_scope: "updates" | "complete";
 }
 
 export interface PublicDevServerStartResponse {
-  status: 'success' | 'error';
+  status: "success" | "error";
   tunnel_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
@@ -85,7 +88,7 @@ export interface PublicDevServerStopRequest {
 }
 
 export interface PublicDevServerStopResponse {
-  status: 'success' | 'error';
+  status: "success" | "error";
   build_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
@@ -93,11 +96,11 @@ export interface PublicDevServerStopResponse {
 
 export interface PublicBuildAndDeployRequest {
   prototype_id: string;
-  framework: 'expo_react_native' | 'react';
+  framework: "expo_react_native" | "react";
 }
 
 export interface PublicBuildAndDeployResponse {
-  status: 'success' | 'error';
+  status: "success" | "error";
   build_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];

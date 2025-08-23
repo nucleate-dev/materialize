@@ -4,6 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { installDependencies } from "./shared-utils.js";
 import {
   BuildAndDeployRequest,
   BuildAndDeployResponse,
@@ -13,8 +14,7 @@ import {
   DeployRequest,
   DeployResponse,
   FileInput,
-} from "./build-worker-api-types.js";
-import { installDependencies } from "./shared-utils.js";
+} from "./types/BuildWorkerTypes.js";
 
 export class BuilderService {
   private readonly WORK_DIR: string;
@@ -359,12 +359,17 @@ export class BuilderService {
       // Check if project directory exists
       try {
         await fs.stat(buildDir);
-        logger.log("Using existing project directory", true, `Directory: ${buildDir}`);
+        logger.log(
+          "Using existing project directory",
+          true,
+          `Directory: ${buildDir}`,
+        );
       } catch (error) {
         reply.code(404);
         return {
           success: false,
-          error: "Project directory not found. Please start dev server first to create project files.",
+          error:
+            "Project directory not found. Please start dev server first to create project files.",
           buildLog: logger.getBuildLog(),
         };
       }
@@ -405,7 +410,9 @@ export class BuilderService {
     } finally {
       // Don't cleanup the build directory since it contains the original project files
       // that might be needed for future operations
-      logger.log("Build and deploy completed, keeping project directory for future use");
+      logger.log(
+        "Build and deploy completed, keeping project directory for future use",
+      );
     }
   }
 
