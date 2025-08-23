@@ -257,6 +257,41 @@ export type Database = {
           },
         ]
       }
+      prototype_assets: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          prototype_id: string | null
+          storage_url: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          prototype_id?: string | null
+          storage_url: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          prototype_id?: string | null
+          storage_url?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_assets_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototype_chat_messages: {
         Row: {
           chat_session_id: string | null

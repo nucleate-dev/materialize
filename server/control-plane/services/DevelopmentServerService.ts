@@ -15,7 +15,10 @@ import type {
   FileInput,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import { authenticatePrototypeUser } from '../utils/prototypeAuth.js';
+import {
+  authenticatePrototypeUser,
+  checkUserHasPrototypeEditAccess,
+} from '../utils/prototypeAuth.js';
 import {
   convertPrototypeFileInputsToFileInputs,
   filterTextFiles,
@@ -363,24 +366,10 @@ export class DevelopmentServerService {
         } as StandardErrorResponse);
       }
 
-      // 4. Prepare files for dispatch API - merge changed text files with existing assets
-      const supabaseClient = createClient<Database>(
-        this.supabaseUrl,
-        this.supabaseAnonKey,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        },
-      );
-
-      const authResult = await authenticatePrototypeUser(supabaseClient, token);
-      if (!authResult.success) {
+      if (!(await checkUserHasPrototypeEditAccess(prototype_id, token))) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           error: 'Unauthorized',
-          message: authResult.message || 'Authentication failed',
+          message: 'Access denied for this prototype',
         } as StandardErrorResponse);
       }
 
@@ -398,14 +387,14 @@ export class DevelopmentServerService {
         const errorData = JSON.parse(precheckResponse.payload);
         console.error('Dispatch precheck failed:', errorData);
 
-        if (precheckResponse.statusCode === 401) {
+        if (precheckResponse.statusCode === HTTP_STATUS.UNAUTHORIZED) {
           return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
             error: 'Unauthorized',
             message: 'Access denied for this prototype',
           } as StandardErrorResponse);
         }
 
-        if (precheckResponse.statusCode === 404) {
+        if (precheckResponse.statusCode === HTTP_STATUS.NOT_FOUND) {
           return reply.status(HTTP_STATUS.NOT_FOUND).send({
             error: 'Prototype not found',
             message: 'The specified prototype could not be found',
@@ -441,6 +430,7 @@ export class DevelopmentServerService {
       }
 
       // Separate assets from text files from the client-sent files
+      // TODO: This should just be passed in from the client as two separate arrays
       const assetFiles = files.filter((file) => file.file_type === 'asset');
       const textFiles = files.filter(
         (file) => file.file_type === 'text' || !file.file_type,
@@ -456,6 +446,7 @@ export class DevelopmentServerService {
       );
 
       // Convert assets to build worker format - download from storage and convert to base64
+      // TODO: Sourish: move this to the dispatcher
       const assetFilesForDispatch: FileInput[] = [];
       for (const assetFile of assetFiles) {
         if (assetFile.file_type === 'asset' && assetFile.storage_path) {
