@@ -4,11 +4,7 @@ import path from "path";
 import { BuilderService } from "./BuilderService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { customlog } from "./logger.js";
-import {
-  installDependencies,
-  PrototypeFileInput,
-  writeProjectFiles,
-} from "./shared-utils.js";
+import { PrototypeFileInput } from "./shared-utils.js";
 import {
   CodeError,
   CodeWarning,
@@ -60,185 +56,19 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
-    const { prototype_id, framework, files, assets, file_scope } = request.body;
-
-    if (!prototype_id || !framework || !files || !file_scope) {
-      customlog("error", "Missing required parameters:", {
-        prototype_id,
-        framework,
-        files: files?.length,
-        file_scope,
-      });
-      reply.code(400);
-      return {
-        status: "error",
-        build_errors: [
-          {
-            message:
-              "prototype_id, framework, files, and file_scope are required",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
-      };
-    }
-
     try {
-      const buildErrors: CodeError[] = [];
-      const buildWarnings: CodeWarning[] = [];
+      // Direct call to ExpoDevServerService with the same request
+      const startResponse = await this.expoDevServerService.startDevServer(
+        request,
+        reply,
+      );
 
-      // Handle file scope
-      const projectDir = path.join(this.workDir, prototype_id);
-
-      if (file_scope === "complete") {
-        // Remove existing directory if it exists
-        try {
-          await fs.rm(projectDir, { recursive: true, force: true });
-        } catch (error: any) {
-          customlog(
-            "debug",
-            "Directory removal failed (expected for new projects):",
-            error.message,
-          );
-        }
-        // Create new directory and write all files
-        await fs.mkdir(projectDir, { recursive: true });
-        await writeProjectFiles(files, assets, projectDir);
-
-        // Install dependencies for new project
-        try {
-          await this.installDependenciesWithErrorParsing(
-            projectDir,
-            buildErrors,
-            buildWarnings,
-          );
-        } catch (error: any) {
-          customlog(
-            "error",
-            "Dependency installation failed for complete scope:",
-            error.message,
-            error.stack,
-          );
-          buildErrors.push({
-            message: `Dependency installation failed: ${error.message}`,
-            type: "dependency",
-          });
-        }
-      } else if (file_scope === "updates") {
-        // Check if project directory exists
-        try {
-          await fs.stat(projectDir);
-          // Update only the provided files
-          await writeProjectFiles(files, assets, projectDir);
-
-          // Check if package.json was updated and reinstall if needed
-          const packageJsonUpdated = files.some(
-            (file) => file.name === "package.json",
-          );
-          if (packageJsonUpdated) {
-            try {
-              await this.installDependenciesWithErrorParsing(
-                projectDir,
-                buildErrors,
-                buildWarnings,
-              );
-            } catch (error: any) {
-              customlog(
-                "error",
-                "Dependency update failed for package.json change:",
-                error.message,
-                error.stack,
-              );
-              buildErrors.push({
-                message: `Dependency update failed: ${error.message}`,
-                type: "dependency",
-              });
-            }
-          }
-        } catch (error: any) {
-          customlog(
-            "info",
-            "Project directory doesn't exist, treating as complete scope:",
-            error.message,
-          );
-          await fs.mkdir(projectDir, { recursive: true });
-          await writeProjectFiles(files, assets, projectDir);
-          try {
-            await this.installDependenciesWithErrorParsing(
-              projectDir,
-              buildErrors,
-              buildWarnings,
-            );
-          } catch (error: any) {
-            customlog(
-              "error",
-              "Dependency installation failed for new project directory:",
-              error.message,
-              error.stack,
-            );
-            buildErrors.push({
-              message: `Dependency installation failed: ${error.message}`,
-              type: "dependency",
-            });
-          }
-        }
-      }
-
-      // Start the dev server using ExpoDevServerService
-      let tunnelUrl: string | undefined;
-
-      try {
-        // Check if dev server is already running for this prototype
-        const mockRequest = {
-          body: {
-            prototypeId: prototype_id,
-            files: files,
-            assets: assets,
-          },
-        } as FastifyRequest<{ Body: any }>;
-
-        const mockReply = {
-          code: () => mockReply,
-          send: (data: any) => data,
-        } as any;
-
-        // Use the existing ExpoDevServerService start logic
-        const startResponse = await (
-          this.expoDevServerService as any
-        ).startDevServer(mockRequest, mockReply);
-
-        if (startResponse.success && startResponse.tunnelUrl) {
-          tunnelUrl = startResponse.tunnelUrl;
-        } else if (startResponse.error) {
-          customlog(
-            "error",
-            "Dev server start failed:",
-            startResponse.error,
-            startResponse,
-          );
-          buildErrors.push({
-            message: `Dev server start failed: ${startResponse.error}`,
-            type: "runtime",
-          });
-        }
-      } catch (error: any) {
-        customlog(
-          "error",
-          "Failed to start dev server:",
-          error.message,
-          error.stack,
-        );
-        buildErrors.push({
-          message: `Failed to start dev server: ${error.message}`,
-          type: "runtime",
-        });
-      }
-
+      // Convert response format from ExpoDevServerService to PublicApiService format
       return {
-        status: buildErrors.length > 0 ? "error" : "success",
-        tunnel_url: tunnelUrl,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
+        status: startResponse.success ? "success" : "error",
+        tunnel_url: startResponse.tunnelUrl,
+        build_errors: startResponse.build_errors || [],
+        build_warnings: startResponse.build_warnings || [],
       };
     } catch (error: any) {
       customlog(
@@ -307,22 +137,8 @@ export class PublicApiService {
           });
         } else {
           // Use BuilderService to build and deploy
-          const mockBuildRequest = {
-            body: {
-              prototypeId: prototype_id,
-              files: files,
-              assets: assets,
-            },
-          } as FastifyRequest<{ Body: any }>;
-
-          const mockReply = {
-            code: () => mockReply,
-            send: (data: any) => data,
-          } as any;
-
-          const buildResponse = await this.builderService.buildAndDeployProject(
-            mockBuildRequest,
-            mockReply,
+          const buildResponse = await this.builderService.buildAndDeployProjectCore(
+            prototype_id,
           );
 
           if (buildResponse.success && buildResponse.buildUrl) {
@@ -368,16 +184,7 @@ export class PublicApiService {
 
       // Stop the dev server using ExpoDevServerService
       try {
-        const mockRequest = {} as FastifyRequest;
-        const mockReply = {
-          code: () => mockReply,
-          send: (data: any) => data,
-        } as any;
-
-        await (this.expoDevServerService as any).stopDevServer(
-          mockRequest,
-          mockReply,
-        );
+        await this.expoDevServerService.shutdown();
       } catch (error: any) {
         customlog(
           "warn",
@@ -496,20 +303,8 @@ export class PublicApiService {
       let buildUrl: string | undefined;
 
       try {
-        const mockBuildRequest = {
-          body: {
-            prototypeId: prototype_id,
-          },
-        } as FastifyRequest<{ Body: any }>;
-
-        const mockReply = {
-          code: () => mockReply,
-          send: (data: any) => data,
-        } as any;
-
-        const buildResponse = await this.builderService.buildAndDeployProject(
-          mockBuildRequest,
-          mockReply,
+        const buildResponse = await this.builderService.buildAndDeployProjectCore(
+          prototype_id,
         );
 
         if (buildResponse.success && buildResponse.buildUrl) {
@@ -654,62 +449,6 @@ export class PublicApiService {
     };
   }
 
-  private async installDependenciesWithErrorParsing(
-    projectDir: string,
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-  ): Promise<void> {
-    // Create a simple logger that captures output
-    const logger = {
-      log: (
-        message: string,
-        success: boolean = true,
-        output: string = "",
-        error: string = "",
-      ) => {
-        if (!success) {
-          const outputToProcess = error || output || "";
-          this.parseNpmOutput(outputToProcess, buildErrors, buildWarnings);
-        }
-      },
-      getBuildLog: () => [],
-      getElapsedTime: () => 0,
-    };
-
-    // Use shared installDependencies function
-    await installDependencies(projectDir, logger);
-  }
-
-  private parseNpmOutput(
-    output: string,
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-  ): void {
-    if (!output || typeof output !== "string") {
-      return;
-    }
-    const lines = output.split("\n");
-
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-
-      // Parse npm errors
-      if (trimmedLine.includes("npm ERR!") || trimmedLine.includes("ERROR")) {
-        buildErrors.push({
-          message: trimmedLine.replace(/^npm ERR!\s*/, ""),
-          type: "dependency",
-        });
-      }
-
-      // Parse npm warnings
-      if (trimmedLine.includes("npm WARN") || trimmedLine.includes("WARNING")) {
-        buildWarnings.push({
-          message: trimmedLine.replace(/^npm WARN\s*/, ""),
-          type: "deprecation",
-        });
-      }
-    }
-  }
 
   private parseBuildLogForErrors(
     buildLog: any[],

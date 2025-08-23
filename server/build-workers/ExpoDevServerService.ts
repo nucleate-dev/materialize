@@ -1,10 +1,10 @@
 import { ChildProcess, spawn } from "child_process";
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { customlog } from "./logger.js";
 import { installDependencies, writeProjectFiles } from "./shared-utils.js";
-import { PublicDevServerStartRequest } from "./types/BuildWorkerTypes.js";
+import { CodeError, CodeWarning, PublicDevServerStartRequest } from "./types/BuildWorkerTypes.js";
 
 interface DevServerStartResponse {
   success: boolean;
@@ -12,6 +12,8 @@ interface DevServerStartResponse {
   port?: number;
   status: "starting" | "running" | "error";
   error?: string;
+  build_errors?: CodeError[];
+  build_warnings?: CodeWarning[];
 }
 
 interface DevServerStatusResponse {
@@ -92,51 +94,32 @@ export class ExpoDevServerService {
     this.workDir = workDir;
   }
 
-  // Register all dev server routes with Fastify
-  public async register(app: FastifyInstance): Promise<void> {
-    // Start dev server
-    app.post<{ Body: PublicDevServerStartRequest }>(
-      "/dev-server/start",
-      this.startDevServer.bind(this),
-    );
-
-    // Get status
-    app.get("/dev-server/status", this.getStatus.bind(this));
-
-    // Stop dev server
-    app.post("/dev-server/stop", this.stopDevServer.bind(this));
-
-    // Restart dev server
-    app.post("/dev-server/restart", this.restartDevServer.bind(this));
-
-    // Get logs
-    app.get<{ Querystring: { lines?: string } }>(
-      "/dev-server/logs",
-      this.getLogs.bind(this),
-    );
-  }
-
   // Start Expo dev server
-  private async startDevServer(
+  public async startDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<DevServerStartResponse> {
     const { prototype_id, framework, files, assets, file_scope } = request.body;
 
-    if (
-      !prototype_id ||
-      !files ||
-      !Array.isArray(files) ||
-      files.length === 0
-    ) {
-      customlog("error", "Invalid startDevServer request:", {
+    if (!prototype_id || !framework || !files || !file_scope) {
+      customlog("error", "Missing required parameters:", {
         prototype_id,
-        filesCount: files?.length,
+        framework,
+        files: files?.length,
+        file_scope,
       });
       return reply.code(400).send({
         success: false,
         status: "error",
-        error: "prototypeId and files array are required",
+        error: "prototype_id, framework, files, and file_scope are required",
+        build_errors: [
+          {
+            message:
+              "prototype_id, framework, files, and file_scope are required",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
       });
     }
 
@@ -148,6 +131,8 @@ export class ExpoDevServerService {
           tunnelUrl: this.state.tunnelUrl || undefined,
           port: this.state.port || undefined,
           status: this.state.status,
+          build_errors: [],
+          build_warnings: [],
         };
       } else {
         customlog(
@@ -162,53 +147,126 @@ export class ExpoDevServerService {
           success: false,
           status: "error",
           error: `Dev server already running for different prototype: ${this.state.prototypeId}`,
+          build_errors: [
+            {
+              message: `Dev server already running for different prototype: ${this.state.prototypeId}`,
+              type: "build",
+            },
+          ],
+          build_warnings: [],
         });
       }
     }
 
     try {
+      const buildErrors: CodeError[] = [];
+      const buildWarnings: CodeWarning[] = [];
+
+      // Handle file scope
+      const projectDir = path.join(this.workDir, prototype_id);
+
+      if (file_scope === "complete") {
+        // Remove existing directory if it exists
+        try {
+          await fs.rm(projectDir, { recursive: true, force: true });
+        } catch (error: any) {
+          customlog(
+            "debug",
+            "Directory removal failed (expected for new projects):",
+            error.message,
+          );
+        }
+        // Create new directory and write all files
+        await fs.mkdir(projectDir, { recursive: true });
+        await writeProjectFiles(files, assets, projectDir);
+
+        // Install dependencies for new project
+        try {
+          await this.installDependenciesWithErrorParsing(
+            projectDir,
+            buildErrors,
+            buildWarnings,
+          );
+        } catch (error: any) {
+          customlog(
+            "error",
+            "Dependency installation failed for complete scope:",
+            error.message,
+            error.stack,
+          );
+          buildErrors.push({
+            message: `Dependency installation failed: ${error.message}`,
+            type: "dependency",
+          });
+        }
+      } else if (file_scope === "updates") {
+        await this.updateDevServerFiles(
+          projectDir,
+          files,
+          assets,
+          buildErrors,
+          buildWarnings,
+        );
+      }
+
       this.state.prototypeId = prototype_id;
       this.state.port = this.defaultPort;
       this.state.status = "starting";
       this.state.startTime = new Date();
+      this.state.projectDir = projectDir;
       this.state.addLog(`Starting dev server for prototype ${prototype_id}`);
-
-      // Setup project directory
-      this.state.projectDir = path.join(this.workDir, prototype_id);
-      await fs.mkdir(this.state.projectDir, { recursive: true });
-
-      // Write project files
-      await writeProjectFiles(files, assets, this.state.projectDir);
       this.state.addLog(`Wrote ${files.length} files to project directory`);
 
-      // Install dependencies
-      await installDependencies(this.state.projectDir, this.state);
-
       // Start Expo dev server and wait for tunnel URL
-      await this.startExpoProcess(this.state.projectDir, this.state.port);
+      try {
+        await this.startExpoProcess(this.state.projectDir, this.state.port);
+      } catch (error: any) {
+        customlog(
+          "error",
+          "Failed to start Expo process:",
+          error.message,
+          error.stack,
+        );
+        this.state.status = "error";
+        this.state.error = error.message;
+        this.state.addLog(`Failed to start Expo process: ${error.message}`);
+        buildErrors.push({
+          message: `Failed to start dev server: ${error.message}`,
+          type: "runtime",
+        });
+      }
 
       // The tunnel URL should be set by now since startExpoProcess waits for it
       return {
-        success: true,
+        success: buildErrors.length === 0,
         tunnelUrl: this.state.tunnelUrl || undefined,
         port: this.state.port,
-        status: this.state.status,
+        status: buildErrors.length > 0 ? "error" : this.state.status,
+        build_errors: buildErrors,
+        build_warnings: buildWarnings,
       };
     } catch (error: any) {
       customlog(
         "error",
-        "Failed to start dev server:",
+        "Internal server error in startDevServer:",
         error.message,
         error.stack,
       );
       this.state.status = "error";
       this.state.error = error.message;
-      this.state.addLog(`Failed to start dev server: ${error.message}`);
+      this.state.addLog(`Internal server error: ${error.message}`);
 
       return reply.code(500).send({
         success: false,
         status: "error",
         error: error.message,
+        build_errors: [
+          {
+            message: `Internal server error: ${error.message}`,
+            type: "build",
+          },
+        ],
+        build_warnings: [],
       });
     }
   }
@@ -524,5 +582,131 @@ export class ExpoDevServerService {
     await this.killExpoProcess();
     await this.cleanup();
     this.state.reset();
+  }
+
+  private async installDependenciesWithErrorParsing(
+    projectDir: string,
+    buildErrors: CodeError[],
+    buildWarnings: CodeWarning[],
+  ): Promise<void> {
+    // Create a simple logger that captures output
+    const logger = {
+      addLog: (message: string) => {
+        this.state.addLog(message);
+      },
+      log: (
+        message: string,
+        success: boolean = true,
+        output: string = "",
+        error: string = "",
+      ) => {
+        if (!success) {
+          const outputToProcess = error || output || "";
+          this.parseNpmOutput(outputToProcess, buildErrors, buildWarnings);
+        }
+      },
+      getBuildLog: () => [],
+      getElapsedTime: () => 0,
+    };
+
+    // Use shared installDependencies function
+    await installDependencies(projectDir, logger);
+  }
+
+  private async updateDevServerFiles(
+    projectDir: string,
+    files: any[],
+    assets: any[],
+    buildErrors: CodeError[],
+    buildWarnings: CodeWarning[],
+  ): Promise<void> {
+    // Check if project directory exists
+    try {
+      await fs.stat(projectDir);
+      // Update only the provided files
+      await writeProjectFiles(files, assets, projectDir);
+
+      // Check if package.json was updated and reinstall if needed
+      const packageJsonUpdated = files.some(
+        (file) => file.name === "package.json",
+      );
+      if (packageJsonUpdated) {
+        try {
+          await this.installDependenciesWithErrorParsing(
+            projectDir,
+            buildErrors,
+            buildWarnings,
+          );
+        } catch (error: any) {
+          customlog(
+            "error",
+            "Dependency update failed for package.json change:",
+            error.message,
+            error.stack,
+          );
+          buildErrors.push({
+            message: `Dependency update failed: ${error.message}`,
+            type: "dependency",
+          });
+        }
+      }
+    } catch (error: any) {
+      customlog(
+        "info",
+        "Project directory doesn't exist, treating as complete scope:",
+        error.message,
+      );
+      await fs.mkdir(projectDir, { recursive: true });
+      await writeProjectFiles(files, assets, projectDir);
+      try {
+        await this.installDependenciesWithErrorParsing(
+          projectDir,
+          buildErrors,
+          buildWarnings,
+        );
+      } catch (error: any) {
+        customlog(
+          "error",
+          "Dependency installation failed for new project directory:",
+          error.message,
+          error.stack,
+        );
+        buildErrors.push({
+          message: `Dependency installation failed: ${error.message}`,
+          type: "dependency",
+        });
+      }
+    }
+  }
+
+  private parseNpmOutput(
+    output: string,
+    buildErrors: CodeError[],
+    buildWarnings: CodeWarning[],
+  ): void {
+    if (!output || typeof output !== "string") {
+      return;
+    }
+    const lines = output.split("\n");
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // Parse npm errors
+      if (trimmedLine.includes("npm ERR!") || trimmedLine.includes("ERROR")) {
+        buildErrors.push({
+          message: trimmedLine.replace(/^npm ERR!\s*/, ""),
+          type: "dependency",
+        });
+      }
+
+      // Parse npm warnings
+      if (trimmedLine.includes("npm WARN") || trimmedLine.includes("WARNING")) {
+        buildWarnings.push({
+          message: trimmedLine.replace(/^npm WARN\s*/, ""),
+          type: "deprecation",
+        });
+      }
+    }
   }
 }

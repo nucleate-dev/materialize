@@ -1,17 +1,13 @@
 import AWS from "aws-sdk";
 import { execSync, spawn, SpawnOptions } from "child_process";
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { installDependencies, writeProjectFiles } from "./shared-utils.js";
 import {
-  BuildAndDeployRequest,
   BuildAndDeployResponse,
   BuildLogEntry,
-  BuildRequest,
   BuildResponse,
-  DeployRequest,
   DeployResponse,
 } from "./types/BuildWorkerTypes.js";
 
@@ -90,40 +86,6 @@ export class BuilderService {
     };
   }
 
-  private isBinaryFile(filename: string): boolean {
-    const ext = path.extname(filename).toLowerCase();
-    const binaryExtensions = [
-      ".png",
-      ".jpg",
-      ".jpeg",
-      ".gif",
-      ".webp",
-      ".bmp",
-      ".ico",
-      ".svg",
-      ".ttf",
-      ".otf",
-      ".woff",
-      ".woff2",
-      ".eot",
-      ".mp4",
-      ".mp3",
-      ".wav",
-      ".ogg",
-      ".webm",
-      ".pdf",
-      ".zip",
-      ".tar",
-      ".gz",
-      ".rar",
-      ".exe",
-      ".dmg",
-      ".app",
-      ".deb",
-      ".rpm",
-    ];
-    return binaryExtensions.includes(ext);
-  }
 
   private getContentType(filename: string): string {
     const ext = path.extname(filename).toLowerCase();
@@ -188,18 +150,19 @@ export class BuilderService {
     return uploadResults;
   }
 
-  async buildProject(
-    request: FastifyRequest<{ Body: BuildRequest }>,
-    reply: FastifyReply,
+  async buildProjectCore(
+    prototype_id: string,
+    files: any[],
+    assets: any[],
+    buildId?: string,
   ): Promise<BuildResponse> {
-    const buildId = uuidv4();
-    const { prototype_id, files, assets } = request.body;
-    const logger = this.createLogger(buildId);
+    const actualBuildId = buildId || uuidv4();
+    const logger = this.createLogger(actualBuildId);
 
     logger.log(
       "Starting build",
       true,
-      `Build ID: ${buildId}, Prototype: ${prototype_id}, Files: ${files.length}`,
+      `Build ID: ${actualBuildId}, Prototype: ${prototype_id}, Files: ${files.length}`,
     );
 
     if (
@@ -208,7 +171,6 @@ export class BuilderService {
       !Array.isArray(files) ||
       files.length === 0
     ) {
-      reply.code(400);
       return {
         success: false,
         error: "prototypeId and files array are required",
@@ -216,7 +178,7 @@ export class BuilderService {
       };
     }
 
-    const buildDir = path.join(this.WORK_DIR, buildId);
+    const buildDir = path.join(this.WORK_DIR, actualBuildId);
 
     try {
       logger.log("Checking system resources");
@@ -269,7 +231,6 @@ export class BuilderService {
       };
     } catch (error: any) {
       logger.log("Build failed", false, "", error.message);
-      reply.code(500);
       return {
         success: false,
         error: error.message,
@@ -278,22 +239,21 @@ export class BuilderService {
     }
   }
 
-  async deployProject(
-    request: FastifyRequest<{ Body: DeployRequest }>,
-    reply: FastifyReply,
+  async deployProjectCore(
+    prototype_id: string,
+    buildPath: string,
+    deployId?: string,
   ): Promise<DeployResponse> {
-    const deployId = uuidv4();
-    const { prototype_id, buildPath } = request.body;
-    const logger = this.createLogger(deployId);
+    const actualDeployId = deployId || uuidv4();
+    const logger = this.createLogger(actualDeployId);
 
     logger.log(
       "Starting deploy",
       true,
-      `Deploy ID: ${deployId}, Prototype: ${prototype_id}, Build path: ${buildPath}`,
+      `Deploy ID: ${actualDeployId}, Prototype: ${prototype_id}, Build path: ${buildPath}`,
     );
 
     if (!prototype_id || !buildPath) {
-      reply.code(400);
       return {
         success: false,
         error: "prototypeId and buildPath are required",
@@ -325,7 +285,6 @@ export class BuilderService {
       };
     } catch (error: any) {
       logger.log("Deploy failed", false, "", error.message);
-      reply.code(500);
       return {
         success: false,
         error: error.message,
@@ -333,22 +292,20 @@ export class BuilderService {
     }
   }
 
-  async buildAndDeployProject(
-    request: FastifyRequest<{ Body: BuildAndDeployRequest }>,
-    reply: FastifyReply,
+  async buildAndDeployProjectCore(
+    prototype_id: string,
+    jobId?: string,
   ): Promise<BuildAndDeployResponse> {
-    const jobId = uuidv4();
-    const { prototype_id } = request.body;
-    const logger = this.createLogger(jobId);
+    const actualJobId = jobId || uuidv4();
+    const logger = this.createLogger(actualJobId);
 
     logger.log(
       "Starting build and deploy",
       true,
-      `Job ID: ${jobId}, Prototype: ${prototype_id}`,
+      `Job ID: ${actualJobId}, Prototype: ${prototype_id}`,
     );
 
     if (!prototype_id) {
-      reply.code(400);
       return {
         success: false,
         error: "prototypeId is required",
@@ -369,7 +326,6 @@ export class BuilderService {
           `Directory: ${buildDir}`,
         );
       } catch (error) {
-        reply.code(404);
         return {
           success: false,
           error:
@@ -405,7 +361,6 @@ export class BuilderService {
       };
     } catch (error: any) {
       logger.log("Build and deploy failed", false, "", error.message);
-      reply.code(500);
       return {
         success: false,
         error: error.message,
@@ -420,15 +375,6 @@ export class BuilderService {
     }
   }
 
-  registerRoutes(app: FastifyInstance): void {
-    app.post<{ Body: BuildRequest }>("/build", async (request, reply) => {
-      return this.buildProject(request, reply);
-    });
-
-    app.post<{ Body: DeployRequest }>("/deploy", async (request, reply) => {
-      return this.deployProject(request, reply);
-    });
-  }
 
   private runCommand(
     command: string,

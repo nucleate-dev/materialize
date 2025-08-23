@@ -175,10 +175,6 @@ app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
   }
 });
 
-// Register builder endpoints
-builderService.registerRoutes(app);
-await expoDevServerService.register(app);
-
 // Register public API endpoints
 publicApiService.registerRoutes(app);
 
