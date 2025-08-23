@@ -3,8 +3,17 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { customlog } from "./logger.js";
-import { installDependencies, writeProjectFiles } from "./shared-utils.js";
-import { CodeError, CodeWarning, PublicDevServerStartRequest } from "./types/BuildWorkerTypes.js";
+import {
+  installDependencies,
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+  writeProjectFiles,
+} from "./shared-utils.js";
+import {
+  CodeError,
+  CodeWarning,
+  PublicDevServerStartRequest,
+} from "./types/BuildWorkerTypes.js";
 
 interface DevServerStartResponse {
   success: boolean;
@@ -381,20 +390,6 @@ export class ExpoDevServerService {
     }
   }
 
-  // Get logs
-  private async getLogs(
-    request: FastifyRequest<{ Querystring: { lines?: string } }>,
-    _reply: FastifyReply,
-  ): Promise<DevServerLogsResponse> {
-    const lines = parseInt(request.query.lines || "50", 10);
-    const logs = this.state.logs.slice(-lines);
-
-    return {
-      logs,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
   private async startExpoProcess(
     projectDir: string,
     port: number,
@@ -615,8 +610,8 @@ export class ExpoDevServerService {
 
   private async updateDevServerFiles(
     projectDir: string,
-    files: any[],
-    assets: any[],
+    files: PrototypeFileInput[],
+    assets: PrototypeAssetInputWithContent[],
     buildErrors: CodeError[],
     buildWarnings: CodeWarning[],
   ): Promise<void> {

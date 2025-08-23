@@ -1,10 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import type {
-  CodeError,
-  CodeWarning,
-  PrototypeAssetInput,
-  PrototypeFileInput,
-} from "./PublicAPITypes.js";
+import type { CodeError, CodeWarning } from "./PublicAPITypes.js";
 import type { Database } from "./supabase.js";
 
 // ============================================================================
@@ -65,14 +60,6 @@ export interface FargateInstanceInfo {
 // ============================================================================
 // REQUEST AND RESPONSE TYPES (Use PublicServerAPITypes as source of truth)
 // ============================================================================
-
-export interface FargateRequestBody {
-  prototype_id: string;
-  framework: Framework;
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
-  file_scope: FileScope;
-}
 
 export interface FargateDevServerResponse {
   status: BuildResultStatus;
