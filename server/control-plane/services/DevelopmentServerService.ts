@@ -108,7 +108,7 @@ export class DevelopmentServerService {
         schema: {
           body: {
             type: 'object',
-            required: ['files', 'prototype_id'],
+            required: ['files', 'assets', 'prototype_id'],
             properties: {
               files: {
                 type: 'array',
@@ -127,8 +127,22 @@ export class DevelopmentServerService {
                   },
                 },
               },
+              assets: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['name', 'storage_url', 'prototype_id'],
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    storage_url: { type: 'string' },
+                    prototype_id: { type: 'string' },
+                    created_at: { type: 'string' },
+                    updated_at: { type: 'string' },
+                  },
+                },
+              },
               prototype_id: { type: 'string' },
-              file_scope: { type: 'string', enum: ['updates', 'complete'] },
             },
           },
         },
@@ -352,11 +366,11 @@ export class DevelopmentServerService {
     reply: FastifyReply,
   ): Promise<void> {
     try {
-      const { files, prototype_id, file_scope = 'complete' } = request.body;
+      const { files, assets, prototype_id } = request.body;
 
       console.log('🔍 [start-dev-server] Files:', files.length);
+      console.log('🔍 [start-dev-server] Assets:', assets.length);
       console.log('🔍 [start-dev-server] Prototype ID:', prototype_id);
-      console.log('🔍 [start-dev-server] File scope:', file_scope);
 
       // 1. Authenticate JWT and get user info
       const token = request.headers.authorization?.split(' ')[1];
@@ -378,7 +392,11 @@ export class DevelopmentServerService {
       }
 
       // 2. Paywall check this user
-      if (await hasExceededUsageLimit(token, authResponse.user.id)) {
+      const exceededUsageLimit = await hasExceededUsageLimit(
+        token,
+        authResponse.user.id,
+      );
+      if (exceededUsageLimit.exceeded) {
         return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
           error: 'Payment required',
           message:
@@ -442,16 +460,14 @@ export class DevelopmentServerService {
         } as StartDevServerErrorResponse);
       }
 
-      // Separate assets from text files from the client-sent files
-      // TODO: This should just be passed in from the client as two separate arrays
-      const assetFiles = files.filter((file) => file.file_type === 'asset');
+      // Process assets and text files separately (now passed as separate arrays)
       const textFiles = files.filter(
         (file) => file.file_type === 'text' || !file.file_type,
       );
 
       console.log(
-        `🔍 Received ${assetFiles.length} assets from client:`,
-        assetFiles.map((a) => a.name),
+        `🔍 Received ${assets.length} assets from client:`,
+        assets.map((a) => a.name),
       );
       console.log(
         `🔍 Received ${textFiles.length} text files from client:`,
@@ -461,31 +477,29 @@ export class DevelopmentServerService {
       // Convert assets to build worker format - download from storage and convert to base64
       // TODO: Sourish: move this to the dispatcher
       const assetFilesForDispatch: FileInput[] = [];
-      for (const assetFile of assetFiles) {
-        if (assetFile.file_type === 'asset' && assetFile.storage_path) {
-          console.log(
-            `🔍 Converting asset ${assetFile.name} from storage_path: ${assetFile.storage_path}`,
-          );
-          try {
-            const response = await fetch(assetFile.storage_path);
-            if (!response.ok) {
-              console.error(
-                `Failed to fetch asset ${assetFile.name}: ${response.status} ${response.statusText}`,
-              );
-              continue;
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const base64Content = Buffer.from(arrayBuffer).toString('base64');
-
-            assetFilesForDispatch.push({
-              path: assetFile.name,
-              content: base64Content,
-              isBase64: true,
-            });
-            console.log(`✅ Successfully converted asset: ${assetFile.name}`);
-          } catch (error) {
-            console.error(`Error converting asset ${assetFile.name}:`, error);
+      for (const asset of assets) {
+        console.log(
+          `🔍 Converting asset ${asset.name} from storage_url: ${asset.storage_url}`,
+        );
+        try {
+          const response = await fetch(asset.storage_url);
+          if (!response.ok) {
+            console.error(
+              `Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
+            );
+            continue;
           }
+          const arrayBuffer = await response.arrayBuffer();
+          const base64Content = Buffer.from(arrayBuffer).toString('base64');
+
+          assetFilesForDispatch.push({
+            path: asset.name,
+            content: base64Content,
+            isBase64: true,
+          });
+          console.log(`✅ Successfully converted asset: ${asset.name}`);
+        } catch (error) {
+          console.error(`Error converting asset ${asset.name}:`, error);
         }
       }
       console.log(
@@ -517,7 +531,7 @@ export class DevelopmentServerService {
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: filesForDispatch,
-          file_scope: file_scope,
+          file_scope: 'complete', // all start-dev-server requests must have complete file scope
         } as DispatchRequestBody,
       });
 

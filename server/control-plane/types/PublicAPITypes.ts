@@ -263,8 +263,18 @@ export interface PrototypeFileInput {
   updated_at?: string;
 }
 
+export interface PrototypeAssetInput {
+  id?: string;
+  name: string;
+  storage_url: string;
+  prototype_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface StartDevServerRequestBody {
   files: PrototypeFileInput[];
+  assets: PrototypeAssetInput[];
   prototype_id: string;
   file_scope?: 'updates' | 'complete';
 }
