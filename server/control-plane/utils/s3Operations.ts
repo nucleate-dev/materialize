@@ -305,7 +305,7 @@ export async function copyDefaultAppToPrototype(
   s3Client: S3Client,
   prototypeId: string,
 ): Promise<S3CopyResult> {
-  const sourcePrefix = 'default-app';
+  const sourcePrefix = 'default-app/';
   const destinationPrefix = prototypeId; // Remove 'prototypes/' prefix
 
   return copyS3BucketContents(s3Client, sourcePrefix, destinationPrefix);

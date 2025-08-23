@@ -253,7 +253,7 @@ export async function copyS3BucketContents(
 export async function copyDefaultAppToPrototype(
   prototypeId: string,
 ): Promise<S3CopyResult> {
-  const sourcePrefix = "default-app";
+  const sourcePrefix = "default-app/";
   const destinationPrefix = `${prototypeId}`;
 
   return copyS3BucketContents(sourcePrefix, destinationPrefix);
