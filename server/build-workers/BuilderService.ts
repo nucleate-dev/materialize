@@ -4,7 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { installDependencies } from "./shared-utils.js";
+import { installDependencies, writeProjectFiles } from "./shared-utils.js";
 import {
   BuildAndDeployRequest,
   BuildAndDeployResponse,
@@ -13,7 +13,6 @@ import {
   BuildResponse,
   DeployRequest,
   DeployResponse,
-  FileInput,
 } from "./types/BuildWorkerTypes.js";
 
 export class BuilderService {
@@ -194,16 +193,21 @@ export class BuilderService {
     reply: FastifyReply,
   ): Promise<BuildResponse> {
     const buildId = uuidv4();
-    const { prototypeId, files } = request.body;
+    const { prototype_id, files, assets } = request.body;
     const logger = this.createLogger(buildId);
 
     logger.log(
       "Starting build",
       true,
-      `Build ID: ${buildId}, Prototype: ${prototypeId}, Files: ${files.length}`,
+      `Build ID: ${buildId}, Prototype: ${prototype_id}, Files: ${files.length}`,
     );
 
-    if (!prototypeId || !files || !Array.isArray(files) || files.length === 0) {
+    if (
+      !prototype_id ||
+      !files ||
+      !Array.isArray(files) ||
+      files.length === 0
+    ) {
       reply.code(400);
       return {
         success: false,
@@ -233,7 +237,7 @@ export class BuilderService {
       }
 
       logger.log("Writing project files");
-      await this.writeProjectFiles(files, buildDir);
+      await writeProjectFiles(files, assets, buildDir);
       logger.log("Project files written", true, `Build directory: ${buildDir}`);
 
       logger.log("Starting dependency installation");
@@ -279,16 +283,16 @@ export class BuilderService {
     reply: FastifyReply,
   ): Promise<DeployResponse> {
     const deployId = uuidv4();
-    const { prototypeId, buildPath } = request.body;
+    const { prototype_id, buildPath } = request.body;
     const logger = this.createLogger(deployId);
 
     logger.log(
       "Starting deploy",
       true,
-      `Deploy ID: ${deployId}, Prototype: ${prototypeId}, Build path: ${buildPath}`,
+      `Deploy ID: ${deployId}, Prototype: ${prototype_id}, Build path: ${buildPath}`,
     );
 
-    if (!prototypeId || !buildPath) {
+    if (!prototype_id || !buildPath) {
       reply.code(400);
       return {
         success: false,
@@ -300,13 +304,13 @@ export class BuilderService {
       await fs.stat(buildPath);
 
       logger.log("Uploading to S3");
-      const s3KeyPrefix = `${prototypeId}/dist`;
+      const s3KeyPrefix = `${prototype_id}/dist`;
       const uploadedFiles = await this.uploadDirectoryToS3(
         buildPath,
         s3KeyPrefix,
       );
 
-      const buildUrl = `https://${prototypeId}.render.materializeui.com`;
+      const buildUrl = `https://${prototype_id}.render.materializeui.com`;
 
       logger.log(
         "Deploy completed",
@@ -334,16 +338,16 @@ export class BuilderService {
     reply: FastifyReply,
   ): Promise<BuildAndDeployResponse> {
     const jobId = uuidv4();
-    const { prototypeId } = request.body;
+    const { prototype_id } = request.body;
     const logger = this.createLogger(jobId);
 
     logger.log(
       "Starting build and deploy",
       true,
-      `Job ID: ${jobId}, Prototype: ${prototypeId}`,
+      `Job ID: ${jobId}, Prototype: ${prototype_id}`,
     );
 
-    if (!prototypeId) {
+    if (!prototype_id) {
       reply.code(400);
       return {
         success: false,
@@ -353,7 +357,7 @@ export class BuilderService {
     }
 
     // Use the existing project directory instead of creating a new one
-    const buildDir = path.join(this.WORK_DIR, prototypeId);
+    const buildDir = path.join(this.WORK_DIR, prototype_id);
 
     try {
       // Check if project directory exists
@@ -379,13 +383,13 @@ export class BuilderService {
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
       logger.log("Starting deploy phase");
-      const s3KeyPrefix = `${prototypeId}/dist`;
+      const s3KeyPrefix = `${prototype_id}/dist`;
       const uploadedFiles = await this.uploadDirectoryToS3(
         outputPath,
         s3KeyPrefix,
       );
 
-      const buildUrl = `https://${prototypeId}.render.materializeui.com`;
+      const buildUrl = `https://${prototype_id}.render.materializeui.com`;
 
       logger.log(
         "Build and deploy completed",
@@ -424,27 +428,6 @@ export class BuilderService {
     app.post<{ Body: DeployRequest }>("/deploy", async (request, reply) => {
       return this.deployProject(request, reply);
     });
-  }
-
-  private async writeProjectFiles(
-    files: FileInput[],
-    projectDir: string,
-  ): Promise<void> {
-    await fs.mkdir(projectDir, { recursive: true });
-
-    for (const file of files) {
-      const filePath = path.join(projectDir, file.path);
-      const fileDir = path.dirname(filePath);
-
-      await fs.mkdir(fileDir, { recursive: true });
-
-      if (file.isBase64) {
-        const binaryContent = Buffer.from(file.content, "base64");
-        await fs.writeFile(filePath, binaryContent);
-      } else {
-        await fs.writeFile(filePath, file.content, "utf8");
-      }
-    }
   }
 
   private runCommand(

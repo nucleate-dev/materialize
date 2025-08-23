@@ -11,15 +11,10 @@ export interface BuildLogEntry {
   error: string;
 }
 
-export interface FileInput {
-  path: string;
-  content: string;
-  isBase64?: boolean;
-}
-
 export interface BuildRequest {
-  prototypeId: string;
-  files: FileInput[];
+  prototype_id: string;
+  files: PrototypeFileInput[];
+  assets: PrototypeAssetInputWithContent[];
 }
 
 export interface BuildResponse {
@@ -30,7 +25,7 @@ export interface BuildResponse {
 }
 
 export interface DeployRequest {
-  prototypeId: string;
+  prototype_id: string;
   buildPath: string;
 }
 
@@ -42,7 +37,7 @@ export interface DeployResponse {
 }
 
 export interface BuildAndDeployRequest {
-  prototypeId: string;
+  prototype_id: string;
 }
 
 export interface BuildAndDeployResponse {

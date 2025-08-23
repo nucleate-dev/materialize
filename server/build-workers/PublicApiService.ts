@@ -4,11 +4,14 @@ import path from "path";
 import { BuilderService } from "./BuilderService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { customlog } from "./logger.js";
-import { installDependencies } from "./shared-utils.js";
+import {
+  installDependencies,
+  PrototypeFileInput,
+  writeProjectFiles,
+} from "./shared-utils.js";
 import {
   CodeError,
   CodeWarning,
-  FileInput,
   PublicBuildAndDeployRequest,
   PublicBuildAndDeployResponse,
   PublicDevServerStartRequest,
@@ -16,10 +19,7 @@ import {
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
 } from "./types/BuildWorkerTypes.js";
-import {
-  PrototypeAssetInputWithContent,
-  PrototypeFileInput,
-} from "./types/PublicAPITypes.js";
+import { PrototypeAssetInputWithContent } from "./types/PublicAPITypes.js";
 
 export class PublicApiService {
   private readonly builderService: BuilderService;
@@ -103,7 +103,7 @@ export class PublicApiService {
         }
         // Create new directory and write all files
         await fs.mkdir(projectDir, { recursive: true });
-        await this.writeProjectFiles(files, assets, projectDir);
+        await writeProjectFiles(files, assets, projectDir);
 
         // Install dependencies for new project
         try {
@@ -129,7 +129,7 @@ export class PublicApiService {
         try {
           await fs.stat(projectDir);
           // Update only the provided files
-          await this.writeProjectFiles(files, assets, projectDir);
+          await writeProjectFiles(files, assets, projectDir);
 
           // Check if package.json was updated and reinstall if needed
           const packageJsonUpdated = files.some(
@@ -162,7 +162,7 @@ export class PublicApiService {
             error.message,
           );
           await fs.mkdir(projectDir, { recursive: true });
-          await this.writeProjectFiles(files, assets, projectDir);
+          await writeProjectFiles(files, assets, projectDir);
           try {
             await this.installDependenciesWithErrorParsing(
               projectDir,
@@ -292,7 +292,8 @@ export class PublicApiService {
 
       try {
         // Read all files from the project directory
-        const files = await this.readAllFilesFromDirectory(projectDir);
+        const { files, assets } =
+          await this.readAllFilesFromDirectory(projectDir);
 
         if (files.length === 0) {
           customlog(
@@ -310,6 +311,7 @@ export class PublicApiService {
             body: {
               prototypeId: prototype_id,
               files: files,
+              assets: assets,
             },
           } as FastifyRequest<{ Body: any }>;
 
@@ -473,9 +475,10 @@ export class PublicApiService {
       }
 
       // Read all files from the project directory
-      const fileInputs = await this.readAllFilesFromDirectory(projectDir);
+      const { files, assets } =
+        await this.readAllFilesFromDirectory(projectDir);
 
-      if (fileInputs.length === 0) {
+      if (files.length === 0) {
         customlog("error", "No files found in project directory:", projectDir);
         return reply.code(400).send({
           status: "error",
@@ -582,43 +585,12 @@ export class PublicApiService {
   }
 
   // Helper methods
-  private async writeProjectFiles(
-    files: PrototypeFileInput[],
-    assets: PrototypeAssetInputWithContent[],
-    projectDir: string,
-  ): Promise<void> {
-    // Handle text files
-    for (const file of files) {
-      const filePath = path.join(projectDir, file.name);
-      const fileDir = path.dirname(filePath);
-
-      await fs.mkdir(fileDir, { recursive: true });
-      await fs.writeFile(filePath, file.contents, "utf8");
-      customlog(
-        "debug",
-        `📝 Wrote text: ${file.name} (${file.contents.length} chars)`,
-      );
-    }
-
-    // Handle binary assets
-    for (const asset of assets) {
-      const filePath = path.join(projectDir, asset.name);
-      const fileDir = path.dirname(filePath);
-
-      await fs.mkdir(fileDir, { recursive: true });
-      const binaryContent = Buffer.from(asset.contents, "base64");
-      await fs.writeFile(filePath, binaryContent);
-      customlog(
-        "debug",
-        `📄 Wrote binary: ${asset.name} (${binaryContent.length} bytes)`,
-      );
-    }
-  }
-
-  private async readAllFilesFromDirectory(
-    directoryPath: string,
-  ): Promise<FileInput[]> {
-    const files: FileInput[] = [];
+  private async readAllFilesFromDirectory(directoryPath: string): Promise<{
+    assets: PrototypeAssetInputWithContent[];
+    files: PrototypeFileInput[];
+  }> {
+    const assets: PrototypeAssetInputWithContent[] = [];
+    const files: PrototypeFileInput[] = [];
 
     const readDirectory = async (
       currentPath: string,
@@ -647,17 +619,20 @@ export class PublicApiService {
 
             if (isBinary) {
               const binaryContent = await fs.readFile(fullPath);
-              files.push({
-                path: itemRelativePath,
-                content: binaryContent.toString("base64"),
-                isBase64: true,
+              assets.push({
+                name: itemRelativePath,
+                contents: binaryContent.toString("base64"),
+                storage_url: "",
+                prototype_id: "",
+                created_at: "",
+                updated_at: "",
+                id: "",
               });
             } else {
               const content = await fs.readFile(fullPath, "utf8");
               files.push({
-                path: itemRelativePath,
-                content: content,
-                isBase64: false,
+                name: itemRelativePath,
+                contents: content,
               });
             }
           }
@@ -673,7 +648,10 @@ export class PublicApiService {
     };
 
     await readDirectory(directoryPath);
-    return files;
+    return {
+      files,
+      assets,
+    };
   }
 
   private async installDependenciesWithErrorParsing(

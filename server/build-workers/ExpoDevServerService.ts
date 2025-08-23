@@ -3,36 +3,14 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { customlog } from "./logger.js";
-import { installDependencies } from "./shared-utils.js";
-
-// --- Types ---
-interface FileInput {
-  path: string;
-  content: string;
-  isBase64?: boolean;
-}
-
-interface DevServerStartRequest {
-  prototypeId: string;
-  files: FileInput[];
-  port?: number;
-}
+import { installDependencies, writeProjectFiles } from "./shared-utils.js";
+import { PublicDevServerStartRequest } from "./types/BuildWorkerTypes.js";
 
 interface DevServerStartResponse {
   success: boolean;
   tunnelUrl?: string;
   port?: number;
   status: "starting" | "running" | "error";
-  error?: string;
-}
-
-interface DevServerUpdateFilesRequest {
-  files: FileInput[];
-}
-
-interface DevServerUpdateFilesResponse {
-  success: boolean;
-  updatedFiles?: string[];
   error?: string;
 }
 
@@ -117,15 +95,9 @@ export class ExpoDevServerService {
   // Register all dev server routes with Fastify
   public async register(app: FastifyInstance): Promise<void> {
     // Start dev server
-    app.post<{ Body: DevServerStartRequest }>(
+    app.post<{ Body: PublicDevServerStartRequest }>(
       "/dev-server/start",
       this.startDevServer.bind(this),
-    );
-
-    // Update files (hot reload)
-    app.post<{ Body: DevServerUpdateFilesRequest }>(
-      "/dev-server/update-files",
-      this.updateFiles.bind(this),
     );
 
     // Get status
@@ -146,14 +118,19 @@ export class ExpoDevServerService {
 
   // Start Expo dev server
   private async startDevServer(
-    request: FastifyRequest<{ Body: DevServerStartRequest }>,
+    request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<DevServerStartResponse> {
-    const { prototypeId, files, port } = request.body;
+    const { prototype_id, framework, files, assets, file_scope } = request.body;
 
-    if (!prototypeId || !files || !Array.isArray(files) || files.length === 0) {
+    if (
+      !prototype_id ||
+      !files ||
+      !Array.isArray(files) ||
+      files.length === 0
+    ) {
       customlog("error", "Invalid startDevServer request:", {
-        prototypeId,
+        prototype_id,
         filesCount: files?.length,
       });
       return reply.code(400).send({
@@ -165,7 +142,7 @@ export class ExpoDevServerService {
 
     // Check if dev server is already running
     if (this.state.status === "running" || this.state.status === "starting") {
-      if (this.state.prototypeId === prototypeId) {
+      if (this.state.prototypeId === prototype_id) {
         return {
           success: true,
           tunnelUrl: this.state.tunnelUrl || undefined,
@@ -178,7 +155,7 @@ export class ExpoDevServerService {
           "Dev server already running for different prototype:",
           {
             currentPrototype: this.state.prototypeId,
-            requestedPrototype: prototypeId,
+            requestedPrototype: prototype_id,
           },
         );
         return reply.code(409).send({
@@ -190,18 +167,18 @@ export class ExpoDevServerService {
     }
 
     try {
-      this.state.prototypeId = prototypeId;
-      this.state.port = port || this.defaultPort;
+      this.state.prototypeId = prototype_id;
+      this.state.port = this.defaultPort;
       this.state.status = "starting";
       this.state.startTime = new Date();
-      this.state.addLog(`Starting dev server for prototype ${prototypeId}`);
+      this.state.addLog(`Starting dev server for prototype ${prototype_id}`);
 
       // Setup project directory
-      this.state.projectDir = path.join(this.workDir, prototypeId);
+      this.state.projectDir = path.join(this.workDir, prototype_id);
       await fs.mkdir(this.state.projectDir, { recursive: true });
 
       // Write project files
-      await this.writeProjectFiles(files, this.state.projectDir);
+      await writeProjectFiles(files, assets, this.state.projectDir);
       this.state.addLog(`Wrote ${files.length} files to project directory`);
 
       // Install dependencies
@@ -231,79 +208,6 @@ export class ExpoDevServerService {
       return reply.code(500).send({
         success: false,
         status: "error",
-        error: error.message,
-      });
-    }
-  }
-
-  // Update files for hot reload
-  private async updateFiles(
-    request: FastifyRequest<{ Body: DevServerUpdateFilesRequest }>,
-    reply: FastifyReply,
-  ): Promise<DevServerUpdateFilesResponse> {
-    const { files } = request.body;
-
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      customlog("error", "Invalid updateFiles request - missing files array:", {
-        filesCount: files?.length,
-      });
-      return reply.code(400).send({
-        success: false,
-        error: "files array is required",
-      });
-    }
-
-    if (this.state.status !== "running" || !this.state.projectDir) {
-      customlog("error", "Cannot update files - dev server not running:", {
-        status: this.state.status,
-        hasProjectDir: !!this.state.projectDir,
-      });
-      return reply.code(409).send({
-        success: false,
-        error: "No dev server currently running",
-      });
-    }
-
-    try {
-      const updatedFiles: string[] = [];
-
-      for (const file of files) {
-        const filePath = path.join(this.state.projectDir, file.path);
-        const fileDir = path.dirname(filePath);
-
-        // Ensure directory exists
-        await fs.mkdir(fileDir, { recursive: true });
-
-        // Write file content - handle binary vs text files
-        if (file.isBase64) {
-          // Handle binary files (images, fonts, etc.)
-          const binaryContent = Buffer.from(file.content, "base64");
-          await fs.writeFile(filePath, binaryContent);
-          this.state.addLog(
-            `Updated binary file: ${file.path} (${binaryContent.length} bytes)`,
-          );
-        } else {
-          // Handle text files
-          await fs.writeFile(filePath, file.content, "utf8");
-          this.state.addLog(
-            `Updated text file: ${file.path} (${file.content.length} chars)`,
-          );
-        }
-        updatedFiles.push(file.path);
-      }
-
-      this.state.addLog(`Updated ${updatedFiles.length} files for hot reload`);
-
-      return {
-        success: true,
-        updatedFiles,
-      };
-    } catch (error: any) {
-      customlog("error", "Failed to update files:", error.message, error.stack);
-      this.state.addLog(`Failed to update files: ${error.message}`);
-
-      return reply.code(500).send({
-        success: false,
         error: error.message,
       });
     }
@@ -431,44 +335,6 @@ export class ExpoDevServerService {
       logs,
       timestamp: new Date().toISOString(),
     };
-  }
-
-  // --- Private Helper Methods ---
-
-  private async writeProjectFiles(
-    files: FileInput[],
-    projectDir: string,
-  ): Promise<void> {
-    // Log file breakdown
-    const textFiles = files.filter((f) => !f.isBase64);
-    const binaryFiles = files.filter((f) => f.isBase64);
-    this.state.addLog(
-      `📊 Writing ${files.length} files: ${textFiles.length} text, ${binaryFiles.length} binary`,
-    );
-
-    for (const file of files) {
-      const filePath = path.join(projectDir, file.path);
-      const fileDir = path.dirname(filePath);
-
-      // Ensure directory exists
-      await fs.mkdir(fileDir, { recursive: true });
-
-      // Write file content - handle binary vs text files
-      if (file.isBase64) {
-        // Handle binary files (images, fonts, etc.)
-        const binaryContent = Buffer.from(file.content, "base64");
-        await fs.writeFile(filePath, binaryContent);
-        this.state.addLog(
-          `Wrote binary file: ${file.path} (${binaryContent.length} bytes)`,
-        );
-      } else {
-        // Handle text files
-        await fs.writeFile(filePath, file.content, "utf8");
-        this.state.addLog(
-          `Wrote text file: ${file.path} (${file.content.length} chars)`,
-        );
-      }
-    }
   }
 
   private async startExpoProcess(

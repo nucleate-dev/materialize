@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+import { customlog } from "./logger.js";
 
 export interface Logger {
   log: (
@@ -13,6 +14,16 @@ export interface Logger {
 
 export interface SimpleLogger {
   addLog: (message: string) => void;
+}
+
+export interface PrototypeFileInput {
+  name: string;
+  contents: string;
+}
+
+export interface PrototypeAssetInputWithContent {
+  name: string;
+  contents: string;
 }
 
 export async function installDependencies(
@@ -111,4 +122,37 @@ export async function installDependencies(
       reject(error);
     });
   });
+}
+
+export async function writeProjectFiles(
+  files: PrototypeFileInput[],
+  assets: PrototypeAssetInputWithContent[],
+  projectDir: string,
+): Promise<void> {
+  // Handle text files
+  for (const file of files) {
+    const filePath = path.join(projectDir, file.name);
+    const fileDir = path.dirname(filePath);
+
+    await fs.mkdir(fileDir, { recursive: true });
+    await fs.writeFile(filePath, file.contents, "utf8");
+    customlog(
+      "debug",
+      `📝 Wrote text: ${file.name} (${file.contents.length} chars)`,
+    );
+  }
+
+  // Handle binary assets
+  for (const asset of assets) {
+    const filePath = path.join(projectDir, asset.name);
+    const fileDir = path.dirname(filePath);
+
+    await fs.mkdir(fileDir, { recursive: true });
+    const binaryContent = Buffer.from(asset.contents, "base64");
+    await fs.writeFile(filePath, binaryContent);
+    customlog(
+      "debug",
+      `📄 Wrote binary: ${asset.name} (${binaryContent.length} bytes)`,
+    );
+  }
 }
