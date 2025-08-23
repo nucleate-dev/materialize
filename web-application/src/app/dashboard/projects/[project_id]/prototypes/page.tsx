@@ -7,7 +7,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -36,7 +36,9 @@ export default function ProjectPrototypesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activePrototype, setActivePrototype] = useState<Prototype | null>(null);
+  const [activePrototype, setActivePrototype] = useState<Prototype | null>(
+    null,
+  );
 
   const fetchData = useCallback(async () => {
     if (!projectId) {

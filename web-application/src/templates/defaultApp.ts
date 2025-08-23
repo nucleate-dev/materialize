@@ -1,4 +1,4 @@
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { SnackFiles } from "../lib/types/chat";
 
 export const DEFAULT_APP_CODE = `import React from 'react';
@@ -483,7 +483,7 @@ export const spacing: Spacing = {
         devDependencies: {
           "@types/react": "~19.0.0",
           "@types/react-native": "^0.79.1",
-          "typescript": "^5.7.2"
+          typescript: "^5.7.2",
         },
         private: true,
       },
@@ -503,8 +503,8 @@ export const spacing: Spacing = {
           allowSyntheticDefaultImports: true,
           jsx: "react-jsx",
           moduleResolution: "bundler",
-          resolveJsonModule: true
-        }
+          resolveJsonModule: true,
+        },
       },
       null,
       2,

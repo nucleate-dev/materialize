@@ -1,4 +1,4 @@
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 type PrototypeFileInsert =
@@ -28,7 +28,9 @@ export async function saveFilesToDatabase(
     return;
   }
 
-  console.log(`Saving ${fileEntries.length} files to database using batch upsert...`);
+  console.log(
+    `Saving ${fileEntries.length} files to database using batch upsert...`,
+  );
 
   try {
     // Prepare data for upsert - convert to array format
@@ -36,8 +38,6 @@ export async function saveFilesToDatabase(
       prototype_id: prototypeId,
       name: filePath,
       contents: fileData.contents,
-      file_type: fileData.file_type || "text",
-      storage_path: fileData.storage_path || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
@@ -57,9 +57,12 @@ export async function saveFilesToDatabase(
       throw new Error(`Failed to save files: ${error.message}`);
     }
 
-    console.log(`✅ Successfully saved ${data?.length || fileEntries.length} files to database`);
+    console.log(
+      `✅ Successfully saved ${data?.length || fileEntries.length} files to database`,
+    );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     console.error("Error saving files to database:", error);
     throw new Error(`Failed to save files: ${errorMessage}`);
   }

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import type {
   UpdateFilesRequestBody,
   UpdateFilesResponse,
@@ -21,6 +21,7 @@ import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 interface CodeEditorProps {
   value: string;
@@ -35,6 +36,7 @@ interface CodeEditorProps {
   // Props needed for save functionality
   prototypeId?: string;
   files?: Record<string, PrototypeFile>;
+  assets?: Record<string, PrototypeAsset>;
   onViewingUrlUpdate?: (url: string) => void;
   onForceRefresh?: () => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
@@ -55,6 +57,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Save functionality props
   prototypeId,
   files,
+  assets,
   onViewingUrlUpdate,
   // onForceRefresh,
   onBuildingStateChange,
@@ -87,6 +90,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     ? getLanguageFromFileName(fileName)
     : language;
 
+  const isAsset = (fileName: string) => {
+    return fileName && assets && fileName in assets;
+  };
+
   // Check if current file is an image asset
   const isImageFile = (name: string) => {
     const ext = name?.split(".").pop()?.toLowerCase();
@@ -96,10 +103,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   // Get the current file data to check if it's an asset with storage_path
-  const currentFile = fileName && files ? files[fileName] : null;
-  const isAssetImage =
-    currentFile?.file_type === "asset" && fileName && isImageFile(fileName);
-  const imageUrl = isAssetImage ? currentFile?.storage_path : null;
+  // TODO: if the sole purpose of this currentFile is to check if the file is an asset, then we should just check if the file is an asset no need to check the files array
+  const currentFile =
+    fileName && files && fileName in files
+      ? files[fileName]
+      : fileName && assets && fileName in assets
+        ? assets[fileName]
+        : null;
+  const isAssetImage = fileName && isAsset(fileName) && isImageFile(fileName);
+  const imageUrl =
+    isAssetImage && currentFile && "storage_url" in currentFile
+      ? currentFile?.storage_url
+      : null;
 
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
@@ -200,42 +215,46 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         {
           contents: value,
           name: fileName,
-          file_type: files[fileName]?.file_type || ("text" as const),
           prototype_id: files[fileName]?.prototype_id || prototypeId,
           // Copy other properties from existing file if it exists, converting null to undefined
           ...(files[fileName] && {
             id: files[fileName].id,
-            storage_path: files[fileName].storage_path || undefined,
-            created_at: files[fileName].created_at || undefined,
-            updated_at: files[fileName].updated_at || undefined,
+            created_at: files[fileName].created_at || null,
+            updated_at: files[fileName].updated_at || null,
           }),
         },
       ];
 
       const requestBody: UpdateFilesRequestBody = {
         files: singleFileUpdate,
+        assets: [],
         prototype_id: prototypeId,
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestBody),
         },
-        body: JSON.stringify(requestBody),
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Update files request failed:', errorData);
-        throw new Error(`Update failed: ${errorData.message || 'Unknown error'}`);
+        console.error("Update files request failed:", errorData);
+        throw new Error(
+          `Update failed: ${errorData.message || "Unknown error"}`,
+        );
       }
 
       const result: UpdateFilesResponse = await response.json();
 
       // Handle successful response
-      if ('success' in result && result.success) {
+      if ("success" in result && result.success) {
         console.log("✅ Single file updated successfully in dev server");
 
         // Update viewing URL if provided
@@ -245,7 +264,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       } else {
         // Handle error response
         const errorResponse = result as { error: string; message: string };
-        console.error("Failed to update file:", errorResponse.error || errorResponse.message);
+        console.error(
+          "Failed to update file:",
+          errorResponse.error || errorResponse.message,
+        );
 
         // If no active dev server, provide helpful message
         if (errorResponse.error === "No active dev server") {
@@ -287,38 +309,42 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       const filesArray = Object.entries(files).map(([path, file]) => ({
         contents: file.contents,
         name: path,
-        file_type: file.file_type || ("text" as const),
         prototype_id: file.prototype_id || prototypeId,
         id: file.id,
-        storage_path: file.storage_path || undefined,
-        created_at: file.created_at || undefined,
-        updated_at: file.updated_at || undefined,
+        created_at: file.created_at || null,
+        updated_at: file.updated_at || null,
       }));
 
       const requestBody: UpdateFilesRequestBody = {
         files: filesArray,
+        assets: [],
         prototype_id: prototypeId,
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestBody),
         },
-        body: JSON.stringify(requestBody),
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Update files request failed:', errorData);
-        throw new Error(`Update failed: ${errorData.message || 'Unknown error'}`);
+        console.error("Update files request failed:", errorData);
+        throw new Error(
+          `Update failed: ${errorData.message || "Unknown error"}`,
+        );
       }
 
       const result: UpdateFilesResponse = await response.json();
 
       // Handle successful response
-      if ('success' in result && result.success) {
+      if ("success" in result && result.success) {
         console.log("✅ All files updated successfully in dev server");
 
         // Update viewing URL if provided

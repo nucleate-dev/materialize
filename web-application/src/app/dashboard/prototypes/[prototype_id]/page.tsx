@@ -27,7 +27,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,

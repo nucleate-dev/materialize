@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import {
   extractExecutionPlan,
   logPlanningExtraction,
@@ -17,8 +17,9 @@ import {
   CodeBracketIcon,
   EyeIcon,
   EyeSlashIcon,
-  PaperAirplaneIcon, SparklesIcon,
-  TrashIcon
+  PaperAirplaneIcon,
+  SparklesIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
 
@@ -46,14 +47,13 @@ export default function ChatWindow({
   isAtLimit = false,
   loadingUsageCount = false,
 }: ChatWindowProps) {
-
   // Debug logging for messages
   useEffect(() => {
     console.log("🔍 [CHAT WINDOW COMPONENT] Received messages:", {
       count: messages.length,
-      messageIds: messages.map(m => m.id),
-      roles: messages.map(m => m.role),
-      phases: messages.map(m => m.phase || 'no_phase')
+      messageIds: messages.map((m) => m.id),
+      roles: messages.map((m) => m.role),
+      phases: messages.map((m) => m.phase || "no_phase"),
     });
   }, [messages]);
   const [input, setInput] = useState("");
@@ -178,9 +178,7 @@ export default function ChatWindow({
       // Show planning content
       return (
         <div className="text-slate-700 dark:text-slate-300">
-          <div className="whitespace-pre-wrap">
-            {messageContent}
-          </div>
+          <div className="whitespace-pre-wrap">{messageContent}</div>
         </div>
       );
     }
@@ -255,18 +253,17 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`p-4 rounded-lg ${isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-card-foreground border border-border"
-              }`}
+            className={`p-4 rounded-lg ${
+              isUser
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-card-foreground border border-border"
+            }`}
           >
             <div className="relative z-10">
-
               {/* Planning Summary at the top (more prominent) */}
               {!isUser && planData && planData.hasPlan && (
                 <div className="mb-4">
                   <div className="p-4 rounded-lg bg-muted border border-border">
-
                     {/* Compact plan overview */}
                     <div className="space-y-2">
                       {planData.operations.map((operation, index) => (
@@ -285,7 +282,10 @@ export default function ChatWindow({
                               {operation.title}
                             </span>
                           </div>
-                          <code className="px-2 py-1 bg-muted rounded text-xs text-muted-foreground break-all max-w-[200px] truncate" title={operation.filePath}>
+                          <code
+                            className="px-2 py-1 bg-muted rounded text-xs text-muted-foreground break-all max-w-[200px] truncate"
+                            title={operation.filePath}
+                          >
                             {operation.filePath}
                           </code>
                         </div>
@@ -331,10 +331,11 @@ export default function ChatWindow({
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${isUser
-                  ? "text-primary-foreground/70"
-                  : "text-muted-foreground"
-                  }`}
+                className={`text-xs mt-3 font-medium ${
+                  isUser
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground"
+                }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -470,10 +471,11 @@ export default function ChatWindow({
             </p>
           ) : (
             <p
-              className={`text-xs font-medium ${isAtLimit
-                ? "text-red-600 dark:text-red-400"
-                : "text-muted-foreground"
-                }`}
+              className={`text-xs font-medium ${
+                isAtLimit
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              }`}
             >
               Messages: {messageCount}/{messageLimit}
               {isAtLimit && " (Limit reached)"}
@@ -493,8 +495,9 @@ export default function ChatWindow({
                   ? "Message limit reached for this billing period"
                   : "Ask me to create or modify React Native code..."
               }
-              className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${isAtLimit ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
+                isAtLimit ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               rows={1}
               style={{
                 minHeight: "56px",
@@ -514,10 +517,11 @@ export default function ChatWindow({
           <button
             type="submit"
             disabled={isDisabled}
-            className={`p-3 rounded-lg transition-colors ${!isDisabled
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-              }`}
+            className={`p-3 rounded-lg transition-colors ${
+              !isDisabled
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
             title={
               isAtLimit
                 ? "Message limit reached for this billing period"

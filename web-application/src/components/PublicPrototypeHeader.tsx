@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
 import {
   CheckIcon,
@@ -247,7 +247,10 @@ export default function PublicPrototypeHeader({
                     </>
                   )}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onShare} className="flex items-center gap-2">
+                <DropdownMenuItem
+                  onClick={onShare}
+                  className="flex items-center gap-2"
+                >
                   <ShareIcon className="w-4 h-4" />
                   Share
                 </DropdownMenuItem>

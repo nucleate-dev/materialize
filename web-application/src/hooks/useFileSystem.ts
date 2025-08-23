@@ -1,5 +1,5 @@
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { useCallback, useEffect, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -23,8 +23,6 @@ export interface FileSystemActions {
   loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
 
   // Bulk file operations
-  setFiles: (files: Record<string, PrototypeFile>) => void;
-  setAssets: (assets: Record<string, PrototypeAsset>) => void;
   applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => void;
 
   // File management operations
@@ -148,22 +146,6 @@ export const useFileSystem = (
           updated_at: new Date().toISOString(),
         },
       }));
-    },
-    [],
-  );
-
-  // Bulk set files (with deep copy to ensure React detects changes)
-  const handleSetFiles = useCallback(
-    (newFiles: Record<string, PrototypeFile>) => {
-      setFiles(JSON.parse(JSON.stringify(newFiles)));
-    },
-    [],
-  );
-
-  // Bulk set assets (with deep copy to ensure React detects changes)
-  const handleSetAssets = useCallback(
-    (newAssets: Record<string, PrototypeAsset>) => {
-      setAssets(JSON.parse(JSON.stringify(newAssets)));
     },
     [],
   );
@@ -300,8 +282,6 @@ export const useFileSystem = (
     getSelectedFileContent,
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
-    setFiles: handleSetFiles,
-    setAssets: handleSetAssets,
     applyFileUpdates,
     createFile,
     deleteFile,

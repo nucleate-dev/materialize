@@ -6,7 +6,7 @@ import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/ClientConstants";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 
 // Union type for recent items
 type RecentItem = {
@@ -38,7 +38,9 @@ export default function ProjectPage() {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activePrototype, setActivePrototype] = useState<Database["public"]["Tables"]["prototypes"]["Row"] | null>(null);
+  const [activePrototype, setActivePrototype] = useState<
+    Database["public"]["Tables"]["prototypes"]["Row"] | null
+  >(null);
 
   const fetchRecentItems = useCallback(async () => {
     if (!projectId) {

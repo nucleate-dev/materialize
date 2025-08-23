@@ -1,5 +1,5 @@
 import { ProductKeys } from "@/GlobalConstants";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { extractExecutionPlan } from "@/lib/utils/code/planningExtractor";
 import { saveFilesToDatabaseWithAuth } from "@/lib/utils/files/saveFilesToDatabase";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";

@@ -1,5 +1,5 @@
 import { CodeBlock, CodeExtractionResult } from "@/lib/types/chat";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 
 export function extractCodeFromMessage(message: string): CodeExtractionResult {
   const codeBlocks: CodeBlock[] = [];

@@ -3,7 +3,7 @@
 import { supabase } from "@/ClientConstants";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
@@ -144,7 +144,7 @@ export default function NewPrototypeModal({
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      
+
       if (!token) {
         console.error("No authentication token available");
         return;
@@ -157,16 +157,16 @@ export default function NewPrototypeModal({
       }
 
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: name.trim(),
           project_id: selectedProject || undefined,
           visibility,
-        } as CreatePrototypeRequestBody)
+        } as CreatePrototypeRequestBody),
       });
 
       const result: CreatePrototypeResponse = await response.json();

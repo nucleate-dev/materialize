@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useEffect, useState } from "react";
 
@@ -38,9 +38,8 @@ export default function PrototypeSettingsModal({
 }: PrototypeSettingsModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [visibility, setVisibility] = useState<
-    Database["public"]["Enums"]["visibility_level"]
-  >("SELF");
+  const [visibility, setVisibility] =
+    useState<Database["public"]["Enums"]["visibility_level"]>("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { userPlan } = useSubscriptionAccess();
 
@@ -49,7 +48,8 @@ export default function PrototypeSettingsModal({
       setName(prototype.name || "");
       setDescription(prototype.description || "");
       setVisibility(
-        (prototype.visibility ?? "SELF") as Database["public"]["Enums"]["visibility_level"]
+        (prototype.visibility ??
+          "SELF") as Database["public"]["Enums"]["visibility_level"],
       );
     }
   }, [prototype]);
@@ -79,7 +79,7 @@ export default function PrototypeSettingsModal({
   const handleDelete = async () => {
     if (!prototype) return;
     const confirmed = window.confirm(
-      "Are you sure you want to delete this prototype?"
+      "Are you sure you want to delete this prototype?",
     );
     if (!confirmed) return;
     try {
@@ -122,7 +122,9 @@ export default function PrototypeSettingsModal({
               <Select
                 value={visibility}
                 onValueChange={(v) =>
-                  setVisibility(v as Database["public"]["Enums"]["visibility_level"])
+                  setVisibility(
+                    v as Database["public"]["Enums"]["visibility_level"],
+                  )
                 }
                 disabled={isSubmitting || userPlan !== "pro"}
               >

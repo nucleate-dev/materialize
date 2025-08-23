@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
 

@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/useUser";
 import { SubscriptionStatuses } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 
-type SubscriptionPlanType = Database["public"]["Enums"]["subscription_plan_type"];
+type SubscriptionPlanType =
+  Database["public"]["Enums"]["subscription_plan_type"];
 
 /**
  * Helper function to get the start and end of the current month
@@ -13,7 +14,15 @@ type SubscriptionPlanType = Database["public"]["Enums"]["subscription_plan_type"
 function getCurrentMonthPeriod() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const endOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
   return { startOfMonth, endOfMonth };
 }
 
@@ -56,8 +65,11 @@ function getCurrentMonthPeriod() {
 export function useSubscriptionAccess() {
   const user = useUser();
   const [userPlan, setUserPlan] = useState<SubscriptionPlanType>("free");
-  const [loadingSubscriptionData, setLoadingSubscriptionData] = useState<boolean>(true);
-  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(new Date());
+  const [loadingSubscriptionData, setLoadingSubscriptionData] =
+    useState<boolean>(true);
+  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(
+    new Date(),
+  );
   const [currentPeriodEnd, setCurrentPeriodEnd] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -70,7 +82,7 @@ export function useSubscriptionAccess() {
         .order("updated_at", {
           ascending: false,
         });
-      
+
       if (error) {
         console.error("Error fetching subscription:", error);
         setUserPlan("free");
@@ -81,9 +93,9 @@ export function useSubscriptionAccess() {
         setLoadingSubscriptionData(false);
         return;
       }
-      
+
       console.log("fetched subscription");
-      
+
       if (data === null || data.length === 0) {
         // No active subscription found, user is on free tier
         setUserPlan("free");
@@ -102,9 +114,16 @@ export function useSubscriptionAccess() {
       if (plan) {
         setUserPlan(plan);
         // Set subscription period from Stripe data (Unix timestamps in seconds)
-        if (latestSubscription.current_period_start && latestSubscription.current_period_end) {
-          setCurrentPeriodStart(new Date(latestSubscription.current_period_start * 1000));
-          setCurrentPeriodEnd(new Date(latestSubscription.current_period_end * 1000));
+        if (
+          latestSubscription.current_period_start &&
+          latestSubscription.current_period_end
+        ) {
+          setCurrentPeriodStart(
+            new Date(latestSubscription.current_period_start * 1000),
+          );
+          setCurrentPeriodEnd(
+            new Date(latestSubscription.current_period_end * 1000),
+          );
         } else {
           // Fallback to current month if period data is missing
           const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
@@ -121,7 +140,7 @@ export function useSubscriptionAccess() {
 
       setLoadingSubscriptionData(false);
     }
-    
+
     if (user.user && user.userIsLoading === false) {
       fetchSubscriptionInformation();
     }
