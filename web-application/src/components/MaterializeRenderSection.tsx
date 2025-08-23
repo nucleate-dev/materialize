@@ -167,6 +167,7 @@ const MaterializeRenderSection = forwardRef<
             },
             body: JSON.stringify({
               files: filesArray,
+              assets: [], // No assets in manual start scenario
               prototype_id: prototypeId,
               file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),

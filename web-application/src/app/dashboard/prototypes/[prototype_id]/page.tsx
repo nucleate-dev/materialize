@@ -264,6 +264,7 @@ export default function CreatePage() {
             },
             body: JSON.stringify({
               files: filesArray,
+              assets: [], // No assets in auto-start scenario
               prototype_id: prototypeId,
               file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
