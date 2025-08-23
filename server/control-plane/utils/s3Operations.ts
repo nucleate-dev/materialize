@@ -1,18 +1,18 @@
 import {
-  S3Client,
   CopyObjectCommand,
-  ListObjectsV2Command,
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
+  S3Client,
   type _Object,
 } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import type {
+  DefaultFilesResult,
+  PrototypeAssetInsert,
+  PrototypeFileInsert,
   S3CopyResult,
   S3UploadResult,
-  DefaultFilesResult,
-  PrototypeFileInsert,
-  PrototypeAssetInsert,
 } from '../types/InternalTypes.js';
 
 // Initialize Supabase storage client
@@ -76,7 +76,7 @@ export async function uploadAssetToSupabaseStorage(
 
     if (error) {
       console.error('Error uploading to Supabase Storage:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, publicUrl: null };
     }
 
     const { data: publicUrlData } = supabaseStorage.storage
@@ -92,6 +92,7 @@ export async function uploadAssetToSupabaseStorage(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+      publicUrl: null,
     };
   }
 }
@@ -119,11 +120,15 @@ export async function copyAssetInSupabaseStorage(
         `❌ Download failed for ${sourceFilePath}:`,
         downloadError.message,
       );
-      return { success: false, error: downloadError.message };
+      return { success: false, error: downloadError.message, publicUrl: null };
     }
 
     if (!sourceData) {
-      return { success: false, error: 'No data received from source file' };
+      return {
+        success: false,
+        error: 'No data received from source file',
+        publicUrl: null,
+      };
     }
 
     // Convert blob to buffer
@@ -141,6 +146,7 @@ export async function copyAssetInSupabaseStorage(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+      publicUrl: null,
     };
   }
 }
@@ -321,27 +327,13 @@ export async function getDefaultAppFilesFromS3(
 ): Promise<DefaultFilesResult> {
   try {
     const sourcePrefix = 'default-app-raw-files/';
-
-    console.log(
-      `🔍 [S3] Getting default app files for prototype: ${prototypeId}`,
-    );
-    console.log(`📁 [S3] Looking for files with prefix: ${sourcePrefix}`);
-    console.log(`🪣 [S3] Using bucket: ${PROTOTYPE_BUCKET}`);
-
     // List all files in the default-app-raw-files directory
     const listCommand = new ListObjectsV2Command({
       Bucket: PROTOTYPE_BUCKET,
       Prefix: sourcePrefix,
     });
 
-    console.log(`📋 [S3] Listing objects with prefix: ${sourcePrefix}`);
     const listResult = await s3Client.send(listCommand);
-
-    console.log(`📊 [S3] List operation result:`, {
-      ContentsCount: listResult.Contents?.length || 0,
-      IsTruncated: listResult.IsTruncated,
-      KeyCount: listResult.KeyCount,
-    });
 
     if (!listResult.Contents || listResult.Contents.length === 0) {
       console.error(`❌ [S3] No default app files found in S3!`);
@@ -353,10 +345,6 @@ export async function getDefaultAppFilesFromS3(
         error: 'No default app files found in S3',
       };
     }
-
-    console.log(
-      `📁 [S3] Found ${listResult.Contents.length} default app files`,
-    );
 
     const files: PrototypeFileInsert[] = [];
     const assets: PrototypeAssetInsert[] = [];

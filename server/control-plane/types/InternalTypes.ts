@@ -1,5 +1,9 @@
 import type { User } from '@supabase/supabase-js';
-import type { CodeError, CodeWarning } from './PublicAPITypes.js';
+import type {
+  CodeError,
+  CodeWarning,
+  PrototypeAssetInput,
+} from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
 // ============================================================================
@@ -151,6 +155,13 @@ export interface PrototypeFilesResult {
   message?: string;
 }
 
+export interface PrototypeAssetsResult {
+  success: boolean;
+  assets?: PrototypeAssetInput[];
+  error?: string;
+  message?: string;
+}
+
 export interface S3CopyResult {
   success: boolean;
   error?: string;
@@ -159,7 +170,7 @@ export interface S3CopyResult {
 
 export interface S3UploadResult {
   success: boolean;
-  publicUrl?: string;
+  publicUrl: string | null;
   error?: string;
 }
 

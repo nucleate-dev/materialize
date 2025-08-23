@@ -1,12 +1,13 @@
 import { SupabaseClient, User, createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
-import type { Database } from '../types/supabase.js';
 import type {
+  PrototypeAssetsResult,
   PrototypeAuthResult,
-  PrototypeLimitCheck,
   PrototypeFilesResult,
+  PrototypeLimitCheck,
   SubscriptionPlanType,
 } from '../types/InternalTypes.js';
+import type { Database } from '../types/supabase.js';
 
 /**
  * Authenticate user and get subscription information
@@ -170,6 +171,41 @@ export async function getPrototypeFiles(
       success: false,
       error: 'DATABASE_ERROR',
       message: 'Failed to fetch prototype files',
+    };
+  }
+}
+
+/**
+ * Get prototype assets for forking
+ */
+export async function getPrototypeAssets(
+  supabase: SupabaseClient<Database>,
+  prototypeId: string,
+): Promise<PrototypeAssetsResult> {
+  try {
+    const { data: assets, error } = await supabase
+      .from('prototype_assets')
+      .select('*')
+      .eq('prototype_id', prototypeId);
+
+    if (error) {
+      return {
+        success: false,
+        error: 'DATABASE_ERROR',
+        message: error.message,
+      };
+    }
+
+    return {
+      success: true,
+      assets: assets,
+    };
+  } catch (error) {
+    console.error('Error fetching prototype assets:', error);
+    return {
+      success: false,
+      error: 'DATABASE_ERROR',
+      message: 'Failed to fetch prototype assets',
     };
   }
 }
