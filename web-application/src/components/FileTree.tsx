@@ -12,19 +12,24 @@ import React, { useMemo, useState } from "react";
 interface FileNode {
   name: string;
   path: string;
-  type: "file" | "folder";
+  type: "file" | "folder" | "asset";
   children?: FileNode[];
   content?: string;
 }
 
 interface FileTreeProps {
   files: Record<string, Database["public"]["Tables"]["prototype_files"]["Row"]>;
+  assets: Record<
+    string,
+    Database["public"]["Tables"]["prototype_assets"]["Row"]
+  >;
   selectedFile?: string;
   onFileSelect: (filePath: string) => void;
 }
 
 const FileTree: React.FC<FileTreeProps> = ({
   files,
+  assets,
   selectedFile,
   onFileSelect,
 }) => {
@@ -41,8 +46,9 @@ const FileTree: React.FC<FileTreeProps> = ({
       children: [],
     };
 
-    Object.keys(files).forEach((filePath) => {
-      const parts = filePath.split("/");
+    // Helper function to create folder structure and add items
+    const addItemToTree = (itemPath: string, itemType: "file" | "asset", content?: string) => {
+      const parts = itemPath.split("/");
       let currentNode = root;
 
       // Create folder structure
@@ -71,27 +77,38 @@ const FileTree: React.FC<FileTreeProps> = ({
         currentNode = folderNode;
       }
 
-      // Add the file
-      const fileName = parts[parts.length - 1];
+      // Add the item (file or asset)
+      const itemName = parts[parts.length - 1];
       if (!currentNode.children) {
         currentNode.children = [];
       }
 
       currentNode.children.push({
-        name: fileName,
-        path: filePath,
-        type: "file",
-        content: files[filePath].contents || undefined,
+        name: itemName,
+        path: itemPath,
+        type: itemType,
+        content: content,
       });
+    };
+
+    // Add all files
+    Object.keys(files).forEach((filePath) => {
+      addItemToTree(filePath, "file", files[filePath].contents || undefined);
     });
 
-    // Sort children: folders first, then files, both alphabetically
+    // Add all assets
+    Object.keys(assets).forEach((assetPath) => {
+      addItemToTree(assetPath, "asset");
+    });
+
+    // Sort children: folders first, then files and assets, all alphabetically
     const sortChildren = (node: FileNode) => {
       if (node.children) {
         node.children.sort((a, b) => {
-          if (a.type !== b.type) {
-            return a.type === "folder" ? -1 : 1;
-          }
+          // Folders always come first
+          if (a.type === "folder" && b.type !== "folder") return -1;
+          if (a.type !== "folder" && b.type === "folder") return 1;
+          // Then sort alphabetically within each type
           return a.name.localeCompare(b.name);
         });
         node.children.forEach(sortChildren);
@@ -100,7 +117,7 @@ const FileTree: React.FC<FileTreeProps> = ({
 
     sortChildren(root);
     return root.children || [];
-  }, [files]);
+  }, [files, assets]);
 
   const toggleFolder = (folderPath: string) => {
     setExpandedFolders((prev) => {
@@ -114,9 +131,47 @@ const FileTree: React.FC<FileTreeProps> = ({
     });
   };
 
-  const getFileIcon = (fileName: string) => {
+  const getFileIcon = (fileName: string, nodeType: "file" | "asset" = "file") => {
     const ext = fileName.split(".").pop()?.toLowerCase();
 
+    if (nodeType === "asset") {
+      // Asset-specific icons
+      switch (ext) {
+        case "png":
+        case "jpg":
+        case "jpeg":
+        case "gif":
+        case "svg":
+        case "webp":
+        case "ico":
+          return "🖼️";
+        case "mp3":
+        case "wav":
+        case "ogg":
+        case "m4a":
+          return "🎵";
+        case "mp4":
+        case "mov":
+        case "avi":
+        case "webm":
+          return "🎬";
+        case "pdf":
+          return "📑";
+        case "zip":
+        case "tar":
+        case "gz":
+          return "📦";
+        case "ttf":
+        case "otf":
+        case "woff":
+        case "woff2":
+          return "🔤";
+        default:
+          return "📎"; // Generic asset icon
+      }
+    }
+
+    // File-specific icons
     switch (ext) {
       case "js":
       case "jsx":
@@ -171,6 +226,7 @@ const FileTree: React.FC<FileTreeProps> = ({
         </div>
       );
     } else {
+      // Handle both files and assets
       return (
         <div
           key={node.path}
@@ -182,16 +238,23 @@ const FileTree: React.FC<FileTreeProps> = ({
           style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}
         >
-          <span className="mr-2 text-sm">{getFileIcon(node.name)}</span>
+          <span className="mr-2 text-sm">
+            {getFileIcon(node.name, node.type === "asset" ? "asset" : "file")}
+          </span>
           <span
             className={`text-sm ${
               isSelected
                 ? "text-primary dark:text-primary font-semibold"
                 : "text-black dark:text-white font-medium"
-            }`}
+            } ${node.type === "asset" ? "italic" : ""}`}
           >
             {node.name}
           </span>
+          {node.type === "asset" && (
+            <span className="ml-1 text-xs text-body/60 dark:text-bodydark/60">
+              (asset)
+            </span>
+          )}
         </div>
       );
     }
@@ -204,7 +267,7 @@ const FileTree: React.FC<FileTreeProps> = ({
           Project Files
         </h3>
         <span className="text-xs text-body dark:text-bodydark font-medium">
-          {Object.keys(files).length} files
+          {Object.keys(files).length} files, {Object.keys(assets).length} assets
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">

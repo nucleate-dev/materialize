@@ -628,6 +628,7 @@ export default function CreatePage() {
                         <div className="h-full overflow-auto">
                           <FileTree
                             files={fileSystem.state.files}
+                            assets={fileSystem.state.assets}
                             selectedFile={fileSystem.state.selectedFile}
                             onFileSelect={fileSystem.selectFile}
                           />
