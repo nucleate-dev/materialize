@@ -44,6 +44,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -221,16 +223,27 @@ export default function CreatePage() {
         }
 
         // Convert files from Record<string, PrototypeFile> to array format expected by API
-        const filesArray = Object.entries(fileSystem.state.files).map(
-          ([path, file]) => ({
-            contents: file.contents,
-            name: path,
-            prototype_id: file.prototype_id || prototypeId,
-            id: file.id,
-            created_at: file.created_at || undefined,
-            updated_at: file.updated_at || undefined,
-          }),
-        );
+        const filesArray: PrototypeFile[] = Object.entries(
+          fileSystem.state.files,
+        ).map(([path, file]) => ({
+          contents: file.contents,
+          name: path,
+          prototype_id: file.prototype_id || prototypeId,
+          id: file.id,
+          created_at: file.created_at || null,
+          updated_at: file.updated_at || null,
+        }));
+
+        const assetsArray: PrototypeAsset[] = Object.entries(
+          fileSystem.state.assets,
+        ).map(([path, asset]) => ({
+          storage_url: asset.storage_url,
+          name: path,
+          prototype_id: asset.prototype_id || prototypeId,
+          created_at: asset.created_at || null,
+          updated_at: asset.updated_at || null,
+          id: asset.id,
+        }));
 
         console.log(`Auto-starting dev server with ${filesArray.length} files`);
 
@@ -245,7 +258,7 @@ export default function CreatePage() {
             body: JSON.stringify({
               framework: "expo_react_native",
               files: filesArray,
-              assets: [], // No assets in auto-start scenario
+              assets: assetsArray, // No assets in auto-start scenario
               prototype_id: prototypeId,
               file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
