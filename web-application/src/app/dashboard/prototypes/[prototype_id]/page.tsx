@@ -44,7 +44,7 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -243,10 +243,8 @@ export default function CreatePage() {
           ([path, file]) => ({
             contents: file.contents,
             name: path,
-            file_type: file.file_type || ("text" as const),
             prototype_id: file.prototype_id || prototypeId,
             id: file.id,
-            storage_path: file.storage_path || undefined,
             created_at: file.created_at || undefined,
             updated_at: file.updated_at || undefined,
           }),
@@ -263,6 +261,7 @@ export default function CreatePage() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
+              framework: "expo_react_native",
               files: filesArray,
               assets: [], // No assets in auto-start scenario
               prototype_id: prototypeId,
@@ -309,33 +308,9 @@ export default function CreatePage() {
     return () => clearTimeout(timer);
   }, [prototypeId, fileSystem.state.files]);
 
-  const handleResetToDefault = useCallback(async () => {
-    // TODO: api to replace the S3 bucket with the default app
-    if (!prototypeId) {
-      console.error("Reset failed: no prototype ID");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await fileSystem.resetToDefault(prototypeId);
-
-      // Force refresh the preview
-      if (renderRef.current) {
-        renderRef.current.forceRefresh();
-      }
-
-      console.log("Successfully reset to default app");
-    } catch (error) {
-      console.error("Error resetting to default:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [prototypeId, fileSystem, renderRef]);
-
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined && fileSystem.state.selectedFile) {
-      fileSystem.updateFileContent(fileSystem.state.selectedFile, value);
+      fileSystem.updateFileContentLocally(fileSystem.state.selectedFile, value);
     }
   };
 
@@ -636,7 +611,6 @@ export default function CreatePage() {
                       <MaterializeRenderSection
                         viewing_url={viewingUrl ?? ""}
                         isBuilding={isBuilding}
-                        onResetToDefault={handleResetToDefault}
                         prototypeId={prototypeId}
                         files={fileSystem.state.files}
                         onViewingUrlUpdate={setViewingUrl}
