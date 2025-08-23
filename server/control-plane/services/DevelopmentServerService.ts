@@ -12,7 +12,6 @@ import type {
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   DispatchResponse,
-  FileInput,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 import {
@@ -20,7 +19,6 @@ import {
   checkUserHasPrototypeEditAccess,
 } from '../utils/prototypeAuth.js';
 import {
-  convertPrototypeFileInputsToFileInputs,
   filterTextFiles,
   convertTextFilesToDatabaseFormat,
   saveFilesToDatabaseWithAuth,
@@ -273,15 +271,7 @@ export class DevelopmentServerService {
         } as StandardErrorResponse);
       }
 
-      // 6. Convert files to build worker format for dispatch (updates only)
-      const textFilesForDispatch =
-        convertPrototypeFileInputsToFileInputs(files);
-
-      console.log(
-        `📦 Update dispatch summary: ${textFilesForDispatch.length} files (updates only)`,
-      );
-
-      // 7. Dispatch update request with file_scope: "updates"
+      // 6. Dispatch update request with file_scope: "updates"
       console.log('📦 Dispatching file update request to server');
 
       const dispatchResponse = await this.fastifyApp.inject({
@@ -291,7 +281,8 @@ export class DevelopmentServerService {
           jwt: jwtToken,
           prototype_id: prototype_id,
           framework: 'expo_react_native',
-          files: textFilesForDispatch,
+          files: files,
+          assets: [], // update-files only deals with text files, so assets array is empty
           file_scope: 'updates', // This is the key difference - only update files, don't rebuild
         } as DispatchRequestBody,
       });
@@ -328,7 +319,7 @@ export class DevelopmentServerService {
 
       console.log('📦 Dispatch endpoint response:', dispatchData);
 
-      // 8. Return success response with viewing URL
+      // 7. Return success response with viewing URL
       if ('status' in dispatchData && dispatchData.status === 'success') {
         return reply.status(HTTP_STATUS.OK).send({
           success: true,
@@ -461,64 +452,14 @@ export class DevelopmentServerService {
       }
 
       // Process assets and text files separately (now passed as separate arrays)
-      const textFiles = files.filter(
-        (file) => file.file_type === 'text' || !file.file_type,
-      );
-
       console.log(
         `🔍 Received ${assets.length} assets from client:`,
         assets.map((a) => a.name),
       );
       console.log(
-        `🔍 Received ${textFiles.length} text files from client:`,
-        textFiles.map((t) => t.name),
+        `🔍 Received ${files.length} text files from client:`,
+        files.map((t) => t.name),
       );
-
-      // Convert assets to build worker format - download from storage and convert to base64
-      // TODO: Sourish: move this to the dispatcher
-      const assetFilesForDispatch: FileInput[] = [];
-      for (const asset of assets) {
-        console.log(
-          `🔍 Converting asset ${asset.name} from storage_url: ${asset.storage_url}`,
-        );
-        try {
-          const response = await fetch(asset.storage_url);
-          if (!response.ok) {
-            console.error(
-              `Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
-            );
-            continue;
-          }
-          const arrayBuffer = await response.arrayBuffer();
-          const base64Content = Buffer.from(arrayBuffer).toString('base64');
-
-          assetFilesForDispatch.push({
-            path: asset.name,
-            content: base64Content,
-            isBase64: true,
-          });
-          console.log(`✅ Successfully converted asset: ${asset.name}`);
-        } catch (error) {
-          console.error(`Error converting asset ${asset.name}:`, error);
-        }
-      }
-      console.log(
-        `✅ Converted ${assetFilesForDispatch.length} assets for dispatch`,
-      );
-
-      // Convert text files to build worker format
-      const textFilesForDispatch =
-        convertPrototypeFileInputsToFileInputs(textFiles);
-
-      console.log(
-        `📦 Dispatch summary: ${textFilesForDispatch.length} text files + ${assetFilesForDispatch.length} assets`,
-      );
-
-      // Merge text files + assets for dispatch (all files from client)
-      const filesForDispatch = [
-        ...textFilesForDispatch,
-        ...assetFilesForDispatch,
-      ];
 
       // 6. Dispatch dev server start request
       console.log('📦 Dispatching dev server start request to server');
@@ -530,23 +471,24 @@ export class DevelopmentServerService {
           jwt: token,
           prototype_id: prototype_id,
           framework: 'expo_react_native',
-          files: filesForDispatch,
+          files: files,
+          assets: assets,
           file_scope: 'complete', // all start-dev-server requests must have complete file scope
         } as DispatchRequestBody,
       });
 
-      if (dispatchResponse.statusCode !== 200) {
+      if (dispatchResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(dispatchResponse.payload);
         console.error('Dispatch request failed:', errorData);
 
-        if (dispatchResponse.statusCode === 401) {
+        if (dispatchResponse.statusCode === HTTP_STATUS.UNAUTHORIZED) {
           return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
             error: 'Unauthorized',
             message: 'Authentication failed during dispatch',
           } as StartDevServerErrorResponse);
         }
 
-        if (dispatchResponse.statusCode === 404) {
+        if (dispatchResponse.statusCode === HTTP_STATUS.NOT_FOUND) {
           return reply.status(HTTP_STATUS.NOT_FOUND).send({
             error: 'Prototype not found',
             message: 'Prototype not found during dispatch',

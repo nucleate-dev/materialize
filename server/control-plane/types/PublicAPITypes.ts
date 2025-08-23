@@ -1,9 +1,14 @@
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
-
+import type { Database } from '../types/supabase.js';
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
+
+export type PrototypeFileInput =
+  Database['public']['Tables']['prototype_files']['Row'];
+export type PrototypeAssetInput =
+  Database['public']['Tables']['prototype_assets']['Row'];
 
 export interface FileInput {
   path: string;
@@ -55,7 +60,8 @@ export interface DispatchRequestBody {
   jwt: string;
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
-  files: FileInput[];
+  files: PrototypeFileInput[];
+  assets: PrototypeAssetInput[];
   file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
@@ -251,26 +257,6 @@ export type UpdateFilesResponse =
 // ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
-
-export interface PrototypeFileInput {
-  contents: string;
-  name: string;
-  file_type: 'text' | 'asset';
-  prototype_id: string;
-  id?: string;
-  storage_path?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface PrototypeAssetInput {
-  id?: string;
-  name: string;
-  storage_url: string;
-  prototype_id: string;
-  created_at?: string;
-  updated_at?: string;
-}
 
 export interface StartDevServerRequestBody {
   files: PrototypeFileInput[];

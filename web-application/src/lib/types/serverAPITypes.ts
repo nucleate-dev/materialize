@@ -5,14 +5,19 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-23T03:54:14.257Z
+// Last synced: 2025-08-23T14:31:45.743Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
-
+import type { Database } from '../types/supabase.js';
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
+
+export type PrototypeFileInput =
+  Database['public']['Tables']['prototype_files']['Row'];
+export type PrototypeAssetInput =
+  Database['public']['Tables']['prototype_assets']['Row'];
 
 export interface FileInput {
   path: string;
@@ -64,7 +69,8 @@ export interface DispatchRequestBody {
   jwt: string;
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
-  files: FileInput[];
+  files: PrototypeFileInput[];
+  assets: PrototypeAssetInput[];
   file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
@@ -168,6 +174,7 @@ export const HTTP_STATUS = {
   OK: 200,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
+  PAYMENT_REQUIRED: 402,
   NOT_FOUND: 404,
   CONFLICT: 409,
   INTERNAL_SERVER_ERROR: 500,
@@ -260,19 +267,9 @@ export type UpdateFilesResponse =
 // /files/start-dev-server ENDPOINT
 // ============================================================================
 
-export interface PrototypeFileInput {
-  contents: string;
-  name: string;
-  file_type: 'text' | 'asset';
-  prototype_id: string;
-  id?: string;
-  storage_path?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export interface StartDevServerRequestBody {
   files: PrototypeFileInput[];
+  assets: PrototypeAssetInput[];
   prototype_id: string;
   file_scope?: 'updates' | 'complete';
 }

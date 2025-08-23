@@ -65,7 +65,7 @@ export class DispatcherService {
     reply: FastifyReply,
   ): Promise<void> {
     // 1. Parse and Validate Body
-    const { jwt, prototype_id, framework, files, file_scope } = request.body;
+    const { jwt, prototype_id, framework, files, assets, file_scope } = request.body;
     if (!jwt) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
@@ -82,6 +82,12 @@ export class DispatcherService {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
         message: 'files is required and must be an array',
+      });
+    }
+    if (!assets || !Array.isArray(assets)) {
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        error: 'Bad Request',
+        message: 'assets is required and must be an array',
       });
     }
     if (!file_scope) {
@@ -256,10 +262,11 @@ export class DispatcherService {
       console.log('Set cache data active build: ', activeBuildKey);
 
       // Dispatch request to fargate instance
-      const requestBody = this.constructRequestBody({
+      const requestBody = await this.constructRequestBody({
         prototype_id,
         framework: selectedFramework,
         files,
+        assets,
         file_scope,
       });
 
@@ -632,21 +639,57 @@ export class DispatcherService {
     }
   }
 
-  private constructRequestBody({
+  private async constructRequestBody({
     prototype_id,
     framework,
     files,
+    assets,
     file_scope,
   }: {
     prototype_id: string;
     framework: Framework;
-    files: FileInput[];
+    files: Database['public']['Tables']['prototype_files']['Row'][];
+    assets: Database['public']['Tables']['prototype_assets']['Row'][];
     file_scope: FileScope;
-  }): FargateRequestBody {
+  }): Promise<FargateRequestBody> {
+    // Convert prototype files to FileInput format
+    const fileInputs: FileInput[] = files.map((file) => ({
+      path: file.name,
+      content: file.contents,
+      isBase64: false, // Text files are not base64 encoded
+    }));
+
+    // Convert prototype assets to FileInput format by downloading and encoding
+    const assetInputs: FileInput[] = [];
+    for (const asset of assets) {
+      try {
+        console.log(`🔍 Converting asset ${asset.name} from storage_url: ${asset.storage_url}`);
+        const response = await fetch(asset.storage_url);
+        if (!response.ok) {
+          console.error(`Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`);
+          continue;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const base64Content = Buffer.from(arrayBuffer).toString('base64');
+
+        assetInputs.push({
+          path: asset.name,
+          content: base64Content,
+          isBase64: true,
+        });
+        console.log(`✅ Successfully converted asset: ${asset.name}`);
+      } catch (error) {
+        console.error(`Error converting asset ${asset.name}:`, error);
+      }
+    }
+
+    // Combine all files
+    const allFiles = [...fileInputs, ...assetInputs];
+
     return {
       prototype_id,
       framework,
-      files,
+      files: allFiles,
       file_scope,
     };
   }
