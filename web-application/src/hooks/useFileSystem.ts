@@ -1,12 +1,13 @@
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/database.types";
-import { getDefaultSnackFiles } from "@/templates/defaultApp";
 import { useCallback, useEffect, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 export interface FileSystemState {
   files: Record<string, PrototypeFile>;
+  assets: Record<string, PrototypeAsset>;
   selectedFile: string;
   isLoading: boolean;
 }
@@ -14,23 +15,21 @@ export interface FileSystemState {
 export interface FileSystemActions {
   // File selection and content management
   selectFile: (filePath: string) => void;
-  updateFileContent: (filePath: string, content: string) => void;
+  updateFileContentLocally: (filePath: string, content: string) => void;
+  getSelectedFileContent: () => string;
 
   // Database operations
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
-  resetToDefault: (prototypeId: string) => Promise<void>;
+  loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
 
   // Bulk file operations
   setFiles: (files: Record<string, PrototypeFile>) => void;
+  setAssets: (assets: Record<string, PrototypeAsset>) => void;
   applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => void;
 
   // File management operations
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
   deleteFile: (fileName: string) => Promise<void>;
-
-  // Utilities
-  getFileContent: (filePath: string) => string;
-  getSelectedFileContent: () => string;
 }
 
 export interface UseFileSystemReturn extends FileSystemActions {
@@ -42,6 +41,7 @@ export const useFileSystem = (
   defaultFile = "App.js",
 ): UseFileSystemReturn => {
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
+  const [assets, setAssets] = useState<Record<string, PrototypeAsset>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -94,10 +94,43 @@ export const useFileSystem = (
     [defaultFile, selectedFile],
   );
 
+  const loadAssetsFromDatabase = useCallback(async (prototypeId: string) => {
+    if (!prototypeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("prototype_assets")
+        .select("*")
+        .eq("prototype_id", prototypeId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching prototype assets:", error);
+        return;
+      }
+
+      // Convert array to dictionary mapping name to PrototypeAsset object
+      const assetsDict = (data || []).reduce(
+        (acc, asset) => {
+          acc[asset.name] = asset;
+          return acc;
+        },
+        {} as Record<string, PrototypeAsset>,
+      );
+
+      setAssets(assetsDict);
+
+      console.log("Fetched assets:", data);
+    } catch (error) {
+      console.error("Error loading assets:", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!prototypeId) return;
     loadFilesFromDatabase(prototypeId);
-  }, [prototypeId, loadFilesFromDatabase]);
+    loadAssetsFromDatabase(prototypeId);
+  }, [prototypeId, loadFilesFromDatabase, loadAssetsFromDatabase]);
 
   // File selection
   const selectFile = useCallback((filePath: string) => {
@@ -105,97 +138,18 @@ export const useFileSystem = (
   }, []);
 
   // Update file content in local state
-  const updateFileContent = useCallback((filePath: string, content: string) => {
-    setFiles((prevFiles) => ({
-      ...prevFiles,
-      [filePath]: {
-        ...prevFiles[filePath],
-        contents: content,
-        updated_at: new Date().toISOString(),
-      },
-    }));
-  }, []);
-
-  // Reset to default files
-  const resetToDefault = useCallback(
-    async (prototypeId: string) => {
-      if (!prototypeId) {
-        console.error("Reset failed: no prototype ID");
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-
-        // Get default app files
-        const defaultSnackFiles = getDefaultSnackFiles();
-
-        // Convert SnackFiles to PrototypeFile format
-        const defaultPrototypeFiles: Record<string, PrototypeFile> = {};
-
-        for (const [fileName, fileData] of Object.entries(defaultSnackFiles)) {
-          defaultPrototypeFiles[fileName] = {
-            id: "", // Will be set by database
-            prototype_id: prototypeId,
-            name: fileName,
-            contents: fileData.contents,
-            file_type: "text",
-            storage_path: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-        }
-
-        // Delete all existing files for this prototype
-        const { error: deleteError } = await supabase
-          .from("prototype_files")
-          .delete()
-          .eq("prototype_id", prototypeId);
-
-        if (deleteError) {
-          console.error("Error deleting existing files:", deleteError);
-          return;
-        }
-
-        // Insert new default files
-        const filesToInsert = Object.values(defaultPrototypeFiles).map(
-          (file) => ({
-            prototype_id: file.prototype_id,
-            name: file.name,
-            contents: file.contents,
-          }),
-        );
-
-        const { data: newFiles, error: insertError } = await supabase
-          .from("prototype_files")
-          .insert(filesToInsert)
-          .select();
-
-        if (insertError) {
-          console.error("Error inserting default files:", insertError);
-          return;
-        }
-
-        // Update local state with new files
-        const newFilesDict = (newFiles || []).reduce(
-          (acc, file) => {
-            acc[file.name] = file;
-            return acc;
-          },
-          {} as Record<string, PrototypeFile>,
-        );
-
-        setFiles(newFilesDict);
-        setSelectedFile(defaultFile);
-
-        console.log("Successfully reset to default app");
-      } catch (error) {
-        console.error("Error resetting to default:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  const updateFileContentLocally = useCallback(
+    (filePath: string, content: string) => {
+      setFiles((prevFiles) => ({
+        ...prevFiles,
+        [filePath]: {
+          ...prevFiles[filePath],
+          contents: content,
+          updated_at: new Date().toISOString(),
+        },
+      }));
     },
-    [defaultFile],
+    [],
   );
 
   // Bulk set files (with deep copy to ensure React detects changes)
@@ -205,6 +159,18 @@ export const useFileSystem = (
     },
     [],
   );
+
+  // Bulk set assets (with deep copy to ensure React detects changes)
+  const handleSetAssets = useCallback(
+    (newAssets: Record<string, PrototypeAsset>) => {
+      setAssets(JSON.parse(JSON.stringify(newAssets)));
+    },
+    [],
+  );
+
+  const getSelectedFileContent = useCallback((): string => {
+    return files[selectedFile]?.contents || "";
+  }, [files, selectedFile]);
 
   // Apply file updates from external sources (like chat API responses)
   const applyFileUpdates = useCallback(
@@ -220,19 +186,6 @@ export const useFileSystem = (
     },
     [],
   );
-
-  // Get content of specific file
-  const getFileContent = useCallback(
-    (filePath: string): string => {
-      return files[filePath]?.contents || "";
-    },
-    [files],
-  );
-
-  // Get content of currently selected file
-  const getSelectedFileContent = useCallback((): string => {
-    return files[selectedFile]?.contents || "";
-  }, [files, selectedFile]);
 
   // Create a new file
   const createFile = useCallback(
@@ -336,21 +289,22 @@ export const useFileSystem = (
 
   const state: FileSystemState = {
     files,
+    assets,
     selectedFile,
     isLoading,
   };
 
   const actions: FileSystemActions = {
     selectFile,
-    updateFileContent,
+    updateFileContentLocally,
+    getSelectedFileContent,
     loadFilesFromDatabase,
-    resetToDefault,
+    loadAssetsFromDatabase,
     setFiles: handleSetFiles,
+    setAssets: handleSetAssets,
     applyFileUpdates,
     createFile,
     deleteFile,
-    getFileContent,
-    getSelectedFileContent,
   };
 
   return {
