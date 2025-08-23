@@ -1,31 +1,56 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import { useTheme } from '@/components/useTheme';
 
-export default function TabOneScreen() {
+export default function HomeScreen() {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      <Text style={styles.title}>Welcome to your app!</Text>
+      <View style={styles.separator} />
+      <Text style={styles.description}>
+        This is your main screen. You can start building your app here.
+      </Text>
+      <Text style={styles.hint}>
+        The app automatically supports dark and light mode.
+      </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-});
+function createStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.background,
+      padding: 20,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 16,
+    },
+    separator: {
+      marginVertical: 20,
+      height: 1,
+      width: '80%',
+      backgroundColor: theme.colors.border,
+    },
+    description: {
+      fontSize: 16,
+      color: theme.colors.text,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    hint: {
+      fontSize: 14,
+      color: theme.colors.secondary,
+      textAlign: 'center',
+    },
+  });
+}
