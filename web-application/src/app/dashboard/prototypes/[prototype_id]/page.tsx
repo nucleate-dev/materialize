@@ -210,12 +210,11 @@ export default function CreatePage() {
   useEffect(() => {
     async function autoStartDevServer() {
       // Only proceed if we have prototypeId, files, and no existing viewing URL
-      if (!prototypeId || !fileSystem.state.files || Object.keys(fileSystem.state.files).length === 0) {
-        return;
-      }
-
-      // Skip if we already have a viewing URL (dev server is already running)
-      if (viewingUrl) {
+      if (
+        !prototypeId ||
+        !fileSystem.state.files ||
+        Object.keys(fileSystem.state.files).length === 0
+      ) {
         return;
       }
 
@@ -227,7 +226,9 @@ export default function CreatePage() {
         const token = session.data.session?.access_token;
 
         if (!token) {
-          console.error("No authentication token available for dev server start");
+          console.error(
+            "No authentication token available for dev server start",
+          );
           return;
         }
 
@@ -238,45 +239,54 @@ export default function CreatePage() {
         }
 
         // Convert files from Record<string, PrototypeFile> to array format expected by API
-        const filesArray = Object.entries(fileSystem.state.files).map(([path, file]) => ({
-          contents: file.contents,
-          name: path,
-          file_type: file.file_type || ("text" as const),
-          prototype_id: file.prototype_id || prototypeId,
-          id: file.id,
-          storage_path: file.storage_path || undefined,
-          created_at: file.created_at || undefined,
-          updated_at: file.updated_at || undefined,
-        }));
+        const filesArray = Object.entries(fileSystem.state.files).map(
+          ([path, file]) => ({
+            contents: file.contents,
+            name: path,
+            file_type: file.file_type || ("text" as const),
+            prototype_id: file.prototype_id || prototypeId,
+            id: file.id,
+            storage_path: file.storage_path || undefined,
+            created_at: file.created_at || undefined,
+            updated_at: file.updated_at || undefined,
+          }),
+        );
 
         console.log(`Auto-starting dev server with ${filesArray.length} files`);
 
-        const response = await fetch(`${serverEndpoint}/files/start-dev-server`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          `${serverEndpoint}/files/start-dev-server`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              files: filesArray,
+              prototype_id: prototypeId,
+              file_scope: "complete", // Send all files to properly initialize dev server
+            } as StartDevServerRequestBody),
           },
-          body: JSON.stringify({
-            files: filesArray,
-            prototype_id: prototypeId,
-            file_scope: "complete", // Send all files to properly initialize dev server
-          } as StartDevServerRequestBody),
-        });
+        );
 
         if (response.ok) {
           const result: StartDevServerResponse = await response.json();
-          
-          if ('success' in result && result.success) {
+
+          if ("success" in result && result.success) {
             console.log("✅ Dev server auto-started successfully");
-            
+
             // Update viewing URL if provided
             if (result.viewing_url) {
-              console.log("Setting viewing URL from auto-started dev server:", result.viewing_url);
+              console.log(
+                "Setting viewing URL from auto-started dev server:",
+                result.viewing_url,
+              );
               setViewingUrl(result.viewing_url);
             }
           } else {
-            const errorMessage = 'error' in result ? result.error : result.message;
+            const errorMessage =
+              "error" in result ? result.error : result.message;
             console.log("Dev server auto-start failed:", errorMessage);
           }
         } else {
@@ -296,7 +306,7 @@ export default function CreatePage() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [prototypeId, fileSystem.state.files, viewingUrl]);
+  }, [prototypeId, fileSystem.state.files]);
 
   const handleResetToDefault = useCallback(async () => {
     // TODO: api to replace the S3 bucket with the default app

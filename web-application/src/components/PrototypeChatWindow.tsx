@@ -43,7 +43,7 @@ export interface PrototypeChatWindowProps {
 
 export default function PrototypeChatWindow({
   files,
-  onFilesUpdate,
+  // onFilesUpdate,
   onRefetchFiles,
   prototypeId,
   isLoading,
@@ -502,11 +502,15 @@ export default function PrototypeChatWindow({
         }
 
         // Refetch files from database after successful stream completion
-        console.log("🔄 [CLIENT] Refetching files from database after chat completion");
+        console.log(
+          "🔄 [CLIENT] Refetching files from database after chat completion",
+        );
         if (onRefetchFiles) {
           try {
             await onRefetchFiles();
-            console.log("✅ [CLIENT] Files successfully refetched from database");
+            console.log(
+              "✅ [CLIENT] Files successfully refetched from database",
+            );
           } catch (refetchError) {
             console.error("❌ [CLIENT] Error refetching files:", refetchError);
           }
@@ -516,7 +520,6 @@ export default function PrototypeChatWindow({
       }
     },
     [
-      onFilesUpdate,
       onRefetchFiles,
       setPrototypeChatMessages,
       setIsExecutingOperations,
@@ -579,7 +582,7 @@ export default function PrototypeChatWindow({
         console.error("Error inserting user message:", insertError);
         return;
       }
-      setPrototypeChatMessages(prev => [...prev, userMessage]);
+      setPrototypeChatMessages((prev) => [...prev, userMessage]);
 
       // 2. SEND MESSAGE TO CHAT API
       try {

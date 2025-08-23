@@ -425,9 +425,13 @@ export class DevelopmentServerService {
       );
 
       // 3. Check if build is already in progress
-      if (this.isBuildInProgress(precheckData)) {
+      if (
+        'state' in precheckData &&
+        precheckData.state === 'active_dev_server'
+      ) {
+        console.log("There's already an active dev server for this prototype");
         return reply.status(HTTP_STATUS.CONFLICT).send({
-          error: 'Build already in progress',
+          error: 'Active dev server already exists',
           message:
             'A dev server is currently starting for this prototype. Please wait for it to complete.',
         } as StartDevServerErrorResponse);
