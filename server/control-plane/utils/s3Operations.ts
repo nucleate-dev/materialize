@@ -426,10 +426,11 @@ export async function getDefaultAppFilesFromS3(
     }
 
     console.log(`📈 [S3] Default app files processing summary:`);
-    console.log(`  ✅ Successfully processed: ${processedFiles}`);
+    console.log(`  ✅ Successfully processed files: ${processedFiles}`);
     console.log(`  ⚠️ Skipped files: ${skippedFiles}`);
     console.log(`  ❌ Failed files: ${failedFiles}`);
-    console.log(`  📊 Total files in result: ${files.length}`);
+    console.log(`  📊 Total text files processed: ${files.length}`);
+    console.log(`  📊 Total assets processed: ${assets.length}`);
 
     if (files.length === 0) {
       console.error(`🚨 [S3] No files were successfully processed!`);
