@@ -33,6 +33,8 @@ import type {
   CreatePrototypeResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlResponse,
+  StartDevServerRequestBody,
+  StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
 import {
   ChatBubbleLeftRightIcon,
@@ -203,6 +205,98 @@ export default function CreatePage() {
       fetchPrototype();
     }
   }, [prototypeId, router]);
+
+  // Auto-start dev server when files are loaded
+  useEffect(() => {
+    async function autoStartDevServer() {
+      // Only proceed if we have prototypeId, files, and no existing viewing URL
+      if (!prototypeId || !fileSystem.state.files || Object.keys(fileSystem.state.files).length === 0) {
+        return;
+      }
+
+      // Skip if we already have a viewing URL (dev server is already running)
+      if (viewingUrl) {
+        return;
+      }
+
+      console.log("Auto-starting dev server for prototype:", prototypeId);
+      setIsBuilding(true);
+
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          console.error("No authentication token available for dev server start");
+          return;
+        }
+
+        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+        if (!serverEndpoint) {
+          console.error("Server endpoint not configured");
+          return;
+        }
+
+        // Convert files from Record<string, PrototypeFile> to array format expected by API
+        const filesArray = Object.entries(fileSystem.state.files).map(([path, file]) => ({
+          contents: file.contents,
+          name: path,
+          file_type: file.file_type || ("text" as const),
+          prototype_id: file.prototype_id || prototypeId,
+          id: file.id,
+          storage_path: file.storage_path || undefined,
+          created_at: file.created_at || undefined,
+          updated_at: file.updated_at || undefined,
+        }));
+
+        console.log(`Auto-starting dev server with ${filesArray.length} files`);
+
+        const response = await fetch(`${serverEndpoint}/files/start-dev-server`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            files: filesArray,
+            prototype_id: prototypeId,
+            file_scope: "complete", // Send all files to properly initialize dev server
+          } as StartDevServerRequestBody),
+        });
+
+        if (response.ok) {
+          const result: StartDevServerResponse = await response.json();
+          
+          if ('success' in result && result.success) {
+            console.log("✅ Dev server auto-started successfully");
+            
+            // Update viewing URL if provided
+            if (result.viewing_url) {
+              console.log("Setting viewing URL from auto-started dev server:", result.viewing_url);
+              setViewingUrl(result.viewing_url);
+            }
+          } else {
+            const errorMessage = 'error' in result ? result.error : result.message;
+            console.log("Dev server auto-start failed:", errorMessage);
+          }
+        } else {
+          const errorData = await response.json();
+          console.log("Dev server auto-start request failed:", errorData);
+        }
+      } catch (error) {
+        console.error("Error auto-starting dev server:", error);
+      } finally {
+        setIsBuilding(false);
+      }
+    }
+
+    // Add a small delay to ensure files are fully loaded before attempting to start dev server
+    const timer = setTimeout(() => {
+      autoStartDevServer();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [prototypeId, fileSystem.state.files, viewingUrl]);
 
   const handleResetToDefault = useCallback(async () => {
     // TODO: api to replace the S3 bucket with the default app

@@ -3,7 +3,8 @@ import type { Database } from '../types/supabase.js';
 import type { PrototypeFileInput, FileInput } from '../types/PublicAPITypes.js';
 import type { PrototypeFile } from '../types/InternalTypes.js';
 
-type PrototypeFileInsert = Database['public']['Tables']['prototype_files']['Insert'];
+type PrototypeFileInsert =
+  Database['public']['Tables']['prototype_files']['Insert'];
 
 // ============================================================================
 // FILE CONVERSION UTILITIES
@@ -28,23 +29,29 @@ export async function convertPrototypeFilesForBuildWorker(
       });
     } else if (file.file_type === 'asset' && file.storage_path) {
       // Binary asset - fetch from Supabase Storage and convert to base64
-      console.log(`🔍 Converting asset ${file.name} from storage_path: ${file.storage_path}`);
+      console.log(
+        `🔍 Converting asset ${file.name} from storage_path: ${file.storage_path}`,
+      );
       try {
         const response = await fetch(file.storage_path);
         if (!response.ok) {
-          throw new Error(`Failed to fetch asset: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch asset: ${response.status} ${response.statusText}`,
+          );
         }
-        
+
         const arrayBuffer = await response.arrayBuffer();
         const base64Content = Buffer.from(arrayBuffer).toString('base64');
-        
+
         fileInputs.push({
           path: file.name,
           content: base64Content,
           isBase64: true,
         });
-        
-        console.log(`✅ Converted asset ${file.name} to base64 (${base64Content.length} chars)`);
+
+        console.log(
+          `✅ Converted asset ${file.name} to base64 (${base64Content.length} chars)`,
+        );
       } catch (error) {
         console.error(`❌ Failed to convert asset ${file.name}:`, error);
         // Continue with other files - don't fail the entire operation
@@ -72,7 +79,9 @@ export function convertPrototypeFileInputsToFileInputs(
 /**
  * Filter files to only include text files
  */
-export function filterTextFiles(files: PrototypeFileInput[]): PrototypeFileInput[] {
+export function filterTextFiles(
+  files: PrototypeFileInput[],
+): PrototypeFileInput[] {
   return files.filter((file) => !file.file_type || file.file_type === 'text');
 }
 
@@ -117,17 +126,21 @@ export async function saveFilesToDatabase(
     return;
   }
 
-  console.log(`💾 Saving ${fileEntries.length} files to database for prototype ${prototypeId}`);
+  console.log(
+    `💾 Saving ${fileEntries.length} files to database for prototype ${prototypeId}`,
+  );
 
   // Prepare data for upsert
-  const filesToUpsert: PrototypeFileInsert[] = fileEntries.map(([path, fileData]) => ({
-    prototype_id: prototypeId,
-    name: path,
-    contents: fileData.contents || '',
-    file_type: fileData.file_type || 'text',
-    storage_path: fileData.storage_path || null,
-    // Let database handle created_at and updated_at
-  }));
+  const filesToUpsert: PrototypeFileInsert[] = fileEntries.map(
+    ([path, fileData]) => ({
+      prototype_id: prototypeId,
+      name: path,
+      contents: fileData.contents || '',
+      file_type: fileData.file_type || 'text',
+      storage_path: fileData.storage_path || null,
+      // Let database handle created_at and updated_at
+    }),
+  );
 
   const { error } = await supabaseClient
     .from('prototype_files')
@@ -141,7 +154,9 @@ export async function saveFilesToDatabase(
     throw new Error(`Failed to save files: ${error.message}`);
   }
 
-  console.log(`✅ Successfully saved ${filesToUpsert.length} files to database`);
+  console.log(
+    `✅ Successfully saved ${filesToUpsert.length} files to database`,
+  );
 }
 
 /**
@@ -153,7 +168,7 @@ export async function saveFilesToDatabaseWithAuth(
   updatedFiles: Record<string, PrototypeFileInsert>,
 ): Promise<void> {
   const { createClient } = await import('@supabase/supabase-js');
-  
+
   const supabaseClient = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,

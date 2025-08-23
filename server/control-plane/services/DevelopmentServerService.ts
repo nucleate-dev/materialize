@@ -208,7 +208,10 @@ export class DevelopmentServerService {
         precheckResponse.payload,
       );
 
-      console.log('🔍 [update-files] Dispatch precheck response:', precheckData);
+      console.log(
+        '🔍 [update-files] Dispatch precheck response:',
+        precheckData,
+      );
 
       // 3. Check if build is already in progress
       if (this.isBuildInProgress(precheckData)) {
@@ -328,8 +331,10 @@ export class DevelopmentServerService {
             'error' in dispatchData
               ? dispatchData.error
               : 'Unknown file update error',
-          build_errors: 'build_errors' in dispatchData ? dispatchData.build_errors : [],
-          build_warnings: 'build_warnings' in dispatchData ? dispatchData.build_warnings : [],
+          build_errors:
+            'build_errors' in dispatchData ? dispatchData.build_errors : [],
+          build_warnings:
+            'build_warnings' in dispatchData ? dispatchData.build_warnings : [],
         } as UpdateFilesResponse);
       }
     } catch (error) {
@@ -428,34 +433,7 @@ export class DevelopmentServerService {
         } as StartDevServerErrorResponse);
       }
 
-      // 4. Save only text files to database (don't overwrite existing assets)
-      const textFilesOnly = filterTextFiles(files);
-      const textFilesWithType = convertTextFilesToDatabaseFormat(textFilesOnly);
-
-      console.log(
-        `🔍 [start-dev-server] Saving ${
-          Object.keys(textFilesWithType).length
-        } text files to database for prototype ${prototype_id} (filtered from ${
-          files.length
-        } total files)`,
-      );
-
-      try {
-        await saveFilesToDatabaseWithAuth(
-          jwtToken,
-          prototype_id,
-          textFilesWithType,
-        );
-      } catch (saveError) {
-        console.error('Error saving files to database:', saveError);
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Failed to save files',
-          message:
-            saveError instanceof Error ? saveError.message : 'Unknown error',
-        } as StartDevServerErrorResponse);
-      }
-
-      // 5. Prepare files for dispatch API - merge changed text files with existing assets
+      // 4. Prepare files for dispatch API - merge changed text files with existing assets
       const supabaseClient = createClient<Database>(
         this.supabaseUrl,
         this.supabaseAnonKey,
@@ -469,6 +447,7 @@ export class DevelopmentServerService {
       );
 
       // Get existing files to find assets
+      // TODO: This is a hack to get the assets for the dev server. We should just pass them from the client, don't need to refetch everything from supabase.
       const prototypeFilesResult = await getPrototypeFiles(
         supabaseClient,
         prototype_id,
@@ -562,17 +541,13 @@ export class DevelopmentServerService {
       console.log('📦 Dispatch endpoint response:', dispatchData);
 
       // 7. Return success response with viewing URL
-      let successResponse: StartDevServerSuccessResponse;
-
       if ('status' in dispatchData && dispatchData.status === 'success') {
-        successResponse = {
+        return reply.status(HTTP_STATUS.OK).send({
           success: true,
           status: dispatchData.status,
           viewing_url: dispatchData.viewing_url,
-          build_errors: dispatchData.build_errors || [],
-          build_warnings: dispatchData.build_warnings || [],
           message: 'Files saved and dev server started successfully',
-        };
+        } as StartDevServerSuccessResponse);
       } else {
         // Handle error response
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
@@ -581,12 +556,8 @@ export class DevelopmentServerService {
             'error' in dispatchData
               ? dispatchData.error
               : 'Unknown dispatch error',
-          build_errors: [],
-          build_warnings: [],
         } as StartDevServerErrorResponse);
       }
-
-      return reply.status(HTTP_STATUS.OK).send(successResponse);
     } catch (error) {
       console.error('Start dev server API error:', error);
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({

@@ -204,7 +204,12 @@ export interface CreatePrototypeSuccessResponse {
 
 export interface CreatePrototypeErrorResponse {
   success: false;
-  error: 'UNAUTHORIZED' | 'PROTOTYPE_LIMIT_REACHED' | 'DATABASE_ERROR' | 'S3_ERROR' | 'INVALID_REQUEST';
+  error:
+    | 'UNAUTHORIZED'
+    | 'PROTOTYPE_LIMIT_REACHED'
+    | 'DATABASE_ERROR'
+    | 'S3_ERROR'
+    | 'INVALID_REQUEST';
   message: string;
 }
 
@@ -267,16 +272,12 @@ export interface StartDevServerSuccessResponse {
   success: true;
   status: 'success' | 'error';
   viewing_url: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
   message: string;
 }
 
 export interface StartDevServerErrorResponse {
   error: string;
   message: string;
-  build_errors?: CodeError[];
-  build_warnings?: CodeWarning[];
 }
 
 export type StartDevServerResponse =
