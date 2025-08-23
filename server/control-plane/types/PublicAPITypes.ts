@@ -14,12 +14,6 @@ export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
   content: string; // base64 encoded string
 };
 
-export interface FileInput {
-  path: string;
-  content: string;
-  isBase64?: boolean;
-}
-
 export interface CodeError {
   message: string;
   file?: string;
@@ -65,7 +59,7 @@ export interface DispatchRequestBody {
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
+  assets: PrototypeAssetInputWithContent[];
   file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
@@ -234,6 +228,7 @@ export type CreatePrototypeResponse =
 
 export interface UpdateFilesRequestBody {
   files: PrototypeFileInput[];
+  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
 }
 
@@ -263,8 +258,9 @@ export type UpdateFilesResponse =
 // ============================================================================
 
 export interface StartDevServerRequestBody {
+  framework: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
+  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
   file_scope?: 'updates' | 'complete';
 }

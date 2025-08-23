@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   type ActiveBuild,
   type AuthValidationResult,
@@ -16,20 +16,22 @@ import {
   CACHE_KEYS,
   type FargateDevServerResponse,
   type FargateInstanceInfo,
-  type FargateRequestBody,
-  type Framework,
   type FileScope,
+  type Framework,
   isActiveBuild,
   S3_URL_TEMPLATE,
 } from '../types/InternalTypes.js';
 import {
-  type FileInput,
-  type DispatchRequestBody,
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckResponse,
-  StandardErrorResponse,
-  isStandardErrorResponse,
+  type DispatchRequestBody,
   HTTP_STATUS,
+  isStandardErrorResponse,
+  PrototypeAssetInput,
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+  StandardErrorResponse,
+  StartDevServerRequestBody,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 
@@ -65,7 +67,8 @@ export class DispatcherService {
     reply: FastifyReply,
   ): Promise<void> {
     // 1. Parse and Validate Body
-    const { jwt, prototype_id, framework, files, assets, file_scope } = request.body;
+    const { jwt, prototype_id, framework, files, assets, file_scope } =
+      request.body;
     if (!jwt) {
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         error: 'Bad Request',
@@ -222,9 +225,8 @@ export class DispatcherService {
         console.log('Set cache data builds zset for this prototype: ', buildId);
 
         console.log('Launching new fargate instance');
-        const newFargateInstance = await this.launchFargateInstance(
-          prototype_id,
-        );
+        const newFargateInstance =
+          await this.launchFargateInstance(prototype_id);
         console.log('Fargate instance launched: ', newFargateInstance);
 
         updatedBuildCacheData = {
@@ -608,7 +610,7 @@ export class DispatcherService {
 
   private async dispatchFormedRequestToFargateInstanceServer(
     fargatePrivateIp: string,
-    requestBody: FargateRequestBody,
+    requestBody: StartDevServerRequestBody,
   ): Promise<FargateDevServerResponse> {
     try {
       console.log(
@@ -648,34 +650,30 @@ export class DispatcherService {
   }: {
     prototype_id: string;
     framework: Framework;
-    files: Database['public']['Tables']['prototype_files']['Row'][];
-    assets: Database['public']['Tables']['prototype_assets']['Row'][];
+    files: PrototypeFileInput[];
+    assets: PrototypeAssetInput[];
     file_scope: FileScope;
-  }): Promise<FargateRequestBody> {
-    // Convert prototype files to FileInput format
-    const fileInputs: FileInput[] = files.map((file) => ({
-      path: file.name,
-      content: file.contents,
-      isBase64: false, // Text files are not base64 encoded
-    }));
-
+  }): Promise<StartDevServerRequestBody> {
     // Convert prototype assets to FileInput format by downloading and encoding
-    const assetInputs: FileInput[] = [];
+    const assetInputs: PrototypeAssetInputWithContent[] = [];
     for (const asset of assets) {
       try {
-        console.log(`🔍 Converting asset ${asset.name} from storage_url: ${asset.storage_url}`);
+        console.log(
+          `🔍 Converting asset ${asset.name} from storage_url: ${asset.storage_url}`,
+        );
         const response = await fetch(asset.storage_url);
         if (!response.ok) {
-          console.error(`Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`);
+          console.error(
+            `Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
+          );
           continue;
         }
         const arrayBuffer = await response.arrayBuffer();
         const base64Content = Buffer.from(arrayBuffer).toString('base64');
 
         assetInputs.push({
-          path: asset.name,
+          ...asset,
           content: base64Content,
-          isBase64: true,
         });
         console.log(`✅ Successfully converted asset: ${asset.name}`);
       } catch (error) {
@@ -683,13 +681,11 @@ export class DispatcherService {
       }
     }
 
-    // Combine all files
-    const allFiles = [...fileInputs, ...assetInputs];
-
     return {
       prototype_id,
       framework,
-      files: allFiles,
+      files: files,
+      assets: assetInputs,
       file_scope,
     };
   }
