@@ -1,4 +1,5 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 import type { Database } from '../types/supabase.js';
 import type {
   PrototypeAuthResult,
@@ -179,5 +180,103 @@ export async function getPrototypeFiles(
       error: 'DATABASE_ERROR',
       message: 'Failed to fetch prototype files',
     };
+  }
+}
+
+interface JWTPayload {
+  sub?: string;
+  userId?: string;
+  user_id?: string;
+}
+
+/**
+ * Validate a JWT token using JWT_SECRET and return userId if valid
+ */
+export function validateJWTToken(token: string): string | null {
+  try {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('JWT_SECRET environment variable not set');
+      return null;
+    }
+
+    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+    
+    // Extract user ID from the decoded token
+    // Assuming the token contains a 'sub' or 'userId' field
+    return decoded.sub || decoded.userId || decoded.user_id || null;
+  } catch (error) {
+    console.error('JWT validation error:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if user has viewing access to a prototype
+ */
+export async function checkUserHasPrototypeViewingAccess(
+  prototypeId: string,
+  jwtToken?: string,
+): Promise<Database['public']['Tables']['prototypes']['Row'] | null> {
+  try {
+    // Create Supabase client with or without JWT
+    const supabaseClient = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      jwtToken ? {
+        global: {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
+        },
+      } : undefined,
+    );
+
+    const { data: prototype, error } = await supabaseClient
+      .from('prototypes')
+      .select('*')
+      .eq('id', prototypeId)
+      .single();
+
+    if (error || !prototype) {
+      return null;
+    }
+
+    return prototype;
+  } catch (error) {
+    console.error('Error checking prototype viewing access:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if user has edit access to a prototype (must be owner)
+ */
+export async function checkUserHasPrototypeEditAccess(
+  prototypeId: string,
+  jwtToken?: string,
+): Promise<boolean> {
+  try {
+    if (!jwtToken) {
+      return false;
+    }
+
+    // Validate JWT and get user ID
+    const userId = validateJWTToken(jwtToken);
+    if (!userId) {
+      return false;
+    }
+
+    // Get prototype to check ownership
+    const prototype = await checkUserHasPrototypeViewingAccess(prototypeId, jwtToken);
+    if (!prototype) {
+      return false;
+    }
+
+    // Check if user is the owner
+    return prototype.owner_id === userId;
+  } catch (error) {
+    console.error('Error checking prototype edit access:', error);
+    return false;
   }
 }
