@@ -600,10 +600,8 @@ export default function PrototypeChatWindow({
           snackFiles[path] = {
             contents: file.contents || "",
             name: file.name,
-            file_type: file.file_type,
             prototype_id: file.prototype_id || "",
             id: file.id,
-            storage_path: file.storage_path || "",
             created_at: file.created_at || "",
             updated_at: file.updated_at || "",
           };

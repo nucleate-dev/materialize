@@ -144,17 +144,9 @@ export interface PrototypeLimitCheck {
   message?: string;
 }
 
-export interface PrototypeFile {
-  prototype_id: string;
-  name: string;
-  contents: string;
-  file_type: 'text' | 'asset';
-  storage_path: string | null;
-}
-
 export interface PrototypeFilesResult {
   success: boolean;
-  files?: PrototypeFile[];
+  files?: PrototypeFileRow[];
   error?: string;
   message?: string;
 }
@@ -173,7 +165,8 @@ export interface S3UploadResult {
 
 export interface DefaultFilesResult {
   success: boolean;
-  files?: PrototypeFile[];
+  files?: PrototypeFileInsert[];
+  assets?: PrototypeAssetInsert[];
   error?: string;
 }
 
@@ -184,6 +177,8 @@ export type PrototypeFileRow =
   Database['public']['Tables']['prototype_files']['Row'];
 export type PrototypeFileInsert =
   Database['public']['Tables']['prototype_files']['Insert'];
+export type PrototypeAssetInsert =
+  Database['public']['Tables']['prototype_assets']['Insert'];
 
 // ============================================================================
 // ERROR HANDLING TYPES

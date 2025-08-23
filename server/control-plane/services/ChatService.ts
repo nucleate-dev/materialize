@@ -23,6 +23,7 @@ import {
   EXECUTION_PROMPT,
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
+import { PrototypeFileInsert } from '../types/InternalTypes.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -394,6 +395,7 @@ export class ChatService {
 
             // ------------------------------------------------------------------------------------------------
             // 9. Save updated files to database before dispatch
+            // TODO: instead, stream the updated files only back to the client, and persist them there
             // ------------------------------------------------------------------------------------------------
             const finalFiles = fileManager.getFinalState();
 
@@ -402,18 +404,12 @@ export class ChatService {
                 '=� Saving updated files to database before dispatch...',
               );
               // Convert PrototypeFiles to the format expected by the shared utility
-              const fileUpdatesForDatabase = Object.fromEntries(
-                Object.entries(finalFiles).map(([filePath, file]) => [
-                  filePath,
-                  {
-                    prototype_id: prototype_id,
-                    name: filePath,
-                    contents: file.contents || '',
-                    file_type: 'text' as const,
-                    storage_path: null,
-                  },
-                ]),
-              );
+              const fileUpdatesForDatabase: PrototypeFileInsert[] =
+                Object.entries(finalFiles).map(([filePath, file]) => ({
+                  prototype_id,
+                  name: filePath,
+                  contents: file.contents || '',
+                }));
 
               await saveFilesToDatabaseWithAuth(
                 token,

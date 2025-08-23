@@ -18,11 +18,7 @@ import {
   authenticatePrototypeUser,
   checkUserHasPrototypeEditAccess,
 } from '../utils/prototypeAuth.js';
-import {
-  filterTextFiles,
-  convertTextFilesToDatabaseFormat,
-  saveFilesToDatabaseWithAuth,
-} from '../utils/fileOperations.js';
+import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
 import { hasExceededUsageLimit } from '../utils/subscriptionChecks.js';
 
 export class DevelopmentServerService {
@@ -245,23 +241,8 @@ export class DevelopmentServerService {
       }
 
       // 5. Save only text files to database (don't overwrite existing assets)
-      const textFilesOnly = filterTextFiles(files);
-      const textFilesWithType = convertTextFilesToDatabaseFormat(textFilesOnly);
-
-      console.log(
-        `🔍 [update-files] Saving ${
-          Object.keys(textFilesWithType).length
-        } text files to database for prototype ${prototype_id} (filtered from ${
-          files.length
-        } total files)`,
-      );
-
       try {
-        await saveFilesToDatabaseWithAuth(
-          jwtToken,
-          prototype_id,
-          textFilesWithType,
-        );
+        await saveFilesToDatabaseWithAuth(jwtToken, prototype_id, files);
       } catch (saveError) {
         console.error('Error saving files to database:', saveError);
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({

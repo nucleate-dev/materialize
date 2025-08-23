@@ -24,7 +24,6 @@ import {
   getPrototypeFiles,
 } from '../utils/prototypeAuth.js';
 import {
-  copyAssetInSupabaseStorage,
   copyS3BucketContents,
   getDefaultAppFilesFromS3,
   copyDefaultAppToPrototype,
@@ -341,6 +340,7 @@ export class PrototypeManagementService {
             supabase,
             forkPrototypeId,
           );
+          // TODO: fetch assets for forked prototype as well
           if (!filesResult.success) {
             console.log('Failed to get prototype files', filesResult);
             throw new Error(
@@ -357,55 +357,13 @@ export class PrototypeManagementService {
             } files for new prototype`,
           );
 
+          console.log(`📝 Copying text files`);
           for (const file of filesResult.files!) {
-            if (file.file_type === 'asset') {
-              console.log(
-                `🔄 Copying asset: ${file.name} from ${file.storage_path}`,
-              );
-
-              // Copy asset in Supabase Storage
-              const copyResult = await copyAssetInSupabaseStorage(
-                forkPrototypeId,
-                newPrototypeId,
-                file.name,
-              );
-
-              if (!copyResult.success) {
-                console.error(
-                  `❌ Failed to copy asset ${file.name}:`,
-                  copyResult.error,
-                );
-                throw new Error(
-                  `Failed to copy asset ${file.name}: ${copyResult.error}`,
-                );
-              }
-
-              console.log(
-                `✅ Asset copied: ${file.name} → ${copyResult.publicUrl}`,
-              );
-
-              filesToInsert.push({
-                prototype_id: newPrototypeId,
-                name: file.name,
-                contents: '', // Empty string for asset files since contents is required
-                file_type: 'asset',
-                storage_path: copyResult.publicUrl!,
-              });
-            } else {
-              // Text file - just copy contents
-              console.log(
-                `📝 Copying text file: ${file.name} (${
-                  file.contents?.length || 0
-                } chars)`,
-              );
-              filesToInsert.push({
-                prototype_id: newPrototypeId,
-                name: file.name,
-                contents: file.contents,
-                file_type: file.file_type,
-                storage_path: file.storage_path,
-              });
-            }
+            filesToInsert.push({
+              prototype_id: newPrototypeId,
+              name: file.name,
+              contents: file.contents,
+            });
           }
 
           console.log(`💾 Files to insert: ${filesToInsert.length} total`);
@@ -463,20 +421,10 @@ export class PrototypeManagementService {
             );
           }
 
-          // Convert to PrototypeFileInsert format
-          const filesToInsert: PrototypeFileInsert[] =
-            defaultFilesResult.files!.map((file) => ({
-              prototype_id: file.prototype_id,
-              name: file.name,
-              contents: file.contents,
-              file_type: file.file_type,
-              storage_path: file.storage_path,
-            }));
-
           // Insert default prototype files into Supabase
           const { error: filesError } = await supabase
             .from('prototype_files')
-            .insert(filesToInsert);
+            .insert(defaultFilesResult.files!);
 
           if (filesError) {
             console.log('Failed to insert default files', filesError);

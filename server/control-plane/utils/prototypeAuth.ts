@@ -6,7 +6,6 @@ import type {
   PrototypeLimitCheck,
   PrototypeFilesResult,
   SubscriptionPlanType,
-  PrototypeFile,
 } from '../types/InternalTypes.js';
 
 /**
@@ -161,18 +160,9 @@ export async function getPrototypeFiles(
       };
     }
 
-    // Convert to our internal type
-    const prototypeFiles: PrototypeFile[] = files.map((file) => ({
-      prototype_id: file.prototype_id || prototypeId,
-      name: file.name,
-      contents: file.contents || '',
-      file_type: file.file_type as 'text' | 'asset',
-      storage_path: file.storage_path,
-    }));
-
     return {
       success: true,
-      files: prototypeFiles,
+      files: files,
     };
   } catch (error) {
     console.error('Error fetching prototype files:', error);

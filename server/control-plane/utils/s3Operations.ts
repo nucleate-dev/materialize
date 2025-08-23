@@ -11,7 +11,8 @@ import type {
   S3CopyResult,
   S3UploadResult,
   DefaultFilesResult,
-  PrototypeFile,
+  PrototypeFileInsert,
+  PrototypeAssetInsert,
 } from '../types/InternalTypes.js';
 
 // Initialize Supabase storage client
@@ -357,7 +358,8 @@ export async function getDefaultAppFilesFromS3(
       `📁 [S3] Found ${listResult.Contents.length} default app files`,
     );
 
-    const files: PrototypeFile[] = [];
+    const files: PrototypeFileInsert[] = [];
+    const assets: PrototypeAssetInsert[] = [];
     let processedFiles = 0;
     let skippedFiles = 0;
     let failedFiles = 0;
@@ -413,12 +415,10 @@ export async function getDefaultAppFilesFromS3(
             continue;
           }
 
-          files.push({
+          assets.push({
             prototype_id: prototypeId,
             name: fileName,
-            contents: '', // Empty for assets
-            file_type: 'asset',
-            storage_path: uploadResult.publicUrl!,
+            storage_url: uploadResult.publicUrl!, // Empty for assets
           });
         } else {
           // For text files, get the content
@@ -427,8 +427,6 @@ export async function getDefaultAppFilesFromS3(
             prototype_id: prototypeId,
             name: fileName,
             contents: content,
-            file_type: 'text',
-            storage_path: null,
           });
         }
 

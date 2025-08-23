@@ -6,15 +6,6 @@ type PrototypeFileInsert =
   Database['public']['Tables']['prototype_files']['Insert'];
 
 /**
- * Filter files to only include text files
- */
-export function filterTextFiles(
-  files: PrototypeFileInput[],
-): PrototypeFileInput[] {
-  return files.filter((file) => !file.file_type || file.file_type === 'text');
-}
-
-/**
  * Convert filtered text files to database format with proper typing
  */
 export function convertTextFilesToDatabaseFormat(
@@ -43,7 +34,7 @@ export function convertTextFilesToDatabaseFormat(
 export async function saveFilesToDatabase(
   supabaseClient: SupabaseClient<Database>,
   prototypeId: string,
-  updatedFiles: Record<string, PrototypeFileInsert>,
+  updatedFiles: PrototypeFileInsert[],
 ): Promise<void> {
   if (!prototypeId) {
     throw new Error('Prototype ID is required');
@@ -59,21 +50,9 @@ export async function saveFilesToDatabase(
     `💾 Saving ${fileEntries.length} files to database for prototype ${prototypeId}`,
   );
 
-  // Prepare data for upsert
-  const filesToUpsert: PrototypeFileInsert[] = fileEntries.map(
-    ([path, fileData]) => ({
-      prototype_id: prototypeId,
-      name: path,
-      contents: fileData.contents || '',
-      file_type: fileData.file_type || 'text',
-      storage_path: fileData.storage_path || null,
-      // Let database handle created_at and updated_at
-    }),
-  );
-
   const { error } = await supabaseClient
     .from('prototype_files')
-    .upsert(filesToUpsert, {
+    .upsert(updatedFiles, {
       onConflict: 'prototype_id,name',
       ignoreDuplicates: false, // Update existing files
     });
@@ -83,9 +62,7 @@ export async function saveFilesToDatabase(
     throw new Error(`Failed to save files: ${error.message}`);
   }
 
-  console.log(
-    `✅ Successfully saved ${filesToUpsert.length} files to database`,
-  );
+  console.log(`✅ Successfully saved ${updatedFiles.length} files to database`);
 }
 
 /**
@@ -94,7 +71,7 @@ export async function saveFilesToDatabase(
 export async function saveFilesToDatabaseWithAuth(
   jwtToken: string,
   prototypeId: string,
-  updatedFiles: Record<string, PrototypeFileInsert>,
+  updatedFiles: PrototypeFileInsert[],
 ): Promise<void> {
   const { createClient } = await import('@supabase/supabase-js');
 

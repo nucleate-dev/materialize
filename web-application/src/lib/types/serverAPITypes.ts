@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-08-23T14:45:00.565Z
+// Last synced: 2025-08-23T20:51:02.253Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -19,11 +19,9 @@ export type PrototypeFileInput =
 export type PrototypeAssetInput =
   Database['public']['Tables']['prototype_assets']['Row'];
 
-export interface FileInput {
-  path: string;
-  content: string;
-  isBase64?: boolean;
-}
+export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
+  contents: string; // base64 encoded string
+};
 
 export interface CodeError {
   message: string;
@@ -70,7 +68,7 @@ export interface DispatchRequestBody {
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
+  assets: PrototypeAssetInputWithContent[];
   file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
@@ -239,6 +237,7 @@ export type CreatePrototypeResponse =
 
 export interface UpdateFilesRequestBody {
   files: PrototypeFileInput[];
+  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
 }
 
@@ -268,8 +267,9 @@ export type UpdateFilesResponse =
 // ============================================================================
 
 export interface StartDevServerRequestBody {
+  framework: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
-  assets: PrototypeAssetInput[];
+  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
   file_scope?: 'updates' | 'complete';
 }
