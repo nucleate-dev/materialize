@@ -1,0 +1,15 @@
+{
+  "name": "server-scripts",
+  "version": "1.0.0",
+  "description": "Server-level scripts for deployment and management",
+  "type": "module",
+  "scripts": {
+    "deploy-default-app": "node deploy-default-app.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.864.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
