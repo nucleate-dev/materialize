@@ -366,12 +366,20 @@ export class DevelopmentServerService {
         } as StandardErrorResponse);
       }
 
-      const supabase = createClient<Database>(
+      // 4. Prepare files for dispatch API - merge changed text files with existing assets
+      const supabaseClient = createClient<Database>(
         this.supabaseUrl,
-        this.supabaseServiceKey,
+        this.supabaseAnonKey,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        },
       );
 
-      const authResult = await authenticatePrototypeUser(supabase, token);
+      const authResult = await authenticatePrototypeUser(supabaseClient, token);
       if (!authResult.success) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           error: 'Unauthorized',
@@ -379,14 +387,12 @@ export class DevelopmentServerService {
         } as StandardErrorResponse);
       }
 
-      const jwtToken = token;
-
       // 2. Perform dispatch precheck to verify permissions and build status
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
         payload: {
-          jwt: jwtToken,
+          jwt: token,
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
@@ -424,7 +430,7 @@ export class DevelopmentServerService {
         precheckData,
       );
 
-      // 3. Check if build is already in progress
+      // 3. Check if dev server already exists
       if (
         'state' in precheckData &&
         precheckData.state === 'active_dev_server'
@@ -436,19 +442,6 @@ export class DevelopmentServerService {
             'A dev server is currently starting for this prototype. Please wait for it to complete.',
         } as StartDevServerErrorResponse);
       }
-
-      // 4. Prepare files for dispatch API - merge changed text files with existing assets
-      const supabaseClient = createClient<Database>(
-        this.supabaseUrl,
-        this.supabaseAnonKey,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwtToken}`,
-            },
-          },
-        },
-      );
 
       // Get existing files to find assets
       // TODO: This is a hack to get the assets for the dev server. We should just pass them from the client, don't need to refetch everything from supabase.
@@ -504,7 +497,7 @@ export class DevelopmentServerService {
         method: 'POST',
         url: '/dispatch',
         payload: {
-          jwt: jwtToken,
+          jwt: token,
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: filesForDispatch,
