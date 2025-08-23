@@ -1,6 +1,6 @@
 "use client";
 
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -174,19 +174,21 @@ const FileTree: React.FC<FileTreeProps> = ({
       return (
         <div
           key={node.path}
-          className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200 ${isSelected
+          className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200 ${
+            isSelected
               ? "bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20"
               : ""
-            }`}
+          }`}
           style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}
         >
           <span className="mr-2 text-sm">{getFileIcon(node.name)}</span>
           <span
-            className={`text-sm ${isSelected
+            className={`text-sm ${
+              isSelected
                 ? "text-primary dark:text-primary font-semibold"
                 : "text-black dark:text-white font-medium"
-              }`}
+            }`}
           >
             {node.name}
           </span>

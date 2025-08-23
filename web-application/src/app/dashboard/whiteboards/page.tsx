@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -96,7 +96,11 @@ export default function WhiteboardsPage() {
 
             {/* New Canvas Button */}
             <div className="flex-shrink-0">
-              <Button onClick={handleOpenModal} size="lg" className="w-full sm:w-auto gap-2">
+              <Button
+                onClick={handleOpenModal}
+                size="lg"
+                className="w-full sm:w-auto gap-2"
+              >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">New Whiteboard</span>
                 <span className="sm:hidden">New</span>

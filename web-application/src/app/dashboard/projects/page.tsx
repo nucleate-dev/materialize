@@ -7,7 +7,7 @@ import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -77,7 +77,11 @@ export default function ProjectsPage() {
 
             {/* New Project Button */}
             <div className="flex-shrink-0">
-              <Button onClick={handleOpenModal} size="lg" className="w-full sm:w-auto">
+              <Button
+                onClick={handleOpenModal}
+                size="lg"
+                className="w-full sm:w-auto"
+              >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 <span className="hidden sm:inline">New Project</span>
                 <span className="sm:hidden">New</span>

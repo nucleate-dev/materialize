@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import type {
   StartDevServerRequestBody,
   StartDevServerResponse,
@@ -138,10 +138,8 @@ const MaterializeRenderSection = forwardRef<
           ([path, file]) => ({
             contents: file.contents,
             name: path, // Use the path as the name
-            file_type: file.file_type || ("text" as const),
             prototype_id: file.prototype_id || prototypeId,
             id: file.id,
-            storage_path: file.storage_path,
             created_at: file.created_at,
             updated_at: file.updated_at,
           }),
@@ -166,6 +164,7 @@ const MaterializeRenderSection = forwardRef<
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
+              framework: "expo_react_native",
               files: filesArray,
               assets: [], // No assets in manual start scenario
               prototype_id: prototypeId,

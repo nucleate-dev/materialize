@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
@@ -30,7 +30,7 @@ type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function PrototypePage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const router = useRouter();
   const prototypeId = params?.prototype_id;
 
@@ -271,9 +271,7 @@ export default function PrototypePage() {
           <div className="flex-1 p-8">
             <Card className="h-full overflow-hidden">
               <CardContent className="h-full p-0">
-                <MaterializeRenderSection
-                  viewing_url={viewingUrl ?? ""}
-                />
+                <MaterializeRenderSection viewing_url={viewingUrl ?? ""} />
               </CardContent>
             </Card>
           </div>

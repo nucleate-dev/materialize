@@ -4,9 +4,6 @@ import { supabase } from "@/ClientConstants";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
-// import ExpoSnackViewer, {
-//   ExpoSnackViewerRef,
-// } from "@/components/ExpoSnackViewer";
 import FileTree from "@/components/FileTree";
 import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
@@ -27,7 +24,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
@@ -47,6 +44,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -150,23 +149,14 @@ export default function CreatePage() {
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-
-        if (!serverEndpoint) {
-          console.error("Server endpoint not configured");
-          return;
-        }
-
         const headers: HeadersInit = {
           "Content-Type": "application/json",
         };
-
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-
         const fetchViewResponse = await fetch(
-          `${serverEndpoint}/prototype/fetch-viewing-url`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/fetch-viewing-url`,
           {
             method: "POST",
             headers,
@@ -219,8 +209,8 @@ export default function CreatePage() {
       }
 
       console.log("Auto-starting dev server for prototype:", prototypeId);
-      setIsBuilding(true);
 
+      // TODO: badge -- set current status to starting dev server
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
@@ -232,28 +222,33 @@ export default function CreatePage() {
           return;
         }
 
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-        if (!serverEndpoint) {
-          console.error("Server endpoint not configured");
-          return;
-        }
-
         // Convert files from Record<string, PrototypeFile> to array format expected by API
-        const filesArray = Object.entries(fileSystem.state.files).map(
-          ([path, file]) => ({
-            contents: file.contents,
-            name: path,
-            prototype_id: file.prototype_id || prototypeId,
-            id: file.id,
-            created_at: file.created_at || undefined,
-            updated_at: file.updated_at || undefined,
-          }),
-        );
+        const filesArray: PrototypeFile[] = Object.entries(
+          fileSystem.state.files,
+        ).map(([path, file]) => ({
+          contents: file.contents,
+          name: path,
+          prototype_id: file.prototype_id || prototypeId,
+          id: file.id,
+          created_at: file.created_at || null,
+          updated_at: file.updated_at || null,
+        }));
+
+        const assetsArray: PrototypeAsset[] = Object.entries(
+          fileSystem.state.assets,
+        ).map(([path, asset]) => ({
+          storage_url: asset.storage_url,
+          name: path,
+          prototype_id: asset.prototype_id || prototypeId,
+          created_at: asset.created_at || null,
+          updated_at: asset.updated_at || null,
+          id: asset.id,
+        }));
 
         console.log(`Auto-starting dev server with ${filesArray.length} files`);
 
         const response = await fetch(
-          `${serverEndpoint}/files/start-dev-server`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
           {
             method: "POST",
             headers: {
@@ -263,7 +258,7 @@ export default function CreatePage() {
             body: JSON.stringify({
               framework: "expo_react_native",
               files: filesArray,
-              assets: [], // No assets in auto-start scenario
+              assets: assetsArray, // No assets in auto-start scenario
               prototype_id: prototypeId,
               file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
@@ -296,6 +291,7 @@ export default function CreatePage() {
       } catch (error) {
         console.error("Error auto-starting dev server:", error);
       } finally {
+        // TODO: badge -- set current status to connected (if successful) or static build (if failed)
         setIsBuilding(false);
       }
     }
@@ -347,7 +343,7 @@ export default function CreatePage() {
           description: prototype.description,
           project_id: prototype.project_id,
           prototype_id: prototypeId, // For forking
-          visibility: "SELF",
+          visibility: "SELF", // TODO: set this to PUBLIC if user is free
         } as CreatePrototypeRequestBody),
       });
 
@@ -616,13 +612,6 @@ export default function CreatePage() {
                         onViewingUrlUpdate={setViewingUrl}
                         onBuildingStateChange={setIsBuilding}
                       />
-                      {/* <ExpoSnackViewer
-                        ref={snackViewerRef}
-                        files={fileSystem.state.files}
-                        onResetToDefault={handleResetToDefault}
-                        onCreateFile={fileSystem.createFile}
-                        onDeleteFile={fileSystem.deleteFile}
-                      /> */}
                     </div>
                   ) : (
                     <div

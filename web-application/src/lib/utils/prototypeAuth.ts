@@ -1,4 +1,4 @@
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 export interface PrototypeAuthResult {

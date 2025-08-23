@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,7 +27,9 @@ export default function PrototypesPage() {
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activePrototype, setActivePrototype] = useState<Prototype | null>(null);
+  const [activePrototype, setActivePrototype] = useState<Prototype | null>(
+    null,
+  );
 
   const fetchPrototypes = useCallback(async () => {
     if (!user?.id) {
@@ -96,7 +98,11 @@ export default function PrototypesPage() {
 
             {/* New Prototype Button */}
             <div className="flex-shrink-0">
-              <Button onClick={handleOpenModal} size="lg" className="w-full sm:w-auto gap-2">
+              <Button
+                onClick={handleOpenModal}
+                size="lg"
+                className="w-full sm:w-auto gap-2"
+              >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">New Prototype</span>
                 <span className="sm:hidden">New</span>

@@ -5,7 +5,7 @@ import ChatWindow from "@/components/ChatWindow";
 import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/database.types";
+import { Database } from "@/lib/types/supabase";
 import {
   ChatErrorResponse,
   ChatRequestBody,
