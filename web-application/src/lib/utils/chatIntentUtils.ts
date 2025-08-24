@@ -8,7 +8,9 @@ export interface ChatIntent {
  * @param prototypeId - The prototype ID to check against
  * @returns Parsed ChatIntent if valid, null otherwise
  */
-export function getChatIntent(prototypeId: string | undefined): ChatIntent | null {
+export function getChatIntent(
+  prototypeId: string | undefined,
+): ChatIntent | null {
   if (typeof window === "undefined" || !prototypeId) {
     return null;
   }
