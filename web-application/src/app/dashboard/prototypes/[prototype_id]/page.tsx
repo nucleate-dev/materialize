@@ -248,7 +248,7 @@ export default function CreatePage() {
         console.log("Skipping auto-start dev server - files not loaded");
         return;
       }
-      if (hasChatIntent(prototypeId) || currentRenderStatus === "Connected") {
+      if (hasChatIntent(prototypeId)) {
         console.log(
           "Skipping auto-start dev server - chat_intent present or dev server already connected",
         );
@@ -334,7 +334,14 @@ export default function CreatePage() {
     if (prototypeId && shouldTriggerInitialFetch) {
       fetchPrototypeAndStartDevServer();
     }
-  });
+  }, [
+    fileSystem.state.assets,
+    fileSystem.state.files,
+    prototypeId,
+    router,
+    shouldTriggerInitialFetch,
+    viewingUrl,
+  ]);
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined && fileSystem.state.selectedFile) {
