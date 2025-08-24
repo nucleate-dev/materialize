@@ -135,18 +135,31 @@ export class ChatService {
                   },
                 },
               },
-              snackFiles: {
+              inputFiles: {
                 type: ['object', 'null'],
                 additionalProperties: {
                   type: 'object',
-                  required: ['contents', 'name', 'file_type', 'prototype_id'],
+                  required: ['contents', 'name', 'prototype_id'],
                   properties: {
                     contents: { type: 'string' },
                     name: { type: 'string' },
-                    file_type: { type: 'string', enum: ['text', 'asset'] },
                     prototype_id: { type: 'string' },
                     id: { type: 'string' },
-                    storage_path: { type: ['string', 'null'] },
+                    created_at: { type: 'string' },
+                    updated_at: { type: 'string' },
+                  },
+                },
+              },
+              inputAssets: {
+                type: ['object', 'null'],
+                additionalProperties: {
+                  type: 'object',
+                  required: ['storage_url', 'name', 'prototype_id'],
+                  properties: {
+                    storage_url: { type: 'string' },
+                    name: { type: 'string' },
+                    prototype_id: { type: 'string' },
+                    id: { type: 'string' },
                     created_at: { type: 'string' },
                     updated_at: { type: 'string' },
                   },
@@ -279,29 +292,20 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 3. Parse request body
       // ------------------------------------------------------------------------------------------------
-      const { messages, snackFiles, chat_session_id, prototype_id } =
-        request.body;
+      const {
+        messages,
+        inputFiles,
+        inputAssets,
+        chat_session_id,
+        prototype_id,
+      } = request.body;
       if (!messages || !Array.isArray(messages)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error: 'Messages array is required',
         } as ChatErrorResponse);
       }
 
-      // Convert snackFiles to compatible format
-      const convertedFiles: PrototypeFiles | null = snackFiles
-        ? Object.fromEntries(
-            Object.entries(snackFiles).map(([path, file]) => [
-              path,
-              {
-                ...file,
-                created_at: file.created_at || null,
-                updated_at: file.updated_at || null,
-              } as PrototypeFile,
-            ]),
-          )
-        : null;
-
-      const fileManager = new this.FileManager(convertedFiles, prototype_id);
+      const fileManager = new this.FileManager(inputFiles, prototype_id);
 
       // ------------------------------------------------------------------------------------------------
       // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
@@ -320,7 +324,11 @@ export class ChatService {
       );
       console.log('Dispatch precheck response:', precheckData);
 
-      if ('success' in precheckData && precheckData.status === 'updating') {
+      if (
+        'success' in precheckData &&
+        (precheckData.status === 'updating' ||
+          precheckData.status === 'creating')
+      ) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:
             "Cannot chat while a build is currently in progress. Materialize agents won't be able to build your files.",
@@ -335,7 +343,7 @@ export class ChatService {
 
       // Always inject project context if available (prevents LLM hallucination)
       console.log('<� Injecting Expo Snack project context for development...');
-      const projectContext = this.getProjectContext(convertedFiles);
+      const projectContext = this.getProjectContext(inputFiles);
       if (projectContext) {
         userMessage += projectContext;
         console.log(' Expo Snack project context successfully injected');
@@ -366,7 +374,7 @@ export class ChatService {
               messages,
               userMessage,
               fileManager,
-              convertedFiles,
+              inputFiles,
               chat_session_id,
               controller,
               encoder,
@@ -386,7 +394,7 @@ export class ChatService {
               planningResult,
               fileManager,
               messages,
-              convertedFiles,
+              inputFiles,
               prototype_id,
               controller,
               encoder,
@@ -435,7 +443,7 @@ export class ChatService {
               ),
             );
 
-            // Convert snackFiles to the expected PrototypeFileInput format
+            // Convert inputFiles to the expected PrototypeFileInput format
             const finalFilesForDispatch: PrototypeFileInput[] = [];
             Object.entries(finalFiles).forEach(([, file]) => {
               finalFilesForDispatch.push({
@@ -444,22 +452,47 @@ export class ChatService {
             });
 
             try {
-              const dispatchResponse = await this.fastifyApp.inject({
-                method: 'POST',
-                url: '/dispatch',
-                payload: {
-                  jwt: token,
-                  prototype_id: prototype_id,
-                  framework: 'expo_react_native',
-                  files: finalFilesForDispatch,
-                  assets: [],
-                  file_scope: 'updates',
-                  hot_reload: true,
-                } as DispatchRequestBody,
-              });
+              let tempDispatchResponse;
+              if (
+                'state' in precheckData &&
+                precheckData.state === 'active_dev_server'
+              ) {
+                tempDispatchResponse = await this.fastifyApp.inject({
+                  method: 'POST',
+                  url: '/dispatch',
+                  payload: {
+                    jwt: token,
+                    prototype_id: prototype_id,
+                    framework: 'expo_react_native',
+                    files: finalFilesForDispatch,
+                    assets: [],
+                    file_scope: 'updates',
+                    hot_reload: true,
+                  } as DispatchRequestBody,
+                });
+              } else {
+                // If there is no active dev server, we need to dispatch the complete set of files and assets
+                tempDispatchResponse = await this.fastifyApp.inject({
+                  method: 'POST',
+                  url: '/dispatch',
+                  payload: {
+                    jwt: token,
+                    prototype_id: prototype_id,
+                    framework: 'expo_react_native',
+                    files: finalFilesForDispatch,
+                    assets: Object.entries(inputAssets || {})
+                      .map(([, asset]) => {
+                        return asset;
+                      })
+                      .filter((asset) => asset !== null),
+                    file_scope: 'complete',
+                    hot_reload: true,
+                  } as DispatchRequestBody,
+                });
+              }
 
               const dispatchData: DispatchResponse = JSON.parse(
-                dispatchResponse.payload,
+                tempDispatchResponse.payload,
               );
               console.log('=� Dispatch endpoint response:', dispatchData);
 
@@ -947,7 +980,7 @@ export class ChatService {
     finalResponse: string,
     fileManager: FileManagerInterface,
     messages: { role: string; content: string }[],
-    snackFiles: PrototypeFiles | null,
+    inputFiles: PrototypeFiles | null,
     prototype_id: string,
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
@@ -988,7 +1021,7 @@ export class ChatService {
               operation,
               fileManager,
               messages,
-              snackFiles,
+              inputFiles,
               prototype_id,
             );
 
@@ -1063,7 +1096,7 @@ export class ChatService {
     },
     fileManager: FileManagerInterface,
     messages: { role: string; content: string }[],
-    snackFiles: PrototypeFiles | null,
+    inputFiles: PrototypeFiles | null,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _prototype_id: string,
   ): Promise<{
@@ -1096,7 +1129,7 @@ MANDATORY: Before creating this screen, you MUST:
     let userMessage = `${context}\n\nOriginal request: ${lastMessage.content}`;
 
     // Always inject project context
-    const projectContext = this.getProjectContext(snackFiles);
+    const projectContext = this.getProjectContext(inputFiles);
     if (projectContext) {
       userMessage += projectContext;
     }
@@ -1283,7 +1316,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       let continuationMessage = `Tool results:\n${toolResultsText}\n\nBased on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.`;
       // Only inject context every 3 tool calls to avoid confusion in execution
       if (toolCallsMade % 3 === 0) {
-        const projectContextContinuation = this.getProjectContext(snackFiles);
+        const projectContextContinuation = this.getProjectContext(inputFiles);
         if (projectContextContinuation) {
           continuationMessage += projectContextContinuation;
         }
@@ -1328,11 +1361,11 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
   }
 
   // Get project context from the Expo Snack files instead of scanning filesystem
-  private getProjectContext(snackFiles: PrototypeFiles | null): string {
+  private getProjectContext(inputFiles: PrototypeFiles | null): string {
     try {
       console.log('🔍 Building context from Expo Snack files...');
 
-      if (!snackFiles || Object.keys(snackFiles).length === 0) {
+      if (!inputFiles || Object.keys(inputFiles).length === 0) {
         console.log('� No snack files provided for context');
         return '';
       }
@@ -1362,7 +1395,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       ];
 
       // Analyze each snack file
-      Object.entries(snackFiles).forEach(([filePath, file]) => {
+      Object.entries(inputFiles).forEach(([filePath, file]) => {
         if (!file.contents) {
           return;
         }

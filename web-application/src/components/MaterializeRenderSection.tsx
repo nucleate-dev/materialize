@@ -34,6 +34,7 @@ import {
 } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
@@ -42,6 +43,7 @@ interface MaterializeRenderSectionProps {
   // Props for dev server functionality
   prototypeId?: string;
   files?: Record<string, PrototypeFile>;
+  assets?: Record<string, PrototypeAsset>;
   onViewingUrlUpdate?: (url: string) => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
 }
@@ -63,6 +65,7 @@ const MaterializeRenderSection = forwardRef<
       isBuilding = false,
       prototypeId,
       files,
+      assets,
       onViewingUrlUpdate,
       onBuildingStateChange,
     },
@@ -115,9 +118,9 @@ const MaterializeRenderSection = forwardRef<
 
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
-      if (!prototypeId || !files || !onBuildingStateChange) {
+      if (!prototypeId || !files || !onBuildingStateChange || !assets) {
         console.error(
-          "Cannot start dev server: missing prototype ID, files, or building state callback",
+          "Cannot start dev server: missing prototype ID, files, assets, or building state callback",
         );
         return;
       }
@@ -145,18 +148,19 @@ const MaterializeRenderSection = forwardRef<
           }),
         );
 
+        const assetsArray: PrototypeAsset[] = Object.entries(assets).map(
+          ([path, asset]) => ({
+            ...asset,
+            name: path,
+          }),
+        );
+
         console.log(
           `Starting dev server for prototype ${prototypeId} with ${filesArray.length} files`,
         );
 
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-        if (!serverEndpoint) {
-          console.error("Server endpoint not configured");
-          return;
-        }
-
         const response = await fetch(
-          `${serverEndpoint}/files/start-dev-server`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
           {
             method: "POST",
             headers: {
@@ -166,7 +170,7 @@ const MaterializeRenderSection = forwardRef<
             body: JSON.stringify({
               framework: "expo_react_native",
               files: filesArray,
-              assets: [], // No assets in manual start scenario
+              assets: assetsArray,
               prototype_id: prototypeId,
               file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),

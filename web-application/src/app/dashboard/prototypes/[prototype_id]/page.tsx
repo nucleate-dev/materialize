@@ -56,7 +56,7 @@ export default function CreatePage() {
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -527,6 +527,7 @@ export default function CreatePage() {
                   prototypeId={prototypeId}
                   // File system integration
                   files={fileSystem.state.files}
+                  assets={fileSystem.state.assets}
                   selectedFile={fileSystem.state.selectedFile}
                   onFilesUpdate={fileSystem.applyFileUpdates}
                   onRefetchFiles={
@@ -535,8 +536,8 @@ export default function CreatePage() {
                       : undefined
                   }
                   // Loading state
-                  isLoading={isLoading}
-                  setIsLoading={setIsLoading}
+                  isChatLoading={isChatLoading}
+                  setIsChatLoading={setIsChatLoading}
                   // Viewing URL integration
                   onViewingUrlUpdate={setViewingUrl}
                   onBuildingStateChange={setIsBuilding}
@@ -618,6 +619,7 @@ export default function CreatePage() {
                         isBuilding={isBuilding}
                         prototypeId={prototypeId}
                         files={fileSystem.state.files}
+                        assets={fileSystem.state.assets}
                         onViewingUrlUpdate={setViewingUrl}
                         onBuildingStateChange={setIsBuilding}
                       />
