@@ -15,6 +15,7 @@ import type {
   StartDevServerRequestBody,
   StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
+
 import {
   Loader2,
   Monitor,
@@ -32,6 +33,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -46,6 +48,9 @@ interface MaterializeRenderSectionProps {
   assets?: Record<string, PrototypeAsset>;
   onViewingUrlUpdate?: (url: string) => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
+  // New render status props
+  currentRenderStatus?: RenderStatus;
+  onRenderStatusChange?: (status: RenderStatus) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -68,6 +73,8 @@ const MaterializeRenderSection = forwardRef<
       assets,
       onViewingUrlUpdate,
       onBuildingStateChange,
+      currentRenderStatus = "Static build",
+      onRenderStatusChange,
     },
     ref,
   ) => {
@@ -76,9 +83,6 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
-
-    // Determine if connected to dev server vs static build
-    const isDevServer = viewing_url?.includes(".ngrok.io") || false;
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -126,6 +130,9 @@ const MaterializeRenderSection = forwardRef<
       }
 
       onBuildingStateChange(true);
+      if (onRenderStatusChange) {
+        onRenderStatusChange("Starting Dev Server..");
+      }
 
       try {
         const session = await supabase.auth.getSession();
@@ -193,9 +200,15 @@ const MaterializeRenderSection = forwardRef<
           const errorMessage =
             "error" in result ? result.error : result.message;
           console.error("Failed to start dev server:", errorMessage);
+          if (onRenderStatusChange) {
+            onRenderStatusChange("Disconnected");
+          }
         }
       } catch (error) {
         console.error("Error starting dev server:", error);
+        if (onRenderStatusChange) {
+          onRenderStatusChange("Disconnected");
+        }
       } finally {
         onBuildingStateChange(false);
       }
@@ -255,13 +268,25 @@ const MaterializeRenderSection = forwardRef<
       console.log("Iframe loaded successfully");
       setIsIframeLoading(false);
       setIframeError(false);
-    }, []);
+      // Update status based on whether it's a dev server or static build
+      if (onRenderStatusChange) {
+        const isDevServer =
+          viewing_url.includes("localhost") ||
+          viewing_url.includes("127.0.0.1") ||
+          viewing_url.includes(".ngrok.") ||
+          viewing_url.includes("tunnel");
+        onRenderStatusChange(isDevServer ? "Connected" : "Static build");
+      }
+    }, [viewing_url, onRenderStatusChange]);
 
     const handleIframeError = useCallback(() => {
       console.log("Iframe failed to load");
       setIsIframeLoading(false);
       setIframeError(true);
-    }, []);
+      if (onRenderStatusChange) {
+        onRenderStatusChange("Disconnected");
+      }
+    }, [onRenderStatusChange]);
 
     // Start loading when viewing_url changes
     useEffect(() => {
@@ -269,8 +294,11 @@ const MaterializeRenderSection = forwardRef<
       if (viewing_url) {
         setIsIframeLoading(true);
         setIframeError(false);
+        if (onRenderStatusChange) {
+          onRenderStatusChange("Connecting..");
+        }
       }
-    }, [viewing_url]);
+    }, [viewing_url, onRenderStatusChange]);
 
     // Loading indicator component for build process
     const LoadingIndicator = ({ mode }: { mode: PreviewMode }) => (
@@ -299,55 +327,59 @@ const MaterializeRenderSection = forwardRef<
 
     // Connection status indicator component using shadcn Badge
     const ConnectionStatusIndicator = () => {
-      if (isIframeLoading) {
-        return (
-          <Badge
-            variant="outline"
-            className="gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950"
-          >
-            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-            Connecting...
-          </Badge>
-        );
-      }
+      const getBadgeConfig = (status: RenderStatus) => {
+        switch (status) {
+          case "Static build":
+            return {
+              className:
+                "gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-50 dark:hover:bg-blue-950",
+              dotClassName: "w-2 h-2 bg-blue-500 rounded-full",
+              text: "Static Build",
+              animate: false,
+            };
+          case "Connecting..":
+            return {
+              className:
+                "gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950",
+              dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse",
+              text: "Connecting..",
+              animate: true,
+            };
+          case "Starting Dev Server..":
+            return {
+              className:
+                "gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950",
+              dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse",
+              text: "Starting Dev Server..",
+              animate: true,
+            };
+          case "Disconnected":
+            return {
+              className:
+                "gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-full hover:bg-red-50 dark:hover:bg-red-950",
+              dotClassName: "w-2 h-2 bg-red-500 rounded-full",
+              text: "Disconnected",
+              animate: false,
+            };
+          case "Connected":
+            return {
+              className:
+                "gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-full hover:bg-green-50 dark:hover:bg-green-950",
+              dotClassName: "w-2 h-2 bg-green-500 rounded-full",
+              text: "Connected",
+              animate: false,
+            };
+        }
+      };
 
-      if (iframeError) {
-        return (
-          <Badge
-            variant="outline"
-            className="gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-full hover:bg-red-50 dark:hover:bg-red-950"
-          >
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            Connection Failed
-          </Badge>
-        );
-      }
+      const config = getBadgeConfig(currentRenderStatus);
 
-      if (isDevServer && viewing_url) {
-        return (
-          <Badge
-            variant="outline"
-            className="gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-full hover:bg-green-50 dark:hover:bg-green-950"
-          >
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            Connected
-          </Badge>
-        );
-      }
-
-      if (viewing_url) {
-        return (
-          <Badge
-            variant="outline"
-            className="gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-50 dark:hover:bg-blue-950"
-          >
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            Static Build
-          </Badge>
-        );
-      }
-
-      return null;
+      return (
+        <Badge variant="outline" className={config.className}>
+          <div className={config.dotClassName}></div>
+          {config.text}
+        </Badge>
+      );
     };
 
     // Connection loading overlay for iframe
