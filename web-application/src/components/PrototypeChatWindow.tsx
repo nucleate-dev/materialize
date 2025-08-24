@@ -9,9 +9,9 @@ import { Database } from "@/lib/types/supabase";
 import {
   ChatErrorResponse,
   ChatRequestBody,
-  PrototypeFileInput,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
+import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -20,19 +20,21 @@ type PrototypeChatSession =
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
+type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 export interface PrototypeChatWindowProps {
   prototypeId: string | undefined;
 
   // File system integration
   files: Record<string, PrototypeFile>;
+  assets: Record<string, PrototypeAsset>;
   selectedFile: string;
   onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
   onRefetchFiles?: () => Promise<void>;
 
   // Loading state
-  isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
+  isChatLoading: boolean;
+  setIsChatLoading: (loading: boolean) => void;
 
   // Viewing URL callback
   onViewingUrlUpdate?: (viewingUrl: string) => void;
@@ -43,11 +45,12 @@ export interface PrototypeChatWindowProps {
 
 export default function PrototypeChatWindow({
   files,
+  assets,
   // onFilesUpdate,
   onRefetchFiles,
   prototypeId,
-  isLoading,
-  setIsLoading,
+  isChatLoading,
+  setIsChatLoading,
   onViewingUrlUpdate,
   onClearChat,
   onBuildingStateChange,
@@ -289,6 +292,11 @@ export default function PrototypeChatWindow({
 
                   case "dispatch_start": {
                     console.log("Received dispatch_start event");
+
+                    // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
+                    // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
+                    clearChatIntent();
+
                     if (onBuildingStateChange) {
                       onBuildingStateChange(true);
                     }
@@ -465,7 +473,7 @@ export default function PrototypeChatWindow({
                   case "error": {
                     console.error("Streaming error:", data.error);
                     setIsExecutingOperations(false);
-                    setIsLoading(false);
+                    setIsChatLoading(false);
 
                     const errorMessage: PrototypeChatMessage = {
                       id: uuidv4(),
@@ -523,7 +531,7 @@ export default function PrototypeChatWindow({
       onRefetchFiles,
       setPrototypeChatMessages,
       setIsExecutingOperations,
-      setIsLoading,
+      setIsChatLoading,
       loadingDots,
       onViewingUrlUpdate,
       onBuildingStateChange,
@@ -557,14 +565,21 @@ export default function PrototypeChatWindow({
   // Handle sending messages
   const handleSendMessage = useCallback(
     async (content: string) => {
+      if (isChatLoading) {
+        return;
+      }
+      setIsChatLoading(true);
+
       if (!prototypeChatSession?.id) {
         console.error("Sending message failed: no chat session found");
+        setIsChatLoading(false);
         return;
       }
 
       // Check if user is at limit before sending
       if (isAtLimit) {
         console.log("Message not sent: user has reached their limit");
+        setIsChatLoading(false);
         return;
       }
 
@@ -580,32 +595,18 @@ export default function PrototypeChatWindow({
         .single();
       if (insertError) {
         console.error("Error inserting user message:", insertError);
+        setIsChatLoading(false);
         return;
       }
       setPrototypeChatMessages((prev) => [...prev, userMessage]);
 
       // 2. SEND MESSAGE TO CHAT API
       try {
-        setIsLoading(true);
-
         // Get access token for authentication
         const { data: session } = await supabase.auth.getSession();
         if (!session.session?.access_token) {
           throw new Error("No access token available");
         }
-
-        // Convert files to the expected PrototypeFileInput format
-        const snackFiles: Record<string, PrototypeFileInput> = {};
-        Object.entries(files).forEach(([path, file]) => {
-          snackFiles[path] = {
-            contents: file.contents || "",
-            name: file.name,
-            prototype_id: file.prototype_id || "",
-            id: file.id,
-            created_at: file.created_at || "",
-            updated_at: file.updated_at || "",
-          };
-        });
 
         // Convert messages to the expected ServerChatMessage format
         const serverMessages: ServerChatMessage[] = [
@@ -618,22 +619,15 @@ export default function PrototypeChatWindow({
 
         const requestBody: ChatRequestBody = {
           messages: serverMessages,
-          snackFiles,
+          inputFiles: files,
+          inputAssets: assets,
           chat_session_id: prototypeChatSession.id,
           prototype_id: prototypeId || "",
         };
 
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT!;
-        if (!serverEndpoint) {
-          throw new Error("NEXT_PUBLIC_SERVER_ENDPOINT is not configured");
-        }
-        const chatUrl = `${serverEndpoint}/chat`;
-
-        console.log("🌐 [CLIENT] Server endpoint:", serverEndpoint);
-        console.log("🌐 [CLIENT] Making request to:", chatUrl);
-        console.log("📋 [CLIENT] Request body:", {
+        console.log("📋 [CLIENT] Chat request body:", {
           messagesCount: serverMessages.length,
-          snackFilesCount: Object.keys(snackFiles).length,
+          snackFilesCount: Object.keys(files).length,
           chat_session_id: prototypeChatSession.id,
           prototype_id: prototypeId,
         });
@@ -644,16 +638,19 @@ export default function PrototypeChatWindow({
         });
 
         // Make a single streaming request that handles both planning and execution
-        const streamingResponse = await fetch(chatUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "text/event-stream", // Signal that we want streaming
-            Authorization: `Bearer ${session.session.access_token}`,
-            "Cache-Control": "no-cache",
+        const streamingResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "text/event-stream", // Signal that we want streaming
+              Authorization: `Bearer ${session.session.access_token}`,
+              "Cache-Control": "no-cache",
+            },
+            body: JSON.stringify(requestBody),
           },
-          body: JSON.stringify(requestBody),
-        });
+        );
 
         console.log("📡 [CLIENT] Response received:", {
           status: streamingResponse.status,
@@ -710,15 +707,16 @@ export default function PrototypeChatWindow({
           errorMessage,
         ]);
       } finally {
-        setIsLoading(false);
+        setIsChatLoading(false);
       }
     },
     [
       prototypeChatSession,
       prototypeChatMessages,
       setPrototypeChatMessages,
-      setIsLoading,
+      setIsChatLoading,
       files,
+      assets,
       prototypeId,
       processStreamingResponse,
       isAtLimit,
@@ -751,25 +749,24 @@ export default function PrototypeChatWindow({
     }
   }, [prototypeChatSession, onClearChat, setPrototypeChatMessages]);
 
-  // Send chat intent if present in localStorage
+  // IF USER CLICKS ON PRE_DEFINED PROMPT, we must send that message when the page loads
   useEffect(() => {
     if (!prototypeId || !prototypeChatSession?.id) return;
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem("chat_intent");
-    if (!stored) return;
-    try {
-      const intent = JSON.parse(stored) as {
-        prototype_id: string;
-        message: string;
-      };
-      if (intent.prototype_id === prototypeId && intent.message) {
-        localStorage.removeItem("chat_intent");
-        handleSendMessage(intent.message);
-      }
-    } catch (err) {
-      console.error("Failed to parse chat_intent", err);
+
+    // Send chat intent if present in localStorage
+    const intent = getChatIntent(prototypeId);
+    if (intent && !isChatLoading && files && assets) {
+      console.log("🔍 [CHAT WINDOW INTENT] Sending chat intent:", intent);
+      handleSendMessage(intent.message);
     }
-  }, [prototypeId, prototypeChatSession, handleSendMessage]);
+  }, [
+    prototypeId,
+    prototypeChatSession,
+    handleSendMessage,
+    isChatLoading,
+    files,
+    assets,
+  ]);
 
   // Debug logging for messages
   useEffect(() => {
@@ -793,7 +790,7 @@ export default function PrototypeChatWindow({
       <ChatWindow
         messages={prototypeChatMessages}
         onSendMessage={handleSendMessage}
-        isLoading={isLoading}
+        isLoading={isChatLoading}
         onClearChat={handleClearChat}
         messageCount={messageCount}
         messageLimit={messageLimit}

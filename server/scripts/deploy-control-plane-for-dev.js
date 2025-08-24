@@ -9,7 +9,7 @@ import path from "path";
 const KEY_PATH = process.env.KEY_PATH || "mat-ec2-key-1.pem";
 const USER = process.env.USERNAME_ON_EC2 || "ec2-user";
 const HOST =
-  process.env.HOST || "ec2-18-224-71-44.us-east-2.compute.amazonaws.com";
+  process.env.HOST || "ec2-18-218-216-144.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -38,9 +38,19 @@ function runRemoteBash(script) {
 function ensureRemotePrereqs() {
   const script = `
     set -euxo pipefail
-    PKG=dnf; command -v dnf >/dev/null 2>&1 || PKG=yum
-    command -v node >/dev/null 2>&1 || { curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -; sudo $PKG install -y nodejs gcc-c++ make; }
-    command -v unzip >/dev/null 2>&1 || sudo $PKG install -y unzip
+    if command -v dnf >/dev/null 2>&1; then
+      if ! command -v node >/dev/null 2>&1; then
+        curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
+        sudo dnf install -y nodejs gcc-c++ make
+      fi
+      command -v unzip >/dev/null 2>&1 || sudo dnf install -y unzip
+    else
+      if ! command -v node >/dev/null 2>&1; then
+        curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
+        sudo yum install -y nodejs gcc-c++ make
+      fi
+      command -v unzip >/dev/null 2>&1 || sudo yum install -y unzip
+    fi
     mkdir -p ${remoteBase}
     echo "✅ Remote prerequisites OK"
   `;

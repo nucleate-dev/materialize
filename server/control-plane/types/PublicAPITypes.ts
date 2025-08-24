@@ -292,7 +292,8 @@ export interface ChatMessage {
 
 export interface ChatRequestBody {
   messages: ChatMessage[];
-  snackFiles: Record<string, PrototypeFileInput> | null;
+  inputFiles: Record<string, PrototypeFileInput> | null;
+  inputAssets: Record<string, PrototypeAssetInput> | null;
   chat_session_id: string;
   prototype_id: string;
 }
