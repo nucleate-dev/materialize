@@ -74,7 +74,6 @@ export default function CreatePage() {
   const [isCopying, setIsCopying] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
-  const [isBuilding, setIsBuilding] = useState(false);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
   const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -142,7 +141,7 @@ export default function CreatePage() {
     }
   };
 
-  // Fetch prototype data
+  // DO NOT SPLIT THIS USEEFFECT HOOK. Race conditions will fuck up the badge status.
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
 
@@ -593,6 +592,8 @@ export default function CreatePage() {
                   // Viewing URL integration
                   onViewingUrlUpdate={setViewingUrl}
                   onBuildingStateChange={handleBuildingStateChange}
+                  // Render status for disabling input
+                  currentRenderStatus={currentRenderStatus}
                 />
               </div>
             </CardContent>
@@ -668,12 +669,10 @@ export default function CreatePage() {
                     <div className="h-full flex flex-col">
                       <MaterializeRenderSection
                         viewing_url={viewingUrl ?? ""}
-                        isBuilding={isBuilding}
                         prototypeId={prototypeId}
                         files={fileSystem.state.files}
                         assets={fileSystem.state.assets}
                         onViewingUrlUpdate={setViewingUrl}
-                        onBuildingStateChange={setIsBuilding}
                         currentRenderStatus={currentRenderStatus}
                         onRenderStatusChange={setCurrentRenderStatus}
                       />
@@ -715,7 +714,6 @@ export default function CreatePage() {
                           prototypeId={prototypeId}
                           files={fileSystem.state.files}
                           onViewingUrlUpdate={setViewingUrl}
-                          onBuildingStateChange={setIsBuilding}
                           onForceRefresh={() =>
                             renderRef.current?.forceRefresh()
                           }

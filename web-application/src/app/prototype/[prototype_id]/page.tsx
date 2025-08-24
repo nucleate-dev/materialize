@@ -271,7 +271,12 @@ export default function PrototypePage() {
           <div className="flex-1 p-8">
             <Card className="h-full overflow-hidden">
               <CardContent className="h-full p-0">
-                <MaterializeRenderSection viewing_url={viewingUrl ?? ""} />
+                <MaterializeRenderSection
+                  viewing_url={viewingUrl ?? ""}
+                  onRenderStatusChange={() => {
+                    // no-op
+                  }}
+                />
               </CardContent>
             </Card>
           </div>

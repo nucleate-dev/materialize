@@ -41,13 +41,11 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
   onResetToDefault?: () => void;
-  isBuilding?: boolean; // New prop to indicate if a build is in progress
   // Props for dev server functionality
   prototypeId?: string;
   files?: Record<string, PrototypeFile>;
   assets?: Record<string, PrototypeAsset>;
   onViewingUrlUpdate?: (url: string) => void;
-  onBuildingStateChange?: (isBuilding: boolean) => void;
   // New render status props
   currentRenderStatus?: RenderStatus;
   onRenderStatusChange: (status: RenderStatus) => void;
@@ -67,12 +65,10 @@ const MaterializeRenderSection = forwardRef<
     {
       viewing_url,
       onResetToDefault,
-      isBuilding = false,
       prototypeId,
       files,
       assets,
       onViewingUrlUpdate,
-      onBuildingStateChange,
       currentRenderStatus = "Static build",
       onRenderStatusChange,
     },
@@ -122,14 +118,13 @@ const MaterializeRenderSection = forwardRef<
 
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
-      if (!prototypeId || !files || !onBuildingStateChange || !assets) {
+      if (!prototypeId || !files || !assets) {
         console.error(
           "Cannot start dev server: missing prototype ID, files, assets, or building state callback",
         );
         return;
       }
 
-      onBuildingStateChange(true);
       onRenderStatusChange("Starting Dev Server..");
 
       try {
@@ -289,31 +284,6 @@ const MaterializeRenderSection = forwardRef<
       }
     }, [viewing_url, onRenderStatusChange]);
 
-    // Loading indicator component for build process
-    const LoadingIndicator = ({ mode }: { mode: PreviewMode }) => (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center bg-card p-8 rounded-lg border border-border">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-foreground text-lg font-medium mb-2">
-            Building Your App
-          </p>
-          <p className="text-muted-foreground text-sm">
-            Please wait while we compile and deploy your changes...
-          </p>
-          {mode === "mobile" && (
-            <p className="text-muted-foreground text-xs mt-2">
-              Mobile preview will load shortly
-            </p>
-          )}
-          {mode === "web" && (
-            <p className="text-muted-foreground text-xs mt-2">
-              Web preview will load shortly
-            </p>
-          )}
-        </div>
-      </div>
-    );
-
     // Connection status indicator component using shadcn Badge
     const ConnectionStatusIndicator = () => {
       const getBadgeConfig = (status: RenderStatus) => {
@@ -449,17 +419,27 @@ const MaterializeRenderSection = forwardRef<
                   Web View
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {prototypeId && files && onBuildingStateChange && (
+                {prototypeId && files && (
                   <DropdownMenuItem
                     onClick={handleStartDevServer}
-                    disabled={isBuilding || !prototypeId || !files}
+                    disabled={
+                      currentRenderStatus === "Connected" ||
+                      currentRenderStatus === "Starting Dev Server.." ||
+                      currentRenderStatus === "Connecting.." ||
+                      !prototypeId ||
+                      !files
+                    }
                   >
-                    {isBuilding ? (
+                    {currentRenderStatus === "Starting Dev Server.." ||
+                    currentRenderStatus === "Connecting.." ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
                       <Play className="w-4 h-4 mr-2" />
                     )}
-                    {isBuilding ? "Starting..." : "Start Dev Server"}
+                    {currentRenderStatus === "Starting Dev Server.." ||
+                    currentRenderStatus === "Connecting.."
+                      ? "Starting..."
+                      : "Start Dev Server"}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -482,9 +462,7 @@ const MaterializeRenderSection = forwardRef<
             </DropdownMenu>
           </div>
 
-          {isBuilding ? (
-            <LoadingIndicator mode={previewMode} />
-          ) : !viewing_url ? (
+          {!viewing_url ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
                 <p className="text-foreground text-lg font-medium">

@@ -12,6 +12,7 @@ import {
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -41,6 +42,9 @@ export interface PrototypeChatWindowProps {
 
   onClearChat?: () => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
+  
+  // Render status for disabling input
+  currentRenderStatus?: RenderStatus;
 }
 
 export default function PrototypeChatWindow({
@@ -54,6 +58,7 @@ export default function PrototypeChatWindow({
   onViewingUrlUpdate,
   onClearChat,
   onBuildingStateChange,
+  currentRenderStatus,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
   const [isExecutingOperations, setIsExecutingOperations] = useState(false);
@@ -796,6 +801,7 @@ export default function PrototypeChatWindow({
         messageLimit={messageLimit}
         isAtLimit={isAtLimit}
         loadingUsageCount={loadingUsageCount}
+        currentRenderStatus={currentRenderStatus}
       />
 
       {/* Upsell Modal */}

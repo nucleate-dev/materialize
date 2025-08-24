@@ -7,7 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Database } from "@/lib/types/supabase";
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 import {
   extractExecutionPlan,
   logPlanningExtraction,
@@ -35,6 +42,7 @@ interface ChatWindowProps {
   messageLimit?: number;
   isAtLimit?: boolean;
   loadingUsageCount?: boolean;
+  currentRenderStatus?: RenderStatus;
 }
 
 export default function ChatWindow({
@@ -46,6 +54,7 @@ export default function ChatWindow({
   messageLimit = 15,
   isAtLimit = false,
   loadingUsageCount = false,
+  currentRenderStatus = "Static build",
 }: ChatWindowProps) {
   // Debug logging for messages
   useEffect(() => {
@@ -126,11 +135,12 @@ export default function ChatWindow({
     });
   }, [messages]);
 
-  const isDisabled = !input.trim() || isLoading || isAtLimit;
+  const isDevServerStarting = currentRenderStatus === "Starting Dev Server..";
+  const isDisabled = !input.trim() || isLoading || isAtLimit || isDevServerStarting;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading && !isAtLimit) {
+    if (input.trim() && !isLoading && !isAtLimit && !isDevServerStarting) {
       onSendMessage(input.trim());
       setInput(""); // Clear input after sending
 
@@ -485,7 +495,10 @@ export default function ChatWindow({
         <form onSubmit={handleSubmit} className="flex gap-4 items-center">
           {/* Input Container */}
           <div className="flex-1 relative">
-            <textarea
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <textarea
               ref={textareaRef}
               value={input}
               onChange={handleInputChange}
@@ -493,10 +506,12 @@ export default function ChatWindow({
               placeholder={
                 isAtLimit
                   ? "Message limit reached for this billing period"
-                  : "Ask me to create or modify React Native code..."
+                  : isDevServerStarting
+                    ? "Please wait for dev server to start..."
+                    : "Ask me to create or modify React Native code..."
               }
               className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
-                isAtLimit ? "opacity-50 cursor-not-allowed" : ""
+                isAtLimit || isDevServerStarting ? "opacity-50 cursor-not-allowed" : ""
               }`}
               rows={1}
               style={{
@@ -504,8 +519,16 @@ export default function ChatWindow({
                 maxHeight: "160px",
                 overflow: "hidden",
               }}
-              disabled={isLoading || isAtLimit}
-            />
+              disabled={isLoading || isAtLimit || isDevServerStarting}
+                  />
+                </TooltipTrigger>
+                {isDevServerStarting && (
+                  <TooltipContent>
+                    <p>Please wait for the dev server to start before making changes</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Input decoration */}
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -525,7 +548,9 @@ export default function ChatWindow({
             title={
               isAtLimit
                 ? "Message limit reached for this billing period"
-                : undefined
+                : isDevServerStarting
+                  ? "Please wait for the dev server to start before making changes"
+                  : undefined
             }
           >
             <PaperAirplaneIcon className="w-5 h-5" />
