@@ -622,7 +622,6 @@ export class ExpoDevServerService {
   }> {
     // Check if project directory exists
     try {
-      await fs.stat(projectDir);
       // Update only the provided files
       await writeProjectFiles(files, assets, projectDir);
 
