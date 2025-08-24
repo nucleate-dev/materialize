@@ -81,7 +81,7 @@ export interface PublicDevServerStartResponse {
 }
 
 export interface PublicDevServerStopRequest {
-  prototype_id: string;
+  prototype_id?: string;
   s3_scoped_token?: string;
 }
 
