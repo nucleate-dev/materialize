@@ -572,12 +572,14 @@ export default function PrototypeChatWindow({
 
       if (!prototypeChatSession?.id) {
         console.error("Sending message failed: no chat session found");
+        setIsChatLoading(false);
         return;
       }
 
       // Check if user is at limit before sending
       if (isAtLimit) {
         console.log("Message not sent: user has reached their limit");
+        setIsChatLoading(false);
         return;
       }
 
@@ -593,14 +595,13 @@ export default function PrototypeChatWindow({
         .single();
       if (insertError) {
         console.error("Error inserting user message:", insertError);
+        setIsChatLoading(false);
         return;
       }
       setPrototypeChatMessages((prev) => [...prev, userMessage]);
 
       // 2. SEND MESSAGE TO CHAT API
       try {
-        setIsChatLoading(true);
-
         // Get access token for authentication
         const { data: session } = await supabase.auth.getSession();
         if (!session.session?.access_token) {
