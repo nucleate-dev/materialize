@@ -24,13 +24,14 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
-import type {
-  CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
-  FetchViewingUrlRequestBody,
-  FetchViewingUrlResponse,
-  StartDevServerRequestBody,
-  StartDevServerResponse,
+import {
+  HTTP_STATUS,
+  type CreatePrototypeRequestBody,
+  type CreatePrototypeResponse,
+  type FetchViewingUrlRequestBody,
+  type FetchViewingUrlResponse,
+  type StartDevServerRequestBody,
+  type StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { hasChatIntent } from "@/lib/utils/chatIntentUtils";
@@ -47,6 +48,13 @@ import { useEffect, useRef, useState } from "react";
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
+
+export type RenderStatus =
+  | "Static build"
+  | "Connecting.."
+  | "Starting Dev Server.."
+  | "Disconnected"
+  | "Connected";
 
 export default function CreatePage() {
   const router = useRouter();
@@ -66,6 +74,16 @@ export default function CreatePage() {
   const [isCloning, setIsCloning] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [currentRenderStatus, setCurrentRenderStatus] =
+    useState<RenderStatus>("Static build");
+
+  // Handle building state changes from chat
+  const handleBuildingStateChange = (building: boolean) => {
+    if (building) {
+      setCurrentRenderStatus("Starting Dev Server..");
+    }
+    // Note: Success/error status will be handled by MaterializeRenderSection when URL loads/fails
+  };
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -175,6 +193,11 @@ export default function CreatePage() {
             console.log("Viewing URL:", fetchViewData.viewing_url);
             console.log("Source:", fetchViewData.source);
             setViewingUrl(fetchViewData.viewing_url);
+            if (fetchViewData.source === "active_instance") {
+              setCurrentRenderStatus("Connected");
+            } else {
+              setCurrentRenderStatus("Static build");
+            }
           } else {
             console.error(
               "Error in fetch-viewing-url response:",
@@ -211,7 +234,8 @@ export default function CreatePage() {
         !prototypeId ||
         !fileSystem.state.files ||
         !fileSystem.state.assets ||
-        Object.keys(fileSystem.state.files).length === 0
+        Object.keys(fileSystem.state.files).length === 0 ||
+        currentRenderStatus === "Connected"
       ) {
         console.log("No files to auto-start dev server");
         return;
@@ -219,7 +243,7 @@ export default function CreatePage() {
 
       console.log("Auto-starting dev server for prototype:", prototypeId);
 
-      // TODO: badge -- set current status to starting dev server
+      setCurrentRenderStatus("Starting Dev Server..");
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
@@ -287,21 +311,26 @@ export default function CreatePage() {
                 result.viewing_url,
               );
               setViewingUrl(result.viewing_url);
+              setCurrentRenderStatus("Connected");
             }
           } else {
             const errorMessage =
               "error" in result ? result.error : result.message;
             console.log("Dev server auto-start failed:", errorMessage);
+            setCurrentRenderStatus("Static build");
           }
         } else {
           const errorData = await response.json();
           console.log("Dev server auto-start request failed:", errorData);
+          if (response.status === HTTP_STATUS.CONFLICT) {
+            setCurrentRenderStatus("Connected");
+          } else {
+            setCurrentRenderStatus("Static build");
+          }
         }
       } catch (error) {
         console.error("Error auto-starting dev server:", error);
-      } finally {
-        // TODO: badge -- set current status to connected (if successful) or static build (if failed)
-        setIsBuilding(false);
+        setCurrentRenderStatus("Static build");
       }
     }
 
@@ -540,7 +569,7 @@ export default function CreatePage() {
                   setIsChatLoading={setIsChatLoading}
                   // Viewing URL integration
                   onViewingUrlUpdate={setViewingUrl}
-                  onBuildingStateChange={setIsBuilding}
+                  onBuildingStateChange={handleBuildingStateChange}
                 />
               </div>
             </CardContent>
@@ -622,6 +651,8 @@ export default function CreatePage() {
                         assets={fileSystem.state.assets}
                         onViewingUrlUpdate={setViewingUrl}
                         onBuildingStateChange={setIsBuilding}
+                        currentRenderStatus={currentRenderStatus}
+                        onRenderStatusChange={setCurrentRenderStatus}
                       />
                     </div>
                   ) : (
