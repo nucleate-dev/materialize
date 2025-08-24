@@ -72,14 +72,12 @@ export class DevelopmentServerService {
                 type: 'array',
                 items: {
                   type: 'object',
-                  required: ['contents', 'name', 'file_type', 'prototype_id'],
+                  required: ['contents', 'name', 'prototype_id'],
                   properties: {
                     contents: { type: 'string' },
                     name: { type: 'string' },
-                    file_type: { type: 'string', enum: ['text', 'asset'] },
                     prototype_id: { type: 'string' },
                     id: { type: 'string' },
-                    storage_path: { type: ['string', 'null'] },
                     created_at: { type: 'string' },
                     updated_at: { type: 'string' },
                   },
@@ -108,14 +106,12 @@ export class DevelopmentServerService {
                 type: 'array',
                 items: {
                   type: 'object',
-                  required: ['contents', 'name', 'file_type', 'prototype_id'],
+                  required: ['contents', 'name', 'prototype_id'],
                   properties: {
                     contents: { type: 'string' },
                     name: { type: 'string' },
-                    file_type: { type: 'string', enum: ['text', 'asset'] },
                     prototype_id: { type: 'string' },
                     id: { type: 'string' },
-                    storage_path: { type: ['string', 'null'] },
                     created_at: { type: 'string' },
                     updated_at: { type: 'string' },
                   },
