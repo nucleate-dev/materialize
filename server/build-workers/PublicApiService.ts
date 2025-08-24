@@ -39,6 +39,9 @@ export class PublicApiService {
       this.startDevServer.bind(this),
     );
 
+    // GET /dev-server/status
+    app.get("/dev-server/status", this.getDevServerStatus.bind(this));
+
     // DELETE /dev-server
     app.delete<{ Body: PublicDevServerStopRequest }>(
       "/dev-server",
@@ -116,25 +119,54 @@ export class PublicApiService {
     }
   }
 
+  private async getDevServerStatus(
+    _request: FastifyRequest,
+    reply: FastifyReply,
+  ) {
+    try {
+      // Access the private getStatus method through the service
+      const status = await (this.expoDevServerService as any).getStatus(
+        _request,
+        reply,
+      );
+      return status;
+    } catch (error: any) {
+      customlog("error", "Failed to get dev server status:", error.message);
+      return reply.code(500).send({
+        status: "error",
+        message: `Failed to get status: ${error.message}`,
+      });
+    }
+  }
+
   private async stopDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStopResponse> {
     const { prototype_id } = request.body;
 
+    // If no prototype_id provided, try to stop any running dev server
     if (!prototype_id) {
-      customlog("error", "Missing prototype_id in stopDevServer request");
-      reply.code(400);
-      return {
-        status: "error",
-        build_errors: [
-          {
-            message: "prototype_id is required",
-            type: "build",
-          },
-        ],
-        build_warnings: [],
-      };
+      customlog("info", "No prototype_id provided, attempting to stop any running dev server");
+      try {
+        const result = await (this.expoDevServerService as any).stopDevServer(
+          request,
+          reply,
+        );
+        return result;
+      } catch (error: any) {
+        customlog("error", "Failed to stop dev server:", error.message);
+        return {
+          status: "error",
+          build_errors: [
+            {
+              message: `Failed to stop dev server: ${error.message}`,
+              type: "build",
+            },
+          ],
+          build_warnings: [],
+        };
+      }
     }
 
     try {

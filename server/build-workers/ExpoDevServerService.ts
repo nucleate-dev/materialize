@@ -403,6 +403,10 @@ export class ExpoDevServerService {
         .replace(/[^a-z0-9-]/g, "-")
         .substring(0, 20);
 
+      this.state.addLog(`Starting Expo with args: ["expo", "start", "--web", "--tunnel", "--port", "${port}"]`);
+      this.state.addLog(`Working directory: ${projectDir}`);
+      this.state.addLog(`Tunnel subdomain: ${tunnelSubdomain}`);
+      
       this.state.process = spawn(
         "npx",
         ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
@@ -429,6 +433,11 @@ export class ExpoDevServerService {
       const processOutput = (data: Buffer, source: string) => {
         const output = data.toString();
         this.state.addLog(`Expo ${source}: ${output.trim()}`);
+        
+        // Look for file watching status
+        if (output.includes("watching for file changes") || output.includes("Fast Refresh") || output.includes("Metro") || output.includes("Bundler ready")) {
+          this.state.addLog(`File watching appears to be active: ${output.trim()}`);
+        }
 
         // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
@@ -620,22 +629,31 @@ export class ExpoDevServerService {
     build_errors: CodeError[];
     build_warnings: CodeWarning[];
   }> {
+    this.state.addLog(`Updating ${files.length} files and ${assets.length} assets in project directory: ${projectDir}`);
+    
+    // Log which files are being updated
+    const fileNames = files.map(f => f.name);
+    this.state.addLog(`Files being updated: ${fileNames.join(', ')}`);
+    
     // Check if project directory exists
     try {
       // Update only the provided files
       await writeProjectFiles(files, assets, projectDir);
+      this.state.addLog(`Successfully wrote files to ${projectDir}`);
 
       // Check if package.json was updated and reinstall if needed
       const packageJsonUpdated = files.some(
         (file) => file.name === "package.json",
       );
       if (packageJsonUpdated) {
+        this.state.addLog("package.json was updated, reinstalling dependencies...");
         try {
           await this.installDependenciesWithErrorParsing(
             projectDir,
             buildErrors,
             buildWarnings,
           );
+          this.state.addLog("Dependencies reinstalled successfully");
         } catch (error: any) {
           customlog(
             "error",
@@ -643,11 +661,14 @@ export class ExpoDevServerService {
             error.message,
             error.stack,
           );
+          this.state.addLog(`Dependency update failed: ${error.message}`);
           buildErrors.push({
             message: `Dependency update failed: ${error.message}`,
             type: "dependency",
           });
         }
+      } else {
+        this.state.addLog("No package.json changes detected, skipping dependency reinstall");
       }
       return {
         success: true,
