@@ -12,6 +12,7 @@ import {
   PrototypeFileInput,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
+import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -754,20 +755,11 @@ export default function PrototypeChatWindow({
   // Send chat intent if present in localStorage
   useEffect(() => {
     if (!prototypeId || !prototypeChatSession?.id) return;
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem("chat_intent");
-    if (!stored) return;
-    try {
-      const intent = JSON.parse(stored) as {
-        prototype_id: string;
-        message: string;
-      };
-      if (intent.prototype_id === prototypeId && intent.message) {
-        localStorage.removeItem("chat_intent");
-        handleSendMessage(intent.message);
-      }
-    } catch (err) {
-      console.error("Failed to parse chat_intent", err);
+    
+    const intent = getChatIntent(prototypeId);
+    if (intent) {
+      clearChatIntent();
+      handleSendMessage(intent.message);
     }
   }, [prototypeId, prototypeChatSession, handleSendMessage]);
 

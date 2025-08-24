@@ -33,6 +33,7 @@ import type {
   StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { hasChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -51,7 +52,7 @@ export default function CreatePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
@@ -199,6 +200,12 @@ export default function CreatePage() {
   // Auto-start dev server when files are loaded
   useEffect(() => {
     async function autoStartDevServer() {
+      // Check if there's a chat_intent - if so, skip auto-starting as the chat will handle it
+      if (hasChatIntent(prototypeId)) {
+        console.log("Skipping auto-start dev server - chat_intent present");
+        return;
+      }
+
       // Only proceed if we have prototypeId, files, and no existing viewing URL
       if (
         !prototypeId ||
@@ -484,10 +491,11 @@ export default function CreatePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "w-2/5 min-w-[420px] flex"
-            } flex-col relative z-10`}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "w-2/5 min-w-[420px] flex"
+          } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -540,10 +548,11 @@ export default function CreatePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "w-3/5 min-w-[500px] flex"
-            } flex-col relative z-10`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "w-3/5 min-w-[500px] flex"
+          } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -619,10 +628,11 @@ export default function CreatePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${isMobile
-                          ? "w-full max-h-[200px] border-b"
-                          : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                          } border-border`}
+                        className={`${
+                          isMobile
+                            ? "w-full max-h-[200px] border-b"
+                            : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                        } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -710,10 +720,11 @@ export default function CreatePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"
