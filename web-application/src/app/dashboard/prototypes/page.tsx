@@ -138,9 +138,8 @@ export default function PrototypesPage() {
                     ? new Date(prototype.updated_at).toLocaleDateString()
                     : new Date(prototype.created_at!).toLocaleDateString()
                 }
-                onClick={() =>
-                  router.push(`/dashboard/prototypes/${prototype.id}`)
-                }
+                onView={() => router.push(`/prototype/${prototype.id}`)}
+                onEdit={() => router.push(`/dashboard/prototypes/${prototype.id}`)}
                 onSettings={() => handleOpenSettings(prototype)}
               />
             ))

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import {
   Rocket,
   Calendar,
+  Eye,
+  Pencil,
   ArrowUpRight,
   MoreHorizontal,
 } from "lucide-react";
@@ -18,7 +20,9 @@ interface ProjectThumbnailProps {
   canvasName?: string;
   thumbnailUrl: string | null;
   lastModified?: string;
-  onClick?: () => void;
+  onClick?: () => void; // Keep for backward compatibility (will default to edit)
+  onView?: () => void;
+  onEdit?: () => void;
   onSettings?: () => void;
 }
 
@@ -29,13 +33,18 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
   thumbnailUrl,
   lastModified,
   onClick,
+  onView,
+  onEdit,
   onSettings,
 }) => {
   const displayName = projectName || prototypeName || canvasName || "Untitled";
+  
+  // Handle backward compatibility - if onClick is provided but not onEdit, use onClick as onEdit
+  const handleEdit = onEdit || onClick;
+  
   return (
     <div
       className="group cursor-pointer transition-all duration-300 hover:scale-105"
-      onClick={onClick}
     >
       <Card className="bg-background/80 backdrop-blur-sm border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group-hover:border-primary/50">
         {/* Image Container */}
@@ -73,15 +82,50 @@ const CanvasThumbnail: React.FC<ProjectThumbnailProps> = ({
           )}
 
           {/* Hover Overlay */}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <Button 
-              variant="secondary" 
-              size="sm"
-              className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300"
-            >
-              <ArrowUpRight className="w-4 h-4 mr-2" />
-              Open
-            </Button>
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex">
+            {/* Left Half - View (or full width if only View) */}
+            {onView && (
+              <div 
+                className={`${handleEdit ? 'flex-1' : 'w-full'} flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors duration-200`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView();
+                }}
+              >
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-0 pointer-events-none"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View
+                </Button>
+              </div>
+            )}
+            
+            {/* Right Half - Edit (or full width if only Edit) */}
+            {handleEdit && (
+              <div 
+                className={`${onView ? 'flex-1' : 'w-full'} flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors duration-200`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit();
+                }}
+              >
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75 pointer-events-none"
+                >
+                  {projectName ? (
+                    <ArrowUpRight className="w-4 h-4 mr-2" />
+                  ) : (
+                    <Pencil className="w-4 h-4 mr-2" />
+                  )}
+                  {projectName ? "Open" : "Edit"}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

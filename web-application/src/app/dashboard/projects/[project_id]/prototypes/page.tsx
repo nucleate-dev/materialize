@@ -80,7 +80,11 @@ export default function ProjectPrototypesPage() {
     fetchData();
   }, [fetchData]);
 
-  const handlePrototypeClick = (prototypeId: string) => {
+  const handlePrototypeView = (prototypeId: string) => {
+    router.push(`/prototype/${prototypeId}`);
+  };
+
+  const handlePrototypeEdit = (prototypeId: string) => {
     router.push(`/dashboard/prototypes/${prototypeId}`);
   };
 
@@ -192,7 +196,8 @@ export default function ProjectPrototypesPage() {
             lastModified={formatRelativeTime(
               prototype.updated_at || prototype.created_at,
             )}
-            onClick={() => handlePrototypeClick(prototype.id)}
+            onView={() => handlePrototypeView(prototype.id)}
+            onEdit={() => handlePrototypeEdit(prototype.id)}
             onSettings={() => handleOpenSettings(prototype)}
           />
         ))}
