@@ -144,6 +144,8 @@ export default function CreatePage() {
 
   // Fetch prototype data
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     async function fetchPrototypeAndStartDevServer() {
       if (!prototypeId || !shouldTriggerInitialFetch) {
         console.log(
@@ -332,8 +334,23 @@ export default function CreatePage() {
     }
 
     if (prototypeId && shouldTriggerInitialFetch) {
-      fetchPrototypeAndStartDevServer();
+      // Clear existing timer
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+
+      // Set new debounced timer
+      debounceTimer = setTimeout(() => {
+        fetchPrototypeAndStartDevServer();
+      }, 500);
     }
+
+    // Cleanup function
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
   }, [
     fileSystem.state.assets,
     fileSystem.state.files,
