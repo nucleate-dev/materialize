@@ -179,7 +179,10 @@ export class PrototypeManagementService {
               );
               const successResponse: FetchViewingUrlSuccessResponse = {
                 viewing_url: precheckData.viewing_url,
-                source: 'active_instance',
+                source:
+                  precheckData.state === 'active_dev_server'
+                    ? 'active_instance'
+                    : 'static_build',
               };
               reply.status(HTTP_STATUS.OK);
               return successResponse;

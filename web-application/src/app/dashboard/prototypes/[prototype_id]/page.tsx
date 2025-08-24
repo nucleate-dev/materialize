@@ -25,7 +25,6 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import {
-  HTTP_STATUS,
   type CreatePrototypeRequestBody,
   type CreatePrototypeResponse,
   type FetchViewingUrlRequestBody,
@@ -64,6 +63,8 @@ export default function CreatePage() {
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
 
+  const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
+    useState(true);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
@@ -76,6 +77,7 @@ export default function CreatePage() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   // Handle building state changes from chat
   const handleBuildingStateChange = (building: boolean) => {
@@ -90,7 +92,6 @@ export default function CreatePage() {
   const [isMobile, setIsMobile] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js";
@@ -143,11 +144,16 @@ export default function CreatePage() {
 
   // Fetch prototype data
   useEffect(() => {
-    async function fetchPrototype() {
-      if (!prototypeId) return;
+    async function fetchPrototypeAndStartDevServer() {
+      if (!prototypeId || !shouldTriggerInitialFetch) {
+        console.log(
+          "Skipping initial fetch - no prototype ID or shouldNOTTriggerInitialFetch",
+        );
+        return;
+      }
 
+      // 1. FETCH PROTOTYPE FROM DB
       console.log("Fetching prototype with ID:", prototypeId);
-
       const { data, error } = await supabase
         .from("prototypes")
         .select("*")
@@ -162,18 +168,17 @@ export default function CreatePage() {
 
       setPrototype(data);
       setIsPublic(data.visibility === "PUBLIC");
-      console.log("Successfully fetched prototype:", data);
 
-      // Call fetch-viewing-url API to get viewing URL
+      // 2. FETCH CURRENT VIEWING URL FROM SERVER
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        const headers: HeadersInit = {
-          "Content-Type": "application/json",
-        };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
         const fetchViewResponse = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/fetch-viewing-url`,
           {
@@ -193,8 +198,21 @@ export default function CreatePage() {
             console.log("Viewing URL:", fetchViewData.viewing_url);
             console.log("Source:", fetchViewData.source);
             setViewingUrl(fetchViewData.viewing_url);
-            if (fetchViewData.source === "active_instance") {
-              setCurrentRenderStatus("Connected");
+            if (
+              fetchViewData.source === "active_instance" &&
+              fetchViewData.viewing_url?.includes("ngrok")
+            ) {
+              setCurrentRenderStatus("Connecting..");
+              setShouldTriggerInitialFetch(false);
+              return;
+            } else if (
+              "status" in fetchViewData &&
+              (fetchViewData.status === "updating" ||
+                fetchViewData.status === "creating")
+            ) {
+              setCurrentRenderStatus("Starting Dev Server..");
+              setShouldTriggerInitialFetch(false);
+              return;
             } else {
               setCurrentRenderStatus("Static build");
             }
@@ -203,59 +221,44 @@ export default function CreatePage() {
               "Error in fetch-viewing-url response:",
               fetchViewData,
             );
+            setShouldTriggerInitialFetch(false);
+            return;
           }
         } else {
           console.error(
             "Failed to fetch viewing URL:",
             fetchViewResponse.status,
           );
+          setShouldTriggerInitialFetch(false);
+          return;
         }
       } catch (fetchViewError) {
         console.error("Error calling fetch-viewing-url API:", fetchViewError);
-      }
-    }
-
-    if (prototypeId) {
-      fetchPrototype();
-    }
-  }, [prototypeId, router]);
-
-  // Auto-start dev server when files are loaded
-  useEffect(() => {
-    async function autoStartDevServer() {
-      // Check if there's a chat_intent - if so, skip auto-starting as the chat will handle it
-      if (hasChatIntent(prototypeId)) {
-        console.log("Skipping auto-start dev server - chat_intent present");
+        setShouldTriggerInitialFetch(false);
         return;
       }
 
-      // Only proceed if we have prototypeId, files, and no existing viewing URL
+      // 3. AUTO-START DEV SERVER WHEN FILES ARE LOADED
       if (
-        !prototypeId ||
         !fileSystem.state.files ||
         !fileSystem.state.assets ||
-        Object.keys(fileSystem.state.files).length === 0 ||
-        currentRenderStatus === "Connected"
+        Object.keys(fileSystem.state.files).length === 0
       ) {
-        console.log("No files to auto-start dev server");
+        // too soon to send files to server, we'll re-trigger this entirefunction when all files are loaded
+        console.log("Skipping auto-start dev server - files not loaded");
+        return;
+      }
+      if (hasChatIntent(prototypeId) || currentRenderStatus === "Connected") {
+        console.log(
+          "Skipping auto-start dev server - chat_intent present or dev server already connected",
+        );
+        setShouldTriggerInitialFetch(false);
         return;
       }
 
-      console.log("Auto-starting dev server for prototype:", prototypeId);
-
-      setCurrentRenderStatus("Starting Dev Server..");
       try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-
-        if (!token) {
-          console.error(
-            "No authentication token available for dev server start",
-          );
-          return;
-        }
-
-        // Convert files from Record<string, PrototypeFile> to array format expected by API
+        console.log("Auto-starting dev server for prototype:", prototypeId);
+        setCurrentRenderStatus("Starting Dev Server..");
         const filesArray: PrototypeFile[] = Object.entries(
           fileSystem.state.files,
         ).map(([path, file]) => ({
@@ -266,7 +269,6 @@ export default function CreatePage() {
           created_at: file.created_at || null,
           updated_at: file.updated_at || null,
         }));
-
         const assetsArray: PrototypeAsset[] = Object.entries(
           fileSystem.state.assets,
         ).map(([path, asset]) => ({
@@ -278,8 +280,7 @@ export default function CreatePage() {
           id: asset.id,
         }));
 
-        console.log(`Auto-starting dev server with ${filesArray.length} files`);
-
+        setShouldTriggerInitialFetch(false);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
           {
@@ -291,7 +292,7 @@ export default function CreatePage() {
             body: JSON.stringify({
               framework: "expo_react_native",
               files: filesArray,
-              assets: assetsArray, // No assets in auto-start scenario
+              assets: assetsArray,
               prototype_id: prototypeId,
               file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
@@ -300,10 +301,8 @@ export default function CreatePage() {
 
         if (response.ok) {
           const result: StartDevServerResponse = await response.json();
-
           if ("success" in result && result.success) {
             console.log("✅ Dev server auto-started successfully");
-
             // Update viewing URL if provided
             if (result.viewing_url) {
               console.log(
@@ -312,35 +311,30 @@ export default function CreatePage() {
               );
               setViewingUrl(result.viewing_url);
               setCurrentRenderStatus("Connected");
+              return;
             }
           } else {
             const errorMessage =
               "error" in result ? result.error : result.message;
             console.log("Dev server auto-start failed:", errorMessage);
-            setCurrentRenderStatus("Static build");
+            return;
           }
         } else {
           const errorData = await response.json();
           console.log("Dev server auto-start request failed:", errorData);
-          if (response.status === HTTP_STATUS.CONFLICT) {
-            setCurrentRenderStatus("Connected");
-          } else {
-            setCurrentRenderStatus("Static build");
-          }
+          return;
         }
-      } catch (error) {
-        console.error("Error auto-starting dev server:", error);
-        setCurrentRenderStatus("Static build");
+      } catch {
+      } finally {
+        setShouldTriggerInitialFetch(false);
+        return;
       }
     }
 
-    // Add a small delay to ensure files are fully loaded before attempting to start dev server
-    const timer = setTimeout(() => {
-      autoStartDevServer();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [prototypeId, fileSystem.state.files, fileSystem.state.assets]);
+    if (prototypeId && shouldTriggerInitialFetch) {
+      fetchPrototypeAndStartDevServer();
+    }
+  });
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined && fileSystem.state.selectedFile) {
@@ -406,10 +400,6 @@ export default function CreatePage() {
     setPrototype(updatedPrototype);
   };
 
-  if (!prototypeId || userIsLoading) {
-    return <Loader />;
-  }
-
   const handleShare = () => {
     setShowShareModal(true);
   };
@@ -469,6 +459,15 @@ export default function CreatePage() {
       console.error("Failed to update visibility:", err);
     }
   };
+
+  if (
+    !prototypeId ||
+    userIsLoading ||
+    !fileSystem.state.files ||
+    !fileSystem.state.assets
+  ) {
+    return <Loader />;
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">

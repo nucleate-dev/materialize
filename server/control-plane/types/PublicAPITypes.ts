@@ -275,6 +275,7 @@ export interface StartDevServerSuccessResponse {
 export interface StartDevServerErrorResponse {
   error: string;
   message: string;
+  status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
 }
 
 export type StartDevServerResponse =

@@ -425,6 +425,7 @@ export class DevelopmentServerService {
           error: 'Active dev server already exists',
           message:
             'A dev server is currently starting for this prototype. Please wait for it to complete.',
+          status: precheckData.status,
         } as StartDevServerErrorResponse);
       }
 
@@ -475,8 +476,6 @@ export class DevelopmentServerService {
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           error: 'Dev server start failed',
           message: errorData.message || 'Unknown dispatch error',
-          build_errors: [],
-          build_warnings: [],
         } as StartDevServerErrorResponse);
       }
 
