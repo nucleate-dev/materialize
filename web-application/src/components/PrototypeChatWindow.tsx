@@ -290,10 +290,11 @@ export default function PrototypeChatWindow({
 
                   case "dispatch_start": {
                     console.log("Received dispatch_start event");
-                    
+
                     // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
+                    // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
                     clearChatIntent();
-                    
+
                     if (onBuildingStateChange) {
                       onBuildingStateChange(true);
                     }
@@ -759,7 +760,7 @@ export default function PrototypeChatWindow({
   // Send chat intent if present in localStorage
   useEffect(() => {
     if (!prototypeId || !prototypeChatSession?.id) return;
-    
+
     const intent = getChatIntent(prototypeId);
     if (intent) {
       handleSendMessage(intent.message);
