@@ -50,7 +50,7 @@ interface MaterializeRenderSectionProps {
   onBuildingStateChange?: (isBuilding: boolean) => void;
   // New render status props
   currentRenderStatus?: RenderStatus;
-  onRenderStatusChange?: (status: RenderStatus) => void;
+  onRenderStatusChange: (status: RenderStatus) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -130,9 +130,7 @@ const MaterializeRenderSection = forwardRef<
       }
 
       onBuildingStateChange(true);
-      if (onRenderStatusChange) {
-        onRenderStatusChange("Starting Dev Server..");
-      }
+      onRenderStatusChange("Starting Dev Server..");
 
       try {
         const session = await supabase.auth.getSession();
@@ -200,17 +198,9 @@ const MaterializeRenderSection = forwardRef<
           const errorMessage =
             "error" in result ? result.error : result.message;
           console.error("Failed to start dev server:", errorMessage);
-          if (onRenderStatusChange) {
-            onRenderStatusChange("Disconnected");
-          }
         }
       } catch (error) {
         console.error("Error starting dev server:", error);
-        if (onRenderStatusChange) {
-          onRenderStatusChange("Disconnected");
-        }
-      } finally {
-        onBuildingStateChange(false);
       }
     };
 
@@ -269,34 +259,33 @@ const MaterializeRenderSection = forwardRef<
       setIsIframeLoading(false);
       setIframeError(false);
       // Update status based on whether it's a dev server or static build
-      if (onRenderStatusChange) {
-        const isDevServer =
-          viewing_url.includes("localhost") ||
-          viewing_url.includes("127.0.0.1") ||
-          viewing_url.includes(".ngrok.") ||
-          viewing_url.includes("tunnel");
-        onRenderStatusChange(isDevServer ? "Connected" : "Static build");
-      }
+      const isDevServer =
+        viewing_url.includes("localhost") ||
+        viewing_url.includes("127.0.0.1") ||
+        viewing_url.includes(".ngrok.") ||
+        viewing_url.includes("tunnel");
+      if (isDevServer) onRenderStatusChange("Connected");
     }, [viewing_url, onRenderStatusChange]);
 
     const handleIframeError = useCallback(() => {
       console.log("Iframe failed to load");
       setIsIframeLoading(false);
       setIframeError(true);
-      if (onRenderStatusChange) {
-        onRenderStatusChange("Disconnected");
-      }
+      onRenderStatusChange("Disconnected");
     }, [onRenderStatusChange]);
 
     // Start loading when viewing_url changes
     useEffect(() => {
       console.log("render_viewing_url: ", viewing_url);
-      if (viewing_url) {
-        setIsIframeLoading(true);
-        setIframeError(false);
-        if (onRenderStatusChange) {
-          onRenderStatusChange("Connecting..");
-        }
+      setIsIframeLoading(true);
+      setIframeError(false);
+      const isDevServer =
+        viewing_url.includes("localhost") ||
+        viewing_url.includes("127.0.0.1") ||
+        viewing_url.includes(".ngrok.") ||
+        viewing_url.includes("tunnel");
+      if (isDevServer) {
+        onRenderStatusChange("Connecting..");
       }
     }, [viewing_url, onRenderStatusChange]);
 
