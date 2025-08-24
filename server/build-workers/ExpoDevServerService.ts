@@ -608,13 +608,18 @@ export class ExpoDevServerService {
     await installDependencies(projectDir, logger);
   }
 
-  private async updateDevServerFiles(
+  async updateDevServerFiles(
     projectDir: string,
     files: PrototypeFileInput[],
     assets: PrototypeAssetInputWithContent[],
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-  ): Promise<void> {
+    buildErrors: CodeError[] = [],
+    buildWarnings: CodeWarning[] = [],
+  ): Promise<{
+    success: boolean;
+    tunnelUrl?: string;
+    build_errors: CodeError[];
+    build_warnings: CodeWarning[];
+  }> {
     // Check if project directory exists
     try {
       await fs.stat(projectDir);
@@ -645,6 +650,12 @@ export class ExpoDevServerService {
           });
         }
       }
+      return {
+        success: true,
+        tunnelUrl: this.state.tunnelUrl || undefined,
+        build_errors: buildErrors,
+        build_warnings: buildWarnings,
+      };
     } catch (error: any) {
       customlog(
         "info",
@@ -670,7 +681,19 @@ export class ExpoDevServerService {
           message: `Dependency installation failed: ${error.message}`,
           type: "dependency",
         });
+        return {
+          success: false,
+          tunnelUrl: this.state.tunnelUrl || undefined,
+          build_errors: buildErrors,
+          build_warnings: buildWarnings,
+        };
       }
+      return {
+        success: true,
+        tunnelUrl: this.state.tunnelUrl || undefined,
+        build_errors: buildErrors,
+        build_warnings: buildWarnings,
+      };
     }
   }
 

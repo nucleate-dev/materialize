@@ -57,18 +57,43 @@ export class PublicApiService {
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
     try {
-      // Direct call to ExpoDevServerService with the same request
-      const startResponse = await this.expoDevServerService.startDevServer(
-        request,
-        reply,
-      );
+      if (request.body.file_scope === "complete") {
+        const startResponse = await this.expoDevServerService.startDevServer(
+          request,
+          reply,
+        );
 
-      // Convert response format from ExpoDevServerService to PublicApiService format
+        // Convert response format from ExpoDevServerService to PublicApiService format
+        return {
+          status: startResponse.success ? "success" : "error",
+          tunnel_url: startResponse.tunnelUrl,
+          build_errors: startResponse.build_errors || [],
+          build_warnings: startResponse.build_warnings || [],
+        };
+      } else if (request.body.file_scope === "updates") {
+        const startResponse =
+          await this.expoDevServerService.updateDevServerFiles(
+            request.body.prototype_id,
+            request.body.files,
+            request.body.assets,
+          );
+        return {
+          status: startResponse.success ? "success" : "error",
+          tunnel_url: startResponse.tunnelUrl,
+          build_errors: startResponse.build_errors || [],
+          build_warnings: startResponse.build_warnings || [],
+        };
+      }
+      // Direct call to ExpoDevServerService with the same request
       return {
-        status: startResponse.success ? "success" : "error",
-        tunnel_url: startResponse.tunnelUrl,
-        build_errors: startResponse.build_errors || [],
-        build_warnings: startResponse.build_warnings || [],
+        status: "error",
+        build_errors: [
+          {
+            message: "Invalid file scope",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
       };
     } catch (error: any) {
       customlog(
@@ -137,9 +162,8 @@ export class PublicApiService {
           });
         } else {
           // Use BuilderService to build and deploy
-          const buildResponse = await this.builderService.buildAndDeployProjectCore(
-            prototype_id,
-          );
+          const buildResponse =
+            await this.builderService.buildAndDeployProjectCore(prototype_id);
 
           if (buildResponse.success && buildResponse.buildUrl) {
             buildUrl = buildResponse.buildUrl;
@@ -303,9 +327,8 @@ export class PublicApiService {
       let buildUrl: string | undefined;
 
       try {
-        const buildResponse = await this.builderService.buildAndDeployProjectCore(
-          prototype_id,
-        );
+        const buildResponse =
+          await this.builderService.buildAndDeployProjectCore(prototype_id);
 
         if (buildResponse.success && buildResponse.buildUrl) {
           buildUrl = buildResponse.buildUrl;
@@ -448,7 +471,6 @@ export class PublicApiService {
       assets,
     };
   }
-
 
   private parseBuildLogForErrors(
     buildLog: any[],
