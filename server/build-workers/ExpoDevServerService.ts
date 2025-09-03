@@ -403,13 +403,23 @@ export class ExpoDevServerService {
         .replace(/[^a-z0-9-]/g, "-")
         .substring(0, 20);
 
-      this.state.addLog(`Starting Expo with args: ["expo", "start", "--web", "--tunnel", "--port", "${port}"]`);
+      this.state.addLog(
+        `Starting Expo with args: ["expo", "start", "--web", "--tunnel", "--port", "${port}"]`,
+      );
       this.state.addLog(`Working directory: ${projectDir}`);
       this.state.addLog(`Tunnel subdomain: ${tunnelSubdomain}`);
-      
+
       this.state.process = spawn(
         "npx",
-        ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
+        [
+          "expo",
+          "start",
+          "--web",
+          "--tunnel",
+          "--port",
+          port.toString(),
+          "--clear",
+        ],
         {
           cwd: projectDir,
           env: {
@@ -433,10 +443,17 @@ export class ExpoDevServerService {
       const processOutput = (data: Buffer, source: string) => {
         const output = data.toString();
         this.state.addLog(`Expo ${source}: ${output.trim()}`);
-        
+
         // Look for file watching status
-        if (output.includes("watching for file changes") || output.includes("Fast Refresh") || output.includes("Metro") || output.includes("Bundler ready")) {
-          this.state.addLog(`File watching appears to be active: ${output.trim()}`);
+        if (
+          output.includes("watching for file changes") ||
+          output.includes("Fast Refresh") ||
+          output.includes("Metro") ||
+          output.includes("Bundler ready")
+        ) {
+          this.state.addLog(
+            `File watching appears to be active: ${output.trim()}`,
+          );
         }
 
         // Look for tunnel URL with improved pattern matching
@@ -629,12 +646,14 @@ export class ExpoDevServerService {
     build_errors: CodeError[];
     build_warnings: CodeWarning[];
   }> {
-    this.state.addLog(`Updating ${files.length} files and ${assets.length} assets in project directory: ${projectDir}`);
-    
+    this.state.addLog(
+      `Updating ${files.length} files and ${assets.length} assets in project directory: ${projectDir}`,
+    );
+
     // Log which files are being updated
-    const fileNames = files.map(f => f.name);
-    this.state.addLog(`Files being updated: ${fileNames.join(', ')}`);
-    
+    const fileNames = files.map((f) => f.name);
+    this.state.addLog(`Files being updated: ${fileNames.join(", ")}`);
+
     // Check if project directory exists
     try {
       // Update only the provided files
@@ -646,7 +665,9 @@ export class ExpoDevServerService {
         (file) => file.name === "package.json",
       );
       if (packageJsonUpdated) {
-        this.state.addLog("package.json was updated, reinstalling dependencies...");
+        this.state.addLog(
+          "package.json was updated, reinstalling dependencies...",
+        );
         try {
           await this.installDependenciesWithErrorParsing(
             projectDir,
@@ -668,7 +689,9 @@ export class ExpoDevServerService {
           });
         }
       } else {
-        this.state.addLog("No package.json changes detected, skipping dependency reinstall");
+        this.state.addLog(
+          "No package.json changes detected, skipping dependency reinstall",
+        );
       }
       return {
         success: true,
