@@ -12,57 +12,44 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Database } from "@/lib/types/supabase";
 import type {
   UpdateFilesRequestBody,
   UpdateFilesResponse,
 } from "@/lib/types/serverAPITypes";
+import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
-
 interface CodeEditorProps {
-  value: string;
+  fileSystem: UseFileSystemReturn;
+  prototypeId: string;
   language?: string;
-  onChange?: (value: string | undefined) => void;
   readOnly?: boolean;
-  fileName?: string;
-  onCreateFile?: (fileName: string, initialContent?: string) => void;
-  onDeleteFile?: (fileName: string) => void;
-  availableFiles?: string[];
-  canDelete?: boolean;
-  // Props needed for save functionality
-  prototypeId?: string;
-  files?: Record<string, PrototypeFile>;
-  assets?: Record<string, PrototypeAsset>;
   onViewingUrlUpdate?: (url: string) => void;
-  onForceRefresh?: () => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
   // Save behavior control
   saveMode?: "single-file" | "all-files"; // Defaults to 'single-file' for better performance
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
-  value,
-  language = "javascript",
-  onChange,
-  readOnly = false,
-  fileName,
-  onCreateFile,
-  onDeleteFile,
-  availableFiles = [],
-  canDelete = true,
-  // Save functionality props
+  fileSystem,
   prototypeId,
-  files,
-  assets,
+  language = "javascript",
+  readOnly = false,
   onViewingUrlUpdate,
-  // onForceRefresh,
   onBuildingStateChange,
   saveMode = "single-file", // Default to single file saves
 }) => {
+  // Extract values from fileSystem
+  const availableFiles = Object.keys(fileSystem.state.files);
+  const canDelete = availableFiles.length > 1;
+
+  // File change handler
+  const onChange = (value: string | undefined) => {
+    if (value !== undefined && fileSystem.state.selectedFile) {
+      fileSystem.updateFileContentLocally(fileSystem.state.selectedFile, value);
+    }
+  };
   // Determine language from file extension if not provided
   const getLanguageFromFileName = (name: string) => {
     const ext = name?.split(".").pop()?.toLowerCase();
@@ -86,12 +73,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
-  const editorLanguage = fileName
-    ? getLanguageFromFileName(fileName)
+  const editorLanguage = fileSystem.state.selectedFile
+    ? getLanguageFromFileName(fileSystem.state.selectedFile)
     : language;
 
   const isAsset = (fileName: string) => {
-    return fileName && assets && fileName in assets;
+    return (
+      fileName && fileSystem.state.assets && fileName in fileSystem.state.assets
+    );
   };
 
   // Check if current file is an image asset
@@ -105,12 +94,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Get the current file data to check if it's an asset with storage_path
   // TODO: if the sole purpose of this currentFile is to check if the file is an asset, then we should just check if the file is an asset no need to check the files array
   const currentFile =
-    fileName && files && fileName in files
-      ? files[fileName]
-      : fileName && assets && fileName in assets
-        ? assets[fileName]
+    fileSystem.state.selectedFile &&
+    fileSystem.state.files &&
+    fileSystem.state.selectedFile in fileSystem.state.files
+      ? fileSystem.state.files[fileSystem.state.selectedFile]
+      : fileSystem.state.selectedFile &&
+          fileSystem.state.assets &&
+          fileSystem.state.selectedFile in fileSystem.state.assets
+        ? fileSystem.state.assets[fileSystem.state.selectedFile]
         : null;
-  const isAssetImage = fileName && isAsset(fileName) && isImageFile(fileName);
+  const isAssetImage =
+    fileSystem.state.selectedFile &&
+    isAsset(fileSystem.state.selectedFile) &&
+    isImageFile(fileSystem.state.selectedFile);
   const imageUrl =
     isAssetImage && currentFile && "storage_url" in currentFile
       ? currentFile?.storage_url
@@ -164,23 +160,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
     };
 
-    onCreateFile?.(fileName, getDefaultContent(fileName));
+    fileSystem.createFile(fileName, getDefaultContent(fileName));
     setShowNewFileModal(false);
     setNewFileName("");
     setNewFileError("");
   };
 
   const handleDeleteFile = () => {
-    if (fileName && onDeleteFile) {
+    if (fileSystem.state.selectedFile) {
       setShowDeleteConfirm(true);
     }
-  };
-
-  const confirmDeleteFile = () => {
-    if (fileName && onDeleteFile) {
-      onDeleteFile(fileName);
-    }
-    setShowDeleteConfirm(false);
   };
 
   const handleModalClose = () => {
@@ -189,7 +178,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   const handleSaveSingleFile = async () => {
-    if (!prototypeId || !fileName || value === undefined || !files) {
+    if (
+      !prototypeId ||
+      !fileSystem.state.selectedFile ||
+      fileSystem.getSelectedFileContent() === undefined ||
+      !fileSystem.state.files
+    ) {
       console.error(
         "Cannot save: missing prototype ID, filename, file content, or files object",
       );
@@ -213,14 +207,20 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       // Create single file object in the array format expected by update-files API
       const singleFileUpdate = [
         {
-          contents: value,
-          name: fileName,
-          prototype_id: files[fileName]?.prototype_id || prototypeId,
+          contents: fileSystem.getSelectedFileContent(),
+          name: fileSystem.state.selectedFile,
+          prototype_id:
+            fileSystem.state.files[fileSystem.state.selectedFile]
+              ?.prototype_id || prototypeId,
           // Copy other properties from existing file if it exists, converting null to undefined
-          ...(files[fileName] && {
-            id: files[fileName].id,
-            created_at: files[fileName].created_at || null,
-            updated_at: files[fileName].updated_at || null,
+          ...(fileSystem.state.files[fileSystem.state.selectedFile] && {
+            id: fileSystem.state.files[fileSystem.state.selectedFile].id,
+            created_at:
+              fileSystem.state.files[fileSystem.state.selectedFile]
+                .created_at || null,
+            updated_at:
+              fileSystem.state.files[fileSystem.state.selectedFile]
+                .updated_at || null,
           }),
         },
       ];
@@ -287,7 +287,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   const handleSaveFiles = async () => {
-    if (!prototypeId || !files) {
+    if (!prototypeId || !fileSystem.state.files) {
       console.error("Cannot save: missing prototype ID or files");
       return;
     }
@@ -306,14 +306,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       // Convert files from Record format to array format expected by update-files API
-      const filesArray = Object.entries(files).map(([path, file]) => ({
-        contents: file.contents,
-        name: path,
-        prototype_id: file.prototype_id || prototypeId,
-        id: file.id,
-        created_at: file.created_at || null,
-        updated_at: file.updated_at || null,
-      }));
+      const filesArray = Object.entries(fileSystem.state.files).map(
+        ([path, file]) => ({
+          contents: file.contents,
+          name: path,
+          prototype_id: file.prototype_id || prototypeId,
+          id: file.id,
+          created_at: file.created_at || null,
+          updated_at: file.updated_at || null,
+        }),
+      );
 
       const requestBody: UpdateFilesRequestBody = {
         files: filesArray,
@@ -499,12 +501,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      {fileName && (
+      {fileSystem.state.selectedFile && (
         <div className="flex items-center justify-between p-3 bg-muted/60 border-b border-border">
           <div className="flex items-center space-x-2">
             <FileText className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">
-              {fileName}
+              {fileSystem.state.selectedFile}
             </span>
             {readOnly && (
               <span className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded-md font-medium">
@@ -519,7 +521,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             </span>
             {!readOnly && (
               <div className="flex items-center space-x-1">
-                {prototypeId && files && (
+                {prototypeId && fileSystem.state.files && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -541,24 +543,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     />
                   </Button>
                 )}
-                {onCreateFile && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => setShowNewFileModal(true)}
-                    title="Create new file"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </Button>
-                )}
-                {onDeleteFile && canDelete && availableFiles.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setShowNewFileModal(true)}
+                  title="Create new file"
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+                {canDelete && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                     onClick={handleDeleteFile}
-                    title={`Delete ${fileName}`}
+                    title={`Delete ${fileSystem.state.selectedFile}`}
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
@@ -574,7 +574,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
               <img
                 src={imageUrl}
-                alt={fileName}
+                alt={fileSystem.state.selectedFile}
                 className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
                 onError={(e) => {
                   console.error("Failed to load image:", imageUrl);
@@ -583,7 +583,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               />
               <div className="text-center space-y-1">
                 <p className="text-sm font-medium text-foreground">
-                  {fileName}
+                  {fileSystem.state.selectedFile}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Asset file • Click to view full size
@@ -603,7 +603,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           <Editor
             height="100%"
             language={editorLanguage}
-            value={value}
+            value={fileSystem.getSelectedFileContent()}
             onChange={onChange}
             theme="vs-dark"
             beforeMount={beforeMount}
@@ -708,7 +708,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             <p className="text-sm text-muted-foreground">
               Are you sure you want to delete{" "}
               <span className="font-mono font-medium text-foreground">
-                {fileName}
+                {fileSystem.state.selectedFile}
               </span>
               ? This action cannot be undone.
             </p>
@@ -718,7 +718,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteFile}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (fileSystem.state.selectedFile) {
+                  fileSystem.deleteFile(fileSystem.state.selectedFile);
+                }
+                setShowDeleteConfirm(false);
+              }}
+            >
               Delete File
             </Button>
           </DialogFooter>

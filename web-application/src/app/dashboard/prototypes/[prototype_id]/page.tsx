@@ -5,9 +5,7 @@ import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import FileTree from "@/components/FileTree";
-import MaterializeRenderSection, {
-  MaterializeRenderSectionRef,
-} from "@/components/MaterializeRenderSection";
+import MaterializeRenderSection from "@/components/MaterializeRenderSection";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
@@ -39,7 +37,7 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -83,7 +81,6 @@ export default function CreatePage() {
   // Initialize FileSystem hook
   const defaultFile = "App.js";
   const fileSystem = useFileSystem(prototypeId, defaultFile);
-  const renderRef = useRef<MaterializeRenderSectionRef>(null);
 
   // Automatically collapse sidebar when page opens
   useEffect(() => {
@@ -346,12 +343,6 @@ export default function CreatePage() {
     shouldTriggerInitialFetch,
     viewingUrl,
   ]);
-
-  const handleCodeChange = (value: string | undefined) => {
-    if (value !== undefined && fileSystem.state.selectedFile) {
-      fileSystem.updateFileContentLocally(fileSystem.state.selectedFile, value);
-    }
-  };
 
   const handleUpdatePrototype = (updatedPrototype: Prototype) => {
     setPrototype(updatedPrototype);
@@ -632,21 +623,9 @@ export default function CreatePage() {
                       {/* Code Editor */}
                       <div className="flex-1 h-full">
                         <CodeEditor
-                          value={fileSystem.getSelectedFileContent()}
-                          onChange={handleCodeChange}
-                          fileName={fileSystem.state.selectedFile}
-                          onCreateFile={fileSystem.createFile}
-                          onDeleteFile={fileSystem.deleteFile}
-                          availableFiles={Object.keys(fileSystem.state.files)}
-                          canDelete={
-                            Object.keys(fileSystem.state.files).length > 1
-                          }
+                          fileSystem={fileSystem}
                           prototypeId={prototypeId}
-                          files={fileSystem.state.files}
                           onViewingUrlUpdate={setViewingUrl}
-                          onForceRefresh={() =>
-                            renderRef.current?.forceRefresh()
-                          }
                         />
                       </div>
                     </div>
