@@ -8,7 +8,6 @@ import FileTree from "@/components/FileTree";
 import MaterializeRenderSection, {
   MaterializeRenderSectionRef,
 } from "@/components/MaterializeRenderSection";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
@@ -25,8 +24,6 @@ import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import {
-  type CreatePrototypeRequestBody,
-  type CreatePrototypeResponse,
   type FetchViewingUrlRequestBody,
   type FetchViewingUrlResponse,
   type StartDevServerRequestBody,
@@ -73,11 +70,9 @@ export default function CreatePage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  const [isCloning, setIsCloning] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
-  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -358,60 +353,6 @@ export default function CreatePage() {
     }
   };
 
-  const handleClonePrototype = async () => {
-    if (!user || !prototype || !prototypeId) return;
-
-    try {
-      setIsCloning(true);
-
-      // Create new prototype
-      const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
-      if (!token) {
-        console.error("No authentication token available");
-        return;
-      }
-
-      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-      if (!serverEndpoint) {
-        console.error("Server endpoint not configured");
-        return;
-      }
-
-      const response = await fetch(`${serverEndpoint}/prototype/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: clonedPrototypeName,
-          description: prototype.description,
-          project_id: prototype.project_id,
-          prototype_id: prototypeId, // For forking
-          visibility: "SELF", // TODO: set this to PUBLIC if user is free
-        } as CreatePrototypeRequestBody),
-      });
-
-      const result: CreatePrototypeResponse = await response.json();
-      if (result.success) {
-        // Navigate to the new prototype in dashboard
-        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
-      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
-        // Show upsell modal
-        setShowUpsellModal(true);
-      } else {
-        console.error("Error cloning prototype:", result.message);
-      }
-    } catch (err) {
-      console.error("Error cloning prototype:", err);
-    } finally {
-      setIsCloning(false);
-    }
-  };
-
   const handleUpdatePrototype = (updatedPrototype: Prototype) => {
     setPrototype(updatedPrototype);
   };
@@ -492,8 +433,6 @@ export default function CreatePage() {
         <PublicPrototypeHeader
           prototype={prototype}
           prototypeFiles={fileSystem.state.files}
-          isCloning={isCloning}
-          onClonePrototype={handleClonePrototype}
           onUpdatePrototype={handleUpdatePrototype}
           onShare={handleShare}
         />
@@ -818,12 +757,6 @@ export default function CreatePage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ProPlanUpsellModal
-        open={showUpsellModal}
-        onOpenChange={setShowUpsellModal}
-        reason="prototype_creation_limit_reached"
-      />
     </div>
   );
 }
