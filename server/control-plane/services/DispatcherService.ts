@@ -225,8 +225,9 @@ export class DispatcherService {
         console.log('Set cache data builds zset for this prototype: ', buildId);
 
         console.log('Launching new fargate instance');
-        const newFargateInstance =
-          await this.launchFargateInstance(prototype_id);
+        const newFargateInstance = await this.launchFargateInstance(
+          prototype_id,
+        );
         console.log('Fargate instance launched: ', newFargateInstance);
 
         updatedBuildCacheData = {
@@ -572,6 +573,8 @@ export class DispatcherService {
             tasks: [taskArn],
           },
         );
+
+        console.log('ECS client informed us that the task is running');
 
         // Describe the task to get the private IP
         const describeCommand = new DescribeTasksCommand({
