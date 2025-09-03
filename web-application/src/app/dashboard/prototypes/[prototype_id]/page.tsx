@@ -51,6 +51,7 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 export type RenderStatus =
   | "Static build"
   | "Connecting.."
+  | "Updating.."
   | "Starting Dev Server.."
   | "Disconnected"
   | "Connected";
@@ -77,14 +78,6 @@ export default function CreatePage() {
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-
-  // Handle building state changes from chat
-  const handleBuildingStateChange = (building: boolean) => {
-    if (building) {
-      setCurrentRenderStatus("Starting Dev Server..");
-    }
-    // Note: Success/error status will be handled by MaterializeRenderSection when URL loads/fails
-  };
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -338,7 +331,7 @@ export default function CreatePage() {
         clearTimeout(debounceTimer);
       }
 
-      // Set new debounced timer
+      // Set new debounced timer -- THIS IS NECESSARY TO PREVENT MULTIPLE REQUESTS FROM BEING SENT TO THE SERVER ON PAGE LOAD
       debounceTimer = setTimeout(() => {
         fetchPrototypeAndStartDevServer();
       }, 500);
@@ -591,7 +584,6 @@ export default function CreatePage() {
                   setIsChatLoading={setIsChatLoading}
                   // Viewing URL integration
                   onViewingUrlUpdate={setViewingUrl}
-                  onBuildingStateChange={handleBuildingStateChange}
                   // Render status for disabling input
                   currentRenderStatus={currentRenderStatus}
                 />

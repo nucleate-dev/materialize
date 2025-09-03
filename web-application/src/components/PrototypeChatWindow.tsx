@@ -41,7 +41,6 @@ export interface PrototypeChatWindowProps {
   onViewingUrlUpdate?: (viewingUrl: string) => void;
 
   onClearChat?: () => void;
-  onBuildingStateChange?: (isBuilding: boolean) => void;
 
   // Render status for disabling input
   currentRenderStatus?: RenderStatus;
@@ -57,7 +56,6 @@ export default function PrototypeChatWindow({
   setIsChatLoading,
   onViewingUrlUpdate,
   onClearChat,
-  onBuildingStateChange,
   currentRenderStatus,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
@@ -297,22 +295,14 @@ export default function PrototypeChatWindow({
 
                   case "dispatch_start": {
                     console.log("Received dispatch_start event");
-
                     // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
                     // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
                     clearChatIntent();
-
-                    if (onBuildingStateChange) {
-                      onBuildingStateChange(true);
-                    }
                     break;
                   }
 
                   case "dispatch_complete": {
                     console.log("Received dispatch_complete event");
-                    if (onBuildingStateChange) {
-                      onBuildingStateChange(false);
-                    }
                     break;
                   }
 
@@ -539,7 +529,6 @@ export default function PrototypeChatWindow({
       setIsChatLoading,
       loadingDots,
       onViewingUrlUpdate,
-      onBuildingStateChange,
     ],
   );
 
@@ -725,6 +714,7 @@ export default function PrototypeChatWindow({
       prototypeId,
       processStreamingResponse,
       isAtLimit,
+      isChatLoading,
     ],
   );
 

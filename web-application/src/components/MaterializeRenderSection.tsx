@@ -296,20 +296,14 @@ const MaterializeRenderSection = forwardRef<
               text: "Static Build",
               animate: false,
             };
+          case "Updating..":
           case "Connecting..":
-            return {
-              className:
-                "gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950",
-              dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse",
-              text: "Connecting..",
-              animate: true,
-            };
           case "Starting Dev Server..":
             return {
               className:
                 "gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950",
               dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse",
-              text: "Starting Dev Server..",
+              text: status,
               animate: true,
             };
           case "Disconnected":
