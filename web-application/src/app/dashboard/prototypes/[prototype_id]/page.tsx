@@ -77,7 +77,7 @@ export default function CreatePage() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Initialize FileSystem hook
-  const defaultFile = "App.js";
+  const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
 
   // Automatically collapse sidebar when page opens
@@ -500,7 +500,7 @@ export default function CreatePage() {
                   files={fileSystem.state.files}
                   assets={fileSystem.state.assets}
                   selectedFile={fileSystem.state.selectedFile}
-                  onFilesUpdate={fileSystem.applyFileUpdates}
+                  onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
                   onRefetchFiles={
                     prototypeId
                       ? () => fileSystem.loadFilesFromDatabase(prototypeId)

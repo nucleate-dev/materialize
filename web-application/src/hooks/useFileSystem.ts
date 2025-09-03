@@ -23,7 +23,9 @@ export interface FileSystemActions {
   loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
 
   // Bulk file operations
-  applyFileUpdates: (updatedFiles: Record<string, PrototypeFile>) => void;
+  applyAndPersistFileUpdates: (
+    updatedFiles: Record<string, PrototypeFile>,
+  ) => Promise<boolean>;
 
   // File management operations
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
@@ -157,7 +159,7 @@ export const useFileSystem = (
   // Apply file updates from external sources (like chat API responses)
   const applyFileUpdates = useCallback(
     (updatedFiles: Record<string, PrototypeFile>) => {
-      // Update local state only - database persistence handled by server
+      // Update local state only
       setFiles((prevFiles) => {
         const newFiles = { ...prevFiles };
         Object.entries(updatedFiles).forEach(([filePath, fileData]) => {
@@ -167,6 +169,54 @@ export const useFileSystem = (
       });
     },
     [],
+  );
+
+  // Apply file updates locally and persist them directly to Supabase database
+  const applyAndPersistFileUpdates = useCallback(
+    async (updatedFiles: Record<string, PrototypeFile>): Promise<boolean> => {
+      if (!prototypeId) {
+        console.error("Cannot persist file updates: no prototype ID");
+        return false;
+      }
+
+      try {
+        // First, apply updates locally
+        applyFileUpdates(updatedFiles);
+
+        // Prepare files for database upsert
+        const filesToUpsert = Object.entries(updatedFiles).map(
+          ([path, file]) => ({
+            id: file.id,
+            name: path,
+            contents: file.contents,
+            prototype_id: file.prototype_id || prototypeId,
+            created_at: file.created_at,
+            updated_at: new Date().toISOString(),
+          }),
+        );
+
+        // Use Supabase upsert to insert new files or update existing ones
+        const { data, error } = await supabase
+          .from("prototype_files")
+          .upsert(filesToUpsert, {
+            onConflict: "name,prototype_id",
+            ignoreDuplicates: false,
+          })
+          .select();
+
+        if (error) {
+          console.error("Error persisting file updates to database:", error);
+          return false;
+        }
+
+        console.log("Successfully persisted file updates to database:", data);
+        return true;
+      } catch (error) {
+        console.error("Error in applyAndPersistFileUpdates:", error);
+        return false;
+      }
+    },
+    [prototypeId, applyFileUpdates],
   );
 
   // Create a new file
@@ -282,7 +332,7 @@ export const useFileSystem = (
     getSelectedFileContent,
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
-    applyFileUpdates,
+    applyAndPersistFileUpdates,
     createFile,
     deleteFile,
   };
