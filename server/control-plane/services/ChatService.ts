@@ -1,29 +1,29 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { HTTP_STATUS } from '../types/PublicAPITypes.js';
+import { generateText } from 'ai';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
+import { z } from 'zod';
+import { PrototypeFileInsert } from '../types/InternalTypes.js';
 import type {
-  ChatRequestBody,
   ChatErrorResponse,
+  ChatRequestBody,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   DispatchRequestBody,
   DispatchResponse,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText } from 'ai';
-import jwt from 'jsonwebtoken';
-import Stripe from 'stripe';
-import { z } from 'zod';
 import {
+  EXECUTION_PROMPT,
   genToolUsageReflectionPrompt,
   PLANNING_PROMPT,
-  EXECUTION_PROMPT,
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
-import { PrototypeFileInsert } from '../types/InternalTypes.js';
+import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -1514,7 +1514,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
     } {
       const { name, arguments: args } = toolCall.function;
 
-      console.log(`🔧 TOOL CALL: ${name}`, { arguments: args });
+      console.log(`🔧 TOOL CALL: ${name}`, { filePath: args?.filePath ?? '' });
 
       switch (name) {
         case 'read_file':
