@@ -2,7 +2,6 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
-// import ExpoSnackViewer from "@/components/ExpoSnackViewer";
 import MaterializeRenderSection from "@/components/MaterializeRenderSection";
 import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
 import {
@@ -22,16 +21,12 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function PrototypePage() {
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [prototypeFiles, setPrototypeFiles] = useState<
-    Record<string, PrototypeFile>
-  >({});
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,27 +51,6 @@ export default function PrototypePage() {
         }
 
         setPrototype(prototypeData);
-
-        // Fetch prototype files
-        const { data: filesData, error: filesError } = await supabase
-          .from("prototype_files")
-          .select("*")
-          .eq("prototype_id", prototypeId);
-
-        if (filesError) {
-          throw filesError;
-        }
-
-        // Convert files array to object keyed by filename
-        const filesObject = filesData.reduce(
-          (acc, file) => {
-            acc[file.name] = file;
-            return acc;
-          },
-          {} as Record<string, PrototypeFile>,
-        );
-
-        setPrototypeFiles(filesObject);
 
         // Call fetch-viewing-url API to get viewing URL
         try {
@@ -196,7 +170,6 @@ export default function PrototypePage() {
           {/* Header */}
           <PublicPrototypeHeader
             prototype={prototype}
-            prototypeFiles={prototypeFiles}
             onUpdatePrototype={handleUpdatePrototype}
           />
 

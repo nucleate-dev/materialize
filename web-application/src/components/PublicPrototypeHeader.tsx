@@ -27,21 +27,18 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 interface PublicPrototypeHeaderProps {
   prototype: Prototype;
-  prototypeFiles: Record<string, PrototypeFile>;
   onUpdatePrototype: (updatedPrototype: Prototype) => void;
   onShare?: () => void;
 }
 
 export default function PublicPrototypeHeader({
   prototype,
-  prototypeFiles,
   onUpdatePrototype,
   onShare,
 }: PublicPrototypeHeaderProps) {
@@ -50,9 +47,35 @@ export default function PublicPrototypeHeader({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
+  const [fileCount, setFileCount] = useState(0);
   const userObj = useUser();
   const user = userObj.user;
   const router = useRouter();
+
+  // Fetch file count for display
+  useEffect(() => {
+    async function fetchFileCount() {
+      if (!prototype.id) return;
+
+      try {
+        const { count, error } = await supabase
+          .from("prototype_files")
+          .select("*", { count: "exact", head: true })
+          .eq("prototype_id", prototype.id);
+
+        if (error) {
+          console.error("Error fetching file count:", error);
+          return;
+        }
+
+        setFileCount(count || 0);
+      } catch (err) {
+        console.error("Error fetching file count:", err);
+      }
+    }
+
+    fetchFileCount();
+  }, [prototype.id]);
 
   const handleStartEdit = () => {
     if (!prototype || !user || prototype.owner_id !== user.id) return;
@@ -113,6 +136,8 @@ export default function PublicPrototypeHeader({
         return;
       }
 
+      console.log("sourish sending request to server creation route");
+
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: "POST",
         headers: {
@@ -124,7 +149,7 @@ export default function PublicPrototypeHeader({
           description: prototype.description,
           project_id: prototype.project_id,
           prototype_id: prototype.id,
-          visibility: "SELF",
+          visibility: "PUBLIC", // TODO evaluate whether this should ever be private
         } as CreatePrototypeRequestBody),
       });
 
@@ -218,7 +243,7 @@ export default function PublicPrototypeHeader({
                 {/* Mobile: Compact metadata */}
                 <div className="flex items-center gap-2 sm:hidden">
                   <Badge variant="secondary" className="text-xs">
-                    {Object.keys(prototypeFiles).length} files
+                    {fileCount} files
                   </Badge>
                   <Badge variant="outline" className="text-xs">
                     {prototype.visibility?.toLowerCase() || "private"}
@@ -236,7 +261,7 @@ export default function PublicPrototypeHeader({
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                        {Object.keys(prototypeFiles).length} files
+                        {fileCount} files
                       </Badge>
                       <Badge variant="outline" className="text-xs">
                         {prototype.visibility?.toLowerCase() || "private"}

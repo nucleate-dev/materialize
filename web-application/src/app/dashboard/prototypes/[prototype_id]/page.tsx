@@ -55,7 +55,7 @@ export type RenderStatus =
 
 export default function CreatePage() {
   const router = useRouter();
-  const { user, userIsLoading } = useUser();
+  const { userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
@@ -432,7 +432,6 @@ export default function CreatePage() {
       {prototype && (
         <PublicPrototypeHeader
           prototype={prototype}
-          prototypeFiles={fileSystem.state.files}
           onUpdatePrototype={handleUpdatePrototype}
           onShare={handleShare}
         />
