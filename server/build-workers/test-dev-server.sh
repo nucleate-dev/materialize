@@ -28,8 +28,9 @@ package_json=$(cat test/package.json | jq -c . | jq -R .)
 # Read app.json and escape it for JSON  
 app_json=$(cat test/app.json | jq -c . | jq -R .)
 
-# Read a simple app file
-index_tsx=$(cat test/app/_layout.tsx | jq -R -s .)
+# Read app files
+layout_tsx=$(cat test/app/_layout.tsx | jq -R -s .)
+index_tsx=$(cat test/app/index.tsx | jq -R -s .)
 
 # Make the request
 echo "Sending request to start dev server..."
@@ -42,7 +43,8 @@ response=$(curl -s -X POST http://localhost:3002/dev-server \
     \"files\": [
       {\"name\": \"package.json\", \"contents\": $package_json},
       {\"name\": \"app.json\", \"contents\": $app_json},
-      {\"name\": \"app/_layout.tsx\", \"contents\": $index_tsx}
+      {\"name\": \"app/_layout.tsx\", \"contents\": $layout_tsx},
+      {\"name\": \"app/index.tsx\", \"contents\": $index_tsx}
     ],
     \"assets\": []
   }")
@@ -59,11 +61,11 @@ if [ -n "$tunnel_url" ]; then
   echo "Prototype ID: $prototype_id"
   echo ""
   echo "🗂️  The dev server files should be located at:"
-  echo "   Working directory: ~/tmp/expo-builds/$prototype_id/"
+  echo "   Working directory: /tmp/expo-dev/$prototype_id/"
   echo ""
   echo "You can:"
   echo "1. Open the tunnel URL in your browser: $tunnel_url"
-  echo "2. Edit files for hot reload testing in: ~/tmp/expo-builds/$prototype_id/"
+  echo "2. Edit files for hot reload testing in: /tmp/expo-dev/$prototype_id/"
   echo "3. Stop the dev server with:"
   echo "   curl -X DELETE http://localhost:3002/dev-server -H \"Content-Type: application/json\" -d '{\"prototype_id\": \"$prototype_id\"}'"
 else

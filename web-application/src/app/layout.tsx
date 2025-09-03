@@ -37,6 +37,7 @@ export default function RootLayout({
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
+            storageKey="materialize-theme"
           >
             {children}
           </ThemeProvider>
