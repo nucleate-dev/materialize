@@ -3,7 +3,6 @@
 import { supabase } from "@/ClientConstants";
 import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
-import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import FileTree from "@/components/FileTree";
 import MaterializeRenderSection from "@/components/MaterializeRenderSection";
 import PrototypeChatWindow from "@/components/PrototypeChatWindow";
@@ -64,7 +63,6 @@ export default function CreatePage() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -636,29 +634,6 @@ export default function CreatePage() {
           </Card>
         </div>
       </div>
-
-      {/* Settings Modal */}
-      <PrototypeSettingsModal
-        open={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        prototype={prototype}
-        onUpdated={() => {
-          // Refetch prototype data after update
-          if (prototypeId) {
-            supabase
-              .from("prototypes")
-              .select("*")
-              .eq("id", prototypeId)
-              .single()
-              .then(({ data }) => {
-                if (data) {
-                  setPrototype(data);
-                  setIsPublic(data.visibility === "PUBLIC");
-                }
-              });
-          }
-        }}
-      />
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
