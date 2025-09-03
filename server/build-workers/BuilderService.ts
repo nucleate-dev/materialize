@@ -493,7 +493,10 @@ export class BuilderService {
       true,
       "Running: npx expo export --platform web",
     );
-
+    console.log(
+      "Running: npx expo export --platform web with projectDir: ",
+      projectDir,
+    );
     const result = await this.runCommand(
       "npx",
       ["expo", "export", "--platform", "web"],

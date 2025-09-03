@@ -224,6 +224,7 @@ export class ExpoDevServerService {
       this.state.projectDir = projectDir;
       this.state.addLog(`Starting dev server for prototype ${prototype_id}`);
       this.state.addLog(`Wrote ${files.length} files to project directory`);
+      this.state.addLog(`Project directory: ${projectDir}`);
 
       // Start Expo dev server and wait for tunnel URL
       try {
