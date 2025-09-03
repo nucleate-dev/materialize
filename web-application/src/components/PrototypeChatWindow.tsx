@@ -42,7 +42,7 @@ export interface PrototypeChatWindowProps {
 
   onClearChat?: () => void;
   onBuildingStateChange?: (isBuilding: boolean) => void;
-  
+
   // Render status for disabling input
   currentRenderStatus?: RenderStatus;
 }

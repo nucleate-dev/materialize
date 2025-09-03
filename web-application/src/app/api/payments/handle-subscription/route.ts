@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(
       { error: stripeVerification.message },
-      { status: stripeVerification.status }
+      { status: stripeVerification.status },
     );
   }
 
@@ -527,11 +527,7 @@ async function verifyStripeSignature(req: NextRequest): Promise<{
   // verify event was sent from stripe
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
-      requestBuffer,
-      sig,
-      endpointSecret,
-    );
+    event = stripe.webhooks.constructEvent(requestBuffer, sig, endpointSecret);
   } catch (err: unknown) {
     return {
       status: 400,

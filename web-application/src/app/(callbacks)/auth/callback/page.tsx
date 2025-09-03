@@ -18,7 +18,7 @@ export default function AuthCallback() {
   const { userPlan } = useSubscriptionAccess();
 
   let productId: string | null = null;
-  let chatIntent: { message: string; prototype_id?: string; } | null = null;
+  let chatIntent: { message: string; prototype_id?: string } | null = null;
   if (typeof window !== "undefined") {
     productId = localStorage?.getItem("checkout_intent");
     if (!productId) {
@@ -41,8 +41,14 @@ export default function AuthCallback() {
       const { data, error } = await supabase.auth.getSession();
       if (data.session?.user) {
         // associate logging events with this authenticated user
-        if (posthogClient && typeof posthogClient === 'object' && 'identify' in posthogClient) {
-          (posthogClient as { identify: (id: string, props: object) => void; }).identify(data.session?.user.id, {
+        if (
+          posthogClient &&
+          typeof posthogClient === "object" &&
+          "identify" in posthogClient
+        ) {
+          (
+            posthogClient as { identify: (id: string, props: object) => void }
+          ).identify(data.session?.user.id, {
             email: data.session.user.email ?? "",
           });
         }
@@ -66,18 +72,22 @@ export default function AuthCallback() {
                 return;
               }
 
-              const response = await fetch(`${serverEndpoint}/prototype/create`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${data.session.access_token}`
+              const response = await fetch(
+                `${serverEndpoint}/prototype/create`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${data.session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    name: "New Prototype",
+                  } as CreatePrototypeRequestBody),
                 },
-                body: JSON.stringify({
-                  name: "New Prototype",
-                } as CreatePrototypeRequestBody)
-              });
+              );
 
-              const protoResult: CreatePrototypeResponse = await response.json();
+              const protoResult: CreatePrototypeResponse =
+                await response.json();
               if (protoResult.success) {
                 prototypeId = protoResult.data.prototype_id;
               }

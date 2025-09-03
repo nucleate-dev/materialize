@@ -5,8 +5,9 @@ A comprehensive, generalizable theme system for consistent glassmorphic design a
 ## Overview
 
 This theme system provides:
+
 - **Glassmorphism effects** with backdrop blur and transparency
-- **Gradient systems** for text, backgrounds, and interactive elements  
+- **Gradient systems** for text, backgrounds, and interactive elements
 - **Dark/light mode support** throughout all components
 - **Animation patterns** for micro-interactions and hover states
 - **Typography hierarchy** with consistent scaling
@@ -16,14 +17,14 @@ This theme system provides:
 ## Quick Start
 
 ```tsx
-import { 
-  ThemedButton, 
-  FeatureCard, 
-  GlassContainer, 
+import {
+  ThemedButton,
+  FeatureCard,
+  GlassContainer,
   HeroText,
   Section,
-  Container
-} from '@/components/ui';
+  Container,
+} from "@/components/ui";
 
 // Use themed components
 <Section background="hero">
@@ -35,12 +36,13 @@ import {
       Get Started
     </ThemedButton>
   </Container>
-</Section>
+</Section>;
 ```
 
 ## Core Theme Utilities
 
 ### Glass Effects
+
 ```tsx
 import { theme } from '@/components/ui';
 
@@ -51,17 +53,19 @@ import { theme } from '@/components/ui';
 ```
 
 ### Gradients
+
 ```tsx
 // Text gradients
 <h1 className={theme.gradients.text}>Gradient text</h1>
 <span className={theme.gradients.textAccent}>Accent gradient</span>
 
-// Background gradients  
+// Background gradients
 <div className={theme.backgrounds.hero}>Hero background</div>
 <div className={theme.gradients.primary}>Primary gradient</div>
 ```
 
 ### Interactive States
+
 ```tsx
 // Hover effects
 <button className={theme.interactive.hover}>Hover me</button>
@@ -71,6 +75,7 @@ import { theme } from '@/components/ui';
 ## Components
 
 ### ThemedButton
+
 Primary action buttons with consistent styling:
 
 ```tsx
@@ -88,6 +93,7 @@ Primary action buttons with consistent styling:
 ```
 
 ### FeatureCard
+
 Cards for features, benefits, or content blocks:
 
 ```tsx
@@ -100,6 +106,7 @@ Cards for features, benefits, or content blocks:
 ```
 
 ### GlassContainer
+
 Flexible glassmorphic containers:
 
 ```tsx
@@ -109,6 +116,7 @@ Flexible glassmorphic containers:
 ```
 
 ### Typography Components
+
 Consistent text hierarchy:
 
 ```tsx
@@ -119,6 +127,7 @@ Consistent text hierarchy:
 ```
 
 ### Layout Components
+
 Responsive layout utilities:
 
 ```tsx
@@ -136,40 +145,45 @@ Responsive layout utilities:
 ## Advanced Usage
 
 ### Custom Glow Effects
+
 ```tsx
-import { createGlowEffect, createIconGradient } from '@/components/ui';
+import { createGlowEffect, createIconGradient } from "@/components/ui";
 
 <div className="group relative">
-  <div className={createGlowEffect('purple')}></div>
-  <div className={createIconGradient('blue')}>
+  <div className={createGlowEffect("purple")}></div>
+  <div className={createIconGradient("blue")}>
     <Icon />
   </div>
-</div>
+</div>;
 ```
 
 ### Floating Background Orbs
+
 ```tsx
-import { FloatingOrbs } from '@/components/ui';
+import { FloatingOrbs } from "@/components/ui";
 
 <div className="relative">
   <FloatingOrbs />
   <YourContent />
-</div>
+</div>;
 ```
 
 ### Theme Variants
+
 All components support dark/light mode automatically through Tailwind's dark mode system.
 
 ## Color System
 
 ### Gradients Available:
+
 - `blue`: Blue to cyan
-- `purple`: Purple to pink  
+- `purple`: Purple to pink
 - `green`: Green to emerald
 - `orange`: Orange to red
 - `indigo`: Indigo to purple
 
 ### Glass Variants:
+
 - `primary`: High opacity, strong backdrop blur
 - `secondary`: Medium opacity, moderate blur
 - `subtle`: Low opacity, light blur
@@ -178,6 +192,7 @@ All components support dark/light mode automatically through Tailwind's dark mod
 ## Migration Guide
 
 ### From Existing Components
+
 Replace existing components with themed equivalents:
 
 ```tsx
@@ -186,13 +201,14 @@ Replace existing components with themed equivalents:
   Click me
 </button>
 
-// After  
+// After
 <ThemedButton variant="primary">
   Click me
 </ThemedButton>
 ```
 
 ### From Custom CSS
+
 Replace custom styles with theme utilities:
 
 ```tsx
@@ -203,7 +219,7 @@ Replace custom styles with theme utilities:
 
 // After
 <GlassContainer variant="secondary">
-  Content  
+  Content
 </GlassContainer>
 ```
 
@@ -224,14 +240,14 @@ export const theme = {
   // Add new glass variants
   glass: {
     // existing variants...
-    custom: "bg-custom/80 backdrop-blur-2xl border border-custom/20"
+    custom: "bg-custom/80 backdrop-blur-2xl border border-custom/20",
   },
   // Add new gradients
   gradients: {
     feature: {
       // existing gradients...
-      custom: "from-custom-500 to-custom-600"
-    }
-  }
-}
+      custom: "from-custom-500 to-custom-600",
+    },
+  },
+};
 ```

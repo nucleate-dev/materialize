@@ -63,11 +63,14 @@ const getOperationColor = (type: PlannedOperation["type"]) => {
   }
 };
 
-const getStatusIcon = (status: PlannedOperation["status"], isExecuting: boolean) => {
+const getStatusIcon = (
+  status: PlannedOperation["status"],
+  isExecuting: boolean,
+) => {
   if (isExecuting) {
     return <div className="w-4 h-4 bg-blue-500 rounded-full animate-ping" />;
   }
-  
+
   switch (status) {
     case "completed":
       return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
@@ -81,7 +84,7 @@ const getStatusIcon = (status: PlannedOperation["status"], isExecuting: boolean)
 };
 
 const getFileIcon = (filePath: string) => {
-  if (filePath.includes('/')) {
+  if (filePath.includes("/")) {
     return <FolderIcon className="w-3 h-3 text-gray-500" />;
   }
   return <DocumentIcon className="w-3 h-3 text-gray-500" />;
@@ -94,18 +97,22 @@ export default function PlanningView({
   onExecuteStep,
   currentExecutingId,
 }: PlanningViewProps) {
-  const [executingOperations, setExecutingOperations] = useState<Set<string>>(new Set());
+  const [executingOperations, setExecutingOperations] = useState<Set<string>>(
+    new Set(),
+  );
 
-  const completedCount = operations.filter(op => op.status === "completed").length;
+  const completedCount = operations.filter(
+    (op) => op.status === "completed",
+  ).length;
   const totalCount = operations.length;
-  const hasErrors = operations.some(op => op.status === "error");
+  const hasErrors = operations.some((op) => op.status === "error");
 
   const handleExecuteOperation = async (operationId: string) => {
-    setExecutingOperations(prev => new Set([...prev, operationId]));
+    setExecutingOperations((prev) => new Set([...prev, operationId]));
     try {
       await onExecuteStep(operationId);
     } finally {
-      setExecutingOperations(prev => {
+      setExecutingOperations((prev) => {
         const newSet = new Set(prev);
         newSet.delete(operationId);
         return newSet;
@@ -140,13 +147,15 @@ export default function PlanningView({
 
         {/* Progress Badge */}
         <div className="flex items-center gap-2">
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-            hasErrors 
-              ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-              : completedCount === totalCount
-              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-              : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-          }`}>
+          <div
+            className={`px-3 py-1 rounded-full text-xs font-medium ${
+              hasErrors
+                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                : completedCount === totalCount
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                  : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+            }`}
+          >
             {completedCount}/{totalCount} completed
           </div>
           {currentExecutingId && (
@@ -160,7 +169,8 @@ export default function PlanningView({
       {/* Collapsed Preview */}
       {!isExpanded && (
         <div className="text-sm text-indigo-700 dark:text-indigo-300">
-          {operations.length} operation{operations.length !== 1 ? 's' : ''} planned
+          {operations.length} operation{operations.length !== 1 ? "s" : ""}{" "}
+          planned
           {completedCount > 0 && ` • ${completedCount} completed`}
           {hasErrors && ` • Errors detected`}
         </div>
@@ -170,8 +180,10 @@ export default function PlanningView({
       {isExpanded && (
         <div className="space-y-3">
           {operations.map((operation, index) => {
-            const isExecuting = executingOperations.has(operation.id) || currentExecutingId === operation.id;
-            
+            const isExecuting =
+              executingOperations.has(operation.id) ||
+              currentExecutingId === operation.id;
+
             return (
               <div
                 key={operation.id}
@@ -179,15 +191,17 @@ export default function PlanningView({
                   isExecuting
                     ? "bg-blue-100/50 dark:bg-blue-900/30 ring-2 ring-blue-300 dark:ring-blue-600"
                     : operation.status === "completed"
-                    ? "bg-green-50/50 dark:bg-green-900/20"
-                    : operation.status === "error"
-                    ? "bg-red-50/50 dark:bg-red-900/20"
-                    : "bg-white/50 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-700/40"
+                      ? "bg-green-50/50 dark:bg-green-900/20"
+                      : operation.status === "error"
+                        ? "bg-red-50/50 dark:bg-red-900/20"
+                        : "bg-white/50 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-700/40"
                 }`}
               >
                 {/* Step Number & Status */}
                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                  <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${getOperationColor(operation.type)} flex items-center justify-center text-white text-sm font-bold`}>
+                  <div
+                    className={`w-8 h-8 rounded-full bg-gradient-to-r ${getOperationColor(operation.type)} flex items-center justify-center text-white text-sm font-bold`}
+                  >
                     {index + 1}
                   </div>
                   {getStatusIcon(operation.status, isExecuting)}
@@ -246,18 +260,22 @@ export default function PlanningView({
                         Execute
                       </button>
                     )}
-                    
+
                     {/* Success indicator with clearer message */}
                     {operation.status === "completed" && (
                       <div className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5">
                         <CheckCircleIcon className="w-3 h-3" />
-                        {operation.type === "create" && `Created ${operation.filePath}`}
-                        {operation.type === "modify" && `Updated ${operation.filePath}`}
-                        {operation.type === "delete" && `Deleted ${operation.filePath}`}
-                        {operation.type === "move" && `Moved to ${operation.newFilePath || operation.filePath}`}
+                        {operation.type === "create" &&
+                          `Created ${operation.filePath}`}
+                        {operation.type === "modify" &&
+                          `Updated ${operation.filePath}`}
+                        {operation.type === "delete" &&
+                          `Deleted ${operation.filePath}`}
+                        {operation.type === "move" &&
+                          `Moved to ${operation.newFilePath || operation.filePath}`}
                       </div>
                     )}
-                    
+
                     {/* Executing indicator */}
                     {isExecuting && (
                       <div className="px-3 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5">

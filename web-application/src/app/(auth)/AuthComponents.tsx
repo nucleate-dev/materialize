@@ -35,16 +35,13 @@ export function OAuthSignInButton({
 }) {
   const logo = getOAuthButtonLogo(provider);
   return (
-    <Button
-      variant="outline"
-      className="w-full"
-      onClick={onClick}
-    >
+    <Button variant="outline" className="w-full" onClick={onClick}>
       <span className="mr-2">{logo}</span>
       {showOnlyLogo
         ? null
-        : `Continue with ${provider.charAt(0).toUpperCase() + provider.slice(1)
-        }`}
+        : `Continue with ${
+            provider.charAt(0).toUpperCase() + provider.slice(1)
+          }`}
     </Button>
   );
 }

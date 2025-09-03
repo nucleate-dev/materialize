@@ -5,27 +5,27 @@
  * Usage: node scripts/pull-prototype.js [prototype-id] [output-directory]
  */
 
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require("@supabase/supabase-js");
+const fs = require("fs");
+const path = require("path");
 
 // Load environment variables
-require('dotenv').config();
+require("dotenv").config();
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-async function pullPrototypeFiles(prototypeId, outputDir = './prototype-dev') {
+async function pullPrototypeFiles(prototypeId, outputDir = "./prototype-dev") {
   try {
     console.log(`🔍 Fetching files for prototype: ${prototypeId}`);
-    
+
     // Get prototype files from Supabase
     const { data: files, error } = await supabase
-      .from('prototype_files')
-      .select('name, contents')
-      .eq('prototype_id', prototypeId);
+      .from("prototype_files")
+      .select("name, contents")
+      .eq("prototype_id", prototypeId);
 
     if (error) {
       throw new Error(`Failed to fetch prototype files: ${error.message}`);
@@ -46,7 +46,7 @@ async function pullPrototypeFiles(prototypeId, outputDir = './prototype-dev') {
     // Write each file to the local directory
     for (const file of files) {
       const filePath = path.join(outputDir, file.name);
-      
+
       // Create directory if file is in a subdirectory
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
@@ -54,15 +54,16 @@ async function pullPrototypeFiles(prototypeId, outputDir = './prototype-dev') {
       }
 
       // Write file contents
-      fs.writeFileSync(filePath, file.contents, 'utf8');
+      fs.writeFileSync(filePath, file.contents, "utf8");
       console.log(`✅ Created: ${file.name}`);
     }
 
-    console.log(`\n🎉 Successfully pulled ${files.length} files from prototype ${prototypeId}`);
+    console.log(
+      `\n🎉 Successfully pulled ${files.length} files from prototype ${prototypeId}`,
+    );
     console.log(`📂 Files are available in: ${outputDir}`);
-    
   } catch (error) {
-    console.error('❌ Error pulling prototype files:', error.message);
+    console.error("❌ Error pulling prototype files:", error.message);
     process.exit(1);
   }
 }
@@ -73,8 +74,10 @@ const prototypeId = args[0];
 const outputDir = args[1];
 
 if (!prototypeId) {
-  console.log('Usage: node scripts/pull-prototype.js [prototype-id] [output-directory]');
-  console.log('Example: node scripts/pull-prototype.js abc123 ./my-prototype');
+  console.log(
+    "Usage: node scripts/pull-prototype.js [prototype-id] [output-directory]",
+  );
+  console.log("Example: node scripts/pull-prototype.js abc123 ./my-prototype");
   process.exit(1);
 }
 

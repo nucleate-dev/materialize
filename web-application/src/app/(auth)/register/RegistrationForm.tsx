@@ -41,10 +41,8 @@ export default function RegistrationForm() {
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { email, password, firstName, lastName, confirmPassword } =
-    formData;
-  const { emailError, passwordError, confirmPasswordError } =
-    formErrors;
+  const { email, password, firstName, lastName, confirmPassword } = formData;
+  const { emailError, passwordError, confirmPasswordError } = formErrors;
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +91,7 @@ export default function RegistrationForm() {
         }
       }
     },
-    [formData, formErrors, password, setFormData, setFormErrors]
+    [formData, formErrors, password, setFormData, setFormErrors],
   );
 
   const handleSubmit = useCallback(
@@ -119,7 +117,7 @@ export default function RegistrationForm() {
         setShowSuccessState(true);
       }
     },
-    [email, firstName, lastName, password, router]
+    [email, firstName, lastName, password, router],
   );
 
   if (showSuccessState) {
@@ -219,7 +217,9 @@ export default function RegistrationForm() {
                 disabled={isLoading}
               />
               {confirmPasswordError && (
-                <p className="text-sm text-destructive">{confirmPasswordError}</p>
+                <p className="text-sm text-destructive">
+                  {confirmPasswordError}
+                </p>
               )}
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -232,7 +232,9 @@ export default function RegistrationForm() {
               <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
+              <span className="bg-background px-2 text-muted-foreground">
+                Or
+              </span>
             </div>
           </div>
 

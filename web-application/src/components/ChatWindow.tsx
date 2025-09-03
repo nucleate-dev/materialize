@@ -136,7 +136,8 @@ export default function ChatWindow({
   }, [messages]);
 
   const isDevServerStarting = currentRenderStatus === "Starting Dev Server..";
-  const isDisabled = !input.trim() || isLoading || isAtLimit || isDevServerStarting;
+  const isDisabled =
+    !input.trim() || isLoading || isAtLimit || isDevServerStarting;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -499,32 +500,37 @@ export default function ChatWindow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                isAtLimit
-                  ? "Message limit reached for this billing period"
-                  : isDevServerStarting
-                    ? "Please wait for dev server to start..."
-                    : "Ask me to create or modify React Native code..."
-              }
-              className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
-                isAtLimit || isDevServerStarting ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              rows={1}
-              style={{
-                minHeight: "56px",
-                maxHeight: "160px",
-                overflow: "hidden",
-              }}
-              disabled={isLoading || isAtLimit || isDevServerStarting}
+                    ref={textareaRef}
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      isAtLimit
+                        ? "Message limit reached for this billing period"
+                        : isDevServerStarting
+                          ? "Please wait for dev server to start..."
+                          : "Ask me to create or modify React Native code..."
+                    }
+                    className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
+                      isAtLimit || isDevServerStarting
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                    rows={1}
+                    style={{
+                      minHeight: "56px",
+                      maxHeight: "160px",
+                      overflow: "hidden",
+                    }}
+                    disabled={isLoading || isAtLimit || isDevServerStarting}
                   />
                 </TooltipTrigger>
                 {isDevServerStarting && (
                   <TooltipContent>
-                    <p>Please wait for the dev server to start before making changes</p>
+                    <p>
+                      Please wait for the dev server to start before making
+                      changes
+                    </p>
                   </TooltipContent>
                 )}
               </Tooltip>

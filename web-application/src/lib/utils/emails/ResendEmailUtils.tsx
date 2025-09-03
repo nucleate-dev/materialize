@@ -30,7 +30,7 @@ import SubscriptionPaymentFailedEmail from "@/components/emails/SubscriptionPaym
 export async function triggerOneTimePaymentConfirmationEmail(
   checkoutSession: Stripe.Checkout.Session,
   products: Array<string>,
-  receiptUrl: string | null
+  receiptUrl: string | null,
 ): Promise<ErrorResponse | null> {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -82,7 +82,7 @@ export async function triggerSubscriptionPaymentFailedEmail(
   email: string | null,
   name: string | null,
   plan: string,
-  retryUrl: string | null = null
+  retryUrl: string | null = null,
 ): Promise<ErrorResponse | null> {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -129,7 +129,7 @@ export async function triggerSubscriptionPaymentFailedEmail(
 export async function triggerSubscriptionFreeTrialWillEndEmail(
   email: string | null,
   name: string | null,
-  plan: string
+  plan: string,
 ): Promise<ErrorResponse | null> {
   const resend = new Resend(process.env.RESEND_API_KEY);
 

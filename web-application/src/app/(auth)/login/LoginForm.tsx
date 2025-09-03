@@ -2,7 +2,13 @@
 
 import ErrorModal from "@/components/ErrorModal";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -10,7 +16,13 @@ import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useCallback, useState, useEffect } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useState,
+  useEffect,
+} from "react";
 import { OAuthSignInButton } from "../AuthComponents";
 import RegistrationAccountCreatedEmailVerificationPending from "../register/RegistrationAccountCreatedEmailVerificationPending";
 
@@ -70,7 +82,7 @@ export default function LoginForm() {
       setShowVerifyEmailState,
       email,
       password,
-    ]
+    ],
   );
 
   // Redirect to dashboard if user is already logged in
@@ -110,7 +122,9 @@ export default function LoginForm() {
       />
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Login
+          </CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access your account
           </CardDescription>
@@ -145,11 +159,7 @@ export default function LoginForm() {
                 disabled={isLoading}
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
           </form>

@@ -33,12 +33,16 @@ export default function ProjectsHeader() {
       icon: RocketLaunchIcon,
       active: pathname?.includes("/prototypes"),
     },
-    ...(SHOW_WHITEBOARDS ? [{
-      name: "Whiteboards",
-      href: `/dashboard/projects/${projectId}/whiteboards`,
-      icon: Square3Stack3DIcon,
-      active: pathname?.includes("/whiteboards"),
-    }] : []),
+    ...(SHOW_WHITEBOARDS
+      ? [
+          {
+            name: "Whiteboards",
+            href: `/dashboard/projects/${projectId}/whiteboards`,
+            icon: Square3Stack3DIcon,
+            active: pathname?.includes("/whiteboards"),
+          },
+        ]
+      : []),
     {
       name: "Settings",
       href: `/dashboard/projects/${projectId}/settings`,

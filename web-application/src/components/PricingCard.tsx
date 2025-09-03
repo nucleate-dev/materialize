@@ -64,7 +64,9 @@ export function PricingCard({
             <h3 className="text-2xl font-bold text-white mb-2">{cardTitle}</h3>
             <div className="flex items-baseline justify-center gap-1 mb-4">
               <span className="text-5xl font-black text-white">{price}</span>
-              {period && <span className="text-gray-400 text-lg">{period}</span>}
+              {period && (
+                <span className="text-gray-400 text-lg">{period}</span>
+              )}
             </div>
             {description && <p className="text-gray-300">{description}</p>}
           </div>

@@ -2,9 +2,9 @@ import { ProductKeys } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
 import { loadStripe } from "@stripe/stripe-js";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import type { 
-  CheckoutRequestBody, 
-  CheckoutResponse 
+import type {
+  CheckoutRequestBody,
+  CheckoutResponse,
 } from "@/lib/types/serverAPITypes";
 
 /**
@@ -79,33 +79,38 @@ export async function handleRedirectToPaymentsPage(
   );
 
   const requestBody: CheckoutRequestBody = {
-    productID: productID as 'free' | 'team' | 'pro',
+    productID: productID as "free" | "team" | "pro",
   };
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/payments/checkout`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(requestBody),
     },
-    body: JSON.stringify(requestBody),
-  });
+  );
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error('Checkout request failed:', errorData);
-    throw new Error(`Checkout failed: ${errorData.message || 'Unknown error'}`);
+    console.error("Checkout request failed:", errorData);
+    throw new Error(`Checkout failed: ${errorData.message || "Unknown error"}`);
   }
 
   const session: CheckoutResponse = await response.json();
-  
+
   // Handle successful response
-  if ('id' in session && session.id) {
+  if ("id" in session && session.id) {
     await stripe?.redirectToCheckout({ sessionId: session.id });
   } else {
     // Handle error response
     const errorResponse = session as { error: string; message: string };
-    console.error('Checkout session creation failed:', errorResponse);
-    throw new Error(`Checkout failed: ${errorResponse.message || errorResponse.error}`);
+    console.error("Checkout session creation failed:", errorResponse);
+    throw new Error(
+      `Checkout failed: ${errorResponse.message || errorResponse.error}`,
+    );
   }
 }

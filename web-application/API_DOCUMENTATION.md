@@ -1,15 +1,19 @@
 # Create Prototype API Documentation
 
 ## Overview
+
 The Create Prototype API endpoint provides JWT authentication, paywalling (5 max prototypes for free users), and supports both new prototype creation and forking existing prototypes.
 
 ## Endpoint
+
 ```
 POST /api/create-prototype
 ```
 
 ## Authentication
+
 Requires a valid JWT token in the Authorization header:
+
 ```
 Authorization: Bearer <jwt_token>
 ```
@@ -17,6 +21,7 @@ Authorization: Bearer <jwt_token>
 ## Request Body
 
 ### For New Prototype Creation
+
 ```json
 {
   "name": "My New App",
@@ -27,6 +32,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### For Forking an Existing Prototype
+
 ```json
 {
   "name": "My Forked App",
@@ -40,6 +46,7 @@ Authorization: Bearer <jwt_token>
 ## Response Format
 
 ### Success Response
+
 ```json
 {
   "success": true,
@@ -51,6 +58,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### Error Response
+
 ```json
 {
   "success": false,
@@ -60,6 +68,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ## Error Types
+
 - `UNAUTHORIZED`: Invalid or missing JWT token
 - `PROTOTYPE_LIMIT_REACHED`: Free users have reached their 5 prototype limit
 - `DATABASE_ERROR`: Database operation failed
@@ -69,16 +78,19 @@ Authorization: Bearer <jwt_token>
 ## Features
 
 ### JWT Authentication
+
 - Validates JWT tokens using Supabase Auth
 - Extracts user ID and subscription information
 - Ensures only authenticated users can create prototypes
 
 ### Paywalling
+
 - Free users: Maximum 5 prototypes
 - Pro/Team users: Unlimited prototypes
 - Automatic limit checking before prototype creation
 
 ### Prototype Creation
+
 - Creates new prototype in database
 - Generates unique prototype ID
 - Sets default visibility based on subscription plan
@@ -86,12 +98,14 @@ Authorization: Bearer <jwt_token>
 - Copies default app files to S3 bucket
 
 ### Prototype Forking
+
 - Copies all files from source prototype
 - Creates new prototype with copied files
 - Copies S3 bucket contents to new location
 - Maintains file structure and content
 
 ### S3 Integration
+
 - Automatically manages S3 bucket operations
 - Copies files between bucket prefixes
 - Generates CloudFront viewing URLs
@@ -117,6 +131,7 @@ S3_PROTOTYPE_BUCKET=materialize-sites
 ## Example Usage
 
 ### Create New Prototype
+
 ```bash
 curl -X POST /api/create-prototype \
   -H "Authorization: Bearer your_jwt_token" \
@@ -128,6 +143,7 @@ curl -X POST /api/create-prototype \
 ```
 
 ### Fork Existing Prototype
+
 ```bash
 curl -X POST /api/create-prototype \
   -H "Authorization: Bearer your_jwt_token" \
@@ -142,6 +158,7 @@ curl -X POST /api/create-prototype \
 ## Database Schema
 
 ### Prototypes Table
+
 - `id`: Unique identifier
 - `name`: Prototype name
 - `description`: Optional description
@@ -152,6 +169,7 @@ curl -X POST /api/create-prototype \
 - `updated_at`: Last update timestamp
 
 ### Prototype Files Table
+
 - `id`: Unique identifier
 - `prototype_id`: Reference to prototype
 - `name`: File name/path
@@ -181,6 +199,7 @@ materialize-prototypes/
 ## Error Handling
 
 The API includes comprehensive error handling:
+
 - Authentication failures return 401
 - Authorization failures return 403
 - Validation errors return 400
@@ -194,4 +213,4 @@ The API includes comprehensive error handling:
 - User authentication required
 - Subscription-based access control
 - Automatic cleanup on failures
-- No sensitive data exposure in errors 
+- No sensitive data exposure in errors

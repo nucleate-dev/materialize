@@ -2,9 +2,7 @@
 import PremiumHeader from "@/components/PremiumHeader";
 import { PricingCard } from "@/components/PricingCard";
 import { ProductKeys } from "@/GlobalConstants";
-import {
-  SparklesIcon
-} from "@heroicons/react/24/outline";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import { useState } from "react";
 
 export default function Home() {
@@ -32,27 +30,37 @@ function HeroSection() {
   const [inputValue, setInputValue] = useState("");
 
   const componentPrompts = {
-    "Action Button": "Create a modern, accessible action button with smooth hover animations, loading states, and multiple variants (primary, secondary, destructive). Include ripple effects, proper focus states, and support for icons. The button should be responsive and follow Material Design 3 principles with elegant shadows and color transitions.",
-    "Paywall": "Design a compelling paywall component with pricing tiers, feature comparisons, and payment integration. Include animated progress indicators, testimonials section, money-back guarantee badge, and social proof elements. The design should reduce purchase friction with clear value propositions and urgency indicators.",
-    "Onboarding Screen": "Build an engaging onboarding flow with progress indicators, interactive tutorials, and personalization questions. Include skip options, swipe gestures, beautiful illustrations, and micro-interactions. The screens should collect user preferences while showcasing key app features through guided tours.",
-    "Login Form": "Create a secure, user-friendly login form with social authentication options, password visibility toggle, and form validation. Include biometric login support, remember me functionality, and smooth error handling. The design should prioritize security while maintaining excellent user experience.",
-    "Profile Card": "Design a comprehensive profile card with avatar upload, social links, achievement badges, and activity feeds. Include edit mode with inline editing, privacy controls, and customizable themes. The card should be responsive and include subtle animations and hover effects.",
-    "Chat Interface": "Build a modern chat interface with message bubbles, typing indicators, read receipts, and media sharing. Include emoji reactions, voice message support, message search, and conversation threading. The design should prioritize readability with proper spacing and intuitive navigation."
+    "Action Button":
+      "Create a modern, accessible action button with smooth hover animations, loading states, and multiple variants (primary, secondary, destructive). Include ripple effects, proper focus states, and support for icons. The button should be responsive and follow Material Design 3 principles with elegant shadows and color transitions.",
+    Paywall:
+      "Design a compelling paywall component with pricing tiers, feature comparisons, and payment integration. Include animated progress indicators, testimonials section, money-back guarantee badge, and social proof elements. The design should reduce purchase friction with clear value propositions and urgency indicators.",
+    "Onboarding Screen":
+      "Build an engaging onboarding flow with progress indicators, interactive tutorials, and personalization questions. Include skip options, swipe gestures, beautiful illustrations, and micro-interactions. The screens should collect user preferences while showcasing key app features through guided tours.",
+    "Login Form":
+      "Create a secure, user-friendly login form with social authentication options, password visibility toggle, and form validation. Include biometric login support, remember me functionality, and smooth error handling. The design should prioritize security while maintaining excellent user experience.",
+    "Profile Card":
+      "Design a comprehensive profile card with avatar upload, social links, achievement badges, and activity feeds. Include edit mode with inline editing, privacy controls, and customizable themes. The card should be responsive and include subtle animations and hover effects.",
+    "Chat Interface":
+      "Build a modern chat interface with message bubbles, typing indicators, read receipts, and media sharing. Include emoji reactions, voice message support, message search, and conversation threading. The design should prioritize readability with proper spacing and intuitive navigation.",
   };
 
   const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (inputValue.trim()) {
         // Check if user is authenticated - for now just redirect to waitlist
         // In the future, this would check auth status and either create prototype or show login
-        window.open("https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header", "_blank");
+        window.open(
+          "https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header",
+          "_blank",
+        );
       }
     }
   };
 
   const handlePillClick = (componentType: string) => {
-    const prompt = componentPrompts[componentType as keyof typeof componentPrompts];
+    const prompt =
+      componentPrompts[componentType as keyof typeof componentPrompts];
     setInputValue(prompt);
   };
 
@@ -275,13 +283,17 @@ function PricingSection() {
 
         {/* Usage Examples */}
         <div className="mt-20 text-center">
-          <h3 className="text-2xl font-bold text-black dark:text-white mb-8">Usage Examples</h3>
+          <h3 className="text-2xl font-bold text-black dark:text-white mb-8">
+            Usage Examples
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
               <div className="text-2xl font-bold text-black dark:text-white mb-2">
                 150 messages
               </div>
-              <div className="text-gray-600 dark:text-gray-300 mb-2">Pro plan cost:</div>
+              <div className="text-gray-600 dark:text-gray-300 mb-2">
+                Pro plan cost:
+              </div>
               <div className="text-lg font-semibold text-green-400">
                 $20 + $7.50 = $27.50
               </div>
@@ -293,7 +305,9 @@ function PricingSection() {
               <div className="text-2xl font-bold text-black dark:text-white mb-2">
                 400 messages
               </div>
-              <div className="text-gray-600 dark:text-gray-300 mb-2">Pro plan cost:</div>
+              <div className="text-gray-600 dark:text-gray-300 mb-2">
+                Pro plan cost:
+              </div>
               <div className="text-lg font-semibold text-green-400">
                 $20 + $40 = $60
               </div>
@@ -305,7 +319,9 @@ function PricingSection() {
               <div className="text-2xl font-bold text-black dark:text-white mb-2">
                 800 messages
               </div>
-              <div className="text-gray-600 dark:text-gray-300 mb-2">Pro plan cost:</div>
+              <div className="text-gray-600 dark:text-gray-300 mb-2">
+                Pro plan cost:
+              </div>
               <div className="text-lg font-semibold text-green-400">
                 $20 + $84 = $104
               </div>

@@ -1,14 +1,14 @@
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { supabase } from "@/ClientConstants";
-import type { 
-  ManageBillingRequestBody, 
+import type {
+  ManageBillingRequestBody,
   ManageBillingResponse,
-  StandardErrorResponse 
+  StandardErrorResponse,
 } from "@/lib/types/serverAPITypes";
 
 /**
  * Redirects the authenticated user to the Stripe customer portal where they can manage their billing information.
- * 
+ *
  * UPDATED: Now uses the control-plane Fastify server instead of Vercel API routes.
  *
  * @param {string} userID - The ID of the authenticated user who wants to manage their billing information.
@@ -31,29 +31,32 @@ export async function handleRedirectToStripeCustomerPortal(
   router: AppRouterInstance,
 ): Promise<void> {
   try {
-    const { data: session, error: sessionError } = await supabase.auth.getSession();
+    const { data: session, error: sessionError } =
+      await supabase.auth.getSession();
 
     if (sessionError) {
-      console.error('Session error:', sessionError);
+      console.error("Session error:", sessionError);
       alert("Authentication error. Please try logging in again.");
       return;
     }
 
     if (!session.session) {
-      alert("You must be logged in to manage billing. Please log in and try again.");
+      alert(
+        "You must be logged in to manage billing. Please log in and try again.",
+      );
       return;
     }
 
     // Use the control-plane server endpoint
     const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
     if (!serverEndpoint) {
-      throw new Error('Server endpoint not configured');
+      throw new Error("Server endpoint not configured");
     }
 
     const response = await fetch(`${serverEndpoint}/payments/manage-billing`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${session.session.access_token}`,
+        Authorization: `Bearer ${session.session.access_token}`,
         "Content-Type": "application/json",
       },
       // Empty body since user ID comes from JWT
@@ -63,8 +66,8 @@ export async function handleRedirectToStripeCustomerPortal(
     if (!response.ok) {
       // Handle HTTP error responses
       const errorData: StandardErrorResponse = await response.json();
-      console.error('Billing portal request failed:', errorData);
-      
+      console.error("Billing portal request failed:", errorData);
+
       if (response.status === 401) {
         alert("Authentication failed. Please log in again.");
       } else if (response.status === 400) {
@@ -76,18 +79,19 @@ export async function handleRedirectToStripeCustomerPortal(
     }
 
     const data: ManageBillingResponse = await response.json();
-    
+
     // Type guard to ensure we have a successful response
-    if ('redirect_url' in data) {
+    if ("redirect_url" in data) {
       router.push(data.redirect_url);
     } else {
       // This is a StandardErrorResponse
-      console.error('Billing portal error:', data);
+      console.error("Billing portal error:", data);
       alert("Unable to access billing portal. Please try again later.");
     }
-
   } catch (error) {
-    console.error('Error accessing billing portal:', error);
-    alert("Unable to access billing portal. Please check your connection and try again.");
+    console.error("Error accessing billing portal:", error);
+    alert(
+      "Unable to access billing portal. Please check your connection and try again.",
+    );
   }
 }

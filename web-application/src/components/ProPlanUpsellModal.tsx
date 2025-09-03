@@ -14,7 +14,9 @@ import { Star, Sparkles, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type UpsellReason = "free_message_limit_reached" | "prototype_creation_limit_reached";
+type UpsellReason =
+  | "free_message_limit_reached"
+  | "prototype_creation_limit_reached";
 
 interface ProPlanUpsellModalProps {
   open: boolean;
@@ -42,25 +44,27 @@ export default function ProPlanUpsellModal({
         return {
           limitText: `Free limit reached: ${messageCount}/${messageLimit} messages`,
           title: "Continue building with Pro",
-          description: "Unlock unlimited AI-powered development and keep building amazing apps.",
+          description:
+            "Unlock unlimited AI-powered development and keep building amazing apps.",
           features: [
             "100 messages per month",
-            "Priority AI responses", 
+            "Priority AI responses",
             "Advanced code generation",
-            "Premium support"
-          ]
+            "Premium support",
+          ],
         };
       case "prototype_creation_limit_reached":
         return {
           limitText: "Free limit reached: 5/5 prototypes",
           title: "Create unlimited prototypes with Pro",
-          description: "You can only create 5 prototypes on the free plan. Upgrade to Pro for unlimited prototype creation.",
+          description:
+            "You can only create 5 prototypes on the free plan. Upgrade to Pro for unlimited prototype creation.",
           features: [
             "Unlimited prototypes",
             "Advanced prototype features",
             "Priority AI responses",
-            "Premium support"
-          ]
+            "Premium support",
+          ],
         };
       default:
         return {
@@ -71,8 +75,8 @@ export default function ProPlanUpsellModal({
             "Unlimited access",
             "Priority support",
             "Advanced features",
-            "Premium tools"
-          ]
+            "Premium tools",
+          ],
         };
     }
   };
@@ -134,9 +138,7 @@ export default function ProPlanUpsellModal({
             {content.features.map((feature, index) => (
               <div key={index} className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                <span className="text-sm text-foreground">
-                  {feature}
-                </span>
+                <span className="text-sm text-foreground">{feature}</span>
               </div>
             ))}
           </div>
@@ -146,10 +148,7 @@ export default function ProPlanUpsellModal({
           <Button variant="ghost" onClick={handleDismiss}>
             Maybe Later
           </Button>
-          <Button
-            onClick={handleUpgrade}
-            disabled={isProcessing}
-          >
+          <Button onClick={handleUpgrade} disabled={isProcessing}>
             {isProcessing ? (
               <>
                 <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />

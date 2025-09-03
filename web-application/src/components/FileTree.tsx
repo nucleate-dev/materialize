@@ -47,7 +47,11 @@ const FileTree: React.FC<FileTreeProps> = ({
     };
 
     // Helper function to create folder structure and add items
-    const addItemToTree = (itemPath: string, itemType: "file" | "asset", content?: string) => {
+    const addItemToTree = (
+      itemPath: string,
+      itemType: "file" | "asset",
+      content?: string,
+    ) => {
       const parts = itemPath.split("/");
       let currentNode = root;
 
@@ -131,7 +135,10 @@ const FileTree: React.FC<FileTreeProps> = ({
     });
   };
 
-  const getFileIcon = (fileName: string, nodeType: "file" | "asset" = "file") => {
+  const getFileIcon = (
+    fileName: string,
+    nodeType: "file" | "asset" = "file",
+  ) => {
     const ext = fileName.split(".").pop()?.toLowerCase();
 
     if (nodeType === "asset") {

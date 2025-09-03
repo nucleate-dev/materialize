@@ -2,7 +2,13 @@
 
 import ErrorModal from "@/components/ErrorModal";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sendPasswordResetToEmail } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -28,9 +34,9 @@ export default function ForgotPasswordForm() {
       email,
       redirectTo: process.env.NEXT_PUBLIC_SITE_BASE_URL + "/reset_password",
     });
-    
+
     setIsLoading(false);
-    
+
     if (error) {
       setShowErrorModal(true);
       setErrorMessage(error.message);
@@ -43,7 +49,9 @@ export default function ForgotPasswordForm() {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Check your email</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Check your email
+          </CardTitle>
           <CardDescription className="text-center">
             We&apos;ve sent you a password reset link
           </CardDescription>
@@ -54,9 +62,7 @@ export default function ForgotPasswordForm() {
           </p>
           <div className="space-y-2">
             <Button asChild className="w-full">
-              <Link href="/login">
-                Back to login
-              </Link>
+              <Link href="/login">Back to login</Link>
             </Button>
           </div>
         </CardContent>
@@ -75,9 +81,12 @@ export default function ForgotPasswordForm() {
       />
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Forgot Password</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Forgot Password
+          </CardTitle>
           <CardDescription className="text-center">
-            Enter your email address and we&apos;ll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset
+            your password
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -96,20 +105,13 @@ export default function ForgotPasswordForm() {
                 disabled={isLoading}
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Sending reset link..." : "Send reset link"}
             </Button>
           </form>
-          
+
           <div className="text-center text-sm">
-            <Link
-              href="/login"
-              className="text-primary hover:underline"
-            >
+            <Link href="/login" className="text-primary hover:underline">
               Back to login
             </Link>
           </div>

@@ -2,7 +2,13 @@
 
 import ErrorModal from "@/components/ErrorModal";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updatePasswordForUser } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -63,41 +69,43 @@ export default function ResetPasswordForm() {
         }
       }
     },
-    [formData, formErrors, password]
+    [formData, formErrors, password],
   );
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setIsLoading(true);
-      
+
       const response = await updatePasswordForUser({
         newPassword: password,
       });
-      
+
       setIsLoading(false);
-      
+
       if (response.error) {
         setShowErrorModal(true);
         setErrorMessage(response.error.message);
         return;
       }
-      
+
       setShowSuccessState(true);
-      
+
       // Redirect to dashboard after a short delay
       setTimeout(() => {
         router.push("/dashboard");
       }, 2000);
     },
-    [password, router, setShowErrorModal, setErrorMessage]
+    [password, router, setShowErrorModal, setErrorMessage],
   );
 
   if (showSuccessState) {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Password updated!</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Password updated!
+          </CardTitle>
           <CardDescription className="text-center">
             Your password has been successfully reset
           </CardDescription>
@@ -108,9 +116,7 @@ export default function ResetPasswordForm() {
           </p>
           <div className="space-y-2">
             <Button asChild className="w-full">
-              <Link href="/dashboard">
-                Go to Dashboard
-              </Link>
+              <Link href="/dashboard">Go to Dashboard</Link>
             </Button>
           </div>
         </CardContent>
@@ -129,7 +135,9 @@ export default function ResetPasswordForm() {
       />
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Reset Password</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            Reset Password
+          </CardTitle>
           <CardDescription className="text-center">
             Enter your new password to complete the reset process
           </CardDescription>
@@ -167,7 +175,9 @@ export default function ResetPasswordForm() {
                 disabled={isLoading}
               />
               {confirmPasswordError && (
-                <p className="text-sm text-destructive">{confirmPasswordError}</p>
+                <p className="text-sm text-destructive">
+                  {confirmPasswordError}
+                </p>
               )}
             </div>
             <Button
@@ -178,12 +188,9 @@ export default function ResetPasswordForm() {
               {isLoading ? "Updating password..." : "Update password"}
             </Button>
           </form>
-          
+
           <div className="text-center text-sm">
-            <Link
-              href="/login"
-              className="text-primary hover:underline"
-            >
+            <Link href="/login" className="text-primary hover:underline">
               Back to login
             </Link>
           </div>
