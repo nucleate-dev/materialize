@@ -19,16 +19,14 @@ import type {
   FetchViewingUrlResponse,
 } from "@/lib/types/serverAPITypes";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 export default function PrototypePage() {
-  const { user, userIsLoading } = useUser();
   const params = useParams<{ prototype_id: string }>();
-  const router = useRouter();
   const prototypeId = params?.prototype_id;
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
@@ -151,7 +149,7 @@ export default function PrototypePage() {
     setPrototype(updatedPrototype);
   };
 
-  if (userIsLoading || isLoading) {
+  if (isLoading) {
     return <Loader />;
   }
 
