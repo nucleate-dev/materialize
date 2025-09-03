@@ -9,7 +9,7 @@ import path from "path";
 const KEY_PATH = process.env.KEY_PATH || "mat-ec2-key-1.pem";
 const USER = process.env.USERNAME_ON_EC2 || "ec2-user";
 const HOST =
-  process.env.HOST || "ec2-18-218-216-144.us-east-2.compute.amazonaws.com";
+  process.env.HOST || "ec2-13-59-184-185.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -105,7 +105,7 @@ function fullDeploy() {
   console.log("==> Cleaning local zip...");
   try {
     fs.unlinkSync(localZip);
-  } catch {}
+  } catch { }
 }
 
 function selectiveDeploy(paths) {

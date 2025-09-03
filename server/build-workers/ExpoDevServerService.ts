@@ -210,7 +210,6 @@ export class ExpoDevServerService {
         }
       } else if (file_scope === "updates") {
         await this.updateDevServerFiles(
-          projectDir,
           files,
           assets,
           buildErrors,
@@ -635,7 +634,6 @@ export class ExpoDevServerService {
   }
 
   async updateDevServerFiles(
-    projectDir: string,
     files: PrototypeFileInput[],
     assets: PrototypeAssetInputWithContent[],
     buildErrors: CodeError[] = [],
@@ -646,19 +644,79 @@ export class ExpoDevServerService {
     build_errors: CodeError[];
     build_warnings: CodeWarning[];
   }> {
+    // Validate that we have an active dev server
+    if (
+      this.state.status === "stopped" ||
+      !this.state.prototypeId ||
+      !this.state.projectDir
+    ) {
+      const errorMsg = "Cannot update files: No active dev server running";
+      this.state.addLog(errorMsg);
+      buildErrors.push({
+        message: errorMsg,
+        type: "build",
+      });
+      return {
+        success: false,
+        tunnelUrl: this.state.tunnelUrl || undefined,
+        build_errors: buildErrors,
+        build_warnings: buildWarnings,
+      };
+    }
+
+    // Use the state's project directory as the source of truth
+    const actualProjectDir = this.state.projectDir;
+
     this.state.addLog(
-      `Updating ${files.length} files and ${assets.length} assets in project directory: ${projectDir}`,
+      `Updating ${files.length} files and ${assets.length} assets in project directory: ${actualProjectDir}`,
     );
 
     // Log which files are being updated
     const fileNames = files.map((f) => f.name);
     this.state.addLog(`Files being updated: ${fileNames.join(", ")}`);
 
-    // Check if project directory exists
+    // Verify project directory exists and is accessible
+    try {
+      const stats = await fs.stat(actualProjectDir);
+      if (!stats.isDirectory()) {
+        const errorMsg = `Project path exists but is not a directory: ${actualProjectDir}`;
+        this.state.addLog(errorMsg);
+        buildErrors.push({
+          message: errorMsg,
+          type: "build",
+        });
+        return {
+          success: false,
+          tunnelUrl: this.state.tunnelUrl || undefined,
+          build_errors: buildErrors,
+          build_warnings: buildWarnings,
+        };
+      }
+    } catch (error: any) {
+      // Project directory doesn't exist - this shouldn't happen in update mode
+      const errorMsg = `Project directory does not exist: ${actualProjectDir}. Cannot perform file update.`;
+      this.state.addLog(errorMsg);
+      customlog("error", "Project directory missing during update:", {
+        projectDir: actualProjectDir,
+        prototypeId: this.state.prototypeId,
+        error: error.message,
+      });
+      buildErrors.push({
+        message: errorMsg,
+        type: "build",
+      });
+      return {
+        success: false,
+        tunnelUrl: this.state.tunnelUrl || undefined,
+        build_errors: buildErrors,
+        build_warnings: buildWarnings,
+      };
+    }
+
     try {
       // Update only the provided files
-      await writeProjectFiles(files, assets, projectDir);
-      this.state.addLog(`Successfully wrote files to ${projectDir}`);
+      await writeProjectFiles(files, assets, actualProjectDir);
+      this.state.addLog(`Successfully wrote files to ${actualProjectDir}`);
 
       // Check if package.json was updated and reinstall if needed
       const packageJsonUpdated = files.some(
@@ -670,7 +728,7 @@ export class ExpoDevServerService {
         );
         try {
           await this.installDependenciesWithErrorParsing(
-            projectDir,
+            actualProjectDir,
             buildErrors,
             buildWarnings,
           );
@@ -687,12 +745,14 @@ export class ExpoDevServerService {
             message: `Dependency update failed: ${error.message}`,
             type: "dependency",
           });
+          // Don't return failure here - file updates succeeded even if deps failed
         }
       } else {
         this.state.addLog(
           "No package.json changes detected, skipping dependency reinstall",
         );
       }
+
       return {
         success: true,
         tunnelUrl: this.state.tunnelUrl || undefined,
@@ -700,39 +760,20 @@ export class ExpoDevServerService {
         build_warnings: buildWarnings,
       };
     } catch (error: any) {
+      const errorMsg = `Failed to write files to project directory: ${error.message}`;
       customlog(
-        "info",
-        "Project directory doesn't exist, treating as complete scope:",
+        "error",
+        "File writing failed during update:",
         error.message,
+        error.stack,
       );
-      await fs.mkdir(projectDir, { recursive: true });
-      await writeProjectFiles(files, assets, projectDir);
-      try {
-        await this.installDependenciesWithErrorParsing(
-          projectDir,
-          buildErrors,
-          buildWarnings,
-        );
-      } catch (error: any) {
-        customlog(
-          "error",
-          "Dependency installation failed for new project directory:",
-          error.message,
-          error.stack,
-        );
-        buildErrors.push({
-          message: `Dependency installation failed: ${error.message}`,
-          type: "dependency",
-        });
-        return {
-          success: false,
-          tunnelUrl: this.state.tunnelUrl || undefined,
-          build_errors: buildErrors,
-          build_warnings: buildWarnings,
-        };
-      }
+      this.state.addLog(errorMsg);
+      buildErrors.push({
+        message: errorMsg,
+        type: "build",
+      });
       return {
-        success: true,
+        success: false,
         tunnelUrl: this.state.tunnelUrl || undefined,
         build_errors: buildErrors,
         build_warnings: buildWarnings,

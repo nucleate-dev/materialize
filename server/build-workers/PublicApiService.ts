@@ -76,7 +76,6 @@ export class PublicApiService {
       } else if (request.body.file_scope === "updates") {
         const startResponse =
           await this.expoDevServerService.updateDevServerFiles(
-            request.body.prototype_id,
             request.body.files,
             request.body.assets,
           );
@@ -147,7 +146,10 @@ export class PublicApiService {
 
     // If no prototype_id provided, try to stop any running dev server
     if (!prototype_id) {
-      customlog("info", "No prototype_id provided, attempting to stop any running dev server");
+      customlog(
+        "info",
+        "No prototype_id provided, attempting to stop any running dev server",
+      );
       try {
         const result = await (this.expoDevServerService as any).stopDevServer(
           request,
