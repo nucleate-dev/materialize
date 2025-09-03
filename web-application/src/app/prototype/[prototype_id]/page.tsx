@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/supabase";
 import type {
   FetchViewingUrlRequestBody,
