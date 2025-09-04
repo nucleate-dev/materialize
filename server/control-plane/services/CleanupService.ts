@@ -1,12 +1,12 @@
-import { GlideClient } from '@valkey/valkey-glide';
-import { CONFIG } from '../config.js';
-import axios from 'axios';
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
+import { GlideClient } from '@valkey/valkey-glide';
+import axios from 'axios';
+import { CONFIG } from '../config.js';
 import {
   type ActiveBuild,
   type CleanupOperationResult,
-  type IdleBuildInfo,
   type CleanupStats,
+  type IdleBuildInfo,
   CACHE_KEYS,
   CACHE_PATTERNS,
   isActiveBuild,
@@ -111,6 +111,7 @@ export class CleanupService {
       const prototypeId = buildId.split('_')[1];
 
       // a. dispatch a request to the fargate instance to kill the build
+      let shouldTerminateTask = true;
       if (build.fargate_private_ip) {
         const killResult = await this.dispatchKillDevServerRequest(
           prototypeId,
@@ -120,11 +121,24 @@ export class CleanupService {
           console.warn(
             `Failed to kill dev server for ${buildId}: ${killResult.error}`,
           );
+          // If the kill request failed due to build in progress, don't terminate the task
+          if (killResult.buildInProgress) {
+            console.log(
+              `Build appears to be in progress for ${buildId}, skipping Fargate task termination`,
+            );
+            shouldTerminateTask = false;
+          }
+        } else if (killResult.buildInProgress) {
+          console.log(
+            `Build completed but may have been interrupted for ${buildId}, proceeding with caution`,
+          );
+          // Still terminate in this case since the build completed
         }
       }
 
-      // b. Kill the fargate task using the task arn
-      if (build.fargate_task_arn) {
+      // b. Kill the fargate task using the task arn (only if safe to do so)
+      if (build.fargate_task_arn && shouldTerminateTask) {
+        console.log(`Proceeding with Fargate task termination for ${buildId}`);
         const terminateResult = await this.terminateFargateTask(
           build.fargate_task_arn,
         );
@@ -135,6 +149,18 @@ export class CleanupService {
           stats.failedCleanups++;
           continue;
         }
+      } else if (build.fargate_task_arn && !shouldTerminateTask) {
+        console.log(
+          `Skipping Fargate task termination for ${buildId} due to build in progress - task will be cleaned up later`,
+        );
+        // Reset the status back to stable since we're not cleaning up yet
+        const activeBuild: ActiveBuild = {
+          ...build,
+          status: 'stable',
+          last_touched: currentTime, // Update last_touched to prevent immediate re-cleanup
+        };
+        await this.cache.set(buildKey, JSON.stringify(activeBuild));
+        continue; // Skip cache cleanup
       }
 
       // c. remove the active build from cache and cleanup schema entries
@@ -200,7 +226,7 @@ export class CleanupService {
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
-  ): Promise<CleanupOperationResult> {
+  ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
     try {
       console.log(
         `Dispatching kill dev server request to ${fargatePrivateIp}:3002/dev-server for prototype: ${prototypeId}`,
@@ -210,7 +236,7 @@ export class CleanupService {
         `http://${fargatePrivateIp}:3002/dev-server`,
         {
           data: { prototype_id: prototypeId },
-          timeout: 30000, // 30 seconds timeout for cleanup
+          timeout: 300000, // 5 minutes timeout to allow build completion
           headers: {
             'Content-Type': 'application/json',
           },
@@ -218,18 +244,39 @@ export class CleanupService {
       );
 
       console.log(
-        `Successfully killed dev server for prototype: ${prototypeId}`,
+        `Successfully completed dev server shutdown for prototype: ${prototypeId}`,
       );
-      console.log(response.data);
-      return { success: true };
-    } catch (error) {
+      console.log('Response data:', response.data);
+
+      // Check if there were any build errors that might indicate the build was interrupted
+      // @ts-ignore
+      const buildInProgress =
+        response.data?.build_errors?.some(
+          (error: any) =>
+            error.message?.includes('Build process failed') ||
+            error.message?.includes('timeout') ||
+            error.message?.includes('interrupted'),
+        ) || false;
+
+      return {
+        success: true,
+        buildInProgress,
+      };
+      // @ts-ignore
+    } catch (error: any) {
       console.error(
         `Failed to kill dev server for prototype ${prototypeId}:`,
         error,
       );
+
+      // Check if the error was due to timeout (build taking too long)
+      const isTimeout =
+        error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+
       return {
-        success: false,
+        success: !isTimeout, // Consider timeout as partial success since build might be completing
         error: error instanceof Error ? error.message : 'Unknown error',
+        buildInProgress: isTimeout,
       };
     }
   }
