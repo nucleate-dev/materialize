@@ -878,7 +878,7 @@ export class ExpoDevServerService {
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
       logger.log("Starting deploy phase");
-      const s3KeyPrefix = `${prototype_id}/dist`;
+      const s3KeyPrefix = `${prototype_id}`;
       const uploadedFiles = await this.uploadDirectoryToS3(
         outputPath,
         s3KeyPrefix,
