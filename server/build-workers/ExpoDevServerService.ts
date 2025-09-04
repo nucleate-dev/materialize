@@ -407,6 +407,8 @@ export class ExpoDevServerService {
   private async startExpoProcess(
     projectDir: string,
     port: number,
+    buildErrors: CodeError[] = [],
+    buildWarnings: CodeWarning[] = [],
   ): Promise<void> {
     this.state.addLog(`Starting Expo dev server on port ${port}...`);
 
@@ -457,6 +459,9 @@ export class ExpoDevServerService {
       const processOutput = (data: Buffer, source: string) => {
         const output = data.toString();
         this.state.addLog(`Expo ${source}: ${output.trim()}`);
+
+        // Parse Metro/Expo output for rendering errors
+        this.parseMetroErrors(output, buildErrors, buildWarnings);
 
         // Look for file watching status
         if (
@@ -1023,6 +1028,10 @@ export class ExpoDevServerService {
       await writeProjectFiles(files, assets, actualProjectDir);
       this.state.addLog(`Successfully wrote files to ${actualProjectDir}`);
 
+      // Monitor for Metro bundler errors after file updates
+      this.state.addLog("Monitoring Metro output for compilation errors...");
+      await this.monitorMetroForErrors(buildErrors, buildWarnings, 3000);
+
       // Check if package.json was updated and reinstall if needed
       const packageJsonUpdated = files.some(
         (file) => file.name === "package.json",
@@ -1083,6 +1092,185 @@ export class ExpoDevServerService {
         build_errors: buildErrors,
         build_warnings: buildWarnings,
       };
+    }
+  }
+
+  private async monitorMetroForErrors(
+    buildErrors: CodeError[],
+    buildWarnings: CodeWarning[],
+    timeoutMs: number = 10000,
+  ): Promise<void> {
+    if (!this.state.process) {
+      this.state.addLog("No Metro process available for error monitoring");
+      return;
+    }
+
+    return new Promise((resolve) => {
+      const originalErrorCount = buildErrors.length;
+      const originalWarningCount = buildWarnings.length;
+      let resolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          const newErrors = buildErrors.length - originalErrorCount;
+          const newWarnings = buildWarnings.length - originalWarningCount;
+          this.state.addLog(
+            `Metro error monitoring completed. Found ${newErrors} new errors, ${newWarnings} new warnings`,
+          );
+          resolve();
+        }
+      }, timeoutMs);
+
+      // Create a temporary data handler to monitor for errors
+      const errorMonitor = (data: Buffer) => {
+        const output = data.toString();
+        const beforeErrors = buildErrors.length;
+        this.parseMetroErrors(output, buildErrors, buildWarnings);
+
+        // If we found new errors, resolve early
+        if (buildErrors.length > beforeErrors && !resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          const newErrors = buildErrors.length - originalErrorCount;
+          const newWarnings = buildWarnings.length - originalWarningCount;
+          this.state.addLog(
+            `Metro errors detected early. Found ${newErrors} new errors, ${newWarnings} new warnings`,
+          );
+          resolve();
+        }
+      };
+
+      // Clean up the monitors after timeout or early resolution
+      const cleanup = () => {
+        if (this.state.process) {
+          this.state.process.stdout?.removeListener("data", errorMonitor);
+          this.state.process.stderr?.removeListener("data", errorMonitor);
+        }
+      };
+
+      setTimeout(() => {
+        cleanup();
+      }, timeoutMs);
+
+      // Also clean up immediately when promise resolves
+      setTimeout(() => {
+        if (resolved) {
+          cleanup();
+        }
+      }, 100);
+    });
+  }
+
+  private parseMetroErrors(
+    output: string,
+    buildErrors: CodeError[],
+    buildWarnings: CodeWarning[],
+  ): void {
+    if (!output || typeof output !== "string") {
+      return;
+    }
+    const lines = output.split("\n");
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // Parse TypeScript compilation errors
+      if (
+        trimmedLine.includes("TS") &&
+        (trimmedLine.includes("error") || /TS\d{4}/.test(trimmedLine))
+      ) {
+        const tsErrorMatch = trimmedLine.match(
+          /(.+?)\((\d+),(\d+)\):\s*error\s+(TS\d+):\s*(.+)/,
+        );
+        if (tsErrorMatch) {
+          buildErrors.push({
+            message: `${tsErrorMatch[4]}: ${tsErrorMatch[5]}`,
+            file: tsErrorMatch[1],
+            line: parseInt(tsErrorMatch[2]),
+            column: parseInt(tsErrorMatch[3]),
+            type: "syntax",
+          });
+        } else {
+          buildErrors.push({
+            message: trimmedLine,
+            type: "syntax",
+          });
+        }
+      }
+
+      // Parse JavaScript syntax errors
+      else if (
+        trimmedLine.includes("SyntaxError") ||
+        trimmedLine.includes("Unexpected token")
+      ) {
+        buildErrors.push({
+          message: trimmedLine,
+          type: "syntax",
+        });
+      }
+
+      // Parse Metro bundler errors
+      else if (
+        trimmedLine.includes("Metro") &&
+        (trimmedLine.includes("error") || trimmedLine.includes("Error"))
+      ) {
+        buildErrors.push({
+          message: trimmedLine.replace(/^.*Metro.*?Error:\s*/, ""),
+          type: "build",
+        });
+      }
+
+      // Parse module resolution errors
+      else if (
+        trimmedLine.includes("Unable to resolve module") ||
+        trimmedLine.includes("Module not found")
+      ) {
+        buildErrors.push({
+          message: trimmedLine,
+          type: "build",
+        });
+      }
+
+      // Parse React errors
+      else if (
+        trimmedLine.includes("React") &&
+        (trimmedLine.includes("Error") || trimmedLine.includes("Warning"))
+      ) {
+        if (trimmedLine.includes("Warning")) {
+          buildWarnings.push({
+            message: trimmedLine,
+            type: "build",
+          });
+        } else {
+          buildErrors.push({
+            message: trimmedLine,
+            type: "runtime",
+          });
+        }
+      }
+
+      // Parse general compilation failures
+      else if (
+        trimmedLine.includes("Failed to compile") ||
+        trimmedLine.includes("Compilation failed")
+      ) {
+        buildErrors.push({
+          message: trimmedLine,
+          type: "build",
+        });
+      }
+
+      // Parse warnings
+      else if (
+        trimmedLine.includes("warning") &&
+        !trimmedLine.includes("error")
+      ) {
+        buildWarnings.push({
+          message: trimmedLine,
+          type: "build",
+        });
+      }
     }
   }
 
