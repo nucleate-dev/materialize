@@ -446,6 +446,7 @@ export async function getDefaultAppFilesFromS3(
     return {
       success: true,
       files,
+      assets,
     };
   } catch (error) {
     console.error(
