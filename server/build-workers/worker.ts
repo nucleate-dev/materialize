@@ -7,7 +7,6 @@ import fastify, {
   FastifyRequest,
 } from "fastify";
 import fs from "fs/promises";
-import { BuilderService } from "./BuilderService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { PublicApiService } from "./PublicApiService.js";
 
@@ -40,18 +39,11 @@ if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
 
 const s3 = new AWS.S3();
 
-// Initialize BuilderService
-const builderService = new BuilderService(WORK_DIR, S3_BUCKET, s3);
-
 // Initialize ExpoDevServerService
-const expoDevServerService = new ExpoDevServerService(WORK_DIR);
+const expoDevServerService = new ExpoDevServerService(WORK_DIR, S3_BUCKET, s3);
 
 // Initialize PublicApiService
-const publicApiService = new PublicApiService(
-  builderService,
-  expoDevServerService,
-  WORK_DIR,
-);
+const publicApiService = new PublicApiService(expoDevServerService, WORK_DIR);
 
 // --- Utility Functions ---
 
@@ -150,7 +142,7 @@ const app: FastifyInstance = fastify({
 // --- Health Check ---
 app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    const resources = await builderService.checkSystemResources();
+    const resources = await expoDevServerService.checkSystemResources();
     return {
       status: "ok",
       timestamp: new Date().toISOString(),

@@ -1117,7 +1117,6 @@ export class ExpoDevServerService {
     }
   }
 
-  // Additional private methods from BuilderService
   private getContentType(filename: string): string {
     const ext = path.extname(filename).toLowerCase();
     const contentTypes: Record<string, string> = {

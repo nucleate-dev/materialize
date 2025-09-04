@@ -20,10 +20,7 @@ export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly workDir: string;
 
-  constructor(
-    expoDevServerService: ExpoDevServerService,
-    workDir: string,
-  ) {
+  constructor(expoDevServerService: ExpoDevServerService, workDir: string) {
     this.expoDevServerService = expoDevServerService;
     this.workDir = workDir;
   }
@@ -171,7 +168,6 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Generate build using BuilderService
       const projectDir = path.join(this.workDir, prototype_id);
       let buildUrl: string | undefined;
 
@@ -193,7 +189,9 @@ export class PublicApiService {
         } else {
           // Use ExpoDevServerService to build and deploy
           const buildResponse =
-            await this.expoDevServerService.buildAndDeployProjectCore(prototype_id);
+            await this.expoDevServerService.buildAndDeployProjectCore(
+              prototype_id,
+            );
 
           if (buildResponse.success && buildResponse.buildUrl) {
             buildUrl = buildResponse.buildUrl;
@@ -358,7 +356,9 @@ export class PublicApiService {
 
       try {
         const buildResponse =
-          await this.expoDevServerService.buildAndDeployProjectCore(prototype_id);
+          await this.expoDevServerService.buildAndDeployProjectCore(
+            prototype_id,
+          );
 
         if (buildResponse.success && buildResponse.buildUrl) {
           buildUrl = buildResponse.buildUrl;
