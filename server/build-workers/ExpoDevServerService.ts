@@ -1,5 +1,5 @@
 import AWS from "aws-sdk";
-import { ChildProcess, spawn, execSync, SpawnOptions } from "child_process";
+import { ChildProcess, execSync, spawn, SpawnOptions } from "child_process";
 import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
@@ -107,7 +107,11 @@ export class ExpoDevServerService {
   private readonly S3_BUCKET: string;
   private readonly s3: AWS.S3;
 
-  constructor(workDir: string = "/tmp/expo-dev", s3Bucket: string, s3Instance: AWS.S3) {
+  constructor(
+    workDir: string = "/tmp/expo-dev",
+    s3Bucket: string,
+    s3Instance: AWS.S3,
+  ) {
     this.workDir = workDir;
     this.S3_BUCKET = s3Bucket;
     this.s3 = s3Instance;
@@ -794,7 +798,7 @@ export class ExpoDevServerService {
       await fs.stat(buildPath);
 
       logger.log("Uploading to S3");
-      const s3KeyPrefix = `${prototype_id}/dist`;
+      const s3KeyPrefix = `${prototype_id}`;
       const uploadedFiles = await this.uploadDirectoryToS3(
         buildPath,
         s3KeyPrefix,
