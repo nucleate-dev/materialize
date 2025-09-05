@@ -22,6 +22,9 @@ export interface FileSystemActions {
   loadFilesFromDatabase: (prototypeId: string) => Promise<void>;
   loadAssetsFromDatabase: (prototypeId: string) => Promise<void>;
 
+  // Single file operations
+  saveSingleFile: (filePath: string) => Promise<boolean>;
+
   // Bulk file operations
   applyAndPersistFileUpdates: (
     updatedFiles: Record<string, PrototypeFile>,
@@ -169,6 +172,63 @@ export const useFileSystem = (
       });
     },
     [],
+  );
+
+  // Save a single file to the database
+  const saveSingleFile = useCallback(
+    async (filePath: string): Promise<boolean> => {
+      console.log("🗃️ [useFileSystem] saveSingleFile called with:", {
+        prototypeId,
+        filePath,
+      });
+
+      if (!prototypeId) {
+        console.error("Cannot save file: no prototype ID");
+        return false;
+      }
+
+      const fileData = files[filePath];
+      if (!fileData) {
+        console.error("Cannot save file: file not found in local state:", filePath);
+        return false;
+      }
+
+      try {
+        // Prepare single file for database upsert
+        const fileToUpsert = {
+          id: fileData.id,
+          name: filePath,
+          contents: fileData.contents,
+          prototype_id: fileData.prototype_id || prototypeId,
+          created_at: fileData.created_at,
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log("🗃️ [useFileSystem] Prepared file for upsert:", fileToUpsert);
+
+        // Use Supabase upsert to insert new file or update existing one
+        console.log("🗃️ [useFileSystem] Upserting single file to database...");
+        const { data, error } = await supabase
+          .from("prototype_files")
+          .upsert([fileToUpsert], {
+            onConflict: "name,prototype_id",
+            ignoreDuplicates: false,
+          })
+          .select();
+
+        if (error) {
+          console.error("Error persisting single file to database:", error);
+          return false;
+        }
+
+        console.log("Successfully persisted single file to database:", data);
+        return true;
+      } catch (error) {
+        console.error("Error in saveSingleFile:", error);
+        return false;
+      }
+    },
+    [prototypeId, files],
   );
 
   // Apply file updates locally and persist them directly to Supabase database
@@ -351,6 +411,7 @@ export const useFileSystem = (
     getSelectedFileContent,
     loadFilesFromDatabase,
     loadAssetsFromDatabase,
+    saveSingleFile,
     applyAndPersistFileUpdates,
     createFile,
     deleteFile,

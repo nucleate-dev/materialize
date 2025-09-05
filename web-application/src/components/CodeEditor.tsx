@@ -196,6 +196,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
 
     try {
+      // First, persist the file to the database
+      const saveSuccess = await fileSystem.saveSingleFile(
+        fileSystem.state.selectedFile,
+      );
+      if (!saveSuccess) {
+        console.error("Failed to persist file to database");
+        return;
+      }
+
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
@@ -204,29 +213,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         return;
       }
 
-      // Create single file object in the array format expected by update-files API
-      const singleFileUpdate = [
-        {
-          contents: fileSystem.getSelectedFileContent(),
-          name: fileSystem.state.selectedFile,
-          prototype_id:
-            fileSystem.state.files[fileSystem.state.selectedFile]
-              ?.prototype_id || prototypeId,
-          // Copy other properties from existing file if it exists, converting null to undefined
-          ...(fileSystem.state.files[fileSystem.state.selectedFile] && {
-            id: fileSystem.state.files[fileSystem.state.selectedFile].id,
-            created_at:
-              fileSystem.state.files[fileSystem.state.selectedFile]
-                .created_at || null,
-            updated_at:
-              fileSystem.state.files[fileSystem.state.selectedFile]
-                .updated_at || null,
-          }),
-        },
-      ];
-
       const requestBody: UpdateFilesRequestBody = {
-        files: singleFileUpdate,
+        files: [fileSystem.state.files[fileSystem.state.selectedFile]],
         assets: [],
         prototype_id: prototypeId,
       };
