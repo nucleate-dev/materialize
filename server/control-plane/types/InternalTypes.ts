@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import type {
+  BuildStatus,
   CodeError,
   CodeWarning,
   PrototypeAssetInput,
@@ -9,13 +10,6 @@ import type { Database } from './supabase.js';
 // ============================================================================
 // CORE DOMAIN TYPES
 // ============================================================================
-
-export type BuildStatus =
-  | 'creating'
-  | 'updating'
-  | 'error'
-  | 'stable'
-  | 'cleaning';
 
 export interface ChatExecutionOperation {
   id: string;

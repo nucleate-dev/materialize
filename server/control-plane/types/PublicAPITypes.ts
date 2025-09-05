@@ -30,6 +30,14 @@ export interface CodeWarning {
   type: 'build' | 'deprecation' | 'performance' | 'unused';
 }
 
+export type BuildStatus =
+  | 'creating'
+  | 'updating'
+  | 'error'
+  | 'stable'
+  | 'cleaning'
+  | 'building';
+
 // ============================================================================
 // STANDARD ERROR RESPONSE
 // ============================================================================
@@ -94,7 +102,7 @@ export interface DispatchPrecheckRequestBody {
 export interface DispatchPrecheckSuccessResponse {
   success: true;
   state: 'dne' | 'active_dev_server' | 'active_build';
-  status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
+  status: BuildStatus | null;
   viewing_url: string;
 }
 
@@ -275,7 +283,7 @@ export interface StartDevServerSuccessResponse {
 export interface StartDevServerErrorResponse {
   error: string;
   message: string;
-  status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
+  status: BuildStatus | null;
 }
 
 export type StartDevServerResponse =
