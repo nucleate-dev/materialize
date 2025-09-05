@@ -31,7 +31,6 @@ export interface PrototypeChatWindowProps {
   assets: Record<string, PrototypeAsset>;
   selectedFile: string;
   onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
-  onRefetchFiles?: () => Promise<void>;
 
   // Loading state
   isChatLoading: boolean;
@@ -39,8 +38,6 @@ export interface PrototypeChatWindowProps {
 
   // Viewing URL callback
   onViewingUrlUpdate?: (viewingUrl: string) => void;
-
-  onClearChat?: () => void;
 
   // Render status for disabling input
   currentRenderStatus?: RenderStatus;
@@ -50,12 +47,10 @@ export default function PrototypeChatWindow({
   files,
   assets,
   onFilesUpdate,
-  // onRefetchFiles,
   prototypeId,
   isChatLoading,
   setIsChatLoading,
   onViewingUrlUpdate,
-  onClearChat,
   currentRenderStatus,
 }: PrototypeChatWindowProps) {
   const [loadingDots, setLoadingDots] = useState(0);
@@ -674,9 +669,7 @@ export default function PrototypeChatWindow({
 
   // Handle clear chat
   const handleClearChat = useCallback(async () => {
-    if (onClearChat) {
-      await onClearChat();
-    } else if (prototypeChatSession?.id) {
+    if (prototypeChatSession?.id) {
       try {
         // Delete all messages for this chat session
         const { error } = await supabase
@@ -696,7 +689,7 @@ export default function PrototypeChatWindow({
         console.error("Error clearing chat:", error);
       }
     }
-  }, [prototypeChatSession, onClearChat, setPrototypeChatMessages]);
+  }, [prototypeChatSession, setPrototypeChatMessages]);
 
   // IF USER CLICKS ON PRE_DEFINED PROMPT, we must send that message when the page loads
   useEffect(() => {
