@@ -785,11 +785,12 @@ export class ExpoDevServerService {
   ): Promise<DeployResponse> {
     const actualDeployId = deployId || uuidv4();
     const logger = this.createLogger(actualDeployId);
+    const version = this.generateVersion();
 
     logger.log(
-      "Starting deploy",
+      "Starting versioned deploy",
       true,
-      `Deploy ID: ${actualDeployId}, Prototype: ${prototype_id}, Build path: ${buildPath}`,
+      `Deploy ID: ${actualDeployId}, Prototype: ${prototype_id}, Version: ${version}`,
     );
 
     if (!prototype_id || !buildPath) {
@@ -802,19 +803,19 @@ export class ExpoDevServerService {
     try {
       await fs.stat(buildPath);
 
-      logger.log("Uploading to S3");
-      const s3KeyPrefix = `${prototype_id}`;
-      const uploadedFiles = await this.uploadDirectoryToS3(
+      logger.log("Uploading to both versioned and latest folders");
+      const uploadedFiles = await this.uploadToVersionedAndLatest(
         buildPath,
-        s3KeyPrefix,
+        prototype_id,
+        version
       );
 
       const buildUrl = `https://${prototype_id}.render.materializeui.com`;
 
       logger.log(
-        "Deploy completed",
+        "Versioned deploy completed",
         true,
-        `Uploaded ${uploadedFiles.length} files. URL: ${buildUrl}`,
+        `Uploaded to both versioned (v${version}) and latest folders. URL: ${buildUrl}`,
       );
 
       return {
@@ -1305,6 +1306,31 @@ export class ExpoDevServerService {
     }
   }
 
+  private generateVersion(): string {
+    return Date.now().toString();
+  }
+
+  private getCacheControlHeader(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    
+    switch (ext) {
+      case '.html':
+        return 'public, max-age=300, s-maxage=300'; // 5 minutes
+      case '.js':
+      case '.css':
+        return 'public, max-age=31536000, s-maxage=31536000'; // 1 year for versioned assets
+      case '.png':
+      case '.jpg':
+      case '.jpeg':
+      case '.gif':
+      case '.svg':
+      case '.ico':
+        return 'public, max-age=31536000, s-maxage=31536000'; // 1 year
+      default:
+        return 'public, max-age=3600, s-maxage=3600'; // 1 hour default
+    }
+  }
+
   private getContentType(filename: string): string {
     const ext = path.extname(filename).toLowerCase();
     const contentTypes: Record<string, string> = {
@@ -1323,49 +1349,112 @@ export class ExpoDevServerService {
     return contentTypes[ext] || "application/octet-stream";
   }
 
-  private async uploadDirectoryToS3(
+  private async uploadToVersionedAndLatest(
     localPath: string,
-    s3KeyPrefix: string,
+    prototypeId: string,
+    version: string,
   ): Promise<Array<{ key: string; location: string }>> {
     const uploadResults: Array<{ key: string; location: string }> = [];
 
-    const uploadDirectory = async (dirPath: string, prefix: string) => {
+    const uploadDirectory = async (dirPath: string, versionedPrefix: string, latestPrefix: string) => {
       const items = await fs.readdir(dirPath);
 
       for (const item of items) {
         const fullPath = path.join(dirPath, item);
-        const s3Key = `${prefix}/${item}`;
-
         const stats = await fs.stat(fullPath);
 
         if (stats.isDirectory()) {
-          await uploadDirectory(fullPath, s3Key);
+          await uploadDirectory(
+            fullPath, 
+            `${versionedPrefix}/${item}`, 
+            `${latestPrefix}/${item}`
+          );
         } else if (stats.isFile()) {
           const fileContent = await fs.readFile(fullPath);
 
           if (!fileContent || fileContent.length === 0) {
-            console.warn(`Skipping empty file: ${s3Key}`);
+            console.warn(`Skipping empty file: ${item}`);
             continue;
           }
 
           const uploadParams = {
-            Bucket: this.S3_BUCKET,
-            Key: s3Key,
             Body: fileContent,
             ContentType: this.getContentType(item),
+            CacheControl: this.getCacheControlHeader(item),
           };
 
-          const result = await this.s3.upload(uploadParams).promise();
+          // Upload to versioned location
+          const versionedKey = `${versionedPrefix}/${item}`;
+          const versionedResult = await this.s3.upload({
+            ...uploadParams,
+            Bucket: this.S3_BUCKET,
+            Key: versionedKey,
+          }).promise();
+
+          // Upload to latest location
+          const latestKey = `${latestPrefix}/${item}`;
+          await this.s3.upload({
+            ...uploadParams,
+            Bucket: this.S3_BUCKET,
+            Key: latestKey,
+            // Shorter cache for latest folder to pick up updates faster
+            CacheControl: item.endsWith('.html') ? 'public, max-age=300' : uploadParams.CacheControl,
+          }).promise();
+
           uploadResults.push({
-            key: result.Key,
-            location: result.Location,
+            key: versionedResult.Key,
+            location: versionedResult.Location,
           });
         }
       }
     };
 
-    await uploadDirectory(localPath, s3KeyPrefix);
+    const versionedPrefix = `${prototypeId}/v${version}`;
+    const latestPrefix = `${prototypeId}/latest`;
+
+    await uploadDirectory(localPath, versionedPrefix, latestPrefix);
     return uploadResults;
+  }
+
+  private async uploadDirectoryToS3(
+    localPath: string,
+    s3KeyPrefix: string,
+  ): Promise<Array<{ key: string; location: string }>> {
+    // Extract prototype ID and version from s3KeyPrefix
+    const parts = s3KeyPrefix.split('/');
+    const prototypeId = parts[0];
+    const version = this.generateVersion();
+
+    // Use the dual upload method
+    return await this.uploadToVersionedAndLatest(localPath, prototypeId, version);
+  }
+
+  private async deleteS3Prefix(prefix: string): Promise<void> {
+    try {
+      const listParams = {
+        Bucket: this.S3_BUCKET,
+        Prefix: prefix,
+      };
+      
+      const objects = await this.s3.listObjectsV2(listParams).promise();
+      if (objects.Contents && objects.Contents.length > 0) {
+        console.log(`Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`);
+        
+        const deleteParams = {
+          Bucket: this.S3_BUCKET,
+          Delete: {
+            Objects: objects.Contents.map(obj => ({ Key: obj.Key! })),
+          },
+        };
+        await this.s3.deleteObjects(deleteParams).promise();
+        console.log(`Successfully deleted ${objects.Contents.length} objects`);
+      } else {
+        console.log(`No existing objects found with prefix: ${prefix}`);
+      }
+    } catch (error) {
+      console.error(`Failed to delete S3 objects with prefix ${prefix}:`, error);
+      // Don't throw - continue with upload even if delete fails
+    }
   }
 
   private runCommand(
