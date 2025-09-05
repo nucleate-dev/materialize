@@ -174,13 +174,29 @@ export const useFileSystem = (
   // Apply file updates locally and persist them directly to Supabase database
   const applyAndPersistFileUpdates = useCallback(
     async (updatedFiles: Record<string, PrototypeFile>): Promise<boolean> => {
+      console.log("🗃️ [useFileSystem] applyAndPersistFileUpdates called with:", {
+        prototypeId,
+        filesCount: Object.keys(updatedFiles || {}).length,
+        filePaths: Object.keys(updatedFiles || {}),
+        firstFileExample: Object.keys(updatedFiles || {}).length > 0 ? {
+          path: Object.keys(updatedFiles)[0],
+          file: Object.values(updatedFiles)[0]
+        } : 'No files'
+      });
+
       if (!prototypeId) {
         console.error("Cannot persist file updates: no prototype ID");
         return false;
       }
 
+      if (!updatedFiles || Object.keys(updatedFiles).length === 0) {
+        console.warn("🗃️ [useFileSystem] No files to update");
+        return false;
+      }
+
       try {
         // First, apply updates locally
+        console.log("🗃️ [useFileSystem] Applying updates locally...");
         applyFileUpdates(updatedFiles);
 
         // Prepare files for database upsert
@@ -195,7 +211,10 @@ export const useFileSystem = (
           }),
         );
 
+        console.log("🗃️ [useFileSystem] Prepared files for upsert:", filesToUpsert);
+
         // Use Supabase upsert to insert new files or update existing ones
+        console.log("🗃️ [useFileSystem] Upserting files to database...");
         const { data, error } = await supabase
           .from("prototype_files")
           .upsert(filesToUpsert, {
