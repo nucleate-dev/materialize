@@ -5,7 +5,6 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { z } from 'zod';
-import { PrototypeFileInsert } from '../types/InternalTypes.js';
 import type {
   ChatErrorResponse,
   ChatRequestBody,
@@ -23,7 +22,6 @@ import {
   PLANNING_PROMPT,
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
-import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -402,38 +400,10 @@ export class ChatService {
             );
 
             // ------------------------------------------------------------------------------------------------
-            // 9. Save updated files to database before dispatch
-            // TODO: instead, stream the updated files only back to the client, and persist them there
-            // ------------------------------------------------------------------------------------------------
-            const finalFiles = fileManager.getFinalState();
-
-            try {
-              console.log(
-                '=� Saving updated files to database before dispatch...',
-              );
-              // Convert PrototypeFiles to the format expected by the shared utility
-              const fileUpdatesForDatabase: PrototypeFileInsert[] =
-                Object.entries(finalFiles).map(([filePath, file]) => ({
-                  prototype_id,
-                  name: filePath,
-                  contents: file.contents || '',
-                }));
-
-              await saveFilesToDatabaseWithAuth(
-                token,
-                prototype_id,
-                fileUpdatesForDatabase,
-              );
-              console.log(' Files successfully saved to database');
-            } catch (saveError) {
-              console.error('L Error saving files to database:', saveError);
-              // Continue with dispatch even if save fails - don't block user
-            }
-
-            // ------------------------------------------------------------------------------------------------
             // 10. Fetch assets from database and merge with text files for dispatch
             // ------------------------------------------------------------------------------------------------
             // Stream dispatch start event to show loading indicator
+            const finalFiles = fileManager.getFinalState();
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({
@@ -648,13 +618,12 @@ export class ChatService {
       });
 
       reply.raw.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Credentials': 'true',
       });
 
       const reader = stream.getReader();
@@ -1062,6 +1031,7 @@ export class ChatService {
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'execution_complete',
+              updatedFiles: fileManager.getFinalState(),
             })}\n\n`,
           ),
         );

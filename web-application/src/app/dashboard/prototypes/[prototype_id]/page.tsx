@@ -499,13 +499,7 @@ export default function CreatePage() {
                   // File system integration
                   files={fileSystem.state.files}
                   assets={fileSystem.state.assets}
-                  selectedFile={fileSystem.state.selectedFile}
                   onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
-                  onRefetchFiles={
-                    prototypeId
-                      ? () => fileSystem.loadFilesFromDatabase(prototypeId)
-                      : undefined
-                  }
                   // Loading state
                   isChatLoading={isChatLoading}
                   setIsChatLoading={setIsChatLoading}

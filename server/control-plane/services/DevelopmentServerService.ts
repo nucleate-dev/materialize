@@ -18,7 +18,6 @@ import {
   authenticatePrototypeUser,
   checkUserHasPrototypeEditAccess,
 } from '../utils/prototypeAuth.js';
-import { saveFilesToDatabaseWithAuth } from '../utils/fileOperations.js';
 import { hasExceededUsageLimit } from '../utils/subscriptionChecks.js';
 
 export class DevelopmentServerService {
@@ -236,19 +235,7 @@ export class DevelopmentServerService {
         } as StandardErrorResponse);
       }
 
-      // 5. Save only text files to database (don't overwrite existing assets)
-      try {
-        await saveFilesToDatabaseWithAuth(jwtToken, prototype_id, files);
-      } catch (saveError) {
-        console.error('Error saving files to database:', saveError);
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Failed to save files',
-          message:
-            saveError instanceof Error ? saveError.message : 'Unknown error',
-        } as StandardErrorResponse);
-      }
-
-      // 6. Dispatch update request with file_scope: "updates"
+      // 5. Dispatch update request with file_scope: "updates"
       console.log('📦 Dispatching file update request to server');
 
       const dispatchResponse = await this.fastifyApp.inject({
@@ -296,7 +283,7 @@ export class DevelopmentServerService {
 
       console.log('📦 Dispatch endpoint response:', dispatchData);
 
-      // 7. Return success response with viewing URL
+      // 6. Return success response with viewing URL
       if ('status' in dispatchData && dispatchData.status === 'success') {
         return reply.status(HTTP_STATUS.OK).send({
           success: true,

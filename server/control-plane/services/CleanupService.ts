@@ -1,6 +1,6 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { CONFIG } from '../config.js';
 import {
   type ActiveBuild,
@@ -252,6 +252,7 @@ export class CleanupService {
       // @ts-ignore
       const buildInProgress =
         response.data?.build_errors?.some(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (error: any) =>
             error.message?.includes('Build process failed') ||
             error.message?.includes('timeout') ||
@@ -262,8 +263,7 @@ export class CleanupService {
         success: true,
         buildInProgress,
       };
-      // @ts-ignore
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
         `Failed to kill dev server for prototype ${prototypeId}:`,
         error,
@@ -271,7 +271,8 @@ export class CleanupService {
 
       // Check if the error was due to timeout (build taking too long)
       const isTimeout =
-        error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+        (error instanceof AxiosError && error.code === 'ECONNABORTED') || 
+        (error instanceof Error && error.message.includes('timeout'));
 
       return {
         success: !isTimeout, // Consider timeout as partial success since build might be completing
