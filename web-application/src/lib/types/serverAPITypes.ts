@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-05T19:29:12.920Z
+// Last synced: 2025-09-05T22:39:23.310Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -38,6 +38,14 @@ export interface CodeWarning {
   column?: number;
   type: 'build' | 'deprecation' | 'performance' | 'unused';
 }
+
+export type BuildStatus =
+  | 'creating'
+  | 'updating'
+  | 'error'
+  | 'stable'
+  | 'cleaning'
+  | 'building';
 
 // ============================================================================
 // STANDARD ERROR RESPONSE
@@ -102,8 +110,7 @@ export interface DispatchPrecheckRequestBody {
 
 export interface DispatchPrecheckSuccessResponse {
   success: true;
-  state: 'dne' | 'active_dev_server' | 'active_build';
-  status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
+  status: BuildStatus | null;
   viewing_url: string;
 }
 
@@ -189,7 +196,7 @@ export interface FetchViewingUrlRequestBody {
 
 export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
-  source: 'active_instance' | 'static_build';
+  source: 'editable_instance' | 'static_build';
 }
 
 export type FetchViewingUrlResponse =
@@ -284,7 +291,7 @@ export interface StartDevServerSuccessResponse {
 export interface StartDevServerErrorResponse {
   error: string;
   message: string;
-  status: 'updating' | 'error' | 'stable' | 'creating' | 'cleaning' | null;
+  status: BuildStatus | null;
 }
 
 export type StartDevServerResponse =

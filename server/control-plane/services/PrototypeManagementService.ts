@@ -180,8 +180,11 @@ export class PrototypeManagementService {
               const successResponse: FetchViewingUrlSuccessResponse = {
                 viewing_url: precheckData.viewing_url,
                 source:
-                  precheckData.state === 'active_dev_server'
-                    ? 'active_instance'
+                  precheckData.status === 'stable' ||
+                  precheckData.status === 'updating' ||
+                  precheckData.status === 'creating' ||
+                  precheckData.status === 'error'
+                    ? 'editable_instance'
                     : 'static_build',
               };
               reply.status(HTTP_STATUS.OK);

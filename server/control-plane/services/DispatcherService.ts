@@ -18,7 +18,7 @@ import {
   type FargateInstanceInfo,
   type FileScope,
   type Framework,
-  isActiveBuild,
+  isActiveBuildType,
   S3_URL_TEMPLATE,
 } from '../types/InternalTypes.js';
 import {
@@ -136,7 +136,6 @@ export class DispatcherService {
     console.log('User access validation successful');
 
     try {
-      // Generate unique build ID
       const currentTime = Math.floor(Date.now() / 1000);
 
       // Check if there's an existing current build
@@ -152,7 +151,7 @@ export class DispatcherService {
 
         if (existingBuildJson) {
           const parsedBuild = JSON.parse(existingBuildJson as string);
-          if (!isActiveBuild(parsedBuild)) {
+          if (!isActiveBuildType(parsedBuild)) {
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
               error: 'Internal Server Error',
               message: 'Invalid build data in cache',
@@ -160,8 +159,11 @@ export class DispatcherService {
           }
           const existingBuild: ActiveBuild = parsedBuild;
 
-          // If build is cleaning, proceed with new build
-          if (existingBuild.status === 'cleaning') {
+          // If build is cleaning or building, proceed with new build
+          if (
+            existingBuild.status === 'cleaning' ||
+            existingBuild.status === 'building'
+          ) {
             console.log(
               `Existing build ${currentBuildId} is cleaning, creating new build`,
             );
@@ -191,7 +193,6 @@ export class DispatcherService {
         const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
           .toString(36)
           .substr(2, 9)}`;
-        // Create new build
         activeBuildKey = CACHE_KEYS.activeBuild(buildId);
         const newBuildCacheData: ActiveBuild = {
           fargate_task_arn: '',
@@ -242,7 +243,7 @@ export class DispatcherService {
         activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
         const parsedBuild = JSON.parse(existingBuildJson as string);
-        if (!isActiveBuild(parsedBuild)) {
+        if (!isActiveBuildType(parsedBuild)) {
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             error: 'Internal Server Error',
             message: 'Invalid build data in cache',
@@ -261,6 +262,7 @@ export class DispatcherService {
         activeBuildKey,
         JSON.stringify(updatedBuildCacheData),
       );
+      // NOTE: at this point, there should always be an active build, with status "updating"
 
       console.log('Set cache data active build: ', activeBuildKey);
 
@@ -408,7 +410,7 @@ export class DispatcherService {
 
         if (existingBuildJson) {
           const parsedBuild = JSON.parse(existingBuildJson as string);
-          if (!isActiveBuild(parsedBuild)) {
+          if (!isActiveBuildType(parsedBuild)) {
             reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
             return {
               error: 'Internal Server Error',
@@ -419,10 +421,14 @@ export class DispatcherService {
 
           return {
             success: true,
-            state: 'active_dev_server', // ALWAYS ACTIVE DEV SERVER CURRENTLY
             status: existingBuild.status,
             viewing_url: this.normalizeUrl(
-              existingBuild.url || this.getS3Url(prototype_id),
+              existingBuild.status === 'stable' ||
+                existingBuild.status === 'updating' ||
+                existingBuild.status === 'creating' ||
+                existingBuild.status === 'error'
+                ? existingBuild.url
+                : this.getS3Url(prototype_id),
             ),
           };
         }
@@ -431,7 +437,6 @@ export class DispatcherService {
       // No active build, return S3 URL
       return {
         success: true,
-        state: 'dne',
         status: null,
         viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
       };

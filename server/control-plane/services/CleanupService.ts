@@ -9,7 +9,7 @@ import {
   type IdleBuildInfo,
   CACHE_KEYS,
   CACHE_PATTERNS,
-  isActiveBuild,
+  isActiveBuildType,
 } from '../types/InternalTypes.js';
 
 export class CleanupService {
@@ -59,7 +59,7 @@ export class CleanupService {
       }
 
       const parsedBuild = JSON.parse(buildJson as string);
-      if (!isActiveBuild(parsedBuild)) {
+      if (!isActiveBuildType(parsedBuild)) {
         console.warn(`Invalid build data found in cache for key: ${buildKey}`);
         continue;
       }
@@ -67,6 +67,7 @@ export class CleanupService {
 
       // Skip if already cleaning
       if (build.status === 'cleaning') {
+        console.log(`Build ${buildKey} is already cleaning, skipping`);
         continue;
       }
 
@@ -156,7 +157,7 @@ export class CleanupService {
         // Reset the status back to stable since we're not cleaning up yet
         const activeBuild: ActiveBuild = {
           ...build,
-          status: 'stable',
+          status: 'building',
           last_touched: currentTime, // Update last_touched to prevent immediate re-cleanup
         };
         await this.cache.set(buildKey, JSON.stringify(activeBuild));
@@ -271,7 +272,7 @@ export class CleanupService {
 
       // Check if the error was due to timeout (build taking too long)
       const isTimeout =
-        (error instanceof AxiosError && error.code === 'ECONNABORTED') || 
+        (error instanceof AxiosError && error.code === 'ECONNABORTED') ||
         (error instanceof Error && error.message.includes('timeout'));
 
       return {

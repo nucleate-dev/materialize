@@ -216,7 +216,7 @@ export function isValidFileScope(scope: string): scope is FileScope {
   return scope === 'updates' || scope === 'complete';
 }
 
-export function isActiveBuild(obj: unknown): obj is ActiveBuild {
+export function isActiveBuildType(obj: unknown): obj is ActiveBuild {
   return (
     typeof obj === 'object' &&
     obj !== null &&

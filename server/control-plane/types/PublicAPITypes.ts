@@ -101,7 +101,6 @@ export interface DispatchPrecheckRequestBody {
 
 export interface DispatchPrecheckSuccessResponse {
   success: true;
-  state: 'dne' | 'active_dev_server' | 'active_build';
   status: BuildStatus | null;
   viewing_url: string;
 }
@@ -188,7 +187,7 @@ export interface FetchViewingUrlRequestBody {
 
 export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
-  source: 'active_instance' | 'static_build';
+  source: 'editable_instance' | 'static_build';
 }
 
 export type FetchViewingUrlResponse =

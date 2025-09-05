@@ -183,7 +183,7 @@ export default function CreatePage() {
             console.log("Source:", fetchViewData.source);
             setViewingUrl(fetchViewData.viewing_url);
             if (
-              fetchViewData.source === "active_instance" &&
+              fetchViewData.source === "editable_instance" &&
               fetchViewData.viewing_url?.includes("ngrok")
             ) {
               setCurrentRenderStatus("Connecting..");

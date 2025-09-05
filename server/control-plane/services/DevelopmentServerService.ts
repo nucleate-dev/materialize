@@ -45,16 +45,6 @@ export class DevelopmentServerService {
     }
   }
 
-  private isBuildInProgress(precheckData: DispatchPrecheckResponse): boolean {
-    if ('error' in precheckData) {
-      return false;
-    }
-
-    return (
-      precheckData.status === 'updating' || precheckData.status === 'creating'
-    );
-  }
-
   public registerRoutes(app: FastifyInstance): void {
     // POST /files/update-files
     app.post<{
@@ -218,7 +208,11 @@ export class DevelopmentServerService {
       );
 
       // 3. Check if build is already in progress
-      if (this.isBuildInProgress(precheckData)) {
+      if (
+        'status' in precheckData &&
+        (precheckData.status === 'updating' ||
+          precheckData.status === 'creating')
+      ) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           error: 'Build already in progress',
           message:
@@ -227,7 +221,12 @@ export class DevelopmentServerService {
       }
 
       // 4. Check if there's an active dev server to update
-      if ('success' in precheckData && precheckData.state === 'dne') {
+      if (
+        'success' in precheckData &&
+        (precheckData.status === null ||
+          precheckData.status === 'cleaning' ||
+          precheckData.status === 'building')
+      ) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           error: 'No active dev server',
           message:
@@ -404,8 +403,11 @@ export class DevelopmentServerService {
 
       // 3. Check if dev server already exists
       if (
-        'state' in precheckData &&
-        precheckData.state === 'active_dev_server'
+        'status' in precheckData &&
+        (precheckData.status === 'updating' ||
+          precheckData.status === 'creating' ||
+          precheckData.status === 'stable' ||
+          precheckData.status === 'error')
       ) {
         console.log("There's already an active dev server for this prototype");
         return reply.status(HTTP_STATUS.CONFLICT).send({
