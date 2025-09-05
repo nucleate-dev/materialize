@@ -59,6 +59,12 @@ export class DispatcherService {
       '/dispatch-precheck',
       this.handleDispatchPrecheck.bind(this),
     );
+
+    // POST /dispatch-edit-intent
+    app.post<{ Body: DispatchPrecheckRequestBody }>(
+      '/dispatch-edit-intent',
+      this.handleDispatchEditIntent.bind(this),
+    );
   }
 
   // Route handlers
@@ -343,6 +349,108 @@ export class DispatcherService {
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       console.error('Dispatch request failed:', e);
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Internal Server Error',
+        message: e.message,
+      });
+    }
+  }
+
+  private async handleDispatchEditIntent(
+    request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<DispatchPrecheckResponse> {
+    // 1. Parse and Validate Body
+    const { jwt, prototype_id } = request.body;
+    if (!jwt) {
+      reply.status(HTTP_STATUS.BAD_REQUEST);
+      return {
+        error: 'Bad Request',
+        message: 'JWT is required',
+      };
+    }
+    if (!prototype_id) {
+      reply.status(HTTP_STATUS.BAD_REQUEST);
+      return {
+        error: 'Bad Request',
+        message: 'prototype_id is required',
+      };
+    }
+
+    console.log(
+      `Processing edit intent request for prototype: ${prototype_id}`,
+    );
+
+    try {
+      // 2. Make a call to dispatch precheck to get the precheck response
+      const precheckRequest = {
+        body: { jwt, prototype_id },
+      } as FastifyRequest<{ Body: DispatchPrecheckRequestBody }>;
+      const precheckResponse = await this.handleDispatchPrecheck(
+        precheckRequest,
+        reply,
+      );
+
+      // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
+      if (
+        'success' in precheckResponse &&
+        precheckResponse.success &&
+        (precheckResponse.status === 'stable' ||
+          precheckResponse.status === 'updating' ||
+          precheckResponse.status === 'creating' ||
+          precheckResponse.status === 'error')
+      ) {
+        // Get current build ID and update last_touched timestamp
+        const currentBuildId = await this.cache.get(
+          CACHE_KEYS.protoCurrentBuild(prototype_id),
+        );
+
+        if (currentBuildId) {
+          const activeBuildKey = CACHE_KEYS.activeBuild(
+            currentBuildId as string,
+          );
+          const existingBuildJson = await this.cache.get(activeBuildKey);
+
+          if (existingBuildJson) {
+            const parsedBuild = JSON.parse(existingBuildJson as string);
+            if (isActiveBuildType(parsedBuild)) {
+              const updatedBuildData = {
+                ...parsedBuild,
+                last_touched: Math.floor(Date.now() / 1000),
+              };
+
+              // Update the active build cache with new timestamp
+              await this.cache.set(
+                activeBuildKey,
+                JSON.stringify(updatedBuildData),
+              );
+
+              // Update builds ZSET with new timestamp
+              const buildIdFromKey = activeBuildKey.replace(
+                'active_build:',
+                '',
+              );
+              await this.cache.customCommand([
+                'ZADD',
+                CACHE_KEYS.protoBuilds(prototype_id),
+                updatedBuildData.last_touched.toString(),
+                buildIdFromKey,
+              ]);
+
+              console.log(
+                `Updated last_touched timestamp for build: ${currentBuildId}`,
+              );
+            }
+          }
+        }
+      }
+
+      // 4. Return the precheck response
+      return precheckResponse;
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      console.error('Edit intent request failed:', e);
 
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',

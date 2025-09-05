@@ -91,7 +91,7 @@ export type DispatchResponse =
   | StandardErrorResponse;
 
 // ============================================================================
-// /dispatch-precheck ENDPOINT
+// /dispatch-precheck ENDPOINT and /dispatch-edit-intent ENDPOINT
 // ============================================================================
 
 export interface DispatchPrecheckRequestBody {

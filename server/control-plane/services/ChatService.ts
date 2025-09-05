@@ -310,7 +310,7 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
-        url: '/dispatch-precheck',
+        url: '/dispatch-edit-intent',
         payload: {
           jwt: token,
           prototype_id: prototype_id,
