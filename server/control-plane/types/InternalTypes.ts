@@ -1,10 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import type {
-  BuildStatus,
-  CodeError,
-  CodeWarning,
-  PrototypeAssetInput,
-} from './PublicAPITypes.js';
+import type { BuildStatus, CodeError, CodeWarning } from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
 // ============================================================================
@@ -138,20 +133,6 @@ export interface PrototypeLimitCheck {
   canCreate: boolean;
   currentCount: number;
   maxAllowed: number;
-  error?: string;
-  message?: string;
-}
-
-export interface PrototypeFilesResult {
-  success: boolean;
-  files?: PrototypeFileRow[];
-  error?: string;
-  message?: string;
-}
-
-export interface PrototypeAssetsResult {
-  success: boolean;
-  assets?: PrototypeAssetInput[];
   error?: string;
   message?: string;
 }

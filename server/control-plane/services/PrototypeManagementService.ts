@@ -23,8 +23,6 @@ import type { Database } from '../types/supabase.js';
 import {
   authenticatePrototypeUser,
   checkPrototypeLimit,
-  getPrototypeAssets,
-  getPrototypeFiles,
 } from '../utils/prototypeAuth.js';
 import {
   cleanupPrototypeS3Objects,
@@ -401,65 +399,56 @@ export class PrototypeManagementService {
     newPrototypeId: string,
   ): Promise<void> {
     console.log(`Forking prototype ${sourcePrototypeId} to ${newPrototypeId}`);
-
-    // Get files from source prototype
-    const filesResult = await getPrototypeFiles(supabase, sourcePrototypeId);
-    // TODO: fetch assets for forked prototype as well
-    if (!filesResult.success) {
-      console.log('Failed to get prototype files', filesResult);
-      throw new Error(filesResult.message || 'Failed to get prototype files');
+    // 1. Get files from source prototype and copy to new prototype
+    const { data: files, error: filesError } = await supabase
+      .from('prototype_files')
+      .select('*')
+      .eq('prototype_id', sourcePrototypeId);
+    if (filesError) {
+      throw new Error(filesError.message || 'Failed to get prototype files');
     }
 
-    // Copy files to new prototype (with new prototype_id)
     const filesToInsert: PrototypeFileInsert[] = [];
-
-    console.log(
-      `📁 Processing ${filesResult.files!.length} files for new prototype`,
-    );
-
-    console.log(`📝 Copying text files`);
-    for (const file of filesResult.files!) {
+    console.log(`📁 Processing ${files.length} files for new prototype`);
+    for (const file of files) {
       filesToInsert.push({
         prototype_id: newPrototypeId,
         name: file.name,
         contents: file.contents,
       });
     }
-
     console.log(`💾 Files to insert: ${filesToInsert.length} total`);
-
-    const { error: filesError } = await supabase
+    const { error: filesInsertError } = await supabase
       .from('prototype_files')
       .insert(filesToInsert);
-
-    if (filesError) {
-      console.error('❌ Error inserting files:', filesError);
+    if (filesInsertError) {
+      console.error('❌ Error inserting files:', filesInsertError);
       await supabase
         .from('prototype_files')
         .delete()
         .eq('prototype_id', newPrototypeId);
-      throw new Error(`Failed to copy prototype files: ${filesError.message}`);
+      throw new Error(
+        `Failed to copy prototype files: ${filesInsertError.message}`,
+      );
     }
-
     console.log(
       `✅ Successfully inserted ${filesToInsert.length} files to database`,
     );
 
-    // Get assets from source prototype
-    const assetsResult = await getPrototypeAssets(supabase, sourcePrototypeId);
-    if (!assetsResult.success) {
-      console.log('Failed to get prototype assets', assetsResult);
-      throw new Error(assetsResult.message || 'Failed to get prototype assets');
+    // 2. Get assets from source prototype and copy to new prototype
+    const { data: assets, error: assetsFetchError } = await supabase
+      .from('prototype_assets')
+      .select('*')
+      .eq('prototype_id', sourcePrototypeId);
+    if (assetsFetchError) {
+      throw new Error(
+        assetsFetchError.message || 'Failed to get prototype assets',
+      );
     }
 
-    // Copy assets to new prototype
     const assetsToInsert: PrototypeAssetInsert[] = [];
-
-    console.log(
-      `📝 Copying ${assetsResult.assets!.length} assets for new prototype`,
-    );
-
-    for (const asset of assetsResult.assets!) {
+    console.log(`📝 Copying ${assets.length} assets for new prototype`);
+    for (const asset of assets) {
       // TODO: Copy the asset to a new supabase storage folder and update the storage_url.
       // const assetContents = await getAss(this.s3Client, asset.storage_url);
       const uploadResult = await copyAssetInSupabaseStorage(
@@ -488,13 +477,11 @@ export class PrototypeManagementService {
     }
 
     console.log(`💾 Assets to insert: ${assetsToInsert.length} total`);
-
-    const { error: assetsError } = await supabase
+    const { error: assetsInsertError } = await supabase
       .from('prototype_assets')
       .insert(assetsToInsert);
-
-    if (assetsError) {
-      console.error('❌ Error inserting assets:', assetsError);
+    if (assetsInsertError) {
+      console.error('❌ Error inserting assets:', assetsInsertError);
       await deletePrototypeAssetsFromStorage(newPrototypeId);
       await supabase
         .from('prototype_assets')
@@ -504,10 +491,10 @@ export class PrototypeManagementService {
         .from('prototype_files')
         .delete()
         .eq('prototype_id', newPrototypeId);
-      throw new Error(`Failed to insert assets: ${assetsError.message}`);
+      throw new Error(`Failed to insert assets: ${assetsInsertError.message}`);
     }
 
-    // Copy S3 bucket contents
+    // Copy S3 bucket existing build files
     const sourcePrefix = sourcePrototypeId;
     const destinationPrefix = newPrototypeId;
 

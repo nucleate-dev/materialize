@@ -1,9 +1,7 @@
 import { SupabaseClient, User, createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import type {
-  PrototypeAssetsResult,
   PrototypeAuthResult,
-  PrototypeFilesResult,
   PrototypeLimitCheck,
   SubscriptionPlanType,
 } from '../types/InternalTypes.js';
@@ -128,84 +126,6 @@ export async function checkPrototypeLimit(
       maxAllowed: 5,
       error: 'DATABASE_ERROR',
       message: 'Failed to check prototype limits',
-    };
-  }
-}
-
-/**
- * Get prototype files for forking
- */
-export async function getPrototypeFiles(
-  supabase: SupabaseClient<Database>,
-  prototypeId: string,
-): Promise<PrototypeFilesResult> {
-  try {
-    const { data: files, error } = await supabase
-      .from('prototype_files')
-      .select('*')
-      .eq('prototype_id', prototypeId);
-
-    if (error) {
-      return {
-        success: false,
-        error: 'DATABASE_ERROR',
-        message: error.message,
-      };
-    }
-
-    if (!files || files.length === 0) {
-      return {
-        success: false,
-        error: 'NO_FILES_FOUND',
-        message: 'No files found for the specified prototype',
-      };
-    }
-
-    return {
-      success: true,
-      files: files,
-    };
-  } catch (error) {
-    console.error('Error fetching prototype files:', error);
-    return {
-      success: false,
-      error: 'DATABASE_ERROR',
-      message: 'Failed to fetch prototype files',
-    };
-  }
-}
-
-/**
- * Get prototype assets for forking
- */
-export async function getPrototypeAssets(
-  supabase: SupabaseClient<Database>,
-  prototypeId: string,
-): Promise<PrototypeAssetsResult> {
-  try {
-    const { data: assets, error } = await supabase
-      .from('prototype_assets')
-      .select('*')
-      .eq('prototype_id', prototypeId);
-
-    if (error) {
-      return {
-        success: false,
-        error: 'DATABASE_ERROR',
-        message: error.message,
-      };
-    }
-
-    return {
-      success: true,
-      assets: assets,
-    };
-  } catch (error) {
-    console.error('Error fetching prototype assets:', error);
-    return {
-      success: false,
-      error: 'DATABASE_ERROR',
-      message: 'Failed to fetch prototype assets',
     };
   }
 }
