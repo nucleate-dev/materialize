@@ -61,11 +61,44 @@ export class PrototypeManagementService {
   public registerRoutes(app: FastifyInstance): void {
     app.post<{ Body: FetchViewingUrlRequestBody }>(
       '/prototype/fetch-viewing-url',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['prototype_id'],
+            properties: {
+              prototype_id: { type: 'string' },
+              current_page: {
+                type: 'string',
+                enum: ['view', 'edit'],
+              },
+            },
+          },
+        },
+      },
       this.handleFetchViewingUrl.bind(this),
     );
 
     app.post<{ Body: CreatePrototypeRequestBody }>(
       '/prototype/create',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name: { type: 'string' },
+              description: { type: 'string' },
+              project_id: { type: 'string' },
+              prototype_id: { type: 'string' }, // For forking
+              visibility: {
+                type: 'string',
+                enum: ['PUBLIC', 'SELF'],
+              },
+            },
+          },
+        },
+      },
       this.handleCreatePrototype.bind(this),
     );
   }
@@ -77,16 +110,8 @@ export class PrototypeManagementService {
     console.log('Fetch viewing URL request received');
 
     try {
+      // Extract validated body (validation handled by Fastify schema)
       const { prototype_id, current_page } = request.body;
-
-      if (!prototype_id) {
-        const errorResponse: StandardErrorResponse = {
-          error: 'Bad Request',
-          message: 'prototype_id is required',
-        };
-        reply.status(HTTP_STATUS.BAD_REQUEST);
-        return errorResponse;
-      }
 
       // Get JWT token if provided (optional for this endpoint)
       const authHeader = request.headers.authorization;
@@ -253,7 +278,7 @@ export class PrototypeManagementService {
         });
       }
 
-      // 3. Parse request body
+      // 3. Extract validated body (validation handled by Fastify schema)
       const {
         name,
         description,
@@ -261,16 +286,6 @@ export class PrototypeManagementService {
         prototype_id: forkPrototypeId, // If provided, this is a fork
         visibility,
       } = request.body;
-
-      if (!name) {
-        const errorResponse: CreatePrototypeErrorResponse = {
-          success: false,
-          error: 'INVALID_REQUEST',
-          message: 'Prototype name is required',
-        };
-        reply.status(HTTP_STATUS.BAD_REQUEST);
-        return errorResponse;
-      }
 
       if (visibility === 'SELF' && limitCheck.plan === 'free') {
         const errorResponse: CreatePrototypeErrorResponse = {
