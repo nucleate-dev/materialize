@@ -1,10 +1,9 @@
 import {
   CopyObjectCommand,
-  DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   S3Client,
-  type _Object,
 } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import type {
@@ -312,6 +311,78 @@ export async function copyDefaultAppToPrototype(
 }
 
 /**
+ * Copy default app to a new prototype with versioned deployment
+ */
+export async function copyDefaultAppToVersionedPrototype(
+  s3Client: S3Client,
+  prototypeId: string,
+): Promise<S3CopyResult> {
+  const sourcePrefix = 'default-app/';
+  const version = Date.now().toString();
+
+  // First copy to versioned location
+  const versionedResult = await copyS3BucketContents(
+    s3Client,
+    sourcePrefix,
+    `${prototypeId}/v${version}/`,
+  );
+
+  if (!versionedResult.success) {
+    return versionedResult;
+  }
+
+  // Then copy to latest location
+  const latestResult = await copyS3BucketContents(
+    s3Client,
+    sourcePrefix,
+    `${prototypeId}/latest/`,
+  );
+
+  return {
+    success: latestResult.success,
+    error: latestResult.error,
+    copiedObjects:
+      versionedResult.copiedObjects + (latestResult.copiedObjects || 0),
+  };
+}
+
+/**
+ * Copy S3 bucket contents with versioned deployment for forking
+ */
+export async function copyS3BucketContentsVersioned(
+  s3Client: S3Client,
+  sourcePrototypeId: string,
+  targetPrototypeId: string,
+): Promise<S3CopyResult> {
+  const version = Date.now().toString();
+
+  // Copy from source latest to target versioned
+  const versionedResult = await copyS3BucketContents(
+    s3Client,
+    `${sourcePrototypeId}/latest/`,
+    `${targetPrototypeId}/v${version}/`,
+  );
+
+  if (!versionedResult.success) {
+    return versionedResult;
+  }
+
+  // Copy from source latest to target latest
+  const latestResult = await copyS3BucketContents(
+    s3Client,
+    `${sourcePrototypeId}/latest/`,
+    `${targetPrototypeId}/latest/`,
+  );
+
+  return {
+    success: latestResult.success,
+    error: latestResult.error,
+    copiedObjects:
+      versionedResult.copiedObjects + (latestResult.copiedObjects || 0),
+  };
+}
+
+/**
  * Get the viewing URL for a prototype
  */
 export function getPrototypeViewingUrl(prototypeId: string): string {
@@ -479,38 +550,30 @@ export async function cleanupPrototypeS3Objects(
   prototypeId: string,
 ): Promise<void> {
   try {
-    const prefix = prototypeId; // Remove 'prototypes/' prefix
+    const prefix = prototypeId; // This will match everything: prototypeId/latest/, prototypeId/v123/, etc.
 
-    // List all objects with the prototype prefix
-    const listCommand = new ListObjectsV2Command({
+    const listParams = {
       Bucket: S3_PROTOTYPE_BUCKET,
       Prefix: prefix,
-    });
+    };
 
-    const listResult = await s3Client.send(listCommand);
-
-    if (!listResult.Contents || listResult.Contents.length === 0) {
-      return;
-    }
-
-    // Delete each object
-    const deletePromises = listResult.Contents.map((object: _Object) => {
-      if (!object.Key) {
-        return Promise.resolve();
-      }
-
-      return s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: S3_PROTOTYPE_BUCKET,
-          Key: object.Key,
-        }),
+    const objects = await s3Client.send(new ListObjectsV2Command(listParams));
+    if (objects.Contents && objects.Contents.length > 0) {
+      console.log(
+        `Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`,
       );
-    });
 
-    await Promise.all(deletePromises);
-    console.log(
-      `Cleaned up ${listResult.Contents.length} S3 objects for prototype ${prototypeId}`,
-    );
+      const deleteParams = {
+        Bucket: S3_PROTOTYPE_BUCKET,
+        Delete: {
+          Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
+        },
+      };
+      await s3Client.send(new DeleteObjectsCommand(deleteParams));
+      console.log(`Successfully deleted ${objects.Contents.length} objects`);
+    } else {
+      console.log(`No existing objects found with prefix: ${prefix}`);
+    }
   } catch (error) {
     console.error('Error cleaning up S3 objects:', error);
   }

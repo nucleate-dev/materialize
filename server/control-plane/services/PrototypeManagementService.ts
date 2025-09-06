@@ -20,19 +20,19 @@ import type {
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 import {
-  validateJWTToken,
   checkUserHasPrototypeEditAccess,
+  validateJWTToken,
 } from '../utils/prototypeAuth.js';
+import { isEditableDevServer } from '../utils/prototypeDevServerStatusUtils.js';
 import {
   cleanupPrototypeS3Objects,
   copyAssetInSupabaseStorage,
-  copyDefaultAppToPrototype,
-  copyS3BucketContents,
+  copyDefaultAppToVersionedPrototype,
+  copyS3BucketContentsVersioned,
   deletePrototypeAssetsFromStorage,
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
 } from '../utils/s3Operations.js';
-import { isEditableDevServer } from '../utils/prototypeDevServerStatusUtils.js';
 import { hasExceededPrototypeCreationLimit } from '../utils/subscriptionChecks.js';
 
 export class PrototypeManagementService {
@@ -617,14 +617,11 @@ export class PrototypeManagementService {
       throw new Error(`Failed to insert assets: ${assetsInsertError.message}`);
     }
 
-    // Copy S3 bucket existing build files
-    const sourcePrefix = sourcePrototypeId;
-    const destinationPrefix = newPrototypeId;
-
-    const s3CopyResult = await copyS3BucketContents(
+    // Copy S3 bucket existing build files with versioned deployment
+    const s3CopyResult = await copyS3BucketContentsVersioned(
       this.s3Client,
-      sourcePrefix,
-      destinationPrefix,
+      sourcePrototypeId,
+      newPrototypeId,
     );
     if (!s3CopyResult.success) {
       console.log('Failed to copy S3 bucket', s3CopyResult);
@@ -681,8 +678,8 @@ export class PrototypeManagementService {
       );
     }
 
-    // Copy default app files to S3 for new prototype (for hosting)
-    const s3CopyResult = await copyDefaultAppToPrototype(
+    // Copy default app files to S3 for new prototype with versioned deployment
+    const s3CopyResult = await copyDefaultAppToVersionedPrototype(
       this.s3Client,
       newPrototypeId,
     );
