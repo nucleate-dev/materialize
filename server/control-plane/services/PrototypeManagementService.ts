@@ -9,7 +9,6 @@ import type {
   CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
-  DeletePrototypeRequestBody,
   DeletePrototypeResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
@@ -107,11 +106,11 @@ export class PrototypeManagementService {
       this.handleCreatePrototype.bind(this),
     );
 
-    app.post<{ Body: DeletePrototypeRequestBody }>(
-      '/prototype/delete',
+    app.delete<{ Params: { prototype_id: string } }>(
+      '/prototype/:prototype_id',
       {
         schema: {
-          body: {
+          params: {
             type: 'object',
             required: ['prototype_id'],
             properties: {
@@ -411,11 +410,11 @@ export class PrototypeManagementService {
   }
 
   private async handleDeletePrototype(
-    request: FastifyRequest<{ Body: DeletePrototypeRequestBody }>,
+    request: FastifyRequest<{ Params: { prototype_id: string } }>,
     reply: FastifyReply,
   ): Promise<DeletePrototypeResponse> {
     try {
-      const { prototype_id } = request.body;
+      const { prototype_id } = request.params;
 
       console.log('🗑️ [delete-prototype] Prototype ID:', prototype_id);
 

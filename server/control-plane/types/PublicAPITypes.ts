@@ -230,12 +230,8 @@ export type CreatePrototypeResponse =
   | CreatePrototypeErrorResponse;
 
 // ============================================================================
-// /prototype/delete ENDPOINT
+// DELETE /prototype/:prototype_id ENDPOINT
 // ============================================================================
-
-export interface DeletePrototypeRequestBody {
-  prototype_id: string;
-}
 
 export interface DeletePrototypeSuccessResponse {
   success: true;
