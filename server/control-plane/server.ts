@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import Fastify from 'fastify';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
@@ -9,10 +12,7 @@ import { DevelopmentServerService } from './services/DevelopmentServerService.js
 import { ChatService } from './services/ChatService.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
-import * as dotenv from 'dotenv';
 import { S3Client } from '@aws-sdk/client-s3';
-
-dotenv.config();
 
 // Initialize clients
 const initializeClients = async (): Promise<{
