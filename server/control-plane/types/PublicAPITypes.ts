@@ -230,6 +230,29 @@ export type CreatePrototypeResponse =
   | CreatePrototypeErrorResponse;
 
 // ============================================================================
+// /prototype/delete ENDPOINT
+// ============================================================================
+
+export interface DeletePrototypeRequestBody {
+  prototype_id: string;
+}
+
+export interface DeletePrototypeSuccessResponse {
+  success: true;
+  message: string;
+}
+
+export interface DeletePrototypeErrorResponse {
+  success: false;
+  error: 'UNAUTHORIZED' | 'NOT_FOUND' | 'DATABASE_ERROR' | 'S3_ERROR';
+  message: string;
+}
+
+export type DeletePrototypeResponse =
+  | DeletePrototypeSuccessResponse
+  | DeletePrototypeErrorResponse;
+
+// ============================================================================
 // /files/update-files ENDPOINT
 // ============================================================================
 

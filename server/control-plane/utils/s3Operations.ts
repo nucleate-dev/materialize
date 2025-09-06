@@ -21,8 +21,8 @@ const supabaseStorage = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const PROTOTYPE_BUCKET = 'materialize-sites';
-const SUPABASE_STORAGE_BUCKET = 'prototype-assets';
+const S3_PROTOTYPE_BUCKET = 'materialize-sites';
+const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';
 
 /**
  * Get content type for file based on extension
@@ -68,7 +68,7 @@ export async function uploadAssetToSupabaseStorage(
     const filePath = `${prototypeId}/${fileName}`;
 
     const { error } = await supabaseStorage.storage
-      .from(SUPABASE_STORAGE_BUCKET)
+      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .upload(filePath, fileContent, {
         contentType: getContentType(fileName),
         upsert: true,
@@ -80,7 +80,7 @@ export async function uploadAssetToSupabaseStorage(
     }
 
     const { data: publicUrlData } = supabaseStorage.storage
-      .from(SUPABASE_STORAGE_BUCKET)
+      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .getPublicUrl(filePath);
 
     return {
@@ -112,7 +112,7 @@ export async function copyAssetInSupabaseStorage(
     // Download from source
     const { data: sourceData, error: downloadError } =
       await supabaseStorage.storage
-        .from(SUPABASE_STORAGE_BUCKET)
+        .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
         .download(sourceFilePath);
 
     if (downloadError) {
@@ -163,11 +163,11 @@ export async function copyS3BucketContents(
     console.log(
       `🔍 [S3] Starting copy operation from ${sourcePrefix} to ${destinationPrefix}`,
     );
-    console.log(`🪣 [S3] Using bucket: ${PROTOTYPE_BUCKET}`);
+    console.log(`🪣 [S3] Using bucket: ${S3_PROTOTYPE_BUCKET}`);
 
     // List all objects with the source prefix
     const listCommand = new ListObjectsV2Command({
-      Bucket: PROTOTYPE_BUCKET,
+      Bucket: S3_PROTOTYPE_BUCKET,
       Prefix: sourcePrefix,
     });
 
@@ -185,7 +185,7 @@ export async function copyS3BucketContents(
         '⚠️ [S3] No objects found to copy - this might be the issue!',
       );
       console.log(
-        `🔍 [S3] Double-check that objects exist at: s3://${PROTOTYPE_BUCKET}/${sourcePrefix}`,
+        `🔍 [S3] Double-check that objects exist at: s3://${S3_PROTOTYPE_BUCKET}/${sourcePrefix}`,
       );
       return {
         success: true,
@@ -218,8 +218,8 @@ export async function copyS3BucketContents(
       );
 
       const copyCommand = new CopyObjectCommand({
-        Bucket: PROTOTYPE_BUCKET,
-        CopySource: `${PROTOTYPE_BUCKET}/${encodeURIComponent(sourceKey)}`,
+        Bucket: S3_PROTOTYPE_BUCKET,
+        CopySource: `${S3_PROTOTYPE_BUCKET}/${encodeURIComponent(sourceKey)}`,
         Key: destinationKey,
       });
 
@@ -329,7 +329,7 @@ export async function getDefaultAppFilesFromS3(
     const sourcePrefix = 'default-app-raw-files/';
     // List all files in the default-app-raw-files directory
     const listCommand = new ListObjectsV2Command({
-      Bucket: PROTOTYPE_BUCKET,
+      Bucket: S3_PROTOTYPE_BUCKET,
       Prefix: sourcePrefix,
     });
 
@@ -338,7 +338,7 @@ export async function getDefaultAppFilesFromS3(
     if (!listResult.Contents || listResult.Contents.length === 0) {
       console.error(`❌ [S3] No default app files found in S3!`);
       console.error(
-        `🔍 [S3] Check if files exist at: s3://${PROTOTYPE_BUCKET}/${sourcePrefix}`,
+        `🔍 [S3] Check if files exist at: s3://${S3_PROTOTYPE_BUCKET}/${sourcePrefix}`,
       );
       return {
         success: false,
@@ -367,7 +367,7 @@ export async function getDefaultAppFilesFromS3(
       }
 
       const getCommand = new GetObjectCommand({
-        Bucket: PROTOTYPE_BUCKET,
+        Bucket: S3_PROTOTYPE_BUCKET,
         Key: object.Key,
       });
 
@@ -483,7 +483,7 @@ export async function cleanupPrototypeS3Objects(
 
     // List all objects with the prototype prefix
     const listCommand = new ListObjectsV2Command({
-      Bucket: PROTOTYPE_BUCKET,
+      Bucket: S3_PROTOTYPE_BUCKET,
       Prefix: prefix,
     });
 
@@ -501,7 +501,7 @@ export async function cleanupPrototypeS3Objects(
 
       return s3Client.send(
         new DeleteObjectCommand({
-          Bucket: PROTOTYPE_BUCKET,
+          Bucket: S3_PROTOTYPE_BUCKET,
           Key: object.Key,
         }),
       );
@@ -524,7 +524,7 @@ export async function deletePrototypeAssetsFromStorage(
 ): Promise<void> {
   try {
     const { data: files, error: listError } = await supabaseStorage.storage
-      .from(SUPABASE_STORAGE_BUCKET)
+      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .list(prototypeId);
 
     if (listError || !files || files.length === 0) {
@@ -534,7 +534,7 @@ export async function deletePrototypeAssetsFromStorage(
     const filePaths = files.map((file) => `${prototypeId}/${file.name}`);
 
     const { error: deleteError } = await supabaseStorage.storage
-      .from(SUPABASE_STORAGE_BUCKET)
+      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .remove(filePaths);
 
     if (deleteError) {

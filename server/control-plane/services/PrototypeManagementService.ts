@@ -9,6 +9,8 @@ import type {
   CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
+  DeletePrototypeRequestBody,
+  DeletePrototypeResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   FetchViewingUrlRequestBody,
@@ -18,7 +20,10 @@ import type {
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import { validateJWTToken } from '../utils/prototypeAuth.js';
+import {
+  validateJWTToken,
+  checkUserHasPrototypeEditAccess,
+} from '../utils/prototypeAuth.js';
 import {
   cleanupPrototypeS3Objects,
   copyAssetInSupabaseStorage,
@@ -100,6 +105,22 @@ export class PrototypeManagementService {
         },
       },
       this.handleCreatePrototype.bind(this),
+    );
+
+    app.post<{ Body: DeletePrototypeRequestBody }>(
+      '/prototype/delete',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['prototype_id'],
+            properties: {
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleDeletePrototype.bind(this),
     );
   }
 
@@ -386,6 +407,110 @@ export class PrototypeManagementService {
 
       reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return errorResponse;
+    }
+  }
+
+  private async handleDeletePrototype(
+    request: FastifyRequest<{ Body: DeletePrototypeRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<DeletePrototypeResponse> {
+    try {
+      const { prototype_id } = request.body;
+
+      console.log('🗑️ [delete-prototype] Prototype ID:', prototype_id);
+
+      // 1. Get JWT token and validate authentication
+      const token = request.headers.authorization?.split(' ')[1];
+      if (!token || !request.headers.authorization?.startsWith('Bearer')) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'No authentication token provided',
+        });
+      }
+
+      // 2. Check if user has edit access for the prototype
+      const authResponse = await checkUserHasPrototypeEditAccess(
+        prototype_id,
+        token,
+      );
+      if (authResponse === null || !authResponse.canEdit) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'Access denied for this prototype',
+        });
+      }
+
+      // 3. Create Supabase client for database operations
+      const supabase = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        },
+      );
+
+      // 4. Delete S3 builds for the prototype
+      console.log('🗑️ Cleaning up S3 objects...');
+      try {
+        await cleanupPrototypeS3Objects(this.s3Client, prototype_id);
+        console.log('✅ S3 cleanup successful');
+      } catch (s3Error) {
+        console.error('❌ S3 cleanup failed:', s3Error);
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          success: false,
+          error: 'S3_ERROR',
+          message: 'Failed to delete S3 builds for prototype',
+        });
+      }
+
+      // 5. Delete prototype assets from storage
+      console.log('🗑️ Deleting prototype assets from storage...');
+      try {
+        await deletePrototypeAssetsFromStorage(prototype_id);
+        console.log('✅ Asset cleanup successful');
+      } catch (assetError) {
+        console.error('❌ Asset cleanup failed:', assetError);
+        // Don't fail the entire operation if assets cleanup fails
+        console.warn('Continuing despite asset cleanup failure');
+      }
+
+      // TODO: Delete the prototype_thumbnail from supabase storage
+
+      // 6. Delete the prototype from prototypes table (will cascade delete all associated prototype_files, prototype_assets, chat sessions, and messages)
+      console.log('🗑️ Deleting prototype from database...');
+      const { error: prototypeDeleteError } = await supabase
+        .from('prototypes')
+        .delete()
+        .eq('id', prototype_id);
+
+      if (prototypeDeleteError) {
+        console.error('❌ Prototype deletion failed:', prototypeDeleteError);
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          success: false,
+          error: 'DATABASE_ERROR',
+          message: 'Failed to delete prototype from database',
+        });
+      }
+      console.log('✅ Prototype deletion successful');
+
+      // 7. Return success response
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        message: 'Prototype and all associated data deleted successfully',
+      });
+    } catch (error) {
+      console.error('🗑️ Delete prototype error:', error);
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        error: 'DATABASE_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
