@@ -82,12 +82,37 @@ export default function PrototypeSettingsModal({
       "Are you sure you want to delete this prototype?",
     );
     if (!confirmed) return;
+    
+    setIsSubmitting(true);
     try {
-      await supabase.from("prototypes").delete().eq("id", prototype.id);
+      // Get the current session to get the JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error("No authentication token available");
+        return;
+      }
+
+      // Make DELETE request to the new API endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/${prototype.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete prototype");
+      }
+
+      // Success - refresh the parent component and close modal
       onUpdated();
       onClose();
     } catch (error) {
       console.error("Error deleting prototype:", error);
+      // You could add a toast notification here to show the error to the user
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -149,7 +174,7 @@ export default function PrototypeSettingsModal({
                 onClick={handleDelete}
                 disabled={isSubmitting}
               >
-                Delete Prototype
+                {isSubmitting ? "Deleting..." : "Delete Prototype"}
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 Save

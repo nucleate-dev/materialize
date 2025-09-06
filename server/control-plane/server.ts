@@ -57,7 +57,11 @@ const fastify = Fastify({
   disableRequestLogging: true,
   bodyLimit: 20 * 1024 * 1024, // 20MB
 });
-fastify.register(cors, { origin: true, credentials: true });
+fastify.register(cors, { 
+  origin: true, 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+});
 
 let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
