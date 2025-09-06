@@ -2,15 +2,12 @@ import Stripe from 'stripe';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
-import * as dotenv from 'dotenv';
 import {
   type ManageBillingRequestBody,
   type CheckoutRequestBody,
   HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-
-dotenv.config();
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
