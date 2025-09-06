@@ -26,7 +26,6 @@ import {
   type DispatchPrecheckResponse,
   type DispatchRequestBody,
   HTTP_STATUS,
-  isStandardErrorResponse,
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
@@ -39,6 +38,7 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../utils/prototypeDevServerStatusUtils.js';
+import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 
 dotenv.config();
 
@@ -64,9 +64,9 @@ export class DispatcherService {
             properties: {
               jwt: { type: 'string' },
               prototype_id: { type: 'string' },
-              framework: { 
+              framework: {
                 type: 'string',
-                enum: ['expo_react_native', 'react']
+                enum: ['expo_react_native', 'react'],
               },
               files: {
                 type: 'array',
@@ -102,7 +102,7 @@ export class DispatcherService {
               },
               file_scope: {
                 type: 'string',
-                enum: ['updates', 'complete']
+                enum: ['updates', 'complete'],
               },
               hot_reload: { type: 'boolean' },
             },
@@ -162,27 +162,13 @@ export class DispatcherService {
     console.log(`Processing dispatch request for prototype: ${prototype_id}`);
 
     // 2. Authentication and authorization validation
-    const userAccessValidationResult = await this.validateUserAndPrototypeOwner(
-      jwt,
-      prototype_id,
-    );
-    if (isStandardErrorResponse(userAccessValidationResult)) {
-      if (userAccessValidationResult.error === 'Unauthorized') {
-        return reply
-          .status(HTTP_STATUS.UNAUTHORIZED)
-          .send(userAccessValidationResult);
-      } else if (
-        userAccessValidationResult.error === 'Not Found' ||
-        userAccessValidationResult.error === 'Forbidden'
-      ) {
-        return reply
-          .status(HTTP_STATUS.NOT_FOUND)
-          .send(userAccessValidationResult);
-      } else {
-        return reply
-          .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-          .send(userAccessValidationResult);
-      }
+    const authResult = await checkUserHasPrototypeEditAccess(prototype_id, jwt);
+    if (!authResult || !authResult.canEdit) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      });
     }
 
     console.log('User access validation successful');
@@ -492,27 +478,13 @@ export class DispatcherService {
     console.log(`Processing precheck request for prototype: ${prototype_id}`);
 
     // 2. Authentication and authorization validation
-    const userAccessValidationResult = await this.validateUserAndPrototypeOwner(
-      jwt,
-      prototype_id,
-    );
-    if (isStandardErrorResponse(userAccessValidationResult)) {
-      if (userAccessValidationResult.error === 'Unauthorized') {
-        return reply
-          .status(HTTP_STATUS.UNAUTHORIZED)
-          .send(userAccessValidationResult);
-      } else if (
-        userAccessValidationResult.error === 'Not Found' ||
-        userAccessValidationResult.error === 'Forbidden'
-      ) {
-        return reply
-          .status(HTTP_STATUS.NOT_FOUND)
-          .send(userAccessValidationResult);
-      } else {
-        return reply
-          .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-          .send(userAccessValidationResult);
-      }
+    const authResult = await checkUserHasPrototypeEditAccess(prototype_id, jwt);
+    if (!authResult || !authResult.canEdit) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      });
     }
 
     try {
@@ -571,53 +543,62 @@ export class DispatcherService {
     prototypeId: string,
   ): Promise<AuthValidationResult | StandardErrorResponse> {
     try {
-      // 1. Create Anon Supabase client with JWT
-      const supabase = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwt}`,
-            },
-          },
-        },
+      const authResult = await checkUserHasPrototypeEditAccess(
+        prototypeId,
+        jwt,
       );
 
-      // 2. Verify JWT and get user
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser(jwt);
-      if (authError || !user) {
-        return {
-          error: 'Unauthorized',
-          message: 'Invalid JWT or user not authenticated',
-        };
-      }
+      if (!authResult || !authResult.canEdit) {
+        // Since checkUserHasPrototypeEditAccess doesn't differentiate error types,
+        // we need to check what specifically failed to provide appropriate error messages
 
-      // 3. Attempt to fetch prototype from database to verify permissions
-      const { data: prototype, error: prototypeError } = await supabase
-        .from('prototypes')
-        .select('*')
-        .eq('id', prototypeId)
-        .single();
+        // First check if JWT is valid
+        const supabase = createClient<Database>(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_ANON_KEY!,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${jwt}`,
+              },
+            },
+          },
+        );
 
-      if (prototypeError || !prototype) {
-        return {
-          error: 'Not Found',
-          message: 'Prototype not found or user does not have permissions',
-        };
-      }
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser(jwt);
 
-      if (prototype.owner_id !== user.id) {
+        if (authError || !user) {
+          return {
+            error: 'Unauthorized',
+            message: 'Invalid JWT or user not authenticated',
+          };
+        }
+
+        // JWT is valid, check if prototype exists
+        const { data: prototype, error: prototypeError } = await supabase
+          .from('prototypes')
+          .select('*')
+          .eq('id', prototypeId)
+          .single();
+
+        if (prototypeError || !prototype) {
+          return {
+            error: 'Not Found',
+            message: 'Prototype not found or user does not have permissions',
+          };
+        }
+
+        // Prototype exists, must be a permission issue
         return {
           error: 'Forbidden',
           message: 'User does not have permissions to edit this prototype',
         };
       }
 
-      return { user, prototype };
+      return { user: authResult.user, prototype: authResult.prototype };
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       console.error('Validation error:', e);

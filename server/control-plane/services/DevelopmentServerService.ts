@@ -157,35 +157,18 @@ export class DevelopmentServerService {
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
-
-      if (precheckResponse.statusCode !== 200) {
+      if (precheckResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(precheckResponse.payload);
         console.error('Dispatch precheck failed:', errorData);
-
-        if (precheckResponse.statusCode === 401) {
-          return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-            error: 'Unauthorized',
-            message: 'Access denied for this prototype',
-          } as StandardErrorResponse);
-        }
-
-        if (precheckResponse.statusCode === 404) {
-          return reply.status(HTTP_STATUS.NOT_FOUND).send({
-            error: 'Prototype not found',
-            message: 'The specified prototype could not be found',
-          } as StandardErrorResponse);
-        }
-
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Precheck failed',
-          message: errorData.message || 'Unknown precheck error',
+        return reply.status(precheckResponse.statusCode).send({
+          error: errorData.error,
+          message: errorData.message,
         } as StandardErrorResponse);
       }
 
       const precheckData: DispatchPrecheckResponse = JSON.parse(
         precheckResponse.payload,
       );
-
       console.log(
         '🔍 [update-files] Dispatch precheck response:',
         precheckData,
@@ -231,30 +214,13 @@ export class DevelopmentServerService {
         } as DispatchRequestBody,
       });
 
-      if (dispatchResponse.statusCode !== 200) {
+      if (dispatchResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(dispatchResponse.payload);
         console.error('Dispatch request failed:', errorData);
-
-        if (dispatchResponse.statusCode === 401) {
-          return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-            error: 'Unauthorized',
-            message: 'Authentication failed during dispatch',
-          } as StandardErrorResponse);
-        }
-
-        if (dispatchResponse.statusCode === 404) {
-          return reply.status(HTTP_STATUS.NOT_FOUND).send({
-            error: 'Prototype not found',
-            message: 'Prototype not found during dispatch',
-          } as StandardErrorResponse);
-        }
-
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'File update failed',
-          message: errorData.message || 'Unknown file update error',
-          build_errors: errorData.build_errors || [],
-          build_warnings: errorData.build_warnings || [],
-        } as UpdateFilesResponse);
+        return reply.status(dispatchResponse.statusCode).send({
+          error: errorData.error,
+          message: errorData.message,
+        } as StandardErrorResponse);
       }
 
       const dispatchData: DispatchResponse = JSON.parse(
@@ -348,35 +314,18 @@ export class DevelopmentServerService {
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
-
       if (precheckResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(precheckResponse.payload);
         console.error('Dispatch precheck failed:', errorData);
-
-        if (precheckResponse.statusCode === HTTP_STATUS.UNAUTHORIZED) {
-          return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-            error: 'Unauthorized',
-            message: 'Access denied for this prototype',
-          } as StandardErrorResponse);
-        }
-
-        if (precheckResponse.statusCode === HTTP_STATUS.NOT_FOUND) {
-          return reply.status(HTTP_STATUS.NOT_FOUND).send({
-            error: 'Prototype not found',
-            message: 'The specified prototype could not be found',
-          } as StandardErrorResponse);
-        }
-
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Precheck failed',
-          message: errorData.message || 'Unknown precheck error',
+        return reply.status(precheckResponse.statusCode).send({
+          error: errorData.error,
+          message: errorData.message,
         } as StandardErrorResponse);
       }
 
       const precheckData: DispatchPrecheckResponse = JSON.parse(
         precheckResponse.payload,
       );
-
       console.log(
         '🔍 [start-dev-server] Dispatch precheck response:',
         precheckData,
@@ -408,7 +357,6 @@ export class DevelopmentServerService {
 
       // 6. Dispatch dev server start request
       console.log('📦 Dispatching dev server start request to server');
-
       const dispatchResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch',
@@ -421,29 +369,13 @@ export class DevelopmentServerService {
           file_scope: 'complete', // all start-dev-server requests must have complete file scope
         } as DispatchRequestBody,
       });
-
       if (dispatchResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(dispatchResponse.payload);
         console.error('Dispatch request failed:', errorData);
-
-        if (dispatchResponse.statusCode === HTTP_STATUS.UNAUTHORIZED) {
-          return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-            error: 'Unauthorized',
-            message: 'Authentication failed during dispatch',
-          } as StartDevServerErrorResponse);
-        }
-
-        if (dispatchResponse.statusCode === HTTP_STATUS.NOT_FOUND) {
-          return reply.status(HTTP_STATUS.NOT_FOUND).send({
-            error: 'Prototype not found',
-            message: 'Prototype not found during dispatch',
-          } as StartDevServerErrorResponse);
-        }
-
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Dev server start failed',
-          message: errorData.message || 'Unknown dispatch error',
-        } as StartDevServerErrorResponse);
+        return reply.status(dispatchResponse.statusCode).send({
+          error: errorData.error,
+          message: errorData.message,
+        } as StandardErrorResponse);
       }
 
       const dispatchData: DispatchResponse = JSON.parse(
