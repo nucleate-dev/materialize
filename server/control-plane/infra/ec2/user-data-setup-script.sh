@@ -98,6 +98,10 @@ runuser -u "$APP_USER" -- bash -lc "
 chmod 600 "$APP_DIR/.env"
 chown "$APP_USER:$APP_USER" "$APP_DIR/.env"
 
+# --- Fix .env permissions so ec2-user can read it ---
+chown ec2-user:ec2-user "$APP_DIR/.env"
+chmod 644 "$APP_DIR/.env"
+
 # --- Install deps & build (compile to dist/) ---
 runuser -u "$APP_USER" -- bash -lc "
   set -euxo pipefail
