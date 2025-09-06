@@ -4,13 +4,11 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type {
   PrototypeAssetInsert,
   PrototypeFileInsert,
-  PrototypeInsert,
 } from '../types/InternalTypes.js';
 import type {
   CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
-  CreatePrototypeSuccessResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   FetchViewingUrlRequestBody,
@@ -20,10 +18,7 @@ import type {
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
-import {
-  authenticatePrototypeUser,
-  checkPrototypeLimit,
-} from '../utils/prototypeAuth.js';
+import { validateJWTToken } from '../utils/prototypeAuth.js';
 import {
   cleanupPrototypeS3Objects,
   copyAssetInSupabaseStorage,
@@ -34,6 +29,7 @@ import {
   getPrototypeViewingUrl,
 } from '../utils/s3Operations.js';
 import { isEditableDevServer } from '../utils/prototypeDevServerStatusUtils.js';
+import { hasExceededPrototypeCreationLimit } from '../utils/subscriptionChecks.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -228,49 +224,33 @@ export class PrototypeManagementService {
       const token = request.headers.authorization?.split(' ')[1];
       if (!token || !request.headers.authorization?.startsWith('Bearer')) {
         console.error('No JWT token provided');
-        const errorResponse: CreatePrototypeErrorResponse = {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           success: false,
           error: 'UNAUTHORIZED',
           message: 'No authentication token provided',
-        };
-        reply.status(HTTP_STATUS.UNAUTHORIZED);
-        return errorResponse;
+        });
       }
 
-      // Create Supabase client with service role for admin operations
-      const supabase = createClient<Database>(
-        this.supabaseUrl,
-        this.supabaseServiceKey,
-      );
-
-      // Authenticate user and get subscription info
-      const authResult = await authenticatePrototypeUser(supabase, token);
-      if (!authResult.success) {
-        const errorResponse: CreatePrototypeErrorResponse = {
+      const user = await validateJWTToken(token);
+      if (!user) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           success: false,
           error: 'UNAUTHORIZED',
-          message: authResult.message || 'Authentication failed',
-        };
-        reply.status(HTTP_STATUS.UNAUTHORIZED);
-        return errorResponse;
+          message: 'Invalid authentication token',
+        });
       }
 
-      const { userId, subscriptionPlan } = authResult;
-
       // 2. Check prototype limits for free users (5 max)
-      const limitCheck = await checkPrototypeLimit(
-        supabase,
-        userId,
-        subscriptionPlan,
+      const limitCheck = await hasExceededPrototypeCreationLimit(
+        token,
+        user.id,
       );
-      if (!limitCheck.canCreate) {
-        const errorResponse: CreatePrototypeErrorResponse = {
+      if (limitCheck.exceeded) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           success: false,
           error: 'PROTOTYPE_LIMIT_REACHED',
-          message: limitCheck.message || 'Prototype limit reached',
-        };
-        reply.status(HTTP_STATUS.UNAUTHORIZED);
-        return errorResponse;
+          message: 'Prototype limit reached',
+        });
       }
 
       // 3. Parse request body
@@ -292,7 +272,7 @@ export class PrototypeManagementService {
         return errorResponse;
       }
 
-      if (visibility === 'SELF' && subscriptionPlan !== 'pro') {
+      if (visibility === 'SELF' && limitCheck.plan === 'free') {
         const errorResponse: CreatePrototypeErrorResponse = {
           success: false,
           error: 'INVALID_REQUEST',
@@ -303,23 +283,32 @@ export class PrototypeManagementService {
       }
 
       // 4. Create prototype in database
-      const prototypeData: PrototypeInsert = {
-        name,
-        description,
-        owner_id: userId,
-        project_id,
-        visibility:
-          visibility || (subscriptionPlan === 'pro' ? 'SELF' : 'PUBLIC'),
-      };
-
-      const { data: newPrototype, error: prototypeError } = await supabase
+      const supabase = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        },
+      );
+      const { data: newPrototype, error: prototypeInsertError } = await supabase
         .from('prototypes')
-        .insert(prototypeData)
+        .insert({
+          name,
+          description,
+          owner_id: user.id,
+          project_id,
+          visibility:
+            visibility || (limitCheck.plan === 'pro' ? 'SELF' : 'PUBLIC'),
+        })
         .select()
         .single();
 
-      if (prototypeError) {
-        console.error('Error creating prototype:', prototypeError);
+      if (prototypeInsertError) {
+        console.error('Error creating prototype:', prototypeInsertError);
         const errorResponse: CreatePrototypeErrorResponse = {
           success: false,
           error: 'DATABASE_ERROR',
@@ -330,7 +319,6 @@ export class PrototypeManagementService {
       }
 
       const newPrototypeId = newPrototype.id;
-
       try {
         // 5. Handle prototype files and S3 operations
         if (forkPrototypeId) {
@@ -341,17 +329,13 @@ export class PrototypeManagementService {
 
         // 6. Get viewing URL and return success
         const viewingUrl = getPrototypeViewingUrl(newPrototypeId);
-
-        const successResponse: CreatePrototypeSuccessResponse = {
+        return reply.status(HTTP_STATUS.OK).send({
           success: true,
           data: {
             prototype_id: newPrototypeId,
             viewing_url: viewingUrl,
           },
-        };
-
-        reply.status(HTTP_STATUS.OK);
-        return successResponse;
+        });
       } catch (error) {
         // If anything fails after prototype creation, clean up
         console.error('Error during prototype setup:', error);

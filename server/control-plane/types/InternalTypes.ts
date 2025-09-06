@@ -129,14 +129,6 @@ export interface PrototypeAuthResult {
   message?: string;
 }
 
-export interface PrototypeLimitCheck {
-  canCreate: boolean;
-  currentCount: number;
-  maxAllowed: number;
-  error?: string;
-  message?: string;
-}
-
 export interface S3CopyResult {
   success: boolean;
   error?: string;

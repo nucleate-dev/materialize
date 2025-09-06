@@ -187,7 +187,7 @@ export async function getCurrentPeriodApiUsage(
  * @param userId - The user ID to check
  * @returns Promise<{ exceeded: boolean; current: number; limit: number; plan: string }> - Usage limit status
  */
-export async function hasExceededUsageLimit(
+export async function hasExceededChatUsageLimit(
   jwtToken: string,
   userId: string,
 ): Promise<{
@@ -233,4 +233,61 @@ export async function hasExceededUsageLimit(
       plan: 'free',
     };
   }
+}
+
+export async function hasExceededPrototypeCreationLimit(
+  jwtToken: string,
+  userId: string,
+): Promise<{
+  exceeded: boolean;
+  current: number;
+  limit: number;
+  plan: string;
+}> {
+  const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId);
+
+  // Paid users have no limit
+  if (subscriptionInfo.userPlan !== 'free') {
+    return {
+      exceeded: false,
+      current: 0,
+      limit: -1, // -1 indicates unlimited
+      plan: subscriptionInfo.userPlan,
+    };
+  }
+
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      },
+    },
+  );
+
+  const { count, error } = await supabaseClient
+    .from('prototypes')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', userId);
+  if (error) {
+    console.error('Error counting user prototypes:', error);
+    // Default to exceeded on error to be safe
+    return {
+      exceeded: false,
+      current: 0,
+      limit: 5,
+      plan: subscriptionInfo.userPlan,
+    };
+  }
+
+  const currentCount = count || 0;
+  return {
+    exceeded: currentCount >= 5,
+    current: currentCount,
+    limit: 5,
+    plan: subscriptionInfo.userPlan,
+  };
 }

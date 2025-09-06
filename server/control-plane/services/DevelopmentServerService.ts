@@ -1,5 +1,4 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createClient } from '@supabase/supabase-js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type {
   StartDevServerRequestBody,
@@ -13,12 +12,8 @@ import type {
   DispatchPrecheckResponse,
   DispatchResponse,
 } from '../types/PublicAPITypes.js';
-import type { Database } from '../types/supabase.js';
-import {
-  authenticatePrototypeUser,
-  checkUserHasPrototypeEditAccess,
-} from '../utils/prototypeAuth.js';
-import { hasExceededUsageLimit } from '../utils/subscriptionChecks.js';
+import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
+import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
 import {
   isDispatchInProgress,
   isEditableDevServer,
@@ -144,7 +139,7 @@ export class DevelopmentServerService {
       console.log('🔍 [update-files] Files:', files.length);
       console.log('🔍 [update-files] Prototype ID:', prototype_id);
 
-      // 1. Authenticate JWT and get user info
+      // 1. Get JWT
       const token = request.headers.authorization?.split(' ')[1];
       if (!token || !request.headers.authorization?.startsWith('Bearer')) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -153,27 +148,12 @@ export class DevelopmentServerService {
         } as StandardErrorResponse);
       }
 
-      const supabase = createClient<Database>(
-        this.supabaseUrl,
-        this.supabaseServiceKey,
-      );
-
-      const authResult = await authenticatePrototypeUser(supabase, token);
-      if (!authResult.success) {
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized',
-          message: authResult.message || 'Authentication failed',
-        } as StandardErrorResponse);
-      }
-
-      const jwtToken = token;
-
-      // 2. Perform dispatch precheck to verify permissions and build status
+      // 2. Perform dispatch precheck to authenticate user JWT, verify permissions, and check build status
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
         payload: {
-          jwt: jwtToken,
+          jwt: token,
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
@@ -242,7 +222,7 @@ export class DevelopmentServerService {
         method: 'POST',
         url: '/dispatch',
         payload: {
-          jwt: jwtToken,
+          jwt: token,
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: files,
@@ -347,7 +327,7 @@ export class DevelopmentServerService {
       }
 
       // 2. Paywall check this user
-      const exceededUsageLimit = await hasExceededUsageLimit(
+      const exceededUsageLimit = await hasExceededChatUsageLimit(
         token,
         authResponse.user.id,
       );
