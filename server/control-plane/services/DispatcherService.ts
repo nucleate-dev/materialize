@@ -56,18 +56,95 @@ export class DispatcherService {
     // POST /dispatch
     app.post<{ Body: DispatchRequestBody }>(
       '/dispatch',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['jwt', 'prototype_id', 'files', 'assets', 'file_scope'],
+            properties: {
+              jwt: { type: 'string' },
+              prototype_id: { type: 'string' },
+              framework: { 
+                type: 'string',
+                enum: ['expo_react_native', 'react']
+              },
+              files: {
+                type: 'array',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  required: ['contents', 'name', 'prototype_id'],
+                  properties: {
+                    id: { type: 'string' },
+                    contents: { type: 'string' },
+                    name: { type: 'string' },
+                    prototype_id: { type: 'string' },
+                    created_at: { type: 'string' },
+                    updated_at: { type: 'string' },
+                  },
+                },
+              },
+              assets: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['name', 'storage_url', 'prototype_id'],
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    storage_url: { type: 'string' },
+                    prototype_id: { type: 'string' },
+                    created_at: { type: 'string' },
+                    updated_at: { type: 'string' },
+                    contents: { type: 'string' },
+                  },
+                },
+              },
+              file_scope: {
+                type: 'string',
+                enum: ['updates', 'complete']
+              },
+              hot_reload: { type: 'boolean' },
+            },
+          },
+        },
+      },
       this.handleDispatch.bind(this),
     );
 
     // POST /dispatch-precheck
     app.post<{ Body: DispatchPrecheckRequestBody }>(
       '/dispatch-precheck',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['jwt', 'prototype_id'],
+            properties: {
+              jwt: { type: 'string' },
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
       this.handleDispatchPrecheck.bind(this),
     );
 
     // POST /dispatch-edit-intent
     app.post<{ Body: DispatchPrecheckRequestBody }>(
       '/dispatch-edit-intent',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['jwt', 'prototype_id'],
+            properties: {
+              jwt: { type: 'string' },
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
       this.handleDispatchEditIntent.bind(this),
     );
   }
@@ -77,45 +154,9 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
   ): Promise<void> {
-    // 1. Parse and Validate Body
+    // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id, framework, files, assets, file_scope } =
       request.body;
-    if (!jwt) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        error: 'Bad Request',
-        message: 'jwt is required',
-      });
-    }
-    if (!prototype_id) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        error: 'Bad Request',
-        message: 'prototype_id is required',
-      });
-    }
-    if (!files || !Array.isArray(files)) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        error: 'Bad Request',
-        message: 'files is required and must be an array',
-      });
-    }
-    if (!assets || !Array.isArray(assets)) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        error: 'Bad Request',
-        message: 'assets is required and must be an array',
-      });
-    }
-    if (!file_scope) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        error: 'Bad Request',
-        message: 'file_scope is required',
-      });
-    }
-    if (files.length === 0) {
-      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        error: 'Bad Request',
-        message: 'files cannot be empty',
-      });
-    }
     const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
     console.log(`Processing dispatch request for prototype: ${prototype_id}`);
@@ -360,22 +401,8 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
   ): Promise<DispatchPrecheckResponse> {
-    // 1. Parse and Validate Body
+    // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
-    if (!jwt) {
-      reply.status(HTTP_STATUS.BAD_REQUEST);
-      return {
-        error: 'Bad Request',
-        message: 'JWT is required',
-      };
-    }
-    if (!prototype_id) {
-      reply.status(HTTP_STATUS.BAD_REQUEST);
-      return {
-        error: 'Bad Request',
-        message: 'prototype_id is required',
-      };
-    }
 
     console.log(
       `Processing edit intent request for prototype: ${prototype_id}`,
@@ -459,22 +486,8 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
   ): Promise<DispatchPrecheckResponse> {
-    // 1. Parse and Validate Body
+    // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
-    if (!jwt) {
-      reply.status(HTTP_STATUS.BAD_REQUEST);
-      return {
-        error: 'Bad Request',
-        message: 'JWT is required',
-      };
-    }
-    if (!prototype_id) {
-      reply.status(HTTP_STATUS.BAD_REQUEST);
-      return {
-        error: 'Bad Request',
-        message: 'prototype_id is required',
-      };
-    }
 
     console.log(`Processing precheck request for prototype: ${prototype_id}`);
 
