@@ -2,7 +2,7 @@
 
 /**
  * Build Worker Type Sync Script
- * 
+ *
  * Syncs build-worker-api-types.ts from build-workers to control-plane
  * This ensures the control plane always has the latest build worker type definitions
  */
@@ -15,13 +15,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // File paths
-const SOURCE_FILE = path.resolve(__dirname, '../../build-workers/build-worker-api-types.ts');
+const SOURCE_FILE = path.resolve(
+  __dirname,
+  '../../build-workers/build-worker-api-types.ts',
+);
 const TARGET_FILE = path.resolve(__dirname, '../types/BuildWorkerTypes.ts');
 
 async function syncBuildWorkerTypes() {
   try {
-    console.log('🔄 Syncing build worker types from build-workers to control-plane...');
-    
+    console.log(
+      '🔄 Syncing build worker types from build-workers to control-plane...',
+    );
+
     // Check if source file exists
     try {
       await fs.access(SOURCE_FILE);
@@ -32,7 +37,7 @@ async function syncBuildWorkerTypes() {
 
     // Read the source file
     const sourceContent = await fs.readFile(SOURCE_FILE, 'utf-8');
-    
+
     // Create target directory if it doesn't exist
     const targetDir = path.dirname(TARGET_FILE);
     try {
@@ -56,14 +61,13 @@ async function syncBuildWorkerTypes() {
 
     // Write the synced file with header
     await fs.writeFile(TARGET_FILE, header + sourceContent, 'utf-8');
-    
+
     console.log(`✅ Successfully synced build worker types to: ${TARGET_FILE}`);
     console.log(`📊 File size: ${(sourceContent.length / 1024).toFixed(2)} KB`);
-    
+
     // Get line count for reporting
     const lineCount = sourceContent.split('\n').length;
     console.log(`📝 Lines synced: ${lineCount}`);
-    
   } catch (error) {
     console.error('❌ Error syncing build worker types:', error.message);
     process.exit(1);

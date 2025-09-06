@@ -2,7 +2,7 @@
 
 /**
  * Type Sync Script
- * 
+ *
  * Syncs PublicAPITypes.ts from control-plane to web-application
  * This ensures the frontend always has the latest API type definitions
  */
@@ -16,12 +16,17 @@ const __dirname = path.dirname(__filename);
 
 // File paths
 const SOURCE_FILE = path.resolve(__dirname, '../types/PublicAPITypes.ts');
-const TARGET_FILE = path.resolve(__dirname, '../../../web-application/src/lib/types/serverAPITypes.ts');
+const TARGET_FILE = path.resolve(
+  __dirname,
+  '../../../web-application/src/lib/types/serverAPITypes.ts',
+);
 
 async function syncTypes() {
   try {
-    console.log('🔄 Syncing API types from control-plane to web-application...');
-    
+    console.log(
+      '🔄 Syncing API types from control-plane to web-application...',
+    );
+
     // Check if source file exists
     try {
       await fs.access(SOURCE_FILE);
@@ -32,7 +37,7 @@ async function syncTypes() {
 
     // Read the source file
     const sourceContent = await fs.readFile(SOURCE_FILE, 'utf-8');
-    
+
     // Create target directory if it doesn't exist
     const targetDir = path.dirname(TARGET_FILE);
     try {
@@ -56,14 +61,13 @@ async function syncTypes() {
 
     // Write the synced file with header
     await fs.writeFile(TARGET_FILE, header + sourceContent, 'utf-8');
-    
+
     console.log(`✅ Successfully synced types to: ${TARGET_FILE}`);
     console.log(`📊 File size: ${(sourceContent.length / 1024).toFixed(2)} KB`);
-    
+
     // Get line count for reporting
     const lineCount = sourceContent.split('\n').length;
     console.log(`📝 Lines synced: ${lineCount}`);
-    
   } catch (error) {
     console.error('❌ Error syncing types:', error.message);
     process.exit(1);

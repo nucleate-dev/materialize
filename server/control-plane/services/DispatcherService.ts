@@ -258,9 +258,8 @@ export class DispatcherService {
         console.log('Set cache data builds zset for this prototype: ', buildId);
 
         console.log('Launching new fargate instance');
-        const newFargateInstance = await this.launchFargateInstance(
-          prototype_id,
-        );
+        const newFargateInstance =
+          await this.launchFargateInstance(prototype_id);
         console.log('Fargate instance launched: ', newFargateInstance);
 
         updatedBuildCacheData = {
