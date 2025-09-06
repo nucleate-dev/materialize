@@ -35,6 +35,7 @@ import {
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
 } from '../utils/s3Operations.js';
+import { isEditableDevServer } from '../utils/prototypeDevServerStatusUtils.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -179,13 +180,9 @@ export class PrototypeManagementService {
               );
               const successResponse: FetchViewingUrlSuccessResponse = {
                 viewing_url: precheckData.viewing_url,
-                source:
-                  precheckData.status === 'stable' ||
-                  precheckData.status === 'updating' ||
-                  precheckData.status === 'creating' ||
-                  precheckData.status === 'error'
-                    ? 'editable_instance'
-                    : 'static_build',
+                source: isEditableDevServer(precheckData.status)
+                  ? 'editable_instance'
+                  : 'static_build',
               };
               reply.status(HTTP_STATUS.OK);
               return successResponse;

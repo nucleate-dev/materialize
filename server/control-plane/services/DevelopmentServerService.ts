@@ -19,6 +19,10 @@ import {
   checkUserHasPrototypeEditAccess,
 } from '../utils/prototypeAuth.js';
 import { hasExceededUsageLimit } from '../utils/subscriptionChecks.js';
+import {
+  isDispatchInProgress,
+  isEditableDevServer,
+} from '../utils/prototypeDevServerStatusUtils.js';
 
 export class DevelopmentServerService {
   private fastifyApp: FastifyInstance;
@@ -210,8 +214,7 @@ export class DevelopmentServerService {
       // 3. Check if build is already in progress
       if (
         'status' in precheckData &&
-        (precheckData.status === 'updating' ||
-          precheckData.status === 'creating')
+        isDispatchInProgress(precheckData.status)
       ) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           error: 'Build already in progress',
@@ -223,9 +226,7 @@ export class DevelopmentServerService {
       // 4. Check if there's an active dev server to update
       if (
         'success' in precheckData &&
-        (precheckData.status === null ||
-          precheckData.status === 'cleaning' ||
-          precheckData.status === 'building')
+        !isEditableDevServer(precheckData.status)
       ) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           error: 'No active dev server',
@@ -404,10 +405,7 @@ export class DevelopmentServerService {
       // 3. Check if dev server already exists
       if (
         'status' in precheckData &&
-        (precheckData.status === 'updating' ||
-          precheckData.status === 'creating' ||
-          precheckData.status === 'stable' ||
-          precheckData.status === 'error')
+        isEditableDevServer(precheckData.status)
       ) {
         console.log("There's already an active dev server for this prototype");
         return reply.status(HTTP_STATUS.CONFLICT).send({

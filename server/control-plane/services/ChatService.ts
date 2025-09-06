@@ -14,6 +14,7 @@ import type {
   DispatchResponse,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
+import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 import {
@@ -324,8 +325,7 @@ export class ChatService {
 
       if (
         'success' in precheckData &&
-        (precheckData.status === 'updating' ||
-          precheckData.status === 'creating')
+        isDispatchInProgress(precheckData.status)
       ) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:

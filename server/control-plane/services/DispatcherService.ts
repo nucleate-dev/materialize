@@ -34,6 +34,11 @@ import {
   StartDevServerRequestBody,
 } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
+import {
+  isDevServerInShutdownStages,
+  isDispatchInProgress,
+  isEditableDevServer,
+} from '../utils/prototypeDevServerStatusUtils.js';
 
 dotenv.config();
 
@@ -166,18 +171,12 @@ export class DispatcherService {
           const existingBuild: ActiveBuild = parsedBuild;
 
           // If build is cleaning or building, proceed with new build
-          if (
-            existingBuild.status === 'cleaning' ||
-            existingBuild.status === 'building'
-          ) {
+          if (isDevServerInShutdownStages(existingBuild.status)) {
             console.log(
-              `Existing build ${currentBuildId} is cleaning, creating new build`,
+              `Existing devserver ${currentBuildId} is cleaning or building, creating new devserver`,
             );
             shouldCreateNewBuild = true;
-          } else if (
-            existingBuild.status === 'creating' ||
-            existingBuild.status === 'updating'
-          ) {
+          } else if (isDispatchInProgress(existingBuild.status)) {
             // If build is actively working, return error
             return reply.status(HTTP_STATUS.CONFLICT).send({
               error: 'Conflict',
@@ -396,10 +395,7 @@ export class DispatcherService {
       if (
         'success' in precheckResponse &&
         precheckResponse.success &&
-        (precheckResponse.status === 'stable' ||
-          precheckResponse.status === 'updating' ||
-          precheckResponse.status === 'creating' ||
-          precheckResponse.status === 'error')
+        isEditableDevServer(precheckResponse.status)
       ) {
         // Get current build ID and update last_touched timestamp
         const currentBuildId = await this.cache.get(
@@ -531,10 +527,7 @@ export class DispatcherService {
             success: true,
             status: existingBuild.status,
             viewing_url: this.normalizeUrl(
-              existingBuild.status === 'stable' ||
-                existingBuild.status === 'updating' ||
-                existingBuild.status === 'creating' ||
-                existingBuild.status === 'error'
+              isEditableDevServer(existingBuild.status)
                 ? existingBuild.url
                 : this.getS3Url(prototype_id),
             ),
