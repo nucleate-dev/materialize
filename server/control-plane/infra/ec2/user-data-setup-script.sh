@@ -38,6 +38,56 @@ else
   yum -y install nodejs
 fi
 
+# --- Install CloudWatch Agent ---
+yum install -y amazon-cloudwatch-agent || dnf install -y amazon-cloudwatch-agent
+
+# Create CloudWatch Agent config directory if missing
+mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+
+# Create CloudWatch Agent configuration file
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/user-data.log",
+            "log_group_name": "/ec2/materialize/user-data",
+            "log_stream_name": "{instance_id}/user-data.log",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          },
+          {
+            "file_path": "/var/log/control-plane.log",
+            "log_group_name": "/ec2/materialize/control-plane",
+            "log_stream_name": "{instance_id}/control-plane.log",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          },
+          {
+            "file_path": "/var/log/control-plane.err",
+            "log_group_name": "/ec2/materialize/control-plane",
+            "log_stream_name": "{instance_id}/control-plane.err",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          }
+        ]
+      }
+    },
+    "log_stream_name": "default"
+  }
+}
+EOF
+
+# Start CloudWatch Agent with the config
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+  -s
+
 # --- Create non-root app user ---
 id -u "$APP_USER" &>/dev/null || useradd -m -r -s /bin/bash "$APP_USER"
 
