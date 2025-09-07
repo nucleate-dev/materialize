@@ -70,11 +70,7 @@ export function extractExecutionPlan(
         }
       } catch (parseError) {
         logger.debug("warn", "Failed to parse execution plan JSON:", {
-          error:
-            parseError instanceof Error
-              ? parseError.message
-              : String(parseError),
-          stack: parseError instanceof Error ? parseError.stack : undefined,
+          parseError,
         });
       }
     }
@@ -101,18 +97,13 @@ export function extractExecutionPlan(
         }
       } catch (parseError) {
         logger.debug("warn", `Failed to parse execution step ${stepId} JSON:`, {
-          error:
-            parseError instanceof Error
-              ? parseError.message
-              : String(parseError),
-          stack: parseError instanceof Error ? parseError.stack : undefined,
+          parseError,
         });
       }
     }
   } catch (error) {
     logger.debug("error", "Error extracting execution plan:", {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      error,
     });
   }
 
@@ -258,8 +249,11 @@ export function isValidPlannedOperation(
 export function logPlanningExtraction(result: PlanningExtractionResult): void {
   if (process.env.NODE_ENV === "development") {
     console.group("🎯 Planning Extraction Result");
+    // eslint-disable-next-line no-restricted-syntax
     console.log("Has Plan:", result.hasPlan);
+    // eslint-disable-next-line no-restricted-syntax
     console.log("Operations Count:", result.operations.length);
+    // eslint-disable-next-line no-restricted-syntax
     console.log("Execution Steps:", Object.keys(result.executionSteps));
 
     if (result.operations.length > 0) {
@@ -277,6 +271,7 @@ export function logPlanningExtraction(result: PlanningExtractionResult): void {
       for (const [stepId, operations] of Object.entries(
         result.executionSteps,
       )) {
+        // eslint-disable-next-line no-restricted-syntax
         console.log(`Step ${stepId} operations:`, operations.length);
       }
     }

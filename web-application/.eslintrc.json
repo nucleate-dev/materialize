@@ -1,3 +1,25 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "no-console": "off",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.object.name='console'][callee.property.name=/^(log|warn|error|info|debug)$/]",
+        "message": "Direct console usage is not allowed. Use ClientProductLogger from '@/lib/loggers/ClientProductLogger' instead. For debug logs, use logger.debug(). For analytics events, use logger.log()."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "scripts/**/*",
+        "src/app/api/**/*",
+        "src/lib/loggers/ClientProductLogger.ts"
+      ],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }
