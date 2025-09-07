@@ -247,20 +247,17 @@ export class ChatService {
       let userTier: string = ProductKeys.FREE_SUBSCRIPTION; // Default to free tier
 
       if (subscriptionError) {
-        console.error('Error fetching user subscription:', subscriptionError);
+        request.log2.error(
+          subscriptionError,
+          'Error fetching user subscription',
+          {
+            userId: userID,
+          },
+        );
         // Continue with free tier rather than failing the request
       } else if (userSubscription) {
         // User has an active subscription, determine their tier from plan_id
         userTier = userSubscription.plan_id;
-        console.log(
-          `User ${userID} is on ${userTier} tier with subscription:`,
-          userSubscription.id,
-        );
-      } else {
-        // No active subscription found, user is on free tier
-        console.log(
-          `User ${userID} has no active subscription, defaulting to free tier`,
-        );
       }
 
       if (apiUsageError) {
@@ -1676,7 +1673,9 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
               .map((contextLine, idx) => {
                 const actualLineNum = contextStart + idx + 1;
                 const isMatchedLine = actualLineNum === i + 1;
-                return `${actualLineNum.toString().padStart(3, ' ')}: ${isMatchedLine ? '→ ' : '  '}${contextLine}`;
+                return `${actualLineNum.toString().padStart(3, ' ')}: ${
+                  isMatchedLine ? '→ ' : '  '
+                }${contextLine}`;
               })
               .join('\n');
 
@@ -1736,12 +1735,18 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             dependencies: packageJson.dependencies || {},
             devDependencies: packageJson.devDependencies || {},
           },
-          message: `Successfully read package.json with ${Object.keys(packageJson.dependencies || {}).length} dependencies and ${Object.keys(packageJson.devDependencies || {}).length} devDependencies`,
+          message: `Successfully read package.json with ${
+            Object.keys(packageJson.dependencies || {}).length
+          } dependencies and ${
+            Object.keys(packageJson.devDependencies || {}).length
+          } devDependencies`,
         };
       } catch (error) {
         return {
           success: false,
-          error: `Failed to parse package.json: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: `Failed to parse package.json: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
           message:
             'package.json file exists but could not be parsed as valid JSON',
         };

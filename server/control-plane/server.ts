@@ -37,31 +37,23 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION!,
   });
 
-  // Initialize Valkey client
-  const endpointHost = process.env.CACHE_HOST!;
-  const port = parseInt(process.env.CACHE_PORT!);
-  const username = process.env.CACHE_USERNAME!;
-  const password = process.env.CACHE_PASSWORD!;
-
   const cache = await GlideClient.createClient({
-    addresses: [{ host: endpointHost, port }],
+    addresses: [
+      {
+        host: process.env.CACHE_HOST!,
+        port: parseInt(process.env.CACHE_PORT!),
+      },
+    ],
     useTLS: true,
     credentials: {
-      username,
-      password,
+      username: process.env.CACHE_USERNAME!,
+      password: process.env.CACHE_PASSWORD!,
     },
     clientName: 'control-plane',
     requestTimeout: 2000,
   });
-  console.log('Valkey cache initialized successfully');
-
-  // Initialize S3 client
   const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'us-east-2',
-    // credentials: {
-    //   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    //   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    // },
   });
 
   return { cache, ecsClient, s3Client };
