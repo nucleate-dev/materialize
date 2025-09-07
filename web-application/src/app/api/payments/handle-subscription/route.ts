@@ -115,7 +115,6 @@ export async function POST(req: NextRequest) {
  */
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
   let subscription = invoice.parent?.subscription_details?.subscription;
-  console.log("subscription: ", subscription);
   if (typeof subscription === "string") {
     subscription = await stripe.subscriptions.retrieve(subscription);
   }
@@ -133,7 +132,6 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     });
     return;
   }
-  console.log("subscription: ", subscription);
   const userId = subscription.metadata?.user_id;
 
   // update the database with the new subscription info and record the payment for access later

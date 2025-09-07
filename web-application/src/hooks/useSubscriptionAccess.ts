@@ -55,7 +55,6 @@ function getCurrentMonthPeriod() {
  *   // Show a loading spinner
  * } else if (userPlan === "pro") {
  *   // User has a pro subscription
- *   console.log(`Billing period: ${currentPeriodStart} to ${currentPeriodEnd}`);
  * } else if (userPlan === "team") {
  *   // User has a team subscription
  * } else {
@@ -93,8 +92,6 @@ export function useSubscriptionAccess() {
         setLoadingSubscriptionData(false);
         return;
       }
-
-      console.log("fetched subscription");
 
       if (data === null || data.length === 0) {
         // No active subscription found, user is on free tier

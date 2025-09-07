@@ -243,8 +243,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       // Handle successful response
       if ("success" in result && result.success) {
-        console.log("✅ Single file updated successfully in dev server");
-
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.viewing_url);
@@ -256,13 +254,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           "Failed to update file:",
           errorResponse.error || errorResponse.message,
         );
-
-        // If no active dev server, provide helpful message
-        if (errorResponse.error === "No active dev server") {
-          console.log(
-            "💡 Tip: Start a dev server first, then try saving files again",
-          );
-        }
+        // TODO: if no active dev server, provide helpful message
       }
     } catch (error) {
       console.error("Error updating file:", error);
@@ -335,8 +327,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       // Handle successful response
       if ("success" in result && result.success) {
-        console.log("✅ All files updated successfully in dev server");
-
         // Update viewing URL if provided
         if (result.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.viewing_url);

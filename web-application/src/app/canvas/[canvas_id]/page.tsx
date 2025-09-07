@@ -55,7 +55,6 @@ export default function CanvasPage() {
         return;
       }
       setCanvasDocument(data);
-      console.log("Fetched canvas document: ", data);
     }
     async function fetchSession() {
       const { data, error } = await supabase
@@ -69,7 +68,6 @@ export default function CanvasPage() {
         return;
       }
       setSessionInfo(data);
-      console.log("Fetched canvas session: ", data);
     }
 
     if (canvasId && user?.id) {
@@ -103,7 +101,6 @@ export default function CanvasPage() {
     try {
       editor.current.loadSnapshot(snapshot);
       setLoadedFromDB(true);
-      console.log("Successfully loaded snapshot from database");
     } catch (loadError) {
       console.error("Error calling loadSnapshot:", loadError);
     }
@@ -111,11 +108,8 @@ export default function CanvasPage() {
 
   // ------------------ Persistence functions -----------------------------------------------------------
   const saveCanvasDocument = useCallback(async () => {
-    console.log("Saving canvas document");
     if (!editor.current || !canvasId) return;
-    console.log("Saving canvas document 2");
     const snapshot = editor.current.getSnapshot();
-    console.log("Snapshot:", snapshot);
 
     // save document to db
     const { error: documentUploadError } = await supabase
@@ -128,8 +122,6 @@ export default function CanvasPage() {
       .eq("id", canvasDocument?.id);
     if (documentUploadError) {
       console.error("Error updating canvas document:", documentUploadError);
-    } else {
-      console.log("Canvas document updated successfully");
     }
 
     if (user != null) {
@@ -149,8 +141,6 @@ export default function CanvasPage() {
         );
       if (sessionUploadError) {
         console.error("Error updating canvas document:", sessionUploadError);
-      } else {
-        console.log("Canvas document updated successfully");
       }
     }
   }, [canvasId, editor, canvasDocument, user]);

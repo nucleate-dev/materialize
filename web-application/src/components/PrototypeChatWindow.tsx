@@ -110,10 +110,8 @@ export default function PrototypeChatWindow({
         }
         chatSession = newSession;
         setPrototypeChatSession(newSession);
-        console.log("Created new project chat session:", chatSession);
       } else {
         setPrototypeChatSession(chatSession);
-        console.log("Fetched project chat session:", chatSession);
       }
 
       // Then fetch the messages for this session
@@ -130,7 +128,6 @@ export default function PrototypeChatWindow({
 
       // Reverse to get chronological order (oldest first)
       setPrototypeChatMessages(messagesData?.reverse() || []);
-      console.log("Fetched chat messages:", messagesData);
     }
 
     if (prototypeId && userId) {
@@ -156,7 +153,6 @@ export default function PrototypeChatWindow({
           console.error("Error fetching message count:", error);
           setMessageCount(0);
         } else {
-          console.log("Fetched message count:", count);
           setMessageCount(count || 0);
         }
       } catch (error) {
@@ -262,7 +258,6 @@ export default function PrototypeChatWindow({
             }
 
             case "dispatch_start": {
-              console.log("Received dispatch_start event");
               // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
               // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
               clearChatIntent();
@@ -270,7 +265,6 @@ export default function PrototypeChatWindow({
             }
 
             case "dispatch_complete": {
-              console.log("Received dispatch_complete event");
               break;
             }
 
@@ -386,7 +380,6 @@ export default function PrototypeChatWindow({
 
               // Save final updated files
               if (data.updatedFiles) {
-                console.log("[CHAT WINDOW] Saving final updated files");
                 await onFilesUpdate(data.updatedFiles);
               }
 
@@ -410,14 +403,12 @@ export default function PrototypeChatWindow({
 
             case "usage_update": {
               // Update the local message count with the value returned from the API
-              console.log("Received usage update:", data.messageCount);
               setMessageCount(data.messageCount);
               break;
             }
 
             case "viewing_url": {
               // Handle viewing URL update from dispatcher
-              console.log("Received viewing URL:", data.viewing_url);
               if (onViewingUrlUpdate && data.viewing_url) {
                 onViewingUrlUpdate(data.viewing_url);
               }
@@ -520,7 +511,6 @@ export default function PrototypeChatWindow({
 
       // Check if user is at limit before sending
       if (isAtLimit) {
-        console.log("Message not sent: user has reached their limit");
         setIsChatLoading(false);
         return;
       }
@@ -567,18 +557,6 @@ export default function PrototypeChatWindow({
           prototype_id: prototypeId || "",
         };
 
-        console.log("📋 [CLIENT] Chat request body:", {
-          messagesCount: serverMessages.length,
-          snackFilesCount: Object.keys(files).length,
-          chat_session_id: prototypeChatSession.id,
-          prototype_id: prototypeId,
-        });
-        console.log("🔑 [CLIENT] Headers:", {
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-          Authorization: `Bearer ${session.session.access_token?.substring(0, 20)}...`,
-        });
-
         // Make a single streaming request that handles both planning and execution
         const streamingResponse = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
@@ -593,12 +571,6 @@ export default function PrototypeChatWindow({
             body: JSON.stringify(requestBody),
           },
         );
-
-        console.log("📡 [CLIENT] Response received:", {
-          status: streamingResponse.status,
-          statusText: streamingResponse.statusText,
-          headers: Object.fromEntries(streamingResponse.headers.entries()),
-        });
 
         if (!streamingResponse.ok) {
           // Try to parse error response
@@ -683,7 +655,6 @@ export default function PrototypeChatWindow({
 
         // Clear the local state
         setPrototypeChatMessages([]);
-        console.log("Chat cleared successfully");
       } catch (error) {
         console.error("Error clearing chat:", error);
       }
@@ -697,7 +668,6 @@ export default function PrototypeChatWindow({
     // Send chat intent if present in localStorage
     const intent = getChatIntent(prototypeId);
     if (intent && !isChatLoading && files && assets) {
-      console.log("🔍 [CHAT WINDOW INTENT] Sending chat intent:", intent);
       handleSendMessage(intent.message);
     }
   }, [
@@ -708,23 +678,6 @@ export default function PrototypeChatWindow({
     files,
     assets,
   ]);
-
-  // Debug logging for messages
-  useEffect(() => {
-    console.log("🔍 [CHAT WINDOW] prototypeChatMessages updated:", {
-      count: prototypeChatMessages.length,
-      messages: prototypeChatMessages.map((msg) => ({
-        id: msg.id,
-        role: msg.role,
-        phase: msg.phase || "no_phase",
-        contentPreview: msg.content.substring(0, 100) + "...",
-      })),
-    });
-    console.log(
-      "🔍 [CHAT WINDOW] Full message objects:",
-      prototypeChatMessages,
-    );
-  }, [prototypeChatMessages]);
 
   return (
     <>

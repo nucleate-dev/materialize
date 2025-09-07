@@ -136,8 +136,6 @@ export default function PublicPrototypeHeader({
         return;
       }
 
-      console.log("sourish sending request to server creation route");
-
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: "POST",
         headers: {

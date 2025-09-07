@@ -56,15 +56,6 @@ export default function ChatWindow({
   loadingUsageCount = false,
   currentRenderStatus = "Static build",
 }: ChatWindowProps) {
-  // Debug logging for messages
-  useEffect(() => {
-    console.log("🔍 [CHAT WINDOW COMPONENT] Received messages:", {
-      count: messages.length,
-      messageIds: messages.map((m) => m.id),
-      roles: messages.map((m) => m.role),
-      phases: messages.map((m) => m.phase || "no_phase"),
-    });
-  }, [messages]);
   const [input, setInput] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
