@@ -22,8 +22,8 @@ import {
   PLANNING_PROMPT,
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
-import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
+import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
@@ -49,6 +49,16 @@ interface FileManagerInterface {
     operation?: string;
     message?: string;
     files?: Array<{ filePath: string; name: string; exists: boolean }>;
+    results?: Array<{
+      filePath: string;
+      lineNumber: number;
+      context: string;
+      matchedLine: string;
+    }>;
+    dependencies?: {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
   };
   getFinalState(): PrototypeFiles;
 }
@@ -304,12 +314,6 @@ export class ChatService {
               controller,
               encoder,
             );
-
-            console.log(
-              '🧠 [ChatService] Planning result:',
-              JSON.stringify(planningResult, null, 2),
-            );
-
             // ------------------------------------------------------------------------------------------------
             // 8. EXECUTE EXECUTION PHASE
             // ------------------------------------------------------------------------------------------------
@@ -1415,12 +1419,16 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
       console.log(`🔧 TOOL CALL: ${name}`, {
         filePath: args?.filePath ?? '',
+        filePaths: args?.filePaths ?? '',
         query: args?.query ?? '',
       });
 
       switch (name) {
         case 'read_file':
           return this.readFile(args.filePath as string);
+
+        case 'read_files':
+          return this.readFiles(args.filePaths as string[]);
 
         case 'write_file':
           return this.writeFile(
@@ -1462,6 +1470,49 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
         filePath,
         contents: file.contents || '',
         exists: true,
+      };
+    }
+
+    readFiles(filePaths: string[]): {
+      success: boolean;
+      files: Array<{ filePath: string; name: string; exists: boolean }>;
+      message: string;
+      contents?: string;
+    } {
+      const results = filePaths.map((filePath) => {
+        const file = this.files.get(filePath);
+        if (!file) {
+          return {
+            filePath,
+            name: filePath.split('/').pop() || filePath,
+            exists: false,
+          };
+        }
+        return {
+          filePath,
+          name: file.name || filePath.split('/').pop() || filePath,
+          exists: true,
+        };
+      });
+
+      const successCount = results.filter((r) => r.exists).length;
+      const errorCount = results.filter((r) => !r.exists).length;
+
+      // Build a combined contents string for all files
+      const fileContents = filePaths
+        .map((filePath) => {
+          const file = this.files.get(filePath);
+          if (!file) return null;
+          return `--- ${filePath} ---\n${file.contents || ''}\n`;
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      return {
+        success: successCount > 0,
+        files: results,
+        message: `Successfully read ${successCount} files${errorCount > 0 ? `, ${errorCount} files not found` : ''}`,
+        contents: fileContents || undefined,
       };
     }
 
@@ -1692,6 +1743,16 @@ const MODEL_TOOLS = {
     description: 'Read the contents of a specific file in the project',
     inputSchema: z.object({
       filePath: z.string().describe('The file path to read'),
+    }),
+    execute: async (): Promise<void> => {
+      throw new Error('Tool execution should be handled by file manager');
+    },
+  },
+  read_files: {
+    description:
+      'Read the contents of multiple files in the project at once (faster than multiple read_file calls)',
+    inputSchema: z.object({
+      filePaths: z.array(z.string()).describe('Array of file paths to read'),
     }),
     execute: async (): Promise<void> => {
       throw new Error('Tool execution should be handled by file manager');
