@@ -39,6 +39,7 @@ import {
   isEditableDevServer,
 } from '../utils/prototypeDevServerStatusUtils.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 
 dotenv.config();
 
@@ -159,8 +160,6 @@ export class DispatcherService {
       request.body;
     const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
-    console.log(`Processing dispatch request for prototype: ${prototype_id}`);
-
     // 2. Authentication and authorization validation
     const authResult = await checkUserHasPrototypeEditAccess(prototype_id, jwt);
     if (!authResult || !authResult.canEdit) {
@@ -170,8 +169,11 @@ export class DispatcherService {
           'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
       });
     }
-
-    console.log('User access validation successful');
+    // update logger context
+    request.log2 = request.log2.child({
+      userId: authResult.user.id,
+      prototypeId: prototype_id,
+    });
 
     try {
       const currentTime = Math.floor(Date.now() / 1000);
@@ -183,7 +185,9 @@ export class DispatcherService {
 
       let shouldCreateNewBuild = true;
       if (currentBuildId) {
-        console.log('Current build ID found: ', currentBuildId);
+        request.log2.consoleLogDevOnly('info', 'Current build ID found: ', {
+          currentBuildId,
+        });
         const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
 
@@ -199,7 +203,8 @@ export class DispatcherService {
 
           // If build is cleaning or building, proceed with new build
           if (isDevServerInShutdownStages(existingBuild.status)) {
-            console.log(
+            request.log2.consoleLogDevOnly(
+              'info',
               `Existing devserver ${currentBuildId} is cleaning or building, creating new devserver`,
             );
             shouldCreateNewBuild = true;
@@ -221,7 +226,7 @@ export class DispatcherService {
       let updatedBuildCacheData: ActiveBuild;
 
       if (shouldCreateNewBuild) {
-        console.log('Creating new build');
+        request.log2.consoleLogDevOnly('info', 'Creating new build');
         const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
           .toString(36)
           .substr(2, 9)}`;
@@ -236,17 +241,11 @@ export class DispatcherService {
 
         // Set the new build as active
         await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
-
-        console.log('Set cache data active build: ', buildId);
-
         // Update current pointer
         await this.cache.set(
           CACHE_KEYS.protoCurrentBuild(prototype_id),
           buildId,
         );
-
-        console.log('Set cache data current build: ', buildId);
-
         // Add to builds ZSET
         await this.cache.customCommand([
           'ZADD',
@@ -254,13 +253,30 @@ export class DispatcherService {
           currentTime.toString(),
           buildId,
         ]);
+        request.log2.consoleLogDevOnly(
+          'info',
+          'Creating a new build. Setting cache data:',
+          {
+            activeBuildData: newBuildCacheData,
+            currentBuildPointer: buildId,
+            buildSetAddition: {
+              timestamp: currentTime.toString(),
+              buildId: buildId,
+            },
+          },
+        );
 
-        console.log('Set cache data builds zset for this prototype: ', buildId);
-
-        console.log('Launching new fargate instance');
-        const newFargateInstance =
-          await this.launchFargateInstance(prototype_id);
-        console.log('Fargate instance launched: ', newFargateInstance);
+        request.log2.consoleLogDevOnly(
+          'info',
+          'Launching new fargate instance',
+        );
+        const newFargateInstance = await this.launchFargateInstance(
+          prototype_id,
+          request.log2,
+        );
+        request.log2.info('Successfully launched new fargate instance: ', {
+          newFargateInstance,
+        });
 
         updatedBuildCacheData = {
           ...newBuildCacheData,
@@ -270,7 +286,7 @@ export class DispatcherService {
         };
       } else {
         // Reuse existing build
-        console.log('Reusing existing build');
+        request.log2.consoleLogDevOnly('info', 'Reusing existing build');
         activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
         const existingBuildJson = await this.cache.get(activeBuildKey);
         const parsedBuild = JSON.parse(existingBuildJson as string);
@@ -295,8 +311,6 @@ export class DispatcherService {
       );
       // NOTE: at this point, there should always be an active build, with status "updating"
 
-      console.log('Set cache data active build: ', activeBuildKey);
-
       // Dispatch request to fargate instance
       const requestBody = await this.constructRequestBody({
         prototype_id,
@@ -304,20 +318,33 @@ export class DispatcherService {
         files,
         assets,
         file_scope,
+        log2: request.log2,
       });
 
       try {
-        console.log(
-          'Dispatching request to fargate instance: ',
-          activeBuildKey,
+        request.log2.info(
+          `Dispatching request to fargate instance at ${updatedBuildCacheData.fargate_private_ip}:3002/dev-server: `,
+          {
+            requestBodyDetails: {
+              prototypeId: prototype_id,
+              fileCount: files.length,
+              assetCount: assets.length,
+              fileScope: file_scope,
+              activeBuildKey,
+            },
+          },
         );
         const fargateResponse =
           await this.dispatchFormedRequestToFargateInstanceServer(
             updatedBuildCacheData.fargate_private_ip,
             requestBody,
+            request.log2,
           );
 
-        console.log('Fargate responded: ', fargateResponse);
+        request.log2.info(
+          'Fargate responded: ' + JSON.stringify(fargateResponse, null, 2),
+          { fargateResponse },
+        );
         updatedBuildCacheData.status = 'stable';
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
@@ -338,6 +365,9 @@ export class DispatcherService {
         ]);
 
         console.log(updatedBuildCacheData);
+        request.log2.info('Updated build cache data: ', {
+          activeBuildCacheData: updatedBuildCacheData,
+        });
 
         if (fargateResponse.status === 'success') {
           return reply.status(HTTP_STATUS.OK).send({
@@ -356,7 +386,8 @@ export class DispatcherService {
         }
       } catch (error) {
         const e = error instanceof Error ? error : new Error(String(error));
-        console.log(
+        request.log2.error(
+          error,
           'There was an error dispatching the request to the fargate instance',
         );
         updatedBuildCacheData.status = 'error';
@@ -373,7 +404,7 @@ export class DispatcherService {
       }
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      console.error('Dispatch request failed:', e);
+      request.log2.error(error, 'Dispatch request failed');
 
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
@@ -388,10 +419,9 @@ export class DispatcherService {
   ): Promise<DispatchPrecheckResponse> {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
-
-    console.log(
-      `Processing edit intent request for prototype: ${prototype_id}`,
-    );
+    request.log2 = request.log2.child({
+      prototypeId: prototype_id,
+    });
 
     try {
       // 2. Make a call to dispatch precheck to get the precheck response
@@ -446,8 +476,9 @@ export class DispatcherService {
                 buildIdFromKey,
               ]);
 
-              console.log(
-                `Updated last_touched timestamp for build: ${currentBuildId}`,
+              request.log2.consoleLogDevOnly(
+                'info',
+                `[handleDispatchEditIntent] Updated last_touched timestamp for build: ${currentBuildId}`,
               );
             }
           }
@@ -458,7 +489,10 @@ export class DispatcherService {
       return precheckResponse;
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      console.error('Edit intent request failed:', e);
+      request.log2.error(
+        error,
+        '[handleDispatchEditIntent] Edit intent request failed',
+      );
 
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
@@ -474,8 +508,6 @@ export class DispatcherService {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
 
-    console.log(`Processing precheck request for prototype: ${prototype_id}`);
-
     // 2. Authentication and authorization validation
     const authResult = await checkUserHasPrototypeEditAccess(prototype_id, jwt);
     if (!authResult || !authResult.canEdit) {
@@ -485,6 +517,11 @@ export class DispatcherService {
           'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
       });
     }
+    // update logger context
+    request.log2 = request.log2.child({
+      userId: authResult.user.id,
+      prototypeId: prototype_id,
+    });
 
     try {
       // Check current build pointer
@@ -526,9 +563,8 @@ export class DispatcherService {
         viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
       };
     } catch (error) {
+      request.log2.error(error, '[handleDispatchPrecheck] Precheck failed');
       const e = error instanceof Error ? error : new Error(String(error));
-      console.error('Precheck cache operation failed:', e);
-
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
         message: e.message,
@@ -610,6 +646,7 @@ export class DispatcherService {
 
   private async launchFargateInstance(
     prototypeId: string,
+    log2: SystemLogger,
   ): Promise<FargateInstanceInfo> {
     try {
       const runTaskInput = {
@@ -657,8 +694,8 @@ export class DispatcherService {
 
       if (response.tasks && response.tasks.length > 0) {
         const taskArn = response.tasks[0].taskArn!;
-        console.log(
-          `Successfully launched Fargate task: ${taskArn} for prototype: ${prototypeId}`,
+        log2.info(
+          `[launchFargateInstance] Successfully initiated Fargate Task Launch: ${taskArn} for prototype: ${prototypeId}`,
         );
 
         // Wait for task to be running and get private IP
@@ -673,7 +710,10 @@ export class DispatcherService {
           },
         );
 
-        console.log('ECS client informed us that the task is running');
+        log2.consoleLogDevOnly(
+          'info',
+          `[launchFargateInstance] ECS client informed us that the task is running`,
+        );
 
         // Describe the task to get the private IP
         const describeCommand = new DescribeTasksCommand({
@@ -713,12 +753,9 @@ export class DispatcherService {
   private async dispatchFormedRequestToFargateInstanceServer(
     fargatePrivateIp: string,
     requestBody: StartDevServerRequestBody,
+    log2: SystemLogger,
   ): Promise<FargateDevServerResponse> {
     try {
-      console.log(
-        `Dispatching request to fargate instance at ${fargatePrivateIp}:3002/dev-server`,
-      );
-
       const response = await axios.post(
         `http://${fargatePrivateIp}:3002/dev-server`,
         requestBody,
@@ -729,11 +766,9 @@ export class DispatcherService {
           },
         },
       );
-
-      console.log('Fargate instance responded successfully');
       return response.data as FargateDevServerResponse;
     } catch (error) {
-      console.error('Error dispatching request to fargate instance:', error);
+      log2.error(error, 'Error dispatching request to fargate instance: ');
       return {
         status: 'error',
         tunnel_url: undefined,
@@ -749,24 +784,29 @@ export class DispatcherService {
     files,
     assets,
     file_scope,
+    log2,
   }: {
     prototype_id: string;
     framework: Framework;
     files: PrototypeFileInput[];
     assets: PrototypeAssetInput[];
     file_scope: FileScope;
+    log2: SystemLogger;
   }): Promise<StartDevServerRequestBody> {
     // Convert prototype assets to FileInput format by downloading and encoding
     const assetInputs: PrototypeAssetInputWithContent[] = [];
+    log2.info(`[constructRequestBody] Converting assets to base64 format: `, {
+      assetCount: assets.length,
+    });
     for (const asset of assets) {
       try {
-        console.log(
-          `🔍 Converting asset ${asset.name} from storage_url: ${asset.storage_url}`,
-        );
         const response = await fetch(asset.storage_url);
         if (!response.ok) {
-          console.error(
-            `Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
+          log2.error(
+            new Error(
+              `Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
+            ),
+            `[constructRequestBody] Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
           );
           continue;
         }
@@ -777,9 +817,11 @@ export class DispatcherService {
           ...asset,
           contents: base64Content,
         });
-        console.log(`✅ Successfully converted asset: ${asset.name}`);
       } catch (error) {
-        console.error(`Error converting asset ${asset.name}:`, error);
+        log2.error(
+          error,
+          `[constructRequestBody] Error converting asset ${asset.name}:`,
+        );
       }
     }
 
