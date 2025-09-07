@@ -9,7 +9,7 @@ export type LoggerContext = {
   requestId?: string; // x-request-id or generated
   traceId?: string; // upstream trace (e.g., from gateway)
   userId?: string; // auth'd user
-  prototypeId?: string; // your domain entity
+  prototypeId?: string; // prototype id
   route?: string; // /api/xyz
   method?: string; // GET/POST
   service?: string; // "control-plane" / "build-worker"
@@ -145,9 +145,29 @@ export class SystemLogger {
     this.info(`event:${name}`, { event: name, ...fields });
   }
 
-  consoleLogDevOnly(msg: string): void {
-    if (process.env.NODE_ENV === 'DEV') {
-      return console.log(msg);
+  consoleLogDevOnly(
+    level: LogLevel,
+    message: string,
+    additionalData?: Record<string, unknown>,
+  ): void {
+    if (process.env.NODE_ENV !== 'development') return;
+
+    const logData = additionalData ? { message, ...additionalData } : message;
+
+    switch (level) {
+      case 'error':
+        console.error(logData);
+        break;
+      case 'warn':
+        console.warn(logData);
+        break;
+      case 'debug':
+        console.debug(logData);
+        break;
+      case 'info':
+      default:
+        console.log(logData);
+        break;
     }
   }
 
