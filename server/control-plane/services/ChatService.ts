@@ -10,8 +10,6 @@ import type {
   ChatRequestBody,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
-  DispatchRequestBody,
-  DispatchResponse,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
@@ -358,57 +356,39 @@ export class ChatService {
             );
 
             try {
-              let tempDispatchResponse;
-              if (
-                'state' in precheckData &&
-                precheckData.state === 'active_dev_server'
-              ) {
-                tempDispatchResponse = await this.fastifyApp.inject({
-                  method: 'POST',
-                  url: '/dispatch',
-                  payload: {
-                    jwt: token,
-                    prototype_id: prototype_id,
-                    framework: 'expo_react_native',
-                    files: finalFilesForDispatch,
-                    assets: [],
-                    file_scope: 'updates',
-                    hot_reload: true,
-                  } as DispatchRequestBody,
-                });
-              } else {
-                // If there is no active dev server, we need to dispatch the complete set of files and assets
-                tempDispatchResponse = await this.fastifyApp.inject({
-                  method: 'POST',
-                  url: '/dispatch',
-                  payload: {
-                    jwt: token,
-                    prototype_id: prototype_id,
-                    framework: 'expo_react_native',
-                    files: finalFilesForDispatch,
-                    assets: Object.entries(inputAssets || {})
-                      .map(([, asset]) => {
-                        return asset;
-                      })
-                      .filter((asset) => asset !== null),
-                    file_scope: 'complete',
-                    hot_reload: true,
-                  } as DispatchRequestBody,
-                });
+              // Use the same pattern as CodeEditor - call /files/update-files endpoint
+              const updateResponse = await this.fastifyApp.inject({
+                method: 'POST',
+                url: '/files/update-files',
+                payload: {
+                  files: finalFilesForDispatch,
+                  assets: [], // update-files only deals with text files
+                  prototype_id: prototype_id,
+                },
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              if (updateResponse.statusCode !== 200) {
+                const errorData = JSON.parse(updateResponse.payload);
+                console.error('Update files request failed:', errorData);
+                throw new Error(
+                  `Update failed: ${errorData.message || 'Unknown error'}`,
+                );
               }
 
-              const dispatchData: DispatchResponse = JSON.parse(
-                tempDispatchResponse.payload,
-              );
-              console.log('=� Dispatch endpoint response:', dispatchData);
+              const updateData = JSON.parse(updateResponse.payload);
+              console.log('=� Update files endpoint response:', updateData);
 
               // Stream the viewing URL to the client
-              if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
+              if ('viewing_url' in updateData && updateData.viewing_url) {
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({
                       type: 'viewing_url',
-                      viewing_url: dispatchData.viewing_url,
+                      viewing_url: updateData.viewing_url,
                     })}\n\n`,
                   ),
                 );
@@ -420,12 +400,12 @@ export class ChatService {
                   `data: ${JSON.stringify({
                     type: 'dispatch_complete',
                     success: true,
-                    message: 'Build process completed successfully',
+                    message: 'Files updated successfully',
                   })}\n\n`,
                 ),
               );
             } catch (error) {
-              console.error('L Error calling dispatch endpoint:', error);
+              console.error('L Error calling update-files endpoint:', error);
 
               // Stream dispatch completion event for error case
               controller.enqueue(
@@ -433,7 +413,7 @@ export class ChatService {
                   `data: ${JSON.stringify({
                     type: 'dispatch_complete',
                     success: false,
-                    message: 'Build process failed',
+                    message: 'File update failed',
                     error:
                       error instanceof Error ? error.message : 'Unknown error',
                   })}\n\n`,
