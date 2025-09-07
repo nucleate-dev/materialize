@@ -5,6 +5,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   ChatErrorResponse,
   ChatRequestBody,
@@ -199,7 +200,11 @@ export class ChatService {
         chat_session_id,
         prototype_id,
       } = request.body;
-      const fileManager = new this.FileManager(inputFiles, prototype_id);
+      const fileManager = new this.FileManager(
+        inputFiles,
+        request.log2,
+        prototype_id,
+      );
 
       // ------------------------------------------------------------------------------------------------
       // 2. must be an AUTHORIZED user with prototype edit access
@@ -220,6 +225,10 @@ export class ChatService {
         } as ChatErrorResponse);
       }
       const user = authResult.user;
+      // update logger context
+      request.log2 = request.log2.child({
+        userId: user.id,
+      });
 
       // ------------------------------------------------------------------------------------------------
       // 3. Fetch user subscription and paywall the user if needed
@@ -240,10 +249,6 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
       // ------------------------------------------------------------------------------------------------
-      const supabase = createClient<Database>(
-        this.supabaseUrl,
-        this.supabaseServiceKey,
-      );
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-edit-intent',
@@ -256,7 +261,6 @@ export class ChatService {
       const precheckData: DispatchPrecheckResponse = JSON.parse(
         precheckResponse.payload,
       );
-      console.log('Dispatch precheck response:', precheckData);
 
       if (
         'success' in precheckData &&
@@ -275,13 +279,14 @@ export class ChatService {
       let userMessage = lastMessage.content;
 
       // Always inject project context if available (prevents LLM hallucination)
-      console.log('<� Injecting Expo Snack project context for development...');
-      const projectContext = this.getProjectContext(inputFiles);
+      const projectContext = this.getProjectContext(inputFiles, request.log2);
       if (projectContext) {
         userMessage += projectContext;
-        console.log(' Expo Snack project context successfully injected');
       } else {
-        console.log('� No relevant Expo Snack files found to inject');
+        request.log2.consoleLogDevOnly(
+          'warn',
+          '[handleChat] No relevant Expo Snack files found to inject',
+        );
       }
 
       // Check if this request expects streaming (new flow)
@@ -302,7 +307,10 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 7. Execute planning phase
             // ------------------------------------------------------------------------------------------------
-            console.log('🧠 [SERVER] Starting planning phase...');
+            request.log2.consoleLogDevOnly(
+              'info',
+              '[handleChat] Starting planning phase...',
+            );
             const planningResult = await this.handlePlanningPhase(
               messages,
               userMessage,
@@ -311,11 +319,26 @@ export class ChatService {
               chat_session_id,
               controller,
               encoder,
+              request.log2,
             );
+
+            request.log2.consoleLogDevOnly(
+              'info',
+              '🧠 [handleChat] Planning result:',
+              { planningResult },
+            );
+
             // ------------------------------------------------------------------------------------------------
             // 8. EXECUTE EXECUTION PHASE
             // ------------------------------------------------------------------------------------------------
-            console.log('⚙️ [ChatService] Starting execution phase...');
+            request.log2.consoleLogDevOnly(
+              'info',
+              '[handleChat] Starting execution phase...',
+            );
+            const supabase = createClient<Database>(
+              this.supabaseUrl,
+              this.supabaseServiceKey,
+            );
             await this.handleExecutionPhase(
               supabase,
               planningResult,
@@ -326,6 +349,7 @@ export class ChatService {
               controller,
               encoder,
               chat_session_id,
+              request.log2,
             );
 
             // ------------------------------------------------------------------------------------------------
@@ -349,11 +373,6 @@ export class ChatService {
                 ...file,
               });
             });
-
-            console.log(
-              ' Final files for dispatch:',
-              finalFilesForDispatch.map((file) => file.name),
-            );
 
             try {
               // Use the same pattern as CodeEditor - call /files/update-files endpoint
@@ -380,7 +399,6 @@ export class ChatService {
               }
 
               const updateData = JSON.parse(updateResponse.payload);
-              console.log('=� Update files endpoint response:', updateData);
 
               // Stream the viewing URL to the client
               if ('viewing_url' in updateData && updateData.viewing_url) {
@@ -405,7 +423,11 @@ export class ChatService {
                 ),
               );
             } catch (error) {
-              console.error('L Error calling update-files endpoint:', error);
+              request.log2.error(
+                error,
+                '[handleChat] Error calling dispatch endpoint:',
+                { userId: user.id },
+              );
 
               // Stream dispatch completion event for error case
               controller.enqueue(
@@ -442,15 +464,13 @@ export class ChatService {
               .gte('created_at', periodStart)
               .lte('created_at', periodEnd);
             if (countError) {
-              console.error(
-                'Error fetching updated message count:',
-                countError,
+              request.log2.consoleLogDevOnly(
+                'error',
+                '[handleChat] Error fetching updated message count:',
+                { countError },
               );
             }
             updatedMessageCount = newCount || 0;
-            console.log(
-              `Updated message count for user ${user.id}: ${updatedMessageCount}`,
-            );
 
             // Send updated message count to client
             controller.enqueue(
@@ -477,19 +497,27 @@ export class ChatService {
                     value: '1',
                   },
                 });
-                console.log(
-                  `Stripe meter event successfully sent for pro user ${user.id}`,
-                );
               } catch (stripeError) {
-                console.error('Error sending Stripe meter event:', stripeError);
-                // Don't fail the request if Stripe meter event fails
+                request.log2.error(
+                  stripeError,
+                  '[handleChat] Error sending Stripe meter event:',
+                  {
+                    userId: user.id,
+                    stripeCustomerId: paywallResult.stripeCustomerId,
+                  },
+                );
               }
             }
 
-            console.log('🔚 [SERVER] Stream controller closing normally');
             controller.close();
           } catch (error) {
-            console.error('💥 [SERVER] Streaming error in controller:', error);
+            request.log2.error(
+              error,
+              '[handleChat] Streaming error in controller:',
+              {
+                userId: user.id,
+              },
+            );
             try {
               controller.enqueue(
                 encoder.encode(
@@ -503,17 +531,18 @@ export class ChatService {
                 ),
               );
             } catch (enqueueError) {
-              console.error(
-                '💥 [SERVER] Failed to enqueue error message:',
-                enqueueError,
+              request.log2.consoleLogDevOnly(
+                'error',
+                '[handleChat] Failed to enqueue error message:',
+                { enqueueError },
               );
             }
             try {
               controller.close();
             } catch (closeError) {
-              console.error(
-                '💥 [SERVER] Failed to close controller:',
+              request.log2.error(
                 closeError,
+                '[handleChat] Failed to close controller:',
               );
             }
           }
@@ -535,13 +564,8 @@ export class ChatService {
           while (true) {
             const { done, value } = await reader.read();
             if (done) {
-              console.log('🔚 [SERVER] Stream completed successfully');
               break;
             }
-            console.log(
-              '📤 [SERVER] Writing stream chunk:',
-              new TextDecoder().decode(value).substring(0, 100) + '...',
-            );
             reply.raw.write(value);
           }
         } catch (err) {
@@ -554,7 +578,6 @@ export class ChatService {
           })}\n\n`;
           reply.raw.write(errorEvent);
         } finally {
-          console.log('🔚 [SERVER] Ending response stream');
           reply.raw.end();
         }
       };
@@ -579,6 +602,7 @@ export class ChatService {
     chat_session_id: string,
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
+    log2: SystemLogger,
   ): Promise<string> {
     const supabase = createClient<Database>(
       this.supabaseUrl,
@@ -609,8 +633,9 @@ export class ChatService {
     // Handle tool calls iteratively for planning
     while (response.toolCalls && response.toolCalls.length > 0) {
       toolCallsMade += response.toolCalls.length;
-      console.log(
-        `= Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
+      log2.consoleLogDevOnly(
+        'info',
+        `[handlePlanningPhase] Processing ${response.toolCalls.length} tool calls (total: ${toolCallsMade})`,
       );
 
       // Check for duplicate tool calls
@@ -626,7 +651,10 @@ export class ChatService {
           lastToolCall.name === currentCall.name &&
           lastToolCall.args === currentCall.args
         ) {
-          console.log('=� Detected duplicate tool call');
+          log2.consoleLogDevOnly(
+            'warn',
+            '[handlePlanningPhase] Detected duplicate tool call',
+          );
 
           // If we have a valid plan, break the loop
           const hasValidPlan =
@@ -634,13 +662,17 @@ export class ChatService {
             finalResponse.includes('[') &&
             finalResponse.includes(']');
           if (hasValidPlan) {
-            console.log(' Valid plan detected, proceeding');
+            log2.consoleLogDevOnly(
+              'info',
+              '[handlePlanningPhase] Valid plan detected, proceeding',
+            );
             finalResponse +=
               '\n\n Planning complete. Proceeding with execution.';
             break;
           } else {
             // Give the model feedback about duplicate tool calls and ask it to reflect
-            console.log(
+            log2.consoleLogDevOnly(
+              'warn',
               '� No valid plan yet, asking model to reflect on duplicate calls',
             );
 
@@ -676,7 +708,8 @@ export class ChatService {
 
             // If it still tries to make tool calls after reflection, force completion
             if (response.toolCalls && response.toolCalls.length > 0) {
-              console.log(
+              log2.consoleLogDevOnly(
+                'warn',
                 '� Model still trying to make tool calls after reflection, forcing plan creation',
               );
               finalResponse +=
@@ -706,7 +739,11 @@ export class ChatService {
             result: JSON.stringify(result),
           });
         } catch (error) {
-          console.error(`L Tool call failed: ${toolCall.toolName}`, error);
+          log2.error(
+            error,
+            `[handlePlanningPhase] Tool call failed: ${toolCall.toolName}`,
+            { toolCallId: toolCall.toolCallId },
+          );
           toolResults.push({
             toolCallId: toolCall.toolCallId,
             result: JSON.stringify({
@@ -726,8 +763,10 @@ export class ChatService {
       if (toolCallsMade % 5 === 0) {
         // Sourish: "toolCallsMade" is being incremented based on the # of tool calls per response. Is that always 1? If not,
         // this condition may never be true actually
-        const projectContextContinuation =
-          this.getProjectContext(convertedFiles);
+        const projectContextContinuation = this.getProjectContext(
+          convertedFiles,
+          log2,
+        );
         if (projectContextContinuation) {
           continuationMessage += projectContextContinuation;
         }
@@ -773,10 +812,9 @@ export class ChatService {
       finalResponse.includes(']');
 
     if (!hasValidPlan) {
-      console.log(
-        '�[ChatService] No valid execution plan found, generating fallback plan',
+      log2.info(
+        '[handlePlanningPhase] No valid execution plan found, generating fallback plan',
       );
-
       const fallbackResponse = await generateText({
         model: this.google('gemini-2.5-flash'),
         system:
@@ -802,14 +840,8 @@ export class ChatService {
           },
         ],
       });
-
       finalResponse += '\n\n' + fallbackResponse.text;
     }
-
-    console.log(
-      '🧠 [ChatService] Planning phase final response:',
-      finalResponse,
-    );
 
     // Save planning message to database
     const { data: planningMessage } = await supabase
@@ -824,15 +856,6 @@ export class ChatService {
       .single();
 
     // Send planning response
-    console.log(
-      '🧠 [SERVER] Sending planning phase response to client...',
-      JSON.stringify({
-        type: 'planning',
-        content: finalResponse,
-        updatedFiles: fileManager.getFinalState(),
-        messageId: planningMessage?.id,
-      }),
-    );
     controller.enqueue(
       encoder.encode(
         `data: ${JSON.stringify({
@@ -857,6 +880,7 @@ export class ChatService {
     controller: ReadableStreamDefaultController<Uint8Array>,
     encoder: TextEncoder,
     chat_session_id: string,
+    log2: SystemLogger,
   ): Promise<void> {
     // Check if the response contains an execution plan
     if (finalResponse.includes('EXECUTION_PLAN')) {
@@ -894,10 +918,8 @@ export class ChatService {
               fileManager,
               messages,
               inputFiles,
-              prototype_id,
+              log2,
             );
-
-            console.log('🔄 [ChatService] streaming step result: ');
             // Send step completion
             controller.enqueue(
               encoder.encode(
@@ -911,7 +933,10 @@ export class ChatService {
               ),
             );
           } catch (error) {
-            console.error(`Error executing step ${i + 1}:`, error);
+            log2.error(
+              error,
+              `[handleExecutionPhase] Error executing step ${i + 1}:`,
+            );
 
             // Send step error
             controller.enqueue(
@@ -929,7 +954,6 @@ export class ChatService {
         }
 
         // Send execution complete
-        console.log('🔄 [ChatService] streaming execution complete result: ');
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
@@ -940,13 +964,15 @@ export class ChatService {
         );
 
         // Save execution summary message to database
-        console.log('🔄 [ChatService] saving execution summary to database: ');
         const executionSummary = `🎉 Execution completed! Successfully processed ${
           planningResult.operations.length
         } operations:\n\n${planningResult.operations
           .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
           .join('\n')}`;
-
+        log2.info(
+          '[handleExecutionPhase] Saving execution summary to database: ',
+          { executionSummary },
+        );
         await supabase.from('prototype_chat_messages').insert({
           chat_session_id: chat_session_id,
           content: executionSummary,
@@ -970,8 +996,7 @@ export class ChatService {
     fileManager: FileManagerInterface,
     messages: { role: string; content: string }[],
     inputFiles: PrototypeFiles | null,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _prototype_id: string,
+    log2: SystemLogger,
   ): Promise<{
     content: string;
     updatedFiles: PrototypeFiles;
@@ -1002,7 +1027,7 @@ MANDATORY: Before creating this screen, you MUST:
     let userMessage = `${context}\n\nOriginal request: ${lastMessage.content}`;
 
     // Always inject project context
-    const projectContext = this.getProjectContext(inputFiles);
+    const projectContext = this.getProjectContext(inputFiles, log2);
     if (projectContext) {
       userMessage += projectContext;
     }
@@ -1033,7 +1058,8 @@ MANDATORY: Before creating this screen, you MUST:
     // Handle tool calls iteratively
     while (response.toolCalls && response.toolCalls.length > 0) {
       toolCallsMade += response.toolCalls.length;
-      console.log(
+      log2.consoleLogDevOnly(
+        'info',
         `🔄 Processing ${response.toolCalls.length} tool calls for step ${operation.id}`,
       );
 
@@ -1050,7 +1076,8 @@ MANDATORY: Before creating this screen, you MUST:
           lastToolCall.name === currentCall.name &&
           lastToolCall.args === currentCall.args
         ) {
-          console.log(
+          log2.consoleLogDevOnly(
+            'warn',
             '🚫 Detected duplicate tool call in execution, asking for reflection',
           );
 
@@ -1105,7 +1132,8 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
           // If it still tries to make tool calls after reflection, force completion
           if (response.toolCalls && response.toolCalls.length > 0) {
-            console.log(
+            log2.consoleLogDevOnly(
+              'warn',
               '⚠️ Model still making tool calls after execution reflection, stopping',
             );
             finalResponse +=
@@ -1136,7 +1164,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             result: JSON.stringify(result),
           });
         } catch (error) {
-          console.error(`❌ Tool call failed: ${toolCall.toolName}`, error);
+          log2.error(
+            error,
+            `[executeStep] Tool call failed: ${toolCall.toolName}`,
+          );
           toolResults.push({
             toolCallId: toolCall.toolCallId,
             result: JSON.stringify({
@@ -1169,14 +1200,20 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       const isStepComplete = hasSuccessfulWriteOperation;
 
       if (isStepComplete) {
-        console.log(`✅ Step completed: ${operation.id} - ${operation.title}`);
+        log2.consoleLogDevOnly(
+          'info',
+          `✅ Step completed: ${operation.id} - ${operation.title}`,
+        );
         finalResponse += `\n\n✅ Step completed: ${operation.title}`;
         break;
       }
 
       // Prevent infinite loops
       if (toolCallsMade >= 50) {
-        console.log('⚠️ Step execution taking too long, forcing completion');
+        log2.consoleLogDevOnly(
+          'warn',
+          '⚠️ Step execution taking too long, forcing completion',
+        );
         finalResponse += `\n\n⚠️ Step execution reached maximum attempts (50). Current progress saved.`;
         break;
       }
@@ -1189,7 +1226,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       let continuationMessage = `Tool results:\n${toolResultsText}\n\nBased on the tool results, complete your assigned step. If the step is complete, provide a summary and stop.`;
       // Only inject context every 3 tool calls to avoid confusion in execution
       if (toolCallsMade % 3 === 0) {
-        const projectContextContinuation = this.getProjectContext(inputFiles);
+        const projectContextContinuation = this.getProjectContext(
+          inputFiles,
+          log2,
+        );
         if (projectContextContinuation) {
           continuationMessage += projectContextContinuation;
         }
@@ -1234,12 +1274,18 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
   }
 
   // Get project context from the Expo Snack files instead of scanning filesystem
-  private getProjectContext(inputFiles: PrototypeFiles | null): string {
+  private getProjectContext(
+    inputFiles: PrototypeFiles | null,
+    log2: SystemLogger,
+  ): string {
     try {
-      console.log('🔍 Building context from Expo Snack files...');
+      log2.consoleLogDevOnly(
+        'info',
+        '🔍 Building context from Expo Snack files...',
+      );
 
       if (!inputFiles || Object.keys(inputFiles).length === 0) {
-        console.log('� No snack files provided for context');
+        log2.consoleLogDevOnly('warn', '� No snack files provided for context');
         return '';
       }
 
@@ -1297,7 +1343,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             content: file.contents,
             category,
           });
-          console.log(` Found ${category} file in snack: ${filePath}`);
+          log2.consoleLogDevOnly(
+            'info',
+            ` Found ${category} file in snack: ${filePath}`,
+          );
         }
 
         // Include config files
@@ -1311,7 +1360,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
             content: file.contents,
             category: 'config',
           });
-          console.log(` Found config file in snack: ${filePath}`);
+          log2.consoleLogDevOnly(
+            'info',
+            ` Found config file in snack: ${filePath}`,
+          );
         }
       });
 
@@ -1351,12 +1403,15 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
         }
       }
 
-      console.log(
+      log2.consoleLogDevOnly(
+        'info',
         ` Expo Snack context built with ${relevantFiles.length} files`,
       );
       return projectContext;
     } catch (error) {
-      console.warn('Could not build Expo Snack context:', error);
+      log2.consoleLogDevOnly('error', 'Could not build Expo Snack context:', {
+        error,
+      });
       return '';
     }
   }
@@ -1367,10 +1422,16 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
   private FileManager = class {
     private files: Map<string, PrototypeFile>;
     private prototypeId: string | null;
+    private log2: SystemLogger;
 
-    constructor(convertedFiles: PrototypeFiles | null, prototypeId?: string) {
+    constructor(
+      convertedFiles: PrototypeFiles | null,
+      log2: SystemLogger,
+      prototypeId?: string,
+    ) {
       this.files = new Map(Object.entries(convertedFiles || {}));
       this.prototypeId = prototypeId || null;
+      this.log2 = log2;
     }
 
     handleToolCall(toolCall: {
@@ -1397,7 +1458,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
     } {
       const { name, arguments: args } = toolCall.function;
 
-      console.log(`🔧 TOOL CALL: ${name}`, {
+      this.log2.consoleLogDevOnly('info', `🔧 TOOL CALL: ${name}`, {
         filePath: args?.filePath ?? '',
         filePaths: args?.filePaths ?? '',
         query: args?.query ?? '',
@@ -1491,7 +1552,9 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       return {
         success: successCount > 0,
         files: results,
-        message: `Successfully read ${successCount} files${errorCount > 0 ? `, ${errorCount} files not found` : ''}`,
+        message: `Successfully read ${successCount} files${
+          errorCount > 0 ? `, ${errorCount} files not found` : ''
+        }`,
         contents: fileContents || undefined,
       };
     }
@@ -1538,7 +1601,10 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
       this.files.set(filePath, updatedFile);
 
-      console.log(`✅ Successfully ${op}d file ${filePath} in function memory`);
+      this.log2.consoleLogDevOnly(
+        'info',
+        `✅ Successfully ${op}d file ${filePath} in function memory`,
+      );
 
       // Database updates are handled by the client filesystem
       // The client will receive the updated files through the getFinalState() method

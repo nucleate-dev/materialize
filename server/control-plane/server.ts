@@ -22,7 +22,7 @@ declare module 'fastify' {
 
 export const baseLogger = new SystemLogger({
   service: 'control-plane',
-  env: process.env.NODE_ENV || 'DEV',
+  env: process.env.NODE_ENV || 'development',
   metricNamespace: 'Materialize/Service',
   redactKeys: ['authorization', 'cookie', 'x-api-key'],
 });
