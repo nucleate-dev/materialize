@@ -90,7 +90,6 @@ function AccountSettings() {
           console.error("Error fetching message count:", error);
           setMessageCount(0);
         } else {
-          console.log("Fetched message count:", count);
           setMessageCount(count || 0);
         }
       } catch (error) {

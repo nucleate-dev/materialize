@@ -67,7 +67,6 @@ export default function WhiteboardsPage() {
   }, [user, fetchCanvases]);
 
   const handleCanvasClick = (canvasId: string) => {
-    console.log(`Opening canvas ${canvasId}`);
     router.push(`/canvas/${canvasId}`);
   };
 

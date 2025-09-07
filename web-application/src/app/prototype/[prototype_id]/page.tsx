@@ -87,9 +87,7 @@ export default function PrototypePage() {
             const fetchViewData: FetchViewingUrlResponse =
               await fetchViewResponse.json();
             if ("viewing_url" in fetchViewData) {
-              console.log("Viewing URL:", fetchViewData.viewing_url);
               setViewingUrl(fetchViewData.viewing_url);
-              console.log("Source:", fetchViewData.source);
             } else {
               console.error(
                 "Error in fetch-viewing-url response:",

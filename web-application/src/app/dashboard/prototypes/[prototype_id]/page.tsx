@@ -130,14 +130,10 @@ export default function CreatePage() {
 
     async function fetchPrototypeAndStartDevServer() {
       if (!prototypeId || !shouldTriggerInitialFetch) {
-        console.log(
-          "Skipping initial fetch - no prototype ID or shouldNOTTriggerInitialFetch",
-        );
         return;
       }
 
       // 1. FETCH PROTOTYPE FROM DB
-      console.log("Fetching prototype with ID:", prototypeId);
       const { data, error } = await supabase
         .from("prototypes")
         .select("*")
@@ -179,8 +175,6 @@ export default function CreatePage() {
           const fetchViewData: FetchViewingUrlResponse =
             await fetchViewResponse.json();
           if ("viewing_url" in fetchViewData) {
-            console.log("Viewing URL:", fetchViewData.viewing_url);
-            console.log("Source:", fetchViewData.source);
             setViewingUrl(fetchViewData.viewing_url);
             if (
               fetchViewData.source === "editable_instance" &&
@@ -229,19 +223,14 @@ export default function CreatePage() {
         Object.keys(fileSystem.state.files).length === 0
       ) {
         // too soon to send files to server, we'll re-trigger this entirefunction when all files are loaded
-        console.log("Skipping auto-start dev server - files not loaded");
         return;
       }
       if (hasChatIntent(prototypeId)) {
-        console.log(
-          "Skipping auto-start dev server - chat_intent present or dev server already connected",
-        );
         setShouldTriggerInitialFetch(false);
         return;
       }
 
       try {
-        console.log("Auto-starting dev server for prototype:", prototypeId);
         setCurrentRenderStatus("Starting Dev Server..");
         const filesArray: PrototypeFile[] = Object.entries(
           fileSystem.state.files,
@@ -286,26 +275,16 @@ export default function CreatePage() {
         if (response.ok) {
           const result: StartDevServerResponse = await response.json();
           if ("success" in result && result.success) {
-            console.log("✅ Dev server auto-started successfully");
             // Update viewing URL if provided
             if (result.viewing_url) {
-              console.log(
-                "Setting viewing URL from auto-started dev server:",
-                result.viewing_url,
-              );
               setViewingUrl(result.viewing_url);
               setCurrentRenderStatus("Connected");
               return;
             }
           } else {
-            const errorMessage =
-              "error" in result ? result.error : result.message;
-            console.log("Dev server auto-start failed:", errorMessage);
             return;
           }
         } else {
-          const errorData = await response.json();
-          console.log("Dev server auto-start request failed:", errorData);
           return;
         }
       } catch {
@@ -369,7 +348,6 @@ export default function CreatePage() {
       }
 
       await navigator.clipboard.writeText(window.location.href);
-      console.log("Prototype URL copied to clipboard");
 
       // Close modal after successful copy
       setTimeout(() => {

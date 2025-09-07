@@ -155,10 +155,6 @@ const MaterializeRenderSection = forwardRef<
           }),
         );
 
-        console.log(
-          `Starting dev server for prototype ${prototypeId} with ${filesArray.length} files`,
-        );
-
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
           {
@@ -180,8 +176,6 @@ const MaterializeRenderSection = forwardRef<
         const result: StartDevServerResponse = await response.json();
 
         if (response.ok && "success" in result && result.success) {
-          console.log("✅ Dev server started successfully");
-
           // Update viewing URL if provided
           if (result.viewing_url && onViewingUrlUpdate) {
             onViewingUrlUpdate(result.viewing_url);
@@ -250,7 +244,6 @@ const MaterializeRenderSection = forwardRef<
 
     // Handle iframe loading events
     const handleIframeLoad = useCallback(() => {
-      console.log("Iframe loaded successfully");
       setIsIframeLoading(false);
       setIframeError(false);
       // Update status based on whether it's a dev server or static build
@@ -263,7 +256,6 @@ const MaterializeRenderSection = forwardRef<
     }, [viewing_url, onRenderStatusChange]);
 
     const handleIframeError = useCallback(() => {
-      console.log("Iframe failed to load");
       setIsIframeLoading(false);
       setIframeError(true);
       onRenderStatusChange("Disconnected");
@@ -271,7 +263,6 @@ const MaterializeRenderSection = forwardRef<
 
     // Start loading when viewing_url changes
     useEffect(() => {
-      console.log("render_viewing_url: ", viewing_url);
       setIsIframeLoading(true);
       setIframeError(false);
       const isDevServer =

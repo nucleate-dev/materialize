@@ -82,7 +82,6 @@ export default function NewPrototypeModal({
           console.error("Error fetching projects:", error);
           return;
         }
-        console.log("Fetched projects:", data);
         setProjects(data || []);
       } catch (error) {
         console.error("Error fetching projects:", error);

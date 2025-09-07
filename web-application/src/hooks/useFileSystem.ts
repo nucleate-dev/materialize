@@ -122,8 +122,6 @@ export const useFileSystem = (
       );
 
       setAssets(assetsDict);
-
-      console.log("Fetched assets:", data);
     } catch (error) {
       console.error("Error loading assets:", error);
     }
@@ -177,11 +175,6 @@ export const useFileSystem = (
   // Save a single file to the database
   const saveSingleFile = useCallback(
     async (filePath: string): Promise<boolean> => {
-      console.log("🗃️ [useFileSystem] saveSingleFile called with:", {
-        prototypeId,
-        filePath,
-      });
-
       if (!prototypeId) {
         console.error("Cannot save file: no prototype ID");
         return false;
@@ -189,7 +182,10 @@ export const useFileSystem = (
 
       const fileData = files[filePath];
       if (!fileData) {
-        console.error("Cannot save file: file not found in local state:", filePath);
+        console.error(
+          "Cannot save file: file not found in local state:",
+          filePath,
+        );
         return false;
       }
 
@@ -204,11 +200,8 @@ export const useFileSystem = (
           updated_at: new Date().toISOString(),
         };
 
-        console.log("🗃️ [useFileSystem] Prepared file for upsert:", fileToUpsert);
-
         // Use Supabase upsert to insert new file or update existing one
-        console.log("🗃️ [useFileSystem] Upserting single file to database...");
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from("prototype_files")
           .upsert([fileToUpsert], {
             onConflict: "name,prototype_id",
@@ -221,7 +214,6 @@ export const useFileSystem = (
           return false;
         }
 
-        console.log("Successfully persisted single file to database:", data);
         return true;
       } catch (error) {
         console.error("Error in saveSingleFile:", error);
@@ -234,29 +226,17 @@ export const useFileSystem = (
   // Apply file updates locally and persist them directly to Supabase database
   const applyAndPersistFileUpdates = useCallback(
     async (updatedFiles: Record<string, PrototypeFile>): Promise<boolean> => {
-      console.log("🗃️ [useFileSystem] applyAndPersistFileUpdates called with:", {
-        prototypeId,
-        filesCount: Object.keys(updatedFiles || {}).length,
-        filePaths: Object.keys(updatedFiles || {}),
-        firstFileExample: Object.keys(updatedFiles || {}).length > 0 ? {
-          path: Object.keys(updatedFiles)[0],
-          file: Object.values(updatedFiles)[0]
-        } : 'No files'
-      });
-
       if (!prototypeId) {
         console.error("Cannot persist file updates: no prototype ID");
         return false;
       }
 
       if (!updatedFiles || Object.keys(updatedFiles).length === 0) {
-        console.warn("🗃️ [useFileSystem] No files to update");
         return false;
       }
 
       try {
         // First, apply updates locally
-        console.log("🗃️ [useFileSystem] Applying updates locally...");
         applyFileUpdates(updatedFiles);
 
         // Prepare files for database upsert
@@ -271,11 +251,8 @@ export const useFileSystem = (
           }),
         );
 
-        console.log("🗃️ [useFileSystem] Prepared files for upsert:", filesToUpsert);
-
         // Use Supabase upsert to insert new files or update existing ones
-        console.log("🗃️ [useFileSystem] Upserting files to database...");
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from("prototype_files")
           .upsert(filesToUpsert, {
             onConflict: "name,prototype_id",
@@ -288,7 +265,6 @@ export const useFileSystem = (
           return false;
         }
 
-        console.log("Successfully persisted file updates to database:", data);
         return true;
       } catch (error) {
         console.error("Error in applyAndPersistFileUpdates:", error);
@@ -336,8 +312,6 @@ export const useFileSystem = (
 
         // Select the new file
         setSelectedFile(fileName);
-
-        console.log("Successfully created file:", fileName);
       } catch (error) {
         console.error(`Error creating file ${fileName}:`, error);
       }
@@ -389,8 +363,6 @@ export const useFileSystem = (
             setSelectedFile(remainingFiles[0]);
           }
         }
-
-        console.log("Successfully deleted file:", fileName);
       } catch (error) {
         console.error(`Error deleting file ${fileName}:`, error);
       }
