@@ -1,22 +1,15 @@
 import Stripe from 'stripe';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createClient } from '@supabase/supabase-js';
-import jwt from 'jsonwebtoken';
 import {
   type ManageBillingRequestBody,
   type CheckoutRequestBody,
   HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
-import type { Database } from '../types/supabase.js';
+import { validateJWTToken } from '../utils/prototypeAuth.js';
+import { getSubscriptionInfo } from '../utils/subscriptionChecks.js';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-// Initialize Supabase client
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 /**
  * Product Keys for subscription plans
@@ -27,29 +20,8 @@ const ProductKeys = Object.freeze({
   PRO_SUBSCRIPTION: 'pro',
 });
 
-/**
- * Exception Events for logging (migrated from web-application)
- */
-const ExceptionEvents = Object.freeze({
-  NO_JWT_TOKEN_PROVIDED: 'NO_JWT_TOKEN_PROVIDED',
-  INVALID_JWT_TOKEN: 'INVALID_JWT_TOKEN',
-  NULL_USER_ID_FROM_JWT_TOKEN: 'NULL_USER_ID_FROM_JWT_TOKEN',
-  USER_FETCH_ERROR: 'USER_FETCH_ERROR',
-  STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR:
-    'STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR',
-  STRIPE_CHECKOUT_SESSION_CREATED: 'STRIPE_CHECKOUT_SESSION_CREATED',
-  STRIPE_CHECKOUT_SESSION_CREATION_ERROR:
-    'STRIPE_CHECKOUT_SESSION_CREATION_ERROR',
-});
-
-// const LoggingEventSource = Object.freeze({
-//   API_PAYMENTS_MANAGE_BILLING: 'API_PAYMENTS_MANAGE_BILLING',
-// });
-
 export class StripeManagementService {
-  constructor() {
-    // Initialize any required dependencies
-  }
+  constructor() {}
 
   /**
    * Register routes with Fastify
@@ -107,61 +79,20 @@ export class StripeManagementService {
     request: FastifyRequest<{ Body: CheckoutRequestBody }>,
     reply: FastifyReply,
   ): Promise<void> {
-    // Extract JWT token from Authorization header
-    const authHeader = request.headers.authorization;
-    const token = authHeader?.split(' ')[1];
-
-    if (!token || !authHeader?.startsWith('Bearer ')) {
-      this.logError(
-        ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
-        'unknown',
-        'No token provided',
-      );
-      console.error('No token provided');
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized',
-        message: 'No token provided',
-      });
-    }
-
-    // Decode and validate JWT token
-    let userID: string | undefined;
-    try {
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET!,
-      ) as jwt.JwtPayload;
-      userID = decoded.sub;
-
-      // Validate that userID is present and valid
-      if (!userID || typeof userID !== 'string') {
-        console.error('Invalid or missing user ID from JWT token:', {
-          userID,
-          decodedPayload: decoded,
-        });
-        this.logError(
-          ExceptionEvents.INVALID_JWT_TOKEN,
-          'unknown',
-          'Invalid user ID in token',
-        );
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized',
-          message: 'Invalid user ID in token',
-        });
-      }
-    } catch (error) {
-      this.logError(
-        ExceptionEvents.INVALID_JWT_TOKEN,
-        'unknown',
-        'Invalid token',
-        error,
-      );
-      console.error('Invalid token: ', error);
+    // Extract JWT token from Authorization header and validate it
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const user = await validateJWTToken(token);
+    if (!user) {
+      request.log2.warn('Unauthorized user');
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         error: 'Unauthorized',
         message: 'Invalid token',
       });
     }
+    // update logger context
+    request.log2 = request.log2.child({
+      userId: user.id,
+    });
 
     const { productID } = request.body;
 
@@ -174,7 +105,6 @@ export class StripeManagementService {
     }
 
     try {
-      console.log('🔄 [StripeManagementService] Creating checkout session...');
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card', 'us_bank_account'],
         line_items: [
@@ -187,32 +117,16 @@ export class StripeManagementService {
         cancel_url: `${process.env.SITE_BASE_URL}`,
         subscription_data: {
           metadata: {
-            user_id: userID,
+            user_id: user.id,
           },
         },
       });
-
-      this.logSuccess(
-        ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATED,
-        userID,
-        'Checkout session created',
-        {
-          product: productID,
-          sessionId: session.id,
-        },
-      );
 
       return reply.status(HTTP_STATUS.OK).send({
         id: session.id,
       });
     } catch (error) {
-      this.logError(
-        ExceptionEvents.STRIPE_CHECKOUT_SESSION_CREATION_ERROR,
-        userID,
-        'Exception creating checkout session',
-        error,
-      );
-      console.error('Exception creating checkout session: ', error);
+      request.log2.error(error, 'Exception creating checkout session');
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         id: null,
         error: 'Checkout session creation failed',
@@ -265,89 +179,26 @@ export class StripeManagementService {
     reply: FastifyReply,
   ): Promise<void> {
     // Extract JWT token from Authorization header
-    const authHeader = request.headers.authorization;
-    const token = authHeader?.split(' ')[1];
-
-    if (!token || !authHeader?.startsWith('Bearer ')) {
-      this.logError(
-        ExceptionEvents.NO_JWT_TOKEN_PROVIDED,
-        'unknown',
-        'No token provided',
-      );
-      console.error('No token provided');
-      return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'No token provided',
-      });
-    }
-
-    // Decode and validate JWT token
-    let userID: string | undefined;
-    try {
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET!,
-      ) as jwt.JwtPayload;
-      userID = decoded.sub;
-    } catch (error) {
-      this.logError(
-        ExceptionEvents.INVALID_JWT_TOKEN,
-        'unknown',
-        'Invalid token',
-        error,
-      );
-      console.error('Invalid token: ', error);
-      return reply.status(401).send({
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    const user = await validateJWTToken(token);
+    if (!user) {
+      request.log2.warn('Unauthorized user');
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         error: 'Unauthorized',
         message: 'Invalid token',
       });
     }
+    // update logger context
+    request.log2 = request.log2.child({
+      userId: user.id,
+    });
 
-    // Validate user ID
-    if (userID === null || userID === undefined) {
-      this.logError(
-        ExceptionEvents.NULL_USER_ID_FROM_JWT_TOKEN,
-        'unknown',
-        'Missing user ID',
-      );
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'Missing user ID. User is not authenticated.',
-      });
-    }
+    const subscriptionInfo = await getSubscriptionInfo(token, user.id);
 
     try {
-      // Fetch the stripe customer ID from the database
-      const { data: userData, error: userFetchError } = await supabase
-        .from('subscriptions')
-        .select('stripe_customer_id')
-        .eq('user_id', userID)
-        .single();
-
-      if (userFetchError) {
-        this.logError(
-          ExceptionEvents.USER_FETCH_ERROR,
-          userID,
-          'Could not fetch user data',
-          userFetchError,
-        );
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'Could not fetch user data.',
-        });
-      }
-
-      const stripeCustomerId = userData?.stripe_customer_id;
-      if (!stripeCustomerId) {
-        return reply.status(400).send({
-          error: 'Bad Request',
-          message: 'No Stripe customer ID found for user.',
-        });
-      }
-
       // Create Stripe billing portal session
       const session = await stripe.billingPortal.sessions.create({
-        customer: stripeCustomerId,
+        customer: subscriptionInfo.stripeCustomerId,
         return_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
       });
 
@@ -355,69 +206,14 @@ export class StripeManagementService {
         redirect_url: session.url,
       });
     } catch (error) {
-      this.logError(
-        ExceptionEvents.STRIPE_CUSTOMER_BILLING_PORTAL_CREATION_ERROR,
-        userID,
-        'Could not create stripe billing portal session',
+      request.log2.error(
         error,
+        '[handleManageBilling] Could not create stripe billing portal session:',
       );
-      console.error('Could not create stripe billing portal session: ', error);
       return reply.status(500).send({
         error: 'Internal Server Error',
         message: 'Could not create stripe billing portal session',
       });
     }
-  }
-
-  /**
-   * Log error events (simplified version of PostHog logging)
-   * TODO: Consider integrating with a proper logging service like PostHog
-   */
-  private logError(
-    event: string,
-    userId: string,
-    message: string,
-    error?: unknown,
-  ): void {
-    console.error(
-      `[${event}] User: ${userId}, Message: ${message}`,
-      error || '',
-    );
-    // TODO: Add PostHog or other analytics integration here
-    // posthog.capture({
-    //   distinctId: userId,
-    //   event: event,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_MANAGE_BILLING,
-    //     error: error,
-    //     message: message,
-    //   },
-    // });
-  }
-
-  /**
-   * Log success events (simplified version of PostHog logging)
-   * TODO: Consider integrating with a proper logging service like PostHog
-   */
-  private logSuccess(
-    event: string,
-    userId: string,
-    message: string,
-    properties?: Record<string, unknown>,
-  ): void {
-    console.log(
-      `[${event}] User: ${userId}, Message: ${message}`,
-      properties || '',
-    );
-    // TODO: Add PostHog or other analytics integration here
-    // posthog.capture({
-    //   distinctId: userId,
-    //   event: event,
-    //   properties: {
-    //     source: LoggingEventSource.API_PAYMENTS_CHECKOUT,
-    //     message: message,
-    //     ...properties,
-    //   },
-    // });
   }
 }
