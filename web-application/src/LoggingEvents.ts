@@ -1,3 +1,7 @@
+// Add typed events to this file here. Feel free to create new Objects/enums/types here to
+// utilize throughout the codebase when logging events (this way we can ensure every event
+// when making queries in posthog)
+
 export const ExceptionEvents = Object.freeze({
   NO_JWT_TOKEN_PROVIDED: "NO_JWT_TOKEN_PROVIDED",
   INVALID_JWT_TOKEN: "INVALID_JWT_TOKEN",
@@ -28,16 +32,10 @@ export const ExceptionEvents = Object.freeze({
 });
 
 export const SuccessEvents = Object.freeze({
-  STARTER_PACK_DOWNLOAD_COMPLETE: "STARTER_PACK_DOWNLOAD_COMPLETE",
-  ADD_LICENSE_SUCCESSFULLY_COMPLETE: "ADD_LICENSE_SUCCESSFULLY_COMPLETE",
-  STRIPE_CHECKOUT_SESSION_CREATED: "STRIPE_CHECKOUT_SESSION_CREATED",
-  HANDLED_STRIPE_CHECKOUT_SESSION_COMPLETED:
-    "HANDLED_STRIPE_CHECKOUT_SESSION_COMPLETED",
   HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID:
     "HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID",
   HANDLED_STRIPE_INVOICE_PAYMENT_FAILED:
     "HANDLED_STRIPE_INVOICE_PAYMENT_FAILED",
-  REGISTRATION_CREATED_NEW_USER: "REGISTRATION_CREATED_NEW_USER",
 });
 
 export const InsightEvents = Object.freeze({
