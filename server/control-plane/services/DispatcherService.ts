@@ -341,10 +341,7 @@ export class DispatcherService {
             request.log2,
           );
 
-        request.log2.info(
-          'Fargate responded: ' + JSON.stringify(fargateResponse, null, 2),
-          { fargateResponse },
-        );
+        request.log2.info('Fargate responded: ', { fargateResponse });
         updatedBuildCacheData.status = 'stable';
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
@@ -695,7 +692,10 @@ export class DispatcherService {
       if (response.tasks && response.tasks.length > 0) {
         const taskArn = response.tasks[0].taskArn!;
         log2.info(
-          `[launchFargateInstance] Successfully initiated Fargate Task Launch: ${taskArn} for prototype: ${prototypeId}`,
+          `[launchFargateInstance] Successfully initiated Fargate Task Launch`,
+          {
+            taskArn,
+          },
         );
 
         // Wait for task to be running and get private IP
