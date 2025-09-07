@@ -4,6 +4,7 @@ import { generateText } from 'ai';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
+import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import type {
   ChatErrorResponse,
@@ -14,7 +15,6 @@ import type {
   DispatchResponse,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
-import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type { Database } from '../types/supabase.js';
 import {
@@ -23,6 +23,7 @@ import {
   PLANNING_PROMPT,
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
+import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -420,6 +421,11 @@ export class ChatService {
                 ...file,
               });
             });
+
+            console.log(
+              ' Final files for dispatch:',
+              finalFilesForDispatch.map((file) => file.name),
+            );
 
             try {
               let tempDispatchResponse;
@@ -1481,10 +1487,23 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       operation?: string;
       message?: string;
       files?: Array<{ filePath: string; name: string; exists: boolean }>;
+      results?: Array<{
+        filePath: string;
+        lineNumber: number;
+        context: string;
+        matchedLine: string;
+      }>;
+      dependencies?: {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
     } {
       const { name, arguments: args } = toolCall.function;
 
-      console.log(`🔧 TOOL CALL: ${name}`, { filePath: args?.filePath ?? '' });
+      console.log(`🔧 TOOL CALL: ${name}`, {
+        filePath: args?.filePath ?? '',
+        query: args?.query ?? '',
+      });
 
       switch (name) {
         case 'read_file':
@@ -1499,6 +1518,15 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
 
         case 'list_files':
           return this.listFiles();
+
+        case 'search_files':
+          return this.searchFiles(
+            args.query as string,
+            args.fileExtensions as string[] | undefined,
+          );
+
+        case 'read_package_json':
+          return this.readPackageJson();
 
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -1558,7 +1586,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
         ...existingFile,
         name: filePath,
         contents,
-        id: existingFile?.id || `file-${Date.now()}`,
+        id: existingFile?.id || uuidv4(),
         prototype_id: existingFile?.prototype_id || this.prototypeId,
         created_at: existingFile?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -1591,6 +1619,133 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       }));
 
       return { success: true, files: fileList };
+    }
+
+    searchFiles(
+      query: string,
+      fileExtensions?: string[],
+    ): {
+      success: boolean;
+      results: Array<{
+        filePath: string;
+        lineNumber: number;
+        context: string;
+        matchedLine: string;
+      }>;
+      message: string;
+    } {
+      const results: Array<{
+        filePath: string;
+        lineNumber: number;
+        context: string;
+        matchedLine: string;
+      }> = [];
+      const searchRegex = new RegExp(query, 'i'); // Case-insensitive search
+
+      // Default to common React Native file extensions if none specified
+      const extensionsToSearch = fileExtensions || [
+        '.tsx',
+        '.ts',
+        '.js',
+        '.jsx',
+        '.json',
+      ];
+
+      for (const [filePath, file] of this.files) {
+        // Check if file extension matches our search criteria
+        const hasMatchingExtension = extensionsToSearch.some(
+          (ext) => filePath.endsWith(ext) || filePath.includes(ext),
+        );
+
+        if (!hasMatchingExtension || !file.contents) {
+          continue;
+        }
+
+        const lines = file.contents.split('\n');
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (searchRegex.test(line)) {
+            // Get context: 2 lines before and after the match
+            const contextStart = Math.max(0, i - 2);
+            const contextEnd = Math.min(lines.length - 1, i + 2);
+            const contextLines = lines.slice(contextStart, contextEnd + 1);
+
+            // Mark the matched line in the context
+            const contextWithLineNumbers = contextLines
+              .map((contextLine, idx) => {
+                const actualLineNum = contextStart + idx + 1;
+                const isMatchedLine = actualLineNum === i + 1;
+                return `${actualLineNum.toString().padStart(3, ' ')}: ${isMatchedLine ? '→ ' : '  '}${contextLine}`;
+              })
+              .join('\n');
+
+            results.push({
+              filePath,
+              lineNumber: i + 1,
+              context: contextWithLineNumbers,
+              matchedLine: line.trim(),
+            });
+
+            // Limit results to top 10 matches to avoid overwhelming context
+            if (results.length >= 10) {
+              return {
+                success: true,
+                results,
+                message: `Found ${results.length} matches (limited to first 10). Search query: "${query}"`,
+              };
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        results,
+        message: `Found ${results.length} matches for search query: "${query}"`,
+      };
+    }
+
+    readPackageJson(): {
+      success: boolean;
+      dependencies?: {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      message: string;
+      error?: string;
+    } {
+      // Look for package.json file in the project
+      const packageJsonFile =
+        this.files.get('package.json') || this.files.get('./package.json');
+
+      if (!packageJsonFile || !packageJsonFile.contents) {
+        return {
+          success: false,
+          error: 'package.json file not found in project files',
+          message: 'Could not locate package.json to read dependencies',
+        };
+      }
+
+      try {
+        const packageJson = JSON.parse(packageJsonFile.contents);
+
+        return {
+          success: true,
+          dependencies: {
+            dependencies: packageJson.dependencies || {},
+            devDependencies: packageJson.devDependencies || {},
+          },
+          message: `Successfully read package.json with ${Object.keys(packageJson.dependencies || {}).length} dependencies and ${Object.keys(packageJson.devDependencies || {}).length} devDependencies`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: `Failed to parse package.json: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message:
+            'package.json file exists but could not be parsed as valid JSON',
+        };
+      }
     }
 
     // Get final state for updating database/snack
@@ -1633,6 +1788,30 @@ const MODEL_TOOLS = {
           "REQUIRED: Use 'create' for new files, 'modify' for existing files (defaults to 'create')",
         ),
     }),
+    execute: async (): Promise<void> => {
+      throw new Error('Tool execution should be handled by file manager');
+    },
+  },
+  search_files: {
+    description:
+      'Search for specific patterns, functions, or text across project files',
+    inputSchema: z.object({
+      query: z.string().describe('The search pattern or text to find'),
+      fileExtensions: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Optional array of file extensions to search (.tsx, .ts, .js, .jsx, .json)',
+        ),
+    }),
+    execute: async (): Promise<void> => {
+      throw new Error('Tool execution should be handled by file manager');
+    },
+  },
+  read_package_json: {
+    description:
+      'Read package.json to understand available dependencies and project configuration',
+    inputSchema: z.object({}),
     execute: async (): Promise<void> => {
       throw new Error('Tool execution should be handled by file manager');
     },
