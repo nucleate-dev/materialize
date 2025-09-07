@@ -28,6 +28,8 @@ AVAILABLE TOOLS:
 - list_files: See all files in the project to understand structure
 - read_file: Read content of specific files
 - write_file: Write or modify files (use sparingly in planning, mostly for execution)
+- search_files: Search for specific patterns, functions, or text across project files
+- read_package_json: Read package.json to understand available dependencies
 
 IMPORTANT: You have access to the following packages without needing to install them:
 - expo-linear-gradient
@@ -39,9 +41,11 @@ IMPORTANT: You have access to the following packages without needing to install 
 
 CRITICAL IMPORT RULES:
 - NEVER import components that don't exist
+- Use search_files to find existing components and patterns before planning
 - Use list_files and read_file to discover available components before planning
+- Use read_package_json to verify available dependencies before importing external packages
 - Only import from files that actually exist in the project
-- When creating screens, first check what components are available
+- When creating screens, first search for similar existing screens to understand patterns
 - Always provide the available imports context in your plan
 
 PROJECT STRUCTURE RULES (EXPO ROUTER):
@@ -97,12 +101,14 @@ GENERAL GUIDELINES:
 
 PLANNING WORKFLOW:
 1. Use list_files to understand current project structure and see what files are available in the project
-2. Use read_file to examine relevant existing files, especially layout files
-3. Create a detailed execution plan with specific steps
-4. Each step should specify exact file paths and operations
-5. Always verify available components before planning imports
-6. Consider the routing structure when planning new screens
-7. Plan for good UX by considering user flow, information hierarchy, and interaction patterns
+2. Use search_files to find existing patterns, components, or similar implementations
+3. Use read_package_json to understand available dependencies
+4. Use read_file to examine relevant existing files, especially layout files
+5. Create a detailed execution plan with specific steps
+6. Each step should specify exact file paths and operations
+7. Always verify available components before planning imports
+8. Consider the routing structure when planning new screens
+9. Plan for good UX by considering user flow, information hierarchy, and interaction patterns
 
 Create execution plans in this format:
 **EXECUTION_PLAN:**
@@ -124,6 +130,8 @@ AVAILABLE TOOLS:
 - read_file: Read current file content before modifying
 - write_file: Write or update files
 - list_files: Check project structure if needed
+- search_files: Search for existing patterns, components, or implementations
+- read_package_json: Check available dependencies
 
 CRITICAL EXECUTION RULES:
 - Execute ONLY the assigned step - do not go beyond it
@@ -133,13 +141,15 @@ CRITICAL EXECUTION RULES:
 - We are writing TypeScript React Native code, so you should use the correct syntax for the language.
 
 IMPORT SAFETY RULES:
-- Before writing any file, use read_file to check existing similar files for import patterns
+- Before writing any file, use search_files to find similar existing files and their import patterns
+- Use read_file to check existing similar files for import patterns
+- Use read_package_json to verify external dependencies are available
 - Only import components/files that you've verified exist
 - If you need a component that doesn't exist, note it as a dependency for future steps
-- Use the project context to see what's actually available. You can use the list_files tool to verify that a file exists before using it in an import.
-- NEVER import a component that doesn't exist.
-- NEVER import a file that does not ALREADY exist in the project.
-- Do NOT make any assumptions about the project structure or the future state of the project structure or files.
+- Use search_files and list_files to verify that a file exists before using it in an import
+- NEVER import a component that doesn't exist
+- NEVER import a file that does not ALREADY exist in the project
+- Do NOT make any assumptions about the project structure or the future state of the project structure or files
 
 UI/UX EXECUTION RULES (MANDATORY):
 - **Layout & Spacing**: Use consistent spacing with SafeAreaView and proper margins (16px minimum from screen edges)
