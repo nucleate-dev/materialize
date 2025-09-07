@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js/react";
 
@@ -80,5 +81,5 @@ export class ClientProductLogger {
 // Hook for easy usage in React components
 export function useProductLogger(): ClientProductLogger {
   const posthog = usePostHog();
-  return new ClientProductLogger(posthog);
+  return useMemo(() => new ClientProductLogger(posthog), [posthog]);
 }
