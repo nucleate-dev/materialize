@@ -424,12 +424,12 @@ export class ChatService {
               );
 
               // Stream the viewing URL to the client
-              if ('viewing_url' in updateData && updateData.viewing_url) {
+              if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({
                       type: 'viewing_url',
-                      viewing_url: updateData.viewing_url,
+                      viewing_url: dispatchData.viewing_url,
                     })}\n\n`,
                   ),
                 );
