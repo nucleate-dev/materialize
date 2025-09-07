@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface NewProjectModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ export default function NewProjectModal({
   user,
   onCreated,
 }: NewProjectModalProps) {
+  const logger = useProductLogger();
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -52,7 +54,9 @@ export default function NewProjectModal({
         .single();
 
       if (error) {
-        console.error("Error creating project:", error);
+        logger.debug("error", "Error creating project:", {
+          ...error,
+        });
         throw error;
       }
 
@@ -62,7 +66,10 @@ export default function NewProjectModal({
       onCreated(data.id);
       onClose();
     } catch (error) {
-      console.error("Error creating project:", error);
+      logger.debug("error", "Error creating project:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsCreating(false);
     }

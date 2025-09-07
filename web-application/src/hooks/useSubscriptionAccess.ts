@@ -3,6 +3,7 @@ import { useUser } from "@/hooks/useUser";
 import { SubscriptionStatuses } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/supabase";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type SubscriptionPlanType =
   Database["public"]["Enums"]["subscription_plan_type"];
@@ -63,6 +64,7 @@ function getCurrentMonthPeriod() {
  */
 export function useSubscriptionAccess() {
   const user = useUser();
+  const logger = useProductLogger();
   const [userPlan, setUserPlan] = useState<SubscriptionPlanType>("free");
   const [loadingSubscriptionData, setLoadingSubscriptionData] =
     useState<boolean>(true);
@@ -83,7 +85,9 @@ export function useSubscriptionAccess() {
         });
 
       if (error) {
-        console.error("Error fetching subscription:", error);
+        logger.debug("error", "Error fetching subscription:", {
+          ...error,
+        });
         setUserPlan("free");
         // Set free tier to current month period
         const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
@@ -141,7 +145,7 @@ export function useSubscriptionAccess() {
     if (user.user && user.userIsLoading === false) {
       fetchSubscriptionInformation();
     }
-  }, [user.user, user.userIsLoading]);
+  }, [user.user, user.userIsLoading, logger]);
 
   return {
     userPlan,

@@ -1,4 +1,5 @@
 import { PlannedOperation } from "@/components/PlanningView";
+import { ClientProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { EditOperation } from "@/lib/types/chat";
 
 export interface PlanningExtractionResult {
@@ -26,6 +27,7 @@ export interface StepResult {
  */
 export function extractExecutionPlan(
   message: string,
+  logger: ClientProductLogger,
 ): PlanningExtractionResult {
   const result: PlanningExtractionResult = {
     hasPlan: false,
@@ -99,7 +101,10 @@ export function extractExecutionPlan(
       }
     }
   } catch (error) {
-    console.error("Error extracting execution plan:", error);
+    logger.debug("error", "Error extracting execution plan:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 
   return result;
@@ -111,6 +116,7 @@ export function extractExecutionPlan(
 export function extractExecutionStep(
   message: string,
   stepId: string,
+  logger: ClientProductLogger,
 ): ExecutionStepResult {
   const result: ExecutionStepResult = {
     hasStep: false,
@@ -145,7 +151,10 @@ export function extractExecutionStep(
       }
     }
   } catch (error) {
-    console.error(`Error extracting execution step ${stepId}:`, error);
+    logger.debug("error", `Error extracting execution step ${stepId}:`, {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 
   return result;
@@ -154,7 +163,10 @@ export function extractExecutionStep(
 /**
  * Extract step result from AI message
  */
-export function extractStepResult(message: string): StepResult {
+export function extractStepResult(
+  message: string,
+  logger: ClientProductLogger,
+): StepResult {
   const result: StepResult = {
     hasResult: false,
     filePath: "",
@@ -181,7 +193,10 @@ export function extractStepResult(message: string): StepResult {
         .trim();
     }
   } catch (error) {
-    console.error("Error extracting step result:", error);
+    logger.debug("error", "Error extracting step result:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 
   return result;

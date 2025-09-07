@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ProductKeys } from "@/GlobalConstants";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { Star, Sparkles, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -35,6 +36,7 @@ export default function ProPlanUpsellModal({
   messageLimit,
   onDismiss,
 }: ProPlanUpsellModalProps) {
+  const logger = useProductLogger();
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -92,7 +94,10 @@ export default function ProPlanUpsellModal({
         setIsProcessing(false);
       }, 2000);
     } catch (error) {
-      console.error("Error starting checkout:", error);
+      logger.debug("error", "Error starting checkout:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       // Fallback to billing page if checkout fails
       window.open("/dashboard/billing", "_blank");
       setIsProcessing(false);

@@ -34,6 +34,7 @@ import {
   useState,
 } from "react";
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -74,6 +75,7 @@ const MaterializeRenderSection = forwardRef<
     },
     ref,
   ) => {
+    const logger = useProductLogger();
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
     const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
@@ -119,7 +121,8 @@ const MaterializeRenderSection = forwardRef<
     // Function to start dev server with all files
     const handleStartDevServer = async () => {
       if (!prototypeId || !files || !assets) {
-        console.error(
+        logger.debug(
+          "error",
           "Cannot start dev server: missing prototype ID, files, assets, or building state callback",
         );
         return;
@@ -132,7 +135,7 @@ const MaterializeRenderSection = forwardRef<
         const token = session.data.session?.access_token;
 
         if (!token) {
-          console.error("No authentication token available");
+          logger.debug("error", "No authentication token available");
           return;
         }
 
@@ -186,10 +189,15 @@ const MaterializeRenderSection = forwardRef<
         } else {
           const errorMessage =
             "error" in result ? result.error : result.message;
-          console.error("Failed to start dev server:", errorMessage);
+          logger.debug("error", "Failed to start dev server:", {
+            error: errorMessage,
+          });
         }
       } catch (error) {
-        console.error("Error starting dev server:", error);
+        logger.debug("error", "Error starting dev server:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
     };
 

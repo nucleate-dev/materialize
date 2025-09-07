@@ -28,6 +28,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -42,15 +43,17 @@ export default function PublicPrototypeHeader({
   onUpdatePrototype,
   onShare,
 }: PublicPrototypeHeaderProps) {
+  const userObj = useUser();
+  const user = userObj.user;
+  const router = useRouter();
+  const logger = useProductLogger();
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [fileCount, setFileCount] = useState(0);
-  const userObj = useUser();
-  const user = userObj.user;
-  const router = useRouter();
 
   // Fetch file count for display
   useEffect(() => {
@@ -64,18 +67,23 @@ export default function PublicPrototypeHeader({
           .eq("prototype_id", prototype.id);
 
         if (error) {
-          console.error("Error fetching file count:", error);
+          logger.debug("error", "Error fetching file count:", {
+            ...error,
+          });
           return;
         }
 
         setFileCount(count || 0);
       } catch (err) {
-        console.error("Error fetching file count:", err);
+        logger.debug("error", "Error fetching file count:", {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
       }
     }
 
     fetchFileCount();
-  }, [prototype.id]);
+  }, [prototype.id, logger]);
 
   const handleStartEdit = () => {
     if (!prototype || !user || prototype.owner_id !== user.id) return;
@@ -108,7 +116,10 @@ export default function PublicPrototypeHeader({
       setIsEditing(false);
       setEditedName("");
     } catch (err) {
-      console.error("Error updating prototype name:", err);
+      logger.debug("error", "Error updating prototype name:", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -126,30 +137,27 @@ export default function PublicPrototypeHeader({
       const token = session.data.session?.access_token;
 
       if (!token) {
-        console.error("No authentication token available");
+        logger.debug("error", "No authentication token available");
         return;
       }
 
-      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-      if (!serverEndpoint) {
-        console.error("Server endpoint not configured");
-        return;
-      }
-
-      const response = await fetch(`${serverEndpoint}/prototype/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: clonedPrototypeName,
+            description: prototype.description,
+            project_id: prototype.project_id,
+            prototype_id: prototype.id,
+            visibility: "PUBLIC", // TODO evaluate whether this should ever be private
+          } as CreatePrototypeRequestBody),
         },
-        body: JSON.stringify({
-          name: clonedPrototypeName,
-          description: prototype.description,
-          project_id: prototype.project_id,
-          prototype_id: prototype.id,
-          visibility: "PUBLIC", // TODO evaluate whether this should ever be private
-        } as CreatePrototypeRequestBody),
-      });
+      );
 
       const result: CreatePrototypeResponse = await response.json();
       if (result.success) {
@@ -159,10 +167,15 @@ export default function PublicPrototypeHeader({
         // Show upsell modal
         setShowUpsellModal(true);
       } else {
-        console.error("Error cloning prototype:", result.message);
+        logger.debug("error", "Error cloning prototype:", {
+          ...result,
+        });
       }
     } catch (err) {
-      console.error("Error cloning prototype:", err);
+      logger.debug("error", "Error cloning prototype:", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     } finally {
       setIsCloning(false);
     }

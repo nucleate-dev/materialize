@@ -8,6 +8,7 @@ import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type Canvas = Database["public"]["Tables"]["canvases"]["Row"];
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -29,6 +30,7 @@ export default function ProjectWhiteboardsPage() {
   const { user } = useUser();
   const params = useParams();
   const router = useRouter();
+  const logger = useProductLogger();
   const projectId = params?.project_id as string;
   const [canvases, setCanvases] = useState<Canvas[]>([]);
   const [project, setProject] = useState<Project | null>(null);
@@ -54,22 +56,29 @@ export default function ProjectWhiteboardsPage() {
       ]);
 
       if (projectResult.error) {
-        console.error("Error fetching project:", projectResult.error);
+        logger.debug("error", "Error fetching project:", {
+          ...projectResult.error,
+        });
       } else {
         setProject(projectResult.data);
       }
 
       if (canvasesResult.error) {
-        console.error("Error fetching canvases:", canvasesResult.error);
+        logger.debug("error", "Error fetching canvases:", {
+          ...canvasesResult.error,
+        });
       } else {
         setCanvases(canvasesResult.data || []);
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      logger.debug("error", "Error fetching data:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, logger]);
 
   useEffect(() => {
     fetchData();

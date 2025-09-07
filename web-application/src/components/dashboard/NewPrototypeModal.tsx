@@ -34,6 +34,7 @@ import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { ProductKeys } from "@/GlobalConstants";
 import { useRouter } from "next/navigation";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -50,6 +51,9 @@ export default function NewPrototypeModal({
   onCreated,
   projectId,
 }: NewPrototypeModalProps) {
+  const router = useRouter();
+  const logger = useProductLogger();
+
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -63,7 +67,6 @@ export default function NewPrototypeModal({
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  const router = useRouter();
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -79,12 +82,17 @@ export default function NewPrototypeModal({
           .order("updated_at", { ascending: false });
 
         if (error) {
-          console.error("Error fetching projects:", error);
+          logger.debug("error", "Error fetching projects:", {
+            ...error,
+          });
           return;
         }
         setProjects(data || []);
       } catch (error) {
-        console.error("Error fetching projects:", error);
+        logger.debug("error", "Error fetching projects:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       } finally {
         setIsLoadingProjects(false);
       }
@@ -101,12 +109,17 @@ export default function NewPrototypeModal({
           .eq("owner_id", user.id);
 
         if (error) {
-          console.error("Error fetching prototype count:", error);
+          logger.debug("error", "Error fetching prototype count:", {
+            ...error,
+          });
           return;
         }
         setPrototypeCount(count || 0);
       } catch (error) {
-        console.error("Error fetching prototype count:", error);
+        logger.debug("error", "Error fetching prototype count:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       } finally {
         setIsLoadingCount(false);
       }
@@ -116,7 +129,7 @@ export default function NewPrototypeModal({
       fetchProjects();
       fetchPrototypeCount();
     }
-  }, [open, user]);
+  }, [open, user, logger]);
 
   // Set initial project selection
   useEffect(() => {
@@ -145,13 +158,13 @@ export default function NewPrototypeModal({
       const token = session.data.session?.access_token;
 
       if (!token) {
-        console.error("No authentication token available");
+        logger.debug("error", "No authentication token available");
         return;
       }
 
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) {
-        console.error("Server endpoint not configured");
+        logger.debug("error", "Server endpoint not configured");
         return;
       }
 
@@ -183,10 +196,15 @@ export default function NewPrototypeModal({
         onClose();
         setShowUpsellModal(true);
       } else {
-        console.error("Error creating prototype:", result.message);
+        logger.debug("error", "Error creating prototype:", {
+          ...result,
+        });
       }
     } catch (error) {
-      console.error("Error creating prototype:", error);
+      logger.debug("error", "Error creating prototype:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsCreating(false);
     }

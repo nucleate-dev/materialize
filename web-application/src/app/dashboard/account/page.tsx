@@ -38,8 +38,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/ClientConstants";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 function AccountSettings() {
+  const logger = useProductLogger();
   const user = useUser();
   const router = useRouter();
   const {
@@ -87,13 +89,18 @@ function AccountSettings() {
           .lte("created_at", currentPeriodEnd.toISOString());
 
         if (error) {
-          console.error("Error fetching message count:", error);
+          logger.debug("error", "Error fetching message count:", {
+            error: error.message,
+          });
           setMessageCount(0);
         } else {
           setMessageCount(count || 0);
         }
       } catch (error) {
-        console.error("Error fetching message count:", error);
+        logger.debug("error", "Error fetching message count:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         setMessageCount(0);
       } finally {
         setLoadingUsageCount(false);
@@ -106,6 +113,7 @@ function AccountSettings() {
     currentPeriodStart,
     currentPeriodEnd,
     loadingSubscriptionData,
+    logger,
   ]);
 
   // Calculate message limit based on subscription plan
@@ -171,7 +179,10 @@ function AccountSettings() {
         setIsProcessingUpgrade(false);
       }, 2000);
     } catch (error) {
-      console.error("Error starting checkout:", error);
+      logger.debug("error", "Error starting checkout:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       setIsProcessingUpgrade(false);
     }
   };

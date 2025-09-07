@@ -19,12 +19,14 @@ import type {
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 export default function PrototypePage() {
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
+  const logger = useProductLogger();
 
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
@@ -56,12 +58,6 @@ export default function PrototypePage() {
         try {
           const session = await supabase.auth.getSession();
           const token = session.data.session?.access_token;
-          const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-
-          if (!serverEndpoint) {
-            console.error("Server endpoint not configured");
-            return;
-          }
 
           const headers: HeadersInit = {
             "Content-Type": "application/json",
@@ -72,7 +68,7 @@ export default function PrototypePage() {
           }
 
           const fetchViewResponse = await fetch(
-            `${serverEndpoint}/prototype/fetch-viewing-url`,
+            `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/fetch-viewing-url`,
             {
               method: "POST",
               headers,
@@ -89,22 +85,32 @@ export default function PrototypePage() {
             if ("viewing_url" in fetchViewData) {
               setViewingUrl(fetchViewData.viewing_url);
             } else {
-              console.error(
-                "Error in fetch-viewing-url response:",
-                fetchViewData,
-              );
+              logger.debug("error", "Error in fetch-viewing-url response:", {
+                ...fetchViewData,
+              });
             }
           } else {
-            console.error(
-              "Failed to fetch viewing URL:",
-              fetchViewResponse.status,
-            );
+            logger.debug("error", "Failed to fetch viewing URL:", {
+              ...fetchViewResponse,
+            });
           }
         } catch (fetchViewError) {
-          console.error("Error calling fetch-viewing-url API:", fetchViewError);
+          logger.debug("error", "Error calling fetch-viewing-url API:", {
+            message:
+              fetchViewError instanceof Error
+                ? fetchViewError.message
+                : String(fetchViewError),
+            stack:
+              fetchViewError instanceof Error
+                ? fetchViewError.stack
+                : undefined,
+          });
         }
       } catch (err) {
-        console.error("Error fetching prototype data:", err);
+        logger.debug("error", "Error fetching prototype data:", {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
         setError(
           err instanceof Error ? err.message : "Failed to load prototype",
         );
@@ -114,7 +120,7 @@ export default function PrototypePage() {
     }
 
     fetchPrototypeData();
-  }, [prototypeId]);
+  }, [prototypeId, logger]);
 
   const handleUpdatePrototype = (updatedPrototype: Prototype) => {
     setPrototype(updatedPrototype);

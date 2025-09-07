@@ -31,8 +31,10 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export default function DashboardPage() {
+  const logger = useProductLogger();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -63,30 +65,30 @@ export default function DashboardPage() {
         const token = session.data.session?.access_token;
 
         if (!token) {
-          console.error("No authentication token available");
+          logger.debug("error", "No authentication token available");
           return;
         }
 
-        const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-        if (!serverEndpoint) {
-          console.error("Server endpoint not configured");
-          return;
-        }
-
-        const response = await fetch(`${serverEndpoint}/prototype/create`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              name: "New Prototype",
+            } as CreatePrototypeRequestBody),
           },
-          body: JSON.stringify({
-            name: "New Prototype",
-          } as CreatePrototypeRequestBody),
-        });
+        );
 
         result = await response.json();
       } catch (error) {
-        console.error("Error creating prototype:", error);
+        logger.debug("error", "Error creating prototype:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         return;
       }
 
@@ -106,10 +108,15 @@ export default function DashboardPage() {
         // Show upsell modal
         setShowUpsellModal(true);
       } else {
-        console.error("Error creating prototype:", result.message);
+        logger.debug("error", "Error creating prototype:", {
+          error: result.message,
+        });
       }
     } catch (err) {
-      console.error("Error creating prototype:", err);
+      logger.debug("error", "Error creating prototype:", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     } finally {
       setIsLoading(false);
     }

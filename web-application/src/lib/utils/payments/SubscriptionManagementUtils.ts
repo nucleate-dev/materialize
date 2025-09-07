@@ -3,7 +3,6 @@ import { supabase } from "@/ClientConstants";
 import type {
   ManageBillingRequestBody,
   ManageBillingResponse,
-  StandardErrorResponse,
 } from "@/lib/types/serverAPITypes";
 
 /**
@@ -35,7 +34,6 @@ export async function handleRedirectToStripeCustomerPortal(
       await supabase.auth.getSession();
 
     if (sessionError) {
-      console.error("Session error:", sessionError);
       alert("Authentication error. Please try logging in again.");
       return;
     }
@@ -65,9 +63,6 @@ export async function handleRedirectToStripeCustomerPortal(
 
     if (!response.ok) {
       // Handle HTTP error responses
-      const errorData: StandardErrorResponse = await response.json();
-      console.error("Billing portal request failed:", errorData);
-
       if (response.status === 401) {
         alert("Authentication failed. Please log in again.");
       } else if (response.status === 400) {
@@ -85,11 +80,9 @@ export async function handleRedirectToStripeCustomerPortal(
       router.push(data.redirect_url);
     } else {
       // This is a StandardErrorResponse
-      console.error("Billing portal error:", data);
       alert("Unable to access billing portal. Please try again later.");
     }
   } catch (error) {
-    console.error("Error accessing billing portal:", error);
     alert(
       "Unable to access billing portal. Please check your connection and try again.",
     );

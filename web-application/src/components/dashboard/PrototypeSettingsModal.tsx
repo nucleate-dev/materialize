@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Database } from "@/lib/types/supabase";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useEffect, useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface PrototypeSettingsModalProps {
   open: boolean;
@@ -36,6 +37,7 @@ export default function PrototypeSettingsModal({
   prototype,
   onUpdated,
 }: PrototypeSettingsModalProps) {
+  const logger = useProductLogger();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] =
@@ -70,7 +72,10 @@ export default function PrototypeSettingsModal({
       onUpdated();
       onClose();
     } catch (error) {
-      console.error("Error updating prototype:", error);
+      logger.debug("error", "Error updating prototype:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -82,23 +87,28 @@ export default function PrototypeSettingsModal({
       "Are you sure you want to delete this prototype?",
     );
     if (!confirmed) return;
-    
+
     setIsSubmitting(true);
     try {
       // Get the current session to get the JWT token
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        console.error("No authentication token available");
+        logger.debug("error", "No authentication token available");
         return;
       }
 
       // Make DELETE request to the new API endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/${prototype.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/${prototype.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -109,7 +119,10 @@ export default function PrototypeSettingsModal({
       onUpdated();
       onClose();
     } catch (error) {
-      console.error("Error deleting prototype:", error);
+      logger.debug("error", "Error deleting prototype:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       // You could add a toast notification here to show the error to the user
     } finally {
       setIsSubmitting(false);

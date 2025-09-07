@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { FolderIcon, PaintBrushIcon } from "@heroicons/react/24/outline";
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
@@ -37,6 +38,7 @@ export default function NewWhiteboardModal({
   onCreated,
   projectId,
 }: NewWhiteboardModalProps) {
+  const logger = useProductLogger();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [touched, setTouched] = useState(false);
@@ -69,12 +71,17 @@ export default function NewWhiteboardModal({
           .order("updated_at", { ascending: false });
 
         if (error) {
-          console.error("Error fetching projects:", error);
+          logger.debug("error", "Error fetching projects:", {
+            ...error,
+          });
           return;
         }
         setProjects(data || []);
       } catch (error) {
-        console.error("Error fetching projects:", error);
+        logger.debug("error", "Error fetching projects:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       } finally {
         setIsLoadingProjects(false);
       }
@@ -83,7 +90,7 @@ export default function NewWhiteboardModal({
     if (open && user) {
       fetchProjects();
     }
-  }, [open, user]);
+  }, [open, user, logger]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +109,9 @@ export default function NewWhiteboardModal({
       });
 
       if (error) {
-        console.error("Error creating canvas:", error);
+        logger.debug("error", "Error creating canvas:", {
+          ...error,
+        });
         throw error;
       }
 
@@ -114,7 +123,10 @@ export default function NewWhiteboardModal({
       onCreated();
       onClose();
     } catch (error) {
-      console.error("Error creating canvas:", error);
+      logger.debug("error", "Error creating canvas:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsCreating(false);
     }

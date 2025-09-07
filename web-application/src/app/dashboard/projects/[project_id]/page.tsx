@@ -7,6 +7,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/ClientConstants";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import { Database } from "@/lib/types/supabase";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 // Union type for recent items
 type RecentItem = {
@@ -34,6 +35,7 @@ function formatRelativeTime(dateString: string | null | undefined): string {
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
+  const logger = useProductLogger();
   const projectId = params?.project_id as string;
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,11 +67,15 @@ export default function ProjectPage() {
       ]);
 
       if (prototypesResult.error) {
-        console.error("Error fetching prototypes:", prototypesResult.error);
+        logger.debug("error", "Error fetching prototypes:", {
+          ...prototypesResult.error,
+        });
       }
 
       if (canvasesResult.error) {
-        console.error("Error fetching canvases:", canvasesResult.error);
+        logger.debug("error", "Error fetching canvases:", {
+          ...canvasesResult.error,
+        });
       }
 
       // Transform data to unified format
@@ -126,11 +132,14 @@ export default function ProjectPage() {
 
       setRecentItems(allItems);
     } catch (error) {
-      console.error("Error fetching recent items:", error);
+      logger.debug("error", "Error fetching recent items:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, logger]);
 
   useEffect(() => {
     fetchRecentItems();

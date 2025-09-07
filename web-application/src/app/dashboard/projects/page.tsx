@@ -7,6 +7,7 @@ import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ type Project = Database["public"]["Tables"]["projects"]["Row"];
 export default function ProjectsPage() {
   const { user } = useUser();
   const router = useRouter();
+  const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,17 +38,22 @@ export default function ProjectsPage() {
         .order("updated_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching projects:", error);
+        logger.debug("error", "Error fetching projects:", {
+          ...error,
+        });
         return;
       }
 
       setProjects(data || []);
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      logger.debug("error", "Error fetching projects:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, logger]);
 
   useEffect(() => {
     fetchProjects();

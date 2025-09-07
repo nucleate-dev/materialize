@@ -96,7 +96,6 @@ export async function handleRedirectToPaymentsPage(
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error("Checkout request failed:", errorData);
     throw new Error(`Checkout failed: ${errorData.message || "Unknown error"}`);
   }
 
@@ -108,7 +107,6 @@ export async function handleRedirectToPaymentsPage(
   } else {
     // Handle error response
     const errorResponse = session as { error: string; message: string };
-    console.error("Checkout session creation failed:", errorResponse);
     throw new Error(
       `Checkout failed: ${errorResponse.message || errorResponse.error}`,
     );

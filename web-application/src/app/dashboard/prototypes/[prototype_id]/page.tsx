@@ -20,6 +20,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type FetchViewingUrlRequestBody,
   type FetchViewingUrlResponse,
@@ -57,6 +58,7 @@ export default function CreatePage() {
   const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const { setSidebarExpanded } = useSidebar();
+  const logger = useProductLogger();
 
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
@@ -141,7 +143,9 @@ export default function CreatePage() {
         .single();
 
       if (error) {
-        console.error("Error fetching prototype:", error);
+        logger.debug("error", "Error fetching prototype:", {
+          ...error,
+        });
         router.push("/dashboard");
         return;
       }
@@ -195,23 +199,28 @@ export default function CreatePage() {
               setCurrentRenderStatus("Static build");
             }
           } else {
-            console.error(
-              "Error in fetch-viewing-url response:",
-              fetchViewData,
-            );
+            logger.debug("error", "Error in fetch-viewing-url response:", {
+              ...fetchViewData,
+            });
             setShouldTriggerInitialFetch(false);
             return;
           }
         } else {
-          console.error(
-            "Failed to fetch viewing URL:",
-            fetchViewResponse.status,
-          );
+          logger.debug("error", "Failed to fetch viewing URL:", {
+            ...fetchViewResponse,
+          });
           setShouldTriggerInitialFetch(false);
           return;
         }
       } catch (fetchViewError) {
-        console.error("Error calling fetch-viewing-url API:", fetchViewError);
+        logger.debug("error", "Error calling fetch-viewing-url API:", {
+          error:
+            fetchViewError instanceof Error
+              ? fetchViewError.message
+              : String(fetchViewError),
+          stack:
+            fetchViewError instanceof Error ? fetchViewError.stack : undefined,
+        });
         setShouldTriggerInitialFetch(false);
         return;
       }
@@ -319,6 +328,7 @@ export default function CreatePage() {
     router,
     shouldTriggerInitialFetch,
     viewingUrl,
+    logger,
   ]);
 
   const handleUpdatePrototype = (updatedPrototype: Prototype) => {
@@ -354,7 +364,10 @@ export default function CreatePage() {
         setShowShareModal(false);
       }, 1000);
     } catch (err) {
-      console.error("Failed to copy URL:", err);
+      logger.debug("error", "Failed to copy URL:", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     } finally {
       setIsCopying(false);
     }
@@ -380,7 +393,10 @@ export default function CreatePage() {
         prev ? { ...prev, visibility: newVisibility } : null,
       );
     } catch (err) {
-      console.error("Failed to update visibility:", err);
+      logger.debug("error", "Failed to update visibility:", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     }
   };
 

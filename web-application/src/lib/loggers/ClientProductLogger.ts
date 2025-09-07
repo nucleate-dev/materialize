@@ -35,8 +35,8 @@ export class ClientProductLogger {
   }
 
   debug(
-    message: string,
     level: LogLevel = "log",
+    message: string,
     additionalData?: Record<string, unknown>,
   ): void {
     if (!this.isDev) return;

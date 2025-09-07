@@ -15,6 +15,7 @@ import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -52,6 +53,16 @@ export default function PrototypeChatWindow({
   onViewingUrlUpdate,
   currentRenderStatus,
 }: PrototypeChatWindowProps) {
+  const logger = useProductLogger();
+  const { user } = useUser();
+  const userId = user?.id;
+  const {
+    userPlan,
+    currentPeriodStart,
+    currentPeriodEnd,
+    loadingSubscriptionData,
+  } = useSubscriptionAccess();
+
   const [loadingDots, setLoadingDots] = useState(0);
   const [isExecutingOperations, setIsExecutingOperations] = useState(false);
   const [prototypeChatSession, setPrototypeChatSession] =
@@ -71,15 +82,6 @@ export default function PrototypeChatWindow({
   const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
   const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
 
-  const { user } = useUser();
-  const userId = user?.id;
-  const {
-    userPlan,
-    currentPeriodStart,
-    currentPeriodEnd,
-    loadingSubscriptionData,
-  } = useSubscriptionAccess();
-
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
       if (!prototypeId || !userId) return;
@@ -92,7 +94,9 @@ export default function PrototypeChatWindow({
         .eq("user_id", userId)
         .maybeSingle();
       if (error) {
-        console.error("Error fetching project chat session:", error);
+        logger.debug("error", "Error fetching project chat session:", {
+          ...error,
+        });
         return;
       }
 
@@ -105,7 +109,9 @@ export default function PrototypeChatWindow({
           .select()
           .single();
         if (createError) {
-          console.error("Error creating project chat session:", createError);
+          logger.debug("error", "Error creating project chat session:", {
+            ...createError,
+          });
           return;
         }
         chatSession = newSession;
@@ -122,7 +128,9 @@ export default function PrototypeChatWindow({
         .order("created_at", { ascending: false })
         .limit(40);
       if (messagesError) {
-        console.error("Error fetching chat messages:", messagesError);
+        logger.debug("error", "Error fetching chat messages:", {
+          ...messagesError,
+        });
         return;
       }
 
@@ -133,7 +141,7 @@ export default function PrototypeChatWindow({
     if (prototypeId && userId) {
       fetchPrototypeChatSessionAndMessages();
     }
-  }, [prototypeId, userId]);
+  }, [prototypeId, userId, logger]);
 
   // Fetch message count for current billing period
   useEffect(() => {
@@ -150,13 +158,18 @@ export default function PrototypeChatWindow({
           .lte("created_at", currentPeriodEnd.toISOString());
 
         if (error) {
-          console.error("Error fetching message count:", error);
+          logger.debug("error", "Error fetching message count:", {
+            ...error,
+          });
           setMessageCount(0);
         } else {
           setMessageCount(count || 0);
         }
       } catch (error) {
-        console.error("Error fetching message count:", error);
+        logger.debug("error", "Error fetching message count:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         setMessageCount(0);
       } finally {
         setLoadingCount(false);
@@ -164,7 +177,13 @@ export default function PrototypeChatWindow({
     }
 
     fetchMessageCount();
-  }, [userId, currentPeriodStart, currentPeriodEnd, loadingSubscriptionData]);
+  }, [
+    userId,
+    currentPeriodStart,
+    currentPeriodEnd,
+    loadingSubscriptionData,
+    logger,
+  ]);
 
   // Note: Message count is now updated via the API response when a message is sent
   // This provides the most accurate count from the database
@@ -349,7 +368,9 @@ export default function PrototypeChatWindow({
             }
 
             case "step_error":
-              console.error(`Step ${data.stepIndex + 1} failed:`, data.error);
+              logger.debug("error", `Step ${data.stepIndex + 1} failed:`, {
+                ...data.error,
+              });
 
               // Update the execution message to show error
               if (executionMessageId) {
@@ -416,7 +437,9 @@ export default function PrototypeChatWindow({
             }
 
             case "error": {
-              console.error("Streaming error:", data.error);
+              logger.debug("error", "Streaming error:", {
+                ...data.error,
+              });
               setIsExecutingOperations(false);
               setIsChatLoading(false);
 
@@ -468,6 +491,7 @@ export default function PrototypeChatWindow({
       setIsChatLoading,
       loadingDots,
       onViewingUrlUpdate,
+      logger,
     ],
   );
 
@@ -504,7 +528,7 @@ export default function PrototypeChatWindow({
       setIsChatLoading(true);
 
       if (!prototypeChatSession?.id) {
-        console.error("Sending message failed: no chat session found");
+        logger.debug("error", "Sending message failed: no chat session found");
         setIsChatLoading(false);
         return;
       }
@@ -526,7 +550,9 @@ export default function PrototypeChatWindow({
         .select()
         .single();
       if (insertError) {
-        console.error("Error inserting user message:", insertError);
+        logger.debug("error", "Error inserting user message:", {
+          ...insertError,
+        });
         setIsChatLoading(false);
         return;
       }
@@ -596,8 +622,11 @@ export default function PrototypeChatWindow({
         // Process the streaming response
         await processStreamingResponse(streamingResponse);
       } catch (error) {
-        console.error("❌ [CLIENT] Error sending message:", error);
-        console.error("❌ [CLIENT] Error details:", {
+        logger.debug("error", "❌ [CLIENT] Error sending message:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        logger.debug("error", "❌ [CLIENT] Error details:", {
           name: error instanceof Error ? error.name : "Unknown",
           message: error instanceof Error ? error.message : error,
           stack: error instanceof Error ? error.stack : "No stack trace",
@@ -635,6 +664,7 @@ export default function PrototypeChatWindow({
       processStreamingResponse,
       isAtLimit,
       isChatLoading,
+      logger,
     ],
   );
 
@@ -649,17 +679,22 @@ export default function PrototypeChatWindow({
           .eq("chat_session_id", prototypeChatSession.id);
 
         if (error) {
-          console.error("Error clearing chat messages:", error);
+          logger.debug("error", "Error clearing chat messages:", {
+            ...error,
+          });
           return;
         }
 
         // Clear the local state
         setPrototypeChatMessages([]);
       } catch (error) {
-        console.error("Error clearing chat:", error);
+        logger.debug("error", "Error clearing chat:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
     }
-  }, [prototypeChatSession, setPrototypeChatMessages]);
+  }, [prototypeChatSession, setPrototypeChatMessages, logger]);
 
   // IF USER CLICKS ON PRE_DEFINED PROMPT, we must send that message when the page loads
   useEffect(() => {

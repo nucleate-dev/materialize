@@ -10,12 +10,14 @@ import type {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
     useState<boolean>(false);
   const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
+  const logger = useProductLogger();
 
   let productId: string | null = null;
   let chatIntent: { message: string; prototype_id?: string } | null = null;
@@ -30,7 +32,10 @@ export default function AuthCallback() {
             prototype_id?: string;
           };
         } catch (e) {
-          console.error("Failed to parse chat_intent", e);
+          logger.debug("error", "Failed to parse chat_intent", {
+            error: e instanceof Error ? e.message : String(e),
+            stack: e instanceof Error ? e.stack : undefined,
+          });
         }
       }
     }
@@ -66,14 +71,8 @@ export default function AuthCallback() {
           let prototypeId = chatIntent.prototype_id;
           if (!prototypeId) {
             try {
-              const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-              if (!serverEndpoint) {
-                console.error("Server endpoint not configured");
-                return;
-              }
-
               const response = await fetch(
-                `${serverEndpoint}/prototype/create`,
+                `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
                 {
                   method: "POST",
                   headers: {
@@ -92,7 +91,14 @@ export default function AuthCallback() {
                 prototypeId = protoResult.data.prototype_id;
               }
             } catch (protoError) {
-              console.error("Error creating prototype:", protoError);
+              logger.debug("error", "Error creating prototype", {
+                error:
+                  protoError instanceof Error
+                    ? protoError.message
+                    : String(protoError),
+                stack:
+                  protoError instanceof Error ? protoError.stack : undefined,
+              });
             }
           }
           if (prototypeId) {
@@ -108,7 +114,10 @@ export default function AuthCallback() {
             router.push("/dashboard");
           }
         } catch (err) {
-          console.error("Error handling chat intent:", err);
+          logger.debug("error", "Error handling chat intent: ", {
+            error: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          });
           router.push("/dashboard");
         }
       } else if (data.session.user.email_confirmed_at === null) {
@@ -123,7 +132,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [productId, chatIntent, router, userPlan]);
+  }, [productId, chatIntent, router, userPlan, logger]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

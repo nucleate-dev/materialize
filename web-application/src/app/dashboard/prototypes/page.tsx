@@ -17,12 +17,14 @@ import { useUser } from "@/hooks/useUser";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 export default function PrototypesPage() {
   const { user } = useUser();
   const router = useRouter();
+  const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,17 +48,22 @@ export default function PrototypesPage() {
         .order("updated_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching prototypes:", error);
+        logger.debug("error", "Error fetching prototypes:", {
+          ...error,
+        });
         return;
       }
 
       setPrototypes(data || []);
     } catch (error) {
-      console.error("Error fetching prototypes:", error);
+      logger.debug("error", "Error fetching prototypes:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, logger]);
 
   useEffect(() => {
     fetchPrototypes();

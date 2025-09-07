@@ -16,6 +16,7 @@ import { useUser } from "@/hooks/useUser";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -33,6 +34,7 @@ function formatRelativeTime(dateString: string | null | undefined): string {
 export default function WhiteboardsPage() {
   // const router = useRouter();
   const { user } = useUser();
+  const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
   const [canvases, setCanvases] = useState<
     Database["public"]["Tables"]["canvases"]["Row"][]
@@ -50,14 +52,16 @@ export default function WhiteboardsPage() {
         .eq("owner_id", userId)
         .order("updated_at", { ascending: false });
       if (error) {
-        console.error("Error fetching canvases:", error);
+        logger.debug("error", "Error fetching canvases:", {
+          ...error,
+        });
         setCanvases([]);
       } else {
         setCanvases(data || []);
       }
       setLoading(false);
     },
-    [setLoading, setCanvases],
+    [setLoading, setCanvases, logger],
   );
 
   useEffect(() => {

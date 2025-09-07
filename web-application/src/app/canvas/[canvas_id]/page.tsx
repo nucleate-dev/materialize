@@ -18,10 +18,12 @@ import {
   TLSessionStateSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export default function CanvasPage() {
   const { user, userIsLoading } = useUser();
   const params = useParams<{ canvas_id: string }>();
+  const logger = useProductLogger();
   const canvasId = params?.canvas_id;
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [messages, setMessages] = useState([
@@ -51,7 +53,9 @@ export default function CanvasPage() {
         .eq("canvas_id", canvasId)
         .single();
       if (error) {
-        console.error("Error fetching canvas document:", error);
+        logger.debug("error", "Error fetching canvas document:", {
+          ...error,
+        });
         return;
       }
       setCanvasDocument(data);
@@ -64,7 +68,9 @@ export default function CanvasPage() {
         .eq("user_id", user?.id)
         .maybeSingle();
       if (error) {
-        console.error("Error fetching canvas session:", error);
+        logger.debug("error", "Error fetching canvas session:", {
+          ...error,
+        });
         return;
       }
       setSessionInfo(data);
@@ -75,7 +81,7 @@ export default function CanvasPage() {
       fetchCanvasDocument();
       fetchSession();
     }
-  }, [canvasId, user, setSessionInfo, setCanvasDocument]);
+  }, [canvasId, user, setSessionInfo, setCanvasDocument, logger]);
 
   useEffect(() => {
     if (
@@ -102,9 +108,13 @@ export default function CanvasPage() {
       editor.current.loadSnapshot(snapshot);
       setLoadedFromDB(true);
     } catch (loadError) {
-      console.error("Error calling loadSnapshot:", loadError);
+      logger.debug("error", "Error calling loadSnapshot:", {
+        error:
+          loadError instanceof Error ? loadError.message : String(loadError),
+        stack: loadError instanceof Error ? loadError.stack : undefined,
+      });
     }
-  }, [editor, canvasDocument, sessionInfo, loadedFromDB]);
+  }, [editor, canvasDocument, sessionInfo, loadedFromDB, logger]);
 
   // ------------------ Persistence functions -----------------------------------------------------------
   const saveCanvasDocument = useCallback(async () => {
@@ -121,7 +131,9 @@ export default function CanvasPage() {
       .eq("canvas_id", canvasId)
       .eq("id", canvasDocument?.id);
     if (documentUploadError) {
-      console.error("Error updating canvas document:", documentUploadError);
+      logger.debug("error", "Error updating canvas document:", {
+        ...documentUploadError,
+      });
     }
 
     if (user != null) {
@@ -140,10 +152,12 @@ export default function CanvasPage() {
           },
         );
       if (sessionUploadError) {
-        console.error("Error updating canvas document:", sessionUploadError);
+        logger.debug("error", "Error updating canvas session:", {
+          ...sessionUploadError,
+        });
       }
     }
-  }, [canvasId, editor, canvasDocument, user]);
+  }, [canvasId, editor, canvasDocument, user, logger]);
 
   const saveCanvasThumbnail = useCallback(async () => {
     if (!editor.current || !canvasId) return;
@@ -161,7 +175,9 @@ export default function CanvasPage() {
         upsert: true,
       });
     if (uploadError) {
-      console.error("Error uploading thumbnail:", uploadError);
+      logger.debug("error", "Error uploading thumbnail:", {
+        ...uploadError,
+      });
       return;
     }
 
@@ -176,9 +192,11 @@ export default function CanvasPage() {
       .update({ thumbnail_url: publicUrl })
       .eq("id", canvasId);
     if (updateError) {
-      console.error("Error updating thumbnail url:", updateError);
+      logger.debug("error", "Error updating thumbnail url:", {
+        ...updateError,
+      });
     }
-  }, [canvasId, editor]);
+  }, [canvasId, editor, logger]);
 
   // Auto-save setup with proper debouncing
   useEffect(() => {

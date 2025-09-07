@@ -27,7 +27,6 @@ export function getChatIntent(
     }
     return null;
   } catch (err) {
-    console.error("Failed to parse chat_intent", err);
     return null;
   }
 }

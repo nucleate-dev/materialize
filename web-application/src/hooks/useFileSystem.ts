@@ -1,4 +1,5 @@
 import { supabase } from "@/ClientConstants";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { useCallback, useEffect, useState } from "react";
 
@@ -43,6 +44,7 @@ export const useFileSystem = (
   prototypeId: string | undefined,
   defaultFile = "App.js",
 ): UseFileSystemReturn => {
+  const logger = useProductLogger();
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
   const [assets, setAssets] = useState<Record<string, PrototypeAsset>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
@@ -62,7 +64,10 @@ export const useFileSystem = (
           .order("created_at", { ascending: true });
 
         if (error) {
-          console.error("Error fetching prototype files:", error);
+          logger.debug("error", "Error fetching prototype files:", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          });
           return;
         }
 
@@ -89,43 +94,55 @@ export const useFileSystem = (
           }
         }
       } catch (error) {
-        console.error("Error loading files:", error);
+        logger.debug("error", "Error loading files:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       } finally {
         setIsLoading(false);
       }
     },
-    [defaultFile, selectedFile],
+    [defaultFile, selectedFile, logger],
   );
 
-  const loadAssetsFromDatabase = useCallback(async (prototypeId: string) => {
-    if (!prototypeId) return;
+  const loadAssetsFromDatabase = useCallback(
+    async (prototypeId: string) => {
+      if (!prototypeId) return;
 
-    try {
-      const { data, error } = await supabase
-        .from("prototype_assets")
-        .select("*")
-        .eq("prototype_id", prototypeId)
-        .order("created_at", { ascending: true });
+      try {
+        const { data, error } = await supabase
+          .from("prototype_assets")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching prototype assets:", error);
-        return;
+        if (error) {
+          logger.debug("error", "Error fetching prototype assets:", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          });
+          return;
+        }
+
+        // Convert array to dictionary mapping name to PrototypeAsset object
+        const assetsDict = (data || []).reduce(
+          (acc, asset) => {
+            acc[asset.name] = asset;
+            return acc;
+          },
+          {} as Record<string, PrototypeAsset>,
+        );
+
+        setAssets(assetsDict);
+      } catch (error) {
+        logger.debug("error", "Error loading assets:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
-
-      // Convert array to dictionary mapping name to PrototypeAsset object
-      const assetsDict = (data || []).reduce(
-        (acc, asset) => {
-          acc[asset.name] = asset;
-          return acc;
-        },
-        {} as Record<string, PrototypeAsset>,
-      );
-
-      setAssets(assetsDict);
-    } catch (error) {
-      console.error("Error loading assets:", error);
-    }
-  }, []);
+    },
+    [logger],
+  );
 
   useEffect(() => {
     if (!prototypeId) return;
@@ -176,15 +193,18 @@ export const useFileSystem = (
   const saveSingleFile = useCallback(
     async (filePath: string): Promise<boolean> => {
       if (!prototypeId) {
-        console.error("Cannot save file: no prototype ID");
+        logger.debug("error", "Cannot save file: no prototype ID");
         return false;
       }
 
       const fileData = files[filePath];
       if (!fileData) {
-        console.error(
+        logger.debug(
+          "error",
           "Cannot save file: file not found in local state:",
-          filePath,
+          {
+            filePath,
+          },
         );
         return false;
       }
@@ -210,24 +230,30 @@ export const useFileSystem = (
           .select();
 
         if (error) {
-          console.error("Error persisting single file to database:", error);
+          logger.debug("error", "Error persisting single file to database:", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          });
           return false;
         }
 
         return true;
       } catch (error) {
-        console.error("Error in saveSingleFile:", error);
+        logger.debug("error", "Error in saveSingleFile:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         return false;
       }
     },
-    [prototypeId, files],
+    [prototypeId, files, logger],
   );
 
   // Apply file updates locally and persist them directly to Supabase database
   const applyAndPersistFileUpdates = useCallback(
     async (updatedFiles: Record<string, PrototypeFile>): Promise<boolean> => {
       if (!prototypeId) {
-        console.error("Cannot persist file updates: no prototype ID");
+        logger.debug("error", "Cannot persist file updates: no prototype ID");
         return false;
       }
 
@@ -261,29 +287,37 @@ export const useFileSystem = (
           .select();
 
         if (error) {
-          console.error("Error persisting file updates to database:", error);
+          logger.debug("error", "Error persisting file updates to database:", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          });
           return false;
         }
 
         return true;
       } catch (error) {
-        console.error("Error in applyAndPersistFileUpdates:", error);
+        logger.debug("error", "Error in applyAndPersistFileUpdates:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         return false;
       }
     },
-    [prototypeId, applyFileUpdates],
+    [prototypeId, applyFileUpdates, logger],
   );
 
   // Create a new file
   const createFile = useCallback(
     async (fileName: string, initialContent = "") => {
       if (!prototypeId) {
-        console.error("Create file failed: no prototype ID");
+        logger.debug("error", "Create file failed: no prototype ID");
         return;
       }
 
       if (files[fileName]) {
-        console.error("File already exists:", fileName);
+        logger.debug("error", "File already exists:", {
+          fileName,
+        });
         return;
       }
 
@@ -300,7 +334,9 @@ export const useFileSystem = (
           .single();
 
         if (error) {
-          console.error(`Error creating file ${fileName}:`, error);
+          logger.debug("error", `Error creating file ${fileName}:`, {
+            ...error,
+          });
           return;
         }
 
@@ -313,29 +349,34 @@ export const useFileSystem = (
         // Select the new file
         setSelectedFile(fileName);
       } catch (error) {
-        console.error(`Error creating file ${fileName}:`, error);
+        logger.debug("error", `Error creating file ${fileName}:`, {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
     },
-    [prototypeId, files],
+    [prototypeId, files, logger],
   );
 
   // Delete a file
   const deleteFile = useCallback(
     async (fileName: string) => {
       if (!prototypeId) {
-        console.error("Delete file failed: no prototype ID");
+        logger.debug("error", "Delete file failed: no prototype ID");
         return;
       }
 
       const fileToDelete = files[fileName];
       if (!fileToDelete) {
-        console.error("File not found:", fileName);
+        logger.debug("error", "File not found:", {
+          fileName,
+        });
         return;
       }
 
       // Prevent deleting the last file
       if (Object.keys(files).length <= 1) {
-        console.error("Cannot delete the last file");
+        logger.debug("error", "Cannot delete the last file");
         return;
       }
 
@@ -347,7 +388,9 @@ export const useFileSystem = (
           .eq("id", fileToDelete.id);
 
         if (error) {
-          console.error(`Error deleting file ${fileName}:`, error);
+          logger.debug("error", `Error deleting file ${fileName}:`, {
+            ...error,
+          });
           return;
         }
 
@@ -364,10 +407,13 @@ export const useFileSystem = (
           }
         }
       } catch (error) {
-        console.error(`Error deleting file ${fileName}:`, error);
+        logger.debug("error", `Error deleting file ${fileName}:`, {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
     },
-    [prototypeId, files, selectedFile],
+    [prototypeId, files, selectedFile, logger],
   );
 
   const state: FileSystemState = {

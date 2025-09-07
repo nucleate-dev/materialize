@@ -19,6 +19,7 @@ import type {
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface CodeEditorProps {
   fileSystem: UseFileSystemReturn;
@@ -40,6 +41,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onBuildingStateChange,
   saveMode = "single-file", // Default to single file saves
 }) => {
+  const logger = useProductLogger();
   // Extract values from fileSystem
   const availableFiles = Object.keys(fileSystem.state.files);
   const canDelete = availableFiles.length > 1;
@@ -184,7 +186,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       fileSystem.getSelectedFileContent() === undefined ||
       !fileSystem.state.files
     ) {
-      console.error(
+      logger.debug(
+        "error",
         "Cannot save: missing prototype ID, filename, file content, or files object",
       );
       return;
@@ -201,7 +204,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         fileSystem.state.selectedFile,
       );
       if (!saveSuccess) {
-        console.error("Failed to persist file to database");
+        logger.debug("error", "Failed to persist file to database");
         return;
       }
 
@@ -209,7 +212,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       const token = session.data.session?.access_token;
 
       if (!token) {
-        console.error("No authentication token available");
+        logger.debug("error", "No authentication token available");
         return;
       }
 
@@ -233,7 +236,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Update files request failed:", errorData);
+        logger.debug("error", "Update files request failed:", {
+          ...errorData,
+        });
         throw new Error(
           `Update failed: ${errorData.message || "Unknown error"}`,
         );
@@ -250,14 +255,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       } else {
         // Handle error response
         const errorResponse = result as { error: string; message: string };
-        console.error(
-          "Failed to update file:",
-          errorResponse.error || errorResponse.message,
-        );
+        logger.debug("error", "Failed to update file:", {
+          ...errorResponse,
+        });
         // TODO: if no active dev server, provide helpful message
       }
     } catch (error) {
-      console.error("Error updating file:", error);
+      logger.debug("error", "Error updating file:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsSaving(false);
       if (onBuildingStateChange) {
@@ -268,7 +275,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const handleSaveFiles = async () => {
     if (!prototypeId || !fileSystem.state.files) {
-      console.error("Cannot save: missing prototype ID or files");
+      logger.debug("error", "Cannot save: missing prototype ID or files");
       return;
     }
 
@@ -281,7 +288,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       const token = session.data.session?.access_token;
 
       if (!token) {
-        console.error("No authentication token available");
+        logger.debug("error", "No authentication token available");
         return;
       }
 
@@ -317,7 +324,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Update files request failed:", errorData);
+        logger.debug("error", "Update files request failed:", {
+          ...errorData,
+        });
         throw new Error(
           `Update failed: ${errorData.message || "Unknown error"}`,
         );
@@ -334,20 +343,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       } else {
         // Handle error response
         const errorResponse = result as { error: string; message: string };
-        console.error(
-          "Failed to update files:",
-          errorResponse.error || errorResponse.message,
-        );
+        logger.debug("error", "Failed to update files:", {
+          ...errorResponse,
+        });
 
-        // If no active dev server, provide helpful message
-        if (errorResponse.error === "No active dev server") {
-          console.log(
-            "💡 Tip: Start a dev server first, then try saving files again",
-          );
-        }
+        // TODO: If no active dev server, provide helpful message
       }
     } catch (error) {
-      console.error("Error updating files:", error);
+      logger.debug("error", "Error updating files:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setIsSaving(false);
       if (onBuildingStateChange) {
@@ -555,7 +561,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 alt={fileSystem.state.selectedFile}
                 className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
                 onError={(e) => {
-                  console.error("Failed to load image:", imageUrl);
+                  logger.debug("error", "Failed to load image:", {
+                    imageurl: imageUrl,
+                  });
                   (e.target as HTMLImageElement).style.display = "none";
                 }}
               />

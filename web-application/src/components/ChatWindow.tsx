@@ -29,6 +29,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
@@ -56,6 +57,7 @@ export default function ChatWindow({
   loadingUsageCount = false,
   currentRenderStatus = "Static build",
 }: ChatWindowProps) {
+  const logger = useProductLogger();
   const [input, setInput] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -98,7 +100,7 @@ export default function ChatWindow({
 
     messages.forEach((message) => {
       if (message.role === "assistant") {
-        const planningResult = extractExecutionPlan(message.content);
+        const planningResult = extractExecutionPlan(message.content, logger);
         if (planningResult.hasPlan) {
           newPlanningData.set(message.id, planningResult);
           logPlanningExtraction(planningResult);
@@ -124,7 +126,7 @@ export default function ChatWindow({
       // No changes, return previous data to prevent re-render
       return prevData;
     });
-  }, [messages]);
+  }, [messages, logger]);
 
   const isDevServerStarting = currentRenderStatus === "Starting Dev Server..";
   const isDisabled =
