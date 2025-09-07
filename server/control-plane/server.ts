@@ -8,9 +8,24 @@ import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/ChatService.js';
+import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import { S3Client } from '@aws-sdk/client-s3';
+
+// Extend FastifyRequest to include our custom logger
+declare module 'fastify' {
+  interface FastifyRequest {
+    log2: SystemLogger;
+  }
+}
+
+export const baseLogger = new SystemLogger({
+  service: 'control-plane',
+  env: process.env.NODE_ENV || 'DEV',
+  metricNamespace: 'Materialize/Service',
+  redactKeys: ['authorization', 'cookie', 'x-api-key'],
+});
 
 // Initialize clients
 const initializeClients = async (): Promise<{
@@ -57,10 +72,22 @@ const fastify = Fastify({
   disableRequestLogging: true,
   bodyLimit: 20 * 1024 * 1024, // 20MB
 });
-fastify.register(cors, { 
-  origin: true, 
+fastify.register(cors, {
+  origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+});
+
+fastify.addHook('onRequest', async (req) => {
+  const { requestId, traceId } = genRequestIds(
+    req.headers as Record<string, string | string[] | undefined>,
+  );
+  req.log2 = baseLogger.child({
+    requestId,
+    traceId,
+    route: req.routeOptions?.url,
+    method: req.method,
+  });
 });
 
 let dispatcherService: DispatcherService;
