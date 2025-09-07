@@ -69,7 +69,13 @@ export function extractExecutionPlan(
             .trim();
         }
       } catch (parseError) {
-        console.warn("Failed to parse execution plan JSON:", parseError);
+        logger.debug("warn", "Failed to parse execution plan JSON:", {
+          error:
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError),
+          stack: parseError instanceof Error ? parseError.stack : undefined,
+        });
       }
     }
 
@@ -94,10 +100,13 @@ export function extractExecutionPlan(
           result.message = result.message.replace(match[0], "").trim();
         }
       } catch (parseError) {
-        console.warn(
-          `Failed to parse execution step ${stepId} JSON:`,
-          parseError,
-        );
+        logger.debug("warn", `Failed to parse execution step ${stepId} JSON:`, {
+          error:
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError),
+          stack: parseError instanceof Error ? parseError.stack : undefined,
+        });
       }
     }
   } catch (error) {
@@ -143,17 +152,19 @@ export function extractExecutionStep(
             result.operations = stepOperations;
           }
         } catch (parseError) {
-          console.warn(
+          logger.debug(
+            "warn",
             `Failed to parse execution step ${stepId} JSON:`,
-            parseError,
+            {
+              parseError,
+            },
           );
         }
       }
     }
   } catch (error) {
     logger.debug("error", `Error extracting execution step ${stepId}:`, {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      error,
     });
   }
 
