@@ -62,6 +62,7 @@ export async function getSubscriptionInfo(
         userPlan: 'free',
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
+        stripeCustomerId: '',
       };
     }
 
@@ -72,6 +73,7 @@ export async function getSubscriptionInfo(
         userPlan: 'free',
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
+        stripeCustomerId: '',
       };
     }
 
@@ -105,6 +107,7 @@ export async function getSubscriptionInfo(
         userPlan: plan,
         currentPeriodStart,
         currentPeriodEnd,
+        stripeCustomerId: latestSubscription.stripe_customer_id || '',
       };
     } else {
       // Fallback to free if no plan is found
@@ -113,6 +116,7 @@ export async function getSubscriptionInfo(
         userPlan: 'free',
         currentPeriodStart: startOfMonth,
         currentPeriodEnd: endOfMonth,
+        stripeCustomerId: '',
       };
     }
   } catch (error) {
@@ -123,6 +127,7 @@ export async function getSubscriptionInfo(
       userPlan: 'free',
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
+      stripeCustomerId: '',
     };
   }
 }
@@ -195,6 +200,9 @@ export async function hasExceededChatUsageLimit(
   current: number;
   limit: number;
   plan: string;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  stripeCustomerId: string;
 }> {
   try {
     const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId);
@@ -213,6 +221,9 @@ export async function hasExceededChatUsageLimit(
         current: currentUsage,
         limit: limit,
         plan: subscriptionInfo.userPlan,
+        currentPeriodStart: subscriptionInfo.currentPeriodStart,
+        currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+        stripeCustomerId: subscriptionInfo.stripeCustomerId,
       };
     }
 
@@ -222,15 +233,22 @@ export async function hasExceededChatUsageLimit(
       current: currentUsage,
       limit: -1, // -1 indicates unlimited
       plan: subscriptionInfo.userPlan,
+      currentPeriodStart: subscriptionInfo.currentPeriodStart,
+      currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+      stripeCustomerId: subscriptionInfo.stripeCustomerId,
     };
   } catch (error) {
     console.error('Error in hasExceededUsageLimit:', error);
+    const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     // Default to free plan limits on error
     return {
       exceeded: true,
       current: 0,
       limit: 15,
       plan: 'free',
+      currentPeriodStart: startOfMonth,
+      currentPeriodEnd: endOfMonth,
+      stripeCustomerId: '',
     };
   }
 }

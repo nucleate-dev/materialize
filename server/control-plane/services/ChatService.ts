@@ -2,7 +2,6 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { generateText } from 'ai';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -24,6 +23,8 @@ import {
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
 import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
+import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
+import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -181,113 +182,7 @@ export class ChatService {
   ): Promise<void> {
     try {
       // ------------------------------------------------------------------------------------------------
-      // 1. JWT Token validation -- must be an AUTHORIZED user
-      // ------------------------------------------------------------------------------------------------
-      const token = request.headers.authorization?.split(' ')[1];
-      if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-        console.error('No JWT token provided');
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized: No token provided',
-        } as ChatErrorResponse);
-      }
-
-      let userID: string;
-      try {
-        const decoded = jwt.verify(token, this.jwtSecret) as jwt.JwtPayload;
-        userID = decoded.sub as string;
-      } catch (error) {
-        console.error('Invalid JWT token: ', error);
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized: Invalid token',
-        } as ChatErrorResponse);
-      }
-
-      if (!userID) {
-        console.error('User ID is null or undefined from JWT token');
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized: Invalid user ID',
-        } as ChatErrorResponse);
-      }
-
-      // ------------------------------------------------------------------------------------------------
-      // 2. Fetch user subscription and paywall the user if needed
-      // ------------------------------------------------------------------------------------------------
-      const supabase = createClient<Database>(
-        this.supabaseUrl,
-        this.supabaseServiceKey,
-      );
-
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const startOfMonthISO = startOfMonth.toISOString();
-
-      const [subscriptionResult, apiUsageResult] = await Promise.all([
-        supabase
-          .from('subscriptions')
-          .select(
-            'id, plan_id, price_id, status, stripe_customer_id, current_period_start, current_period_end',
-          )
-          .eq('user_id', userID)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .maybeSingle(),
-        supabase
-          .from('api_usage')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userID)
-          .gte('created_at', startOfMonthISO),
-      ]);
-
-      const { data: userSubscription, error: subscriptionError } =
-        subscriptionResult;
-      const { count: monthlyApiUsageCount, error: apiUsageError } =
-        apiUsageResult;
-
-      let userTier: string = ProductKeys.FREE_SUBSCRIPTION; // Default to free tier
-
-      if (subscriptionError) {
-        request.log2.error(
-          subscriptionError,
-          'Error fetching user subscription',
-          {
-            userId: userID,
-          },
-        );
-        // Continue with free tier rather than failing the request
-      } else if (userSubscription) {
-        // User has an active subscription, determine their tier from plan_id
-        userTier = userSubscription.plan_id;
-      }
-
-      if (apiUsageError) {
-        console.error('Error fetching monthly API usage:', apiUsageError);
-      }
-
-      console.log(`User tier determined: ${userTier}`);
-      console.log(`Monthly API usage count: ${monthlyApiUsageCount || 0}`);
-
-      // If user is on free tier, check their usage limits and paywall them if they exceed the limit
-      if (
-        userTier === ProductKeys.FREE_SUBSCRIPTION &&
-        (monthlyApiUsageCount || 0) >= 15
-      ) {
-        console.log(
-          `User ${userID} has reached free tier monthly limit: ${monthlyApiUsageCount}/15`,
-        );
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error:
-            'You have reached your free monthly messaging limit of 15 messages. Please upgrade your subscription to continue using the service.',
-          usage: {
-            current: monthlyApiUsageCount,
-            limit: 15,
-            tier: ProductKeys.FREE_SUBSCRIPTION,
-          },
-        } as ChatErrorResponse);
-      }
-
-      // ------------------------------------------------------------------------------------------------
-      // 3. Parse request body
+      // 1. Parse request body
       // ------------------------------------------------------------------------------------------------
       const {
         messages,
@@ -296,17 +191,51 @@ export class ChatService {
         chat_session_id,
         prototype_id,
       } = request.body;
-      if (!messages || !Array.isArray(messages)) {
-        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-          error: 'Messages array is required',
+      const fileManager = new this.FileManager(inputFiles, prototype_id);
+
+      // ------------------------------------------------------------------------------------------------
+      // 2. must be an AUTHORIZED user with prototype edit access
+      // ------------------------------------------------------------------------------------------------
+      const token = request.headers.authorization?.split(' ')[1] ?? '';
+      const authResult = await checkUserHasPrototypeEditAccess(
+        prototype_id,
+        token,
+      );
+      if (authResult === null) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error: 'Unauthorized: Invalid token',
+        } as ChatErrorResponse);
+      } else if (authResult.canEdit === false) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error:
+            'Unauthorized: User does not have permissions to edit this prototype',
         } as ChatErrorResponse);
       }
+      const user = authResult.user;
 
-      const fileManager = new this.FileManager(inputFiles, prototype_id);
+      // ------------------------------------------------------------------------------------------------
+      // 3. Fetch user subscription and paywall the user if needed
+      // ------------------------------------------------------------------------------------------------
+      const paywallResult = await hasExceededChatUsageLimit(token, user.id);
+      if (paywallResult.exceeded) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error: 'Unauthorized: User has exceeded their monthly usage limit',
+          usage: {
+            current: paywallResult.current,
+            limit: 15,
+            tier: ProductKeys.FREE_SUBSCRIPTION,
+          },
+        } as ChatErrorResponse);
+      }
+      const userTier = paywallResult.plan;
 
       // ------------------------------------------------------------------------------------------------
       // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
       // ------------------------------------------------------------------------------------------------
+      const supabase = createClient<Database>(
+        this.supabaseUrl,
+        this.supabaseServiceKey,
+      );
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-edit-intent',
@@ -512,33 +441,20 @@ export class ChatService {
             // 11. Track API usage and get updated count
             // ------------------------------------------------------------------------------------------------
             await supabase.from('api_usage').insert({
-              user_id: userID,
+              user_id: user.id,
               prototype_id: prototype_id || null,
             });
 
             // Get the updated message count for the current billing period
             let updatedMessageCount = 0;
             // For users with subscription, use their billing period
-            let periodStart = startOfMonthISO;
-            let periodEnd = new Date().toISOString();
-
-            if (
-              userSubscription &&
-              userSubscription.current_period_start &&
-              userSubscription.current_period_end
-            ) {
-              periodStart = new Date(
-                userSubscription.current_period_start * 1000,
-              ).toISOString();
-              periodEnd = new Date(
-                userSubscription.current_period_end * 1000,
-              ).toISOString();
-            }
+            const periodStart = paywallResult.currentPeriodStart.toISOString();
+            const periodEnd = paywallResult.currentPeriodEnd.toISOString();
 
             const { count: newCount, error: countError } = await supabase
               .from('api_usage')
               .select('*', { count: 'exact', head: true })
-              .eq('user_id', userID)
+              .eq('user_id', user.id)
               .gte('created_at', periodStart)
               .lte('created_at', periodEnd);
             if (countError) {
@@ -549,7 +465,7 @@ export class ChatService {
             }
             updatedMessageCount = newCount || 0;
             console.log(
-              `Updated message count for user ${userID}: ${updatedMessageCount}`,
+              `Updated message count for user ${user.id}: ${updatedMessageCount}`,
             );
 
             // Send updated message count to client
@@ -567,18 +483,18 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             if (
               userTier === ProductKeys.PRO_SUBSCRIPTION &&
-              userSubscription?.stripe_customer_id
+              paywallResult.stripeCustomerId
             ) {
               try {
                 await this.stripe.billing.meterEvents.create({
                   event_name: 'materialize_assistant_messages',
                   payload: {
-                    stripe_customer_id: userSubscription.stripe_customer_id,
+                    stripe_customer_id: paywallResult.stripeCustomerId,
                     value: '1',
                   },
                 });
                 console.log(
-                  `Stripe meter event successfully sent for pro user ${userID}`,
+                  `Stripe meter event successfully sent for pro user ${user.id}`,
                 );
               } catch (stripeError) {
                 console.error('Error sending Stripe meter event:', stripeError);
