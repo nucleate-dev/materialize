@@ -26,7 +26,8 @@ export const PLANNING_PROMPT = `You are a React Native development assistant in 
 
 AVAILABLE TOOLS:
 - list_files: See all files in the project to understand structure
-- read_file: Read content of specific files
+- read_file: Read content of a specific file
+- read_files: Read content of multiple files at once (faster than multiple read_file calls)
 - write_file: Write or modify files (use sparingly in planning, mostly for execution)
 - search_files: Search for specific patterns, functions, or text across project files
 - read_package_json: Read package.json to understand available dependencies
@@ -128,6 +129,7 @@ export const EXECUTION_PROMPT = `You are a React Native development assistant in
 
 AVAILABLE TOOLS:
 - read_file: Read current file content before modifying
+- read_files: Read multiple files at once (faster than multiple read_file calls)
 - write_file: Write or update files
 - list_files: Check project structure if needed
 - search_files: Search for existing patterns, components, or implementations
