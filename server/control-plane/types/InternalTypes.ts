@@ -91,6 +91,7 @@ export interface SubscriptionInfo {
   userPlan: SubscriptionPlanType;
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
+  stripeCustomerId: string;
 }
 
 // ============================================================================
