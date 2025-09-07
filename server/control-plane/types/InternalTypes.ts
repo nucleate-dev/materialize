@@ -19,8 +19,6 @@ export type Framework = 'expo_react_native' | 'react';
 
 export type FileScope = 'updates' | 'complete';
 
-export type PrototypeState = 'dne' | 'active_dev_server' | 'active_build';
-
 export type BuildResultStatus = 'success' | 'error';
 
 export type CodeErrorType = 'build' | 'runtime' | 'dependency' | 'syntax';

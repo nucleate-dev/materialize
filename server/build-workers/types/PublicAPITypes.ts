@@ -93,7 +93,6 @@ export interface DispatchPrecheckRequestBody {
 
 export interface DispatchPrecheckSuccessResponse {
   success: true;
-  state: "dne" | "active_dev_server" | "active_build";
   status: "updating" | "error" | "stable" | "creating" | "cleaning" | null;
   viewing_url: string;
 }
@@ -428,7 +427,7 @@ export interface ChatErrorResponse {
 // ============================================================================
 
 export function isStandardErrorResponse(
-  response: unknown,
+  response: unknown
 ): response is StandardErrorResponse {
   return (
     typeof response === "object" &&

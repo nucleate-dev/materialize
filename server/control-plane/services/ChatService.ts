@@ -11,6 +11,8 @@ import type {
   ChatRequestBody,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
+  DispatchRequestBody,
+  DispatchResponse,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
@@ -22,7 +24,10 @@ import {
 } from '../utils/chat-utils/PROMPTS.js';
 import { extractExecutionPlan } from '../utils/chat-utils/planningExtractor.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
-import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
+import {
+  isDispatchInProgress,
+  isEditableDevServer,
+} from '../utils/prototypeDevServerStatusUtils.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
@@ -375,30 +380,48 @@ export class ChatService {
             });
 
             try {
-              // Use the same pattern as CodeEditor - call /files/update-files endpoint
-              const updateResponse = await this.fastifyApp.inject({
-                method: 'POST',
-                url: '/files/update-files',
-                payload: {
-                  files: finalFilesForDispatch,
-                  assets: [], // update-files only deals with text files
-                  prototype_id: prototype_id,
-                },
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-
-              if (updateResponse.statusCode !== 200) {
-                const errorData = JSON.parse(updateResponse.payload);
-                console.error('Update files request failed:', errorData);
-                throw new Error(
-                  `Update failed: ${errorData.message || 'Unknown error'}`,
-                );
+              let tempDispatchResponse;
+              if (
+                'status' in precheckData &&
+                isEditableDevServer(precheckData.status)
+              ) {
+                tempDispatchResponse = await this.fastifyApp.inject({
+                  method: 'POST',
+                  url: '/dispatch',
+                  payload: {
+                    jwt: token,
+                    prototype_id: prototype_id,
+                    framework: 'expo_react_native',
+                    files: finalFilesForDispatch,
+                    assets: [],
+                    file_scope: 'updates',
+                    hot_reload: true,
+                  } as DispatchRequestBody,
+                });
+              } else {
+                // If there is no active dev server, we need to dispatch the complete set of files and assets
+                tempDispatchResponse = await this.fastifyApp.inject({
+                  method: 'POST',
+                  url: '/dispatch',
+                  payload: {
+                    jwt: token,
+                    prototype_id: prototype_id,
+                    framework: 'expo_react_native',
+                    files: finalFilesForDispatch,
+                    assets: Object.entries(inputAssets || {})
+                      .map(([, asset]) => {
+                        return asset;
+                      })
+                      .filter((asset) => asset !== null),
+                    file_scope: 'complete',
+                    hot_reload: true,
+                  } as DispatchRequestBody,
+                });
               }
 
-              const updateData = JSON.parse(updateResponse.payload);
+              const dispatchData: DispatchResponse = JSON.parse(
+                tempDispatchResponse.payload,
+              );
 
               // Stream the viewing URL to the client
               if ('viewing_url' in updateData && updateData.viewing_url) {
