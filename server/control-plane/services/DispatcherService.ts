@@ -36,6 +36,7 @@ import {
 } from '../utils/prototypeDevServerStatusUtils.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import { LatencyEvents } from '../loggers/LatencyEvents.js';
 
 dotenv.config();
 
@@ -174,7 +175,7 @@ export class DispatcherService {
       userId: authResult.user.id,
       prototypeId: prototype_id,
     });
-
+    request.log2.info('Starting dispatch request');
     try {
       const currentTime = Math.floor(Date.now() / 1000);
 
@@ -265,14 +266,11 @@ export class DispatcherService {
             },
           },
         );
-
-        request.log2.consoleLogDevOnly(
-          'info',
-          'Launching new fargate instance',
-        );
-        const newFargateInstance = await this.launchFargateInstance(
-          prototype_id,
-          request.log2,
+        const newFargateInstance = await request.log2.time(
+          LatencyEvents.launch_fargate_instance_latency,
+          async (): Promise<FargateInstanceInfo> => {
+            return await this.launchFargateInstance(prototype_id, request.log2);
+          },
         );
         request.log2.info('Successfully launched new fargate instance: ', {
           newFargateInstance,
@@ -334,24 +332,27 @@ export class DispatcherService {
             },
           },
         );
-        const fargateResponse =
-          await this.dispatchFormedRequestToFargateInstanceServer(
-            updatedBuildCacheData.fargate_private_ip,
-            requestBody,
-            request.log2,
-          );
-
+        const fargateResponse = await request.log2.time(
+          LatencyEvents.dispatch_request_to_fargate_server_latency,
+          async (): Promise<FargateDevServerResponse> => {
+            return await this.dispatchFormedRequestToFargateInstanceServer(
+              updatedBuildCacheData.fargate_private_ip,
+              requestBody,
+              request.log2,
+            );
+          },
+          { fileScope: file_scope },
+        );
         request.log2.info('Fargate responded: ', { fargateResponse });
+
         updatedBuildCacheData.status = 'stable';
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-
         await this.cache.set(
           activeBuildKey,
           JSON.stringify(updatedBuildCacheData),
         );
-
         // Update builds ZSET with new timestamp
         const buildIdFromKey = activeBuildKey.replace('active_build:', '');
         await this.cache.customCommand([
@@ -360,7 +361,6 @@ export class DispatcherService {
           updatedBuildCacheData.last_touched.toString(),
           buildIdFromKey,
         ]);
-
         request.log2.info('Updated build cache data: ', {
           activeBuildCacheData: updatedBuildCacheData,
         });
@@ -375,6 +375,9 @@ export class DispatcherService {
             build_warnings: fargateResponse.build_warnings,
           });
         } else {
+          request.log2.error(undefined, 'Build failed on fargate instance', {
+            fargateResponse,
+          });
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             error: 'Build Failed',
             message: 'Build failed on fargate instance',

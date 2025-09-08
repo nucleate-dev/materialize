@@ -1,6 +1,7 @@
 // SystemLogger.ts
 // A structured logger that writes JSON to stdout, optimized for CloudWatch Logs + EMF metrics.
 // Works in EC2, ECS/Fargate, Lambda (stdout). No runtime deps.
+import { LatencyEvent } from './LatencyEvents.js';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -204,7 +205,7 @@ export class SystemLogger {
 
   /** Time a function and report duration under metric `name`. */
   async time<T>(
-    name: string,
+    name: LatencyEvent,
     fn: () => Promise<T>,
     extraDims: Record<string, string> = {},
   ): Promise<T> {
@@ -251,7 +252,13 @@ export class SystemLogger {
       ...this.redactFields(fields),
     };
     // Ensure stable key order for readability (optional)
-    process.stdout.write(JSON.stringify(payload) + '\n');
+    process.stdout.write(
+      JSON.stringify(
+        payload,
+        null,
+        process.env.NODE_ENV === 'development' ? 2 : undefined,
+      ) + '\n',
+    );
   }
 
   private redactFields(obj: Record<string, unknown>): Record<string, unknown> {
@@ -373,7 +380,7 @@ export function genRequestIds(
   return { requestId: incoming, traceId: trace };
 }
 
-function cryptoRandomId(): string {
+export function cryptoRandomId(): string {
   // Not cryptographically strong across all Node versions; good enough for correlation.
   return (
     Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
