@@ -11,7 +11,7 @@ import {
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../types/InternalTypes.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
+import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
 
 export class CleanupService {
@@ -224,6 +224,9 @@ export class CleanupService {
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(async () => {
+        this.log2.setContext({
+          traceId: cryptoRandomId(),
+        });
         try {
           const stats = await this.cleanupIdleActiveBuilds();
           this.log2.info('Cleanup cycle completed with stats', {
