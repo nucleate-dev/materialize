@@ -11,25 +11,32 @@ import {
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../types/InternalTypes.js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
+import { baseLogger } from '../server.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
   private ecsClient: ECSClient;
+  private log2: SystemLogger;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
     this.ecsClient = ecsClient;
     this.cleanupIntervals = [];
     this.startCleanupServices();
+    this.log2 = baseLogger.child({
+      route: 'CleanupService',
+    });
   }
   // Cleanup idle hot reload services
 
   private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
     const currentTimeReadable = this.formatTimestampEST(Date.now());
-    console.log(
-      `Cleaning up idle active builds, current time: ${Date.now()} (${currentTimeReadable})`,
-    );
+    this.log2.info('Cleaning up idle active builds', {
+      currentTime: Date.now(),
+      currentTimeReadable,
+    });
 
     // get all active builds
     const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
@@ -42,7 +49,7 @@ export class CleanupService {
     };
 
     if (!activeBuildKeys || activeBuildKeys.length === 0) {
-      console.log('No active builds found for hot reload cleanup');
+      this.log2.info('No active builds found for hot reload cleanup');
       return stats;
     }
 
@@ -60,14 +67,18 @@ export class CleanupService {
 
       const parsedBuild = JSON.parse(buildJson as string);
       if (!isActiveBuildType(parsedBuild)) {
-        console.warn(`Invalid build data found in cache for key: ${buildKey}`);
+        this.log2.warn('Invalid build data found in cache for key', {
+          buildKey,
+        });
         continue;
       }
       const build: ActiveBuild = parsedBuild;
 
       // Skip if already cleaning
       if (build.status === 'cleaning') {
-        console.log(`Build ${buildKey} is already cleaning, skipping`);
+        this.log2.info('Build is already cleaning, skipping', {
+          buildKey,
+        });
         continue;
       }
 
@@ -81,16 +92,16 @@ export class CleanupService {
 
     // 2. For each idle build, clean it up
     stats.idleBuildsFound = idleBuilds.length;
-    console.log(`Found ${idleBuilds.length} idle builds to clean up`);
+    this.log2.info('Found idle builds to clean up', {
+      idleBuildsFound: stats.idleBuildsFound,
+    });
 
     for (const { build, buildId, buildKey } of idleBuilds) {
-      console.log(`Cleaning up idle build: ${buildId}`);
-      const lastTouchedReadable = this.formatTimestampEST(
-        build.last_touched * 1000,
-      );
-      console.log(`active build cache data:`, {
-        ...build,
-        last_touched_readable: lastTouchedReadable,
+      this.log2.info('Cleaning up idle build', {
+        buildId,
+        buildKey,
+        build,
+        lastTouchedReadable: this.formatTimestampEST(build.last_touched * 1000),
       });
 
       // Set status to cleaning first
@@ -101,9 +112,10 @@ export class CleanupService {
 
       try {
         await this.cache.set(buildKey, JSON.stringify(cleaningBuild));
-        console.log(`Set build ${buildId} status to cleaning`);
       } catch (error) {
-        console.error(`Failed to set cleaning status for ${buildId}:`, error);
+        this.log2.error(error, 'Failed to set cleaning status for build', {
+          buildId,
+        });
         stats.failedCleanups++;
         continue;
       }
@@ -118,41 +130,37 @@ export class CleanupService {
           prototypeId,
           build.fargate_private_ip,
         );
-        if (!killResult.success) {
-          console.warn(
-            `Failed to kill dev server for ${buildId}: ${killResult.error}`,
+        if (killResult.buildInProgress) {
+          // TODO @priyam: check status from build worker here
+          this.log2.info(
+            'Build appears to be in progress, skipping Fargate task termination',
+            {
+              buildId,
+            },
           );
-          // If the kill request failed due to build in progress, don't terminate the task
-          if (killResult.buildInProgress) {
-            console.log(
-              `Build appears to be in progress for ${buildId}, skipping Fargate task termination`,
-            );
-            shouldTerminateTask = false;
-          }
-        } else if (killResult.buildInProgress) {
-          console.log(
-            `Build completed but may have been interrupted for ${buildId}, proceeding with caution`,
-          );
-          // Still terminate in this case since the build completed
-        }
-      }
-
-      // b. Kill the fargate task using the task arn (only if safe to do so)
-      if (build.fargate_task_arn && shouldTerminateTask) {
-        console.log(`Proceeding with Fargate task termination for ${buildId}`);
-        const terminateResult = await this.terminateFargateTask(
-          build.fargate_task_arn,
-        );
-        if (!terminateResult.success) {
-          console.warn(
-            `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
+          shouldTerminateTask = false;
+        } else if (!killResult.success) {
+          this.log2.error(
+            killResult.error,
+            'Failed to kill dev server for build',
+            {
+              buildId,
+              prototypeId,
+            },
           );
           stats.failedCleanups++;
           continue;
         }
-      } else if (build.fargate_task_arn && !shouldTerminateTask) {
-        console.log(
-          `Skipping Fargate task termination for ${buildId} due to build in progress - task will be cleaned up later`,
+      }
+
+      // b. Kill the fargate task using the task arn (only if safe to do so)
+      if (!shouldTerminateTask) {
+        this.log2.info(
+          `Skipping Fargate task termination due to build in progress - task will be cleaned up later`,
+          {
+            buildId,
+            prototypeId,
+          },
         );
         // Reset the status back to stable since we're not cleaning up yet
         const activeBuild: ActiveBuild = {
@@ -161,42 +169,53 @@ export class CleanupService {
           last_touched: currentTime, // Update last_touched to prevent immediate re-cleanup
         };
         await this.cache.set(buildKey, JSON.stringify(activeBuild));
-        continue; // Skip cache cleanup
+        continue; // Skip termination and cache cleanup
+      }
+
+      this.log2.info('Proceeding with Fargate task termination', {
+        buildId,
+        prototypeId,
+      });
+      const terminateResult = await this.terminateFargateTask(
+        build.fargate_task_arn,
+      );
+      if (!terminateResult.success) {
+        this.log2.error(
+          terminateResult.error,
+          `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
+        );
+        stats.failedCleanups++;
+        continue;
       }
 
       // c. remove the active build from cache and cleanup schema entries
       try {
         // Remove from active_build
         await this.cache.del([buildKey]);
-        console.log(`Removed active build cache entry: ${buildId}`);
-
         // Remove from builds ZSET
         await this.cache.customCommand([
           'ZREM',
           CACHE_KEYS.protoBuilds(prototypeId),
           buildId,
         ]);
-        console.log(
-          `Removed ${buildId} from builds ZSET for prototype ${prototypeId}`,
-        );
-
         // If this was the current build, remove the current pointer
         const currentBuildId = await this.cache.get(
           CACHE_KEYS.protoCurrentBuild(prototypeId),
         );
         if (currentBuildId === buildId) {
           await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
-          console.log(`Removed current pointer for prototype ${prototypeId}`);
         }
-
+        this.log2.info('Removed cache entries for build', {
+          buildId,
+        });
         stats.successfulCleanups++;
       } catch (error) {
-        console.error(`Failed to remove cache entries for ${buildId}:`, error);
+        this.log2.error(error, 'Failed to remove cache entries for build', {
+          buildId,
+        });
         stats.failedCleanups++;
       }
     }
-
-    console.log('Cleanup completed:', stats);
     return stats;
   }
 
@@ -207,14 +226,16 @@ export class CleanupService {
       setInterval(async () => {
         try {
           const stats = await this.cleanupIdleActiveBuilds();
-          console.log(`Cleanup cycle completed with stats:`, stats);
+          this.log2.info('Cleanup cycle completed with stats', {
+            stats,
+          });
         } catch (error) {
-          console.error('Error in cleanupIdleActiveBuilds:', error);
+          this.log2.error(error, 'Error in cleanupIdleActiveBuilds');
         }
       }, CONFIG.CLEANUP_INTERVAL_HOT_RELOAD),
     );
 
-    console.log('Cleanup services started');
+    this.log2.info('Cleanup services started');
   }
 
   // Stop cleanup services
@@ -229,9 +250,10 @@ export class CleanupService {
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
     try {
-      console.log(
-        `Dispatching kill dev server request to ${fargatePrivateIp}:3002/dev-server for prototype: ${prototypeId}`,
-      );
+      this.log2.info('Dispatching kill dev server request', {
+        fargatePrivateIp,
+        prototypeId,
+      });
 
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
@@ -244,31 +266,23 @@ export class CleanupService {
         },
       );
 
-      console.log(
-        `Successfully completed dev server shutdown for prototype: ${prototypeId}`,
+      this.log2.info(
+        'Successfully completed dev server shutdown for prototype',
+        {
+          prototypeId,
+          fargatePrivateIp,
+          responseData: response.data,
+        },
       );
-      console.log('Response data:', response.data);
-
-      // Check if there were any build errors that might indicate the build was interrupted
-      // @ts-ignore
-      const buildInProgress =
-        response.data?.build_errors?.some(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (error: any) =>
-            error.message?.includes('Build process failed') ||
-            error.message?.includes('timeout') ||
-            error.message?.includes('interrupted'),
-        ) || false;
 
       return {
         success: true,
-        buildInProgress,
+        buildInProgress: false, // TODO @priyam: check the status you will return from the build worker here. Should be "building" or "error" or "safe_to_clean"
       };
     } catch (error: unknown) {
-      console.error(
-        `Failed to kill dev server for prototype ${prototypeId}:`,
-        error,
-      );
+      this.log2.error(error, 'Failed to kill dev server for prototype', {
+        prototypeId,
+      });
 
       // Check if the error was due to timeout (build taking too long)
       const isTimeout =
@@ -288,8 +302,6 @@ export class CleanupService {
     taskArn: string,
   ): Promise<CleanupOperationResult> {
     try {
-      console.log(`Terminating Fargate task: ${taskArn}`);
-
       const command = new StopTaskCommand({
         cluster: process.env.ECS_CLUSTER_NAME!,
         task: taskArn,
@@ -297,10 +309,11 @@ export class CleanupService {
       });
 
       await this.ecsClient.send(command);
-      console.log(`Successfully terminated Fargate task: ${taskArn}`);
       return { success: true };
     } catch (error) {
-      console.error(`Failed to terminate Fargate task ${taskArn}:`, error);
+      this.log2.error(error, 'Failed to terminate Fargate task', {
+        taskArn,
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -327,7 +340,9 @@ export class CleanupService {
         cursor = result[0];
         keys.push(...result[1]);
       } catch (error) {
-        console.error(`Error scanning keys with pattern ${pattern}:`, error);
+        this.log2.error(error, 'Error scanning keys with pattern', {
+          pattern,
+        });
         break;
       }
     } while (cursor !== '0');
