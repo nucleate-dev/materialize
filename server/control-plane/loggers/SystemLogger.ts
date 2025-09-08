@@ -122,7 +122,9 @@ export class SystemLogger {
 
   /** Get the current trace ID for this logger instance */
   getTraceId(): string | undefined {
-    return typeof this.base.traceId === 'string' ? this.base.traceId : undefined;
+    return typeof this.base.traceId === 'string'
+      ? this.base.traceId
+      : undefined;
   }
 
   // -------- Public API: levels --------
@@ -242,9 +244,9 @@ export class SystemLogger {
   ): void {
     const now = new Date().toISOString();
     const payload = {
+      msg,
       ts: now,
       level,
-      msg,
       ...this.base,
       ...this.redactFields(fields),
     };
