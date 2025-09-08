@@ -1,7 +1,4 @@
 // /server/scripts/deploy-control-plane.js
-// Full deploy (no args): zip contents of /server/control-plane, upload, unzip, npm install
-// Selective deploy (args): copy only listed paths relative to /server/control-plane
-
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -9,7 +6,7 @@ import path from "path";
 const KEY_PATH = process.env.KEY_PATH || "mat-ec2-key-1.pem";
 const USER = process.env.USERNAME_ON_EC2 || "ec2-user";
 const HOST =
-  process.env.HOST || "ec2-18-224-179-177.us-east-2.compute.amazonaws.com";
+  process.env.HOST || "ec2-18-218-177-75.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -17,56 +14,109 @@ const remoteHome = `/home/${USER}`;
 const remoteZip = `${remoteHome}/control-plane.zip`;
 const remoteBase = `${remoteHome}/control-plane`;
 
+const CW_CONFIG_PATH =
+  "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json";
+const CW_LOG_FILE = `${remoteBase}/dev-server.log`;
+const CW_LOG_GROUP = "/ec2/materialize/control-plane-dev";
+
 const args = process.argv.slice(2);
 
 function run(cmd) {
   console.log(`\n$ ${cmd}`);
-  execSync(cmd, { stdio: "inherit", shell: "/bin/bash" }); // ensure bash locally
+  execSync(cmd, { stdio: "inherit", shell: "/bin/bash" });
 }
 
-// Safely single-quote a string for the remote bash -lc '...'
 function sq(s) {
   return `'${String(s).replace(/'/g, `'\\''`)}'`;
 }
 
-// Run a multi-command script on the remote host via bash -lc '...'
 function runRemoteBash(script) {
   const cmd = `ssh -i "${KEY_PATH}" ${USER}@${HOST} "bash -lc ${sq(script)}"`;
   run(cmd);
 }
 
 function ensureRemotePrereqs() {
-  const script = `
+  // 1. Install deps + create folder
+  const preScript = `
     set -euxo pipefail
+
     if command -v dnf >/dev/null 2>&1; then
       if ! command -v node >/dev/null 2>&1; then
         curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
         sudo dnf install -y nodejs gcc-c++ make
       fi
       command -v unzip >/dev/null 2>&1 || sudo dnf install -y unzip
+      sudo dnf install -y amazon-cloudwatch-agent
     else
       if ! command -v node >/dev/null 2>&1; then
         curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
         sudo yum install -y nodejs gcc-c++ make
       fi
       command -v unzip >/dev/null 2>&1 || sudo yum install -y unzip
+      sudo yum install -y amazon-cloudwatch-agent
     fi
+
     mkdir -p ${remoteBase}
     echo "✅ Remote prerequisites OK"
   `;
-  runRemoteBash(script);
+  runRemoteBash(preScript);
+
+  // 2. Check if config is missing
+  const checkAgent = `
+    if ! pgrep -f amazon-cloudwatch-agent >/dev/null 2>&1 || ! grep -q "${CW_LOG_GROUP}" "${CW_CONFIG_PATH}" 2>/dev/null; then
+      exit 42  # force next step
+    fi
+  `;
+  try {
+    runRemoteBash(checkAgent);
+    console.log("✅ CloudWatch Agent already running with correct config");
+  } catch (err) {
+    if (err.status === 42 || err.message.includes("Command failed")) {
+      console.log("🔧 Writing CloudWatch Agent config...");
+    } else {
+      throw err;
+    }
+
+    // 3. Upload config safely
+    run(`ssh -i "${KEY_PATH}" ${USER}@${HOST} 'sudo bash -c "cat > ${CW_CONFIG_PATH}"' <<EOCONFIG
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "${CW_LOG_FILE}",
+            "log_group_name": "${CW_LOG_GROUP}",
+            "log_stream_name": "{instance_id}-dev-server",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          }
+        ]
+      }
+    },
+    "force_flush_interval": 5
+  }
+}
+EOCONFIG`);
+
+    // 4. Restart the agent
+    runRemoteBash(`
+      sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \\
+        -a fetch-config \\
+        -m ec2 \\
+        -c file:${CW_CONFIG_PATH} \\
+        -s
+      echo "✅ CloudWatch Agent configured and started"
+    `);
+  }
 }
 
 function fullDeploy() {
-  console.log(
-    "==> Full deploy: zipping control-plane CONTENTS (excluding node_modules)..."
-  );
+  console.log("==> Full deploy: zipping control-plane CONTENTS...");
   if (!fs.existsSync(localBase)) {
     console.error(`❌ Not found: ${localBase}`);
     process.exit(1);
   }
 
-  // cd into control-plane and zip everything except node_modules
   run(
     `bash -lc 'cd ${sq(localBase).slice(1, -1)} && zip -r ${sq(
       path.resolve(localZip)
@@ -81,38 +131,31 @@ function fullDeploy() {
 
   console.log("==> Unzipping remotely & installing dependencies...");
   const script = `
-  set -euxo pipefail
-  mkdir -p ${remoteBase}
-  unzip -o ${remoteZip} -d ${remoteBase}
-  rm -f ${remoteZip}
-  cd ${remoteBase}
-  if [ -f package.json ]; then
-    unset NODE_ENV
-    npm_config_production=false npm ci || (unset NODE_ENV; npm_config_production=false npm install)
-
-    if ! npx --yes tsx --version >/dev/null 2>&1; then
-      npm install -D tsx
+    set -euxo pipefail
+    mkdir -p ${remoteBase}
+    unzip -o ${remoteZip} -d ${remoteBase}
+    rm -f ${remoteZip}
+    cd ${remoteBase}
+    if [ -f package.json ]; then
+      unset NODE_ENV
+      npm_config_production=false npm ci || (unset NODE_ENV; npm_config_production=false npm install)
+      if ! npx --yes tsx --version >/dev/null 2>&1; then npm install -D tsx; fi
+      if ! npx --yes nodemon --version >/dev/null 2>&1; then npm install -D nodemon ts-node; fi
     fi
-
-    if ! npx --yes nodemon --version >/dev/null 2>&1; then
-      npm install -D nodemon ts-node
-    fi
-  fi
-  echo "✅ Full deploy complete"
-`;
+    echo "✅ Full deploy complete"
+  `;
   runRemoteBash(script);
 
   console.log("==> Cleaning local zip...");
   try {
     fs.unlinkSync(localZip);
-  } catch { }
+  } catch {}
 }
 
 function selectiveDeploy(paths) {
   console.log("==> Selective deploy: copying specific files/dirs…");
 
   const items = paths.map((p) => {
-    // accept with or without leading "control-plane/"
     const normalized = p.replace(/^control-plane[\\/]/, "");
     const abs = path.isAbsolute(normalized)
       ? normalized
@@ -129,7 +172,6 @@ function selectiveDeploy(paths) {
     return { abs, rel };
   });
 
-  // ensure remote parent dirs
   const parentDirs = Array.from(
     new Set(
       items
@@ -150,7 +192,6 @@ function selectiveDeploy(paths) {
     );
   }
 
-  // copy each item INTO its parent dir (trailing slash preserves basename)
   for (const { abs, rel } of items) {
     const parent = path.posix.dirname(rel);
     const remoteDir =
@@ -162,39 +203,25 @@ function selectiveDeploy(paths) {
     );
   }
 
-  // Check if package.json was included in the deploy
   const packageJsonIncluded = items.some(({ rel }) => rel === "package.json");
-
-  // npm install only if package.json was included
   const postScript = packageJsonIncluded
     ? `
-  set -euxo pipefail
-  cd ${remoteBase}
-  if [ -f package.json ]; then
-    # Always install dev deps for dev servers
-    unset NODE_ENV
-    if [ -f package-lock.json ]; then
-      npm_config_production=false npm ci || (unset NODE_ENV; npm_config_production=false npm install)
-    else
-      # If lockfile wasn't uploaded, fall back to npm install
-      npm_config_production=false npm install
+    set -euxo pipefail
+    cd ${remoteBase}
+    if [ -f package.json ]; then
+      unset NODE_ENV
+      if [ -f package-lock.json ]; then
+        npm_config_production=false npm ci || (unset NODE_ENV; npm_config_production=false npm install)
+      else
+        npm_config_production=false npm install
+      fi
+      if ! npx --yes tsx --version >/dev/null 2>&1; then npm install -D tsx; fi
+      if ! npx --yes nodemon --version >/dev/null 2>&1; then npm install -D nodemon ts-node; fi
     fi
+    echo "✅ Selective deploy complete"
+  `
+    : `echo "✅ Selective deploy complete - skipped npm install since package.json not included"`;
 
-    # Ensure tsx (preferred) is available
-    if ! npx --yes tsx --version >/dev/null 2>&1; then
-      npm install -D tsx
-    fi
-
-    # Safety net for nodemon/ts-node
-    if ! npx --yes nodemon --version >/dev/null 2>&1; then
-      npm install -D nodemon ts-node
-    fi
-  fi
-  echo "✅ Selective deploy complete"
-`
-    : `
-  echo "✅ Selective deploy complete - skipped npm install since package.json not included"
-`;
   runRemoteBash(postScript);
 }
 

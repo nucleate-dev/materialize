@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "node dist/server.js",
-    "dev": "tsx watch server.ts",
+    "dev": "sh -c 'tsx watch server.ts 2>&1 | tee -a /home/ec2-user/control-plane/dev-server.log'",
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts",
     "test": "jest",
     "lint": "eslint .",

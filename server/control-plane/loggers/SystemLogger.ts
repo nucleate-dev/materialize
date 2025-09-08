@@ -14,7 +14,7 @@ export type LoggerContext = {
   route?: string; // /api/xyz
   method?: string; // GET/POST
   service?: string; // "control-plane" / "build-worker"
-  env?: string; // "prod" | "staging" | "dev"
+  env?: string; // "production" | "staging" | "development"
   // Anything else you want to carry along:
   [k: string]: unknown;
 };
