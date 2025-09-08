@@ -156,7 +156,6 @@ export class PrototypeManagementService {
           userId = user.user?.id;
         } catch (error) {
           request.log2.warn('Failed to get user from token:', { error });
-          console.warn('Failed to get user from token:', error);
           // Continue without user ID - this endpoint allows anonymous access
         }
       }

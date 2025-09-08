@@ -90,7 +90,9 @@ export function extractExecutionPlan(
             .trim();
         }
       } catch (parseError) {
-        console.warn('Failed to parse execution plan JSON:', parseError);
+        log2.error(parseError, 'Failed to parse execution plan JSON:', {
+          functionName: 'extractExecutionPlan',
+        });
       }
     }
 
