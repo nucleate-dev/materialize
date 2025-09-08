@@ -694,6 +694,7 @@ export class DispatcherService {
           timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
           headers: {
             'Content-Type': 'application/json',
+            'x-trace-id': log2.getTraceId(),
           },
         },
       );

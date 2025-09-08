@@ -265,6 +265,7 @@ export class CleanupService {
           timeout: 300000, // 5 minutes timeout to allow build completion
           headers: {
             'Content-Type': 'application/json',
+            'x-trace-id': this.log2.getTraceId(),
           },
         },
       );
