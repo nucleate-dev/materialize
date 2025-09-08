@@ -22,8 +22,15 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       
       // General JavaScript rules
-      'no-console': 'off', // Allow console logs for server logging
+      'no-console': 'off', // Disabled - using no-restricted-syntax instead
       'no-unused-vars': 'off', // Use TypeScript version instead
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.object.name="console"][callee.property.name=/^(log|info|warn|error|debug)$/]',
+          message: 'Direct console usage is not allowed. Use SystemLogger from "./loggers/SystemLogger.js" instead. For development debugging, use logger.consoleLogDevOnly(). For production logging, use logger.info(), logger.warn(), logger.error(), etc.'
+        }
+      ],
       'prefer-const': 'error',
       'no-var': 'error',
       'eqeqeq': 'error',
@@ -45,6 +52,13 @@ export default [
     rules: {
       // Disable TypeScript-specific rules for pure JavaScript files
       '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
+  {
+    files: ['loggers/**/*', 'scripts/**/*'],
+    rules: {
+      // Allow console usage in the loggers directory and build scripts
+      'no-restricted-syntax': 'off',
     },
   },
   {
