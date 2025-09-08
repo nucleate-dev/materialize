@@ -203,7 +203,11 @@ export class SystemLogger {
     );
   }
 
-  /** Time a function and report duration under metric `name`. */
+  /** Time a function and report duration under metric `name`.
+   * Each metric (defined by combination of name and each extra dimension) will cost $0.30 per month.
+   * DO NOT ADD EXTRA DIMENSIONS UNLESS ABSOLUTELY NECESSARY -- I CANNOT STRESS THIS ENOUGH.
+   * -- for example, adding somehting unique like user_id can suddenly result in $300 per month if just 1000 users hit this route.
+   */
   async time<T>(
     name: LatencyEvent,
     fn: () => Promise<T>,
