@@ -34,6 +34,7 @@ import {
   getPrototypeViewingUrl,
 } from '../utils/s3Operations.js';
 import { hasExceededPrototypeCreationLimit } from '../utils/subscriptionChecks.js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -127,16 +128,13 @@ export class PrototypeManagementService {
     request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
     reply: FastifyReply,
   ): Promise<FetchViewingUrlResponse> {
-    console.log('Fetch viewing URL request received');
-
     try {
       // Extract validated body (validation handled by Fastify schema)
       const { prototype_id, current_page } = request.body;
 
       // Get JWT token if provided (optional for this endpoint)
-      const authHeader = request.headers.authorization;
-      const token = authHeader?.startsWith('Bearer ')
-        ? authHeader.split(' ')[1]
+      const token = request.headers.authorization?.startsWith('Bearer ')
+        ? request.headers.authorization.split(' ')[1]
         : undefined;
 
       // Create Supabase client with optional JWT auth
@@ -157,10 +155,15 @@ export class PrototypeManagementService {
           const { data: user } = await supabase.auth.getUser();
           userId = user.user?.id;
         } catch (error) {
+          request.log2.warn('Failed to get user from token:', { error });
           console.warn('Failed to get user from token:', error);
           // Continue without user ID - this endpoint allows anonymous access
         }
       }
+      // update logger context
+      request.log2 = request.log2.child({
+        userId,
+      });
 
       // Attempt to access prototype from DB to check viewing privileges
       const { data: prototypeData, error: prototypeError } = await supabase
@@ -170,13 +173,13 @@ export class PrototypeManagementService {
         .single();
 
       if (prototypeError || !prototypeData) {
-        console.log('Prototype not found or access denied:', prototypeError);
-        const errorResponse: StandardErrorResponse = {
+        request.log2.warn('Prototype not found or access denied:', {
+          prototypeError,
+        });
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
           error: 'Not Found',
           message: 'Prototype not found or access denied',
-        };
-        reply.status(HTTP_STATUS.NOT_FOUND);
-        return errorResponse;
+        });
       }
 
       // Check if user is prototype owner and current_page is 'edit'
@@ -187,10 +190,6 @@ export class PrototypeManagementService {
       ) {
         try {
           // Fetch dispatch-precheck from control plane
-          console.log(
-            'Fetching dispatch-precheck to get active tunnel URL if exists',
-          );
-
           const precheckResponse = await this.fastifyApp.inject({
             method: 'POST',
             url: '/dispatch-precheck',
@@ -213,31 +212,26 @@ export class PrototypeManagementService {
               precheckData.success &&
               precheckData.viewing_url
             ) {
-              console.log(
-                'Returning active instance URL from precheck: ',
-                precheckData.viewing_url,
-              );
               const successResponse: FetchViewingUrlSuccessResponse = {
                 viewing_url: precheckData.viewing_url,
                 source: isEditableDevServer(precheckData.status)
                   ? 'editable_instance'
                   : 'static_build',
               };
-              reply.status(HTTP_STATUS.OK);
-              return successResponse;
+              return reply.status(HTTP_STATUS.OK).send(successResponse);
             }
           }
         } catch (precheckError) {
-          console.warn(
+          request.log2.warn(
             'Failed to fetch dispatch precheck, falling back to static build:',
-            precheckError,
+            { precheckError },
           );
           // Continue to static build fallback
         }
       }
 
       // Return static build URL
-      console.log('Returning static build URL');
+      request.log2.consoleLogDevOnly('info', 'Returning static build URL');
       const staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
 
       const successResponse: FetchViewingUrlSuccessResponse = {
@@ -248,15 +242,14 @@ export class PrototypeManagementService {
       reply.status(HTTP_STATUS.OK);
       return successResponse;
     } catch (error) {
-      console.error('Fetch viewing URL error:', error);
-
+      request.log2.error(error, 'Fetch viewing URL error:');
       const errorResponse: StandardErrorResponse = {
         error: 'Internal Server Error',
         message: 'Internal server error',
       };
-
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      return errorResponse;
+      return reply
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+        .send(errorResponse);
     }
   }
 
@@ -266,16 +259,7 @@ export class PrototypeManagementService {
   ): Promise<CreatePrototypeResponse> {
     try {
       // 1. JWT Token validation and user authentication
-      const token = request.headers.authorization?.split(' ')[1];
-      if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-        console.error('No JWT token provided');
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          success: false,
-          error: 'UNAUTHORIZED',
-          message: 'No authentication token provided',
-        });
-      }
-
+      const token = request.headers.authorization?.split(' ')[1] ?? '';
       const user = await validateJWTToken(token);
       if (!user) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -284,6 +268,10 @@ export class PrototypeManagementService {
           message: 'Invalid authentication token',
         });
       }
+      // update logger context
+      request.log2 = request.log2.child({
+        userId: user.id,
+      });
 
       // 2. Check prototype limits for free users (5 max)
       const limitCheck = await hasExceededPrototypeCreationLimit(
@@ -357,9 +345,14 @@ export class PrototypeManagementService {
       try {
         // 5. Handle prototype files and S3 operations
         if (forkPrototypeId) {
-          await this.forkPrototype(supabase, forkPrototypeId, newPrototypeId);
+          await this.forkPrototype(
+            supabase,
+            forkPrototypeId,
+            newPrototypeId,
+            request.log2,
+          );
         } else {
-          await this.createNewPrototype(supabase, newPrototypeId);
+          await this.createNewPrototype(supabase, newPrototypeId, request.log2);
         }
 
         // 6. Get viewing URL and return success
@@ -373,7 +366,7 @@ export class PrototypeManagementService {
         });
       } catch (error) {
         // If anything fails after prototype creation, clean up
-        console.error('Error during prototype setup:', error);
+        request.log2.error(error, 'Error during prototype setup:');
 
         // Clean up S3 objects
         await cleanupPrototypeS3Objects(this.s3Client, newPrototypeId);
@@ -415,9 +408,6 @@ export class PrototypeManagementService {
   ): Promise<DeletePrototypeResponse> {
     try {
       const { prototype_id } = request.params;
-
-      console.log('🗑️ [delete-prototype] Prototype ID:', prototype_id);
-
       // 1. Get JWT token and validate authentication
       const token = request.headers.authorization?.split(' ')[1];
       if (!token || !request.headers.authorization?.startsWith('Bearer')) {
@@ -455,12 +445,10 @@ export class PrototypeManagementService {
       );
 
       // 4. Delete S3 builds for the prototype
-      console.log('🗑️ Cleaning up S3 objects...');
       try {
         await cleanupPrototypeS3Objects(this.s3Client, prototype_id);
-        console.log('✅ S3 cleanup successful');
       } catch (s3Error) {
-        console.error('❌ S3 cleanup failed:', s3Error);
+        request.log2.error(s3Error, 'Failed to delete S3 builds for prototype');
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           success: false,
           error: 'S3_ERROR',
@@ -469,34 +457,34 @@ export class PrototypeManagementService {
       }
 
       // 5. Delete prototype assets from storage
-      console.log('🗑️ Deleting prototype assets from storage...');
       try {
         await deletePrototypeAssetsFromStorage(prototype_id);
-        console.log('✅ Asset cleanup successful');
       } catch (assetError) {
-        console.error('❌ Asset cleanup failed:', assetError);
-        // Don't fail the entire operation if assets cleanup fails
-        console.warn('Continuing despite asset cleanup failure');
+        request.log2.error(
+          assetError,
+          'Failed to delete prototype assets from storage',
+        );
       }
 
       // TODO: Delete the prototype_thumbnail from supabase storage
 
       // 6. Delete the prototype from prototypes table (will cascade delete all associated prototype_files, prototype_assets, chat sessions, and messages)
-      console.log('🗑️ Deleting prototype from database...');
       const { error: prototypeDeleteError } = await supabase
         .from('prototypes')
         .delete()
         .eq('id', prototype_id);
 
       if (prototypeDeleteError) {
-        console.error('❌ Prototype deletion failed:', prototypeDeleteError);
+        request.log2.error(
+          prototypeDeleteError,
+          'Failed to delete prototype from database',
+        );
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           success: false,
           error: 'DATABASE_ERROR',
           message: 'Failed to delete prototype from database',
         });
       }
-      console.log('✅ Prototype deletion successful');
 
       // 7. Return success response
       return reply.status(HTTP_STATUS.OK).send({
@@ -504,7 +492,7 @@ export class PrototypeManagementService {
         message: 'Prototype and all associated data deleted successfully',
       });
     } catch (error) {
-      console.error('🗑️ Delete prototype error:', error);
+      request.log2.error(error, 'Prototype deletion error');
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         success: false,
         error: 'DATABASE_ERROR',
@@ -520,19 +508,23 @@ export class PrototypeManagementService {
     supabase: SupabaseClient<Database>,
     sourcePrototypeId: string,
     newPrototypeId: string,
+    log2: SystemLogger,
   ): Promise<void> {
-    console.log(`Forking prototype ${sourcePrototypeId} to ${newPrototypeId}`);
+    log2.consoleLogDevOnly(
+      'info',
+      `Forking prototype ${sourcePrototypeId} to ${newPrototypeId}`,
+    );
     // 1. Get files from source prototype and copy to new prototype
     const { data: files, error: filesError } = await supabase
       .from('prototype_files')
       .select('*')
       .eq('prototype_id', sourcePrototypeId);
     if (filesError) {
+      log2.error(filesError, '[forkPrototype] Failed to fetch prototype files');
       throw new Error(filesError.message || 'Failed to get prototype files');
     }
 
     const filesToInsert: PrototypeFileInsert[] = [];
-    console.log(`📁 Processing ${files.length} files for new prototype`);
     for (const file of files) {
       filesToInsert.push({
         prototype_id: newPrototypeId,
@@ -540,12 +532,11 @@ export class PrototypeManagementService {
         contents: file.contents,
       });
     }
-    console.log(`💾 Files to insert: ${filesToInsert.length} total`);
     const { error: filesInsertError } = await supabase
       .from('prototype_files')
       .insert(filesToInsert);
     if (filesInsertError) {
-      console.error('❌ Error inserting files:', filesInsertError);
+      log2.error(filesInsertError, '[forkPrototype] Failed to insert files');
       await supabase
         .from('prototype_files')
         .delete()
@@ -554,8 +545,9 @@ export class PrototypeManagementService {
         `Failed to copy prototype files: ${filesInsertError.message}`,
       );
     }
-    console.log(
-      `✅ Successfully inserted ${filesToInsert.length} files to database`,
+    log2.consoleLogDevOnly(
+      'info',
+      `[forkPrototype] Successfully inserted ${filesToInsert.length} files to database`,
     );
 
     // 2. Get assets from source prototype and copy to new prototype
@@ -564,13 +556,16 @@ export class PrototypeManagementService {
       .select('*')
       .eq('prototype_id', sourcePrototypeId);
     if (assetsFetchError) {
+      log2.error(
+        assetsFetchError,
+        '[forkPrototype] Failed to fetch prototype assets',
+      );
       throw new Error(
         assetsFetchError.message || 'Failed to get prototype assets',
       );
     }
 
     const assetsToInsert: PrototypeAssetInsert[] = [];
-    console.log(`📝 Copying ${assets.length} assets for new prototype`);
     for (const asset of assets) {
       // TODO: Copy the asset to a new supabase storage folder and update the storage_url.
       // const assetContents = await getAss(this.s3Client, asset.storage_url);
@@ -580,7 +575,7 @@ export class PrototypeManagementService {
         asset.name,
       );
       if (!uploadResult.success || !uploadResult.publicUrl) {
-        console.log('Failed to copy asset', uploadResult);
+        log2.error(uploadResult, '[forkPrototype] Failed to copy asset');
         await deletePrototypeAssetsFromStorage(newPrototypeId);
         await supabase
           .from('prototype_assets')
@@ -599,12 +594,11 @@ export class PrototypeManagementService {
       });
     }
 
-    console.log(`💾 Assets to insert: ${assetsToInsert.length} total`);
     const { error: assetsInsertError } = await supabase
       .from('prototype_assets')
       .insert(assetsToInsert);
     if (assetsInsertError) {
-      console.error('❌ Error inserting assets:', assetsInsertError);
+      log2.error(assetsInsertError, '[forkPrototype] Failed to insert assets');
       await deletePrototypeAssetsFromStorage(newPrototypeId);
       await supabase
         .from('prototype_assets')
@@ -624,13 +618,9 @@ export class PrototypeManagementService {
       newPrototypeId,
     );
     if (!s3CopyResult.success) {
-      console.log('Failed to copy S3 bucket', s3CopyResult);
+      log2.error(s3CopyResult, '[forkPrototype] Failed to copy S3 bucket');
       throw new Error(`Failed to copy S3 bucket: ${s3CopyResult.error}`);
     }
-
-    console.log(
-      `Successfully forked prototype: ${s3CopyResult.copiedObjects} files copied`,
-    );
   }
 
   /**
@@ -639,18 +629,18 @@ export class PrototypeManagementService {
   private async createNewPrototype(
     supabase: SupabaseClient<Database>,
     newPrototypeId: string,
+    log2: SystemLogger,
   ): Promise<void> {
-    console.log(
-      `Creating new prototype ${newPrototypeId} with default files from S3`,
-    );
-
     // Get default app files from S3 raw files
     const defaultFilesResult = await getDefaultAppFilesFromS3(
       this.s3Client,
       newPrototypeId,
     );
     if (!defaultFilesResult.success) {
-      console.log('Failed to get default files from S3', defaultFilesResult);
+      log2.error(
+        defaultFilesResult,
+        '[createNewPrototype] Failed to get default files from S3',
+      );
       throw new Error(
         `Failed to get default files from S3: ${defaultFilesResult.error}`,
       );
@@ -660,9 +650,11 @@ export class PrototypeManagementService {
     const { error: filesError } = await supabase
       .from('prototype_files')
       .insert(defaultFilesResult.files ?? []);
-
     if (filesError) {
-      console.log('Failed to insert default files', filesError);
+      log2.error(
+        filesError,
+        '[createNewPrototype] Failed to insert default files',
+      );
       throw new Error(`Failed to insert default files: ${filesError.message}`);
     }
 
@@ -672,7 +664,10 @@ export class PrototypeManagementService {
       .insert(defaultFilesResult.assets ?? []);
 
     if (assetsError) {
-      console.log('Failed to insert default assets', assetsError);
+      log2.error(
+        assetsError,
+        '[createNewPrototype] Failed to insert default assets',
+      );
       throw new Error(
         `Failed to insert default assets: ${assetsError.message}`,
       );
@@ -684,16 +679,13 @@ export class PrototypeManagementService {
       newPrototypeId,
     );
     if (!s3CopyResult.success) {
-      console.log('Failed to copy default app to S3', s3CopyResult);
+      log2.error(
+        s3CopyResult,
+        '[createNewPrototype] Failed to copy default app to S3',
+      );
       throw new Error(
         `Failed to copy default app to S3: ${s3CopyResult.error}`,
       );
     }
-
-    console.log(
-      `Successfully created new prototype: ${
-        defaultFilesResult.files!.length
-      } files in DB, ${s3CopyResult.copiedObjects} files copied to S3`,
-    );
   }
 }

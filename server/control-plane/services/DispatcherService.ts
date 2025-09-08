@@ -361,7 +361,6 @@ export class DispatcherService {
           buildIdFromKey,
         ]);
 
-        console.log(updatedBuildCacheData);
         request.log2.info('Updated build cache data: ', {
           activeBuildCacheData: updatedBuildCacheData,
         });

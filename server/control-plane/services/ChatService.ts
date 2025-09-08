@@ -907,7 +907,7 @@ export class ChatService {
   ): Promise<void> {
     // Check if the response contains an execution plan
     if (finalResponse.includes('EXECUTION_PLAN')) {
-      const planningResult = extractExecutionPlan(finalResponse);
+      const planningResult = extractExecutionPlan(finalResponse, log2);
 
       if (planningResult.hasPlan && planningResult.operations.length > 0) {
         // Send execution start
