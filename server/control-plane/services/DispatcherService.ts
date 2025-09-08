@@ -45,9 +45,14 @@ export class DispatcherService {
   private cache: GlideClient;
   private fastifyApp: FastifyInstance;
 
-  constructor(cache: GlideClient, ecsClient: ECSClient) {
+  constructor(
+    cache: GlideClient,
+    ecsClient: ECSClient,
+    fastifyApp: FastifyInstance,
+  ) {
     this.cache = cache;
     this.ecsClient = ecsClient;
+    this.fastifyApp = fastifyApp;
   }
 
   // Register routes with Fastify
