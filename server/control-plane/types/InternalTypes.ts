@@ -1,4 +1,3 @@
-import type { User } from '@supabase/supabase-js';
 import type { BuildStatus, CodeError, CodeWarning } from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
@@ -57,15 +56,6 @@ export interface FargateDevServerResponse {
   tunnel_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
-}
-
-// ============================================================================
-// AUTHENTICATION TYPES
-// ============================================================================
-
-export interface AuthValidationResult {
-  user: User;
-  prototype: Database['public']['Tables']['prototypes']['Row'];
 }
 
 // ============================================================================

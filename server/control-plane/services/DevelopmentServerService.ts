@@ -160,7 +160,10 @@ export class DevelopmentServerService {
       });
       if (precheckResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(precheckResponse.payload);
-        console.error('Dispatch precheck failed:', errorData);
+        request.log2.error(
+          errorData,
+          '[handleUpdateFiles] Dispatch precheck failed:',
+        );
         return reply.status(precheckResponse.statusCode).send({
           error: errorData.error,
           message: errorData.message,
@@ -309,6 +312,7 @@ export class DevelopmentServerService {
       const authResponse = await checkUserHasPrototypeEditAccess(
         prototype_id,
         token,
+        request.log2,
       );
       if (authResponse === null || !authResponse.canEdit) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -321,6 +325,7 @@ export class DevelopmentServerService {
       const exceededUsageLimit = await hasExceededChatUsageLimit(
         token,
         authResponse.user.id,
+        request.log2,
       );
       if (exceededUsageLimit.exceeded) {
         return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
@@ -397,7 +402,10 @@ export class DevelopmentServerService {
       });
       if (dispatchResponse.statusCode !== HTTP_STATUS.OK) {
         const errorData = JSON.parse(dispatchResponse.payload);
-        console.error('Dispatch request failed:', errorData);
+        request.log2.error(
+          errorData,
+          '[handleStartDevServer] Dispatch request failed:',
+        );
         return reply.status(dispatchResponse.statusCode).send({
           error: errorData.error,
           message: errorData.message,

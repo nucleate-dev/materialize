@@ -260,7 +260,7 @@ export class PrototypeManagementService {
     try {
       // 1. JWT Token validation and user authentication
       const token = request.headers.authorization?.split(' ')[1] ?? '';
-      const user = await validateJWTToken(token);
+      const user = await validateJWTToken(token, request.log2);
       if (!user) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           success: false,
@@ -277,6 +277,7 @@ export class PrototypeManagementService {
       const limitCheck = await hasExceededPrototypeCreationLimit(
         token,
         user.id,
+        request.log2,
       );
       if (limitCheck.exceeded) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -331,7 +332,10 @@ export class PrototypeManagementService {
         .single();
 
       if (prototypeInsertError) {
-        console.error('Error creating prototype:', prototypeInsertError);
+        request.log2.error(
+          prototypeInsertError,
+          '[handleCreatePrototype] Error creating prototype:',
+        );
         const errorResponse: CreatePrototypeErrorResponse = {
           success: false,
           error: 'DATABASE_ERROR',
@@ -394,7 +398,7 @@ export class PrototypeManagementService {
         return errorResponse;
       }
     } catch (error) {
-      console.error('Unexpected error in create-prototype:', error);
+      request.log2.error(error, '[handleCreatePrototype] Unexpected error:');
       const errorResponse: CreatePrototypeErrorResponse = {
         success: false,
         error: 'DATABASE_ERROR',
@@ -426,6 +430,7 @@ export class PrototypeManagementService {
       const authResponse = await checkUserHasPrototypeEditAccess(
         prototype_id,
         token,
+        request.log2,
       );
       if (authResponse === null || !authResponse.canEdit) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({

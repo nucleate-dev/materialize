@@ -1,6 +1,7 @@
 import { User, createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import type { Database } from '../types/supabase.js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 
 interface JWTPayload {
   sub?: string;
@@ -11,17 +12,16 @@ interface JWTPayload {
 /**
  * Validate a JWT token using JWT_SECRET and return User
  */
-export async function validateJWTToken(token: string): Promise<User | null> {
+export async function validateJWTToken(
+  token: string,
+  log2: SystemLogger,
+): Promise<User | null> {
   try {
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      console.error('JWT_SECRET environment variable not set');
-      return null;
-    }
-
-    jwt.verify(token, jwtSecret) as JWTPayload;
+    jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
   } catch (error) {
-    console.error('JWT validation error:', error);
+    log2.error(error, 'JWT validation error:', {
+      functionName: 'validateJWTToken',
+    });
     return null;
   }
 
@@ -54,7 +54,8 @@ export async function validateJWTToken(token: string): Promise<User | null> {
  */
 export async function checkUserHasPrototypeViewingAccess(
   prototypeId: string,
-  jwtToken?: string,
+  jwtToken: string | undefined,
+  log2: SystemLogger,
 ): Promise<{
   user: User | null;
   prototype: Database['public']['Tables']['prototypes']['Row'];
@@ -87,12 +88,14 @@ export async function checkUserHasPrototypeViewingAccess(
 
     let user: User | null = null;
     if (jwtToken) {
-      user = await validateJWTToken(jwtToken);
+      user = await validateJWTToken(jwtToken, log2);
     }
 
     return { user, prototype };
   } catch (error) {
-    console.error('Error checking prototype viewing access:', error);
+    log2.error(error, 'Error checking prototype viewing access:', {
+      functionName: 'checkUserHasPrototypeViewingAccess',
+    });
     return null;
   }
 }
@@ -102,7 +105,8 @@ export async function checkUserHasPrototypeViewingAccess(
  */
 export async function checkUserHasPrototypeEditAccess(
   prototypeId: string,
-  jwtToken?: string,
+  jwtToken: string,
+  log2: SystemLogger,
 ): Promise<{
   user: User;
   prototype: Database['public']['Tables']['prototypes']['Row'];
@@ -117,6 +121,7 @@ export async function checkUserHasPrototypeEditAccess(
     const { user, prototype } = (await checkUserHasPrototypeViewingAccess(
       prototypeId,
       jwtToken,
+      log2,
     )) || { user: null, prototype: null };
     if (prototype === null || user === null) {
       return null;
@@ -129,7 +134,9 @@ export async function checkUserHasPrototypeEditAccess(
       return null;
     }
   } catch (error) {
-    console.error('Error checking prototype edit access:', error);
+    log2.error(error, 'Error checking prototype edit access:', {
+      functionName: 'checkUserHasPrototypeEditAccess',
+    });
     return null;
   }
 }

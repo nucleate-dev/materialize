@@ -63,6 +63,7 @@ export async function uploadAssetToSupabaseStorage(
   prototypeId: string,
   fileName: string,
   fileContent: Buffer,
+  log2: SystemLogger,
 ): Promise<S3UploadResult> {
   try {
     const filePath = `${prototypeId}/${fileName}`;
@@ -75,7 +76,9 @@ export async function uploadAssetToSupabaseStorage(
       });
 
     if (error) {
-      console.error('Error uploading to Supabase Storage:', error);
+      log2.error(error, 'Error uploading to Supabase Storage:', {
+        functionName: 'uploadAssetToSupabaseStorage',
+      });
       return { success: false, error: error.message, publicUrl: null };
     }
 
@@ -88,7 +91,9 @@ export async function uploadAssetToSupabaseStorage(
       publicUrl: publicUrlData.publicUrl,
     };
   } catch (error) {
-    console.error('Error in uploadAssetToSupabaseStorage:', error);
+    log2.error(error, 'Error in uploadAssetToSupabaseStorage:', {
+      functionName: 'uploadAssetToSupabaseStorage',
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -140,6 +145,7 @@ export async function copyAssetInSupabaseStorage(
       targetPrototypeId,
       fileName,
       buffer,
+      log2,
     );
   } catch (error) {
     log2.error(error, '[copyAssetInSupabaseStorage] Error');
@@ -228,9 +234,12 @@ export async function copyS3BucketContents(
         successfulCopies++;
       } else {
         failedCopies++;
-        console.error(
-          `💥 [S3] Copy failed - Source: ${result.sourceKey}, Destination: ${result.destinationKey}, Error: ${result.error}`,
-        );
+        log2.error(result.error, `[copyS3BucketContents] Copy failed`, {
+          functionName: 'copyS3BucketContents',
+          source: result.sourceKey,
+          destination: result.destinationKey,
+          error: result.error,
+        });
       }
     });
 
@@ -439,6 +448,7 @@ export async function getDefaultAppFilesFromS3(
             prototypeId,
             fileName,
             buffer,
+            log2,
           );
 
           if (!uploadResult.success) {
@@ -488,7 +498,10 @@ export async function getDefaultAppFilesFromS3(
     );
 
     if (files.length === 0) {
-      console.error(`🚨 [S3] No files were successfully processed!`);
+      log2.error(
+        null,
+        '[getDefaultAppFilesFromS3] No files were successfully processed, file count is 0!',
+      );
       return {
         success: false,
         error: 'No files could be processed from default app files',

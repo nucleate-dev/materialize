@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import type { SubscriptionInfo } from '../types/InternalTypes.js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 
 /**
  * Helper function to get the start and end of the current month
@@ -32,6 +33,7 @@ function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
 export async function getSubscriptionInfo(
   jwtToken: string,
   userId: string,
+  log2: SystemLogger,
 ): Promise<SubscriptionInfo> {
   const supabaseClient = createClient<Database>(
     process.env.SUPABASE_URL!,
@@ -55,7 +57,9 @@ export async function getSubscriptionInfo(
       });
 
     if (error) {
-      console.error('Error fetching subscription:', error);
+      log2.error(error, 'Error fetching subscription from supabase:', {
+        functionName: 'getSubscriptionInfo',
+      });
       // Default to free tier with current month period
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
       return {
@@ -120,7 +124,9 @@ export async function getSubscriptionInfo(
       };
     }
   } catch (error) {
-    console.error('Error in getSubscriptionInfo:', error);
+    log2.error(error, 'Error in getSubscriptionInfo:', {
+      functionName: 'getSubscriptionInfo',
+    });
     // Default to free tier on any error
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     return {
@@ -146,6 +152,7 @@ export async function getCurrentPeriodApiUsage(
   userId: string,
   currentPeriodStart: Date,
   currentPeriodEnd: Date,
+  log2: SystemLogger,
 ): Promise<number> {
   const supabaseClient = createClient<Database>(
     process.env.SUPABASE_URL!,
@@ -172,13 +179,17 @@ export async function getCurrentPeriodApiUsage(
       .lte('created_at', periodEnd);
 
     if (error) {
-      console.error('Error fetching API usage:', error);
+      log2.error(error, 'Error fetching API usage from supabase:', {
+        functionName: 'getCurrentPeriodApiUsage',
+      });
       return 0; // Default to 0 on error
     }
 
     return count || 0;
   } catch (error) {
-    console.error('Error in getCurrentPeriodApiUsage:', error);
+    log2.error(error, 'Error in getCurrentPeriodApiUsage:', {
+      functionName: 'getCurrentPeriodApiUsage',
+    });
     return 0;
   }
 }
@@ -195,6 +206,7 @@ export async function getCurrentPeriodApiUsage(
 export async function hasExceededChatUsageLimit(
   jwtToken: string,
   userId: string,
+  log2: SystemLogger,
 ): Promise<{
   exceeded: boolean;
   current: number;
@@ -205,12 +217,13 @@ export async function hasExceededChatUsageLimit(
   stripeCustomerId: string;
 }> {
   try {
-    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId);
+    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
     const currentUsage = await getCurrentPeriodApiUsage(
       jwtToken,
       userId,
       subscriptionInfo.currentPeriodStart,
       subscriptionInfo.currentPeriodEnd,
+      log2,
     );
 
     // Free users have a limit of 15 messages per month
@@ -238,7 +251,9 @@ export async function hasExceededChatUsageLimit(
       stripeCustomerId: subscriptionInfo.stripeCustomerId,
     };
   } catch (error) {
-    console.error('Error in hasExceededUsageLimit:', error);
+    log2.error(error, 'Error in hasExceededUsageLimit:', {
+      functionName: 'hasExceededUsageLimit',
+    });
     const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
     // Default to free plan limits on error
     return {
@@ -256,13 +271,14 @@ export async function hasExceededChatUsageLimit(
 export async function hasExceededPrototypeCreationLimit(
   jwtToken: string,
   userId: string,
+  log2: SystemLogger,
 ): Promise<{
   exceeded: boolean;
   current: number;
   limit: number;
   plan: string;
 }> {
-  const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId);
+  const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
 
   // Paid users have no limit
   if (subscriptionInfo.userPlan !== 'free') {
@@ -291,7 +307,9 @@ export async function hasExceededPrototypeCreationLimit(
     .select('*', { count: 'exact', head: true })
     .eq('owner_id', userId);
   if (error) {
-    console.error('Error counting user prototypes:', error);
+    log2.error(error, 'Error counting user prototypes from supabase:', {
+      functionName: 'hasExceededPrototypeCreationLimit',
+    });
     // Default to exceeded on error to be safe
     return {
       exceeded: false,

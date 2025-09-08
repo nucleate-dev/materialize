@@ -218,6 +218,7 @@ export class ChatService {
       const authResult = await checkUserHasPrototypeEditAccess(
         prototype_id,
         token,
+        request.log2,
       );
       if (authResult === null) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -238,7 +239,11 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 3. Fetch user subscription and paywall the user if needed
       // ------------------------------------------------------------------------------------------------
-      const paywallResult = await hasExceededChatUsageLimit(token, user.id);
+      const paywallResult = await hasExceededChatUsageLimit(
+        token,
+        user.id,
+        request.log2,
+      );
       if (paywallResult.exceeded) {
         return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           error: 'Unauthorized: User has exceeded their monthly usage limit',
@@ -592,7 +597,7 @@ export class ChatService {
             reply.raw.write(value);
           }
         } catch (err) {
-          console.error('💥 [SERVER] Stream error:', err);
+          request.log2.error(err, '[handleChat] Stream error:');
           // Send error event before closing
           const errorEvent = `data: ${JSON.stringify({
             type: 'error',
@@ -607,7 +612,7 @@ export class ChatService {
 
       await pump();
     } catch (error) {
-      console.error('Chat API error:', error);
+      request.log2.error(error, '[handleChat] Chat API error:');
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: error instanceof Error ? error.message : 'Internal server error',
         details: process.env.NODE_ENV === 'development' ? error : undefined,
@@ -1598,12 +1603,16 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       const existingFile = this.files.get(filePath);
 
       if (op === 'modify' && !existingFile) {
-        console.error(`❌ Cannot modify non-existent file: ${filePath}`);
+        this.log2.consoleLogDevOnly(
+          'error',
+          `❌ Cannot modify non-existent file: ${filePath}`,
+        );
         return { error: `Cannot modify non-existent file: ${filePath}` };
       }
 
       if (op === 'create' && existingFile) {
-        console.error(
+        this.log2.consoleLogDevOnly(
+          'error',
           `❌ File already exists: ${filePath}. Use 'modify' operation.`,
         );
         return {

@@ -4,14 +4,12 @@ import {
   RunTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   type ActiveBuild,
-  type AuthValidationResult,
   BUILD_TIMEOUTS,
   CACHE_KEYS,
   type FargateDevServerResponse,
@@ -29,10 +27,8 @@ import {
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
-  StandardErrorResponse,
   StartDevServerRequestBody,
 } from '../types/PublicAPITypes.js';
-import type { Database } from '../types/supabase.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
@@ -161,7 +157,11 @@ export class DispatcherService {
     const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
     // 2. Authentication and authorization validation
-    const authResult = await checkUserHasPrototypeEditAccess(prototype_id, jwt);
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototype_id,
+      jwt,
+      request.log2,
+    );
     if (!authResult || !authResult.canEdit) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         error: 'Unauthorized',
@@ -505,7 +505,11 @@ export class DispatcherService {
     const { jwt, prototype_id } = request.body;
 
     // 2. Authentication and authorization validation
-    const authResult = await checkUserHasPrototypeEditAccess(prototype_id, jwt);
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototype_id,
+      jwt,
+      request.log2,
+    );
     if (!authResult || !authResult.canEdit) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         error: 'Unauthorized',
@@ -565,78 +569,6 @@ export class DispatcherService {
         error: 'Internal Server Error',
         message: e.message,
       });
-    }
-  }
-
-  // Authentication and authorization utility
-  private async validateUserAndPrototypeOwner(
-    jwt: string,
-    prototypeId: string,
-  ): Promise<AuthValidationResult | StandardErrorResponse> {
-    try {
-      const authResult = await checkUserHasPrototypeEditAccess(
-        prototypeId,
-        jwt,
-      );
-
-      if (!authResult || !authResult.canEdit) {
-        // Since checkUserHasPrototypeEditAccess doesn't differentiate error types,
-        // we need to check what specifically failed to provide appropriate error messages
-
-        // First check if JWT is valid
-        const supabase = createClient<Database>(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_ANON_KEY!,
-          {
-            global: {
-              headers: {
-                Authorization: `Bearer ${jwt}`,
-              },
-            },
-          },
-        );
-
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser(jwt);
-
-        if (authError || !user) {
-          return {
-            error: 'Unauthorized',
-            message: 'Invalid JWT or user not authenticated',
-          };
-        }
-
-        // JWT is valid, check if prototype exists
-        const { data: prototype, error: prototypeError } = await supabase
-          .from('prototypes')
-          .select('*')
-          .eq('id', prototypeId)
-          .single();
-
-        if (prototypeError || !prototype) {
-          return {
-            error: 'Not Found',
-            message: 'Prototype not found or user does not have permissions',
-          };
-        }
-
-        // Prototype exists, must be a permission issue
-        return {
-          error: 'Forbidden',
-          message: 'User does not have permissions to edit this prototype',
-        };
-      }
-
-      return { user: authResult.user, prototype: authResult.prototype };
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      console.error('Validation error:', e);
-      return {
-        error: 'Internal Server Error',
-        message: 'Authentication validation failed',
-      };
     }
   }
 
@@ -740,7 +672,7 @@ export class DispatcherService {
         throw new Error('No task was created');
       }
     } catch (error) {
-      console.error('Failed to launch Fargate task:', error);
+      log2.error(error, 'Failed to launch Fargate task:');
       throw new Error(
         `Failed to launch Fargate instance: ${
           error instanceof Error ? error.message : 'Unknown error'
