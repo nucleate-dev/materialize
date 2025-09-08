@@ -24,10 +24,10 @@ export class CleanupService {
     this.cache = cache;
     this.ecsClient = ecsClient;
     this.cleanupIntervals = [];
-    this.startCleanupServices();
     this.log2 = baseLogger.child({
       route: 'CleanupService',
     });
+    this.startCleanupServices();
   }
   // Cleanup idle hot reload services
 
