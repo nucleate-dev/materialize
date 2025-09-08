@@ -43,6 +43,7 @@ dotenv.config();
 export class DispatcherService {
   private ecsClient: ECSClient;
   private cache: GlideClient;
+  private fastifyApp: FastifyInstance;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
@@ -51,6 +52,7 @@ export class DispatcherService {
 
   // Register routes with Fastify
   public registerRoutes(app: FastifyInstance): void {
+    this.fastifyApp = app;
     // POST /dispatch
     app.post<{ Body: DispatchRequestBody }>(
       '/dispatch',
@@ -424,12 +426,20 @@ export class DispatcherService {
 
     try {
       // 2. Make a call to dispatch precheck to get the precheck response
-      const precheckRequest = {
-        body: { jwt, prototype_id },
-      } as FastifyRequest<{ Body: DispatchPrecheckRequestBody }>;
-      const precheckResponse = await this.handleDispatchPrecheck(
-        precheckRequest,
-        reply,
+      const precheckInjectResponse = await this.fastifyApp.inject({
+        method: 'POST',
+        url: '/dispatch-precheck',
+        headers: {
+          'x-trace-id': request.log2.getTraceId(),
+        },
+        payload: {
+          jwt,
+          prototype_id,
+        } as DispatchPrecheckRequestBody,
+      });
+
+      const precheckResponse: DispatchPrecheckResponse = JSON.parse(
+        precheckInjectResponse.payload,
       );
 
       // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
