@@ -369,10 +369,14 @@ export class PrototypeManagementService {
         request.log2.error(error, 'Error during prototype setup:');
 
         // Clean up S3 objects
-        await cleanupPrototypeS3Objects(this.s3Client, newPrototypeId);
+        await cleanupPrototypeS3Objects(
+          this.s3Client,
+          newPrototypeId,
+          request.log2,
+        );
 
         // Clean up Supabase Storage assets
-        await deletePrototypeAssetsFromStorage(newPrototypeId);
+        await deletePrototypeAssetsFromStorage(newPrototypeId, request.log2);
 
         // Clean up database entry
         await supabase.from('prototypes').delete().eq('id', newPrototypeId);
@@ -446,7 +450,11 @@ export class PrototypeManagementService {
 
       // 4. Delete S3 builds for the prototype
       try {
-        await cleanupPrototypeS3Objects(this.s3Client, prototype_id);
+        await cleanupPrototypeS3Objects(
+          this.s3Client,
+          prototype_id,
+          request.log2,
+        );
       } catch (s3Error) {
         request.log2.error(s3Error, 'Failed to delete S3 builds for prototype');
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
@@ -458,7 +466,7 @@ export class PrototypeManagementService {
 
       // 5. Delete prototype assets from storage
       try {
-        await deletePrototypeAssetsFromStorage(prototype_id);
+        await deletePrototypeAssetsFromStorage(prototype_id, request.log2);
       } catch (assetError) {
         request.log2.error(
           assetError,
@@ -573,10 +581,11 @@ export class PrototypeManagementService {
         sourcePrototypeId,
         newPrototypeId,
         asset.name,
+        log2,
       );
       if (!uploadResult.success || !uploadResult.publicUrl) {
         log2.error(uploadResult, '[forkPrototype] Failed to copy asset');
-        await deletePrototypeAssetsFromStorage(newPrototypeId);
+        await deletePrototypeAssetsFromStorage(newPrototypeId, log2);
         await supabase
           .from('prototype_assets')
           .delete()
@@ -599,7 +608,7 @@ export class PrototypeManagementService {
       .insert(assetsToInsert);
     if (assetsInsertError) {
       log2.error(assetsInsertError, '[forkPrototype] Failed to insert assets');
-      await deletePrototypeAssetsFromStorage(newPrototypeId);
+      await deletePrototypeAssetsFromStorage(newPrototypeId, log2);
       await supabase
         .from('prototype_assets')
         .delete()
@@ -616,6 +625,7 @@ export class PrototypeManagementService {
       this.s3Client,
       sourcePrototypeId,
       newPrototypeId,
+      log2,
     );
     if (!s3CopyResult.success) {
       log2.error(s3CopyResult, '[forkPrototype] Failed to copy S3 bucket');
@@ -635,6 +645,7 @@ export class PrototypeManagementService {
     const defaultFilesResult = await getDefaultAppFilesFromS3(
       this.s3Client,
       newPrototypeId,
+      log2,
     );
     if (!defaultFilesResult.success) {
       log2.error(
@@ -677,6 +688,7 @@ export class PrototypeManagementService {
     const s3CopyResult = await copyDefaultAppToVersionedPrototype(
       this.s3Client,
       newPrototypeId,
+      log2,
     );
     if (!s3CopyResult.success) {
       log2.error(
