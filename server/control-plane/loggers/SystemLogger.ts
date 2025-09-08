@@ -347,17 +347,15 @@ export class SystemLogger {
     extraDims: Record<string, string>,
   ): Record<string, string> {
     const out: Record<string, string> = {};
-    const ordered: (keyof LoggerContext)[] = [
-      'service',
-      'env',
-      'route',
-      'method',
-    ];
-    for (const k of ordered) {
-      const v = this.base[k];
-      if (typeof v === 'string' && v.length <= 300) out[k] = v;
+
+    // Only include 'service' from this.base
+    const service = this.base.service;
+    if (typeof service === 'string' && service.length <= 300) {
+      out.service = service;
     }
-    return { ...this.dims, ...out, ...extraDims };
+
+    // Don't include this.dims (which contains env) anymore
+    return { ...out, ...extraDims };
   }
 }
 
