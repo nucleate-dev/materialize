@@ -120,6 +120,11 @@ export class SystemLogger {
     this.base = { ...this.base, ...extra };
   }
 
+  /** Get the current trace ID for this logger instance */
+  getTraceId(): string | undefined {
+    return typeof this.base.traceId === 'string' ? this.base.traceId : undefined;
+  }
+
   // -------- Public API: levels --------
 
   debug(msg: string, fields: Record<string, unknown> = {}): void {

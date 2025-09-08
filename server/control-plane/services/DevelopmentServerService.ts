@@ -153,6 +153,9 @@ export class DevelopmentServerService {
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
+        headers: {
+          'x-trace-id': request.log2.getTraceId(),
+        },
         payload: {
           jwt: token,
           prototype_id: prototype_id,
@@ -212,6 +215,9 @@ export class DevelopmentServerService {
       const dispatchResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch',
+        headers: {
+          'x-trace-id': request.log2.getTraceId(),
+        },
         payload: {
           jwt: token,
           prototype_id: prototype_id,
@@ -339,6 +345,9 @@ export class DevelopmentServerService {
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
+        headers: {
+          'x-trace-id': request.log2.getTraceId(),
+        },
         payload: {
           jwt: token,
           prototype_id: prototype_id,
@@ -391,6 +400,9 @@ export class DevelopmentServerService {
       const dispatchResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch',
+        headers: {
+          'x-trace-id': request.log2.getTraceId(),
+        },
         payload: {
           jwt: token,
           prototype_id: prototype_id,

@@ -194,6 +194,7 @@ export class PrototypeManagementService {
             url: '/dispatch-precheck',
             headers: {
               'Content-Type': 'application/json',
+              'x-trace-id': request.log2.getTraceId(),
             },
             payload: {
               jwt: token,

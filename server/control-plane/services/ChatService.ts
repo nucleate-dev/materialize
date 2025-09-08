@@ -262,6 +262,9 @@ export class ChatService {
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-edit-intent',
+        headers: {
+          'x-trace-id': request.log2.getTraceId(),
+        },
         payload: {
           jwt: token,
           prototype_id: prototype_id,
@@ -393,6 +396,9 @@ export class ChatService {
                 tempDispatchResponse = await this.fastifyApp.inject({
                   method: 'POST',
                   url: '/dispatch',
+                  headers: {
+                    'x-trace-id': request.log2.getTraceId(),
+                  },
                   payload: {
                     jwt: token,
                     prototype_id: prototype_id,
@@ -408,6 +414,9 @@ export class ChatService {
                 tempDispatchResponse = await this.fastifyApp.inject({
                   method: 'POST',
                   url: '/dispatch',
+                  headers: {
+                    'x-trace-id': request.log2.getTraceId(),
+                  },
                   payload: {
                     jwt: token,
                     prototype_id: prototype_id,
