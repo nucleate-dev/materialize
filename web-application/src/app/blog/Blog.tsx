@@ -1,25 +1,24 @@
 "use client";
 
+import PremiumHeader from "@/components/PremiumHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import PremiumHeader from "@/components/PremiumHeader";
 import { BlogPost } from "@/lib/blog";
-import { 
-  CalendarDays, 
-  Clock, 
-  Search, 
-  User, 
+import {
   ArrowRight,
   BookOpen,
+  CalendarDays,
+  Clock,
   Code2,
   Lightbulb,
   Rocket,
+  Search,
   Sparkles
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 
 const categories = [
   { key: 'all', label: 'All Posts', icon: BookOpen },
@@ -40,11 +39,11 @@ export default function Blog({ initialPosts }: BlogProps) {
   const filteredPosts = useMemo(() => {
     return initialPosts.filter(post => {
       const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+        post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+
       const matchesCategory = selectedCategory === "all" || post.category === selectedCategory;
-      
+
       return matchesSearch && matchesCategory;
     });
   }, [initialPosts, searchQuery, selectedCategory]);
@@ -82,7 +81,7 @@ export default function Blog({ initialPosts }: BlogProps) {
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMS41IiBmaWxsPSJncmF5IiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+Cg==')] opacity-30 dark:opacity-10"></div>
 
       <PremiumHeader />
-      
+
       <div className="relative z-10">
         {/* Header */}
         <div className="container mx-auto px-6 pt-24 pb-16">
@@ -90,13 +89,13 @@ export default function Blog({ initialPosts }: BlogProps) {
             <div className="inline-block p-4 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl mb-6">
               <BookOpen className="w-12 h-12 text-blue-600 dark:text-blue-400" />
             </div>
-            <h1 className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-black via-gray-800 to-black dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent">
+            <h1 className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-black via-gray-800 to-black dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent leading-tight">
               Blog
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
               Insights, tutorials, and updates on React Native development, AI-powered prototyping, and mobile app design.
             </p>
-            
+
             {/* Search and Filter */}
             <div className="max-w-4xl mx-auto">
               <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -111,7 +110,7 @@ export default function Blog({ initialPosts }: BlogProps) {
                   />
                 </div>
               </div>
-              
+
               {/* Category Filter */}
               <div className="flex flex-wrap justify-center gap-2 mb-8">
                 {categories.map((category) => {
@@ -277,7 +276,7 @@ export default function Blog({ initialPosts }: BlogProps) {
               <p className="text-gray-600 dark:text-gray-300 mb-6">
                 Try adjusting your search query or category filter.
               </p>
-              <Button onClick={() => {setSearchQuery(""); setSelectedCategory("all");}}>
+              <Button onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}>
                 Clear Filters
               </Button>
             </div>
