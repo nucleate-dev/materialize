@@ -1,5 +1,7 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,14 +11,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
-import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/supabase";
+import WaitlistModal from "@/components/WaitlistModal";
+import { WAITLIST_MODE } from "@/GlobalConstants";
+import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type CreatePrototypeRequestBody,
   type CreatePrototypeResponse,
 } from "@/lib/types/serverAPITypes";
-import { useUser } from "@/hooks/useUser";
+import { Database } from "@/lib/types/supabase";
 import {
   CheckIcon,
   DocumentDuplicateIcon,
@@ -27,8 +30,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -53,6 +55,7 @@ export default function PublicPrototypeHeader({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [fileCount, setFileCount] = useState(0);
 
   // Fetch file count for display
@@ -126,7 +129,13 @@ export default function PublicPrototypeHeader({
   };
 
   const handleClonePrototype = async () => {
-    if (!user || !prototype) return;
+    if (!prototype) return;
+
+    // Show waitlist modal if waitlist mode is enabled
+    if (WAITLIST_MODE) {
+      setShowWaitlistModal(true);
+      return;
+    }
 
     try {
       setIsCloning(true);
@@ -295,7 +304,7 @@ export default function PublicPrototypeHeader({
               <div className="hidden sm:flex items-center gap-2">
                 <Button
                   onClick={handleClonePrototype}
-                  disabled={isCloning || !user}
+                  disabled={isCloning}
                   size="sm"
                   className="text-sm"
                 >
@@ -327,7 +336,7 @@ export default function PublicPrototypeHeader({
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem
                     onClick={handleClonePrototype}
-                    disabled={isCloning || !user}
+                    disabled={isCloning}
                     className="flex items-center gap-2"
                   >
                     {isCloning ? (
@@ -360,6 +369,11 @@ export default function PublicPrototypeHeader({
         open={showUpsellModal}
         onOpenChange={setShowUpsellModal}
         reason="prototype_creation_limit_reached"
+      />
+
+      <WaitlistModal
+        open={showWaitlistModal}
+        onOpenChange={setShowWaitlistModal}
       />
     </>
   );

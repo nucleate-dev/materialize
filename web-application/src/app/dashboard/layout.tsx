@@ -8,7 +8,7 @@ import Sidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
 
-function DashboardContent({ children }: { children: React.ReactNode }) {
+function DashboardContent({ children }: { children: React.ReactNode; }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />

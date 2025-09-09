@@ -1,77 +1,91 @@
 "use client";
-import { SparklesIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
+import { useEffect, useState } from "react";
 
 export default function PremiumHeader() {
   const { user, userIsLoading } = useUser();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <header className="relative z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
-      <div className="container mx-auto px-6 py-4">
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      isScrolled 
+        ? 'bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3' 
+        : 'bg-transparent py-6'
+    }`}>
+      <div className="container mx-auto px-6">
         <nav className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            <div className="relative">
-              <div className="w-10 h-10 bg-gradient-to-br from-white to-gray-300 rounded-xl flex items-center justify-center shadow-lg">
-                <SparklesIcon className="w-6 h-6 text-black" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse"></div>
-            </div>
-            <span className="text-2xl font-bold text-white">Materialize</span>
+            <span className="text-2xl font-bold text-black dark:text-white">Materialize</span>
           </div>
 
           {/* Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <a
-              href="#features"
-              className="text-white/80 hover:text-white transition-all duration-200 hover:scale-105"
+              href="#product"
+              className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
             >
-              Features
+              Product
             </a>
             <a
-              href="#flows"
-              className="text-white/80 hover:text-white transition-all duration-200 hover:scale-105"
+              href="#canvas"
+              className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
             >
-              Flows
+              Canvas
             </a>
             <a
               href="#pricing"
-              className="text-white/80 hover:text-white transition-all duration-200 hover:scale-105"
+              className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
             >
               Pricing
+            </a>
+            <a
+              href="#changelog"
+              className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
+            >
+              Changelog
             </a>
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             {userIsLoading ? (
-              <div className="px-6 py-3 rounded-xl border border-white/20 text-white/80 backdrop-blur-xl">
+              <div className="px-4 py-2 rounded-full border border-black/20 dark:border-white/20 text-black/80 dark:text-white/80 text-sm">
                 Loading...
               </div>
             ) : user ? (
               <Link
                 href="/dashboard"
-                className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
+                className="bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm"
               >
-                <span className="relative z-10">Dashboard</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                Dashboard
               </Link>
             ) : (
               <>
                 <Link
                   href="/login"
-                  className="px-6 py-3 rounded-xl border border-white/20 text-white/80 backdrop-blur-xl transition-all duration-300 hover:text-white hover:bg-white/10 hover:scale-105"
+                  className="px-4 py-2 text-black/70 dark:text-white/70 transition-all duration-200 hover:text-black dark:hover:text-white text-sm font-medium"
                 >
                   Sign in
                 </Link>
-                <Link
-                  href="/register"
-                  className="group relative bg-white text-black px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
+                <a
+                  href="https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm"
                 >
-                  <span className="relative z-10">Get started</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </Link>
+                  Join Waitlist
+                </a>
               </>
             )}
           </div>

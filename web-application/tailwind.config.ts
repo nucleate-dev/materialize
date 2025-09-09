@@ -294,6 +294,17 @@ const config: Config = {
             transform: "rotate(0deg)",
           },
         },
+        drift: {
+          "0%, 100%": {
+            transform: "translate(0, 0) rotate(0deg)",
+          },
+          "33%": {
+            transform: "translate(30px, -30px) rotate(120deg)",
+          },
+          "66%": {
+            transform: "translate(-20px, 20px) rotate(240deg)",
+          },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -319,6 +330,9 @@ const config: Config = {
         "spin-3": "spin 3s linear infinite",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      backgroundImage: {
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -11,20 +11,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Database } from "@/lib/types/supabase";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   FetchViewingUrlRequestBody,
   FetchViewingUrlResponse,
 } from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
 
@@ -53,6 +53,7 @@ export default function PrototypePage() {
         }
 
         setPrototype(prototypeData);
+        setIsLoading(false);
 
         // Call fetch-viewing-url API to get viewing URL
         try {

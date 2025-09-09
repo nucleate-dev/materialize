@@ -1,75 +1,43 @@
 "use client";
 import PremiumHeader from "@/components/PremiumHeader";
-import { PricingCard } from "@/components/PricingCard";
-import { ProductKeys } from "@/GlobalConstants";
-import { SparklesIcon } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { BoltIcon, CheckBadgeIcon, ShareIcon, Squares2X2Icon } from "@heroicons/react/24/solid";
 
 export default function Home() {
   return (
-    <main className="bg-white dark:bg-black overflow-hidden">
-      <PremiumHeader />
-      <HeroSection />
-      <FloatingElements />
-      <PricingSection />
+    <main className="relative bg-white dark:bg-black overflow-hidden">
+      {/* Premium Background */}
+      <div className="absolute inset-0 bg-gradient-radial from-gray-50/40 via-white to-white dark:from-gray-800/20 dark:via-black dark:to-black"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMS41IiBmaWxsPSJncmF5IiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+Cg==')] opacity-30 dark:opacity-10"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 dark:to-black/20 pointer-events-none"></div>
+
+      <div className="relative z-10">
+        <PremiumHeader />
+        <HeroSection />
+        <FeaturesSection />
+        <MinimalDepthElements />
+      </div>
     </main>
   );
 }
 
-function FloatingElements() {
+function MinimalDepthElements() {
   return (
-    <div className="fixed inset-0 pointer-events-none z-10">
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-pink-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+    <div className="fixed inset-0 pointer-events-none z-0 motion-reduce:hidden">
+      {/* Subtle depth orbs - smaller, slower, outside focal areas */}
+      <div className="absolute top-1/3 -left-1/4 w-64 h-64 bg-gradient-to-r from-blue-100/10 to-emerald-100/10 dark:from-blue-900/5 dark:to-emerald-900/5 rounded-full blur-3xl animate-[drift_20s_ease-in-out_infinite]"></div>
+      <div className="absolute bottom-1/3 -right-1/4 w-48 h-48 bg-gradient-to-r from-emerald-100/10 to-blue-100/10 dark:from-emerald-900/5 dark:to-blue-900/5 rounded-full blur-3xl animate-[drift_25s_ease-in-out_infinite_reverse]"></div>
     </div>
   );
 }
 
 function HeroSection() {
-  const [inputValue, setInputValue] = useState("");
-
-  const componentPrompts = {
-    "Action Button":
-      "Create a modern, accessible action button with smooth hover animations, loading states, and multiple variants (primary, secondary, destructive). Include ripple effects, proper focus states, and support for icons. The button should be responsive and follow Material Design 3 principles with elegant shadows and color transitions.",
-    Paywall:
-      "Design a compelling paywall component with pricing tiers, feature comparisons, and payment integration. Include animated progress indicators, testimonials section, money-back guarantee badge, and social proof elements. The design should reduce purchase friction with clear value propositions and urgency indicators.",
-    "Onboarding Screen":
-      "Build an engaging onboarding flow with progress indicators, interactive tutorials, and personalization questions. Include skip options, swipe gestures, beautiful illustrations, and micro-interactions. The screens should collect user preferences while showcasing key app features through guided tours.",
-    "Login Form":
-      "Create a secure, user-friendly login form with social authentication options, password visibility toggle, and form validation. Include biometric login support, remember me functionality, and smooth error handling. The design should prioritize security while maintaining excellent user experience.",
-    "Profile Card":
-      "Design a comprehensive profile card with avatar upload, social links, achievement badges, and activity feeds. Include edit mode with inline editing, privacy controls, and customizable themes. The card should be responsive and include subtle animations and hover effects.",
-    "Chat Interface":
-      "Build a modern chat interface with message bubbles, typing indicators, read receipts, and media sharing. Include emoji reactions, voice message support, message search, and conversation threading. The design should prioritize readability with proper spacing and intuitive navigation.",
-  };
-
-  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (inputValue.trim()) {
-        // Check if user is authenticated - for now just redirect to waitlist
-        // In the future, this would check auth status and either create prototype or show login
-        window.open(
-          "https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header",
-          "_blank",
-        );
-      }
-    }
-  };
-
-  const handlePillClick = (componentType: string) => {
-    const prompt =
-      componentPrompts[componentType as keyof typeof componentPrompts];
-    setInputValue(prompt);
-  };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center bg-white dark:bg-black">
+    <section className="relative flex items-start justify-center pt-32 pb-16 bg-white dark:bg-black">
       <div className="container mx-auto px-6 text-center relative z-20">
         {/* Floating Badge */}
         <div className="inline-flex items-center px-6 py-3 mt-8 mb-12 bg-gradient-to-r from-white/10 to-white/5 border border-white/20 rounded-full backdrop-blur-xl shadow-2xl hover:scale-105 transition-transform duration-300">
-          <div className="w-2 h-2 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full mr-3 animate-pulse"></div>
+          <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-emerald-400 rounded-full mr-3 animate-pulse"></div>
           <span className="text-sm text-black dark:text-white font-medium">
             Prototype at the speed of thought
           </span>
@@ -83,250 +51,119 @@ function HeroSection() {
         </h1>
 
         {/* Animated Subtitle */}
-        <p className="text-xl md:text-2xl text-black dark:text-white max-w-5xl mx-auto mb-16 leading-relaxed">
-          Prototype your ideas, workshop new designs, and build high-quality
-          React Native components at the
-          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent font-semibold">
-            {" "}
-            speed of thought
-          </span>
-          . Start with an infinite canvas to rapidly create React Native screens
-          and components.
+        <p className="text-xl md:text-2xl text-black dark:text-white max-w-4xl mx-auto mb-16 leading-relaxed">
+          Prototype React Native screens at the speed of thought—on an infinite canvas
+          that turns prompts into production-quality components.
         </p>
 
-        {/* Prototype Input Section */}
-        <div className="max-w-4xl mx-auto mb-20">
-          <div className="relative bg-gradient-to-br from-white/10 to-white/5 border border-white/20 rounded-3xl backdrop-blur-xl p-8 shadow-2xl mb-8">
-            <textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="What do you want to prototype?"
-              onKeyDown={handleInputKeyPress}
-              rows={4}
-              className="w-full px-0 py-0 text-lg bg-transparent border-none text-black dark:text-white placeholder-black/60 dark:placeholder-white/60 focus:outline-none resize-none"
-            />
-          </div>
-
-          {/* Component Suggestion Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
-            <button
-              onClick={() => handlePillClick("Action Button")}
-              className="group px-6 py-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-full text-black dark:text-white hover:from-purple-600/30 hover:to-pink-600/30 hover:border-purple-400/50 transition-all duration-300 backdrop-blur-xl hover:scale-105"
-            >
-              <span className="text-sm font-medium">Action Button</span>
-            </button>
-            <button
-              onClick={() => handlePillClick("Paywall")}
-              className="group px-6 py-3 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-full text-black dark:text-white hover:from-blue-600/30 hover:to-cyan-600/30 hover:border-blue-400/50 transition-all duration-300 backdrop-blur-xl hover:scale-105"
-            >
-              <span className="text-sm font-medium">Paywall</span>
-            </button>
-            <button
-              onClick={() => handlePillClick("Onboarding Screen")}
-              className="group px-6 py-3 bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-full text-black dark:text-white hover:from-green-600/30 hover:to-emerald-600/30 hover:border-green-400/50 transition-all duration-300 backdrop-blur-xl hover:scale-105"
-            >
-              <span className="text-sm font-medium">Onboarding Screen</span>
-            </button>
-            <button
-              onClick={() => handlePillClick("Login Form")}
-              className="group px-6 py-3 bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-orange-500/30 rounded-full text-black dark:text-white hover:from-orange-600/30 hover:to-red-600/30 hover:border-orange-400/50 transition-all duration-300 backdrop-blur-xl hover:scale-105"
-            >
-              <span className="text-sm font-medium">Login Form</span>
-            </button>
-            <button
-              onClick={() => handlePillClick("Profile Card")}
-              className="group px-6 py-3 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-full text-black dark:text-white hover:from-indigo-600/30 hover:to-purple-600/30 hover:border-indigo-400/50 transition-all duration-300 backdrop-blur-xl hover:scale-105"
-            >
-              <span className="text-sm font-medium">Profile Card</span>
-            </button>
-            <button
-              onClick={() => handlePillClick("Chat Interface")}
-              className="group px-6 py-3 bg-gradient-to-r from-pink-600/20 to-rose-600/20 border border-pink-500/30 rounded-full text-black dark:text-white hover:from-pink-600/30 hover:to-rose-600/30 hover:border-pink-400/50 transition-all duration-300 backdrop-blur-xl hover:scale-105"
-            >
-              <span className="text-sm font-medium">Chat Interface</span>
-            </button>
-          </div>
-
-          {/* CTA Button */}
-          {/* <div className="flex justify-center">
-            <a
-              href="https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative px-10 py-4 bg-white text-black font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-white/20 hover:bg-gray-50"
-            >
-              <span className="flex items-center gap-2">
-                Join Waitlist
-                <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </span>
-            </a>
-          </div> */}
-        </div>
-
-        {/* Enhanced Demo Video */}
-        {/* <div className="relative max-w-7xl mx-auto group">
-          <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-3xl border border-white/20 overflow-hidden shadow-2xl hover:shadow-white/10 transition-all duration-500">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
-
-            <div className="relative aspect-video bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
-              <div className="w-24 h-24 bg-gradient-to-r from-white/20 to-white/10 rounded-full flex items-center justify-center border border-white/30 hover:bg-white/30 transition-all duration-300 cursor-pointer group backdrop-blur-xl">
-                <PlayIcon className="w-10 h-10 text-white ml-1 group-hover:scale-110 transition-transform" />
-              </div>
-            </div>
-
-            <div className="absolute top-6 left-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
-              <span className="text-white text-sm font-semibold flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                Infinite Canvas
-              </span>
-            </div>
-
-            <div className="absolute top-6 right-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
-              <span className="text-white text-sm font-semibold">
-                React Native
-              </span>
-            </div>
-
-            <div className="absolute bottom-6 left-6 bg-black/80 border border-white/20 rounded-xl px-4 py-3 backdrop-blur-xl">
-              <span className="text-white text-sm font-semibold flex items-center gap-2">
-                <CodeBracketIcon className="w-4 h-4" />
-                Live Code Export
-              </span>
-            </div>
-          </div>
-        </div> */}
-      </div>
-    </section>
-  );
-}
-
-function PricingSection() {
-  const pricingTiers = [
-    {
-      name: "Free",
-      productID: ProductKeys.FREE_SUBSCRIPTION,
-      price: "$0",
-      period: "/month",
-      description: "Perfect for getting started with prototyping",
-      features: [
-        "10 messages per month",
-        "Basic React Native components",
-        "Infinite canvas access",
-        "Code export",
-        "Community support",
-      ],
-      cta: "Get Started",
-      ctaStyle:
-        "bg-white/10 text-white border border-white/20 hover:bg-white/20",
-      popular: false,
-    },
-    {
-      name: "Pro",
-      productID: ProductKeys.PRO_SUBSCRIPTION,
-      price: "$20",
-      period: "/month",
-      description: "Ideal for professional developers and teams",
-      features: [
-        "100 messages included",
-        "Pay-per-message scaling:",
-        "• 101-300: $0.15/message",
-        "• 301-600: $0.10/message",
-        "• 600+: $0.07/message",
-        "Advanced AI components",
-        "Priority support",
-        "Team collaboration",
-        "Custom templates",
-      ],
-      cta: "Start Pro Trial",
-      ctaStyle:
-        "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700",
-      popular: true,
-    },
-  ];
-
-  return (
-    <section
-      id="pricing"
-      className="relative py-32 bg-gradient-to-b from-white to-gray-100 dark:from-black dark:to-gray-900"
-    >
-      <div className="container mx-auto px-6">
-        {/* Section Header */}
-        <div className="text-center mb-20">
-          <div className="inline-flex items-center px-4 py-2 mb-6 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-full">
-            <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-300 mr-2" />
-            <span className="text-sm text-purple-600 dark:text-purple-300 font-medium">
-              Simple Pricing
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+          <a
+            href="https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-black/20 dark:hover:shadow-white/20"
+          >
+            <span className="flex items-center gap-2">
+              Join Waitlist
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </span>
-          </div>
-          <h2 className="text-5xl md:text-6xl font-bold mb-6 text-black dark:text-white">
-            Choose Your Plan
-          </h2>
-          <p className="text-xl text-black dark:text-white max-w-3xl mx-auto">
-            Start free and scale as you grow. Pay only for what you use with
-            transparent, developer-friendly pricing.
-          </p>
+          </a>
+          {/* <button className="group relative px-6 py-4 bg-transparent border border-gray-300 dark:border-gray-600 text-black dark:text-white font-medium rounded-2xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 dark:hover:bg-gray-900">
+            <span className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+              Watch 60-sec demo
+            </span>
+          </button> */}
         </div>
 
-        {/* Pricing Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {pricingTiers.map((tier, index) => (
-            <div key={index} className="dark:hidden">
-              <PricingCard {...tier} theme="light" />
-            </div>
-          ))}
-          {pricingTiers.map((tier, index) => (
-            <div key={`dark-${index}`} className="hidden dark:block">
-              <PricingCard {...tier} theme="dark" />
-            </div>
-          ))}
-        </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* Usage Examples */}
-        <div className="mt-20 text-center">
-          <h3 className="text-2xl font-bold text-black dark:text-white mb-8">
-            Usage Examples
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-              <div className="text-2xl font-bold text-black dark:text-white mb-2">
-                150 messages
+function FeaturesSection() {
+  return (
+    <section className="py-16 bg-white dark:bg-black">
+      <div className="container mx-auto px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Bento Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Iterate Faster - Large card */}
+            <div className="lg:col-span-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]">
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <BoltIcon className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-black dark:text-white">
+                    Generate React Native apps, screens, and components fast
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-4">
+                  AI generates React Native components and screens from simple prompts—ready to ship in minutes.
+                </p>
               </div>
-              <div className="text-gray-600 dark:text-gray-300 mb-2">
-                Pro plan cost:
-              </div>
-              <div className="text-lg font-semibold text-green-400">
-                $20 + $7.50 = $27.50
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                100 included + 50 × $0.15
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-              <div className="text-2xl font-bold text-black dark:text-white mb-2">
-                400 messages
-              </div>
-              <div className="text-gray-600 dark:text-gray-300 mb-2">
-                Pro plan cost:
-              </div>
-              <div className="text-lg font-semibold text-green-400">
-                $20 + $40 = $60
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                100 included + 200×$0.15 + 100×$0.10
+              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">prompt → components</span>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-              <div className="text-2xl font-bold text-black dark:text-white mb-2">
-                800 messages
+
+            {/* Infinite Canvas */}
+            <div className="lg:col-span-2 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border border-emerald-200 dark:border-emerald-700/30 rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+                  <Squares2X2Icon className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-black dark:text-white">
+                  Create flows across multiple screens at once
+                </h3>
               </div>
-              <div className="text-gray-600 dark:text-gray-300 mb-2">
-                Pro plan cost:
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-4">
+                Infinite canvas lets you design entire user journeys, from onboarding to checkout, in one seamless view.
+              </p>
+              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded">multi-screen flows</span>
               </div>
-              <div className="text-lg font-semibold text-green-400">
-                $20 + $84 = $104
+            </div>
+
+            {/* Rapid Prototyping */}
+            <div className="lg:col-span-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
+                  <CheckBadgeIcon className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-black dark:text-white">
+                  Export real React Native code
+                </h3>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Includes all tiers + 200×$0.07
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Design, experiment, and prototype in minutes, then copy or export production-ready React Native code.
+              </p>
+              <div className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">prototype → test → ship</span>
+              </div>
+            </div>
+
+            {/* Save, Fork, Edit & Share */}
+            <div className="lg:col-span-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
+                  <ShareIcon className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-black dark:text-white">
+                  Versioned riffs you can remix and ship
+                </h3>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-4">
+                Fork any design, make it yours, and maintain a living library of components your team can build on.
+              </p>
+              <div className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">save → fork → remix</span>
               </div>
             </div>
           </div>
@@ -335,3 +172,4 @@ function PricingSection() {
     </section>
   );
 }
+
