@@ -53,6 +53,16 @@ export class PublicApiService {
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
     try {
+      // Log input file names (not contents)
+      if (request.body.files && request.body.files.length > 0) {
+        const fileNames = request.body.files.map((file) => file.name);
+        customlog("info", "POST /dev-server received files:", fileNames);
+      }
+      if (request.body.assets && request.body.assets.length > 0) {
+        const assetNames = request.body.assets.map((asset) => asset.name);
+        customlog("info", "POST /dev-server received assets:", assetNames);
+      }
+
       if (request.body.file_scope === "complete") {
         const startResponse = await this.expoDevServerService.startDevServer(
           request,
@@ -121,7 +131,18 @@ export class PublicApiService {
         _request,
         reply,
       );
-      return status;
+
+      // Add operation status information
+      const operationStatus =
+        this.expoDevServerService.getCurrentOperationStatus();
+      const stopCheck = this.expoDevServerService.canStopOperation();
+
+      return {
+        ...status,
+        operationStatus,
+        canStop: stopCheck.canStop,
+        stopReason: stopCheck.reason,
+      };
     } catch (error: any) {
       customlog("error", "Failed to get dev server status:", error.message);
       return reply.code(500).send({
@@ -136,6 +157,29 @@ export class PublicApiService {
     reply: FastifyReply,
   ): Promise<PublicDevServerStopResponse> {
     const { prototype_id } = request.body;
+
+    // Check if there's an ongoing operation that cannot be stopped
+    const stopCheck = this.expoDevServerService.canStopOperation();
+    if (!stopCheck.canStop) {
+      const operationStatus =
+        this.expoDevServerService.getCurrentOperationStatus();
+      customlog(
+        "warn",
+        "Stop request denied due to ongoing operation:",
+        stopCheck.reason,
+        operationStatus,
+      );
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: stopCheck.reason || "Cannot stop during ongoing operation",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
 
     // If no prototype_id provided, try to stop any running dev server
     if (!prototype_id) {
