@@ -203,7 +203,11 @@ export class SystemLogger {
     );
   }
 
-  /** Time a function and report duration under metric `name`. */
+  /** Time a function and report duration under metric `name`.
+   * Each metric (defined by combination of name and each extra dimension) will cost $0.30 per month.
+   * DO NOT ADD EXTRA DIMENSIONS UNLESS ABSOLUTELY NECESSARY -- I CANNOT STRESS THIS ENOUGH.
+   * -- for example, adding somehting unique like user_id can suddenly result in $300 per month if just 1000 users hit this route.
+   */
   async time<T>(
     name: LatencyEvent,
     fn: () => Promise<T>,
@@ -347,17 +351,15 @@ export class SystemLogger {
     extraDims: Record<string, string>,
   ): Record<string, string> {
     const out: Record<string, string> = {};
-    const ordered: (keyof LoggerContext)[] = [
-      'service',
-      'env',
-      'route',
-      'method',
-    ];
-    for (const k of ordered) {
-      const v = this.base[k];
-      if (typeof v === 'string' && v.length <= 300) out[k] = v;
+
+    // Only include 'service' from this.base
+    const service = this.base.service;
+    if (typeof service === 'string' && service.length <= 300) {
+      out.service = service;
     }
-    return { ...this.dims, ...out, ...extraDims };
+
+    // Don't include this.dims (which contains env) anymore
+    return { ...out, ...extraDims };
   }
 }
 

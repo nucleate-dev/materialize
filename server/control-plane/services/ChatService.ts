@@ -29,6 +29,7 @@ import {
   isEditableDevServer,
 } from '../utils/prototypeDevServerStatusUtils.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
+import { LatencyEvents } from '../loggers/LatencyEvents.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -324,15 +325,19 @@ export class ChatService {
               'info',
               '[handleChat] Starting planning phase...',
             );
-            const planningResult = await this.handlePlanningPhase(
-              messages,
-              userMessage,
-              fileManager,
-              inputFiles,
-              chat_session_id,
-              controller,
-              encoder,
-              request.log2,
+            const planningResult = await request.log2.time(
+              LatencyEvents.chat_planning_phase_latency,
+              async () =>
+                await this.handlePlanningPhase(
+                  messages,
+                  userMessage,
+                  fileManager,
+                  inputFiles,
+                  chat_session_id,
+                  controller,
+                  encoder,
+                  request.log2,
+                ),
             );
 
             request.log2.consoleLogDevOnly(
@@ -950,12 +955,16 @@ export class ChatService {
           );
 
           try {
-            const stepResult = await this.executeStep(
-              operation,
-              fileManager,
-              messages,
-              inputFiles,
-              log2,
+            const stepResult = await log2.time(
+              LatencyEvents.chat_step_execution_latency,
+              async () =>
+                await this.executeStep(
+                  operation,
+                  fileManager,
+                  messages,
+                  inputFiles,
+                  log2,
+                ),
             );
             // Send step completion
             controller.enqueue(

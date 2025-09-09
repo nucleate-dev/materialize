@@ -60,29 +60,29 @@ fastify.addHook('onRequest', async (req) => {
 // In route handlers
 fastify.get('/api/example', async (request, reply) => {
   const logger = request.log2;
-  
+
   // Info level
   logger.info('Processing request', { userId: '123' });
-  
+
   // Warning level
-  logger.warn('Deprecated endpoint used', { 
+  logger.warn('Deprecated endpoint used', {
     endpoint: request.url,
-    userAgent: request.headers['user-agent'] 
+    userAgent: request.headers['user-agent'],
   });
-  
+
   // Error handling
   try {
     // Some operation
   } catch (error) {
-    logger.error(error, 'Operation failed', { 
-      operation: 'example-operation' 
+    logger.error(error, 'Operation failed', {
+      operation: 'example-operation',
     });
   }
-  
+
   // Debug level (only logs to structured output)
-  logger.debug('Request details', { 
+  logger.debug('Request details', {
     params: request.params,
-    query: request.query 
+    query: request.query,
   });
 });
 ```
@@ -94,7 +94,7 @@ For development debugging that only shows in development mode:
 ```typescript
 // Console output only in development
 logger.consoleLogDevOnly('info', 'Debug message for development', {
-  debugData: { foo: 'bar' }
+  debugData: { foo: 'bar' },
 });
 
 // Different log levels
@@ -109,42 +109,48 @@ Log business events that you want to track and analyze:
 
 ```typescript
 // Track business events
-logger.event('user_registered', { 
-  userId: '123', 
+logger.event('user_registered', {
+  userId: '123',
   plan: 'pro',
-  referrer: 'google' 
+  referrer: 'google',
 });
 
 logger.event('prototype_created', {
   prototypeId: 'proto-456',
   userId: '123',
-  templateType: 'blank'
+  templateType: 'blank',
 });
 ```
 
 ### CloudWatch Metrics (EMF)
 
 #### Count Metrics
+
 ```typescript
 // Simple count
 logger.metricCount('api_requests');
 
 // Count with value and dimensions
-logger.metricCount('user_registrations', 1, { 
-  plan: 'pro', 
-  source: 'web' 
+logger.metricCount('user_registrations', 1, {
+  plan: 'pro',
+  source: 'web',
 });
 ```
 
 #### Timing Metrics
+
 ```typescript
 // Manual timing
 logger.metricTiming('database_query_duration', 150); // 150ms
 
 // Automatic timing with function wrapper
-const result = await logger.time('database_operation', async () => {
-  return await database.query('SELECT * FROM users');
-}, { queryType: 'select' });
+const result = await logger.time(
+  'database_operation',
+  async () => {
+    return await database.query('SELECT * FROM users');
+  },
+  { queryType: 'select' },
+);
 
 // Manual timer
 const endTimer = logger.startTimer('file_processing');
@@ -164,18 +170,18 @@ class UserService {
   constructor(baseLogger: SystemLogger) {
     this.logger = baseLogger.child({
       service: 'user-service',
-      component: 'UserService'
+      component: 'UserService',
     });
   }
 
   async createUser(userData: any) {
-    const userLogger = this.logger.child({ 
+    const userLogger = this.logger.child({
       userId: userData.id,
-      operation: 'create_user' 
+      operation: 'create_user',
     });
-    
+
     userLogger.info('Creating user', { email: userData.email });
-    
+
     try {
       const user = await this.database.create(userData);
       userLogger.event('user_created', { userId: user.id });
@@ -196,9 +202,9 @@ Update logger context dynamically:
 const logger = request.log2;
 
 // Add context as you progress through the request
-logger.setContext({ 
+logger.setContext({
   userId: authenticatedUserId,
-  tenantId: 'tenant-123' 
+  tenantId: 'tenant-123',
 });
 
 logger.info('User authenticated', { role: 'admin' });
@@ -210,19 +216,20 @@ logger.info('User authenticated', { role: 'admin' });
 
 ```typescript
 interface SystemLoggerOptions {
-  service: string;              // Service name (e.g., 'control-plane')
-  env: string;                  // Environment ('development', 'production')
-  redactKeys?: string[];        // Additional keys to redact (beyond defaults)
+  service: string; // Service name (e.g., 'control-plane')
+  env: string; // Environment ('development', 'production')
+  redactKeys?: string[]; // Additional keys to redact (beyond defaults)
   defaultDimensions?: Record<string, string>; // Default EMF dimensions
-  metricNamespace?: string;     // CloudWatch metric namespace
+  metricNamespace?: string; // CloudWatch metric namespace
 }
 ```
 
 ### Default Redacted Keys
 
 The following keys are automatically redacted from logs:
+
 - `password`
-- `authorization` 
+- `authorization`
 - `auth`
 - `token`
 - `access_token`
@@ -234,14 +241,14 @@ The following keys are automatically redacted from logs:
 
 ```typescript
 interface LoggerContext {
-  requestId?: string;    // Request correlation ID
-  traceId?: string;      // Distributed tracing ID
-  userId?: string;       // Authenticated user ID  
+  requestId?: string; // Request correlation ID
+  traceId?: string; // Distributed tracing ID
+  userId?: string; // Authenticated user ID
   prototypeId?: string; // Prototype being operated on
-  route?: string;        // API route path
-  method?: string;       // HTTP method
-  service?: string;      // Service name
-  env?: string;          // Environment
+  route?: string; // API route path
+  method?: string; // HTTP method
+  service?: string; // Service name
+  env?: string; // Environment
   [key: string]: unknown; // Any additional context
 }
 ```
@@ -265,6 +272,7 @@ interface LoggerContext {
 ## CloudWatch Integration
 
 Logs automatically appear in CloudWatch Logs with:
+
 - **Log Group**: Based on your ECS/Lambda configuration
 - **Structured Search**: JSON format enables easy filtering and searching
 - **Custom Metrics**: EMF logs create CloudWatch metrics automatically

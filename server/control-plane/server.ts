@@ -150,7 +150,7 @@ const start = async (): Promise<void> => {
     cache = cacheClient;
 
     // Create dispatcher service with initialized clients and register routes
-    dispatcherService = new DispatcherService(cache, ecsClient);
+    dispatcherService = new DispatcherService(cache, ecsClient, fastify);
     dispatcherService.registerRoutes(fastify);
 
     // Create cleanup service with cache and ECS client
