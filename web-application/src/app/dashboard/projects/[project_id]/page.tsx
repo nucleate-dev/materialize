@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
-import EmptyState from "@/components/dashboard/EmptyState";
 import { supabase } from "@/ClientConstants";
+import CanvasThumbnail from "@/components/dashboard/CanvasThumbnail";
+import EmptyState from "@/components/dashboard/EmptyState";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
-import { Database } from "@/lib/types/supabase";
+import PrototypeThumbnail from "@/components/dashboard/PrototypeThumbnail";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 // Union type for recent items
 type RecentItem = {
@@ -190,25 +191,35 @@ export default function ProjectPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {recentItems.length > 0 ? (
-            recentItems.map((item) => (
-              <ProjectThumbnail
-                key={`${item.type}-${item.id}`}
-                prototypeName={
-                  item.type === "prototype" ? item.name : undefined
-                }
-                canvasName={item.type === "canvas" ? item.name : undefined}
-                thumbnailUrl={item.thumbnail_url}
-                lastModified={formatRelativeTime(
-                  item.updated_at || item.created_at,
-                )}
-                onClick={() => handleItemClick(item)}
-                onSettings={
-                  item.type === "prototype"
-                    ? () => handleOpenSettings(item.id)
-                    : undefined
-                }
-              />
-            ))
+            recentItems.map((item) => {
+              if (item.type === "prototype") {
+                return (
+                  <PrototypeThumbnail
+                    key={`${item.type}-${item.id}`}
+                    prototypeName={item.name}
+                    thumbnailUrl={item.thumbnail_url}
+                    lastModified={formatRelativeTime(
+                      item.updated_at || item.created_at,
+                    )}
+                    onEdit={() => handleItemClick(item)}
+                    onSettings={() => handleOpenSettings(item.id)}
+                  />
+                );
+              } else if (item.type === "canvas") {
+                return (
+                  <CanvasThumbnail
+                    key={`${item.type}-${item.id}`}
+                    canvasName={item.name}
+                    thumbnailUrl={item.thumbnail_url}
+                    lastModified={formatRelativeTime(
+                      item.updated_at || item.created_at,
+                    )}
+                    onClick={() => handleItemClick(item)}
+                  />
+                );
+              }
+              return null;
+            })
           ) : (
             <div className="col-span-full">
               <EmptyState

@@ -19,10 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Database } from "@/lib/types/supabase";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import { useEffect, useState } from "react";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
+import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
   open: boolean;
@@ -186,10 +186,15 @@ export default function PrototypeSettingsModal({
                 variant="destructive"
                 onClick={handleDelete}
                 disabled={isSubmitting}
+                className="cursor-pointer"
               >
                 {isSubmitting ? "Deleting..." : "Delete Prototype"}
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className={isSubmitting ? "" : "cursor-pointer"}
+              >
                 Save
               </Button>
             </DialogFooter>

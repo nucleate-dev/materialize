@@ -1,9 +1,9 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import CanvasThumbnail from "@/components/dashboard/CanvasThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
-import CanvasThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,12 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {

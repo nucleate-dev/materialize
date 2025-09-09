@@ -1,26 +1,14 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { User } from "@supabase/supabase-js";
-import { useState, useEffect } from "react";
-import { Database } from "@/lib/types/supabase";
-import type {
-  CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
-} from "@/lib/types/serverAPITypes";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import {
-  SparklesIcon,
-  RocketLaunchIcon,
-  FolderIcon,
-} from "@heroicons/react/24/outline";
+import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,11 +18,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
-import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { ProductKeys } from "@/GlobalConstants";
-import { useRouter } from "next/navigation";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type {
+  CreatePrototypeRequestBody,
+  CreatePrototypeResponse,
+} from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import {
+  FolderIcon,
+  RocketLaunchIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
+import { User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface NewPrototypeModalProps {
   open: boolean;
@@ -57,7 +57,7 @@ export default function NewPrototypeModal({
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const { userPlan } = useSubscriptionAccess();
@@ -275,7 +275,7 @@ export default function NewPrototypeModal({
 
           <form
             onSubmit={handleSubmit}
-            className={`space-y-6 ${userPlan !== "pro" && prototypeCount >= 5 ? "opacity-50 pointer-events-none" : ""}`}
+            className={`space-y-6 ${userPlan !== "pro" && prototypeCount >= 5 ? "opacity-50" : ""}`}
           >
             <div className="space-y-2">
               <Label htmlFor="prototype-name" className="text-sm font-semibold">
@@ -287,11 +287,10 @@ export default function NewPrototypeModal({
                 placeholder="e.g. E-commerce Mobile App ✨"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className={`h-12 text-lg ${
-                  touched && !name.trim()
+                className={`h-12 text-lg ${touched && !name.trim()
                     ? "border-destructive focus-visible:ring-destructive"
                     : "focus-visible:ring-primary"
-                }`}
+                  }`}
                 autoFocus
                 maxLength={64}
               />

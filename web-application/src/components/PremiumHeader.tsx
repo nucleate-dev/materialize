@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function PremiumHeader() {
@@ -11,17 +11,16 @@ export default function PremiumHeader() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled 
-        ? 'bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3' 
-        : 'bg-transparent py-6'
-    }`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+      ? 'bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3'
+      : 'bg-transparent py-6'
+      }`}>
       <div className="container mx-auto px-6">
         <nav className="flex items-center justify-between">
           {/* Logo */}
@@ -31,7 +30,7 @@ export default function PremiumHeader() {
 
           {/* Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <a
+            {/* <a
               href="#product"
               className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
             >
@@ -43,17 +42,18 @@ export default function PremiumHeader() {
             >
               Canvas
             </a>
-            <a
-              href="#pricing"
-              className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
-            >
-              Pricing
-            </a>
+            
             <a
               href="#changelog"
               className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
             >
               Changelog
+            </a> */}
+            <a
+              href="/blog"
+              className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
+            >
+              Blog
             </a>
           </div>
 

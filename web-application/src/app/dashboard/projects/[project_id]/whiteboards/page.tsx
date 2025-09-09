@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
+import { supabase } from "@/ClientConstants";
+import CanvasThumbnail from "@/components/dashboard/CanvasThumbnail";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewWhiteboardModal from "@/components/dashboard/NewWhiteboardModal";
-import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 type Canvas = Database["public"]["Tables"]["canvases"]["Row"];
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -178,7 +178,7 @@ export default function ProjectWhiteboardsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {canvases.map((canvas) => (
-          <ProjectThumbnail
+          <CanvasThumbnail
             key={canvas.id}
             canvasName={canvas.name}
             thumbnailUrl={canvas.thumbnail_url}

@@ -3,8 +3,8 @@
 import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
+import PrototypeThumbnail from "@/components/dashboard/PrototypeThumbnail";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,12 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Database } from "@/lib/types/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -136,7 +136,7 @@ export default function PrototypesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {prototypes.length > 0 ? (
             prototypes.map((prototype) => (
-              <ProjectThumbnail
+              <PrototypeThumbnail
                 key={prototype.id}
                 prototypeName={prototype.name}
                 thumbnailUrl={prototype.thumbnail_url}

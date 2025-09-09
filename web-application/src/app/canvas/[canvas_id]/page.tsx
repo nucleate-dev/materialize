@@ -1,28 +1,28 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
+import Loader from "@/components/dashboard/Loader";
+import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
 import {
   ChatBubbleLeftIcon,
   PaperAirplaneIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/supabase";
-import Loader from "@/components/dashboard/Loader";
-import { useUser } from "@/hooks/useUser";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Tldraw,
   Editor,
-  TLStoreSnapshot,
+  Tldraw,
   TLSessionStateSnapshot,
+  TLStoreSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export default function CanvasPage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ canvas_id: string }>();
+  const params = useParams<{ canvas_id: string; }>();
   const logger = useProductLogger();
   const canvasId = params?.canvas_id;
   const [isChatOpen, setIsChatOpen] = useState(true);
@@ -291,10 +291,10 @@ export default function CanvasPage() {
             </div>
 
             {/* Enhanced Dark Mode Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 dark:to-purple-900/20 pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 dark:to-purple-900/20"></div>
 
             {/* Additional Dark Mode Depth Layer */}
-            <div className="absolute inset-0 dark:bg-gradient-to-br dark:from-slate-900/50 dark:via-transparent dark:to-slate-800/50 pointer-events-none"></div>
+            <div className="absolute inset-0 dark:bg-gradient-to-br dark:from-slate-900/50 dark:via-transparent dark:to-slate-800/50"></div>
 
             {/* Ultra Dark Chat Header */}
             <div className="relative flex-shrink-0 p-6 border-b border-black/10 dark:border-slate-600/50 bg-gradient-to-r from-white/80 to-gray-50/80 dark:from-slate-800/90 dark:to-slate-900/90 backdrop-blur-sm">
@@ -388,35 +388,32 @@ export default function CanvasPage() {
                   >
                     {/* Ultra Dark Message Bubble */}
                     <div
-                      className={`p-4 rounded-2xl relative transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
-                        message.sender === "user"
+                      className={`p-4 rounded-2xl relative transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${message.sender === "user"
                           ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-600/50 ring-1 ring-white/20 dark:ring-blue-400/30"
                           : "bg-white/90 dark:bg-slate-800/95 text-gray-900 dark:text-slate-100 border border-black/10 dark:border-slate-600/50 backdrop-blur-sm shadow-sm dark:shadow-lg hover:bg-white dark:hover:bg-slate-700/95"
-                      }`}
+                        }`}
                     >
                       {/* Message bubble tail */}
                       <div
-                        className={`absolute w-3 h-3 transform rotate-45 ${
-                          message.sender === "user"
+                        className={`absolute w-3 h-3 transform rotate-45 ${message.sender === "user"
                             ? "-right-1 top-4 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
                             : "-left-1 top-4 bg-white/90 dark:bg-slate-800/95 border-l border-t border-black/10 dark:border-slate-600/50"
-                        }`}
+                          }`}
                       ></div>
 
                       {/* Enhanced inner glow for user messages */}
                       {message.sender === "user" && (
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent dark:from-white/5 dark:to-blue-900/20 pointer-events-none"></div>
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent dark:from-white/5 dark:to-blue-900/20"></div>
                       )}
 
                       <p className="text-sm leading-relaxed relative z-10">
                         {message.text}
                       </p>
                       <p
-                        className={`text-xs mt-2 font-medium relative z-10 ${
-                          message.sender === "user"
+                        className={`text-xs mt-2 font-medium relative z-10 ${message.sender === "user"
                             ? "text-white/80 dark:text-white/70"
                             : "text-gray-500 dark:text-slate-400"
-                        }`}
+                          }`}
                       >
                         {message.timestamp.toLocaleTimeString([], {
                           hour: "2-digit",
@@ -432,7 +429,7 @@ export default function CanvasPage() {
             {/* Ultra Dark Message Input */}
             <div className="relative flex-shrink-0 p-6 border-t border-black/10 dark:border-slate-600/50 bg-gradient-to-br from-white/70 via-gray-50/60 to-white/70 dark:from-slate-900/90 dark:via-black/80 dark:to-slate-900/90 backdrop-blur-lg">
               {/* Enhanced dark mode animated background pattern */}
-              <div className="absolute inset-0 opacity-20 dark:opacity-40 pointer-events-none">
+              <div className="absolute inset-0 opacity-20 dark:opacity-40">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-600/20 dark:via-purple-600/20 dark:to-pink-600/20 animate-pulse"></div>
               </div>
 
@@ -469,23 +466,21 @@ export default function CanvasPage() {
                   <button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim()}
-                    className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${
-                      newMessage.trim()
+                    className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${newMessage.trim()
                         ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
                         : "bg-gradient-to-br from-black/5 to-black/10 dark:from-slate-800/50 dark:to-slate-900/50 text-gray-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-black/10 dark:border-slate-600/30"
-                    }`}
+                      }`}
                   >
                     {/* Enhanced dark mode button inner glow */}
                     {newMessage.trim() && (
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent dark:from-white/10 dark:to-blue-900/20 pointer-events-none"></div>
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent dark:from-white/10 dark:to-blue-900/20"></div>
                     )}
 
                     <PaperAirplaneIcon
-                      className={`relative w-6 h-6 transition-transform duration-300 ${
-                        newMessage.trim()
+                      className={`relative w-6 h-6 transition-transform duration-300 ${newMessage.trim()
                           ? "hover:translate-x-0.5 hover:-translate-y-0.5"
                           : ""
-                      }`}
+                        }`}
                     />
                   </button>
                 </div>
@@ -516,7 +511,7 @@ export default function CanvasPage() {
               {/* Main Button Body with enhanced dark mode */}
               <div className="relative bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white p-5 rounded-full shadow-2xl dark:shadow-black/50 transition-all duration-500 group-hover:scale-110 group-hover:shadow-blue-500/60 dark:group-hover:shadow-blue-400/60 ring-2 ring-white/20 dark:ring-white/10 group-hover:ring-white/40 dark:group-hover:ring-white/20 transform-gpu">
                 {/* Inner gradient overlay for depth */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-black/10 dark:from-white/10 dark:to-black/20 pointer-events-none"></div>
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-black/10 dark:from-white/10 dark:to-black/20"></div>
 
                 <ChatBubbleLeftIcon className="relative w-8 h-8 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
 
@@ -532,7 +527,7 @@ export default function CanvasPage() {
                 </div>
 
                 {/* Floating sparkles animation */}
-                <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0">
                   <div
                     className="absolute top-1 right-3 w-1 h-1 bg-white/60 rounded-full animate-ping"
                     style={{ animationDelay: "0s" }}
@@ -550,7 +545,7 @@ export default function CanvasPage() {
             </div>
 
             {/* Enhanced Tooltip with superior dark mode */}
-            <div className="absolute right-full mr-4 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none scale-95 group-hover:scale-100">
+            <div className="absolute right-full mr-4 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-500 scale-95 group-hover:scale-100">
               <div className="relative">
                 {/* Tooltip glow */}
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-400/30 dark:to-purple-400/30 rounded-xl blur-md"></div>

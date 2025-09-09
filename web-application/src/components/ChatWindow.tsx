@@ -1,4 +1,5 @@
 "use client";
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,8 +14,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 import {
   extractExecutionPlan,
   logPlanningExtraction,
@@ -29,7 +30,6 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import React, { useEffect, useRef, useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
@@ -257,11 +257,10 @@ export default function ChatWindow({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`p-4 rounded-lg ${
-              isUser
+            className={`p-4 rounded-lg ${isUser
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-card-foreground border border-border"
-            }`}
+              }`}
           >
             <div className="relative z-10">
               {/* Planning Summary at the top (more prominent) */}
@@ -335,11 +334,10 @@ export default function ChatWindow({
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${
-                  isUser
+                className={`text-xs mt-3 font-medium ${isUser
                     ? "text-primary-foreground/70"
                     : "text-muted-foreground"
-                }`}
+                  }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -475,11 +473,10 @@ export default function ChatWindow({
             </p>
           ) : (
             <p
-              className={`text-xs font-medium ${
-                isAtLimit
+              className={`text-xs font-medium ${isAtLimit
                   ? "text-red-600 dark:text-red-400"
                   : "text-muted-foreground"
-              }`}
+                }`}
             >
               Messages: {messageCount}/{messageLimit}
               {isAtLimit && " (Limit reached)"}
@@ -504,11 +501,10 @@ export default function ChatWindow({
                           ? "Please wait for dev server to start..."
                           : "Ask me to create or modify React Native code..."
                     }
-                    className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
-                      isAtLimit || isDevServerStarting
+                    className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${isAtLimit || isDevServerStarting
                         ? "opacity-50 cursor-not-allowed"
                         : ""
-                    }`}
+                      }`}
                     rows={1}
                     style={{
                       minHeight: "56px",
@@ -530,7 +526,7 @@ export default function ChatWindow({
             </TooltipProvider>
 
             {/* Input decoration */}
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
               <SparklesIcon className="w-5 h-5 text-muted-foreground" />
             </div>
           </div>
@@ -539,11 +535,10 @@ export default function ChatWindow({
           <button
             type="submit"
             disabled={isDisabled}
-            className={`p-3 rounded-lg transition-colors ${
-              !isDisabled
+            className={`p-3 rounded-lg transition-colors ${!isDisabled
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
-            }`}
+              }`}
             title={
               isAtLimit
                 ? "Message limit reached for this billing period"
