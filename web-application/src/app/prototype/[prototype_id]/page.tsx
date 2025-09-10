@@ -2,8 +2,8 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
-import MaterializeRenderSection from "@/components/MaterializeRenderSection";
-import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
+import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import {
   Card,
   CardContent,
@@ -24,7 +24,7 @@ import { useEffect, useState } from "react";
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
 

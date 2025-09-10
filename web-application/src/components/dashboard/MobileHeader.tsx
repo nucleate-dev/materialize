@@ -1,6 +1,6 @@
 "use client";
 
-import { HorizontalModeToggle } from "@/components/horizontal-mode-toggle";
+import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {

@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import PremiumHeader from "@/components/PremiumHeader";
+import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
 import MDXComponents from "@/components/mdx/MDXComponents";
 import { BlogPost as BlogPostType } from "@/lib/blog";
 import { MDXRemote } from "next-mdx-remote/rsc";
