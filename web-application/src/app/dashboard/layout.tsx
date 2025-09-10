@@ -1,8 +1,6 @@
 "use client";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { useEffect, useState } from "react";
-import Loader from "../../components/dashboard/Loader";
 import MobileHeader from "../../components/dashboard/MobileHeader";
 import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
@@ -10,23 +8,25 @@ import RequireAuth from "./RequireAuth";
 
 function DashboardContent({ children }: { children: React.ReactNode; }) {
   return (
-    <>
+    <div className="flex h-screen w-full">
       <DashboardSidebar />
-      <main className="flex flex-1 flex-col h-screen overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header with Sidebar Trigger */}
-        <div className="flex items-center gap-4 p-4 border-b lg:hidden">
-          <SidebarTrigger />
-          <MobileHeader />
-        </div>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background">
+          <SidebarTrigger className="-ml-1 hidden lg:flex" />
+          <div className="lg:hidden flex-1">
+            <MobileHeader />
+          </div>
+        </header>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="transition-all duration-300 ease-linear max-w-none h-full">
+        <main className="flex-1 overflow-auto">
+          <div className="h-full p-4">
             {children}
           </div>
-        </div>
-      </main>
-    </>
+        </main>
+      </div>
+    </div>
   );
 }
 
@@ -35,26 +35,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    setTimeout(() => setLoading(false), 1000);
-  }, []);
-
   return (
     <html lang="en">
       <body suppressHydrationWarning={true}>
         <RequireAuth />
-        <SidebarProvider>
+        <SidebarProvider defaultOpen={true}>
           {/* <WithPaywall> */}
-          {/*  adds colored background: <div className="dark:bg-boxdark-2 bg-gray-2 dark:text-bodydark"> */}
-          <div>
-            {loading ? (
-              <Loader />
-            ) : (
-              <DashboardContent>{children}</DashboardContent>
-            )}
-          </div>
+          <DashboardContent>{children}</DashboardContent>
           {/* </WithPaywall> */}
         </SidebarProvider>
       </body>

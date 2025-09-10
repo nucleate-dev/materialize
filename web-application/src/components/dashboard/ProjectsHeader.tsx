@@ -1,7 +1,7 @@
 "use client";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { useProject } from "@/hooks/useProject";
-import { useSidebar } from "@/hooks/useSidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   Bars3Icon,
   ClockIcon,
@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 
 export default function ProjectsHeader() {
-  const { sidebarOpen, setSidebarOpen } = useSidebar();
+  const { openMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const params = useParams();
   const projectId = params?.project_id as string;
@@ -83,7 +83,7 @@ export default function ProjectsHeader() {
               aria-controls="sidebar"
               onClick={(e) => {
                 e.stopPropagation();
-                setSidebarOpen(!sidebarOpen);
+                setOpenMobile(!openMobile);
               }}
               className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/60 dark:bg-boxdark/60 hover:bg-white/80 dark:hover:bg-boxdark/80 border border-stroke/30 dark:border-strokedark/40 backdrop-blur-sm transition-all duration-300 hover:scale-110 group"
             >

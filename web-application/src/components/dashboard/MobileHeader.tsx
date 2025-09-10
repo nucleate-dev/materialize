@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSidebar } from "@/hooks/useSidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import {
   ChevronDown,
@@ -28,7 +28,7 @@ import { usePathname } from "next/navigation";
 
 const MobileHeader = () => {
   const pathname = usePathname();
-  const { sidebarOpen, setSidebarOpen } = useSidebar();
+  const { openMobile, setOpenMobile } = useSidebar();
 
   const menuItems = [
     {
@@ -70,9 +70,9 @@ const MobileHeader = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
+                onClick={() => setOpenMobile(!openMobile)}
                 aria-controls="sidebar"
-                aria-expanded={sidebarOpen}
+                aria-expanded={openMobile}
                 className="lg:hidden"
               >
                 <Menu className="w-5 h-5" />
