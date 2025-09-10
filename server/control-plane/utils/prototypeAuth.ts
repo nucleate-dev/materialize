@@ -13,10 +13,14 @@ interface JWTPayload {
  * Validate a JWT token using JWT_SECRET and return User
  */
 export async function validateJWTToken(
-  token: string,
+  token: string | undefined,
   log2: SystemLogger,
 ): Promise<User | null> {
   try {
+    if (!token) {
+      return null;
+    }
+
     jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
   } catch (error) {
     log2.error(error, 'JWT validation error:', {
@@ -75,22 +79,15 @@ export async function checkUserHasPrototypeViewingAccess(
           }
         : undefined,
     );
-
     const { data: prototype, error } = await supabaseClient
       .from('prototypes')
       .select('*')
       .eq('id', prototypeId)
       .single();
-
     if (error || !prototype) {
       return null;
     }
-
-    let user: User | null = null;
-    if (jwtToken) {
-      user = await validateJWTToken(jwtToken, log2);
-    }
-
+    const user = await validateJWTToken(jwtToken, log2);
     return { user, prototype };
   } catch (error) {
     log2.error(error, 'Error checking prototype viewing access:', {
@@ -105,7 +102,7 @@ export async function checkUserHasPrototypeViewingAccess(
  */
 export async function checkUserHasPrototypeEditAccess(
   prototypeId: string,
-  jwtToken: string,
+  jwtToken: string | undefined,
   log2: SystemLogger,
 ): Promise<{
   user: User;
@@ -113,10 +110,6 @@ export async function checkUserHasPrototypeEditAccess(
   canEdit: boolean;
 } | null> {
   try {
-    if (!jwtToken) {
-      return null;
-    }
-
     // Get prototype to check ownership && validate JWT
     const { user, prototype } = (await checkUserHasPrototypeViewingAccess(
       prototypeId,
@@ -128,11 +121,11 @@ export async function checkUserHasPrototypeEditAccess(
     }
 
     // Check if user is the owner
-    if (prototype.owner_id === user.id) {
-      return { user, prototype, canEdit: true };
-    } else {
-      return null;
-    }
+    return {
+      user,
+      prototype,
+      canEdit: prototype.owner_id === user.id,
+    };
   } catch (error) {
     log2.error(error, 'Error checking prototype edit access:', {
       functionName: 'checkUserHasPrototypeEditAccess',
