@@ -6,19 +6,15 @@ import PremiumHeader from "@/components/PremiumHeader";
 import MDXComponents from "@/components/mdx/MDXComponents";
 import { BlogPost as BlogPostType } from "@/lib/blog";
 import { MDXRemote } from "next-mdx-remote/rsc";
-import { 
-  CalendarDays, 
-  Clock, 
+import {
+  CalendarDays,
+  Clock,
   ArrowLeft,
   BookOpen,
   Code2,
   Lightbulb,
   Rocket,
   Sparkles,
-  Share2,
-  Twitter,
-  Linkedin,
-  Link as LinkIcon
 } from "lucide-react";
 import Link from "next/link";
 import ShareButtons from "./ShareButtons";
@@ -30,29 +26,39 @@ interface BlogPostProps {
 export default function BlogPost({ post }: BlogPostProps) {
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'tutorial': return Code2;
-      case 'insights': return Lightbulb;
-      case 'updates': return Rocket;
-      case 'tips': return Sparkles;
-      default: return BookOpen;
+      case "tutorial":
+        return Code2;
+      case "insights":
+        return Lightbulb;
+      case "updates":
+        return Rocket;
+      case "tips":
+        return Sparkles;
+      default:
+        return BookOpen;
     }
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'tutorial': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
-      case 'insights': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300';
-      case 'updates': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
-      case 'tips': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300';
-      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300';
+      case "tutorial":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300";
+      case "insights":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300";
+      case "updates":
+        return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300";
+      case "tips":
+        return "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300";
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300";
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -65,13 +71,13 @@ export default function BlogPost({ post }: BlogPostProps) {
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMS41IiBmaWxsPSJncmF5IiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+Cg==')] opacity-30 dark:opacity-10"></div>
 
       <PremiumHeader />
-      
+
       <div className="relative z-10">
         <div className="container mx-auto px-6 pt-24 pb-16 max-w-4xl">
           {/* Back to Blog */}
           <div className="mb-8">
-            <Link 
-              href="/blog" 
+            <Link
+              href="/blog"
               className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -121,7 +127,9 @@ export default function BlogPost({ post }: BlogPostProps) {
 
           {/* Tags */}
           <div className="mb-12">
-            <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Tags</h3>
+            <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">
+              Tags
+            </h3>
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="text-sm">
@@ -137,9 +145,12 @@ export default function BlogPost({ post }: BlogPostProps) {
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">Enjoyed this post?</h3>
+              <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">
+                Enjoyed this post?
+              </h3>
               <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Subscribe to get the latest insights on React Native development and AI-powered prototyping.
+                Subscribe to get the latest insights on React Native development
+                and AI-powered prototyping.
               </p>
               <Link href="/blog">
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
