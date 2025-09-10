@@ -1,6 +1,6 @@
 "use client";
 
-import PremiumHeader from "@/components/PremiumHeader";
+import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -15,17 +15,17 @@ import {
   Lightbulb,
   Rocket,
   Search,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 const categories = [
-  { key: 'all', label: 'All Posts', icon: BookOpen },
-  { key: 'tutorial', label: 'Tutorials', icon: Code2 },
-  { key: 'insights', label: 'Insights', icon: Lightbulb },
-  { key: 'updates', label: 'Updates', icon: Rocket },
-  { key: 'tips', label: 'Tips', icon: Sparkles }
+  { key: "all", label: "All Posts", icon: BookOpen },
+  { key: "tutorial", label: "Tutorials", icon: Code2 },
+  { key: "insights", label: "Insights", icon: Lightbulb },
+  { key: "updates", label: "Updates", icon: Rocket },
+  { key: "tips", label: "Tips", icon: Sparkles },
 ];
 
 interface BlogProps {
@@ -37,40 +37,55 @@ export default function Blog({ initialPosts }: BlogProps) {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   const filteredPosts = useMemo(() => {
-    return initialPosts.filter(post => {
-      const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    return initialPosts.filter((post) => {
+      const matchesSearch =
+        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+        post.tags.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
 
-      const matchesCategory = selectedCategory === "all" || post.category === selectedCategory;
+      const matchesCategory =
+        selectedCategory === "all" || post.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
     });
   }, [initialPosts, searchQuery, selectedCategory]);
 
-  const featuredPosts = useMemo(() => filteredPosts.filter(post => post.featured), [filteredPosts]);
-  const regularPosts = useMemo(() => filteredPosts.filter(post => !post.featured), [filteredPosts]);
+  const featuredPosts = useMemo(
+    () => filteredPosts.filter((post) => post.featured),
+    [filteredPosts],
+  );
+  const regularPosts = useMemo(
+    () => filteredPosts.filter((post) => !post.featured),
+    [filteredPosts],
+  );
 
   const getCategoryIcon = (category: string) => {
-    const categoryData = categories.find(cat => cat.key === category);
+    const categoryData = categories.find((cat) => cat.key === category);
     return categoryData?.icon || BookOpen;
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'tutorial': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
-      case 'insights': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300';
-      case 'updates': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
-      case 'tips': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300';
-      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300';
+      case "tutorial":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300";
+      case "insights":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300";
+      case "updates":
+        return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300";
+      case "tips":
+        return "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300";
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300";
     }
   };
 
@@ -93,7 +108,8 @@ export default function Blog({ initialPosts }: BlogProps) {
               Blog
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-              Insights, tutorials, and updates on React Native development, AI-powered prototyping, and mobile app design.
+              Insights, tutorials, and updates on React Native development,
+              AI-powered prototyping, and mobile app design.
             </p>
 
             {/* Search and Filter */}
@@ -118,7 +134,11 @@ export default function Blog({ initialPosts }: BlogProps) {
                   return (
                     <Button
                       key={category.key}
-                      variant={selectedCategory === category.key ? "default" : "outline"}
+                      variant={
+                        selectedCategory === category.key
+                          ? "default"
+                          : "outline"
+                      }
                       size="sm"
                       onClick={() => setSelectedCategory(category.key)}
                       className="flex items-center gap-2"
@@ -169,21 +189,31 @@ export default function Blog({ initialPosts }: BlogProps) {
                                 {post.authorAvatar}
                               </div>
                               <div>
-                                <p className="font-medium text-sm text-black dark:text-white">{post.author}</p>
+                                <p className="font-medium text-sm text-black dark:text-white">
+                                  {post.author}
+                                </p>
                                 <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                                   <CalendarDays className="w-3 h-3 mr-1" />
                                   {formatDate(post.publishedAt)}
                                 </div>
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="group-hover:translate-x-1 transition-transform"
+                            >
                               Read More
                               <ArrowRight className="w-4 h-4 ml-1" />
                             </Button>
                           </div>
                           <div className="flex flex-wrap gap-1 mt-4">
                             {post.tags.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
+                              <Badge
+                                key={tag}
+                                variant="secondary"
+                                className="text-xs"
+                              >
                                 {tag}
                               </Badge>
                             ))}
@@ -201,7 +231,7 @@ export default function Blog({ initialPosts }: BlogProps) {
           {regularPosts.length > 0 && (
             <div>
               <h2 className="text-3xl font-bold mb-8 text-center text-black dark:text-white">
-                {featuredPosts.length > 0 ? 'More Posts' : 'All Posts'}
+                {featuredPosts.length > 0 ? "More Posts" : "All Posts"}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {regularPosts.map((post) => {
@@ -234,20 +264,30 @@ export default function Blog({ initialPosts }: BlogProps) {
                                 {post.authorAvatar}
                               </div>
                               <div>
-                                <p className="font-medium text-xs text-black dark:text-white">{post.author}</p>
+                                <p className="font-medium text-xs text-black dark:text-white">
+                                  {post.author}
+                                </p>
                                 <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                                   <CalendarDays className="w-3 h-3 mr-1" />
                                   {formatDate(post.publishedAt)}
                                 </div>
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform p-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="group-hover:translate-x-1 transition-transform p-1"
+                            >
                               <ArrowRight className="w-4 h-4" />
                             </Button>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {post.tags.slice(0, 2).map((tag) => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
+                              <Badge
+                                key={tag}
+                                variant="secondary"
+                                className="text-xs"
+                              >
                                 {tag}
                               </Badge>
                             ))}
@@ -272,11 +312,18 @@ export default function Blog({ initialPosts }: BlogProps) {
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-black dark:text-white">No posts found</h3>
+              <h3 className="text-xl font-semibold mb-2 text-black dark:text-white">
+                No posts found
+              </h3>
               <p className="text-gray-600 dark:text-gray-300 mb-6">
                 Try adjusting your search query or category filter.
               </p>
-              <Button onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}>
+              <Button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("all");
+                }}
+              >
                 Clear Filters
               </Button>
             </div>
@@ -289,9 +336,12 @@ export default function Blog({ initialPosts }: BlogProps) {
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Sparkles className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">Stay Updated</h3>
+                <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">
+                  Stay Updated
+                </h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
-                  Get the latest insights on React Native development and AI-powered prototyping delivered to your inbox.
+                  Get the latest insights on React Native development and
+                  AI-powered prototyping delivered to your inbox.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
                   <Input

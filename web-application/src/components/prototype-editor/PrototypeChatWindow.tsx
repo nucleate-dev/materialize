@@ -1,8 +1,8 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import ChatWindow from "@/components/ChatWindow";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import ChatWindow from "@/components/prototype-editor/ChatWindow";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { Database } from "@/lib/types/supabase";

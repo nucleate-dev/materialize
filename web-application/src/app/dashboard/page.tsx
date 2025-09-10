@@ -16,7 +16,7 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
 } from "@/lib/types/serverAPITypes";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import {
   ArrowRight,
   Code,

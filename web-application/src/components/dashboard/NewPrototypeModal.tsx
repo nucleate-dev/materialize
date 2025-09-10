@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,7 +57,7 @@ export default function NewPrototypeModal({
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string; }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const { userPlan } = useSubscriptionAccess();
@@ -287,10 +287,11 @@ export default function NewPrototypeModal({
                 placeholder="e.g. E-commerce Mobile App ✨"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className={`h-12 text-lg ${touched && !name.trim()
+                className={`h-12 text-lg ${
+                  touched && !name.trim()
                     ? "border-destructive focus-visible:ring-destructive"
                     : "focus-visible:ring-primary"
-                  }`}
+                }`}
                 autoFocus
                 maxLength={64}
               />

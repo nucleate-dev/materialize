@@ -132,61 +132,28 @@ export class PrototypeManagementService {
       // Extract validated body (validation handled by Fastify schema)
       const { prototype_id, current_page } = request.body;
 
-      // Get JWT token if provided (optional for this endpoint)
+      // Get JWT token if provided (optional for this endpoint) and validate user access
       const token = request.headers.authorization?.startsWith('Bearer ')
         ? request.headers.authorization.split(' ')[1]
         : undefined;
-
-      // Create Supabase client with optional JWT auth
-      const supabase = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!,
-        {
-          global: {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          },
-        },
+      const authResult = await checkUserHasPrototypeEditAccess(
+        prototype_id,
+        token,
+        request.log2,
       );
-
-      // Get user ID if token is provided
-      let userId: string | undefined;
-      if (token) {
-        try {
-          const { data: user } = await supabase.auth.getUser();
-          userId = user.user?.id;
-        } catch (error) {
-          request.log2.warn('Failed to get user from token:', { error });
-          // Continue without user ID - this endpoint allows anonymous access
-        }
-      }
-      // update logger context
-      request.log2 = request.log2.child({
-        userId,
-      });
-
-      // Attempt to access prototype from DB to check viewing privileges
-      const { data: prototypeData, error: prototypeError } = await supabase
-        .from('prototypes')
-        .select('id, owner_id')
-        .eq('id', prototype_id)
-        .single();
-
-      if (prototypeError || !prototypeData) {
-        request.log2.warn('Prototype not found or access denied:', {
-          prototypeError,
-        });
-        return reply.status(HTTP_STATUS.NOT_FOUND).send({
-          error: 'Not Found',
-          message: 'Prototype not found or access denied',
+      if (
+        authResult === null ||
+        authResult.user === null ||
+        authResult.prototype === null
+      ) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          error: 'UNAUTHORIZED',
+          message: 'Access denied for this prototype',
         });
       }
 
       // Check if user is prototype owner and current_page is 'edit'
-      if (
-        userId &&
-        userId === prototypeData.owner_id &&
-        current_page === 'edit'
-      ) {
+      if (authResult.canEdit && current_page === 'edit') {
         try {
           // Fetch dispatch-precheck from control plane
           const precheckResponse = await this.fastifyApp.inject({
@@ -239,8 +206,7 @@ export class PrototypeManagementService {
         source: 'static_build',
       };
 
-      reply.status(HTTP_STATUS.OK);
-      return successResponse;
+      return reply.status(HTTP_STATUS.OK).send(successResponse);
     } catch (error) {
       request.log2.error(error, 'Fetch viewing URL error:');
       const errorResponse: StandardErrorResponse = {

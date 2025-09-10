@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -10,6 +11,7 @@ interface ShareButtonsProps {
 
 export default function ShareButtons({ title }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
+  const logger = useProductLogger();
 
   const copyToClipboard = async () => {
     try {
@@ -17,11 +19,14 @@ export default function ShareButtons({ title }: ShareButtonsProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy URL');
+      logger.debug("error", "Failed to copy URL");
     }
   };
 
-  const shareUrl = typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '';
+  const shareUrl =
+    typeof window !== "undefined"
+      ? encodeURIComponent(window.location.href)
+      : "";
   const shareTitle = encodeURIComponent(title);
 
   return (
@@ -33,13 +38,9 @@ export default function ShareButtons({ title }: ShareButtonsProps) {
         className="flex items-center gap-2"
       >
         <LinkIcon className="w-4 h-4" />
-        {copied ? 'Copied!' : 'Copy Link'}
+        {copied ? "Copied!" : "Copy Link"}
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        asChild
-      >
+      <Button variant="outline" size="sm" asChild>
         <a
           href={`https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareTitle}`}
           target="_blank"
@@ -50,11 +51,7 @@ export default function ShareButtons({ title }: ShareButtonsProps) {
           Tweet
         </a>
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        asChild
-      >
+      <Button variant="outline" size="sm" asChild>
         <a
           href={`https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`}
           target="_blank"

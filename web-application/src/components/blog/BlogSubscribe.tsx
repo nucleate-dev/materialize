@@ -16,10 +16,10 @@ export default function BlogSubscribe() {
     if (!email.trim()) return;
 
     setIsSubscribing(true);
-    
+
     // Simulate subscription process
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     setIsSubscribed(true);
     setIsSubscribing(false);
     setEmail("");
@@ -32,9 +32,11 @@ export default function BlogSubscribe() {
           <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">Thank you!</h3>
+          <h3 className="text-2xl font-bold mb-3 text-black dark:text-white">
+            Thank you!
+          </h3>
           <p className="text-gray-600 dark:text-gray-300">
-            You've been successfully subscribed to our blog updates.
+            {"You've been successfully subscribed to our blog updates."}
           </p>
         </CardContent>
       </Card>
@@ -47,11 +49,17 @@ export default function BlogSubscribe() {
         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
           <Sparkles className="w-6 h-6 text-white" />
         </div>
-        <h3 className="text-2xl font-bold mb-3 text-black dark:text-white text-center">Stay Updated</h3>
+        <h3 className="text-2xl font-bold mb-3 text-black dark:text-white text-center">
+          Stay Updated
+        </h3>
         <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
-          Get the latest insights on React Native development and AI-powered prototyping delivered to your inbox.
+          Get the latest insights on React Native development and AI-powered
+          prototyping delivered to your inbox.
         </p>
-        <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <form
+          onSubmit={handleSubscribe}
+          className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+        >
           <Input
             type="email"
             placeholder="Enter your email"
@@ -61,7 +69,7 @@ export default function BlogSubscribe() {
             required
             disabled={isSubscribing}
           />
-          <Button 
+          <Button
             type="submit"
             className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
             disabled={isSubscribing || !email.trim()}

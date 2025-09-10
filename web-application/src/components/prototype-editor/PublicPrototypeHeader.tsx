@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import ProPlanUpsellModal from "@/components/ProPlanUpsellModal";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

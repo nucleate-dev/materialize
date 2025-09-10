@@ -1,6 +1,11 @@
 "use client";
-import PremiumHeader from "@/components/PremiumHeader";
-import { BoltIcon, CheckBadgeIcon, ShareIcon, Squares2X2Icon } from "@heroicons/react/24/solid";
+import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
+import {
+  BoltIcon,
+  CheckBadgeIcon,
+  ShareIcon,
+  Squares2X2Icon,
+} from "@heroicons/react/24/solid";
 
 export default function Home() {
   return (
@@ -31,7 +36,6 @@ function MinimalDepthElements() {
 }
 
 function HeroSection() {
-
   return (
     <section className="relative flex items-start justify-center pt-32 pb-16 bg-white dark:bg-black">
       <div className="container mx-auto px-6 text-center relative z-20">
@@ -52,8 +56,8 @@ function HeroSection() {
 
         {/* Animated Subtitle */}
         <p className="text-xl md:text-2xl text-black dark:text-white max-w-4xl mx-auto mb-16 leading-relaxed">
-          Prototype React Native screens at the speed of thought—on an infinite canvas
-          that turns prompts into production-quality components.
+          Prototype React Native screens at the speed of thought—on an infinite
+          canvas that turns prompts into production-quality components.
         </p>
 
         {/* CTAs */}
@@ -66,8 +70,18 @@ function HeroSection() {
           >
             <span className="flex items-center gap-2">
               Join Waitlist
-              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              <svg
+                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
               </svg>
             </span>
           </a>
@@ -80,7 +94,6 @@ function HeroSection() {
             </span>
           </button> */}
         </div>
-
       </div>
     </section>
   );
@@ -105,11 +118,14 @@ function FeaturesSection() {
                   </h3>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-4">
-                  AI generates React Native components and screens from simple prompts—ready to ship in minutes.
+                  AI generates React Native components and screens from simple
+                  prompts—ready to ship in minutes.
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">prompt → components</span>
+                <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                  prompt → components
+                </span>
               </div>
             </div>
 
@@ -124,10 +140,13 @@ function FeaturesSection() {
                 </h3>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-4">
-                Infinite canvas lets you design entire user journeys, from onboarding to checkout, in one seamless view.
+                Infinite canvas lets you design entire user journeys, from
+                onboarding to checkout, in one seamless view.
               </p>
               <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded">multi-screen flows</span>
+                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded">
+                  multi-screen flows
+                </span>
               </div>
             </div>
 
@@ -142,10 +161,13 @@ function FeaturesSection() {
                 </h3>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Design, experiment, and prototype in minutes, then copy or export production-ready React Native code.
+                Design, experiment, and prototype in minutes, then copy or
+                export production-ready React Native code.
               </p>
               <div className="text-xs text-gray-400 dark:text-gray-500">
-                <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">prototype → test → ship</span>
+                <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                  prototype → test → ship
+                </span>
               </div>
             </div>
 
@@ -160,10 +182,13 @@ function FeaturesSection() {
                 </h3>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-4">
-                Fork any design, make it yours, and maintain a living library of components your team can build on.
+                Fork any design, make it yours, and maintain a living library of
+                components your team can build on.
               </p>
               <div className="text-xs text-gray-400 dark:text-gray-500">
-                <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">save → fork → remix</span>
+                <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                  save → fork → remix
+                </span>
               </div>
             </div>
           </div>
@@ -172,4 +197,3 @@ function FeaturesSection() {
     </section>
   );
 }
-

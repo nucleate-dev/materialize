@@ -1,15 +1,198 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
+import Loader from "@/components/dashboard/Loader";
+import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type {
+  FetchViewingUrlRequestBody,
+  FetchViewingUrlResponse,
+} from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
+import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
-import PublicPrototypePage from "./PublicPrototypePage";
+import { useEffect, useState } from "react";
+
+type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
+  const logger = useProductLogger();
 
-  if (!prototypeId) {
-    return null;
+  const [prototype, setPrototype] = useState<Prototype | null>(null);
+  const [viewingUrl, setViewingUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchPrototypeData() {
+      if (!prototypeId) return;
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Fetch prototype data
+        const { data: prototypeData, error: prototypeError } = await supabase
+          .from("prototypes")
+          .select("*")
+          .eq("id", prototypeId)
+          .single();
+
+        if (prototypeError) {
+          throw prototypeError;
+        }
+
+        setPrototype(prototypeData);
+        setIsLoading(false);
+
+        // Call fetch-viewing-url API to get viewing URL
+        try {
+          const session = await supabase.auth.getSession();
+          const token = session.data.session?.access_token;
+
+          const headers: HeadersInit = {
+            "Content-Type": "application/json",
+          };
+
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+
+          const fetchViewResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/fetch-viewing-url`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                prototype_id: prototypeId,
+                current_page: "view",
+              } as FetchViewingUrlRequestBody),
+            },
+          );
+
+          if (fetchViewResponse.ok) {
+            const fetchViewData: FetchViewingUrlResponse =
+              await fetchViewResponse.json();
+            if ("viewing_url" in fetchViewData) {
+              setViewingUrl(fetchViewData.viewing_url);
+            } else {
+              logger.debug("error", "Error in fetch-viewing-url response:", {
+                ...fetchViewData,
+              });
+            }
+          } else {
+            logger.debug("error", "Failed to fetch viewing URL:", {
+              ...fetchViewResponse,
+            });
+          }
+        } catch (fetchViewError) {
+          logger.debug("error", "Error calling fetch-viewing-url API:", {
+            message:
+              fetchViewError instanceof Error
+                ? fetchViewError.message
+                : String(fetchViewError),
+            stack:
+              fetchViewError instanceof Error
+                ? fetchViewError.stack
+                : undefined,
+          });
+        }
+      } catch (err) {
+        logger.debug("error", "Error fetching prototype data:", {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+        setError(
+          err instanceof Error ? err.message : "Failed to load prototype",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchPrototypeData();
+  }, [prototypeId, logger]);
+
+  const handleUpdatePrototype = (updatedPrototype: Prototype) => {
+    setPrototype(updatedPrototype);
+  };
+
+  if (isLoading) {
+    return <Loader />;
   }
 
-  return <PublicPrototypePage prototypeId={prototypeId} />;
+  if (error) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-destructive rounded-full flex items-center justify-center mx-auto mb-4">
+              <SparklesIcon className="w-8 h-8 text-destructive-foreground" />
+            </div>
+            <CardTitle className="text-2xl">
+              Oops! Something went wrong
+            </CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!prototype) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <EyeIcon className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <CardTitle className="text-2xl">Prototype Not Found</CardTitle>
+            <CardDescription>
+              The prototype you&apos;re looking for doesn&apos;t exist or you
+              don&apos;t have permission to view it.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="h-screen bg-background overflow-hidden">
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <PublicPrototypeHeader
+            prototype={prototype}
+            onUpdatePrototype={handleUpdatePrototype}
+          />
+
+          {/* Main Content - ExpoSnackViewer */}
+          <div className="flex-1 p-8">
+            <Card className="h-full overflow-hidden">
+              <CardContent className="h-full p-0">
+                <MaterializeRenderSection
+                  viewing_url={viewingUrl ?? ""}
+                  onRenderStatusChange={() => {
+                    // no-op
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
