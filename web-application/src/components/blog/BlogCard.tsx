@@ -3,11 +3,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { 
-  CalendarDays, 
-  Clock, 
+import {
   ArrowRight,
   BookOpen,
+  CalendarDays,
+  Clock,
   Code2,
   Lightbulb,
   Rocket,
@@ -50,7 +50,7 @@ export default function BlogCard({ post, variant = 'regular' }: BlogCardProps) {
       case 'insights': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300';
       case 'updates': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
       case 'tips': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300';
-      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -66,28 +66,28 @@ export default function BlogCard({ post, variant = 'regular' }: BlogCardProps) {
 
   if (variant === 'featured') {
     return (
-      <Card className="group overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/20">
+      <Card className="group overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/20 bg-card">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-between">
             <Badge className={getCategoryColor(post.category)}>
               <CategoryIcon className="w-3 h-3 mr-1" />
               {post.category.charAt(0).toUpperCase() + post.category.slice(1)}
             </Badge>
-            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="w-4 h-4 mr-1" />
               {post.readTime} min read
             </div>
           </div>
-          <h3 className="text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2">
+          <h3 className="text-2xl font-bold group-hover:text-primary transition-colors line-clamp-2 text-card-foreground">
             {post.title}
           </h3>
-          <p className="text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed">
+          <p className="text-muted-foreground line-clamp-3 leading-relaxed">
             {post.excerpt}
           </p>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
-            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center text-xs text-muted-foreground">
               <CalendarDays className="w-3 h-3 mr-1" />
               {formatDate(post.publishedAt)}
             </div>
@@ -109,28 +109,28 @@ export default function BlogCard({ post, variant = 'regular' }: BlogCardProps) {
   }
 
   return (
-    <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.01]">
+    <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.01] bg-card">
       <CardHeader className="space-y-3">
         <div className="flex items-center justify-between">
           <Badge className={getCategoryColor(post.category)}>
             <CategoryIcon className="w-3 h-3 mr-1" />
             {post.category.charAt(0).toUpperCase() + post.category.slice(1)}
           </Badge>
-          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center text-xs text-muted-foreground">
             <Clock className="w-3 h-3 mr-1" />
             {post.readTime} min
           </div>
         </div>
-        <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-2">
+        <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-2 text-card-foreground">
           {post.title}
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-2">
           {post.excerpt}
         </p>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center text-xs text-muted-foreground">
             <CalendarDays className="w-3 h-3 mr-1" />
             {formatDate(post.publishedAt)}
           </div>
