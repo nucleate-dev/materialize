@@ -1,12 +1,12 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import CodeEditor from "@/components/CodeEditor";
 import Loader from "@/components/dashboard/Loader";
-import FileTree from "@/components/FileTree";
-import MaterializeRenderSection from "@/components/MaterializeRenderSection";
-import PrototypeChatWindow from "@/components/PrototypeChatWindow";
-import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
+import CodeEditor from "@/components/prototype-editor/CodeEditor";
+import FileTree from "@/components/prototype-editor/FileTree";
+import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
+import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {

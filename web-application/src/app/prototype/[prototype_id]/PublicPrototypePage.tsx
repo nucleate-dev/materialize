@@ -2,36 +2,8 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarSeparator,
-    SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { HorizontalModeToggle } from "@/components/horizontal-mode-toggle";
-import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
-import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
-import {
-    FlaskConical,
-    Folder,
-    LogOut,
-    Rocket,
-    Settings,
-    Sparkles,
-    SquareStack,
-} from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import MaterializeRenderSection from "@/components/MaterializeRenderSection";
-import PublicPrototypeHeader from "@/components/PublicPrototypeHeader";
+import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import {
     Card,
     CardContent,
@@ -46,117 +18,14 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
-interface PublicPrototypePageProps {
-    prototypeId: string;
-}
-
-function AppSidebar() {
-    const pathname = usePathname();
-
-    const menuItems = [
-        {
-            href: "/dashboard/projects",
-            icon: Folder,
-            label: "Projects",
-            active: pathname?.includes("projects"),
-        },
-        {
-            href: "/dashboard/prototypes",
-            icon: Rocket,
-            label: "Prototypes",
-            active: pathname?.includes("prototypes"),
-        },
-        ...(SHOW_WHITEBOARDS
-            ? [
-                  {
-                      href: "/dashboard/whiteboards",
-                      icon: SquareStack,
-                      label: "Whiteboards",
-                      active: pathname?.includes("whiteboards"),
-                  },
-              ]
-            : []),
-    ];
-
-    return (
-        <Sidebar>
-            <SidebarHeader>
-                <div className="flex items-center gap-3 px-2 py-2">
-                    <Link href="/" className="group">
-                        <div className="relative flex items-center gap-3 px-3 py-2">
-                            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110" />
-                            <span className="relative text-xl font-bold text-foreground transition-transform duration-300 group-hover:scale-105">
-                                Materialize
-                            </span>
-                        </div>
-                    </Link>
-                </div>
-            </SidebarHeader>
-            <SidebarContent>
-                <SidebarGroup>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            <SidebarMenuItem>
-                                <SidebarMenuButton asChild isActive={pathname === "/"}>
-                                    <Link href="/">
-                                        <Sparkles className="w-5 h-5" />
-                                        <span>New chat +</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-                <SidebarSeparator />
-                <SidebarGroup>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {menuItems.map((item) => (
-                                <SidebarMenuItem key={item.href}>
-                                    <SidebarMenuButton asChild isActive={item.active}>
-                                        <Link href={item.href}>
-                                            <item.icon className="w-5 h-5" />
-                                            <span>{item.label}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </SidebarContent>
-            <SidebarFooter>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <HorizontalModeToggle sidebarExpanded={true} />
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={pathname?.includes("account")}>
-                            <Link href="/dashboard/account">
-                                <Settings className="w-5 h-5" />
-                                <span>Settings</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton onClick={logout}>
-                            <LogOut className="w-5 h-5" />
-                            <span>Logout</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarFooter>
-        </Sidebar>
-    );
-}
-
-export default function PublicPrototypePage({ prototypeId }: PublicPrototypePageProps) {
+export default function PrototypePage() {
+    const params = useParams<{ prototype_id: string; }>();
+    const prototypeId = params?.prototype_id;
     const logger = useProductLogger();
 
     const [prototype, setPrototype] = useState<Prototype | null>(null);
@@ -300,34 +169,30 @@ export default function PublicPrototypePage({ prototypeId }: PublicPrototypePage
     }
 
     return (
-        <SidebarProvider defaultOpen={false}>
-            <AppSidebar />
-            <main className="flex flex-1 flex-col h-screen overflow-hidden">
-                {/* Header with Sidebar Trigger */}
-                <div className="flex items-center gap-4 p-4 border-b">
-                    <SidebarTrigger />
-                    <div className="flex-1">
-                        <PublicPrototypeHeader
-                            prototype={prototype}
-                            onUpdatePrototype={handleUpdatePrototype}
-                        />
+        <>
+            <div className="h-screen bg-background overflow-hidden">
+                <div className="h-full flex flex-col">
+                    {/* Header */}
+                    <PublicPrototypeHeader
+                        prototype={prototype}
+                        onUpdatePrototype={handleUpdatePrototype}
+                    />
+
+                    {/* Main Content - ExpoSnackViewer */}
+                    <div className="flex-1 p-8">
+                        <Card className="h-full overflow-hidden">
+                            <CardContent className="h-full p-0">
+                                <MaterializeRenderSection
+                                    viewing_url={viewingUrl ?? ""}
+                                    onRenderStatusChange={() => {
+                                        // no-op
+                                    }}
+                                />
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
-
-                {/* Main Content - ExpoSnackViewer */}
-                <div className="flex-1 p-8">
-                    <Card className="h-full overflow-hidden">
-                        <CardContent className="h-full p-0">
-                            <MaterializeRenderSection
-                                viewing_url={viewingUrl ?? ""}
-                                onRenderStatusChange={() => {
-                                    // no-op
-                                }}
-                            />
-                        </CardContent>
-                    </Card>
-                </div>
-            </main>
-        </SidebarProvider>
+            </div>
+        </>
     );
 }

@@ -1,30 +1,32 @@
 "use client";
 
-import { SidebarProvider } from "@/hooks/useSidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useEffect, useState } from "react";
 import Loader from "../../components/dashboard/Loader";
 import MobileHeader from "../../components/dashboard/MobileHeader";
-import Sidebar from "../../components/dashboard/Sidebar";
+import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
 
 function DashboardContent({ children }: { children: React.ReactNode; }) {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      {/* <!-- ===== Content Area Start ===== --> */}
-      <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden transition-all duration-300 ease-linear">
-        {/* Mobile Header */}
-        <MobileHeader />
-        {/* <Header /> */}
-        <main className="flex-1 flex flex-col">
-          <div className="transition-all duration-300 ease-linear max-w-none flex-1">
+    <>
+      <DashboardSidebar />
+      <main className="flex flex-1 flex-col h-screen overflow-hidden">
+        {/* Header with Sidebar Trigger */}
+        <div className="flex items-center gap-4 p-4 border-b lg:hidden">
+          <SidebarTrigger />
+          <MobileHeader />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="transition-all duration-300 ease-linear max-w-none h-full">
             {children}
           </div>
-        </main>
-      </div>
-      {/* <!-- ===== Content Area End ===== --> */}
-    </div>
+        </div>
+      </main>
+    </>
   );
 }
 
