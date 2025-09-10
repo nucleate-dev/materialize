@@ -9,6 +9,7 @@ import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import {
   ChevronLeft,
   ChevronRight,
+  FlaskConical,
   Folder,
   LogOut,
   Menu,
@@ -17,7 +18,6 @@ import {
   Sparkles,
   SquareStack,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -107,15 +107,12 @@ const Sidebar = () => {
             {sidebarExpanded && (
               <div className="flex items-center justify-center">
                 <Link href="/dashboard" className="group">
-                  <div className="relative">
+                  <div className="relative flex items-center gap-3 px-3 py-2">
                     <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <Image
-                      width={160}
-                      height={40}
-                      src="/images/logo/logo.svg"
-                      alt="Logo"
-                      className="relative transition-transform duration-300 group-hover:scale-105"
-                    />
+                    <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110" />
+                    <span className="relative text-xl font-bold text-foreground transition-transform duration-300 group-hover:scale-105">
+                      Materialize
+                    </span>
                   </div>
                 </Link>
               </div>

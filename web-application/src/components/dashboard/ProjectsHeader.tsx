@@ -54,11 +54,11 @@ export default function ProjectsHeader() {
   return (
     <header className="sticky top-0 z-999 w-full">
       {/* Enhanced Glassmorphism Background with Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-gray-2/85 to-whiter/90 dark:from-boxdark/90 dark:via-boxdark-2/85 dark:to-meta-4/90 backdrop-blur-xl"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-gray-2/85 to-whiter/90 dark:from-boxdark/90 dark:via-boxdark-2/85 dark:to-background/90 backdrop-blur-xl"></div>
 
       {/* Multi-layered Border System */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-stroke/60 to-transparent dark:via-strokedark/60"></div>
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/20 via-secondary/30 to-meta-5/20 dark:from-primary/30 dark:via-secondary/40 dark:to-meta-5/30 blur-sm"></div>
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/20 via-secondary/30 to-info/20 dark:from-primary/30 dark:via-secondary/40 dark:to-info/30 blur-sm"></div>
 
       {/* Enhanced Shadow */}
       <div className="absolute -bottom-6 left-0 right-0 h-6 bg-gradient-to-b from-black/5 to-transparent dark:from-black/12 dark:to-transparent"></div>
@@ -66,9 +66,9 @@ export default function ProjectsHeader() {
       {/* Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-10 -right-20 w-32 h-32 bg-gradient-to-br from-primary/8 to-secondary/8 dark:from-primary/15 dark:to-secondary/15 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -top-10 -left-20 w-24 h-24 bg-gradient-to-tr from-meta-5/8 to-meta-3/8 dark:from-meta-5/15 dark:to-meta-3/15 rounded-full blur-2xl animate-pulse delay-1000"></div>
+        <div className="absolute -top-10 -left-20 w-24 h-24 bg-gradient-to-tr from-info/8 to-success/8 dark:from-info/15 dark:to-success/15 rounded-full blur-2xl animate-pulse delay-1000"></div>
         <div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-r from-primary/3 via-secondary/3 to-meta-5/3 dark:from-primary/8 dark:via-secondary/8 dark:to-meta-5/8 rounded-full blur-2xl animate-spin"
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-r from-primary/3 via-secondary/3 to-info/3 dark:from-primary/8 dark:via-secondary/8 dark:to-info/8 rounded-full blur-2xl animate-spin"
           style={{ animationDuration: "20s" }}
         ></div>
       </div>
@@ -95,7 +95,7 @@ export default function ProjectsHeader() {
           {/* Project Name Display */}
           <div className="flex items-center gap-3">
             {/* Project Icon Container */}
-            <div className="relative p-2.5 bg-gradient-to-br from-primary/10 via-secondary/5 to-meta-5/10 dark:from-primary/20 dark:via-secondary/10 dark:to-meta-5/20 rounded-xl border border-primary/20 dark:border-secondary/30 backdrop-blur-sm">
+            <div className="relative p-2.5 bg-gradient-to-br from-primary/10 via-secondary/5 to-info/10 dark:from-primary/20 dark:via-secondary/10 dark:to-info/20 rounded-xl border border-primary/20 dark:border-secondary/30 backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-xl blur-sm opacity-50"></div>
               <FolderIcon className="relative w-5 h-5 text-primary dark:text-secondary" />
             </div>

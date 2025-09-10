@@ -42,18 +42,6 @@ const config: Config = {
         strokedark: "#2E3A47",
         "form-strokedark": "#3d4d60",
         "form-input": "#1d2a39",
-        "meta-1": "#DC3545",
-        "meta-2": "#EFF2F7",
-        "meta-3": "#10B981",
-        "meta-4": "#313D4A",
-        "meta-5": "#259AE6",
-        "meta-6": "#FFBA00",
-        "meta-7": "#FF6766",
-        "meta-8": "#F0950C",
-        "meta-9": "#E5E7EB",
-        success: "#219653",
-        danger: "#D34053",
-        warning: "#FFA70B",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -75,6 +63,18 @@ const config: Config = {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

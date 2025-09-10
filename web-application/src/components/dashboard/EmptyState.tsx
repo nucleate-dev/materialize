@@ -40,8 +40,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       buttonText: "Create First Prototype",
       icon: Layers,
       gradient:
-        "from-meta-3/20 to-meta-5/20 dark:from-meta-3/30 dark:to-meta-5/30",
-      iconColor: "text-meta-3 dark:text-meta-3",
+        "from-success/20 to-info/20 dark:from-success/30 dark:to-info/30",
+      iconColor: "text-success dark:text-success",
     },
     whiteboards: {
       title: "No whiteboards yet",
@@ -50,8 +50,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       buttonText: "Create First Whiteboard",
       icon: PenTool,
       gradient:
-        "from-meta-1/20 to-meta-6/20 dark:from-meta-1/30 dark:to-meta-6/30",
-      iconColor: "text-meta-1 dark:text-meta-1",
+        "from-warning/20 to-primary/20 dark:from-warning/30 dark:to-primary/30",
+      iconColor: "text-warning dark:text-warning",
     },
   };
 

@@ -258,8 +258,8 @@ export default function ChatWindow({
           {/* Message Bubble */}
           <div
             className={`p-4 rounded-lg ${isUser
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-card-foreground border border-border"
+              ? "bg-primary text-primary-foreground"
+              : "bg-card text-card-foreground border border-border"
               }`}
           >
             <div className="relative z-10">
@@ -335,8 +335,8 @@ export default function ChatWindow({
               {/* Timestamp */}
               <div
                 className={`text-xs mt-3 font-medium ${isUser
-                    ? "text-primary-foreground/70"
-                    : "text-muted-foreground"
+                  ? "text-primary-foreground/70"
+                  : "text-muted-foreground"
                   }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
@@ -401,13 +401,8 @@ export default function ChatWindow({
       <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 && (
           <div className="text-center py-16">
-            <div className="mb-8">
-              <div className="p-6 rounded-full bg-primary text-primary-foreground mx-auto w-24 h-24 flex items-center justify-center">
-                <SparklesIcon className="w-12 h-12" />
-              </div>
-            </div>
             <h3 className="text-2xl font-bold text-foreground mb-3">
-              Welcome to your AI Assistant!
+              Welcome to Materialize!
             </h3>
             <p className="text-lg text-muted-foreground mb-6 max-w-md mx-auto leading-relaxed">
               Ask me to create React Native components, screens, or modify
@@ -474,8 +469,8 @@ export default function ChatWindow({
           ) : (
             <p
               className={`text-xs font-medium ${isAtLimit
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-muted-foreground"
+                ? "text-red-600 dark:text-red-400"
+                : "text-muted-foreground"
                 }`}
             >
               Messages: {messageCount}/{messageLimit}
@@ -502,8 +497,8 @@ export default function ChatWindow({
                           : "Ask me to create or modify React Native code..."
                     }
                     className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${isAtLimit || isDevServerStarting
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
                       }`}
                     rows={1}
                     style={{
@@ -536,8 +531,8 @@ export default function ChatWindow({
             type="submit"
             disabled={isDisabled}
             className={`p-3 rounded-lg transition-colors ${!isDisabled
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-muted text-muted-foreground cursor-not-allowed"
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
               }`}
             title={
               isAtLimit
