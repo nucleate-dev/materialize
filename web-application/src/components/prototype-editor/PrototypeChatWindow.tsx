@@ -1,21 +1,21 @@
 "use client";
 
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import ChatWindow from "@/components/prototype-editor/ChatWindow";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
-import { Database } from "@/lib/types/supabase";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   ChatErrorResponse,
   ChatRequestBody,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];

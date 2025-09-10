@@ -1,5 +1,5 @@
 "use client";
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

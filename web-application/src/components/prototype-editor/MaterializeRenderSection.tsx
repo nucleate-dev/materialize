@@ -10,12 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Database } from "@/lib/types/supabase";
 import type {
   StartDevServerRequestBody,
   StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
 
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   Loader2,
   Monitor,
@@ -33,8 +35,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/page";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -335,7 +335,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -352,7 +352,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
@@ -424,13 +424,13 @@ const MaterializeRenderSection = forwardRef<
                     }
                   >
                     {currentRenderStatus === "Starting Dev Server.." ||
-                    currentRenderStatus === "Connecting.." ? (
+                      currentRenderStatus === "Connecting.." ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
                       <Play className="w-4 h-4 mr-2" />
                     )}
                     {currentRenderStatus === "Starting Dev Server.." ||
-                    currentRenderStatus === "Connecting.."
+                      currentRenderStatus === "Connecting.."
                       ? "Starting..."
                       : "Start Dev Server"}
                   </DropdownMenuItem>
