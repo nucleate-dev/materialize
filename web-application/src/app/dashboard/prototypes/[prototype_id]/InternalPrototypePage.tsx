@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useFileSystem } from "@/hooks/useFileSystem";
-import { useSidebar } from "@/hooks/useSidebar";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -57,7 +56,6 @@ export default function InternalPrototypePage() {
     const { userPlan } = useSubscriptionAccess();
     const params = useParams<{ prototype_id: string; }>();
     const prototypeId = params?.prototype_id;
-    const { setSidebarExpanded } = useSidebar();
     const logger = useProductLogger();
 
     const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
@@ -82,10 +80,6 @@ export default function InternalPrototypePage() {
     const defaultFile = "App.js"; // TODO update this for the new default app
     const fileSystem = useFileSystem(prototypeId, defaultFile);
 
-    // Automatically collapse sidebar when page opens
-    useEffect(() => {
-        setSidebarExpanded(false);
-    }, [setSidebarExpanded]);
 
     // Mobile detection and resize handling
     useEffect(() => {

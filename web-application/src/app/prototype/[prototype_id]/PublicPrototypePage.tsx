@@ -5,6 +5,7 @@ import Loader from "@/components/dashboard/Loader";
 import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
+import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -268,10 +269,15 @@ export default function PrototypePage() {
                             <SparklesIcon className="w-8 h-8 text-destructive-foreground" />
                         </div>
                         <CardTitle className="text-2xl">
-                            Oops! Something went wrong
+                            Couldn&apos;t Load Prototype
                         </CardTitle>
                         <CardDescription>{error}</CardDescription>
                     </CardHeader>
+                    <CardContent className="text-center">
+                        <Button asChild>
+                            <Link href="/dashboard">Back to Dashboard</Link>
+                        </Button>
+                    </CardContent>
                 </Card>
             </div>
         );
@@ -291,6 +297,11 @@ export default function PrototypePage() {
                             don&apos;t have permission to view it.
                         </CardDescription>
                     </CardHeader>
+                    <CardContent className="text-center">
+                        <Button asChild>
+                            <Link href="/dashboard">Back to Dashboard</Link>
+                        </Button>
+                    </CardContent>
                 </Card>
             </div>
         );
