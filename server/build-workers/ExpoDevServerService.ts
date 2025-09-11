@@ -38,6 +38,16 @@ interface DevServerStatusResponse {
   uptime?: number;
   logs?: string[];
   prototypeId?: string;
+  currentOperation?:
+    | "idle"
+    | "starting_dev_server"
+    | "updating_files"
+    | "building"
+    | "deploying"
+    | "building_and_deploying"
+    | "stopping";
+  operationDuration?: number;
+  operationId?: string;
 }
 
 interface DevServerStopResponse {
@@ -67,6 +77,16 @@ class DevServerState {
   public startTime: Date | null = null;
   public logs: string[] = [];
   public error: string | null = null;
+  public currentOperation:
+    | "idle"
+    | "starting_dev_server"
+    | "updating_files"
+    | "building"
+    | "deploying"
+    | "building_and_deploying"
+    | "stopping" = "idle";
+  public operationStartTime: Date | null = null;
+  public operationId: string | null = null;
 
   public addLog(message: string): void {
     const timestamp = new Date().toISOString();
@@ -96,6 +116,53 @@ class DevServerState {
     this.startTime = null;
     this.logs = [];
     this.error = null;
+    this.currentOperation = "idle";
+    this.operationStartTime = null;
+    this.operationId = null;
+  }
+
+  public setOperation(
+    operation: DevServerState["currentOperation"],
+    operationId?: string,
+  ): void {
+    this.currentOperation = operation;
+    this.operationStartTime = new Date();
+    this.operationId = operationId || null;
+    this.addLog(
+      `Operation started: ${operation}${operationId ? ` (ID: ${operationId})` : ""}`,
+    );
+  }
+
+  public clearOperation(): void {
+    const operation = this.currentOperation;
+    const operationId = this.operationId;
+    this.currentOperation = "idle";
+    this.operationStartTime = null;
+    this.operationId = null;
+    this.addLog(
+      `Operation completed: ${operation}${operationId ? ` (ID: ${operationId})` : ""}`,
+    );
+  }
+
+  public getOperationDuration(): number | null {
+    if (!this.operationStartTime) return null;
+    return Date.now() - this.operationStartTime.getTime();
+  }
+
+  public isOperationInProgress(): boolean {
+    return this.currentOperation !== "idle";
+  }
+
+  public getOperationStatus(): {
+    operation: string;
+    duration: number | null;
+    operationId: string | null;
+  } {
+    return {
+      operation: this.currentOperation,
+      duration: this.getOperationDuration(),
+      operationId: this.operationId,
+    };
   }
 }
 
@@ -185,6 +252,9 @@ export class ExpoDevServerService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
+      // Set operation state
+      this.state.setOperation("starting_dev_server", prototype_id);
+
       // Handle file scope
       const projectDir = path.join(this.workDir, prototype_id);
 
@@ -259,6 +329,9 @@ export class ExpoDevServerService {
         });
       }
 
+      // Clear operation state on success
+      this.state.clearOperation();
+
       // The tunnel URL should be set by now since startExpoProcess waits for it
       return {
         success: buildErrors.length === 0,
@@ -278,6 +351,7 @@ export class ExpoDevServerService {
       this.state.status = "error";
       this.state.error = error.message;
       this.state.addLog(`Internal server error: ${error.message}`);
+      this.state.clearOperation();
 
       return reply.code(500).send({
         success: false,
@@ -306,7 +380,55 @@ export class ExpoDevServerService {
       uptime: this.state.getUptime() || undefined,
       logs: this.state.logs.slice(-10), // Last 10 logs
       prototypeId: this.state.prototypeId || undefined,
+      currentOperation: this.state.currentOperation,
+      operationDuration: this.state.getOperationDuration() || undefined,
+      operationId: this.state.operationId || undefined,
     };
+  }
+
+  // Get current operation status
+  public getCurrentOperationStatus(): {
+    operation: string;
+    duration: number | null;
+    operationId: string | null;
+  } {
+    return this.state.getOperationStatus();
+  }
+
+  // Check if current operation can be safely stopped
+  public canStopOperation(): {
+    canStop: boolean;
+    reason?: string;
+    operation?: string;
+  } {
+    if (!this.state.isOperationInProgress()) {
+      return { canStop: true };
+    }
+
+    const operation = this.state.currentOperation;
+    const duration = this.state.getOperationDuration();
+
+    // Operations that can be safely stopped
+    if (operation === "starting_dev_server" || operation === "updating_files") {
+      return { canStop: true };
+    }
+
+    // Operations that should not be stopped (build/deploy operations)
+    if (
+      operation === "building" ||
+      operation === "deploying" ||
+      operation === "building_and_deploying"
+    ) {
+      const durationSeconds = duration ? Math.floor(duration / 1000) : 0;
+      return {
+        canStop: false,
+        reason: `Cannot stop during ${operation} operation (running for ${durationSeconds}s)`,
+        operation,
+      };
+    }
+
+    // Default to allowing stop for unknown operations
+    return { canStop: true };
   }
 
   // Stop dev server
@@ -321,7 +443,20 @@ export class ExpoDevServerService {
       };
     }
 
+    // Check if we can safely stop the current operation
+    const stopCheck = this.canStopOperation();
+    if (!stopCheck.canStop) {
+      this.state.addLog(`Stop request denied: ${stopCheck.reason}`);
+      return reply.code(409).send({
+        success: false,
+        message: stopCheck.reason,
+      });
+    }
+
     try {
+      // Set operation to stopping
+      this.state.setOperation("stopping");
+
       await this.killExpoProcess();
       await this.cleanup();
 
@@ -807,7 +942,7 @@ export class ExpoDevServerService {
       const uploadedFiles = await this.uploadToVersionedAndLatest(
         buildPath,
         prototype_id,
-        version
+        version,
       );
 
       const buildUrl = `https://${prototype_id}.render.materializeui.com`;
@@ -838,6 +973,9 @@ export class ExpoDevServerService {
   ): Promise<BuildAndDeployResponse> {
     const actualJobId = jobId || uuidv4();
     const logger = this.createLogger(actualJobId);
+
+    // Set operation state
+    this.state.setOperation("building_and_deploying", actualJobId);
 
     logger.log(
       "Starting build and deploy",
@@ -893,6 +1031,9 @@ export class ExpoDevServerService {
         `Uploaded ${uploadedFiles.length} files. URL: ${buildUrl}`,
       );
 
+      // Clear operation state on success
+      this.state.clearOperation();
+
       return {
         success: true,
         buildUrl,
@@ -901,6 +1042,8 @@ export class ExpoDevServerService {
       };
     } catch (error: any) {
       logger.log("Build and deploy failed", false, "", error.message);
+      // Clear operation state on error
+      this.state.clearOperation();
       return {
         success: false,
         error: error.message,
@@ -975,6 +1118,9 @@ export class ExpoDevServerService {
       };
     }
 
+    // Set operation state
+    this.state.setOperation("updating_files", this.state.prototypeId);
+
     // Use the state's project directory as the source of truth
     const actualProjectDir = this.state.projectDir;
 
@@ -1031,7 +1177,7 @@ export class ExpoDevServerService {
 
       // Monitor for Metro bundler errors after file updates
       this.state.addLog("Monitoring Metro output for compilation errors...");
-      await this.monitorMetroForErrors(buildErrors, buildWarnings, 3000);
+      await this.monitorMetroForErrors(buildErrors, buildWarnings, 8000);
 
       // Check if package.json was updated and reinstall if needed
       const packageJsonUpdated = files.some(
@@ -1068,6 +1214,9 @@ export class ExpoDevServerService {
         );
       }
 
+      // Clear operation state on success
+      this.state.clearOperation();
+
       return {
         success: true,
         tunnelUrl: this.state.tunnelUrl || undefined,
@@ -1087,6 +1236,8 @@ export class ExpoDevServerService {
         message: errorMsg,
         type: "build",
       });
+      // Clear operation state on error
+      this.state.clearOperation();
       return {
         success: false,
         tunnelUrl: this.state.tunnelUrl || undefined,
@@ -1141,6 +1292,12 @@ export class ExpoDevServerService {
           resolve();
         }
       };
+
+      // Add temporary listeners that will parse errors into our arrays
+      if (this.state.process) {
+        this.state.process.stdout?.on("data", errorMonitor);
+        this.state.process.stderr?.on("data", errorMonitor);
+      }
 
       // Clean up the monitors after timeout or early resolution
       const cleanup = () => {
@@ -1207,6 +1364,20 @@ export class ExpoDevServerService {
       ) {
         buildErrors.push({
           message: trimmedLine,
+          type: "syntax",
+        });
+      }
+
+      // Parse Metro compilation errors (format: "ERROR Error: /path/file.tsx: Unexpected token...")
+      else if (
+        trimmedLine.includes("ERROR Error:") ||
+        (trimmedLine.includes("ERROR ") &&
+          trimmedLine.includes("Unexpected token"))
+      ) {
+        buildErrors.push({
+          message: trimmedLine
+            .replace(/^.*ERROR\s+Error:\s*/, "")
+            .replace(/^.*ERROR\s+/, ""),
           type: "syntax",
         });
       }
@@ -1312,22 +1483,22 @@ export class ExpoDevServerService {
 
   private getCacheControlHeader(filename: string): string {
     const ext = path.extname(filename).toLowerCase();
-    
+
     switch (ext) {
-      case '.html':
-        return 'public, max-age=300, s-maxage=300'; // 5 minutes
-      case '.js':
-      case '.css':
-        return 'public, max-age=31536000, s-maxage=31536000'; // 1 year for versioned assets
-      case '.png':
-      case '.jpg':
-      case '.jpeg':
-      case '.gif':
-      case '.svg':
-      case '.ico':
-        return 'public, max-age=31536000, s-maxage=31536000'; // 1 year
+      case ".html":
+        return "public, max-age=300, s-maxage=300"; // 5 minutes
+      case ".js":
+      case ".css":
+        return "public, max-age=31536000, s-maxage=31536000"; // 1 year for versioned assets
+      case ".png":
+      case ".jpg":
+      case ".jpeg":
+      case ".gif":
+      case ".svg":
+      case ".ico":
+        return "public, max-age=31536000, s-maxage=31536000"; // 1 year
       default:
-        return 'public, max-age=3600, s-maxage=3600'; // 1 hour default
+        return "public, max-age=3600, s-maxage=3600"; // 1 hour default
     }
   }
 
@@ -1356,7 +1527,11 @@ export class ExpoDevServerService {
   ): Promise<Array<{ key: string; location: string }>> {
     const uploadResults: Array<{ key: string; location: string }> = [];
 
-    const uploadDirectory = async (dirPath: string, versionedPrefix: string, latestPrefix: string) => {
+    const uploadDirectory = async (
+      dirPath: string,
+      versionedPrefix: string,
+      latestPrefix: string,
+    ) => {
       const items = await fs.readdir(dirPath);
 
       for (const item of items) {
@@ -1365,9 +1540,9 @@ export class ExpoDevServerService {
 
         if (stats.isDirectory()) {
           await uploadDirectory(
-            fullPath, 
-            `${versionedPrefix}/${item}`, 
-            `${latestPrefix}/${item}`
+            fullPath,
+            `${versionedPrefix}/${item}`,
+            `${latestPrefix}/${item}`,
           );
         } else if (stats.isFile()) {
           const fileContent = await fs.readFile(fullPath);
@@ -1385,21 +1560,27 @@ export class ExpoDevServerService {
 
           // Upload to versioned location
           const versionedKey = `${versionedPrefix}/${item}`;
-          const versionedResult = await this.s3.upload({
-            ...uploadParams,
-            Bucket: this.S3_BUCKET,
-            Key: versionedKey,
-          }).promise();
+          const versionedResult = await this.s3
+            .upload({
+              ...uploadParams,
+              Bucket: this.S3_BUCKET,
+              Key: versionedKey,
+            })
+            .promise();
 
           // Upload to latest location
           const latestKey = `${latestPrefix}/${item}`;
-          await this.s3.upload({
-            ...uploadParams,
-            Bucket: this.S3_BUCKET,
-            Key: latestKey,
-            // Shorter cache for latest folder to pick up updates faster
-            CacheControl: item.endsWith('.html') ? 'public, max-age=300' : uploadParams.CacheControl,
-          }).promise();
+          await this.s3
+            .upload({
+              ...uploadParams,
+              Bucket: this.S3_BUCKET,
+              Key: latestKey,
+              // Shorter cache for latest folder to pick up updates faster
+              CacheControl: item.endsWith(".html")
+                ? "public, max-age=300"
+                : uploadParams.CacheControl,
+            })
+            .promise();
 
           uploadResults.push({
             key: versionedResult.Key,
@@ -1421,12 +1602,16 @@ export class ExpoDevServerService {
     s3KeyPrefix: string,
   ): Promise<Array<{ key: string; location: string }>> {
     // Extract prototype ID and version from s3KeyPrefix
-    const parts = s3KeyPrefix.split('/');
+    const parts = s3KeyPrefix.split("/");
     const prototypeId = parts[0];
     const version = this.generateVersion();
 
     // Use the dual upload method
-    return await this.uploadToVersionedAndLatest(localPath, prototypeId, version);
+    return await this.uploadToVersionedAndLatest(
+      localPath,
+      prototypeId,
+      version,
+    );
   }
 
   private async deleteS3Prefix(prefix: string): Promise<void> {
@@ -1435,15 +1620,17 @@ export class ExpoDevServerService {
         Bucket: this.S3_BUCKET,
         Prefix: prefix,
       };
-      
+
       const objects = await this.s3.listObjectsV2(listParams).promise();
       if (objects.Contents && objects.Contents.length > 0) {
-        console.log(`Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`);
-        
+        console.log(
+          `Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`,
+        );
+
         const deleteParams = {
           Bucket: this.S3_BUCKET,
           Delete: {
-            Objects: objects.Contents.map(obj => ({ Key: obj.Key! })),
+            Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
           },
         };
         await this.s3.deleteObjects(deleteParams).promise();
@@ -1452,7 +1639,10 @@ export class ExpoDevServerService {
         console.log(`No existing objects found with prefix: ${prefix}`);
       }
     } catch (error) {
-      console.error(`Failed to delete S3 objects with prefix ${prefix}:`, error);
+      console.error(
+        `Failed to delete S3 objects with prefix ${prefix}:`,
+        error,
+      );
       // Don't throw - continue with upload even if delete fails
     }
   }

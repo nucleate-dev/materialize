@@ -14,6 +14,19 @@ import {
 import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
 
+interface DevServerStopResponse {
+  status: "success" | "error";
+  build_url?: string;
+  build_errors: Array<{
+    message: string;
+    type: string;
+  }>;
+  build_warnings: Array<{
+    message: string;
+    type: string;
+  }>;
+}
+
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
@@ -46,6 +59,9 @@ export class CleanupService {
       idleBuildsFound: 0,
       successfulCleanups: 0,
       failedCleanups: 0,
+      operationsInProgress: 0,
+      workerErrors: 0,
+      networkIssues: 0,
     };
 
     if (!activeBuildKeys || activeBuildKeys.length === 0) {
@@ -125,8 +141,14 @@ export class CleanupService {
 
       // a. dispatch a request to the fargate instance to kill the build
       let shouldTerminateTask = true;
+      let killResult: { success: boolean; buildInProgress?: boolean; error?: string } = { 
+        success: true, 
+        buildInProgress: false, 
+        error: undefined 
+      };
+      
       if (build.fargate_private_ip) {
-        const killResult = await this.dispatchKillDevServerRequest(
+        killResult = await this.dispatchKillDevServerRequest(
           prototypeId,
           build.fargate_private_ip,
         );
@@ -148,6 +170,21 @@ export class CleanupService {
               prototypeId,
             },
           );
+          
+          // Categorize the error type for better tracking
+          const errorType = this.categorizeCleanupError(killResult.error || '');
+          switch (errorType) {
+            case 'operation_in_progress':
+              stats.operationsInProgress++;
+              break;
+            case 'worker_dead':
+            case 'worker_error':
+              stats.workerErrors++;
+              break;
+            case 'network_issue':
+              stats.networkIssues++;
+              break;
+          }
           stats.failedCleanups++;
           continue;
         }
@@ -156,12 +193,14 @@ export class CleanupService {
       // b. Kill the fargate task using the task arn (only if safe to do so)
       if (!shouldTerminateTask) {
         this.log2.info(
-          `Skipping Fargate task termination due to build in progress - task will be cleaned up later`,
+          'Skipping Fargate task termination - operation in progress',
           {
             buildId,
             prototypeId,
+            operationDetails: killResult.error || 'Build operation detected',
           },
         );
+        
         // Reset the status back to stable since we're not cleaning up yet
         const activeBuild: ActiveBuild = {
           ...build,
@@ -175,6 +214,10 @@ export class CleanupService {
       this.log2.info('Proceeding with Fargate task termination', {
         buildId,
         prototypeId,
+        killServerResult: {
+          success: killResult.success,
+          error: killResult.error,
+        },
       });
       const terminateResult = await this.terminateFargateTask(
         build.fargate_task_arn,
@@ -270,33 +313,140 @@ export class CleanupService {
         },
       );
 
+      // Parse the actual response body to understand what happened
+      const responseData: DevServerStopResponse = response.data;
+      
       this.log2.info(
-        'Successfully completed dev server shutdown for prototype',
+        'Dev server stop response received',
         {
           prototypeId,
           fargatePrivateIp,
-          responseData: response.data,
+          responseStatus: responseData.status,
+          buildErrorsCount: responseData.build_errors?.length || 0,
+          buildWarningsCount: responseData.build_warnings?.length || 0,
         },
       );
 
-      return {
-        success: true,
-        buildInProgress: false, // TODO @priyam: check the status you will return from the build worker here. Should be "building" or "error" or "safe_to_clean"
-      };
+      if (responseData.status === 'success') {
+        this.log2.info(
+          'Successfully completed dev server shutdown for prototype',
+          {
+            prototypeId,
+            fargatePrivateIp,
+            buildUrl: responseData.build_url,
+          },
+        );
+
+        return {
+          success: true,
+          buildInProgress: false,
+        };
+      } else {
+        // Check if the error indicates an operation is in progress
+        const operationInProgressMessages = [
+          'Cannot stop during',
+          'operation is currently in progress',
+          'Build already in progress',
+          'building operation',
+          'deploying operation',
+          'building_and_deploying operation',
+        ];
+
+        const hasOperationInProgress = responseData.build_errors?.some(error =>
+          operationInProgressMessages.some(msg =>
+            error.message.toLowerCase().includes(msg.toLowerCase())
+          )
+        );
+
+        if (hasOperationInProgress) {
+          this.log2.info(
+            'Dev server stop failed due to operation in progress',
+            {
+              prototypeId,
+              fargatePrivateIp,
+              errorMessages: responseData.build_errors?.map(e => e.message),
+            },
+          );
+
+          return {
+            success: false,
+            buildInProgress: true,
+            error: responseData.build_errors?.[0]?.message || 'Operation in progress',
+          };
+        } else {
+          // Other error - worker might be in bad state, safe to force cleanup
+          this.log2.warn(
+            'Dev server stop failed with non-operation error, proceeding with cleanup',
+            {
+              prototypeId,
+              fargatePrivateIp,
+              errorMessages: responseData.build_errors?.map(e => e.message),
+            },
+          );
+
+          return {
+            success: true, // Allow cleanup to proceed
+            buildInProgress: false,
+            error: responseData.build_errors?.[0]?.message || 'Unknown error',
+          };
+        }
+      }
     } catch (error: unknown) {
       this.log2.error(error, 'Failed to kill dev server for prototype', {
         prototypeId,
+        fargatePrivateIp,
       });
 
-      // Check if the error was due to timeout (build taking too long)
+      // Check if the error was due to timeout
       const isTimeout =
         (error instanceof AxiosError && error.code === 'ECONNABORTED') ||
         (error instanceof Error && error.message.includes('timeout'));
 
+      // Check if worker is completely unresponsive (connection refused, etc.)
+      const isConnectionError =
+        (error instanceof AxiosError && 
+         (error.code === 'ECONNREFUSED' || 
+          error.code === 'ENOTFOUND' || 
+          error.code === 'EHOSTUNREACH'));
+
+      if (isConnectionError) {
+        this.log2.warn(
+          'Worker appears to be completely unresponsive, allowing cleanup',
+          {
+            prototypeId,
+            fargatePrivateIp,
+            errorCode: error instanceof AxiosError ? error.code : 'unknown',
+          },
+        );
+
+        return {
+          success: true, // Allow cleanup of dead workers
+          buildInProgress: false,
+          error: error instanceof Error ? error.message : 'Connection error',
+        };
+      }
+
+      if (isTimeout) {
+        this.log2.warn(
+          'Dev server stop request timed out, assuming build in progress',
+          {
+            prototypeId,
+            fargatePrivateIp,
+          },
+        );
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Timeout error',
+          buildInProgress: true,
+        };
+      }
+
+      // Other HTTP errors - might be server error, allow cleanup
       return {
-        success: !isTimeout, // Consider timeout as partial success since build might be completing
+        success: true,
         error: error instanceof Error ? error.message : 'Unknown error',
-        buildInProgress: isTimeout,
+        buildInProgress: false,
       };
     }
   }
@@ -352,6 +502,31 @@ export class CleanupService {
     } while (cursor !== '0');
 
     return keys;
+  }
+
+  // Helper method to categorize cleanup errors
+  private categorizeCleanupError(error: string): 'operation_in_progress' | 'worker_dead' | 'worker_error' | 'network_issue' {
+    const lowerError = error.toLowerCase();
+    
+    if (lowerError.includes('cannot stop during') || 
+        lowerError.includes('operation') || 
+        lowerError.includes('building') || 
+        lowerError.includes('deploying')) {
+      return 'operation_in_progress';
+    }
+    
+    if (lowerError.includes('connection refused') || 
+        lowerError.includes('econnrefused') || 
+        lowerError.includes('host unreachable')) {
+      return 'worker_dead';
+    }
+    
+    if (lowerError.includes('timeout') || 
+        lowerError.includes('econnaborted')) {
+      return 'network_issue';
+    }
+    
+    return 'worker_error';
   }
 
   // Helper method to format timestamp in EST
