@@ -9,7 +9,7 @@
     @apply font-satoshi font-normal text-base text-body relative z-[1];
   }
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 98%;
     --foreground: 224 71.4% 4.1%;
     --card: 0 0% 100%;
     --card-foreground: 224 71.4% 4.1%;
@@ -51,7 +51,7 @@
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
+    --background: 240 8% 6%;
     --foreground: 210 20% 98%;
     --card: 224 71.4% 4.1%;
     --card-foreground: 210 20% 98%;
@@ -81,7 +81,7 @@
     --chart-3: 38 92% 50%;
     --chart-4: 262 76% 50%;
     --chart-5: 173 58% 39%;
-    --sidebar-background: 240 6% 10%;
+    --sidebar-background: 240 8% 10%;
     --sidebar-foreground: 240 5% 96%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
