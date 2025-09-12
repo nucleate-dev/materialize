@@ -1,15 +1,14 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useColorScheme } from 'react-native';
 
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
 function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  name: React.ComponentProps<typeof FontAwesome6>['name'];
   color: string;
 }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  return <FontAwesome6 name={props.name} color={props.color} size={28} style={{ marginBottom: -3 }} />;
 }
 
 export default function TabLayout() {
@@ -26,7 +25,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="house" color={color} />,
         }}
       />
     </Tabs>

@@ -1,6 +1,5 @@
 "use client";
 
-import Editor from "@monaco-editor/react";
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +11,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UseFileSystemReturn } from "@/hooks/useFileSystem";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   UpdateFilesRequestBody,
   UpdateFilesResponse,
 } from "@/lib/types/serverAPITypes";
-import { UseFileSystemReturn } from "@/hooks/useFileSystem";
+import Editor from "@monaco-editor/react";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface CodeEditorProps {
   fileSystem: UseFileSystemReturn;
@@ -35,7 +35,7 @@ interface CodeEditorProps {
 const CodeEditor: React.FC<CodeEditorProps> = ({
   fileSystem,
   prototypeId,
-  language = "javascript",
+  language = "typescript",
   readOnly = false,
   onViewingUrlUpdate,
   onBuildingStateChange,
@@ -97,12 +97,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // TODO: if the sole purpose of this currentFile is to check if the file is an asset, then we should just check if the file is an asset no need to check the files array
   const currentFile =
     fileSystem.state.selectedFile &&
-    fileSystem.state.files &&
-    fileSystem.state.selectedFile in fileSystem.state.files
+      fileSystem.state.files &&
+      fileSystem.state.selectedFile in fileSystem.state.files
       ? fileSystem.state.files[fileSystem.state.selectedFile]
       : fileSystem.state.selectedFile &&
-          fileSystem.state.assets &&
-          fileSystem.state.selectedFile in fileSystem.state.assets
+        fileSystem.state.assets &&
+        fileSystem.state.selectedFile in fileSystem.state.assets
         ? fileSystem.state.assets[fileSystem.state.selectedFile]
         : null;
   const isAssetImage =
@@ -254,7 +254,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       } else {
         // Handle error response
-        const errorResponse = result as { error: string; message: string };
+        const errorResponse = result as { error: string; message: string; };
         logger.debug("error", "Failed to update file:", {
           ...errorResponse,
         });
@@ -342,7 +342,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       } else {
         // Handle error response
-        const errorResponse = result as { error: string; message: string };
+        const errorResponse = result as { error: string; message: string; };
         logger.debug("error", "Failed to update files:", {
           ...errorResponse,
         });
