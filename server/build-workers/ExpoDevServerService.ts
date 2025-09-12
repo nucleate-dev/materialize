@@ -252,11 +252,8 @@ export class ExpoDevServerService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Set operation state
-      this.state.setOperation("starting_dev_server", prototype_id);
-
-      // Handle file scope
-      const projectDir = path.join(this.workDir, prototype_id);
+      // Handle file scope (fixed path per instance)
+      const projectDir = path.join(this.workDir, "project");
 
       if (file_scope === "complete") {
         // Remove existing directory if it exists
@@ -991,8 +988,8 @@ export class ExpoDevServerService {
       };
     }
 
-    // Use the existing project directory instead of creating a new one
-    const buildDir = path.join(this.workDir, prototype_id);
+    // Use the fixed project directory created by the dev server
+    const buildDir = path.join(this.workDir, "project");
 
     try {
       // Check if project directory exists

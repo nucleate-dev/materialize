@@ -25,6 +25,12 @@ ENV CHOKIDAR_USEPOLLING=1
 ENV CHOKIDAR_INTERVAL=100
 ENV WATCHPACK_POLLING=true
 
+# Pre-populate fixed project directory with test app and install deps
+RUN mkdir -p /tmp/expo-dev/project \
+  && cp -R test/. /tmp/expo-dev/project \
+  && cd /tmp/expo-dev/project \
+  && npm install
+
 # Expose port
 EXPOSE 3002
 

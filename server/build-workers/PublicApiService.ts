@@ -212,7 +212,7 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      const projectDir = path.join(this.workDir, prototype_id);
+      const projectDir = path.join(this.workDir, "project");
       let buildUrl: string | undefined;
 
       try {
@@ -354,8 +354,8 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Check if project directory exists and read files from disk
-      const projectDir = path.join(this.workDir, prototype_id);
+      // Check if project directory exists and read files from disk (fixed path)
+      const projectDir = path.join(this.workDir, "project");
 
       try {
         await fs.stat(projectDir);
