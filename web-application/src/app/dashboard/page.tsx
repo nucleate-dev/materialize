@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/ClientConstants";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,13 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/ClientConstants";
 import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
 } from "@/lib/types/serverAPITypes";
-import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import {
   ArrowRight,
   Code,
@@ -31,7 +31,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export default function DashboardPage() {
   const logger = useProductLogger();
@@ -168,17 +167,11 @@ export default function DashboardPage() {
               <Sparkles className="w-12 h-12" />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Build Your Dream App
+              Build Your Ideas
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Describe your mobile app idea and watch it come to life with
-              AI-powered development. From concept to code in seconds.
+              Describe your app idea, component, or screen
             </p>
-            <div className="flex justify-center gap-4">
-              <Badge variant="secondary">React Native</Badge>
-              <Badge variant="secondary">AI-Powered</Badge>
-              <Badge variant="secondary">Real-time Preview</Badge>
-            </div>
           </div>
 
           {/* Main Chat Interface */}
@@ -273,7 +266,7 @@ export default function DashboardPage() {
                 href="/dashboard/projects"
                 className="text-primary hover:underline"
               >
-                project gallery
+                gallery
               </Link>{" "}
               or browse{" "}
               <Link
