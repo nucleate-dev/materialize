@@ -78,7 +78,7 @@ const MaterializeRenderSection = forwardRef<
     const logger = useProductLogger();
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
-    const [mobileSize, setMobileSize] = useState({ width: 300, height: 600 });
+    const [mobileSize, setMobileSize] = useState({ width: 375, height: 750 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
 

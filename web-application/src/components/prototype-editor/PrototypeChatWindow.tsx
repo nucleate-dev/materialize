@@ -2,7 +2,7 @@
 
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
-import ChatWindow from "@/components/prototype-editor/ChatWindow";
+import ChatMessagesUI from "@/components/prototype-editor/ChatMessagesUI";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
@@ -216,7 +216,7 @@ export default function PrototypeChatWindow({
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let executionMessageId: string | null = null;
+      let planningMessageId: string | null = null;
       let operations: Array<{
         id: string;
         type: "create" | "modify" | "delete" | "move";
@@ -257,10 +257,11 @@ export default function PrototypeChatWindow({
           switch (data.type) {
             case "planning": {
               // Add planning message to UI
+              planningMessageId = data.messageId || uuidv4();
               setPrototypeChatMessages((prev) => [
                 ...prev,
                 {
-                  id: data.messageId || uuidv4(),
+                  id: planningMessageId,
                   chat_session_id: prototypeChatSession?.id || "",
                   role: "assistant",
                   phase: "planning",
@@ -289,29 +290,27 @@ export default function PrototypeChatWindow({
 
             case "execution_start": {
               operations = data.operations;
-              executionMessageId = uuidv4();
-
-              const initialExecutionMessage: PrototypeChatMessage = {
-                id: executionMessageId,
-                chat_session_id: prototypeChatSession?.id || "",
-                role: "assistant",
-                phase: "execution",
-                content: `🔄 Executing ${operations.length} operations...\n\n${operations
-                  .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
-                  .join("\n")}`,
-                created_at: new Date().toISOString(),
-              };
-
               setIsExecutingOperations(true);
-              setPrototypeChatMessages((prev) => [
-                ...prev,
-                initialExecutionMessage,
-              ]);
+
+              // Update the planning message to show execution starting
+              if (planningMessageId) {
+                const executionContent = `🔄 Executing ${operations.length} operations...\n\n${operations
+                  .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
+                  .join("\n")}`;
+
+                setPrototypeChatMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === planningMessageId
+                      ? { ...msg, content: executionContent, phase: "execution" }
+                      : msg,
+                  ),
+                );
+              }
               break;
             }
 
             case "step_start":
-              if (executionMessageId) {
+              if (planningMessageId) {
                 const stepIndex = data.stepIndex;
                 const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations
                   .map((op, index) => {
@@ -327,7 +326,7 @@ export default function PrototypeChatWindow({
 
                 setPrototypeChatMessages((prev) =>
                   prev.map((msg) =>
-                    msg.id === executionMessageId
+                    msg.id === planningMessageId
                       ? { ...msg, content: loadingContent }
                       : msg,
                   ),
@@ -342,8 +341,8 @@ export default function PrototypeChatWindow({
                 await onFilesUpdate(result.updatedFiles);
               }
 
-              // Update the execution message to show completion
-              if (executionMessageId) {
+              // Update the planning message to show completion
+              if (planningMessageId) {
                 const updatedContent = `🔄 Executing ${operations.length} operations...\n\n${operations
                   .map((op, index) => {
                     if (index <= stepIndex) {
@@ -358,7 +357,7 @@ export default function PrototypeChatWindow({
 
                 setPrototypeChatMessages((prev) =>
                   prev.map((msg) =>
-                    msg.id === executionMessageId
+                    msg.id === planningMessageId
                       ? { ...msg, content: updatedContent }
                       : msg,
                   ),
@@ -372,8 +371,8 @@ export default function PrototypeChatWindow({
                 ...data.error,
               });
 
-              // Update the execution message to show error
-              if (executionMessageId) {
+              // Update the planning message to show error
+              if (planningMessageId) {
                 const errorContent = `🔄 Executing ${operations.length} operations...\n\n${operations
                   .map((op, index) => {
                     if (index < data.stepIndex) {
@@ -388,7 +387,7 @@ export default function PrototypeChatWindow({
 
                 setPrototypeChatMessages((prev) =>
                   prev.map((msg) =>
-                    msg.id === executionMessageId
+                    msg.id === planningMessageId
                       ? { ...msg, content: errorContent }
                       : msg,
                   ),
@@ -404,8 +403,8 @@ export default function PrototypeChatWindow({
                 await onFilesUpdate(data.updatedFiles);
               }
 
-              // Update final execution message
-              if (executionMessageId) {
+              // Update final planning message
+              if (planningMessageId) {
                 const completedCount = operations.length; // All operations assumed completed
 
                 const finalContent = `🎉 Execution completed!\n\n${operations
@@ -414,7 +413,7 @@ export default function PrototypeChatWindow({
 
                 setPrototypeChatMessages((prev) =>
                   prev.map((msg) =>
-                    msg.id === executionMessageId
+                    msg.id === planningMessageId
                       ? { ...msg, content: finalContent }
                       : msg,
                   ),
@@ -716,7 +715,7 @@ export default function PrototypeChatWindow({
 
   return (
     <>
-      <ChatWindow
+      <ChatMessagesUI
         messages={prototypeChatMessages}
         onSendMessage={handleSendMessage}
         isLoading={isChatLoading}

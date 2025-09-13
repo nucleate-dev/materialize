@@ -34,7 +34,7 @@ import React, { useEffect, useRef, useState } from "react";
 type PrototypeChatMessage =
   Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 
-interface ChatWindowProps {
+interface ChatMessagesUIProps {
   messages: PrototypeChatMessage[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
@@ -46,7 +46,7 @@ interface ChatWindowProps {
   currentRenderStatus?: RenderStatus;
 }
 
-export default function ChatWindow({
+export default function ChatMessagesUI({
   messages,
   onSendMessage,
   isLoading,
@@ -56,7 +56,7 @@ export default function ChatWindow({
   isAtLimit = false,
   loadingUsageCount = false,
   currentRenderStatus = "Static build",
-}: ChatWindowProps) {
+}: ChatMessagesUIProps) {
   const logger = useProductLogger();
   const [input, setInput] = useState("");
 
@@ -98,7 +98,7 @@ export default function ChatWindow({
   useEffect(() => {
     const newPlanningData = new Map<string, PlanningExtractionResult>();
 
-    messages.forEach((message) => {
+    messages.forEach((message: PrototypeChatMessage) => {
       if (message.role === "assistant") {
         const planningResult = extractExecutionPlan(message.content, logger);
         if (planningResult.hasPlan) {
@@ -191,17 +191,7 @@ export default function ChatWindow({
     if (isExecutionMessage) {
       return (
         <div className="text-slate-700 dark:text-slate-300">
-          {hasCodeBlocks && (
-            <div className="mt-3 p-3 bg-muted border border-border rounded-lg text-sm">
-              <div className="flex items-center gap-2">
-                <CodeBracketIcon className="w-4 h-4 text-primary" />
-                <span className="font-medium text-foreground">
-                  Code ready to apply
-                </span>
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-              </div>
-            </div>
-          )}
+          <div className="whitespace-pre-wrap">{messageContent}</div>
         </div>
       );
     }
