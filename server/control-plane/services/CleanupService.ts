@@ -153,11 +153,11 @@ export class CleanupService {
           build.fargate_private_ip,
         );
         if (killResult.buildInProgress) {
-          // TODO @priyam: check status from build worker here
           this.log2.info(
-            'Build appears to be in progress, skipping Fargate task termination',
+            'Build operation in progress, skipping Fargate task termination and updating last_touched',
             {
               buildId,
+              error: killResult.error,
             },
           );
           shouldTerminateTask = false;
@@ -201,13 +201,27 @@ export class CleanupService {
           },
         );
         
-        // Reset the status back to stable since we're not cleaning up yet
+        // Reset the status back to building since we're not cleaning up yet
         const activeBuild: ActiveBuild = {
           ...build,
           status: 'building',
           last_touched: currentTime, // Update last_touched to prevent immediate re-cleanup
         };
-        await this.cache.set(buildKey, JSON.stringify(activeBuild));
+        try {
+          await this.cache.set(buildKey, JSON.stringify(activeBuild));
+          this.log2.info(
+            'Updated build status back to building and refreshed last_touched timestamp',
+            {
+              buildId,
+              newLastTouched: currentTime,
+              newLastTouchedReadable: this.formatTimestampEST(currentTime * 1000),
+            },
+          );
+        } catch (error) {
+          this.log2.error(error, 'Failed to update build status back to building', {
+            buildId,
+          });
+        }
         continue; // Skip termination and cache cleanup
       }
 
@@ -290,15 +304,78 @@ export class CleanupService {
     this.cleanupIntervals = [];
   }
 
+  // Check build worker status before cleanup
+  private async checkBuildWorkerStatus(
+    fargatePrivateIp: string,
+  ): Promise<{
+    canStop: boolean;
+    reason?: string;
+    operation?: string;
+  }> {
+    try {
+      this.log2.info('Checking build worker status', {
+        fargatePrivateIp,
+      });
+
+      const response = await axios.get(
+        `http://${fargatePrivateIp}:3002/dev-server/status`,
+        {
+          timeout: 10000, // 10 second timeout for status check
+          headers: {
+            'x-trace-id': this.log2.getTraceId(),
+          },
+        },
+      );
+
+      return {
+        canStop: response.data.canStop ?? true,
+        reason: response.data.stopReason,
+        operation: response.data.currentOperation,
+      };
+    } catch (error) {
+      this.log2.warn(
+        'Failed to check build worker status, assuming safe to clean up',
+        {
+          fargatePrivateIp,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      );
+      // If we can't reach the worker, assume it's safe to clean up
+      return { canStop: true };
+    }
+  }
+
   // Dispatch kill hot reload request to build worker
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
     try {
-      this.log2.info('Dispatching kill dev server request', {
+      // First, check if the build worker can be safely stopped
+      const statusCheck = await this.checkBuildWorkerStatus(fargatePrivateIp);
+      
+      if (!statusCheck.canStop) {
+        this.log2.info(
+          'Build worker cannot be stopped due to ongoing operation',
+          {
+            fargatePrivateIp,
+            prototypeId,
+            reason: statusCheck.reason,
+            operation: statusCheck.operation,
+          },
+        );
+
+        return {
+          success: false,
+          buildInProgress: true,
+          error: statusCheck.reason || 'Operation in progress',
+        };
+      }
+
+      this.log2.info('Build worker can be safely stopped, proceeding with kill request', {
         fargatePrivateIp,
         prototypeId,
+        operation: statusCheck.operation,
       });
 
       const response = await axios.delete(
