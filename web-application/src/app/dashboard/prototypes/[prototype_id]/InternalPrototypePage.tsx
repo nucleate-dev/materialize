@@ -37,6 +37,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSetAtom } from "jotai";
+import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -57,6 +59,7 @@ export default function InternalPrototypePage() {
     const params = useParams<{ prototype_id: string; }>();
     const prototypeId = params?.prototype_id;
     const logger = useProductLogger();
+    const setSidebarOpen = useSetAtom(sidebarOpenAtom);
 
     const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
         useState(true);
@@ -79,6 +82,11 @@ export default function InternalPrototypePage() {
     // Initialize FileSystem hook
     const defaultFile = "App.js"; // TODO update this for the new default app
     const fileSystem = useFileSystem(prototypeId, defaultFile);
+
+    // Automatically collapse sidebar when prototype editor loads
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [setSidebarOpen]);
 
 
     // Mobile detection and resize handling
