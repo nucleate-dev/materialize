@@ -15,12 +15,9 @@ function DashboardContent({ children }: { children: React.ReactNode; }) {
   const sidebarState = useAtomValue(sidebarStateAtom);
   const pathname = usePathname();
 
-  // Set default sidebar state based on the current page
+  // Set default sidebar state for main dashboard page
   useEffect(() => {
-    if (pathname?.includes("/prototypes/") && pathname?.split("/").length > 4) {
-      // This is a prototype editor page, default to collapsed
-      setSidebarOpen(false);
-    } else if (pathname === "/dashboard") {
+    if (pathname === "/dashboard") {
       // This is the main dashboard page, default to open
       setSidebarOpen(true);
     }
