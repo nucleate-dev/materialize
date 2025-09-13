@@ -14,6 +14,14 @@ export enum OperationStatus {
   STOPPING = 'stopping',
 }
 
+// Dev Server Status Enum
+export enum DevServerStatus {
+  STOPPED = 'stopped',
+  STARTING = 'starting',
+  RUNNING = 'running',
+  ERROR = 'error',
+}
+
 export interface BuildLogEntry {
   step: string;
   success: boolean;
@@ -127,7 +135,7 @@ export interface DevServerStartResponse {
 }
 
 export interface DevServerStatusResponse {
-  status: 'stopped' | 'starting' | 'running' | 'error';
+  status: DevServerStatus;
   tunnelUrl?: string;
   port?: number;
   uptime?: number;

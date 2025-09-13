@@ -20,6 +20,7 @@ import {
   DeployResponse,
   DevServerRestartResponse,
   DevServerStartResponse,
+  DevServerStatus,
   DevServerStatusResponse,
   DevServerStopResponse,
   OperationStatus,
@@ -40,8 +41,7 @@ class DevServerState {
   public projectDir: string | null = null;
   public tunnelUrl: string | null = null;
   public port: number | null = null;
-  public devServerStatus: "stopped" | "starting" | "running" | "error" =
-    "stopped";
+  public devServerStatus: DevServerStatus = DevServerStatus.STOPPED;
   public startTime: Date | null = null;
   public logs: string[] = [];
   public error: string | null = null;
@@ -73,7 +73,7 @@ class DevServerState {
     this.projectDir = null;
     this.tunnelUrl = null;
     this.port = null;
-    this.devServerStatus = "stopped";
+    this.devServerStatus = DevServerStatus.STOPPED;
     this.startTime = null;
     this.logs = [];
     this.error = null;
@@ -158,7 +158,7 @@ export class ExpoDevServerService {
       });
       return reply.code(400).send({
         success: false,
-        status: "error",
+        status: DevServerStatus.ERROR,
         error: "prototype_id, framework, files, and file_scope are required",
         build_errors: [
           {
@@ -173,8 +173,8 @@ export class ExpoDevServerService {
 
     // Check if dev server is already running
     if (
-      this.state.devServerStatus === "running" ||
-      this.state.devServerStatus === "starting"
+      this.state.devServerStatus === DevServerStatus.RUNNING ||
+      this.state.devServerStatus === DevServerStatus.STARTING
     ) {
       if (this.state.prototypeId === prototype_id) {
         return {
@@ -196,7 +196,7 @@ export class ExpoDevServerService {
         );
         return reply.code(409).send({
           success: false,
-          status: "error",
+          status: DevServerStatus.ERROR,
           error: `Dev server already running for different prototype: ${this.state.prototypeId}`,
           build_errors: [
             {
@@ -261,7 +261,7 @@ export class ExpoDevServerService {
 
       this.state.prototypeId = prototype_id;
       this.state.port = this.defaultPort;
-      this.state.devServerStatus = "starting";
+      this.state.devServerStatus = DevServerStatus.STARTING;
       this.state.startTime = new Date();
       this.state.projectDir = projectDir;
       this.state.addLog(`Starting dev server for prototype ${prototype_id}`);
@@ -278,7 +278,7 @@ export class ExpoDevServerService {
           error.message,
           error.stack,
         );
-        this.state.devServerStatus = "error";
+        this.state.devServerStatus = DevServerStatus.ERROR;
         this.state.error = error.message;
         this.state.addLog(`Failed to start Expo process: ${error.message}`);
         buildErrors.push({
@@ -295,7 +295,10 @@ export class ExpoDevServerService {
         success: buildErrors.length === 0,
         tunnelUrl: this.state.tunnelUrl || undefined,
         port: this.state.port,
-        status: buildErrors.length > 0 ? "error" : this.state.devServerStatus,
+        status:
+          buildErrors.length > 0
+            ? DevServerStatus.ERROR
+            : this.state.devServerStatus,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
       };
@@ -306,14 +309,14 @@ export class ExpoDevServerService {
         error.message,
         error.stack,
       );
-      this.state.devServerStatus = "error";
+      this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = error.message;
       this.state.addLog(`Internal server error: ${error.message}`);
       this.state.clearOperation();
 
       return reply.code(500).send({
         success: false,
-        status: "error",
+        status: DevServerStatus.ERROR,
         error: error.message,
         build_errors: [
           {
@@ -383,7 +386,7 @@ export class ExpoDevServerService {
     _request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<DevServerStopResponse> {
-    if (this.state.devServerStatus === "stopped") {
+    if (this.state.devServerStatus === DevServerStatus.STOPPED) {
       return {
         success: true,
         message: "Dev server was already stopped",
@@ -436,7 +439,7 @@ export class ExpoDevServerService {
     reply: FastifyReply,
   ): Promise<DevServerRestartResponse> {
     if (
-      this.state.devServerStatus === "stopped" ||
+      this.state.devServerStatus === DevServerStatus.STOPPED ||
       !this.state.prototypeId ||
       !this.state.projectDir
     ) {
@@ -475,7 +478,7 @@ export class ExpoDevServerService {
         error.message,
         error.stack,
       );
-      this.state.devServerStatus = "error";
+      this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = error.message;
       this.state.addLog(`Failed to restart dev server: ${error.message}`);
 
@@ -577,7 +580,7 @@ export class ExpoDevServerService {
 
           if (tunnelCandidates.length > 0) {
             this.state.tunnelUrl = tunnelCandidates[0];
-            this.state.devServerStatus = "running";
+            this.state.devServerStatus = DevServerStatus.RUNNING;
             this.state.addLog(`Tunnel URL found: ${this.state.tunnelUrl}`);
             clearTimeout(timeout);
             resolved = true;
@@ -612,7 +615,7 @@ export class ExpoDevServerService {
             this.state.tunnelUrl = `https://${tunnelSubdomain}.ngrok.io`;
           }
 
-          this.state.devServerStatus = "running";
+          this.state.devServerStatus = DevServerStatus.RUNNING;
           this.state.addLog(
             `Tunnel ready detected, URL: ${this.state.tunnelUrl}`,
           );
@@ -636,7 +639,7 @@ export class ExpoDevServerService {
             customlog("error", "Expo process exited before tunnel URL found:", {
               code,
             });
-            this.state.devServerStatus = "error";
+            this.state.devServerStatus = DevServerStatus.ERROR;
             clearTimeout(timeout);
             resolved = true;
             reject(new Error(`Expo dev server exited with code ${code}`));
@@ -644,7 +647,7 @@ export class ExpoDevServerService {
             customlog("warn", "Expo process exited with non-zero code:", {
               code,
             });
-            this.state.devServerStatus = "error";
+            this.state.devServerStatus = DevServerStatus.ERROR;
           }
         });
 
@@ -652,7 +655,7 @@ export class ExpoDevServerService {
           customlog("error", "Expo process error:", error.message, error.stack);
           this.state.addLog(`Expo process error: ${error.message}`);
           if (!resolved) {
-            this.state.devServerStatus = "error";
+            this.state.devServerStatus = DevServerStatus.ERROR;
             clearTimeout(timeout);
             resolved = true;
             reject(error);
@@ -1074,7 +1077,7 @@ export class ExpoDevServerService {
   }> {
     // Validate that we have an active dev server
     if (
-      this.state.devServerStatus === "stopped" ||
+      this.state.devServerStatus === DevServerStatus.STOPPED ||
       !this.state.prototypeId ||
       !this.state.projectDir
     ) {
