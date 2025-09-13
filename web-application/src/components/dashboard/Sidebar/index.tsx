@@ -9,6 +9,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarSeparator,
+    SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
@@ -24,9 +25,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAtom } from "jotai";
+import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 
 const DashboardSidebar = () => {
     const pathname = usePathname();
+    const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
 
     const menuItems = [
         {
@@ -56,7 +60,7 @@ const DashboardSidebar = () => {
     return (
         <Sidebar>
             <SidebarHeader>
-                <div className="flex items-center gap-3 px-2 py-2">
+                <div className="flex items-center justify-between gap-3 px-2 py-2">
                     <Link href="/" className="group">
                         <div className="relative flex items-center gap-3 px-3 py-2">
                             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -66,6 +70,10 @@ const DashboardSidebar = () => {
                             </span>
                         </div>
                     </Link>
+                    <SidebarTrigger 
+                        className="-mr-1" 
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                    />
                 </div>
             </SidebarHeader>
             <SidebarContent>

@@ -55,6 +55,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "gray-matter": "^4.0.3",
+    "jotai": "^2.14.0",
     "jquery": "^3.7.1",
     "jsonwebtoken": "^9.0.2",
     "jsvectormap": "^1.6.0",
