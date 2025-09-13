@@ -2,6 +2,9 @@ import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
 import { CONFIG } from '../config.js';
+import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
+import { baseLogger } from '../server.js';
+import { PublicDevServerStopResponse } from '../types/BuildWorkerTypes.js';
 import {
   type ActiveBuild,
   type CleanupOperationResult,
@@ -11,21 +14,6 @@ import {
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../types/InternalTypes.js';
-import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
-import { baseLogger } from '../server.js';
-
-interface DevServerStopResponse {
-  status: "success" | "error";
-  build_url?: string;
-  build_errors: Array<{
-    message: string;
-    type: string;
-  }>;
-  build_warnings: Array<{
-    message: string;
-    type: string;
-  }>;
-}
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -141,12 +129,16 @@ export class CleanupService {
 
       // a. dispatch a request to the fargate instance to kill the build
       let shouldTerminateTask = true;
-      let killResult: { success: boolean; buildInProgress?: boolean; error?: string } = { 
-        success: true, 
-        buildInProgress: false, 
-        error: undefined 
+      let killResult: {
+        success: boolean;
+        buildInProgress?: boolean;
+        error?: string;
+      } = {
+        success: true,
+        buildInProgress: false,
+        error: undefined,
       };
-      
+
       if (build.fargate_private_ip) {
         killResult = await this.dispatchKillDevServerRequest(
           prototypeId,
@@ -170,7 +162,7 @@ export class CleanupService {
               prototypeId,
             },
           );
-          
+
           // Categorize the error type for better tracking
           const errorType = this.categorizeCleanupError(killResult.error || '');
           switch (errorType) {
@@ -200,7 +192,7 @@ export class CleanupService {
             operationDetails: killResult.error || 'Build operation detected',
           },
         );
-        
+
         // Reset the status back to building since we're not cleaning up yet
         const activeBuild: ActiveBuild = {
           ...build,
@@ -213,14 +205,16 @@ export class CleanupService {
             'Updated build status back to building and refreshed last_touched timestamp',
             {
               buildId,
-              newLastTouched: currentTime,
-              newLastTouchedReadable: this.formatTimestampEST(currentTime * 1000),
             },
           );
         } catch (error) {
-          this.log2.error(error, 'Failed to update build status back to building', {
-            buildId,
-          });
+          this.log2.error(
+            error,
+            'Failed to update build status back to building',
+            {
+              buildId,
+            },
+          );
         }
         continue; // Skip termination and cache cleanup
       }
@@ -305,9 +299,7 @@ export class CleanupService {
   }
 
   // Check build worker status before cleanup
-  private async checkBuildWorkerStatus(
-    fargatePrivateIp: string,
-  ): Promise<{
+  private async checkBuildWorkerStatus(fargatePrivateIp: string): Promise<{
     canStop: boolean;
     reason?: string;
     operation?: string;
@@ -353,7 +345,7 @@ export class CleanupService {
     try {
       // First, check if the build worker can be safely stopped
       const statusCheck = await this.checkBuildWorkerStatus(fargatePrivateIp);
-      
+
       if (!statusCheck.canStop) {
         this.log2.info(
           'Build worker cannot be stopped due to ongoing operation',
@@ -372,11 +364,14 @@ export class CleanupService {
         };
       }
 
-      this.log2.info('Build worker can be safely stopped, proceeding with kill request', {
-        fargatePrivateIp,
-        prototypeId,
-        operation: statusCheck.operation,
-      });
+      this.log2.info(
+        'Build worker can be safely stopped, proceeding with kill request',
+        {
+          fargatePrivateIp,
+          prototypeId,
+          operation: statusCheck.operation,
+        },
+      );
 
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
@@ -391,18 +386,15 @@ export class CleanupService {
       );
 
       // Parse the actual response body to understand what happened
-      const responseData: DevServerStopResponse = response.data;
-      
-      this.log2.info(
-        'Dev server stop response received',
-        {
-          prototypeId,
-          fargatePrivateIp,
-          responseStatus: responseData.status,
-          buildErrorsCount: responseData.build_errors?.length || 0,
-          buildWarningsCount: responseData.build_warnings?.length || 0,
-        },
-      );
+      const responseData: PublicDevServerStopResponse = response.data;
+
+      this.log2.info('Dev server stop response received', {
+        prototypeId,
+        fargatePrivateIp,
+        responseStatus: responseData.status,
+        buildErrorsCount: responseData.build_errors?.length || 0,
+        buildWarningsCount: responseData.build_warnings?.length || 0,
+      });
 
       if (responseData.status === 'success') {
         this.log2.info(
@@ -429,10 +421,11 @@ export class CleanupService {
           'building_and_deploying operation',
         ];
 
-        const hasOperationInProgress = responseData.build_errors?.some(error =>
-          operationInProgressMessages.some(msg =>
-            error.message.toLowerCase().includes(msg.toLowerCase())
-          )
+        const hasOperationInProgress = responseData.build_errors?.some(
+          (error: any) =>
+            operationInProgressMessages.some((msg) =>
+              error.message.toLowerCase().includes(msg.toLowerCase()),
+            ),
         );
 
         if (hasOperationInProgress) {
@@ -441,14 +434,18 @@ export class CleanupService {
             {
               prototypeId,
               fargatePrivateIp,
-              errorMessages: responseData.build_errors?.map(e => e.message),
+              errorMessages: responseData.build_errors?.map(
+                (e: any) => e.message,
+              ),
             },
           );
 
           return {
             success: false,
             buildInProgress: true,
-            error: responseData.build_errors?.[0]?.message || 'Operation in progress',
+            error:
+              responseData.build_errors?.[0]?.message ||
+              'Operation in progress',
           };
         } else {
           // Other error - worker might be in bad state, safe to force cleanup
@@ -457,7 +454,7 @@ export class CleanupService {
             {
               prototypeId,
               fargatePrivateIp,
-              errorMessages: responseData.build_errors?.map(e => e.message),
+              errorMessages: responseData.build_errors?.map((e) => e.message),
             },
           );
 
@@ -481,10 +478,10 @@ export class CleanupService {
 
       // Check if worker is completely unresponsive (connection refused, etc.)
       const isConnectionError =
-        (error instanceof AxiosError && 
-         (error.code === 'ECONNREFUSED' || 
-          error.code === 'ENOTFOUND' || 
-          error.code === 'EHOSTUNREACH'));
+        error instanceof AxiosError &&
+        (error.code === 'ECONNREFUSED' ||
+          error.code === 'ENOTFOUND' ||
+          error.code === 'EHOSTUNREACH');
 
       if (isConnectionError) {
         this.log2.warn(
@@ -582,27 +579,36 @@ export class CleanupService {
   }
 
   // Helper method to categorize cleanup errors
-  private categorizeCleanupError(error: string): 'operation_in_progress' | 'worker_dead' | 'worker_error' | 'network_issue' {
+  private categorizeCleanupError(
+    error: string,
+  ):
+    | 'operation_in_progress'
+    | 'worker_dead'
+    | 'worker_error'
+    | 'network_issue' {
     const lowerError = error.toLowerCase();
-    
-    if (lowerError.includes('cannot stop during') || 
-        lowerError.includes('operation') || 
-        lowerError.includes('building') || 
-        lowerError.includes('deploying')) {
+
+    if (
+      lowerError.includes('cannot stop during') ||
+      lowerError.includes('operation') ||
+      lowerError.includes('building') ||
+      lowerError.includes('deploying')
+    ) {
       return 'operation_in_progress';
     }
-    
-    if (lowerError.includes('connection refused') || 
-        lowerError.includes('econnrefused') || 
-        lowerError.includes('host unreachable')) {
+
+    if (
+      lowerError.includes('connection refused') ||
+      lowerError.includes('econnrefused') ||
+      lowerError.includes('host unreachable')
+    ) {
       return 'worker_dead';
     }
-    
-    if (lowerError.includes('timeout') || 
-        lowerError.includes('econnaborted')) {
+
+    if (lowerError.includes('timeout') || lowerError.includes('econnaborted')) {
       return 'network_issue';
     }
-    
+
     return 'worker_error';
   }
 
