@@ -751,9 +751,19 @@ export class ExpoDevServerService {
   // Graceful shutdown method
   public async shutdown(): Promise<void> {
     this.state.addLog("Shutting down dev server service...");
+    
+    // Set operation to stopping to indicate shutdown in progress
+    if (this.state.currentOperation === "idle") {
+      this.state.setOperation("stopping");
+    }
+    
     await this.killExpoProcess();
     await this.cleanup();
+    
+    // Reset state which sets status to "stopped" and operation to "idle"
     this.state.reset();
+    
+    this.state.addLog("Dev server service shutdown completed");
   }
 
   // Builder Service Methods
@@ -1030,6 +1040,12 @@ export class ExpoDevServerService {
 
       // Clear operation state on success
       this.state.clearOperation();
+      
+      logger.log(
+        "Build and deploy completed successfully, ready for shutdown",
+        true,
+        `Build URL: ${buildUrl}, Files uploaded: ${uploadedFiles.length}`,
+      );
 
       return {
         success: true,
@@ -1041,6 +1057,14 @@ export class ExpoDevServerService {
       logger.log("Build and deploy failed", false, "", error.message);
       // Clear operation state on error
       this.state.clearOperation();
+      
+      logger.log(
+        "Build and deploy failed, ready for shutdown",
+        false,
+        "",
+        error.message,
+      );
+      
       return {
         success: false,
         error: error.message,
@@ -1050,7 +1074,7 @@ export class ExpoDevServerService {
       // Don't cleanup the build directory since it contains the original project files
       // that might be needed for future operations
       logger.log(
-        "Build and deploy completed, keeping project directory for future use",
+        "Build and deploy process completed, keeping project directory for future use",
       );
     }
   }

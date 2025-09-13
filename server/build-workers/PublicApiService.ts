@@ -137,12 +137,22 @@ export class PublicApiService {
         this.expoDevServerService.getCurrentOperationStatus();
       const stopCheck = this.expoDevServerService.canStopOperation();
 
-      return {
+      const response = {
         ...status,
         operationStatus,
         canStop: stopCheck.canStop,
         stopReason: stopCheck.reason,
+        currentOperation: operationStatus.operation,
       };
+
+      customlog("debug", "Dev server status check:", {
+        status: response.status,
+        currentOperation: response.currentOperation,
+        canStop: response.canStop,
+        stopReason: response.stopReason,
+      });
+
+      return response;
     } catch (error: any) {
       customlog("error", "Failed to get dev server status:", error.message);
       return reply.code(500).send({
@@ -209,96 +219,24 @@ export class PublicApiService {
     }
 
     try {
-      const buildErrors: CodeError[] = [];
-      const buildWarnings: CodeWarning[] = [];
-
-      const projectDir = path.join(this.workDir, "project");
-      let buildUrl: string | undefined;
-
-      try {
-        // Read all files from the project directory
-        const { files, assets } =
-          await this.readAllFilesFromDirectory(projectDir);
-
-        if (files.length === 0) {
-          customlog(
-            "error",
-            "No files found in project directory:",
-            projectDir,
-          );
-          buildErrors.push({
-            message: "No files found in project directory",
-            type: "build",
-          });
-        } else {
-          // Use ExpoDevServerService to build and deploy
-          const buildResponse =
-            await this.expoDevServerService.buildAndDeployProjectCore(
-              prototype_id,
-            );
-
-          if (buildResponse.success && buildResponse.buildUrl) {
-            buildUrl = buildResponse.buildUrl;
-
-            // Parse build log for errors and warnings
-            if (buildResponse.buildLog) {
-              this.parseBuildLogForErrors(
-                buildResponse.buildLog,
-                buildErrors,
-                buildWarnings,
-              );
-            }
-          } else if (buildResponse.error) {
-            customlog(
-              "error",
-              "Build failed:",
-              buildResponse.error,
-              buildResponse.buildLog,
-            );
-            buildErrors.push({
-              message: `Build failed: ${buildResponse.error}`,
-              type: "build",
-            });
-
-            // Parse build log for additional context
-            if (buildResponse.buildLog) {
-              this.parseBuildLogForErrors(
-                buildResponse.buildLog,
-                buildErrors,
-                buildWarnings,
-              );
-            }
-          }
-        }
-      } catch (error: any) {
-        customlog("error", "Build process failed:", error.message, error.stack);
-        buildErrors.push({
-          message: `Build process failed: ${error.message}`,
-          type: "build",
-        });
-      }
-
-      // Stop the dev server using ExpoDevServerService
-      try {
-        await this.expoDevServerService.shutdown();
-      } catch (error: any) {
-        customlog(
-          "warn",
-          "Failed to stop dev server:",
-          error.message,
-          error.stack,
-        );
-        buildWarnings.push({
-          message: `Failed to stop dev server: ${error.message}`,
-          type: "build",
-        });
-      }
-
+      // Start the background build and deploy process
+      customlog(
+        "info", 
+        "Starting background build and deploy for prototype:",
+        prototype_id
+      );
+      
+      // Start build/deploy asynchronously - don't await
+      this.startBackgroundBuildAndDeploy(prototype_id);
+      
+      // Return immediate success response
       return {
-        status: buildErrors.length > 0 ? "error" : "success",
-        build_url: buildUrl,
-        build_errors: buildErrors,
-        build_warnings: buildWarnings,
+        status: "success",
+        build_errors: [],
+        build_warnings: [{
+          message: "Build and deploy started in background. Server will stop when complete.",
+          type: "build",
+        }],
       };
     } catch (error: any) {
       customlog(
@@ -473,6 +411,80 @@ export class PublicApiService {
         ],
         build_warnings: [],
       };
+    }
+  }
+
+  // Start background build and deploy process
+  private async startBackgroundBuildAndDeploy(prototype_id: string): Promise<void> {
+    try {
+      const buildErrors: CodeError[] = [];
+      const buildWarnings: CodeWarning[] = [];
+      const projectDir = path.join(this.workDir, "project");
+      let buildUrl: string | undefined;
+
+      customlog("info", "Background build and deploy started for prototype:", prototype_id);
+
+      try {
+        // Read all files from the project directory
+        const { files } = await this.readAllFilesFromDirectory(projectDir);
+
+        if (files.length === 0) {
+          customlog("error", "No files found in project directory:", projectDir);
+          buildErrors.push({
+            message: "No files found in project directory",
+            type: "build",
+          });
+        } else {
+          // Use ExpoDevServerService to build and deploy
+          const buildResponse = await this.expoDevServerService.buildAndDeployProjectCore(prototype_id);
+
+          if (buildResponse.success && buildResponse.buildUrl) {
+            buildUrl = buildResponse.buildUrl;
+            customlog("info", "Background build and deploy completed successfully:", buildUrl);
+
+            // Parse build log for errors and warnings
+            if (buildResponse.buildLog) {
+              this.parseBuildLogForErrors(buildResponse.buildLog, buildErrors, buildWarnings);
+            }
+          } else if (buildResponse.error) {
+            customlog("error", "Background build failed:", buildResponse.error, buildResponse.buildLog);
+            buildErrors.push({
+              message: `Build failed: ${buildResponse.error}`,
+              type: "build",
+            });
+
+            // Parse build log for additional context
+            if (buildResponse.buildLog) {
+              this.parseBuildLogForErrors(buildResponse.buildLog, buildErrors, buildWarnings);
+            }
+          }
+        }
+      } catch (error: any) {
+        customlog("error", "Background build process failed:", error.message, error.stack);
+        buildErrors.push({
+          message: `Build process failed: ${error.message}`,
+          type: "build",
+        });
+      }
+
+      // Always stop the dev server after build completes (success or failure)
+      try {
+        customlog("info", "Shutting down dev server after background build completion");
+        await this.expoDevServerService.shutdown();
+        customlog("info", "Dev server shutdown completed for prototype:", prototype_id);
+      } catch (error: any) {
+        customlog("error", "Failed to stop dev server after background build:", error.message, error.stack);
+      }
+
+    } catch (error: any) {
+      customlog("error", "Critical error in background build and deploy:", error.message, error.stack);
+      
+      // Ensure dev server is stopped even on critical failures
+      try {
+        await this.expoDevServerService.shutdown();
+      } catch (shutdownError: any) {
+        customlog("error", "Failed to shutdown dev server after critical error:", shutdownError.message);
+      }
     }
   }
 
