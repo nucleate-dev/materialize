@@ -261,7 +261,7 @@ export default function PrototypeChatWindow({
               setPrototypeChatMessages((prev) => [
                 ...prev,
                 {
-                  id: planningMessageId,
+                  id: planningMessageId!,
                   chat_session_id: prototypeChatSession?.id || "",
                   role: "assistant",
                   phase: "planning",
