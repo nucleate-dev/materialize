@@ -1,17 +1,17 @@
 "use client";
 
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { sidebarOpenAtom, sidebarStateAtom } from "@/lib/atoms/sidebar";
+import { useAtom, useAtomValue } from "jotai";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import MobileHeader from "../../components/dashboard/MobileHeader";
 import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
-import { useAtom, useAtomValue } from "jotai";
-import { sidebarOpenAtom, sidebarStateAtom } from "@/lib/atoms/sidebar";
 // import WithPaywall from "./Paywall";
 
 function DashboardContent({ children }: { children: React.ReactNode; }) {
-  const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
+  const [, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const sidebarState = useAtomValue(sidebarStateAtom);
   const pathname = usePathname();
 
@@ -52,10 +52,10 @@ function DashboardContent({ children }: { children: React.ReactNode; }) {
 
 function DashboardLayout({ children }: { children: React.ReactNode; }) {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
-  
+
   return (
-    <SidebarProvider 
-      open={sidebarOpen} 
+    <SidebarProvider
+      open={sidebarOpen}
       onOpenChange={setSidebarOpen}
     >
       <DashboardContent>{children}</DashboardContent>
