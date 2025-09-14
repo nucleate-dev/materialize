@@ -1,4 +1,4 @@
-import { EC2Client, RunInstancesCommand } from '@aws-sdk/client-ec2';
+import { EC2Client, RunInstancesCommand, DescribeInstancesCommand } from '@aws-sdk/client-ec2';
 import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
@@ -63,6 +63,9 @@ export class InternalDevServerManagementService {
                 success: { type: 'boolean' },
                 instanceId: { type: 'string' },
                 state: { type: 'string' },
+                publicDns: { type: 'string' },
+                publicIpv4: { type: 'string' },
+                sshCommand: { type: 'string' },
                 message: { type: 'string' },
                 timestamp: { type: 'string' },
               },
@@ -207,6 +210,9 @@ export class InternalDevServerManagementService {
         success: true,
         instanceId: result.instanceId,
         state: result.state,
+        publicDns: result.publicDns,
+        publicIpv4: result.publicIpv4,
+        sshCommand: result.sshCommand,
         message: `Dev server '${serverName}' acquired successfully`,
         timestamp: new Date().toISOString(),
       });
@@ -276,6 +282,9 @@ export class InternalDevServerManagementService {
   private async allocateDevServer(serverName: string): Promise<{
     instanceId: string | undefined;
     state: string | undefined;
+    publicDns: string | undefined;
+    publicIpv4: string | undefined;
+    sshCommand: string;
   }> {
     const userDataScript = `#!/bin/bash
 # Schedule termination in 3 hours
@@ -314,10 +323,59 @@ yum update -y
     const runResp = await this.ec2Client.send(cmd);
     const instance = runResp.Instances?.[0];
 
-    return {
-      instanceId: instance?.InstanceId,
-      state: instance?.State?.Name,
-    };
+    if (!instance?.InstanceId) {
+      return {
+        instanceId: undefined,
+        state: undefined,
+        publicDns: undefined,
+        publicIpv4: undefined,
+        sshCommand: 'Unable to generate SSH command - no instance ID',
+      };
+    }
+
+    // Wait a moment for AWS to populate instance metadata
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Fetch updated instance details to get public DNS and IP
+    try {
+      const describeCmd = new DescribeInstancesCommand({
+        InstanceIds: [instance.InstanceId],
+      });
+
+      const describeResp = await this.ec2Client.send(describeCmd);
+      const detailedInstance = describeResp.Reservations?.[0]?.Instances?.[0];
+
+      const publicDns = detailedInstance?.PublicDnsName;
+      const publicIpv4 = detailedInstance?.PublicIpAddress;
+      const state = detailedInstance?.State?.Name || instance?.State?.Name;
+
+      // Generate SSH command
+      const keyName = process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
+      const sshCommand = publicDns
+        ? `ssh -i "${keyName}.pem" ec2-user@${publicDns}`
+        : publicIpv4
+        ? `ssh -i "${keyName}.pem" ec2-user@${publicIpv4}`
+        : `ssh -i "${keyName}.pem" ec2-user@<pending-public-address>`;
+
+      return {
+        instanceId: instance.InstanceId,
+        state,
+        publicDns: publicDns || 'pending',
+        publicIpv4: publicIpv4 || 'pending',
+        sshCommand,
+      };
+    } catch {
+      // If describe fails, return what we have from the initial run
+      const keyName = process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
+
+      return {
+        instanceId: instance.InstanceId,
+        state: instance?.State?.Name,
+        publicDns: 'pending',
+        publicIpv4: 'pending',
+        sshCommand: `ssh -i "${keyName}.pem" ec2-user@<pending-public-address>`,
+      };
+    }
   }
 
   // Allocate a dev Fargate task

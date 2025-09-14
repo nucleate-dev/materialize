@@ -60,7 +60,21 @@ export default function DevServerPage() {
       }
 
       const result = await response.json()
-      setSuccess(`EC2 instance acquired successfully! Instance ID: ${result.instanceId}, State: ${result.state}`)
+
+      const successMessage = `EC2 instance acquired successfully!
+
+Instance Details:
+• Instance ID: ${result.instanceId}
+• State: ${result.state}
+• Public DNS: ${result.publicDns}
+• Public IPv4: ${result.publicIpv4}
+
+SSH Connection:
+${result.sshCommand}
+
+Note: It may take a few minutes for the instance to fully boot and become accessible.`
+
+      setSuccess(successMessage)
       setEc2ServerName("")
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to acquire EC2 instance')
