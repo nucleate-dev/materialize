@@ -4,7 +4,7 @@ import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
 
-export class InternalToolsService {
+export class InternalCacheManagementService {
   private cache: GlideClient;
   private fastifyApp: FastifyInstance;
 
@@ -213,11 +213,11 @@ export class InternalToolsService {
       const activeBuildKeys = allKeys.filter((key) =>
         key.startsWith('active_build:'),
       );
-      const prototypeBuildKeys = allKeys.filter((key) =>
-        key.includes(':builds') && key.startsWith('proto:'),
+      const prototypeBuildKeys = allKeys.filter(
+        (key) => key.includes(':builds') && key.startsWith('proto:'),
       );
-      const currentBuildKeys = allKeys.filter((key) =>
-        key.includes(':current') && key.startsWith('proto:'),
+      const currentBuildKeys = allKeys.filter(
+        (key) => key.includes(':current') && key.startsWith('proto:'),
       );
       const otherKeys = allKeys.filter(
         (key) =>

@@ -8,7 +8,7 @@ import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/ChatService.js';
-import { InternalToolsService } from './internal-services/InternalToolsService.js';
+import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
@@ -89,7 +89,7 @@ let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
-let internalToolsService: InternalToolsService;
+let internalToolsService: InternalCacheManagementService;
 let cache: GlideClient;
 
 // Health check
@@ -155,7 +155,7 @@ const start = async (): Promise<void> => {
     chatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
-    internalToolsService = new InternalToolsService(cache, fastify);
+    internalToolsService = new InternalCacheManagementService(cache, fastify);
     internalToolsService.registerRoutes(fastify);
 
     await fastify.listen({
