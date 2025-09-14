@@ -2,6 +2,9 @@ import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
 import { CONFIG } from '../config.js';
+import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
+import { baseLogger } from '../server.js';
+import { PublicDevServerStopResponse } from '../types/BuildWorkerTypes.js';
 import {
   type ActiveBuild,
   type CleanupOperationResult,
@@ -11,8 +14,6 @@ import {
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../types/InternalTypes.js';
-import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
-import { baseLogger } from '../server.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -46,6 +47,9 @@ export class CleanupService {
       idleBuildsFound: 0,
       successfulCleanups: 0,
       failedCleanups: 0,
+      operationsInProgress: 0,
+      workerErrors: 0,
+      networkIssues: 0,
     };
 
     if (!activeBuildKeys || activeBuildKeys.length === 0) {
@@ -125,17 +129,27 @@ export class CleanupService {
 
       // a. dispatch a request to the fargate instance to kill the build
       let shouldTerminateTask = true;
+      let killResult: {
+        success: boolean;
+        buildInProgress?: boolean;
+        error?: string;
+      } = {
+        success: true,
+        buildInProgress: false,
+        error: undefined,
+      };
+
       if (build.fargate_private_ip) {
-        const killResult = await this.dispatchKillDevServerRequest(
+        killResult = await this.dispatchKillDevServerRequest(
           prototypeId,
           build.fargate_private_ip,
         );
         if (killResult.buildInProgress) {
-          // TODO @priyam: check status from build worker here
           this.log2.info(
-            'Build appears to be in progress, skipping Fargate task termination',
+            'Build operation in progress, skipping Fargate task termination',
             {
               buildId,
+              error: killResult.error,
             },
           );
           shouldTerminateTask = false;
@@ -156,25 +170,46 @@ export class CleanupService {
       // b. Kill the fargate task using the task arn (only if safe to do so)
       if (!shouldTerminateTask) {
         this.log2.info(
-          `Skipping Fargate task termination due to build in progress - task will be cleaned up later`,
+          'Skipping Fargate task termination - operation in progress',
           {
             buildId,
             prototypeId,
+            operationDetails: killResult.error || 'Build operation detected',
           },
         );
-        // Reset the status back to stable since we're not cleaning up yet
+
+        // Reset the status back to building since we're not cleaning up yet
         const activeBuild: ActiveBuild = {
           ...build,
           status: 'building',
-          last_touched: currentTime, // Update last_touched to prevent immediate re-cleanup
         };
-        await this.cache.set(buildKey, JSON.stringify(activeBuild));
+        try {
+          await this.cache.set(buildKey, JSON.stringify(activeBuild));
+          this.log2.info(
+            'Updated build status back to building and refreshed last_touched timestamp',
+            {
+              buildId,
+            },
+          );
+        } catch (error) {
+          this.log2.error(
+            error,
+            'Failed to update build status back to building',
+            {
+              buildId,
+            },
+          );
+        }
         continue; // Skip termination and cache cleanup
       }
 
       this.log2.info('Proceeding with Fargate task termination', {
         buildId,
         prototypeId,
+        killServerResult: {
+          success: killResult.success,
+          error: killResult.error,
+        },
       });
       const terminateResult = await this.terminateFargateTask(
         build.fargate_task_arn,
@@ -253,11 +288,6 @@ export class CleanupService {
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
     try {
-      this.log2.info('Dispatching kill dev server request', {
-        fargatePrivateIp,
-        prototypeId,
-      });
-
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
         {
@@ -270,33 +300,94 @@ export class CleanupService {
         },
       );
 
-      this.log2.info(
-        'Successfully completed dev server shutdown for prototype',
-        {
-          prototypeId,
-          fargatePrivateIp,
-          responseData: response.data,
-        },
-      );
+      // Parse the actual response body to understand what happened
+      const responseData: PublicDevServerStopResponse = response.data;
 
-      return {
-        success: true,
-        buildInProgress: false, // TODO @priyam: check the status you will return from the build worker here. Should be "building" or "error" or "safe_to_clean"
-      };
+      this.log2.info('Dev server stop response received', {
+        prototypeId,
+        fargatePrivateIp,
+        responseStatus: responseData.status,
+        buildErrorsCount: responseData.build_errors?.length || 0,
+        buildWarningsCount: responseData.build_warnings?.length || 0,
+      });
+
+      if (responseData.status === 'success') {
+        this.log2.info(
+          'Successfully completed dev server shutdown for prototype',
+          {
+            prototypeId,
+            fargatePrivateIp,
+            buildUrl: responseData.build_url,
+          },
+        );
+
+        return {
+          success: true,
+          buildInProgress: false,
+        };
+      } else {
+        return {
+          success: false,
+          buildInProgress: true,
+          error: String(responseData.server_status) || 'Operation in progress',
+        };
+      }
     } catch (error: unknown) {
       this.log2.error(error, 'Failed to kill dev server for prototype', {
         prototypeId,
+        fargatePrivateIp,
       });
 
-      // Check if the error was due to timeout (build taking too long)
+      // Check if the error was due to timeout
       const isTimeout =
         (error instanceof AxiosError && error.code === 'ECONNABORTED') ||
         (error instanceof Error && error.message.includes('timeout'));
 
+      // Check if worker is completely unresponsive (connection refused, etc.)
+      const isConnectionError =
+        error instanceof AxiosError &&
+        (error.code === 'ECONNREFUSED' ||
+          error.code === 'ENOTFOUND' ||
+          error.code === 'EHOSTUNREACH');
+
+      if (isConnectionError) {
+        this.log2.warn(
+          'Worker appears to be completely unresponsive, allowing cleanup',
+          {
+            prototypeId,
+            fargatePrivateIp,
+            errorCode: error instanceof AxiosError ? error.code : 'unknown',
+          },
+        );
+
+        return {
+          success: true, // Allow cleanup of dead workers
+          buildInProgress: false,
+          error: error instanceof Error ? error.message : 'Connection error',
+        };
+      }
+
+      if (isTimeout) {
+        this.log2.warn(
+          'Dev server stop request timed out, assuming build in progress',
+          {
+            prototypeId,
+            fargatePrivateIp,
+          },
+        );
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Timeout error',
+          buildInProgress: true,
+        };
+      }
+
+      // Other HTTP errors - might be server error, allow cleanup
       return {
-        success: !isTimeout, // Consider timeout as partial success since build might be completing
+        success: true,
         error: error instanceof Error ? error.message : 'Unknown error',
-        buildInProgress: isTimeout,
+        buildInProgress: false,
       };
     }
   }

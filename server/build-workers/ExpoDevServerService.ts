@@ -18,43 +18,12 @@ import {
   CodeError,
   CodeWarning,
   DeployResponse,
+  DevServerStartResponse,
+  DevServerStatus,
+  DevServerStatusResponse,
+  OperationStatus,
   PublicDevServerStartRequest,
 } from "./types/BuildWorkerTypes.js";
-
-interface DevServerStartResponse {
-  success: boolean;
-  tunnelUrl?: string;
-  port?: number;
-  status: "starting" | "running" | "error";
-  error?: string;
-  build_errors?: CodeError[];
-  build_warnings?: CodeWarning[];
-}
-
-interface DevServerStatusResponse {
-  status: "stopped" | "starting" | "running" | "error";
-  tunnelUrl?: string;
-  port?: number;
-  uptime?: number;
-  logs?: string[];
-  prototypeId?: string;
-}
-
-interface DevServerStopResponse {
-  success: boolean;
-  message: string;
-}
-
-interface DevServerRestartResponse {
-  success: boolean;
-  tunnelUrl?: string;
-  message: string;
-}
-
-interface DevServerLogsResponse {
-  logs: string[];
-  timestamp: string;
-}
 
 // --- Dev Server State ---
 class DevServerState {
@@ -63,10 +32,13 @@ class DevServerState {
   public projectDir: string | null = null;
   public tunnelUrl: string | null = null;
   public port: number | null = null;
-  public status: "stopped" | "starting" | "running" | "error" = "stopped";
+  public devServerStatus: DevServerStatus = DevServerStatus.STOPPED;
   public startTime: Date | null = null;
   public logs: string[] = [];
   public error: string | null = null;
+  public currentOperation: OperationStatus = OperationStatus.IDLE;
+  public operationStartTime: Date | null = null;
+  public operationId: string | null = null;
 
   public addLog(message: string): void {
     const timestamp = new Date().toISOString();
@@ -92,10 +64,54 @@ class DevServerState {
     this.projectDir = null;
     this.tunnelUrl = null;
     this.port = null;
-    this.status = "stopped";
+    this.devServerStatus = DevServerStatus.STOPPED;
     this.startTime = null;
     this.logs = [];
     this.error = null;
+    this.currentOperation = OperationStatus.IDLE;
+    this.operationStartTime = null;
+    this.operationId = null;
+  }
+
+  public setOperation(operation: OperationStatus, operationId?: string): void {
+    this.currentOperation = operation;
+    this.operationStartTime = new Date();
+    this.operationId = operationId || null;
+    this.addLog(
+      `Operation started: ${operation}${operationId ? ` (ID: ${operationId})` : ""}`,
+    );
+  }
+
+  public clearOperation(): void {
+    const operation = this.currentOperation;
+    const operationId = this.operationId;
+    this.currentOperation = OperationStatus.IDLE;
+    this.operationStartTime = null;
+    this.operationId = null;
+    this.addLog(
+      `Operation completed: ${operation}${operationId ? ` (ID: ${operationId})` : ""}`,
+    );
+  }
+
+  public getOperationDuration(): number | null {
+    if (!this.operationStartTime) return null;
+    return Date.now() - this.operationStartTime.getTime();
+  }
+
+  public isOperationInProgress(): boolean {
+    return this.currentOperation !== OperationStatus.IDLE;
+  }
+
+  public getOperationStatus(): {
+    operation: string;
+    duration: number | null;
+    operationId: string | null;
+  } {
+    return {
+      operation: this.currentOperation,
+      duration: this.getOperationDuration(),
+      operationId: this.operationId,
+    };
   }
 }
 
@@ -117,6 +133,10 @@ export class ExpoDevServerService {
     this.s3 = s3Instance;
   }
 
+  public getState(): DevServerState {
+    return this.state;
+  }
+
   // Start Expo dev server
   public async startDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
@@ -133,7 +153,7 @@ export class ExpoDevServerService {
       });
       return reply.code(400).send({
         success: false,
-        status: "error",
+        status: DevServerStatus.ERROR,
         error: "prototype_id, framework, files, and file_scope are required",
         build_errors: [
           {
@@ -147,13 +167,16 @@ export class ExpoDevServerService {
     }
 
     // Check if dev server is already running
-    if (this.state.status === "running" || this.state.status === "starting") {
+    if (
+      this.state.devServerStatus === DevServerStatus.RUNNING ||
+      this.state.devServerStatus === DevServerStatus.STARTING
+    ) {
       if (this.state.prototypeId === prototype_id) {
         return {
           success: true,
           tunnelUrl: this.state.tunnelUrl || undefined,
           port: this.state.port || undefined,
-          status: this.state.status,
+          status: this.state.devServerStatus,
           build_errors: [],
           build_warnings: [],
         };
@@ -168,7 +191,7 @@ export class ExpoDevServerService {
         );
         return reply.code(409).send({
           success: false,
-          status: "error",
+          status: DevServerStatus.ERROR,
           error: `Dev server already running for different prototype: ${this.state.prototypeId}`,
           build_errors: [
             {
@@ -185,8 +208,8 @@ export class ExpoDevServerService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Handle file scope
-      const projectDir = path.join(this.workDir, prototype_id);
+      // Handle file scope (fixed path per instance)
+      const projectDir = path.join(this.workDir, "project");
 
       if (file_scope === "complete") {
         // Remove existing directory if it exists
@@ -233,7 +256,7 @@ export class ExpoDevServerService {
 
       this.state.prototypeId = prototype_id;
       this.state.port = this.defaultPort;
-      this.state.status = "starting";
+      this.state.devServerStatus = DevServerStatus.STARTING;
       this.state.startTime = new Date();
       this.state.projectDir = projectDir;
       this.state.addLog(`Starting dev server for prototype ${prototype_id}`);
@@ -250,7 +273,7 @@ export class ExpoDevServerService {
           error.message,
           error.stack,
         );
-        this.state.status = "error";
+        this.state.devServerStatus = DevServerStatus.ERROR;
         this.state.error = error.message;
         this.state.addLog(`Failed to start Expo process: ${error.message}`);
         buildErrors.push({
@@ -259,12 +282,18 @@ export class ExpoDevServerService {
         });
       }
 
+      // Clear operation state on success
+      this.state.clearOperation();
+
       // The tunnel URL should be set by now since startExpoProcess waits for it
       return {
         success: buildErrors.length === 0,
         tunnelUrl: this.state.tunnelUrl || undefined,
         port: this.state.port,
-        status: buildErrors.length > 0 ? "error" : this.state.status,
+        status:
+          buildErrors.length > 0
+            ? DevServerStatus.ERROR
+            : this.state.devServerStatus,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
       };
@@ -275,13 +304,14 @@ export class ExpoDevServerService {
         error.message,
         error.stack,
       );
-      this.state.status = "error";
+      this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = error.message;
       this.state.addLog(`Internal server error: ${error.message}`);
+      this.state.clearOperation();
 
       return reply.code(500).send({
         success: false,
-        status: "error",
+        status: DevServerStatus.ERROR,
         error: error.message,
         build_errors: [
           {
@@ -300,108 +330,25 @@ export class ExpoDevServerService {
     _reply: FastifyReply,
   ): Promise<DevServerStatusResponse> {
     return {
-      status: this.state.status,
+      status: this.state.devServerStatus,
       tunnelUrl: this.state.tunnelUrl || undefined,
       port: this.state.port || undefined,
       uptime: this.state.getUptime() || undefined,
       logs: this.state.logs.slice(-10), // Last 10 logs
       prototypeId: this.state.prototypeId || undefined,
+      currentOperation: this.state.currentOperation,
+      operationDuration: this.state.getOperationDuration() || undefined,
+      operationId: this.state.operationId || undefined,
     };
   }
 
-  // Stop dev server
-  private async stopDevServer(
-    _request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<DevServerStopResponse> {
-    if (this.state.status === "stopped") {
-      return {
-        success: true,
-        message: "Dev server was already stopped",
-      };
-    }
-
-    try {
-      await this.killExpoProcess();
-      await this.cleanup();
-
-      this.state.addLog("Dev server stopped successfully");
-      this.state.reset();
-
-      return {
-        success: true,
-        message: "Dev server stopped successfully",
-      };
-    } catch (error: any) {
-      customlog(
-        "error",
-        "Failed to stop dev server:",
-        error.message,
-        error.stack,
-      );
-      this.state.addLog(`Failed to stop dev server: ${error.message}`);
-
-      return reply.code(500).send({
-        success: false,
-        message: `Failed to stop dev server: ${error.message}`,
-      });
-    }
-  }
-
-  // Restart dev server
-  private async restartDevServer(
-    _request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<DevServerRestartResponse> {
-    if (
-      this.state.status === "stopped" ||
-      !this.state.prototypeId ||
-      !this.state.projectDir
-    ) {
-      customlog("error", "Cannot restart - no dev server running:", {
-        status: this.state.status,
-        hasPrototypeId: !!this.state.prototypeId,
-        hasProjectDir: !!this.state.projectDir,
-      });
-      return reply.code(409).send({
-        success: false,
-        message: "No dev server running to restart",
-      });
-    }
-
-    try {
-      const projectDir = this.state.projectDir;
-      const port = this.state.port || this.defaultPort;
-
-      this.state.addLog("Restarting dev server...");
-
-      // Kill current process
-      await this.killExpoProcess();
-
-      // Start new process
-      await this.startExpoProcess(projectDir, port);
-
-      return {
-        success: true,
-        tunnelUrl: this.state.tunnelUrl || undefined,
-        message: "Dev server restarted successfully",
-      };
-    } catch (error: any) {
-      customlog(
-        "error",
-        "Failed to restart dev server:",
-        error.message,
-        error.stack,
-      );
-      this.state.status = "error";
-      this.state.error = error.message;
-      this.state.addLog(`Failed to restart dev server: ${error.message}`);
-
-      return reply.code(500).send({
-        success: false,
-        message: `Failed to restart dev server: ${error.message}`,
-      });
-    }
+  // Get current operation status
+  public getCurrentOperationStatus(): {
+    operation: string;
+    duration: number | null;
+    operationId: string | null;
+  } {
+    return this.state.getOperationStatus();
   }
 
   private async startExpoProcess(
@@ -495,7 +442,7 @@ export class ExpoDevServerService {
 
           if (tunnelCandidates.length > 0) {
             this.state.tunnelUrl = tunnelCandidates[0];
-            this.state.status = "running";
+            this.state.devServerStatus = DevServerStatus.RUNNING;
             this.state.addLog(`Tunnel URL found: ${this.state.tunnelUrl}`);
             clearTimeout(timeout);
             resolved = true;
@@ -530,7 +477,7 @@ export class ExpoDevServerService {
             this.state.tunnelUrl = `https://${tunnelSubdomain}.ngrok.io`;
           }
 
-          this.state.status = "running";
+          this.state.devServerStatus = DevServerStatus.RUNNING;
           this.state.addLog(
             `Tunnel ready detected, URL: ${this.state.tunnelUrl}`,
           );
@@ -554,7 +501,7 @@ export class ExpoDevServerService {
             customlog("error", "Expo process exited before tunnel URL found:", {
               code,
             });
-            this.state.status = "error";
+            this.state.devServerStatus = DevServerStatus.ERROR;
             clearTimeout(timeout);
             resolved = true;
             reject(new Error(`Expo dev server exited with code ${code}`));
@@ -562,7 +509,7 @@ export class ExpoDevServerService {
             customlog("warn", "Expo process exited with non-zero code:", {
               code,
             });
-            this.state.status = "error";
+            this.state.devServerStatus = DevServerStatus.ERROR;
           }
         });
 
@@ -570,7 +517,7 @@ export class ExpoDevServerService {
           customlog("error", "Expo process error:", error.message, error.stack);
           this.state.addLog(`Expo process error: ${error.message}`);
           if (!resolved) {
-            this.state.status = "error";
+            this.state.devServerStatus = DevServerStatus.ERROR;
             clearTimeout(timeout);
             resolved = true;
             reject(error);
@@ -597,6 +544,39 @@ export class ExpoDevServerService {
     }
   }
 
+  private async restartDevServer(): Promise<void> {
+    if (!this.state.projectDir || !this.state.port) {
+      throw new Error(
+        "Cannot restart dev server: missing project directory or port",
+      );
+    }
+
+    this.state.addLog("Restarting dev server after dependency changes...");
+
+    // Kill the current process
+    await this.killExpoProcess();
+
+    // Reset state but keep project directory and port
+    const projectDir = this.state.projectDir;
+    const port = this.state.port;
+    const prototypeId = this.state.prototypeId;
+
+    // Restart the dev server
+    this.state.devServerStatus = DevServerStatus.STARTING;
+    this.state.startTime = new Date();
+    this.state.addLog(`Restarting dev server for prototype ${prototypeId}`);
+
+    try {
+      await this.startExpoProcess(projectDir, port);
+      this.state.addLog("Dev server restarted successfully");
+    } catch (error: any) {
+      this.state.devServerStatus = DevServerStatus.ERROR;
+      this.state.error = error.message;
+      this.state.addLog(`Failed to restart dev server: ${error.message}`);
+      throw error;
+    }
+  }
+
   private async cleanup(): Promise<void> {
     if (this.state.projectDir) {
       try {
@@ -619,9 +599,19 @@ export class ExpoDevServerService {
   // Graceful shutdown method
   public async shutdown(): Promise<void> {
     this.state.addLog("Shutting down dev server service...");
+
+    // Set operation to stopping to indicate shutdown in progress
+    if (this.state.currentOperation === OperationStatus.IDLE) {
+      this.state.setOperation(OperationStatus.STOPPING);
+    }
+
     await this.killExpoProcess();
     await this.cleanup();
+
+    // Reset state which sets status to "stopped" and operation to "idle"
     this.state.reset();
+
+    this.state.addLog("Dev server service shutdown completed");
   }
 
   // Builder Service Methods
@@ -807,7 +797,7 @@ export class ExpoDevServerService {
       const uploadedFiles = await this.uploadToVersionedAndLatest(
         buildPath,
         prototype_id,
-        version
+        version,
       );
 
       const buildUrl = `https://${prototype_id}.render.materializeui.com`;
@@ -833,11 +823,17 @@ export class ExpoDevServerService {
   }
 
   async buildAndDeployProjectCore(
-    prototype_id: string,
     jobId?: string,
   ): Promise<BuildAndDeployResponse> {
     const actualJobId = jobId || uuidv4();
     const logger = this.createLogger(actualJobId);
+
+    // Set operation state
+    this.state.setOperation(
+      OperationStatus.BUILDING_AND_DEPLOYING,
+      actualJobId,
+    );
+    const prototype_id = this.state.prototypeId;
 
     logger.log(
       "Starting build and deploy",
@@ -845,16 +841,8 @@ export class ExpoDevServerService {
       `Job ID: ${actualJobId}, Prototype: ${prototype_id}`,
     );
 
-    if (!prototype_id) {
-      return {
-        success: false,
-        error: "prototypeId is required",
-        buildLog: logger.getBuildLog(),
-      };
-    }
-
-    // Use the existing project directory instead of creating a new one
-    const buildDir = path.join(this.workDir, prototype_id);
+    // Use the fixed project directory created by the dev server
+    const buildDir = path.join(this.workDir, "project");
 
     try {
       // Check if project directory exists
@@ -893,6 +881,15 @@ export class ExpoDevServerService {
         `Uploaded ${uploadedFiles.length} files. URL: ${buildUrl}`,
       );
 
+      // Clear operation state on success
+      this.state.clearOperation();
+
+      logger.log(
+        "Build and deploy completed successfully, ready for shutdown",
+        true,
+        `Build URL: ${buildUrl}, Files uploaded: ${uploadedFiles.length}`,
+      );
+
       return {
         success: true,
         buildUrl,
@@ -901,17 +898,31 @@ export class ExpoDevServerService {
       };
     } catch (error: any) {
       logger.log("Build and deploy failed", false, "", error.message);
+      // Clear operation state on error
+      this.state.clearOperation();
+
+      logger.log(
+        "Build and deploy failed, ready for shutdown",
+        false,
+        "",
+        error.message,
+      );
+
       return {
         success: false,
         error: error.message,
         buildLog: logger.getBuildLog(),
       };
     } finally {
+      // Stop the dev server and set status to STOPPED regardless of build/deploy success
+      logger.log("Stopping dev server after build and deploy completion");
+      await this.killExpoProcess();
+      this.state.devServerStatus = DevServerStatus.STOPPED;
+      this.state.addLog("Dev server stopped after build and deploy completion");
+
       // Don't cleanup the build directory since it contains the original project files
       // that might be needed for future operations
-      logger.log(
-        "Build and deploy completed, keeping project directory for future use",
-      );
+      logger.log("Build and deploy process completed.");
     }
   }
 
@@ -957,7 +968,7 @@ export class ExpoDevServerService {
   }> {
     // Validate that we have an active dev server
     if (
-      this.state.status === "stopped" ||
+      this.state.devServerStatus === DevServerStatus.STOPPED ||
       !this.state.prototypeId ||
       !this.state.projectDir
     ) {
@@ -974,6 +985,12 @@ export class ExpoDevServerService {
         build_warnings: buildWarnings,
       };
     }
+
+    // Set operation state
+    this.state.setOperation(
+      OperationStatus.UPDATING_FILES,
+      this.state.prototypeId,
+    );
 
     // Use the state's project directory as the source of truth
     const actualProjectDir = this.state.projectDir;
@@ -1031,7 +1048,7 @@ export class ExpoDevServerService {
 
       // Monitor for Metro bundler errors after file updates
       this.state.addLog("Monitoring Metro output for compilation errors...");
-      await this.monitorMetroForErrors(buildErrors, buildWarnings, 3000);
+      await this.monitorMetroForErrors(buildErrors, buildWarnings, 8000);
 
       // Check if package.json was updated and reinstall if needed
       const packageJsonUpdated = files.some(
@@ -1039,7 +1056,7 @@ export class ExpoDevServerService {
       );
       if (packageJsonUpdated) {
         this.state.addLog(
-          "package.json was updated, reinstalling dependencies...",
+          "package.json was updated, reinstalling dependencies and restarting dev server...",
         );
         try {
           await this.installDependenciesWithErrorParsing(
@@ -1048,25 +1065,39 @@ export class ExpoDevServerService {
             buildWarnings,
           );
           this.state.addLog("Dependencies reinstalled successfully");
+
+          // Restart the dev server to pick up new dependencies
+          this.state.addLog(
+            "Restarting dev server to pick up new dependencies...",
+          );
+          await this.restartDevServer();
+          this.state.addLog(
+            "Dev server restarted successfully with new dependencies",
+          );
         } catch (error: any) {
           customlog(
             "error",
-            "Dependency update failed for package.json change:",
+            "Dependency update or dev server restart failed for package.json change:",
             error.message,
             error.stack,
           );
-          this.state.addLog(`Dependency update failed: ${error.message}`);
+          this.state.addLog(
+            `Dependency update or restart failed: ${error.message}`,
+          );
           buildErrors.push({
-            message: `Dependency update failed: ${error.message}`,
+            message: `Dependency update or restart failed: ${error.message}`,
             type: "dependency",
           });
-          // Don't return failure here - file updates succeeded even if deps failed
+          // Don't return failure here - file updates succeeded even if deps/restart failed
         }
       } else {
         this.state.addLog(
           "No package.json changes detected, skipping dependency reinstall",
         );
       }
+
+      // Clear operation state on success
+      this.state.clearOperation();
 
       return {
         success: true,
@@ -1087,6 +1118,8 @@ export class ExpoDevServerService {
         message: errorMsg,
         type: "build",
       });
+      // Clear operation state on error
+      this.state.clearOperation();
       return {
         success: false,
         tunnelUrl: this.state.tunnelUrl || undefined,
@@ -1141,6 +1174,12 @@ export class ExpoDevServerService {
           resolve();
         }
       };
+
+      // Add temporary listeners that will parse errors into our arrays
+      if (this.state.process) {
+        this.state.process.stdout?.on("data", errorMonitor);
+        this.state.process.stderr?.on("data", errorMonitor);
+      }
 
       // Clean up the monitors after timeout or early resolution
       const cleanup = () => {
@@ -1207,6 +1246,20 @@ export class ExpoDevServerService {
       ) {
         buildErrors.push({
           message: trimmedLine,
+          type: "syntax",
+        });
+      }
+
+      // Parse Metro compilation errors (format: "ERROR Error: /path/file.tsx: Unexpected token...")
+      else if (
+        trimmedLine.includes("ERROR Error:") ||
+        (trimmedLine.includes("ERROR ") &&
+          trimmedLine.includes("Unexpected token"))
+      ) {
+        buildErrors.push({
+          message: trimmedLine
+            .replace(/^.*ERROR\s+Error:\s*/, "")
+            .replace(/^.*ERROR\s+/, ""),
           type: "syntax",
         });
       }
@@ -1312,22 +1365,22 @@ export class ExpoDevServerService {
 
   private getCacheControlHeader(filename: string): string {
     const ext = path.extname(filename).toLowerCase();
-    
+
     switch (ext) {
-      case '.html':
-        return 'public, max-age=300, s-maxage=300'; // 5 minutes
-      case '.js':
-      case '.css':
-        return 'public, max-age=31536000, s-maxage=31536000'; // 1 year for versioned assets
-      case '.png':
-      case '.jpg':
-      case '.jpeg':
-      case '.gif':
-      case '.svg':
-      case '.ico':
-        return 'public, max-age=31536000, s-maxage=31536000'; // 1 year
+      case ".html":
+        return "public, max-age=300, s-maxage=300"; // 5 minutes
+      case ".js":
+      case ".css":
+        return "public, max-age=31536000, s-maxage=31536000"; // 1 year for versioned assets
+      case ".png":
+      case ".jpg":
+      case ".jpeg":
+      case ".gif":
+      case ".svg":
+      case ".ico":
+        return "public, max-age=31536000, s-maxage=31536000"; // 1 year
       default:
-        return 'public, max-age=3600, s-maxage=3600'; // 1 hour default
+        return "public, max-age=3600, s-maxage=3600"; // 1 hour default
     }
   }
 
@@ -1356,7 +1409,11 @@ export class ExpoDevServerService {
   ): Promise<Array<{ key: string; location: string }>> {
     const uploadResults: Array<{ key: string; location: string }> = [];
 
-    const uploadDirectory = async (dirPath: string, versionedPrefix: string, latestPrefix: string) => {
+    const uploadDirectory = async (
+      dirPath: string,
+      versionedPrefix: string,
+      latestPrefix: string,
+    ) => {
       const items = await fs.readdir(dirPath);
 
       for (const item of items) {
@@ -1365,9 +1422,9 @@ export class ExpoDevServerService {
 
         if (stats.isDirectory()) {
           await uploadDirectory(
-            fullPath, 
-            `${versionedPrefix}/${item}`, 
-            `${latestPrefix}/${item}`
+            fullPath,
+            `${versionedPrefix}/${item}`,
+            `${latestPrefix}/${item}`,
           );
         } else if (stats.isFile()) {
           const fileContent = await fs.readFile(fullPath);
@@ -1385,21 +1442,27 @@ export class ExpoDevServerService {
 
           // Upload to versioned location
           const versionedKey = `${versionedPrefix}/${item}`;
-          const versionedResult = await this.s3.upload({
-            ...uploadParams,
-            Bucket: this.S3_BUCKET,
-            Key: versionedKey,
-          }).promise();
+          const versionedResult = await this.s3
+            .upload({
+              ...uploadParams,
+              Bucket: this.S3_BUCKET,
+              Key: versionedKey,
+            })
+            .promise();
 
           // Upload to latest location
           const latestKey = `${latestPrefix}/${item}`;
-          await this.s3.upload({
-            ...uploadParams,
-            Bucket: this.S3_BUCKET,
-            Key: latestKey,
-            // Shorter cache for latest folder to pick up updates faster
-            CacheControl: item.endsWith('.html') ? 'public, max-age=300' : uploadParams.CacheControl,
-          }).promise();
+          await this.s3
+            .upload({
+              ...uploadParams,
+              Bucket: this.S3_BUCKET,
+              Key: latestKey,
+              // Shorter cache for latest folder to pick up updates faster
+              CacheControl: item.endsWith(".html")
+                ? "public, max-age=300"
+                : uploadParams.CacheControl,
+            })
+            .promise();
 
           uploadResults.push({
             key: versionedResult.Key,
@@ -1421,12 +1484,16 @@ export class ExpoDevServerService {
     s3KeyPrefix: string,
   ): Promise<Array<{ key: string; location: string }>> {
     // Extract prototype ID and version from s3KeyPrefix
-    const parts = s3KeyPrefix.split('/');
+    const parts = s3KeyPrefix.split("/");
     const prototypeId = parts[0];
     const version = this.generateVersion();
 
     // Use the dual upload method
-    return await this.uploadToVersionedAndLatest(localPath, prototypeId, version);
+    return await this.uploadToVersionedAndLatest(
+      localPath,
+      prototypeId,
+      version,
+    );
   }
 
   private async deleteS3Prefix(prefix: string): Promise<void> {
@@ -1435,15 +1502,17 @@ export class ExpoDevServerService {
         Bucket: this.S3_BUCKET,
         Prefix: prefix,
       };
-      
+
       const objects = await this.s3.listObjectsV2(listParams).promise();
       if (objects.Contents && objects.Contents.length > 0) {
-        console.log(`Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`);
-        
+        console.log(
+          `Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`,
+        );
+
         const deleteParams = {
           Bucket: this.S3_BUCKET,
           Delete: {
-            Objects: objects.Contents.map(obj => ({ Key: obj.Key! })),
+            Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
           },
         };
         await this.s3.deleteObjects(deleteParams).promise();
@@ -1452,7 +1521,10 @@ export class ExpoDevServerService {
         console.log(`No existing objects found with prefix: ${prefix}`);
       }
     } catch (error) {
-      console.error(`Failed to delete S3 objects with prefix ${prefix}:`, error);
+      console.error(
+        `Failed to delete S3 objects with prefix ${prefix}:`,
+        error,
+      );
       // Don't throw - continue with upload even if delete fails
     }
   }

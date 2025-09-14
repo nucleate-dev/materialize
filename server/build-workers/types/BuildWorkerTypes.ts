@@ -3,6 +3,25 @@ import {
   PrototypeFileInput,
 } from "./PublicAPITypes.js";
 
+// Operation Status Enum
+export enum OperationStatus {
+  IDLE = "idle",
+  STARTING_DEV_SERVER = "starting_dev_server",
+  UPDATING_FILES = "updating_files",
+  BUILDING = "building",
+  DEPLOYING = "deploying",
+  BUILDING_AND_DEPLOYING = "building_and_deploying",
+  STOPPING = "stopping",
+}
+
+// Dev Server Status Enum
+export enum DevServerStatus {
+  STOPPED = "stopped",
+  STARTING = "starting",
+  RUNNING = "running",
+  ERROR = "error",
+}
+
 export interface BuildLogEntry {
   step: string;
   success: boolean;
@@ -90,6 +109,8 @@ export interface PublicDevServerStopResponse {
   build_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+  server_operation_status: OperationStatus;
+  server_status: DevServerStatus;
 }
 
 export interface PublicBuildAndDeployRequest {
@@ -102,4 +123,38 @@ export interface PublicBuildAndDeployResponse {
   build_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+}
+
+// Dev Server Response Types
+export interface DevServerStartResponse {
+  success: boolean;
+  tunnelUrl?: string;
+  port?: number;
+  status: DevServerStatus;
+  error?: string;
+  build_errors?: CodeError[];
+  build_warnings?: CodeWarning[];
+}
+
+export interface DevServerStatusResponse {
+  status: DevServerStatus;
+  tunnelUrl?: string;
+  port?: number;
+  uptime?: number;
+  logs?: string[];
+  prototypeId?: string;
+  currentOperation?: OperationStatus;
+  operationDuration?: number;
+  operationId?: string;
+}
+
+export interface DevServerStopResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface DevServerRestartResponse {
+  success: boolean;
+  tunnelUrl?: string;
+  message: string;
 }
