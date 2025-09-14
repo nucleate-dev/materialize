@@ -19,6 +19,7 @@
     "@tamagui/config": "^1.132.23",
     "@tamagui/core": "^1.132.23",
     "@tamagui/font-inter": "^1.132.23",
+    "@tanstack/react-query": "^5.87.4",
     "expo": "~53.0.20",
     "expo-font": "~13.3.2",
     "expo-linear-gradient": "~14.1.5",
@@ -28,6 +29,7 @@
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.10",
     "expo-web-browser": "~14.2.0",
+    "jotai": "^2.14.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
@@ -36,7 +38,10 @@
     "react-native-screens": "~4.11.1",
     "react-native-web": "^0.20.0",
     "supabase": "^2.34.3",
-    "tamagui": "^1.132.23"
+    "tamagui": "^1.132.23",
+    "zustand": "^5.0.8",
+    "expo-sqlite": "~15.2.14",
+    "@react-native-async-storage/async-storage": "2.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
