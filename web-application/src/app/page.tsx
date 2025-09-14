@@ -9,11 +9,11 @@ import {
 
 export default function Home() {
   return (
-    <main className="relative bg-white dark:bg-black overflow-hidden">
+    <main className="relative bg-background overflow-hidden">
       {/* Premium Background */}
-      <div className="absolute inset-0 bg-gradient-radial from-gray-50/40 via-white to-white dark:from-gray-800/20 dark:via-black dark:to-black"></div>
+      <div className="absolute inset-0 bg-gradient-radial from-gray-100/20 via-background to-background dark:from-gray-600/8 dark:via-background dark:to-background"></div>
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMS41IiBmaWxsPSJncmF5IiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+Cg==')] opacity-30 dark:opacity-10"></div>
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/5 dark:to-black/20"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-foreground/5 dark:to-foreground/10"></div>
 
       <div className="relative z-10">
         <PremiumHeader />
@@ -37,25 +37,25 @@ function MinimalDepthElements() {
 
 function HeroSection() {
   return (
-    <section className="relative flex items-start justify-center pt-32 pb-16 bg-white dark:bg-black">
+    <section className="relative flex items-start justify-center pt-32 pb-16 bg-background">
       <div className="container mx-auto px-6 text-center relative z-20">
         {/* Floating Badge */}
         <div className="inline-flex items-center px-6 py-3 mt-8 mb-12 bg-gradient-to-r from-white/10 to-white/5 border border-white/20 rounded-full backdrop-blur-xl shadow-2xl hover:scale-105 transition-transform duration-300">
           <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-emerald-400 rounded-full mr-3 animate-pulse"></div>
-          <span className="text-sm text-black dark:text-white font-medium">
+          <span className="text-sm text-foreground font-medium">
             Prototype at the speed of thought
           </span>
         </div>
 
         {/* Main Heading with Gradient */}
         <h1 className="text-7xl md:text-8xl lg:text-9xl font-black mb-8 leading-tight">
-          <span className="bg-gradient-to-r from-black via-gray-800 to-black dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent">
             Materialize
           </span>
         </h1>
 
         {/* Animated Subtitle */}
-        <p className="text-xl md:text-2xl text-black dark:text-white max-w-4xl mx-auto mb-16 leading-relaxed">
+        <p className="text-xl md:text-2xl text-foreground max-w-4xl mx-auto mb-16 leading-relaxed">
           Prototype React Native screens at the speed of thought—on an infinite
           canvas that turns prompts into production-quality components.
         </p>
@@ -66,7 +66,7 @@ function HeroSection() {
             href="https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header"
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-black/20 dark:hover:shadow-white/20"
+            className="group relative px-10 py-4 bg-foreground text-background font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-foreground/20"
           >
             <span className="flex items-center gap-2">
               Join Waitlist
@@ -101,7 +101,7 @@ function HeroSection() {
 
 function FeaturesSection() {
   return (
-    <section className="py-16 bg-white dark:bg-black">
+    <section className="py-16 bg-background">
       <div className="container mx-auto px-6">
         <div className="max-w-7xl mx-auto">
           {/* Bento Grid */}
@@ -113,7 +113,7 @@ function FeaturesSection() {
                   <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                     <BoltIcon className="w-4 h-4 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold text-black dark:text-white">
+                  <h3 className="text-2xl font-bold text-foreground">
                     Generate React Native apps, screens, and components fast
                   </h3>
                 </div>
@@ -135,7 +135,7 @@ function FeaturesSection() {
                 <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
                   <Squares2X2Icon className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-black dark:text-white">
+                <h3 className="text-2xl font-bold text-foreground">
                   Create flows across multiple screens at once
                 </h3>
               </div>
@@ -156,7 +156,7 @@ function FeaturesSection() {
                 <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
                   <CheckBadgeIcon className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-black dark:text-white">
+                <h3 className="text-2xl font-bold text-foreground">
                   Export real React Native code
                 </h3>
               </div>
@@ -177,7 +177,7 @@ function FeaturesSection() {
                 <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
                   <ShareIcon className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-black dark:text-white">
+                <h3 className="text-2xl font-bold text-foreground">
                   Versioned riffs you can remix and ship
                 </h3>
               </div>

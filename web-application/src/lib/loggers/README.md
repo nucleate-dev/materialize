@@ -199,5 +199,5 @@ Use the standardized events from `LoggingEvents.ts`:
 import { LoggingEventSource } from "../../LoggingEvents";
 
 // Use predefined sources
-source: LoggingEventSource.API_PAYMENTS_CHECKOUT
+source: LoggingEventSource.API_PAYMENTS_CHECKOUT;
 ```

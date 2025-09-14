@@ -26,7 +26,6 @@ import {
   EllipsisVerticalIcon,
   PencilIcon,
   ShareIcon,
-  SparklesIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
@@ -193,14 +192,10 @@ export default function PublicPrototypeHeader({
   return (
     <>
       <div className="flex-shrink-0 bg-background border-b border-border">
-        <div className="px-4 sm:px-6 py-2 sm:py-3">
+        <div className="px-4 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             {/* Left side - Prototype info */}
-            <div className="flex items-center gap-3 group flex-1 min-w-0">
-              <div className="p-1.5 sm:p-2 bg-primary text-primary-foreground rounded-lg flex-shrink-0">
-                <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-
+            <div className="flex items-center gap-3 group flex-1 min-w-0 pl-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 sm:gap-3 mb-1">
                   {isEditing ? (

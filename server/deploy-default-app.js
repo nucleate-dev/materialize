@@ -21,14 +21,14 @@
  */
 
 import {
-  S3Client,
-  ListObjectsV2Command,
   DeleteObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
+  S3Client,
 } from '@aws-sdk/client-s3';
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +53,7 @@ const EXCLUDED_PATTERNS = [
   '.env.local',
   '.env.production',
   '.env.development',
+  '.claude',
   '*.log',
   'npm-debug.log*',
   'yarn-debug.log*',
@@ -108,7 +109,7 @@ function getContentType(fileName) {
  */
 function shouldExcludeFile(filePath, basePath) {
   const relativePath = path.relative(basePath, filePath);
-  
+
   return EXCLUDED_PATTERNS.some(pattern => {
     if (pattern.includes('*')) {
       // Handle wildcard patterns
@@ -126,18 +127,18 @@ function shouldExcludeFile(filePath, basePath) {
  */
 function getAllFiles(dirPath, basePath = dirPath, excludePatterns = true) {
   const files = [];
-  
+
   function traverse(currentPath) {
     const items = fs.readdirSync(currentPath);
-    
+
     for (const item of items) {
       const fullPath = path.join(currentPath, item);
       const stat = fs.statSync(fullPath);
-      
+
       if (excludePatterns && shouldExcludeFile(fullPath, basePath)) {
         continue;
       }
-      
+
       if (stat.isDirectory()) {
         traverse(fullPath);
       } else {
@@ -145,7 +146,7 @@ function getAllFiles(dirPath, basePath = dirPath, excludePatterns = true) {
       }
     }
   }
-  
+
   traverse(dirPath);
   return files;
 }
@@ -155,30 +156,30 @@ function getAllFiles(dirPath, basePath = dirPath, excludePatterns = true) {
  */
 async function clearS3Prefix(prefix) {
   console.log(`🧹 Clearing S3 prefix: ${prefix}`);
-  
+
   const listCommand = new ListObjectsV2Command({
     Bucket: BUCKET,
     Prefix: prefix,
   });
-  
+
   const listResult = await s3Client.send(listCommand);
-  
+
   if (!listResult.Contents || listResult.Contents.length === 0) {
     console.log(`   No objects found with prefix: ${prefix}`);
     return;
   }
-  
+
   console.log(`   Found ${listResult.Contents.length} objects to delete`);
-  
+
   const deletePromises = listResult.Contents.map(object => {
     if (!object.Key) return Promise.resolve();
-    
+
     return s3Client.send(new DeleteObjectCommand({
       Bucket: BUCKET,
       Key: object.Key,
     }));
   });
-  
+
   await Promise.all(deletePromises);
   console.log(`   ✅ Deleted ${listResult.Contents.length} objects`);
 }
@@ -188,25 +189,25 @@ async function clearS3Prefix(prefix) {
  */
 async function uploadFilesToS3(files, basePath, s3Prefix) {
   console.log(`📤 Uploading ${files.length} files to S3 prefix: ${s3Prefix}`);
-  
+
   let successCount = 0;
   let errorCount = 0;
-  
+
   const uploadPromises = files.map(async (filePath) => {
     try {
       const relativePath = path.relative(basePath, filePath);
       const s3Key = `${s3Prefix}${relativePath.replace(/\\/g, '/')}`;
-      
+
       const fileContent = fs.readFileSync(filePath);
       const contentType = getContentType(filePath);
-      
+
       await s3Client.send(new PutObjectCommand({
         Bucket: BUCKET,
         Key: s3Key,
         Body: fileContent,
         ContentType: contentType,
       }));
-      
+
       console.log(`   ✅ Uploaded: ${s3Key}`);
       successCount++;
     } catch (error) {
@@ -214,11 +215,11 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
       errorCount++;
     }
   });
-  
+
   await Promise.all(uploadPromises);
-  
+
   console.log(`📊 Upload summary: ${successCount} successful, ${errorCount} failed`);
-  
+
   if (errorCount > 0) {
     throw new Error(`${errorCount} files failed to upload`);
   }
@@ -230,7 +231,7 @@ async function uploadFilesToS3(files, basePath, s3Prefix) {
 function buildApp() {
   console.log('🏗️  Building React Native web app...');
   console.log(`   Working directory: ${BUILD_DIR}`);
-  
+
   try {
     // First, ensure dependencies are installed
     console.log('   📦 Installing dependencies...');
@@ -238,21 +239,21 @@ function buildApp() {
       cwd: BUILD_DIR,
       stdio: 'inherit'
     });
-    
+
     // Change to build directory and run expo export using npx
     console.log('   🚀 Running expo export...');
     execSync('npx expo export --platform web', {
       cwd: BUILD_DIR,
       stdio: 'inherit'
     });
-    
+
     console.log('   ✅ Build completed successfully');
-    
+
     // Verify dist directory exists
     if (!fs.existsSync(DIST_DIR)) {
       throw new Error(`Build output directory not found: ${DIST_DIR}`);
     }
-    
+
   } catch (error) {
     console.error('   ❌ Build failed:', error.message);
     throw error;
@@ -267,36 +268,36 @@ async function main() {
   console.log(`   S3 Bucket: ${BUCKET}`);
   console.log(`   Build Directory: ${BUILD_DIR}`);
   console.log('');
-  
+
   try {
     // Step 1: Build the app
     buildApp();
     console.log('');
-    
+
     // Step 2: Clear existing S3 prefixes
     await clearS3Prefix('default-app/');
     await clearS3Prefix('default-app-raw-files/');
     console.log('');
-    
+
     // Step 3: Upload build files
     console.log('📦 Uploading build files...');
     const buildFiles = getAllFiles(DIST_DIR, DIST_DIR, false);
     await uploadFilesToS3(buildFiles, DIST_DIR, 'default-app/');
     console.log('');
-    
+
     // Step 4: Upload raw source files
     console.log('📁 Uploading raw source files...');
     const sourceFiles = getAllFiles(BUILD_DIR, BUILD_DIR, true);
     console.log(`   Found ${sourceFiles.length} source files (after exclusions)`);
     await uploadFilesToS3(sourceFiles, BUILD_DIR, 'default-app-raw-files/');
     console.log('');
-    
+
     console.log('🎉 Deployment completed successfully!');
     console.log('');
     console.log('Deployed:');
     console.log(`   • Build files: s3://${BUCKET}/default-app/`);
     console.log(`   • Source files: s3://${BUCKET}/default-app-raw-files/`);
-    
+
   } catch (error) {
     console.error('💥 Deployment failed:', error.message);
     process.exit(1);

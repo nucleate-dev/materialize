@@ -11,7 +11,7 @@ import {
   Code2,
   Lightbulb,
   Rocket,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 
 interface BlogPost {
@@ -23,48 +23,58 @@ interface BlogPost {
   publishedAt: string;
   readTime: number;
   tags: string[];
-  category: 'tutorial' | 'insights' | 'updates' | 'tips';
+  category: "tutorial" | "insights" | "updates" | "tips";
   featured: boolean;
   slug: string;
 }
 
 interface BlogCardProps {
   post: BlogPost;
-  variant?: 'featured' | 'regular';
+  variant?: "featured" | "regular";
 }
 
-export default function BlogCard({ post, variant = 'regular' }: BlogCardProps) {
+export default function BlogCard({ post, variant = "regular" }: BlogCardProps) {
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'tutorial': return Code2;
-      case 'insights': return Lightbulb;
-      case 'updates': return Rocket;
-      case 'tips': return Sparkles;
-      default: return BookOpen;
+      case "tutorial":
+        return Code2;
+      case "insights":
+        return Lightbulb;
+      case "updates":
+        return Rocket;
+      case "tips":
+        return Sparkles;
+      default:
+        return BookOpen;
     }
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'tutorial': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
-      case 'insights': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300';
-      case 'updates': return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
-      case 'tips': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300';
-      default: return 'bg-muted text-muted-foreground';
+      case "tutorial":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300";
+      case "insights":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300";
+      case "updates":
+        return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300";
+      case "tips":
+        return "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300";
+      default:
+        return "bg-muted text-muted-foreground";
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const CategoryIcon = getCategoryIcon(post.category);
 
-  if (variant === 'featured') {
+  if (variant === "featured") {
     return (
       <Card className="group overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/20 bg-card">
         <CardHeader className="space-y-4">
@@ -91,7 +101,11 @@ export default function BlogCard({ post, variant = 'regular' }: BlogCardProps) {
               <CalendarDays className="w-3 h-3 mr-1" />
               {formatDate(post.publishedAt)}
             </div>
-            <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="group-hover:translate-x-1 transition-transform"
+            >
               Read More
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
@@ -134,7 +148,11 @@ export default function BlogCard({ post, variant = 'regular' }: BlogCardProps) {
             <CalendarDays className="w-3 h-3 mr-1" />
             {formatDate(post.publishedAt)}
           </div>
-          <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform p-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="group-hover:translate-x-1 transition-transform p-1"
+          >
             <ArrowRight className="w-4 h-4" />
           </Button>
         </div>

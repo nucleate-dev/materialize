@@ -2,13 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Search, 
+import {
+  Search,
   BookOpen,
   Code2,
   Lightbulb,
   Rocket,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 
 interface BlogHeaderProps {
@@ -19,18 +19,18 @@ interface BlogHeaderProps {
 }
 
 const categories = [
-  { key: 'all', label: 'All Posts', icon: BookOpen },
-  { key: 'tutorial', label: 'Tutorials', icon: Code2 },
-  { key: 'insights', label: 'Insights', icon: Lightbulb },
-  { key: 'updates', label: 'Updates', icon: Rocket },
-  { key: 'tips', label: 'Tips', icon: Sparkles }
+  { key: "all", label: "All Posts", icon: BookOpen },
+  { key: "tutorial", label: "Tutorials", icon: Code2 },
+  { key: "insights", label: "Insights", icon: Lightbulb },
+  { key: "updates", label: "Updates", icon: Rocket },
+  { key: "tips", label: "Tips", icon: Sparkles },
 ];
 
-export default function BlogHeader({ 
-  searchQuery, 
-  selectedCategory, 
-  onSearchChange, 
-  onCategoryChange 
+export default function BlogHeader({
+  searchQuery,
+  selectedCategory,
+  onSearchChange,
+  onCategoryChange,
 }: BlogHeaderProps) {
   return (
     <div className="text-center mb-16">
@@ -41,9 +41,10 @@ export default function BlogHeader({
         Blog
       </h1>
       <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
-        Insights, tutorials, and updates on React Native development, AI-powered prototyping, and mobile app design.
+        Insights, tutorials, and updates on React Native development, AI-powered
+        prototyping, and mobile app design.
       </p>
-      
+
       {/* Search and Filter */}
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -58,7 +59,7 @@ export default function BlogHeader({
             />
           </div>
         </div>
-        
+
         {/* Category Filter */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((category) => {
@@ -66,7 +67,9 @@ export default function BlogHeader({
             return (
               <Button
                 key={category.key}
-                variant={selectedCategory === category.key ? "default" : "outline"}
+                variant={
+                  selectedCategory === category.key ? "default" : "outline"
+                }
                 size="sm"
                 onClick={() => onCategoryChange(category.key)}
                 className="flex items-center gap-2"

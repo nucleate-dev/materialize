@@ -198,8 +198,16 @@ export class PrototypeManagementService {
       }
 
       // Return static build URL
-      request.log2.consoleLogDevOnly('info', 'Returning static build URL');
-      const staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
+
+      // const staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
+      let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
+      if (token && authResult.prototype.visibility !== 'PUBLIC') {
+        staticViewingUrl += `?token=${encodeURIComponent(token)}`;
+      }
+      request.log2.consoleLogDevOnly(
+        'info',
+        'Returning static build URL ' + staticViewingUrl,
+      );
 
       const successResponse: FetchViewingUrlSuccessResponse = {
         viewing_url: staticViewingUrl,

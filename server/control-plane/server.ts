@@ -8,8 +8,11 @@ import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/ChatService.js';
+import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
+import { InternalDevServerManagementService } from './internal-services/InternalDevServerManagementService.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
+import { EC2Client } from '@aws-sdk/client-ec2';
 import { GlideClient } from '@valkey/valkey-glide';
 import { S3Client } from '@aws-sdk/client-s3';
 
@@ -31,9 +34,14 @@ export const baseLogger = new SystemLogger({
 const initializeClients = async (): Promise<{
   cache: GlideClient;
   ecsClient: ECSClient;
+  ec2Client: EC2Client;
   s3Client: S3Client;
 }> => {
   const ecsClient = new ECSClient({
+    region: process.env.AWS_REGION!,
+  });
+
+  const ec2Client = new EC2Client({
     region: process.env.AWS_REGION!,
   });
 
@@ -56,7 +64,7 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION || 'us-east-2',
   });
 
-  return { cache, ecsClient, s3Client };
+  return { cache, ecsClient, ec2Client, s3Client };
 };
 
 const fastify = Fastify({
@@ -88,6 +96,8 @@ let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
+let internalToolsService: InternalCacheManagementService;
+let internalDevServerManagementService: InternalDevServerManagementService;
 let cache: GlideClient;
 
 // Health check
@@ -113,29 +123,6 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
   }
 });
 
-// Clear cache endpoint (for development/testing)
-fastify.delete(
-  '/cache/clear',
-  async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      await cache.flushall();
-      fastify.log.info('Cache cleared successfully');
-      return reply.send({
-        success: true,
-        message: 'Cache cleared successfully',
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      fastify.log.error(e, 'Failed to clear cache:');
-      return reply.status(500).send({
-        error: 'Internal Server Error',
-        message: e.message,
-      });
-    }
-  },
-);
-
 // Start server
 const start = async (): Promise<void> => {
   try {
@@ -143,6 +130,7 @@ const start = async (): Promise<void> => {
     const {
       cache: cacheClient,
       ecsClient,
+      ec2Client,
       s3Client,
     } = await initializeClients();
 
@@ -174,6 +162,14 @@ const start = async (): Promise<void> => {
     // Create chat service and register routes
     chatService = new ChatService(fastify);
     chatService.registerRoutes(fastify);
+
+    // Create internal tools service and register routes
+    internalToolsService = new InternalCacheManagementService(cache, fastify);
+    internalToolsService.registerRoutes(fastify);
+
+    // Create internal dev server management service and register routes
+    internalDevServerManagementService = new InternalDevServerManagementService(ec2Client, ecsClient, fastify);
+    internalDevServerManagementService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,

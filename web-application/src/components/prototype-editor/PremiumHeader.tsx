@@ -12,20 +12,25 @@ export default function PremiumHeader() {
       setIsScrolled(window.scrollY > 50);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
-      ? 'bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3'
-      : 'bg-transparent py-6'
-      }`}>
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 py-3"
+          : "bg-transparent py-6"
+      }`}
+    >
       <div className="container mx-auto px-6">
         <nav className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            <span className="text-2xl font-bold text-black dark:text-white">Materialize</span>
+            <span className="text-2xl font-bold text-black dark:text-white">
+              Materialize
+            </span>
           </div>
 
           {/* Navigation */}

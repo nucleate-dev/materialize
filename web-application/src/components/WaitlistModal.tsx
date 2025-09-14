@@ -1,18 +1,27 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface WaitlistModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function WaitlistModal({ open, onOpenChange }: WaitlistModalProps) {
+export default function WaitlistModal({
+  open,
+  onOpenChange,
+}: WaitlistModalProps) {
   const handleJoinWaitlist = () => {
     window.open(
       "https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header",
       "_blank",
-      "noopener noreferrer"
+      "noopener noreferrer",
     );
     onOpenChange(false);
   };
@@ -25,8 +34,8 @@ export default function WaitlistModal({ open, onOpenChange }: WaitlistModalProps
             Coming Soon!
           </DialogTitle>
           <DialogDescription className="text-center text-lg">
-            Materialize is still in development. We&apos;re working hard to bring you the best
-            React Native prototyping experience.
+            Materialize is still in development. We&apos;re working hard to
+            bring you the best React Native prototyping experience.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 pt-4">

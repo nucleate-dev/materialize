@@ -1,0 +1,84 @@
+---
+title: "A Crash Course on Design for Devs"
+excerpt: "A practical guide to design principles every developer can apply to make their apps look clean and professional."
+author: "Your Name"
+authorAvatar: "YN"
+publishedAt: "2025-09-11"
+tags: ["Design", "Developers", "UI", "Guide"]
+category: "guides"
+featured: false
+---
+
+# A Crash Course on Design for Devs
+
+You do not need to be a designer to make things look good. If you are a developer, a few simple design principles will take your UI from functional to professional. This crash course distills the essentials so you can apply them quickly and move on.
+
+## Introduction
+
+Design is not about making things pretty. It is about making decisions obvious, content readable, and interactions smooth. By learning a few simple rules, you can improve your UI without needing years of design training.
+
+<Callout type="info">
+  Think of design like coding: small consistent rules add up to a system that
+  feels polished and intentional.
+</Callout>
+
+## Start with Hierarchy
+
+Good design is about guiding attention. Ask: what is the most important thing on this screen? Make it bigger, bolder, or more prominent. Secondary info should fade into the background. When everything is emphasized equally, nothing stands out.
+
+## Whitespace Is a Feature
+
+Do not cram everything together. Add breathing room between sections, around buttons, and inside cards. Padding makes things feel intentional and easier to scan. A design that feels clean usually just has enough whitespace.
+
+## Create a Theme and Stick With It
+
+Decide on a set of colors, font choices, border radius, and spacing rules and then use them everywhere. A cohesive theme makes your app feel deliberate. Constantly switching styles feels messy, like mixing coding styles in one file.
+
+## Pick One or Two Fonts
+
+You do not need ten fonts. One typeface with bold, regular, and italic weights plus a monospace for code is usually enough. Consistency here avoids visual clutter. Use font weight and size for emphasis instead of grabbing a new font.
+
+## Color Is for Meaning
+
+Keep your palette restrained. Neutral grays for backgrounds and text with one or two accent colors creates cohesion. Save bright colors for things that need attention: a button, a warning, a key highlight.
+
+## Contrast Makes Text Readable
+
+Light gray on slightly lighter gray? Do not. Text should stand out clearly from its background. High contrast improves both readability and accessibility. If you are ever unsure, make the text darker, not lighter.
+
+## Alignment Creates Order
+
+Left align text, align buttons and inputs to a grid, and keep spacing consistent. When elements do not line up, the design feels chaotic even if the colors and fonts are perfect. Alignment gives instant polish.
+
+## Group Related Things Together
+
+Use proximity to show relationships. Headings should sit close to the text they belong to. Buttons that apply to a form should live inside or just under that form, not floating somewhere else. This reduces cognitive load.
+
+## Reuse Styles Instead of Inventing New Ones
+
+If you have a card component, reuse the same border radius, padding, and shadow style across the app. Consistency makes things look deliberate. Inconsistency makes things look hacked together.
+
+## Icons Should Clarify
+
+Icons should support meaning. A trash can for delete, a plus for add, a gear for settings. Decorative icons that do not add clarity just distract.
+
+## Start Simple, Polish Later
+
+Do not overthink your first pass. Get something clear and usable on the screen. Add refinement like colors, shadows, and micro interactions after the layout and hierarchy work. Design is iterative just like code.
+
+## The Developer’s Advantage
+
+As a developer, you already think in systems. That is what design really is: consistent rules, components, and constraints. Treat your UI like a codebase, refactor messy parts, reuse components, and apply patterns consistently.
+
+### Code Example
+
+```javascript
+// Example of reusing a consistent button style
+const Button = ({ children }) => (
+  <button className="rounded-md px-4 py-2 bg-blue-600 text-white hover:bg-blue-700">
+    {children}
+  </button>
+);
+
+<Button>Click me</Button>;
+```

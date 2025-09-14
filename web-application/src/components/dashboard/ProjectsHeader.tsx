@@ -35,13 +35,13 @@ export default function ProjectsHeader() {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-        {
-          name: "Whiteboards",
-          href: `/dashboard/projects/${projectId}/whiteboards`,
-          icon: Square3Stack3DIcon,
-          active: pathname?.includes("/whiteboards"),
-        },
-      ]
+          {
+            name: "Whiteboards",
+            href: `/dashboard/projects/${projectId}/whiteboards`,
+            icon: Square3Stack3DIcon,
+            active: pathname?.includes("/whiteboards"),
+          },
+        ]
       : []),
     {
       name: "Settings",
@@ -131,10 +131,11 @@ export default function ProjectsHeader() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`relative group flex items-center gap-3 px-3 md:px-6 py-3 rounded-xl font-semibold transition-all duration-500 transform-gpu ${tab.active
+                className={`relative group flex items-center gap-3 px-3 md:px-6 py-3 rounded-xl font-semibold transition-all duration-500 transform-gpu ${
+                  tab.active
                     ? "bg-white dark:bg-boxdark text-black dark:text-white shadow-lg border border-stroke/20 dark:border-strokedark/20 scale-100 hover:scale-105"
                     : "text-body dark:text-bodydark hover:bg-white/80 dark:hover:bg-boxdark/80 hover:text-black dark:hover:text-white border border-transparent hover:border-stroke/30 dark:hover:border-strokedark/40 backdrop-blur-sm hover:scale-105"
-                  }`}
+                }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 {/* Background glow effect for active state */}
@@ -151,16 +152,18 @@ export default function ProjectsHeader() {
                 <div className="relative flex items-center gap-3">
                   {/* Icon container */}
                   <div
-                    className={`p-1.5 rounded-lg transition-all duration-300 ${tab.active
+                    className={`p-1.5 rounded-lg transition-all duration-300 ${
+                      tab.active
                         ? "bg-primary/10 dark:bg-primary/20"
                         : "bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
-                      }`}
+                    }`}
                   >
                     <tab.icon
-                      className={`w-4 h-4 transition-all duration-300 ${tab.active
+                      className={`w-4 h-4 transition-all duration-300 ${
+                        tab.active
                           ? "text-primary dark:text-secondary"
                           : "text-primary dark:text-secondary group-hover:text-primary dark:group-hover:text-secondary"
-                        }`}
+                      }`}
                     />
                   </div>
 

@@ -1,7 +1,7 @@
-import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { getPostBySlug, getAllPosts } from '@/lib/blog';
-import BlogPost from './BlogPost';
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { getPostBySlug, getAllPosts } from "@/lib/blog";
+import BlogPost from "./BlogPost";
 
 interface BlogPostPageProps {
   params: {
@@ -16,12 +16,14 @@ export async function generateStaticParams() {
   }));
 }
 
-export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: BlogPostPageProps): Promise<Metadata> {
   const post = getPostBySlug(params.slug);
 
   if (!post) {
     return {
-      title: 'Post Not Found | Materialize Blog',
+      title: "Post Not Found | Materialize Blog",
     };
   }
 
@@ -33,13 +35,13 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
     openGraph: {
       title: post.title,
       description: post.excerpt,
-      type: 'article',
+      type: "article",
       publishedTime: post.publishedAt,
       authors: [post.author],
       tags: post.tags,
     },
     twitter: {
-      card: 'summary_large_image',
+      card: "summary_large_image",
       title: post.title,
       description: post.excerpt,
     },

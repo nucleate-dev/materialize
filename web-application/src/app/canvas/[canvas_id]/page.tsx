@@ -22,7 +22,7 @@ import "tldraw/tldraw.css";
 
 export default function CanvasPage() {
   const { user, userIsLoading } = useUser();
-  const params = useParams<{ canvas_id: string; }>();
+  const params = useParams<{ canvas_id: string }>();
   const logger = useProductLogger();
   const canvasId = params?.canvas_id;
   const [isChatOpen, setIsChatOpen] = useState(true);
@@ -388,17 +388,19 @@ export default function CanvasPage() {
                   >
                     {/* Ultra Dark Message Bubble */}
                     <div
-                      className={`p-4 rounded-2xl relative transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${message.sender === "user"
+                      className={`p-4 rounded-2xl relative transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                        message.sender === "user"
                           ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-600/50 ring-1 ring-white/20 dark:ring-blue-400/30"
                           : "bg-white/90 dark:bg-slate-800/95 text-gray-900 dark:text-slate-100 border border-black/10 dark:border-slate-600/50 backdrop-blur-sm shadow-sm dark:shadow-lg hover:bg-white dark:hover:bg-slate-700/95"
-                        }`}
+                      }`}
                     >
                       {/* Message bubble tail */}
                       <div
-                        className={`absolute w-3 h-3 transform rotate-45 ${message.sender === "user"
+                        className={`absolute w-3 h-3 transform rotate-45 ${
+                          message.sender === "user"
                             ? "-right-1 top-4 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700"
                             : "-left-1 top-4 bg-white/90 dark:bg-slate-800/95 border-l border-t border-black/10 dark:border-slate-600/50"
-                          }`}
+                        }`}
                       ></div>
 
                       {/* Enhanced inner glow for user messages */}
@@ -410,10 +412,11 @@ export default function CanvasPage() {
                         {message.text}
                       </p>
                       <p
-                        className={`text-xs mt-2 font-medium relative z-10 ${message.sender === "user"
+                        className={`text-xs mt-2 font-medium relative z-10 ${
+                          message.sender === "user"
                             ? "text-white/80 dark:text-white/70"
                             : "text-gray-500 dark:text-slate-400"
-                          }`}
+                        }`}
                       >
                         {message.timestamp.toLocaleTimeString([], {
                           hour: "2-digit",
@@ -466,10 +469,11 @@ export default function CanvasPage() {
                   <button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim()}
-                    className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${newMessage.trim()
+                    className={`relative p-4 rounded-2xl transition-all duration-500 hover:scale-110 active:scale-95 focus:scale-110 transform-gpu ${
+                      newMessage.trim()
                         ? "bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 dark:from-blue-600 dark:via-purple-600 dark:to-blue-700 hover:from-blue-600 hover:via-purple-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-purple-700 dark:hover:to-blue-800 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 dark:shadow-blue-600/60 dark:hover:shadow-blue-600/80 ring-2 ring-white/20 dark:ring-blue-400/30 hover:ring-white/30 dark:hover:ring-blue-400/50"
                         : "bg-gradient-to-br from-black/5 to-black/10 dark:from-slate-800/50 dark:to-slate-900/50 text-gray-400 dark:text-slate-500 cursor-not-allowed shadow-inner border border-black/10 dark:border-slate-600/30"
-                      }`}
+                    }`}
                   >
                     {/* Enhanced dark mode button inner glow */}
                     {newMessage.trim() && (
@@ -477,10 +481,11 @@ export default function CanvasPage() {
                     )}
 
                     <PaperAirplaneIcon
-                      className={`relative w-6 h-6 transition-transform duration-300 ${newMessage.trim()
+                      className={`relative w-6 h-6 transition-transform duration-300 ${
+                        newMessage.trim()
                           ? "hover:translate-x-0.5 hover:-translate-y-0.5"
                           : ""
-                        }`}
+                      }`}
                     />
                   </button>
                 </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import Editor from "@monaco-editor/react";
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +11,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UseFileSystemReturn } from "@/hooks/useFileSystem";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   UpdateFilesRequestBody,
   UpdateFilesResponse,
 } from "@/lib/types/serverAPITypes";
-import { UseFileSystemReturn } from "@/hooks/useFileSystem";
+import Editor from "@monaco-editor/react";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
 import React, { useState } from "react";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 interface CodeEditorProps {
   fileSystem: UseFileSystemReturn;
@@ -35,7 +35,7 @@ interface CodeEditorProps {
 const CodeEditor: React.FC<CodeEditorProps> = ({
   fileSystem,
   prototypeId,
-  language = "javascript",
+  language = "typescript",
   readOnly = false,
   onViewingUrlUpdate,
   onBuildingStateChange,

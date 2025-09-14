@@ -73,7 +73,7 @@ TAMAGUI LAYOUT PATTERNS:
 - Use flex={1} for full height/width containers
 
 TAMAGUI COMPONENT EXAMPLES:
-```tsx
+\`\`\`tsx
 // Layout
 <YStack flex={1} padding="$4" gap="$4" backgroundColor="$background">
   <XStack alignItems="center" gap="$3">
@@ -109,7 +109,7 @@ TAMAGUI COMPONENT EXAMPLES:
     </XStack>
   </Card.Footer>
 </Card>
-```
+\`\`\`
 
 CRITICAL IMPORT RULES:
 - NEVER import components that don't exist
@@ -237,9 +237,9 @@ IMPORT SAFETY RULES:
 TAMAGUI IMPORT PATTERNS (USE THESE):
 - Import from 'tamagui': { YStack, XStack, Button, Input, H1, H2, H3, H4, H5, H6, Paragraph, Text, Card, Separator, etc. }
 - NEVER import from 'react-native' for basic components (View, Text, etc.) - use Tamagui equivalents
-- Common import example: `import { YStack, XStack, H1, Paragraph, Button, Card } from 'tamagui'`
-- For icons, still use: `import { ... } from '@expo/vector-icons/FontAwesome'`
-- For navigation: `import { ... } from 'expo-router'` (keep existing patterns)
+- Common import example: \`import { YStack, XStack, H1, Paragraph, Button, Card } from 'tamagui'\`
+- For icons, still use: \`import { ... } from '@expo/vector-icons/FontAwesome'\`
+- For navigation: \`import { ... } from 'expo-router'\` (keep existing patterns)
 
 CRITICAL RULES TO PREVENT LOOPS:
 
@@ -262,13 +262,13 @@ TAMAGUI EXECUTION RULES (MANDATORY):
 
 TAMAGUI IMPLEMENTATION PATTERNS:
 - **Screen Structure**: 
-  ```tsx
+  \`\`\`tsx
   <YStack flex={1} backgroundColor="$background" padding="$4">
     // content
   </YStack>
-  ```
+  \`\`\`
 - **Cards**: 
-  ```tsx
+  \`\`\`tsx
   <Card size="$4" bordered elevate>
     <Card.Header padded>
       <H4>Title</H4>
@@ -277,15 +277,15 @@ TAMAGUI IMPLEMENTATION PATTERNS:
       <Button theme="active">Action</Button>
     </Card.Footer>
   </Card>
-  ```
+  \`\`\`
 - **Forms**: 
-  ```tsx
+  \`\`\`tsx
   <YStack gap="$3">
     <Label htmlFor="field">Label</Label>
     <Input id="field" size="$4" />
     <Button size="$4" theme="active">Submit</Button>
   </YStack>
-  ```
+  \`\`\`
 - **Lists**: Use YStack with gap="$3" and Separator components
 - **Navigation**: Use Sheet, Dialog for overlays instead of modal libraries
 - **Loading**: Use Spinner component and disabled states on buttons
@@ -294,9 +294,9 @@ TAMAGUI DESIGN RULES:
 - When creating a new screen, you should create a new file for the screen in the appropriate app/ directory location.
 - When creating a screen, you should keep in mind information hierarchy and how the user will take in the information on the screen.
 - You should keep in the importance of beautiful UI design and creating a great user experience using Tamagui's design system.
-- When creating cards, use Card component with consistent sizing: `<Card size="$4" bordered>` for standard cards
+- When creating cards, use Card component with consistent sizing: \`<Card size="$4" bordered>\` for standard cards
 - Use proper card structure with Card.Header and Card.Footer for organized content
-- Screen-level cards should use full width within screen padding: `<Card width="100%" size="$4">`
+- Screen-level cards should use full width within screen padding: \`<Card width="100%" size="$4">\`
 
 PROJECT STRUCTURE RULES (EXPO ROUTER):
 - app/ - Main app directory with file-based routing
@@ -332,7 +332,7 @@ IMPORTANT - PERSISTENCE RULE:
 - Common sequence: config error → fix it → import error → fix it → missing file → create it → SUCCESS
 
 TYPESCRIPT BUILD ERRORS PREVENTION: Always generate TypeScript code that builds successfully:
-- For Next.js router.push with query strings, use proper type casting: router.push(\`\${pathname}?\${queryString}\` as any)
+- For Next.js router.push with query strings, use proper type casting by wrapping the template literal with 'as any'
 - Ensure all imports have correct types and exist
 - Use proper TypeScript syntax for React components and hooks
 - Test type compatibility for router operations, especially with dynamic routes and query parameters

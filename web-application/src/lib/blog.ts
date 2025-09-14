@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
-import readingTime from 'reading-time';
+import fs from "fs";
+import path from "path";
+import matter from "gray-matter";
+import readingTime from "reading-time";
 
-const postsDirectory = path.join(process.cwd(), 'src/content/blog');
+const postsDirectory = path.join(process.cwd(), "src/content/blog");
 
 export interface BlogPost {
   slug: string;
@@ -15,7 +15,7 @@ export interface BlogPost {
   publishedAt: string;
   readTime: number;
   tags: string[];
-  category: 'tutorial' | 'insights' | 'updates' | 'tips';
+  category: "tutorial" | "insights" | "updates" | "tips";
   featured: boolean;
 }
 
@@ -26,7 +26,7 @@ export interface BlogPostFrontmatter {
   authorAvatar: string;
   publishedAt: string;
   tags: string[];
-  category: 'tutorial' | 'insights' | 'updates' | 'tips';
+  category: "tutorial" | "insights" | "updates" | "tips";
   featured?: boolean;
 }
 
@@ -38,16 +38,16 @@ export function getAllPosts(): BlogPost[] {
 
   const fileNames = fs.readdirSync(postsDirectory);
   const allPostsData = fileNames
-    .filter((name) => name.endsWith('.mdx'))
+    .filter((name) => name.endsWith(".mdx"))
     .map((fileName) => {
-      const slug = fileName.replace(/\.mdx$/, '');
+      const slug = fileName.replace(/\.mdx$/, "");
       const fullPath = path.join(postsDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, 'utf8');
+      const fileContents = fs.readFileSync(fullPath, "utf8");
 
       // Use gray-matter to parse the post metadata section
       const matterResult = matter(fileContents);
       const frontmatter = matterResult.data as BlogPostFrontmatter;
-      
+
       // Calculate reading time
       const stats = readingTime(matterResult.content);
 
@@ -68,17 +68,19 @@ export function getAllPosts(): BlogPost[] {
 
   // Sort posts by date
   return allPostsData.sort((a, b) => {
-    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    return (
+      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
   });
 }
 
 export function getPostBySlug(slug: string): BlogPost | null {
   try {
     const fullPath = path.join(postsDirectory, `${slug}.mdx`);
-    const fileContents = fs.readFileSync(fullPath, 'utf8');
+    const fileContents = fs.readFileSync(fullPath, "utf8");
     const matterResult = matter(fileContents);
     const frontmatter = matterResult.data as BlogPostFrontmatter;
-    
+
     const stats = readingTime(matterResult.content);
 
     return {
@@ -100,24 +102,25 @@ export function getPostBySlug(slug: string): BlogPost | null {
 }
 
 export function getFeaturedPosts(): BlogPost[] {
-  return getAllPosts().filter(post => post.featured);
+  return getAllPosts().filter((post) => post.featured);
 }
 
 export function getPostsByCategory(category: string): BlogPost[] {
-  if (category === 'all') {
+  if (category === "all") {
     return getAllPosts();
   }
-  return getAllPosts().filter(post => post.category === category);
+  return getAllPosts().filter((post) => post.category === category);
 }
 
 export function searchPosts(query: string): BlogPost[] {
   const allPosts = getAllPosts();
   const lowercaseQuery = query.toLowerCase();
-  
-  return allPosts.filter(post => 
-    post.title.toLowerCase().includes(lowercaseQuery) ||
-    post.excerpt.toLowerCase().includes(lowercaseQuery) ||
-    post.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery)) ||
-    post.content.toLowerCase().includes(lowercaseQuery)
+
+  return allPosts.filter(
+    (post) =>
+      post.title.toLowerCase().includes(lowercaseQuery) ||
+      post.excerpt.toLowerCase().includes(lowercaseQuery) ||
+      post.tags.some((tag) => tag.toLowerCase().includes(lowercaseQuery)) ||
+      post.content.toLowerCase().includes(lowercaseQuery),
   );
 }
