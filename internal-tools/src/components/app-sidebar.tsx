@@ -1,6 +1,6 @@
 "use client"
 
-import { Database, Home, Settings } from "lucide-react"
+import { Database, Home, Settings, Server } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -29,6 +29,11 @@ const items = [
     title: "Cache Management",
     url: "/cache",
     icon: Database,
+  },
+  {
+    title: "Dev Server Management",
+    url: "/dev-server",
+    icon: Server,
   },
 ]
 
