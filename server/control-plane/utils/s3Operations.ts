@@ -6,6 +6,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
   PrototypeAssetInsert,
@@ -13,7 +14,6 @@ import type {
   S3CopyResult,
   S3UploadResult,
 } from '../types/InternalTypes.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
 
 // Initialize Supabase storage client
 const supabaseStorage = createClient(
@@ -527,6 +527,7 @@ export async function getDefaultAppFilesFromS3(
 /**
  * Clean up S3 objects if prototype creation fails
  */
+// TODO: Support 1000+ objects when needed.
 export async function cleanupPrototypeS3Objects(
   s3Client: S3Client,
   prototypeId: string,
