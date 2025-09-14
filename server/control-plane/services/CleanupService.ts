@@ -298,81 +298,12 @@ export class CleanupService {
     this.cleanupIntervals = [];
   }
 
-  // Check build worker status before cleanup
-  private async checkBuildWorkerStatus(fargatePrivateIp: string): Promise<{
-    canStop: boolean;
-    reason?: string;
-    operation?: string;
-  }> {
-    try {
-      this.log2.info('Checking build worker status', {
-        fargatePrivateIp,
-      });
-
-      const response = await axios.get(
-        `http://${fargatePrivateIp}:3002/dev-server/status`,
-        {
-          timeout: 10000, // 10 second timeout for status check
-          headers: {
-            'x-trace-id': this.log2.getTraceId(),
-          },
-        },
-      );
-
-      return {
-        canStop: response.data.canStop ?? true,
-        reason: response.data.stopReason,
-        operation: response.data.currentOperation,
-      };
-    } catch (error) {
-      this.log2.warn(
-        'Failed to check build worker status, assuming safe to clean up',
-        {
-          fargatePrivateIp,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        },
-      );
-      // If we can't reach the worker, assume it's safe to clean up
-      return { canStop: true };
-    }
-  }
-
   // Dispatch kill hot reload request to build worker
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
     try {
-      // First, check if the build worker can be safely stopped
-      const statusCheck = await this.checkBuildWorkerStatus(fargatePrivateIp);
-
-      if (!statusCheck.canStop) {
-        this.log2.info(
-          'Build worker cannot be stopped due to ongoing operation',
-          {
-            fargatePrivateIp,
-            prototypeId,
-            reason: statusCheck.reason,
-            operation: statusCheck.operation,
-          },
-        );
-
-        return {
-          success: false,
-          buildInProgress: true,
-          error: statusCheck.reason || 'Operation in progress',
-        };
-      }
-
-      this.log2.info(
-        'Build worker can be safely stopped, proceeding with kill request',
-        {
-          fargatePrivateIp,
-          prototypeId,
-          operation: statusCheck.operation,
-        },
-      );
-
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
         {
@@ -411,59 +342,11 @@ export class CleanupService {
           buildInProgress: false,
         };
       } else {
-        // Check if the error indicates an operation is in progress
-        const operationInProgressMessages = [
-          'Cannot stop during',
-          'operation is currently in progress',
-          'Build already in progress',
-          'building operation',
-          'deploying operation',
-          'building_and_deploying operation',
-        ];
-
-        const hasOperationInProgress = responseData.build_errors?.some(
-          (error: any) =>
-            operationInProgressMessages.some((msg) =>
-              error.message.toLowerCase().includes(msg.toLowerCase()),
-            ),
-        );
-
-        if (hasOperationInProgress) {
-          this.log2.info(
-            'Dev server stop failed due to operation in progress',
-            {
-              prototypeId,
-              fargatePrivateIp,
-              errorMessages: responseData.build_errors?.map(
-                (e: any) => e.message,
-              ),
-            },
-          );
-
-          return {
-            success: false,
-            buildInProgress: true,
-            error:
-              responseData.build_errors?.[0]?.message ||
-              'Operation in progress',
-          };
-        } else {
-          // Other error - worker might be in bad state, safe to force cleanup
-          this.log2.warn(
-            'Dev server stop failed with non-operation error, proceeding with cleanup',
-            {
-              prototypeId,
-              fargatePrivateIp,
-              errorMessages: responseData.build_errors?.map((e) => e.message),
-            },
-          );
-
-          return {
-            success: true, // Allow cleanup to proceed
-            buildInProgress: false,
-            error: responseData.build_errors?.[0]?.message || 'Unknown error',
-          };
-        }
+        return {
+          success: false,
+          buildInProgress: true,
+          error: String(responseData.server_status) || 'Operation in progress',
+        };
       }
     } catch (error: unknown) {
       this.log2.error(error, 'Failed to kill dev server for prototype', {

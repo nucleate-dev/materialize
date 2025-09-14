@@ -109,6 +109,8 @@ export interface PublicDevServerStopResponse {
   build_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+  server_operation_status: OperationStatus;
+  server_status: DevServerStatus;
 }
 
 export interface PublicBuildAndDeployRequest {

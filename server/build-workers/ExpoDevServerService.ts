@@ -18,21 +18,12 @@ import {
   CodeError,
   CodeWarning,
   DeployResponse,
-  DevServerRestartResponse,
   DevServerStartResponse,
   DevServerStatus,
   DevServerStatusResponse,
-  DevServerStopResponse,
   OperationStatus,
   PublicDevServerStartRequest,
 } from "./types/BuildWorkerTypes.js";
-
-// Operations that should not be stopped (build/deploy operations)
-const unstoppableStatuses = [
-  OperationStatus.BUILDING,
-  OperationStatus.DEPLOYING,
-  OperationStatus.BUILDING_AND_DEPLOYING,
-];
 
 // --- Dev Server State ---
 class DevServerState {
@@ -140,6 +131,10 @@ export class ExpoDevServerService {
     this.workDir = workDir;
     this.S3_BUCKET = s3Bucket;
     this.s3 = s3Instance;
+  }
+
+  public getState(): DevServerState {
+    return this.state;
   }
 
   // Start Expo dev server
@@ -354,139 +349,6 @@ export class ExpoDevServerService {
     operationId: string | null;
   } {
     return this.state.getOperationStatus();
-  }
-
-  // Check if current operation can be safely stopped
-  public canStopOperation(): {
-    canStop: boolean;
-    reason?: string;
-    operation?: string;
-  } {
-    if (!this.state.isOperationInProgress()) {
-      return { canStop: true };
-    }
-
-    const operation = this.state.currentOperation;
-    if (unstoppableStatuses.includes(operation)) {
-      const duration = this.state.getOperationDuration();
-      const durationSeconds = duration ? Math.floor(duration / 1000) : 0;
-      return {
-        canStop: false,
-        reason: `Cannot stop during ${operation} operation (running for ${durationSeconds}s)`,
-        operation,
-      };
-    }
-
-    // All other operations can be stopped
-    return { canStop: true };
-  }
-
-  // Stop dev server
-  private async stopDevServer(
-    _request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<DevServerStopResponse> {
-    if (this.state.devServerStatus === DevServerStatus.STOPPED) {
-      return {
-        success: true,
-        message: "Dev server was already stopped",
-      };
-    }
-
-    // Check if we can safely stop the current operation
-    const stopCheck = this.canStopOperation();
-    if (!stopCheck.canStop) {
-      this.state.addLog(`Stop request denied: ${stopCheck.reason}`);
-      return reply.code(409).send({
-        success: false,
-        message: stopCheck.reason,
-      });
-    }
-
-    try {
-      // Set operation to stopping
-      this.state.setOperation(OperationStatus.STOPPING);
-
-      await this.killExpoProcess();
-      await this.cleanup();
-
-      this.state.addLog("Dev server stopped successfully");
-      this.state.reset();
-
-      return {
-        success: true,
-        message: "Dev server stopped successfully",
-      };
-    } catch (error: any) {
-      customlog(
-        "error",
-        "Failed to stop dev server:",
-        error.message,
-        error.stack,
-      );
-      this.state.addLog(`Failed to stop dev server: ${error.message}`);
-
-      return reply.code(500).send({
-        success: false,
-        message: `Failed to stop dev server: ${error.message}`,
-      });
-    }
-  }
-
-  // Restart dev server
-  private async restartDevServer(
-    _request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<DevServerRestartResponse> {
-    if (
-      this.state.devServerStatus === DevServerStatus.STOPPED ||
-      !this.state.prototypeId ||
-      !this.state.projectDir
-    ) {
-      customlog("error", "Cannot restart - no dev server running:", {
-        status: this.state.devServerStatus,
-        hasPrototypeId: !!this.state.prototypeId,
-        hasProjectDir: !!this.state.projectDir,
-      });
-      return reply.code(409).send({
-        success: false,
-        message: "No dev server running to restart",
-      });
-    }
-
-    try {
-      const projectDir = this.state.projectDir;
-      const port = this.state.port || this.defaultPort;
-
-      this.state.addLog("Restarting dev server...");
-
-      // Kill current process
-      await this.killExpoProcess();
-
-      // Start new process
-      await this.startExpoProcess(projectDir, port);
-
-      return {
-        success: true,
-        tunnelUrl: this.state.tunnelUrl || undefined,
-        message: "Dev server restarted successfully",
-      };
-    } catch (error: any) {
-      customlog(
-        "error",
-        "Failed to restart dev server:",
-        error.message,
-        error.stack,
-      );
-      this.state.devServerStatus = DevServerStatus.ERROR;
-      this.state.error = error.message;
-      this.state.addLog(`Failed to restart dev server: ${error.message}`);
-
-      return reply.code(500).send({
-        success: false,
-        message: `Failed to restart dev server: ${error.message}`,
-      });
-    }
   }
 
   private async startExpoProcess(
@@ -928,7 +790,6 @@ export class ExpoDevServerService {
   }
 
   async buildAndDeployProjectCore(
-    prototype_id: string,
     jobId?: string,
   ): Promise<BuildAndDeployResponse> {
     const actualJobId = jobId || uuidv4();
@@ -939,20 +800,13 @@ export class ExpoDevServerService {
       OperationStatus.BUILDING_AND_DEPLOYING,
       actualJobId,
     );
+    const prototype_id = this.state.prototypeId;
 
     logger.log(
       "Starting build and deploy",
       true,
       `Job ID: ${actualJobId}, Prototype: ${prototype_id}`,
     );
-
-    if (!prototype_id) {
-      return {
-        success: false,
-        error: "prototypeId is required",
-        buildLog: logger.getBuildLog(),
-      };
-    }
 
     // Use the fixed project directory created by the dev server
     const buildDir = path.join(this.workDir, "project");
@@ -1027,6 +881,12 @@ export class ExpoDevServerService {
         buildLog: logger.getBuildLog(),
       };
     } finally {
+      // Stop the dev server and set status to STOPPED regardless of build/deploy success
+      logger.log("Stopping dev server after build and deploy completion");
+      await this.killExpoProcess();
+      this.state.devServerStatus = DevServerStatus.STOPPED;
+      this.state.addLog("Dev server stopped after build and deploy completion");
+
       // Don't cleanup the build directory since it contains the original project files
       // that might be needed for future operations
       logger.log(
