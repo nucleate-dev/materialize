@@ -1,62 +1,82 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { PageHeader } from "@/components/page-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Database, Trash2, RefreshCw, Info, AlertCircle, CheckCircle } from "lucide-react"
-import { getCacheStats, clearCache, calculatePercentage, type CacheStats } from "@/lib/cache-api"
+import { useState, useEffect } from "react";
+import { PageHeader } from "@/components/page-header";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Database,
+  Trash2,
+  RefreshCw,
+  Info,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
+import {
+  getCacheStats,
+  clearCache,
+  calculatePercentage,
+  type CacheStats,
+} from "@/lib/cache-api";
 
 export default function CacheManagementPage() {
-  const [stats, setStats] = useState<CacheStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [clearLoading, setClearLoading] = useState(false)
-  const [clearSuccess, setClearSuccess] = useState<string | null>(null)
+  const [stats, setStats] = useState<CacheStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [clearLoading, setClearLoading] = useState(false);
+  const [clearSuccess, setClearSuccess] = useState<string | null>(null);
 
   const fetchStats = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const data = await getCacheStats()
-      setStats(data)
+      setLoading(true);
+      setError(null);
+      const data = await getCacheStats();
+      setStats(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch cache stats')
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch cache stats"
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleClearCache = async () => {
     try {
-      setClearLoading(true)
-      setClearSuccess(null)
-      setError(null)
+      setClearLoading(true);
+      setClearSuccess(null);
+      setError(null);
 
-      const result = await clearCache()
-      setClearSuccess(result.message)
+      const result = await clearCache();
+      setClearSuccess(result.message);
 
       // Refresh stats after clearing
-      await fetchStats()
+      await fetchStats();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to clear cache')
+      setError(err instanceof Error ? err.message : "Failed to clear cache");
     } finally {
-      setClearLoading(false)
+      setClearLoading(false);
     }
-  }
+  };
 
   const handleRefreshStats = () => {
-    setClearSuccess(null) // Clear any success message
-    fetchStats()
-  }
+    setClearSuccess(null); // Clear any success message
+    fetchStats();
+  };
 
   useEffect(() => {
-    fetchStats()
-  }, [])
+    fetchStats();
+  }, []);
 
   // Loading skeleton
   const StatSkeleton = () => (
@@ -70,14 +90,12 @@ export default function CacheManagementPage() {
         <Skeleton className="h-3 w-20" />
       </CardContent>
     </Card>
-  )
+  );
   return (
     <>
       <PageHeader
         title="Cache Management"
-        breadcrumbs={[
-          { title: "Cache Management" }
-        ]}
+        breadcrumbs={[{ title: "Cache Management" }]}
       >
         <Button
           variant="outline"
@@ -85,7 +103,9 @@ export default function CacheManagementPage() {
           onClick={handleRefreshStats}
           disabled={loading}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
           Refresh Stats
         </Button>
       </PageHeader>
@@ -120,7 +140,9 @@ export default function CacheManagementPage() {
             <>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Keys</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total Keys
+                  </CardTitle>
                   <Database className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -135,12 +157,17 @@ export default function CacheManagementPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Builds</CardTitle>
-                  <Badge variant="outline" className={
-                    stats && stats.stats.activeBuilds > 0
-                      ? "text-orange-600 border-orange-600"
-                      : "text-gray-600 border-gray-600"
-                  }>
+                  <CardTitle className="text-sm font-medium">
+                    Active Builds
+                  </CardTitle>
+                  <Badge
+                    variant="outline"
+                    className={
+                      stats && stats.stats.activeBuilds > 0
+                        ? "text-orange-600 border-orange-600"
+                        : "text-gray-600 border-gray-600"
+                    }
+                  >
                     {stats && stats.stats.activeBuilds > 0 ? "Running" : "Idle"}
                   </Badge>
                 </CardHeader>
@@ -156,7 +183,9 @@ export default function CacheManagementPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Prototype Builds</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Prototype Builds
+                  </CardTitle>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -164,14 +193,16 @@ export default function CacheManagementPage() {
                     {stats?.stats.prototypeBuilds || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    proto_builds:* keys
+                    proto:*:builds keys
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Current Builds</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Current Builds
+                  </CardTitle>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -179,7 +210,7 @@ export default function CacheManagementPage() {
                     {stats?.stats.currentBuilds || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    proto_current_build:* keys
+                    proto:*:current keys
                   </p>
                 </CardContent>
               </Card>
@@ -200,7 +231,8 @@ export default function CacheManagementPage() {
               <div className="space-y-1">
                 <h4 className="font-medium">Clear All Cache</h4>
                 <p className="text-sm text-muted-foreground">
-                  Remove all keys from the Redis cache. This will clear active builds, prototype data, and all cached information.
+                  Remove all keys from the Redis cache. This will clear active
+                  builds, prototype data, and all cached information.
                 </p>
               </div>
               <Button
@@ -209,8 +241,12 @@ export default function CacheManagementPage() {
                 onClick={handleClearCache}
                 disabled={clearLoading || loading}
               >
-                <Trash2 className={`h-4 w-4 mr-2 ${clearLoading ? 'animate-pulse' : ''}`} />
-                {clearLoading ? 'Clearing...' : 'Clear Cache'}
+                <Trash2
+                  className={`h-4 w-4 mr-2 ${
+                    clearLoading ? "animate-pulse" : ""
+                  }`}
+                />
+                {clearLoading ? "Clearing..." : "Clear Cache"}
               </Button>
             </div>
 
@@ -229,112 +265,172 @@ export default function CacheManagementPage() {
                 onClick={handleRefreshStats}
                 disabled={loading}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                />
                 Refresh Stats
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Cache Breakdown */}
+        {/* Sample Cache Keys */}
         <Card>
           <CardHeader>
-            <CardTitle>Key Distribution</CardTitle>
+            <CardTitle>Sample Cache Keys</CardTitle>
             <CardDescription>
-              Breakdown of cache keys by type
-              {stats && (
-                <span className="ml-2 text-xs">
-                  (Last updated: {new Date(stats.timestamp).toLocaleTimeString()})
-                </span>
-              )}
+              View actual cache keys for each category (showing first 5 keys per
+              type)
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-3 h-3 rounded-full" />
-                      <Skeleton className="h-4 w-32" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-5 w-12" />
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-5 w-32" />
+                    <div className="space-y-1">
+                      {[...Array(2)].map((_, j) => (
+                        <Skeleton key={j} className="h-4 w-full" />
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
-            ) : stats ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+            ) : stats && stats.stats.sampleKeys ? (
+              <div className="space-y-6">
+                {/* Active Build Keys */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <span className="text-sm font-medium">active_build:*</span>
+                    <h4 className="font-medium text-sm">
+                      Active Build Keys ({stats.stats.activeBuilds} total)
+                    </h4>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {stats.stats.keyBreakdown['active_build:*']} keys
-                    </span>
-                    <Badge variant="secondary">
-                      {calculatePercentage(stats.stats.keyBreakdown['active_build:*'], stats.stats.totalKeys)}
-                    </Badge>
-                  </div>
+                  {stats.stats.sampleKeys.activeBuild.length > 0 ? (
+                    <div className="ml-5 space-y-1">
+                      {stats.stats.sampleKeys.activeBuild.map((key, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs font-mono bg-muted p-2 rounded border"
+                        >
+                          {key}
+                        </div>
+                      ))}
+                      {stats.stats.activeBuilds > 5 && (
+                        <div className="text-xs text-muted-foreground italic">
+                          ... and {stats.stats.activeBuilds - 5} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="ml-5 text-xs text-muted-foreground italic">
+                      No active build keys
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                {/* Prototype Build Keys */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm font-medium">proto_builds:*</span>
+                    <h4 className="font-medium text-sm">
+                      Prototype Build Keys ({stats.stats.prototypeBuilds} total)
+                    </h4>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {stats.stats.keyBreakdown['proto_builds:*']} keys
-                    </span>
-                    <Badge variant="secondary">
-                      {calculatePercentage(stats.stats.keyBreakdown['proto_builds:*'], stats.stats.totalKeys)}
-                    </Badge>
-                  </div>
+                  {stats.stats.sampleKeys.prototypeBuild.length > 0 ? (
+                    <div className="ml-5 space-y-1">
+                      {stats.stats.sampleKeys.prototypeBuild.map((key, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs font-mono bg-muted p-2 rounded border"
+                        >
+                          {key}
+                        </div>
+                      ))}
+                      {stats.stats.prototypeBuilds > 5 && (
+                        <div className="text-xs text-muted-foreground italic">
+                          ... and {stats.stats.prototypeBuilds - 5} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="ml-5 text-xs text-muted-foreground italic">
+                      No prototype build keys
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                {/* Current Build Keys */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-sm font-medium">proto_current_build:*</span>
+                    <h4 className="font-medium text-sm">
+                      Current Build Keys ({stats.stats.currentBuilds} total)
+                    </h4>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {stats.stats.keyBreakdown['proto_current_build:*']} keys
-                    </span>
-                    <Badge variant="secondary">
-                      {calculatePercentage(stats.stats.keyBreakdown['proto_current_build:*'], stats.stats.totalKeys)}
-                    </Badge>
-                  </div>
+                  {stats.stats.sampleKeys.currentBuild.length > 0 ? (
+                    <div className="ml-5 space-y-1">
+                      {stats.stats.sampleKeys.currentBuild.map((key, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs font-mono bg-muted p-2 rounded border"
+                        >
+                          {key}
+                        </div>
+                      ))}
+                      {stats.stats.currentBuilds > 5 && (
+                        <div className="text-xs text-muted-foreground italic">
+                          ... and {stats.stats.currentBuilds - 5} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="ml-5 text-xs text-muted-foreground italic">
+                      No current build keys
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                    <span className="text-sm font-medium">Other keys</span>
-                  </div>
+                {/* Other Keys */}
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {stats.stats.keyBreakdown.other} keys
-                    </span>
-                    <Badge variant="secondary">
-                      {calculatePercentage(stats.stats.keyBreakdown.other, stats.stats.totalKeys)}
-                    </Badge>
+                    <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                    <h4 className="font-medium text-sm">
+                      Other Keys ({stats.stats.keyBreakdown.other} total)
+                    </h4>
                   </div>
+                  {stats.stats.sampleKeys.other.length > 0 ? (
+                    <div className="ml-5 space-y-1">
+                      {stats.stats.sampleKeys.other.map((key, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs font-mono bg-muted p-2 rounded border"
+                        >
+                          {key}
+                        </div>
+                      ))}
+                      {stats.stats.keyBreakdown.other > 5 && (
+                        <div className="text-xs text-muted-foreground italic">
+                          ... and {stats.stats.keyBreakdown.other - 5} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="ml-5 text-xs text-muted-foreground italic">
+                      No other keys
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No data available
+                No sample keys available
               </div>
             )}
           </CardContent>
         </Card>
       </div>
     </>
-  )
+  );
 }

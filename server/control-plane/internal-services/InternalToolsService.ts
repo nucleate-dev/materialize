@@ -23,14 +23,21 @@ export class InternalToolsService {
       {
         preHandler: authenticateInternalToolsRequest,
         schema: {
-          description: 'Clear all cache data (requires internal tools authentication)',
+          description:
+            'Clear all cache data (requires internal tools authentication)',
           tags: ['internal-tools'],
           headers: {
             type: 'object',
             required: ['x-internal-signature', 'x-internal-timestamp'],
             properties: {
-              'x-internal-signature': { type: 'string', description: 'HMAC-SHA256 signature' },
-              'x-internal-timestamp': { type: 'string', description: 'Unix timestamp' },
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
             },
           },
           response: {
@@ -73,14 +80,21 @@ export class InternalToolsService {
       {
         preHandler: authenticateInternalToolsRequest,
         schema: {
-          description: 'Get cache statistics and information (requires internal tools authentication)',
+          description:
+            'Get cache statistics and information (requires internal tools authentication)',
           tags: ['internal-tools'],
           headers: {
             type: 'object',
             required: ['x-internal-signature', 'x-internal-timestamp'],
             properties: {
-              'x-internal-signature': { type: 'string', description: 'HMAC-SHA256 signature' },
-              'x-internal-timestamp': { type: 'string', description: 'Unix timestamp' },
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
             },
           },
           response: {
@@ -98,6 +112,27 @@ export class InternalToolsService {
                     keyBreakdown: {
                       type: 'object',
                       additionalProperties: { type: 'number' },
+                    },
+                    sampleKeys: {
+                      type: 'object',
+                      properties: {
+                        activeBuild: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        prototypeBuild: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        currentBuild: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        other: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                      },
                     },
                   },
                 },
@@ -174,28 +209,39 @@ export class InternalToolsService {
       // Get all keys to count them by pattern
       const allKeys = await this.scanAllKeys(request.log2);
 
-      // Count different types of keys
-      const activeBuilds = allKeys.filter((key) =>
+      // Categorize keys by pattern (using correct patterns from CACHE_KEYS)
+      const activeBuildKeys = allKeys.filter((key) =>
         key.startsWith('active_build:'),
-      ).length;
-      const prototypeBuilds = allKeys.filter((key) =>
-        key.startsWith('proto_builds:'),
-      ).length;
-      const currentBuilds = allKeys.filter((key) =>
-        key.startsWith('proto_current_build:'),
-      ).length;
+      );
+      const prototypeBuildKeys = allKeys.filter((key) =>
+        key.includes(':builds') && key.startsWith('proto:'),
+      );
+      const currentBuildKeys = allKeys.filter((key) =>
+        key.includes(':current') && key.startsWith('proto:'),
+      );
+      const otherKeys = allKeys.filter(
+        (key) =>
+          !key.startsWith('active_build:') &&
+          !(key.includes(':builds') && key.startsWith('proto:')) &&
+          !(key.includes(':current') && key.startsWith('proto:')),
+      );
 
       const stats = {
         totalKeys: allKeys.length,
-        activeBuilds,
-        prototypeBuilds,
-        currentBuilds,
+        activeBuilds: activeBuildKeys.length,
+        prototypeBuilds: prototypeBuildKeys.length,
+        currentBuilds: currentBuildKeys.length,
         keyBreakdown: {
-          'active_build:*': activeBuilds,
-          'proto_builds:*': prototypeBuilds,
-          'proto_current_build:*': currentBuilds,
-          other:
-            allKeys.length - activeBuilds - prototypeBuilds - currentBuilds,
+          'active_build:*': activeBuildKeys.length,
+          'proto:*:builds': prototypeBuildKeys.length,
+          'proto:*:current': currentBuildKeys.length,
+          other: otherKeys.length,
+        },
+        sampleKeys: {
+          activeBuild: activeBuildKeys.slice(0, 5),
+          prototypeBuild: prototypeBuildKeys.slice(0, 5),
+          currentBuild: currentBuildKeys.slice(0, 5),
+          other: otherKeys.slice(0, 5),
         },
       };
 
