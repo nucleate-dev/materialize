@@ -16,26 +16,16 @@ dotenv.config();
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
 const WORK_DIR = process.env.WORK_DIR || "/tmp/fargate-builds";
-const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
 // --- AWS Setup ---
 AWS.config.update({
-  region: AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   httpOptions: {
     timeout: 300000, // 5 minutes
     connectTimeout: 60000, // 1 minute
   },
   maxRetries: 3,
 });
-
-// Verify credentials are loaded
-if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-  console.error("Missing AWS credentials in environment variables");
-  process.exit(1);
-}
 
 const s3 = new AWS.S3();
 
@@ -52,7 +42,7 @@ export function runCommand(
   args: string[],
   cwd: string,
   env?: Record<string, string>,
-  timeoutMs: number = 300000, // 5 minutes default
+  timeoutMs: number = 300000 // 5 minutes default
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
     let stdout = "";
@@ -75,8 +65,10 @@ export function runCommand(
         childProcess.kill("SIGKILL");
         reject(
           new Error(
-            `Command timed out after ${timeoutMs}ms: ${command} ${args.join(" ")}`,
-          ),
+            `Command timed out after ${timeoutMs}ms: ${command} ${args.join(
+              " "
+            )}`
+          )
         );
       }
     }, timeoutMs);
