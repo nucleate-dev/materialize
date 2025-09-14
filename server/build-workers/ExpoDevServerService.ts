@@ -544,6 +544,39 @@ export class ExpoDevServerService {
     }
   }
 
+  private async restartDevServer(): Promise<void> {
+    if (!this.state.projectDir || !this.state.port) {
+      throw new Error(
+        "Cannot restart dev server: missing project directory or port",
+      );
+    }
+
+    this.state.addLog("Restarting dev server after dependency changes...");
+
+    // Kill the current process
+    await this.killExpoProcess();
+
+    // Reset state but keep project directory and port
+    const projectDir = this.state.projectDir;
+    const port = this.state.port;
+    const prototypeId = this.state.prototypeId;
+
+    // Restart the dev server
+    this.state.devServerStatus = DevServerStatus.STARTING;
+    this.state.startTime = new Date();
+    this.state.addLog(`Restarting dev server for prototype ${prototypeId}`);
+
+    try {
+      await this.startExpoProcess(projectDir, port);
+      this.state.addLog("Dev server restarted successfully");
+    } catch (error: any) {
+      this.state.devServerStatus = DevServerStatus.ERROR;
+      this.state.error = error.message;
+      this.state.addLog(`Failed to restart dev server: ${error.message}`);
+      throw error;
+    }
+  }
+
   private async cleanup(): Promise<void> {
     if (this.state.projectDir) {
       try {
@@ -1025,7 +1058,7 @@ export class ExpoDevServerService {
       );
       if (packageJsonUpdated) {
         this.state.addLog(
-          "package.json was updated, reinstalling dependencies...",
+          "package.json was updated, reinstalling dependencies and restarting dev server...",
         );
         try {
           await this.installDependenciesWithErrorParsing(
@@ -1034,19 +1067,30 @@ export class ExpoDevServerService {
             buildWarnings,
           );
           this.state.addLog("Dependencies reinstalled successfully");
+
+          // Restart the dev server to pick up new dependencies
+          this.state.addLog(
+            "Restarting dev server to pick up new dependencies...",
+          );
+          await this.restartDevServer();
+          this.state.addLog(
+            "Dev server restarted successfully with new dependencies",
+          );
         } catch (error: any) {
           customlog(
             "error",
-            "Dependency update failed for package.json change:",
+            "Dependency update or dev server restart failed for package.json change:",
             error.message,
             error.stack,
           );
-          this.state.addLog(`Dependency update failed: ${error.message}`);
+          this.state.addLog(
+            `Dependency update or restart failed: ${error.message}`,
+          );
           buildErrors.push({
-            message: `Dependency update failed: ${error.message}`,
+            message: `Dependency update or restart failed: ${error.message}`,
             type: "dependency",
           });
-          // Don't return failure here - file updates succeeded even if deps failed
+          // Don't return failure here - file updates succeeded even if deps/restart failed
         }
       } else {
         this.state.addLog(
