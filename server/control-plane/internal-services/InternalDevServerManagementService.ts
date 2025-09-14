@@ -390,13 +390,13 @@ yum update -y
     state: string | undefined;
   }> {
     const runTaskCommand = new RunTaskCommand({
-      cluster: process.env.ECS_CLUSTER_NAME!, // Replace with your dev cluster name
-      taskDefinition: 'fastify-build-worker', // Replace with your dev task definition
+      cluster: process.env.ECS_CLUSTER_NAME!,
+      taskDefinition: 'fastify-build-worker',
       launchType: 'FARGATE' as const,
       networkConfiguration: {
         awsvpcConfiguration: {
-          subnets: process.env.ECS_SUBNETS?.split(',') || [], // Replace with your subnet IDs
-          securityGroups: process.env.ECS_SECURITY_GROUPS?.split(',') || [], // Replace with your security group
+          subnets: process.env.ECS_SUBNETS?.split(',') || [],
+          securityGroups: process.env.ECS_SECURITY_GROUPS?.split(',') || [],
           assignPublicIp: 'ENABLED',
         },
       },
