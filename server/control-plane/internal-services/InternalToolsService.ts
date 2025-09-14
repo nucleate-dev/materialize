@@ -2,6 +2,7 @@ import { GlideClient } from '@valkey/valkey-glide';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
 
 export class InternalToolsService {
   private cache: GlideClient;
@@ -20,9 +21,18 @@ export class InternalToolsService {
     app.post(
       '/internal/cache/clear',
       {
+        preHandler: authenticateInternalToolsRequest,
         schema: {
-          description: 'Clear all cache data',
+          description: 'Clear all cache data (requires internal tools authentication)',
           tags: ['internal-tools'],
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': { type: 'string', description: 'HMAC-SHA256 signature' },
+              'x-internal-timestamp': { type: 'string', description: 'Unix timestamp' },
+            },
+          },
           response: {
             200: {
               type: 'object',
@@ -30,6 +40,18 @@ export class InternalToolsService {
                 success: { type: 'boolean' },
                 message: { type: 'string' },
                 timestamp: { type: 'string' },
+                durationMs: { type: 'number' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+                requiredHeaders: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
               },
             },
             500: {
@@ -49,9 +71,18 @@ export class InternalToolsService {
     app.get(
       '/internal/cache/stats',
       {
+        preHandler: authenticateInternalToolsRequest,
         schema: {
-          description: 'Get cache statistics and information',
+          description: 'Get cache statistics and information (requires internal tools authentication)',
           tags: ['internal-tools'],
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': { type: 'string', description: 'HMAC-SHA256 signature' },
+              'x-internal-timestamp': { type: 'string', description: 'Unix timestamp' },
+            },
+          },
           response: {
             200: {
               type: 'object',
@@ -64,9 +95,24 @@ export class InternalToolsService {
                     activeBuilds: { type: 'number' },
                     prototypeBuilds: { type: 'number' },
                     currentBuilds: { type: 'number' },
+                    keyBreakdown: {
+                      type: 'object',
+                      additionalProperties: { type: 'number' },
+                    },
                   },
                 },
                 timestamp: { type: 'string' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+                requiredHeaders: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
               },
             },
             500: {
