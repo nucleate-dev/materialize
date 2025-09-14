@@ -146,7 +146,7 @@ export class CleanupService {
         );
         if (killResult.buildInProgress) {
           this.log2.info(
-            'Build operation in progress, skipping Fargate task termination and updating last_touched',
+            'Build operation in progress, skipping Fargate task termination',
             {
               buildId,
               error: killResult.error,

@@ -922,9 +922,7 @@ export class ExpoDevServerService {
 
       // Don't cleanup the build directory since it contains the original project files
       // that might be needed for future operations
-      logger.log(
-        "Build and deploy process completed, keeping project directory for future use",
-      );
+      logger.log("Build and deploy process completed.");
     }
   }
 
