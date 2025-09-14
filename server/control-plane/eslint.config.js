@@ -1,6 +1,7 @@
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
+import requireInternalAuth from './eslint-rules/require-internal-auth.js';
 
 export default [
   {
@@ -14,6 +15,11 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
+      'custom': {
+        rules: {
+          'require-internal-auth': requireInternalAuth,
+        },
+      },
     },
     rules: {
       // TypeScript specific rules
@@ -59,6 +65,13 @@ export default [
     rules: {
       // Allow console usage in the loggers directory and build scripts
       'no-restricted-syntax': 'off',
+    },
+  },
+  {
+    files: ['internal-services/**/*'],
+    rules: {
+      // Require authentication preHandler for all routes in internal services
+      'custom/require-internal-auth': 'error',
     },
   },
   {
