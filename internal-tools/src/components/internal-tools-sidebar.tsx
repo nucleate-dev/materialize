@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Database, Home, Settings, Server } from "lucide-react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { Database, Home, Server, Settings } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import {
   Sidebar,
@@ -15,8 +15,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 // Menu items.
 const items = [
@@ -35,10 +35,10 @@ const items = [
     url: "/dev-server",
     icon: Server,
   },
-]
+];
 
-export function AppSidebar() {
-  const pathname = usePathname()
+export function InternalToolsSidebar() {
+  const pathname = usePathname();
 
   return (
     <Sidebar className="border-r">
@@ -94,5 +94,5 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
