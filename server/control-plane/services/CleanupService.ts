@@ -1,4 +1,5 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
 import { CONFIG } from '../config.js';
@@ -19,11 +20,16 @@ export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
   private ecsClient: ECSClient;
+  private supabase: SupabaseClient;
   private log2: SystemLogger;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
     this.ecsClient = ecsClient;
+    this.supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     this.cleanupIntervals = [];
     this.log2 = baseLogger.child({
       route: 'CleanupService',
@@ -318,8 +324,44 @@ export class CleanupService {
             prototypeId,
             fargatePrivateIp,
             buildUrl: responseData.build_url,
+            hasScreenshot: !!responseData.screenshotBase64,
           },
         );
+
+        // Handle screenshot thumbnail if available
+        if (responseData.screenshotBase64 && responseData.prototypeId) {
+          this.log2.info('Processing screenshot thumbnail', {
+            prototypeId: responseData.prototypeId,
+            screenshotLength: responseData.screenshotBase64.length,
+          });
+
+          // Save screenshot asynchronously - don't block cleanup process
+          this.saveScreenshotThumbnail(
+            responseData.prototypeId,
+            responseData.screenshotBase64,
+          ).then((result) => {
+            if (result.success) {
+              this.log2.info('Screenshot thumbnail saved successfully', {
+                prototypeId: responseData.prototypeId,
+              });
+            } else {
+              this.log2.warn('Failed to save screenshot thumbnail', {
+                prototypeId: responseData.prototypeId,
+                error: result.error,
+              });
+            }
+          }).catch((error) => {
+            this.log2.error(error, 'Unexpected error while saving screenshot thumbnail', {
+              prototypeId: responseData.prototypeId,
+            });
+          });
+        } else if (responseData.screenshotBase64) {
+          this.log2.warn('Screenshot available but prototypeId missing in response', {
+            prototypeId,
+            hasScreenshot: !!responseData.screenshotBase64,
+            hasPrototypeId: !!responseData.prototypeId,
+          });
+        }
 
         return {
           success: true,
@@ -408,6 +450,87 @@ export class CleanupService {
     } catch (error) {
       this.log2.error(error, 'Failed to terminate Fargate task', {
         taskArn,
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // Save screenshot thumbnail to Supabase storage and update prototypes table
+  private async saveScreenshotThumbnail(
+    prototypeId: string,
+    screenshotBase64: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log2.info('Saving screenshot thumbnail', {
+        prototypeId,
+        screenshotLength: screenshotBase64.length,
+      });
+
+      // Convert base64 to binary buffer
+      const screenshotBuffer = Buffer.from(screenshotBase64, 'base64');
+      const fileName = `${prototypeId}.png`;
+
+      // Upload to Supabase storage
+      const { error: uploadError } = await this.supabase.storage
+        .from('prototype-thumbnails')
+        .upload(fileName, screenshotBuffer, {
+          contentType: 'image/png',
+          upsert: true, // Replace if exists
+        });
+
+      if (uploadError) {
+        this.log2.error(uploadError, 'Failed to upload screenshot to storage', {
+          prototypeId,
+          fileName,
+        });
+        return {
+          success: false,
+          error: `Storage upload failed: ${uploadError.message}`,
+        };
+      }
+
+      // Get public URL of the uploaded file
+      const { data: urlData } = this.supabase.storage
+        .from('prototype-thumbnails')
+        .getPublicUrl(fileName);
+
+      const thumbnailUrl = urlData.publicUrl;
+
+      this.log2.info('Screenshot uploaded to storage', {
+        prototypeId,
+        fileName,
+        thumbnailUrl,
+      });
+
+      // Update prototypes table with thumbnail URL
+      const { error: dbError } = await this.supabase
+        .from('prototypes')
+        .update({ thumbnail_url: thumbnailUrl })
+        .eq('id', prototypeId);
+
+      if (dbError) {
+        this.log2.error(dbError, 'Failed to update prototypes table', {
+          prototypeId,
+          thumbnailUrl,
+        });
+        return {
+          success: false,
+          error: `Database update failed: ${dbError.message}`,
+        };
+      }
+
+      this.log2.info('Successfully saved screenshot thumbnail', {
+        prototypeId,
+        thumbnailUrl,
+      });
+
+      return { success: true };
+    } catch (error) {
+      this.log2.error(error, 'Unexpected error saving screenshot thumbnail', {
+        prototypeId,
       });
       return {
         success: false,

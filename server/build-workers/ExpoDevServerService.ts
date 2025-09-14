@@ -347,7 +347,8 @@ export class ExpoDevServerService {
       operationDuration: this.state.getOperationDuration() || undefined,
       operationId: this.state.operationId || undefined,
       screenshotBase64: this.state.screenshotBase64 || undefined,
-      screenshotTimestamp: this.state.screenshotTimestamp?.toISOString() || undefined,
+      screenshotTimestamp:
+        this.state.screenshotTimestamp?.toISOString() || undefined,
       screenshotError: this.state.screenshotError || undefined,
     };
   }
@@ -538,8 +539,27 @@ export class ExpoDevServerService {
   }
 
   private async killExpoProcess(): Promise<void> {
+    this.state.addLog("Killing any processes on port 19006...");
+
+    try {
+      // Kill any process running on port 19006 (Expo's default port)
+      const port = this.state.port || this.defaultPort;
+
+      // Find and kill processes using the port on Alpine Linux
+      const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
+
+      execSync(killCommand, { stdio: "pipe" });
+      this.state.addLog(`Successfully killed processes on port ${port}`);
+    } catch (error) {
+      // It's okay if no processes were found on the port
+      this.state.addLog(
+        `No processes found on port ${this.state.port || this.defaultPort} (this is normal if nothing was running)`,
+      );
+    }
+
+    // Also kill the specific process if it exists
     if (this.state.process) {
-      this.state.addLog("Killing Expo process...");
+      this.state.addLog("Killing tracked Expo process...");
 
       this.state.process.kill("SIGTERM");
 
@@ -616,12 +636,12 @@ export class ExpoDevServerService {
       await this.captureScreenshot();
       return {
         success: true,
-        screenshotBase64: this.state.screenshotBase64 || undefined
+        screenshotBase64: this.state.screenshotBase64 || undefined,
       };
     } catch (error: any) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -854,15 +874,19 @@ export class ExpoDevServerService {
 
   private async captureScreenshot(): Promise<void> {
     if (!this.state.tunnelUrl || !this.state.prototypeId) {
-      throw new Error('No active dev server or prototype ID available for screenshot');
+      throw new Error(
+        "No active dev server or prototype ID available for screenshot",
+      );
     }
 
     await this.captureScreenshotOfUrl(this.state.tunnelUrl);
   }
 
-  private async captureScreenshotOfDeployedApp(buildUrl: string): Promise<void> {
+  private async captureScreenshotOfDeployedApp(
+    buildUrl: string,
+  ): Promise<void> {
     if (!this.state.prototypeId) {
-      throw new Error('No prototype ID available for screenshot');
+      throw new Error("No prototype ID available for screenshot");
     }
 
     await this.captureScreenshotOfUrl(buildUrl);
@@ -870,23 +894,23 @@ export class ExpoDevServerService {
 
   private async captureScreenshotOfUrl(url: string): Promise<void> {
     if (!this.state.prototypeId) {
-      throw new Error('No prototype ID available for screenshot');
+      throw new Error("No prototype ID available for screenshot");
     }
 
-    this.state.addLog('Starting screenshot capture...');
+    this.state.addLog("Starting screenshot capture...");
 
     try {
       const browser = await puppeteer.launch({
         headless: true,
-        executablePath: '/usr/bin/chromium-browser',
+        executablePath: "/usr/bin/chromium-browser",
         args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
-        ]
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--disable-web-security",
+          "--disable-features=VizDisplayCompositor",
+        ],
       });
 
       const page = await browser.newPage();
@@ -896,31 +920,32 @@ export class ExpoDevServerService {
 
       // Wait for the page to load completely
       await page.goto(url, {
-        waitUntil: 'networkidle0',
-        timeout: 30000
+        waitUntil: "networkidle0",
+        timeout: 30000,
       });
 
       // Wait a bit more for any animations or dynamic content
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Capture screenshot as base64
       const screenshotBuffer = await page.screenshot({
         fullPage: true,
-        type: 'png'
+        type: "png",
       });
 
       await browser.close();
 
       // Convert buffer to base64
-      const screenshotBase64 = Buffer.from(screenshotBuffer).toString('base64');
+      const screenshotBase64 = Buffer.from(screenshotBuffer).toString("base64");
 
       // Update state with successful screenshot
       this.state.screenshotBase64 = screenshotBase64;
       this.state.screenshotTimestamp = new Date();
       this.state.screenshotError = null;
 
-      this.state.addLog(`Screenshot captured successfully as base64 (${screenshotBase64.length} chars)`);
-
+      this.state.addLog(
+        `Screenshot captured successfully as base64 (${screenshotBase64.length} chars)`,
+      );
     } catch (error: any) {
       this.state.screenshotError = error.message;
       this.state.addLog(`Screenshot capture failed: ${error.message}`);
@@ -991,7 +1016,11 @@ export class ExpoDevServerService {
       try {
         logger.log("Capturing screenshot of deployed application");
         await this.captureScreenshotOfDeployedApp(buildUrl);
-        logger.log("Screenshot captured successfully", true, `Base64 length: ${this.state.screenshotBase64?.length || 0} chars`);
+        logger.log(
+          "Screenshot captured successfully",
+          true,
+          `Base64 length: ${this.state.screenshotBase64?.length || 0} chars`,
+        );
       } catch (error: any) {
         logger.log("Screenshot capture failed", false, "", error.message);
         // Don't fail the entire build/deploy for screenshot errors

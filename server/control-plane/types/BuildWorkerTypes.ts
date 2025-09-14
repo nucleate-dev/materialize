@@ -111,6 +111,8 @@ export interface PublicDevServerStopResponse {
   build_warnings: CodeWarning[];
   server_operation_status: OperationStatus;
   server_status: DevServerStatus;
+  screenshotBase64?: string;
+  prototypeId?: string;
 }
 
 export interface PublicBuildAndDeployRequest {

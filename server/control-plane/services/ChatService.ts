@@ -769,7 +769,7 @@ export class ChatService {
 
     // Phase 1: Get the planning response
     let response = await generateText({
-      model: this.google('gemini-2.5-flash'),
+      model: this.google('gemini-2.5-pro'),
       system: PLANNING_PROMPT,
       tools: MODEL_TOOLS,
       messages: [

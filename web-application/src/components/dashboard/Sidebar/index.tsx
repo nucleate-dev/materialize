@@ -1,3 +1,4 @@
+import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
 import {
   Sidebar,
   SidebarContent,
@@ -11,9 +12,10 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
+import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
+import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useAtom } from "jotai";
 import {
   FlaskConical,
   Folder,
@@ -25,8 +27,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAtom } from "jotai";
-import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 
 const DashboardSidebar = () => {
   const pathname = usePathname();
@@ -47,13 +47,13 @@ const DashboardSidebar = () => {
     },
     ...(SHOW_WHITEBOARDS
       ? [
-          {
-            href: "/dashboard/whiteboards",
-            icon: SquareStack,
-            label: "Whiteboards",
-            active: pathname?.includes("whiteboards"),
-          },
-        ]
+        {
+          href: "/dashboard/whiteboards",
+          icon: SquareStack,
+          label: "Whiteboards",
+          active: pathname?.includes("whiteboards"),
+        },
+      ]
       : []),
   ];
 
@@ -81,7 +81,7 @@ const DashboardSidebar = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/dashboard"}>
+                <SidebarMenuButton asChild isActive={pathname === "/dashboard"} size="lg">
                   <Link href="/dashboard">
                     <Sparkles className="w-5 h-5" />
                     <span>New chat +</span>
@@ -97,7 +97,7 @@ const DashboardSidebar = () => {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={item.active}>
+                  <SidebarMenuButton asChild isActive={item.active} size="lg">
                     <Link href={item.href}>
                       <item.icon className="w-5 h-5" />
                       <span>{item.label}</span>
@@ -115,7 +115,7 @@ const DashboardSidebar = () => {
             <HorizontalModeToggle sidebarExpanded={true} />
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname?.includes("account")}>
+            <SidebarMenuButton asChild isActive={pathname?.includes("account")} size="lg">
               <Link href="/dashboard/account">
                 <Settings className="w-5 h-5" />
                 <span>Settings</span>
@@ -123,7 +123,7 @@ const DashboardSidebar = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout}>
+            <SidebarMenuButton onClick={logout} size="lg">
               <LogOut className="w-5 h-5" />
               <span>Logout</span>
             </SidebarMenuButton>
