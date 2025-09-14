@@ -20,7 +20,7 @@ export default function HomeScreen() {
         This is your main screen. You can start building your app here with beautiful components.
       </Paragraph>
 
-      <Text size="$3" color="$color11" textAlign="center" opacity={0.8}>
+      <Text fontSize="$3" color="$color11" textAlign="center" opacity={0.8}>
         The app automatically supports dark and light mode with theme support.
       </Text>
 
