@@ -5,11 +5,12 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import { LatencyEvents } from '../loggers/LatencyEvents.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
-import type { CodeError } from '../types/PublicAPITypes.js';
 import type {
   ChatErrorResponse,
   ChatRequestBody,
+  CodeError,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   DispatchRequestBody,
@@ -30,7 +31,6 @@ import {
   isEditableDevServer,
 } from '../utils/prototypeDevServerStatusUtils.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
-import { LatencyEvents } from '../loggers/LatencyEvents.js';
 
 type PrototypeFile = Database['public']['Tables']['prototype_files']['Row'];
 
@@ -75,23 +75,25 @@ const ProductKeys = Object.freeze({
   PRO_SUBSCRIPTION: 'pro',
 });
 
-const MAX_ERROR_FIX_RETRIES = 3;
+const MAX_ERROR_FIX_RETRIES = 1;
 
 function filterCriticalErrors(buildErrors: CodeError[]): CodeError[] {
-  return buildErrors.filter(error => 
-    error.type === 'syntax' || error.type === 'dependency'
+  return buildErrors.filter(
+    (error) => error.type === 'syntax' || error.type === 'dependency',
   );
 }
 
 function createErrorFixingContext(errors: CodeError[]): string {
   if (errors.length === 0) return '';
-  
-  const errorList = errors.map(error => {
-    const location = error.file 
-      ? `${error.file}${error.line ? `:${error.line}` : ''}${error.column ? `:${error.column}` : ''}`
-      : 'unknown location';
-    return `- ${error.type.toUpperCase()}: ${error.message} (${location})`;
-  }).join('\n');
+
+  const errorList = errors
+    .map((error) => {
+      const location = error.file
+        ? `${error.file}${error.line ? `:${error.line}` : ''}${error.column ? `:${error.column}` : ''}`
+        : 'unknown location';
+      return `- ${error.type.toUpperCase()}: ${error.message} (${location})`;
+    })
+    .join('\n');
 
   return `
 CRITICAL BUILD ERRORS DETECTED:
@@ -478,11 +480,20 @@ export class ChatService {
               // ------------------------------------------------------------------------------------------------
               // ERROR FIXING PHASE: Check for build errors and attempt to fix them
               // ------------------------------------------------------------------------------------------------
-              if ('build_errors' in dispatchData && dispatchData.build_errors.length > 0) {
-                request.log2.consoleLogDevOnly('info', '[handleChat] Build errors detected, starting error-fixing phase', {
-                  errorCount: dispatchData.build_errors.length,
-                  criticalErrorCount: filterCriticalErrors(dispatchData.build_errors).length,
-                });
+              if (
+                'build_errors' in dispatchData &&
+                dispatchData.build_errors.length > 0
+              ) {
+                request.log2.consoleLogDevOnly(
+                  'info',
+                  '[handleChat] Build errors detected, starting error-fixing phase',
+                  {
+                    errorCount: dispatchData.build_errors.length,
+                    criticalErrorCount: filterCriticalErrors(
+                      dispatchData.build_errors,
+                    ).length,
+                  },
+                );
 
                 try {
                   const remainingErrors = await this.handleErrorFixingPhase(
@@ -497,8 +508,11 @@ export class ChatService {
 
                   // Final dispatch to confirm error fixes
                   if (remainingErrors.length === 0) {
-                    request.log2.consoleLogDevOnly('info', '[handleChat] All critical errors fixed, doing final dispatch');
-                    
+                    request.log2.consoleLogDevOnly(
+                      'info',
+                      '[handleChat] All critical errors fixed, doing final dispatch',
+                    );
+
                     const finalDispatchResponse = await this.fastifyApp.inject({
                       method: 'POST',
                       url: '/dispatch',
@@ -509,7 +523,9 @@ export class ChatService {
                         jwt: token,
                         prototype_id: prototype_id,
                         framework: 'expo_react_native',
-                        files: Object.entries(fileManager.getFinalState()).map(([, file]) => file),
+                        files: Object.entries(fileManager.getFinalState()).map(
+                          ([, file]) => file,
+                        ),
                         assets: [],
                         file_scope: 'updates',
                         hot_reload: true,
@@ -517,18 +533,27 @@ export class ChatService {
                     });
 
                     // Update dispatchData with final result
-                    const finalDispatchData = JSON.parse(finalDispatchResponse.payload);
+                    const finalDispatchData = JSON.parse(
+                      finalDispatchResponse.payload,
+                    );
                     if ('viewing_url' in finalDispatchData) {
                       // Use the final dispatch data for the viewing URL
                       Object.assign(dispatchData, finalDispatchData);
                     }
                   } else {
-                    request.log2.consoleLogDevOnly('warn', '[handleChat] Some errors could not be fixed, continuing with current build', {
-                      remainingCriticalErrors: remainingErrors.length,
-                    });
+                    request.log2.consoleLogDevOnly(
+                      'warn',
+                      '[handleChat] Some errors could not be fixed, continuing with current build',
+                      {
+                        remainingCriticalErrors: remainingErrors.length,
+                      },
+                    );
                   }
                 } catch (errorFixingError) {
-                  request.log2.error(errorFixingError, '[handleChat] Error during error-fixing phase');
+                  request.log2.error(
+                    errorFixingError,
+                    '[handleChat] Error during error-fixing phase',
+                  );
                   // Continue with original dispatch result
                 }
               }
@@ -1131,23 +1156,33 @@ export class ChatService {
     log2: SystemLogger,
   ): Promise<CodeError[]> {
     const criticalErrors = filterCriticalErrors(buildErrors);
-    
+
     if (criticalErrors.length === 0) {
-      log2.consoleLogDevOnly('info', '[handleErrorFixingPhase] No critical errors to fix');
+      log2.consoleLogDevOnly(
+        'info',
+        '[handleErrorFixingPhase] No critical errors to fix',
+      );
       return buildErrors;
     }
 
-    log2.consoleLogDevOnly('info', '[handleErrorFixingPhase] Starting error-fixing phase', {
-      criticalErrorCount: criticalErrors.length,
-      errorTypes: criticalErrors.map(e => e.type),
-    });
+    log2.consoleLogDevOnly(
+      'info',
+      '[handleErrorFixingPhase] Starting error-fixing phase',
+      {
+        criticalErrorCount: criticalErrors.length,
+        errorTypes: criticalErrors.map((e) => e.type),
+      },
+    );
 
     let currentErrors = criticalErrors;
     let retryCount = 0;
 
     while (currentErrors.length > 0 && retryCount < MAX_ERROR_FIX_RETRIES) {
       retryCount++;
-      log2.consoleLogDevOnly('info', `[handleErrorFixingPhase] Error fix attempt ${retryCount}/${MAX_ERROR_FIX_RETRIES}`);
+      log2.consoleLogDevOnly(
+        'info',
+        `[handleErrorFixingPhase] Error fix attempt ${retryCount}/${MAX_ERROR_FIX_RETRIES}`,
+      );
 
       // Create error-fixing step
       const errorFixingStep = {
@@ -1179,7 +1214,9 @@ export class ChatService {
             jwt: token,
             prototype_id: prototype_id,
             framework: 'expo_react_native',
-            files: Object.entries(fileManager.getFinalState()).map(([, file]) => file),
+            files: Object.entries(fileManager.getFinalState()).map(
+              ([, file]) => file,
+            ),
             assets: [],
             file_scope: 'updates',
             hot_reload: true,
@@ -1187,34 +1224,56 @@ export class ChatService {
         });
 
         const testDispatchData = JSON.parse(testDispatchResponse.payload);
-        
+
         if ('build_errors' in testDispatchData) {
-          const newCriticalErrors = filterCriticalErrors(testDispatchData.build_errors);
-          
-          log2.consoleLogDevOnly('info', `[handleErrorFixingPhase] After fix attempt ${retryCount}:`, {
-            previousErrorCount: currentErrors.length,
-            newErrorCount: newCriticalErrors.length,
-            fixedCount: Math.max(0, currentErrors.length - newCriticalErrors.length),
-          });
+          const newCriticalErrors = filterCriticalErrors(
+            testDispatchData.build_errors,
+          );
+
+          log2.consoleLogDevOnly(
+            'info',
+            `[handleErrorFixingPhase] After fix attempt ${retryCount}:`,
+            {
+              previousErrorCount: currentErrors.length,
+              newErrorCount: newCriticalErrors.length,
+              fixedCount: Math.max(
+                0,
+                currentErrors.length - newCriticalErrors.length,
+              ),
+            },
+          );
 
           currentErrors = newCriticalErrors;
         } else {
-          log2.consoleLogDevOnly('warn', '[handleErrorFixingPhase] Dispatch response missing build_errors');
+          log2.consoleLogDevOnly(
+            'warn',
+            '[handleErrorFixingPhase] Dispatch response missing build_errors',
+          );
           break;
         }
       } catch (error) {
-        log2.error(error, `[handleErrorFixingPhase] Error in fix attempt ${retryCount}:`);
+        log2.error(
+          error,
+          `[handleErrorFixingPhase] Error in fix attempt ${retryCount}:`,
+        );
         // Continue to next retry attempt
       }
     }
 
     if (currentErrors.length > 0) {
-      log2.consoleLogDevOnly('warn', '[handleErrorFixingPhase] Unable to fix all critical errors after max retries', {
-        remainingErrorCount: currentErrors.length,
-        maxRetries: MAX_ERROR_FIX_RETRIES,
-      });
+      log2.consoleLogDevOnly(
+        'warn',
+        '[handleErrorFixingPhase] Unable to fix all critical errors after max retries',
+        {
+          remainingErrorCount: currentErrors.length,
+          maxRetries: MAX_ERROR_FIX_RETRIES,
+        },
+      );
     } else {
-      log2.consoleLogDevOnly('info', '[handleErrorFixingPhase] All critical errors fixed successfully');
+      log2.consoleLogDevOnly(
+        'info',
+        '[handleErrorFixingPhase] All critical errors fixed successfully',
+      );
     }
 
     // Return the final error state (includes both critical and non-critical errors)

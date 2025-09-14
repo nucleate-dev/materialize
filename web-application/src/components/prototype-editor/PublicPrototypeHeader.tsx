@@ -191,7 +191,7 @@ export default function PublicPrototypeHeader({
 
   return (
     <>
-      <div className="flex-shrink-0 bg-background border-b border-border">
+      <div className="flex-shrink-0 bg-background">
         <div className="px-4 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             {/* Left side - Prototype info */}
