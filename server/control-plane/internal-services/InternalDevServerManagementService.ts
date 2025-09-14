@@ -180,6 +180,9 @@ export class InternalDevServerManagementService {
     reply: FastifyReply,
   ): Promise<void> {
     const { serverName } = request.body as { serverName: string };
+    request.log2 = request.log2.child({
+      service: 'internal-services',
+    });
     request.log2.info('Acquiring dev EC2 instance', { serverName });
 
     try {
@@ -226,6 +229,9 @@ export class InternalDevServerManagementService {
     reply: FastifyReply,
   ): Promise<void> {
     const { taskName } = request.body as { taskName: string };
+    request.log2 = request.log2.child({
+      service: 'internal-services',
+    });
     request.log2.info('Acquiring dev Fargate task', { taskName });
 
     try {
@@ -280,13 +286,16 @@ yum update -y
 `;
 
     const cmd = new RunInstancesCommand({
-      ImageId: 'ami-0abcdef1234567890', // Replace with your AMI - Amazon Linux 2
+      ImageId: 'ami-04e5216265f05dc60', // Amazon Linux 2
       InstanceType: 't3.micro',
       MinCount: 1,
       MaxCount: 1,
-      KeyName: 'mat-ec2-key-1', // Replace with your key pair name
-      SecurityGroupIds: ['sg-0123456789abcdef0'], // Replace with your security group
-      IamInstanceProfile: { Name: 'ec2-control-plane-role' }, // Replace with your instance role
+      KeyName: process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME!, // Replace with your key pair name
+      SecurityGroupIds:
+        process.env.INTERNAL_TOOLS_EC2_SECURITY_GROUPS?.split(',') || [], // Replace with your security group
+      IamInstanceProfile: {
+        Name: process.env.INTERNAL_TOOLS_EC2_IAM_INSTANCE_PROFILE_NAME!,
+      }, // Replace with your instance role
       InstanceInitiatedShutdownBehavior: 'terminate',
       UserData: Buffer.from(userDataScript).toString('base64'), // Must be base64 encoded
       TagSpecifications: [

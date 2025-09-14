@@ -1,6 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import {
+  generateAuthHeaders,
+  getInternalToolsConfig,
+} from "@/lib/internal-tools-auth"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -29,14 +33,25 @@ export default function DevServerPage() {
       setError(null)
       setSuccess(null)
 
-      const response = await fetch('/api/dev-server/acquire-ec2', {
+      // Make direct API call to production control plane
+      const serverEndpoint = process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT
+      if (!serverEndpoint) {
+        throw new Error('Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable.')
+      }
+
+      const { secretKey } = getInternalToolsConfig()
+      const requestBody = JSON.stringify({ serverName: ec2ServerName.trim() })
+      const headers = generateAuthHeaders(
+        "POST",
+        "/internal/dev-server/acquire-ec2",
+        requestBody,
+        secretKey
+      )
+
+      const response = await fetch(`${serverEndpoint}/internal/dev-server/acquire-ec2`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serverName: ec2ServerName.trim()
-        })
+        headers,
+        body: requestBody,
       })
 
       if (!response.ok) {
@@ -65,14 +80,25 @@ export default function DevServerPage() {
       setError(null)
       setSuccess(null)
 
-      const response = await fetch('/api/dev-server/acquire-fargate', {
+      // Make direct API call to production control plane
+      const serverEndpoint = process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT
+      if (!serverEndpoint) {
+        throw new Error('Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable.')
+      }
+
+      const { secretKey } = getInternalToolsConfig()
+      const requestBody = JSON.stringify({ taskName: fargateTaskName.trim() })
+      const headers = generateAuthHeaders(
+        "POST",
+        "/internal/dev-server/acquire-fargate",
+        requestBody,
+        secretKey
+      )
+
+      const response = await fetch(`${serverEndpoint}/internal/dev-server/acquire-fargate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          taskName: fargateTaskName.trim()
-        })
+        headers,
+        body: requestBody,
       })
 
       if (!response.ok) {
@@ -161,9 +187,10 @@ export default function DevServerPage() {
             </Button>
 
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• Instance Type: t3.small</p>
+              <p>• Instance Type: t3.micro</p>
               <p>• Auto-termination: 3 hours</p>
               <p>• Purpose: Control plane development</p>
+              <p>• Source: Production control plane</p>
             </div>
           </CardContent>
         </Card>
