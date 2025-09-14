@@ -1,4 +1,8 @@
-import { EC2Client, RunInstancesCommand, DescribeInstancesCommand } from '@aws-sdk/client-ec2';
+import {
+  EC2Client,
+  RunInstancesCommand,
+  DescribeInstancesCommand,
+} from '@aws-sdk/client-ec2';
 import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
@@ -295,7 +299,7 @@ yum update -y
 `;
 
     const cmd = new RunInstancesCommand({
-      ImageId: 'ami-04e5216265f05dc60', // Amazon Linux 2
+      ImageId: 'ami-00dcc61084e6a2f20', // Amazon Linux 2
       InstanceType: 't3.micro',
       MinCount: 1,
       MaxCount: 1,
@@ -334,7 +338,7 @@ yum update -y
     }
 
     // Wait a moment for AWS to populate instance metadata
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Fetch updated instance details to get public DNS and IP
     try {
@@ -350,7 +354,8 @@ yum update -y
       const state = detailedInstance?.State?.Name || instance?.State?.Name;
 
       // Generate SSH command
-      const keyName = process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
+      const keyName =
+        process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
       const sshCommand = publicDns
         ? `ssh -i "${keyName}.pem" ec2-user@${publicDns}`
         : publicIpv4
@@ -366,7 +371,8 @@ yum update -y
       };
     } catch {
       // If describe fails, return what we have from the initial run
-      const keyName = process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
+      const keyName =
+        process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
 
       return {
         instanceId: instance.InstanceId,
