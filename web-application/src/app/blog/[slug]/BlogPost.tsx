@@ -127,9 +127,7 @@ export default function BlogPost({ post }: BlogPostProps) {
 
           {/* Tags */}
           <div className="mb-12">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">
-              Tags
-            </h3>
+            <h3 className="text-lg font-semibold mb-4 text-foreground">Tags</h3>
             <div className="flex flex-wrap gap-2">
               {post.tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="text-sm">

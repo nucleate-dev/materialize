@@ -247,10 +247,11 @@ export default function ChatMessagesUI({
         <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
-            className={`p-4 rounded-lg ${isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-card-foreground border border-border"
-              }`}
+            className={`p-4 rounded-lg ${
+              isUser
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-card-foreground border border-border"
+            }`}
           >
             <div className="relative z-10">
               {/* Planning Summary at the top (more prominent) */}
@@ -324,10 +325,11 @@ export default function ChatMessagesUI({
 
               {/* Timestamp */}
               <div
-                className={`text-xs mt-3 font-medium ${isUser
-                  ? "text-primary-foreground/70"
-                  : "text-muted-foreground"
-                  }`}
+                className={`text-xs mt-3 font-medium ${
+                  isUser
+                    ? "text-primary-foreground/70"
+                    : "text-muted-foreground"
+                }`}
               >
                 {new Date(message.created_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -458,10 +460,11 @@ export default function ChatMessagesUI({
             </p>
           ) : (
             <p
-              className={`text-xs font-medium ${isAtLimit
-                ? "text-red-600 dark:text-red-400"
-                : "text-muted-foreground"
-                }`}
+              className={`text-xs font-medium ${
+                isAtLimit
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              }`}
             >
               Messages: {messageCount}/{messageLimit}
               {isAtLimit && " (Limit reached)"}
@@ -486,10 +489,11 @@ export default function ChatMessagesUI({
                           ? "Please wait for dev server to start..."
                           : "Ask me to create or modify React Native code..."
                     }
-                    className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${isAtLimit || isDevServerStarting
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                      }`}
+                    className={`w-full px-4 py-3 pr-12 rounded-lg text-sm bg-background text-foreground border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder-muted-foreground resize-none ${
+                      isAtLimit || isDevServerStarting
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
                     rows={1}
                     style={{
                       minHeight: "56px",
@@ -520,10 +524,11 @@ export default function ChatMessagesUI({
           <button
             type="submit"
             disabled={isDisabled}
-            className={`p-3 rounded-lg transition-colors ${!isDisabled
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-              }`}
+            className={`p-3 rounded-lg transition-colors ${
+              !isDisabled
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
             title={
               isAtLimit
                 ? "Message limit reached for this billing period"

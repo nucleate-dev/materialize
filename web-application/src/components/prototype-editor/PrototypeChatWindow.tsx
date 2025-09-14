@@ -301,7 +301,11 @@ export default function PrototypeChatWindow({
                 setPrototypeChatMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === planningMessageId
-                      ? { ...msg, content: executionContent, phase: "execution" }
+                      ? {
+                          ...msg,
+                          content: executionContent,
+                          phase: "execution",
+                        }
                       : msg,
                   ),
                 );

@@ -97,12 +97,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // TODO: if the sole purpose of this currentFile is to check if the file is an asset, then we should just check if the file is an asset no need to check the files array
   const currentFile =
     fileSystem.state.selectedFile &&
-      fileSystem.state.files &&
-      fileSystem.state.selectedFile in fileSystem.state.files
+    fileSystem.state.files &&
+    fileSystem.state.selectedFile in fileSystem.state.files
       ? fileSystem.state.files[fileSystem.state.selectedFile]
       : fileSystem.state.selectedFile &&
-        fileSystem.state.assets &&
-        fileSystem.state.selectedFile in fileSystem.state.assets
+          fileSystem.state.assets &&
+          fileSystem.state.selectedFile in fileSystem.state.assets
         ? fileSystem.state.assets[fileSystem.state.selectedFile]
         : null;
   const isAssetImage =
@@ -254,7 +254,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       } else {
         // Handle error response
-        const errorResponse = result as { error: string; message: string; };
+        const errorResponse = result as { error: string; message: string };
         logger.debug("error", "Failed to update file:", {
           ...errorResponse,
         });
@@ -342,7 +342,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       } else {
         // Handle error response
-        const errorResponse = result as { error: string; message: string; };
+        const errorResponse = result as { error: string; message: string };
         logger.debug("error", "Failed to update files:", {
           ...errorResponse,
         });

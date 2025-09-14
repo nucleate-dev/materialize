@@ -1,6 +1,10 @@
 "use client";
 
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { sidebarOpenAtom, sidebarStateAtom } from "@/lib/atoms/sidebar";
 import { useAtom, useAtomValue } from "jotai";
 import { usePathname } from "next/navigation";
@@ -10,7 +14,7 @@ import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
 
-function DashboardContent({ children }: { children: React.ReactNode; }) {
+function DashboardContent({ children }: { children: React.ReactNode }) {
   const [, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const sidebarState = useAtomValue(sidebarStateAtom);
   const pathname = usePathname();
@@ -41,23 +45,18 @@ function DashboardContent({ children }: { children: React.ReactNode; }) {
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
-          <div className="h-full p-4">
-            {children}
-          </div>
+          <div className="h-full p-4">{children}</div>
         </div>
       </SidebarInset>
     </>
   );
 }
 
-function DashboardLayout({ children }: { children: React.ReactNode; }) {
+function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
 
   return (
-    <SidebarProvider
-      open={sidebarOpen}
-      onOpenChange={setSidebarOpen}
-    >
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <DashboardContent>{children}</DashboardContent>
     </SidebarProvider>
   );
