@@ -197,7 +197,6 @@ export class CleanupService {
         const activeBuild: ActiveBuild = {
           ...build,
           status: 'building',
-          last_touched: currentTime, // Update last_touched to prevent immediate re-cleanup
         };
         try {
           await this.cache.set(buildKey, JSON.stringify(activeBuild));
