@@ -162,21 +162,6 @@ export class CleanupService {
               prototypeId,
             },
           );
-
-          // Categorize the error type for better tracking
-          const errorType = this.categorizeCleanupError(killResult.error || '');
-          switch (errorType) {
-            case 'operation_in_progress':
-              stats.operationsInProgress++;
-              break;
-            case 'worker_dead':
-            case 'worker_error':
-              stats.workerErrors++;
-              break;
-            case 'network_issue':
-              stats.networkIssues++;
-              break;
-          }
           stats.failedCleanups++;
           continue;
         }
@@ -458,40 +443,6 @@ export class CleanupService {
     } while (cursor !== '0');
 
     return keys;
-  }
-
-  // Helper method to categorize cleanup errors
-  private categorizeCleanupError(
-    error: string,
-  ):
-    | 'operation_in_progress'
-    | 'worker_dead'
-    | 'worker_error'
-    | 'network_issue' {
-    const lowerError = error.toLowerCase();
-
-    if (
-      lowerError.includes('cannot stop during') ||
-      lowerError.includes('operation') ||
-      lowerError.includes('building') ||
-      lowerError.includes('deploying')
-    ) {
-      return 'operation_in_progress';
-    }
-
-    if (
-      lowerError.includes('connection refused') ||
-      lowerError.includes('econnrefused') ||
-      lowerError.includes('host unreachable')
-    ) {
-      return 'worker_dead';
-    }
-
-    if (lowerError.includes('timeout') || lowerError.includes('econnaborted')) {
-      return 'network_issue';
-    }
-
-    return 'worker_error';
   }
 
   // Helper method to format timestamp in EST
