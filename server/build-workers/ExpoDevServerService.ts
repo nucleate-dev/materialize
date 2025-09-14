@@ -3,6 +3,7 @@ import { ChildProcess, execSync, spawn, SpawnOptions } from "child_process";
 import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
+import puppeteer from "puppeteer";
 import { v4 as uuidv4 } from "uuid";
 import { customlog } from "./logger.js";
 import {
@@ -39,6 +40,9 @@ class DevServerState {
   public currentOperation: OperationStatus = OperationStatus.IDLE;
   public operationStartTime: Date | null = null;
   public operationId: string | null = null;
+  public screenshotBase64: string | null = null;
+  public screenshotTimestamp: Date | null = null;
+  public screenshotError: string | null = null;
 
   public addLog(message: string): void {
     const timestamp = new Date().toISOString();
@@ -71,6 +75,9 @@ class DevServerState {
     this.currentOperation = OperationStatus.IDLE;
     this.operationStartTime = null;
     this.operationId = null;
+    this.screenshotBase64 = null;
+    this.screenshotTimestamp = null;
+    this.screenshotError = null;
   }
 
   public setOperation(operation: OperationStatus, operationId?: string): void {
@@ -339,6 +346,9 @@ export class ExpoDevServerService {
       currentOperation: this.state.currentOperation,
       operationDuration: this.state.getOperationDuration() || undefined,
       operationId: this.state.operationId || undefined,
+      screenshotBase64: this.state.screenshotBase64 || undefined,
+      screenshotTimestamp: this.state.screenshotTimestamp?.toISOString() || undefined,
+      screenshotError: this.state.screenshotError || undefined,
     };
   }
 
@@ -596,6 +606,26 @@ export class ExpoDevServerService {
     }
   }
 
+  // Public method to manually capture a screenshot
+  public async captureScreenshotManually(): Promise<{
+    success: boolean;
+    screenshotBase64?: string;
+    error?: string;
+  }> {
+    try {
+      await this.captureScreenshot();
+      return {
+        success: true,
+        screenshotBase64: this.state.screenshotBase64 || undefined
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   // Graceful shutdown method
   public async shutdown(): Promise<void> {
     this.state.addLog("Shutting down dev server service...");
@@ -822,6 +852,82 @@ export class ExpoDevServerService {
     }
   }
 
+  private async captureScreenshot(): Promise<void> {
+    if (!this.state.tunnelUrl || !this.state.prototypeId) {
+      throw new Error('No active dev server or prototype ID available for screenshot');
+    }
+
+    await this.captureScreenshotOfUrl(this.state.tunnelUrl);
+  }
+
+  private async captureScreenshotOfDeployedApp(buildUrl: string): Promise<void> {
+    if (!this.state.prototypeId) {
+      throw new Error('No prototype ID available for screenshot');
+    }
+
+    await this.captureScreenshotOfUrl(buildUrl);
+  }
+
+  private async captureScreenshotOfUrl(url: string): Promise<void> {
+    if (!this.state.prototypeId) {
+      throw new Error('No prototype ID available for screenshot');
+    }
+
+    this.state.addLog('Starting screenshot capture...');
+
+    try {
+      const browser = await puppeteer.launch({
+        headless: true,
+        executablePath: '/usr/bin/chromium-browser',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
+        ]
+      });
+
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1200, height: 800 });
+
+      this.state.addLog(`Navigating to ${url} for screenshot...`);
+
+      // Wait for the page to load completely
+      await page.goto(url, {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      });
+
+      // Wait a bit more for any animations or dynamic content
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Capture screenshot as base64
+      const screenshotBuffer = await page.screenshot({
+        fullPage: true,
+        type: 'png'
+      });
+
+      await browser.close();
+
+      // Convert buffer to base64
+      const screenshotBase64 = Buffer.from(screenshotBuffer).toString('base64');
+
+      // Update state with successful screenshot
+      this.state.screenshotBase64 = screenshotBase64;
+      this.state.screenshotTimestamp = new Date();
+      this.state.screenshotError = null;
+
+      this.state.addLog(`Screenshot captured successfully as base64 (${screenshotBase64.length} chars)`);
+
+    } catch (error: any) {
+      this.state.screenshotError = error.message;
+      this.state.addLog(`Screenshot capture failed: ${error.message}`);
+      throw error;
+    }
+  }
+
   async buildAndDeployProjectCore(
     jobId?: string,
   ): Promise<BuildAndDeployResponse> {
@@ -880,6 +986,16 @@ export class ExpoDevServerService {
         true,
         `Uploaded ${uploadedFiles.length} files. URL: ${buildUrl}`,
       );
+
+      // Add screenshot capture here
+      try {
+        logger.log("Capturing screenshot of deployed application");
+        await this.captureScreenshotOfDeployedApp(buildUrl);
+        logger.log("Screenshot captured successfully", true, `Base64 length: ${this.state.screenshotBase64?.length || 0} chars`);
+      } catch (error: any) {
+        logger.log("Screenshot capture failed", false, "", error.message);
+        // Don't fail the entire build/deploy for screenshot errors
+      }
 
       // Clear operation state on success
       this.state.clearOperation();
