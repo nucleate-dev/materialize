@@ -6,7 +6,7 @@ import path from "path";
 const KEY_PATH = process.env.KEY_PATH || "mat-ec2-key-1.pem";
 const USER = process.env.USERNAME_ON_EC2 || "ec2-user";
 const HOST =
-  process.env.HOST || "ec2-18-218-177-75.us-east-2.compute.amazonaws.com";
+  process.env.HOST || "ec2-3-16-26-80.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";

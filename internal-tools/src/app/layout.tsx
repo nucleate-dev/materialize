@@ -1,4 +1,4 @@
-import { InternalToolsSidebar } from "@/components/app-sidebar";
+import { InternalToolsSidebar } from "@/components/internal-tools-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
