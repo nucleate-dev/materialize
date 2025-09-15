@@ -18,7 +18,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   UpdateFilesRequestBody,
@@ -26,7 +28,7 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import Editor from "@monaco-editor/react";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 interface CodeEditorProps {
   fileSystem: UseFileSystemReturn;
@@ -51,12 +53,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   currentRenderStatus,
 }) => {
   const logger = useProductLogger();
+  const { userPlan } = useSubscriptionAccess();
+
   // Extract values from fileSystem
   const availableFiles = Object.keys(fileSystem.state.files);
   const canDelete = availableFiles.length > 1;
 
   // File change handler
   const onChange = (value: string | undefined) => {
+    // Prevent editing for free users
+    if (userPlan === "free") {
+      return;
+    }
+
     if (value !== undefined && fileSystem.state.selectedFile) {
       fileSystem.updateFileContentLocally(fileSystem.state.selectedFile, value);
     }
@@ -129,8 +138,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Determine save button state based on render status
-  const getSaveButtonState = () => {
+  // Determine save button state based on render status and subscription
+  const saveButtonState = useMemo(() => {
+    // Check subscription first - free users can't save
+    if (userPlan === "free") {
+      return {
+        disabled: true,
+        tooltip: "Upgrade to Pro to save files",
+      };
+    }
+
     switch (currentRenderStatus) {
       case "Static build":
         return {
@@ -162,11 +179,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             saveMode === "single-file" ? "Save current file" : "Save all files",
         };
     }
-  };
-
-  const saveButtonState = getSaveButtonState();
+  }, [currentRenderStatus, saveMode, userPlan]);
 
   const handleCreateFile = () => {
+    // Prevent file creation for free users
+    if (userPlan === "free") {
+      setNewFileError("Upgrade to Pro to create files");
+      return;
+    }
+
     if (!newFileName.trim()) {
       setNewFileError("File name is required");
       return;
@@ -215,6 +236,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   const handleDeleteFile = () => {
+    // Prevent file deletion for free users
+    if (userPlan === "free") {
+      return;
+    }
+
     if (fileSystem.state.selectedFile) {
       setShowDeleteConfirm(true);
     }
@@ -578,102 +604,153 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => setShowNewFileModal(true)}
-                    title="Create new file"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="inline-flex">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setShowNewFileModal(true)}
+                          disabled={userPlan === "free"}
+                        >
+                          <Plus className={`w-3 h-3 ${userPlan === "free" ? "opacity-50" : ""}`} />
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{userPlan === "free" ? "Upgrade to Pro to create files" : "Create new file"}</p>
+                    </TooltipContent>
+                  </Tooltip>
                   {canDelete && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={handleDeleteFile}
-                      title={`Delete ${fileSystem.state.selectedFile}`}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={handleDeleteFile}
+                            disabled={userPlan === "free"}
+                          >
+                            <Trash2 className={`w-3 h-3 ${userPlan === "free" ? "opacity-50" : ""}`} />
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>{userPlan === "free" ? "Upgrade to Pro to delete files" : `Delete ${fileSystem.state.selectedFile}`}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               )}
             </div>
           </div>
         )}
-        <div className="flex-1">
-          {isAssetImage && imageUrl ? (
-            <div className="h-full flex items-center justify-center bg-muted/20 p-4">
-              <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
-                <img
-                  src={imageUrl}
-                  alt={fileSystem.state.selectedFile}
-                  className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
-                  onError={(e) => {
-                    logger.debug("error", "Failed to load image:", {
-                      imageurl: imageUrl,
-                    });
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {fileSystem.state.selectedFile}
+        <div className="flex-1 flex flex-col">
+          {/* Free plan upgrade banner */}
+          {userPlan === "free" && (
+            <Alert className="rounded-none border-l-0 border-r-0 border-t-0 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50">
+              <Save className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Read-only mode
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Asset file • Click to view full size
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Upgrade to Pro to edit and save files
                   </p>
-                  <a
-                    href={imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                  >
-                    View Full Size
-                  </a>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-4 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                >
+                  Upgrade to Pro
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex-1">
+            {isAssetImage && imageUrl ? (
+              <div className="h-full flex items-center justify-center bg-muted/20 p-4">
+                <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
+                  <img
+                    src={imageUrl}
+                    alt={fileSystem.state.selectedFile}
+                    className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
+                    onError={(e) => {
+                      logger.debug("error", "Failed to load image:", {
+                        imageurl: imageUrl,
+                      });
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {fileSystem.state.selectedFile}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Asset file • Click to view full size
+                    </p>
+                    <a
+                      href={imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                      View Full Size
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <Editor
-              height="100%"
-              language={editorLanguage}
-              value={fileSystem.getSelectedFileContent()}
-              onChange={onChange}
-              theme="vs-dark"
-              beforeMount={beforeMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: "on",
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                wordWrap: "on",
-                folding: true,
-                lineDecorationsWidth: 10,
-                lineNumbersMinChars: 3,
-                readOnly,
-                contextmenu: !readOnly,
-                quickSuggestions: !readOnly,
-                parameterHints: { enabled: !readOnly },
-                suggestOnTriggerCharacters: !readOnly,
-                acceptSuggestionOnEnter: readOnly ? "off" : "on",
-                tabCompletion: readOnly ? "off" : "on",
-                wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
-                scrollbar: {
-                  vertical: "visible",
-                  horizontal: "visible",
-                  useShadows: true,
-                  verticalHasArrows: true,
-                  horizontalHasArrows: true,
-                  verticalScrollbarSize: 14,
-                  horizontalScrollbarSize: 14,
-                },
-              }}
-            />
-          )}
+            ) : (
+              <Editor
+                height="100%"
+                language={editorLanguage}
+                value={fileSystem.getSelectedFileContent()}
+                onChange={onChange}
+                theme="vs-dark"
+                beforeMount={beforeMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: "on",
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: "on",
+                  folding: true,
+                  lineDecorationsWidth: 10,
+                  lineNumbersMinChars: 3,
+                  readOnly: readOnly || userPlan === "free",
+                  contextmenu: !(readOnly || userPlan === "free"),
+                  quickSuggestions: !(readOnly || userPlan === "free"),
+                  parameterHints: {
+                    enabled: !(readOnly || userPlan === "free"),
+                  },
+                  suggestOnTriggerCharacters: !(
+                    readOnly || userPlan === "free"
+                  ),
+                  acceptSuggestionOnEnter:
+                    readOnly || userPlan === "free" ? "off" : "on",
+                  tabCompletion: readOnly || userPlan === "free" ? "off" : "on",
+                  wordBasedSuggestions: !(readOnly || userPlan === "free")
+                    ? "currentDocument"
+                    : "off",
+                  scrollbar: {
+                    vertical: "visible",
+                    horizontal: "visible",
+                    useShadows: true,
+                    verticalHasArrows: true,
+                    horizontalHasArrows: true,
+                    verticalScrollbarSize: 14,
+                    horizontalScrollbarSize: 14,
+                  },
+                }}
+              />
+            )}
+          </div>
         </div>
 
         {/* New File Modal */}

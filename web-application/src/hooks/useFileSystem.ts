@@ -2,6 +2,7 @@ import { supabase } from "@/ClientConstants";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { useCallback, useEffect, useState } from "react";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -45,6 +46,7 @@ export const useFileSystem = (
   defaultFile = "App.js",
 ): UseFileSystemReturn => {
   const logger = useProductLogger();
+  const { userPlan } = useSubscriptionAccess();
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
   const [assets, setAssets] = useState<Record<string, PrototypeAsset>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
@@ -309,6 +311,15 @@ export const useFileSystem = (
   // Create a new file
   const createFile = useCallback(
     async (fileName: string, initialContent = "") => {
+      // Prevent file creation for free users
+      if (userPlan === "free") {
+        logger.debug(
+          "error",
+          "Create file failed: free users cannot create files",
+        );
+        return;
+      }
+
       if (!prototypeId) {
         logger.debug("error", "Create file failed: no prototype ID");
         return;
@@ -355,12 +366,21 @@ export const useFileSystem = (
         });
       }
     },
-    [prototypeId, files, logger],
+    [prototypeId, files, logger, userPlan],
   );
 
   // Delete a file
   const deleteFile = useCallback(
     async (fileName: string) => {
+      // Prevent file deletion for free users
+      if (userPlan === "free") {
+        logger.debug(
+          "error",
+          "Delete file failed: free users cannot delete files",
+        );
+        return;
+      }
+
       if (!prototypeId) {
         logger.debug("error", "Delete file failed: no prototype ID");
         return;
@@ -413,7 +433,7 @@ export const useFileSystem = (
         });
       }
     },
-    [prototypeId, files, selectedFile, logger],
+    [prototypeId, files, selectedFile, logger, userPlan],
   );
 
   const state: FileSystemState = {
