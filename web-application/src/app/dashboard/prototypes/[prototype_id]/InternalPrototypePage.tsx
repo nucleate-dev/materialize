@@ -341,24 +341,6 @@ export default function InternalPrototypePage() {
     async function pollFetchViewingUrl() {
       if (!prototypeId) return;
 
-      const getIntervalForStatus = (status: RenderStatus): number => {
-        switch (status) {
-          case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
-            return 45000;
-          case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
-            return 25000;
-          case "Static build":
-            return 150000;
-          case "Connecting..":
-          case "Updating..": // Connecting and Updating the dev server is obviously active. poll every minute though just in case
-            return 60000;
-          case "Disconnected": // disconnected then we probably want to refresh, poll every 30 seconds
-            return 30000;
-          default:
-            return 60000;
-        }
-      };
-
       let pollInterval: number = getIntervalForStatus(currentRenderStatus);
 
       const doPoll = async () => {
@@ -807,3 +789,21 @@ export default function InternalPrototypePage() {
     </div>
   );
 }
+
+const getIntervalForStatus = (status: RenderStatus): number => {
+  switch (status) {
+    case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
+      return 45000;
+    case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
+      return 25000;
+    case "Static build":
+      return 150000;
+    case "Connecting..":
+    case "Updating..": // Connecting and Updating the dev server is obviously active. poll every minute though just in case
+      return 60000;
+    case "Disconnected": // disconnected then we probably want to refresh, poll every 30 seconds
+      return 30000;
+    default:
+      return 60000;
+  }
+};
