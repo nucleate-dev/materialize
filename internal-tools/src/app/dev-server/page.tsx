@@ -99,7 +99,7 @@ Instance Details:
 SSH Connection:
 ${result.sshCommand}
 
-Note: It may take a few minutes for the instance to fully boot and become accessible.`;
+The instance is accessible and ready to use.`;
 
       setSuccess(successMessage);
       setEc2ServerName("");

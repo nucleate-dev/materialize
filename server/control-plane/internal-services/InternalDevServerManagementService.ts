@@ -2,7 +2,8 @@ import {
   EC2Client,
   RunInstancesCommand,
   DescribeInstancesCommand,
-  DescribeInstanceStatusCommand,
+  waitUntilInstanceRunning,
+  waitUntilInstanceStatusOk,
 } from '@aws-sdk/client-ec2';
 import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -10,6 +11,7 @@ import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
 import fs from 'fs';
 import path from 'path';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 
 export class InternalDevServerManagementService {
   private ec2Client: EC2Client;
@@ -205,7 +207,10 @@ export class InternalDevServerManagementService {
       }
 
       // Acquire the EC2 instance
-      const result = await this.allocateDevServer(serverName.trim());
+      const result = await this.allocateDevServer(
+        serverName.trim(),
+        request.log2,
+      );
 
       request.log2.info('EC2 dev server acquired successfully', {
         serverName,
@@ -290,12 +295,14 @@ export class InternalDevServerManagementService {
     try {
       const scriptPath = path.resolve(
         process.cwd(),
-        'infra/ec2/dev-ec2-user-data-script.sh'
+        'infra/ec2/dev-ec2-user-data-script.sh',
       );
       return fs.readFileSync(scriptPath, 'utf-8');
     } catch (error) {
       throw new Error(
-        `Failed to load user data script: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to load user data script: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       );
     }
   }
@@ -303,53 +310,44 @@ export class InternalDevServerManagementService {
   // Wait for instance to be ready (user data script completed)
   private async waitForInstanceReady(
     instanceId: string,
-    maxWaitTimeMs: number = 300000 // 5 minutes
+    log2: SystemLogger,
   ): Promise<void> {
-    const startTime = Date.now();
-    const pollInterval = 15000; // 15 seconds
+    log2.info('Waiting for instance to be running...', { instanceId });
 
-    while (Date.now() - startTime < maxWaitTimeMs) {
-      try {
-        // Check instance state
-        const describeCmd = new DescribeInstancesCommand({
-          InstanceIds: [instanceId],
-        });
-        const response = await this.ec2Client.send(describeCmd);
-        const instance = response.Reservations?.[0]?.Instances?.[0];
-
-        // First check if instance is running
-        if (instance?.State?.Name === 'running') {
-          // Check instance status (system and instance status checks)
-          const statusCmd = new DescribeInstanceStatusCommand({
-            InstanceIds: [instanceId],
-          });
-          const statusResponse = await this.ec2Client.send(statusCmd);
-          const instanceStatus = statusResponse.InstanceStatuses?.[0];
-
-          if (
-            instanceStatus?.SystemStatus?.Status === 'ok' &&
-            instanceStatus?.InstanceStatus?.Status === 'ok'
-          ) {
-            // Instance is running and all status checks passed
-            // User data script should have completed by now
-            return;
-          }
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      } catch (error) {
-        // Continue polling on temporary errors
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      }
-    }
-
-    throw new Error(
-      `Instance ${instanceId} did not become ready within ${maxWaitTimeMs / 1000} seconds`
+    // First wait for instance to be running
+    await waitUntilInstanceRunning(
+      {
+        client: this.ec2Client,
+        maxWaitTime: 300, // 5 minutes
+        minDelay: 15, // 15 seconds between checks
+        maxDelay: 30, // max 30 seconds between checks
+      },
+      { InstanceIds: [instanceId] },
     );
+
+    log2.info('Instance is running, waiting for status checks...', {
+      instanceId,
+    });
+
+    // Then wait for status checks to pass (this ensures user data script has completed)
+    await waitUntilInstanceStatusOk(
+      {
+        client: this.ec2Client,
+        maxWaitTime: 300, // 5 minutes
+        minDelay: 30, // 30 seconds between checks (status checks take longer)
+        maxDelay: 60, // max 60 seconds between checks
+      },
+      { InstanceIds: [instanceId] },
+    );
+
+    log2.info('Instance is fully ready - status checks passed', { instanceId });
   }
 
   // Allocate a dev EC2 server
-  private async allocateDevServer(serverName: string): Promise<{
+  private async allocateDevServer(
+    serverName: string,
+    log2: SystemLogger,
+  ): Promise<{
     instanceId: string | undefined;
     state: string | undefined;
     publicDns: string | undefined;
@@ -398,7 +396,7 @@ export class InternalDevServerManagementService {
     }
 
     // Wait for instance to be fully ready (user data script completed)
-    await this.waitForInstanceReady(instance.InstanceId);
+    await this.waitForInstanceReady(instance.InstanceId, log2);
 
     // Fetch updated instance details to get public DNS and IP
     try {
