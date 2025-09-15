@@ -196,11 +196,19 @@ export class PrototypeManagementService {
               precheckData.success &&
               precheckData.viewing_url
             ) {
+              const isEditable = isEditableDevServer(precheckData.status);
+              let staticViewingUrl = precheckData.viewing_url;
+              if (
+                !isEditable &&
+                token &&
+                authResult.prototype.visibility !== 'PUBLIC' &&
+                staticViewingUrl.includes('render.materializeui.com')
+              ) {
+                staticViewingUrl += `?token=${encodeURIComponent(token)}`;
+              }
               const successResponse: FetchViewingUrlSuccessResponse = {
-                viewing_url: precheckData.viewing_url,
-                source: isEditableDevServer(precheckData.status)
-                  ? 'editable_instance'
-                  : 'static_build',
+                viewing_url: staticViewingUrl,
+                source: isEditable ? 'editable_instance' : 'static_build',
               };
               return reply.status(HTTP_STATUS.OK).send(successResponse);
             }
@@ -215,8 +223,6 @@ export class PrototypeManagementService {
       }
 
       // Return static build URL
-
-      // const staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
       let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
       if (token && authResult.prototype.visibility !== 'PUBLIC') {
         staticViewingUrl += `?token=${encodeURIComponent(token)}`;
