@@ -90,6 +90,8 @@ const MaterializeRenderSection = forwardRef<
     const screenshotIntervalRef = useRef<NodeJS.Timeout | null>(null);
     // Track if screenshots are currently active to prevent duplicates
     const [screenshotsActive, setScreenshotsActive] = useState(false);
+    // Cache ownership check result to avoid repeated database queries
+    const [isOwner, setIsOwner] = useState<boolean | null>(null);
 
     // Function to capture screenshot of iframe and upload to Supabase
     const captureAndUploadScreenshot = useCallback(async () => {
@@ -114,6 +116,23 @@ const MaterializeRenderSection = forwardRef<
         logger.debug("log", "Skipping screenshot due to render status", {
           currentRenderStatus,
         });
+        return;
+      }
+
+      // Check if current user is the prototype owner (use cached result if available)
+      if (isOwner === null) {
+        logger.debug(
+          "log",
+          "Ownership not yet determined, skipping screenshot",
+        );
+        return;
+      }
+
+      if (!isOwner) {
+        logger.debug(
+          "log",
+          "Skipping screenshot - user is not prototype owner",
+        );
         return;
       }
 
@@ -209,6 +228,7 @@ const MaterializeRenderSection = forwardRef<
       previewMode,
       logger,
       currentRenderStatus,
+      isOwner,
     ]);
 
     // Function to start the screenshot interval
@@ -501,6 +521,62 @@ const MaterializeRenderSection = forwardRef<
       startScreenshotInterval,
       stopScreenshotInterval,
     ]);
+
+    // Check ownership once when prototypeId is available
+    useEffect(() => {
+      async function checkOwnership() {
+        if (!prototypeId) {
+          setIsOwner(null);
+          return;
+        }
+
+        try {
+          const { data: user } = await supabase.auth.getUser();
+          if (!user?.user?.id) {
+            logger.debug("log", "No authenticated user for ownership check");
+            setIsOwner(false);
+            return;
+          }
+
+          const { data: prototype, error: prototypeError } = await supabase
+            .from("prototypes")
+            .select("owner_id")
+            .eq("id", prototypeId)
+            .single();
+
+          if (prototypeError) {
+            logger.debug(
+              "error",
+              "Failed to fetch prototype for ownership check",
+              {
+                error: prototypeError.message,
+                prototypeId,
+              },
+            );
+            setIsOwner(false);
+            return;
+          }
+
+          const isUserOwner = prototype?.owner_id === user.user.id;
+          setIsOwner(isUserOwner);
+
+          logger.debug("log", "Ownership check completed", {
+            userId: user.user.id,
+            ownerId: prototype?.owner_id,
+            prototypeId,
+            isOwner: isUserOwner,
+          });
+        } catch (error) {
+          logger.debug("error", "Error during ownership check", {
+            error: error instanceof Error ? error.message : String(error),
+            prototypeId,
+          });
+          setIsOwner(false);
+        }
+      }
+
+      checkOwnership();
+    }, [prototypeId, logger]);
 
     // Connection status indicator component using shadcn Badge
     const ConnectionStatusIndicator = () => {
