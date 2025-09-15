@@ -188,6 +188,7 @@ export interface FetchViewingUrlRequestBody {
 export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
   source: 'editable_instance' | 'static_build';
+  status: BuildStatus | null;
 }
 
 export type FetchViewingUrlResponse =

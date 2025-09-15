@@ -209,6 +209,7 @@ export class PrototypeManagementService {
               const successResponse: FetchViewingUrlSuccessResponse = {
                 viewing_url: staticViewingUrl,
                 source: isEditable ? 'editable_instance' : 'static_build',
+                status: precheckData.status,
               };
               return reply.status(HTTP_STATUS.OK).send(successResponse);
             }
@@ -235,6 +236,7 @@ export class PrototypeManagementService {
       const successResponse: FetchViewingUrlSuccessResponse = {
         viewing_url: staticViewingUrl,
         source: 'static_build',
+        status: null,
       };
 
       return reply.status(HTTP_STATUS.OK).send(successResponse);

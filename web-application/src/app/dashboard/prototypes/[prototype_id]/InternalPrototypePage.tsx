@@ -23,6 +23,7 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type FetchViewingUrlRequestBody,
   type FetchViewingUrlResponse,
+  type FetchViewingUrlSuccessResponse,
   type StartDevServerRequestBody,
   type StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
@@ -127,6 +128,7 @@ export default function InternalPrototypePage() {
     }
   };
 
+  // USE EFFECT PURPOSE: to fetch prototype and start dev server
   // DO NOT SPLIT THIS USEEFFECT HOOK. Race conditions will fuck up the badge status.
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
@@ -332,9 +334,104 @@ export default function InternalPrototypePage() {
     logger,
   ]);
 
-  const handleUpdatePrototype = (updatedPrototype: Prototype) => {
-    setPrototype(updatedPrototype);
-  };
+  // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
+  useEffect(() => {
+    let pollTimer: NodeJS.Timeout | null = null;
+
+    async function pollFetchViewingUrl() {
+      if (!prototypeId) return;
+
+      let pollInterval: number;
+      switch (currentRenderStatus) {
+        case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
+          pollInterval = 45000;
+          break;
+        case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
+          pollInterval = 15000;
+          break;
+        case "Static build":
+        case "Connecting..":
+        case "Updating..":
+          // Connecting and Updating the dev server is obviously just active. poll every minute though just in case
+          pollInterval = 60000;
+          break;
+        case "Disconnected":
+          // disconnected then we probably want to refresh, poll every 30 seconds
+          pollInterval = 30000;
+          break;
+        default:
+          return;
+      }
+
+      const doPoll = async () => {
+        try {
+          const session = await supabase.auth.getSession();
+          const token = session.data.session?.access_token;
+          const headers: HeadersInit = {
+            "Content-Type": "application/json",
+          };
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+
+          logger.debug("log", "Polling fetch viewing url endpoint:", {
+            viewingUrl,
+          });
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/fetch-viewing-url`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                prototype_id: prototypeId,
+                current_page: "edit",
+              } as FetchViewingUrlRequestBody),
+            },
+          );
+          logger.debug("log", "Polling fetch viewing url endpoint response:", {
+            response,
+          });
+
+          if (response.ok) {
+            const data: FetchViewingUrlResponse = await response.json();
+            if (
+              "viewing_url" in data &&
+              data.viewing_url &&
+              data.viewing_url !== viewingUrl // this is important because otherwise we want to maintain the badge status from elsewhere
+            ) {
+              data as FetchViewingUrlSuccessResponse;
+              setViewingUrl(data.viewing_url);
+              // Update render status based on response
+              if (data.source === "editable_instance") {
+                setCurrentRenderStatus("Connecting..");
+              } else {
+                setCurrentRenderStatus("Static build");
+              }
+            }
+          }
+        } catch (error) {
+          logger.debug("error", "Polling error:", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      };
+
+      // Start polling with the determined interval
+      pollTimer = setInterval(doPoll, pollInterval);
+
+      // Also call once immediately
+      doPoll();
+    }
+
+    pollFetchViewingUrl();
+
+    // Cleanup function
+    return () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [currentRenderStatus, prototypeId, logger, viewingUrl]);
 
   const handleShare = () => {
     setShowShareModal(true);
@@ -416,7 +513,7 @@ export default function InternalPrototypePage() {
       {prototype && (
         <PublicPrototypeHeader
           prototype={prototype}
-          onUpdatePrototype={handleUpdatePrototype}
+          onUpdatePrototype={setPrototype}
           onShare={handleShare}
         />
       )}
