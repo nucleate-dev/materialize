@@ -3,21 +3,15 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
-const KEY_PATH = process.env.KEY_PATH || "mat-ec2-key-1.pem";
-const USER = process.env.USERNAME_ON_EC2 || "ec2-user";
-const HOST =
-  process.env.HOST || "ec2-18-190-158-253.us-east-2.compute.amazonaws.com";
+const KEY_PATH = "mat-ec2-key-1.pem";
+const USER = "ec2-user";
+const HOST = "ec2-18-188-110-118.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
 const remoteHome = `/home/${USER}`;
 const remoteZip = `${remoteHome}/control-plane.zip`;
 const remoteBase = `${remoteHome}/control-plane`;
-
-const CW_CONFIG_PATH =
-  "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json";
-const CW_LOG_FILE = `${remoteBase}/dev-server.log`;
-const CW_LOG_GROUP = "/ec2/materialize/control-plane-dev";
 
 const args = process.argv.slice(2);
 
@@ -35,79 +29,14 @@ function runRemoteBash(script) {
   run(cmd);
 }
 
-function ensureRemotePrereqs() {
-  // 1. Install deps + create folder
-  const preScript = `
+function ensureRemoteReady() {
+  // Ensure remote base directory exists (in case user data script didn't run)
+  const script = `
     set -euxo pipefail
-
-    if command -v dnf >/dev/null 2>&1; then
-      if ! command -v node >/dev/null 2>&1; then
-        curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
-        sudo dnf install -y nodejs gcc-c++ make
-      fi
-      command -v unzip >/dev/null 2>&1 || sudo dnf install -y unzip
-      sudo dnf install -y amazon-cloudwatch-agent
-    else
-      if ! command -v node >/dev/null 2>&1; then
-        curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
-        sudo yum install -y nodejs gcc-c++ make
-      fi
-      command -v unzip >/dev/null 2>&1 || sudo yum install -y unzip
-      sudo yum install -y amazon-cloudwatch-agent
-    fi
-
     mkdir -p ${remoteBase}
-    echo "✅ Remote prerequisites OK"
+    echo "✅ Remote directory ready"
   `;
-  runRemoteBash(preScript);
-
-  // 2. Check if config is missing
-  const checkAgent = `
-    if ! pgrep -f amazon-cloudwatch-agent >/dev/null 2>&1 || ! grep -q "${CW_LOG_GROUP}" "${CW_CONFIG_PATH}" 2>/dev/null; then
-      exit 42  # force next step
-    fi
-  `;
-  try {
-    runRemoteBash(checkAgent);
-    console.log("✅ CloudWatch Agent already running with correct config");
-  } catch (err) {
-    if (err.status === 42 || err.message.includes("Command failed")) {
-      console.log("🔧 Writing CloudWatch Agent config...");
-    } else {
-      throw err;
-    }
-
-    // 3. Upload config safely
-    run(`ssh -i "${KEY_PATH}" ${USER}@${HOST} 'sudo bash -c "cat > ${CW_CONFIG_PATH}"' <<EOCONFIG
-{
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "${CW_LOG_FILE}",
-            "log_group_name": "${CW_LOG_GROUP}",
-            "log_stream_name": "{instance_id}-dev-server",
-            "timestamp_format": "%Y-%m-%d %H:%M:%S"
-          }
-        ]
-      }
-    },
-    "force_flush_interval": 5
-  }
-}
-EOCONFIG`);
-
-    // 4. Restart the agent
-    runRemoteBash(`
-      sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \\
-        -a fetch-config \\
-        -m ec2 \\
-        -c file:${CW_CONFIG_PATH} \\
-        -s
-      echo "✅ CloudWatch Agent configured and started"
-    `);
-  }
+  runRemoteBash(script);
 }
 
 function fullDeploy() {
@@ -227,7 +156,7 @@ function selectiveDeploy(paths) {
 
 (function main() {
   try {
-    ensureRemotePrereqs();
+    ensureRemoteReady();
     if (args.length === 0) {
       fullDeploy();
     } else {
