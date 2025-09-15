@@ -205,17 +205,27 @@ export class InternalCacheManagementService {
                 success: { type: 'boolean' },
                 prototypeId: { type: 'string' },
                 currentBuildId: { type: ['string', 'null'] },
-                activeBuild: {
-                  type: ['object', 'null'],
-                  properties: {
-                    fargate_task_arn: { type: 'string' },
-                    fargate_private_ip: { type: 'string' },
-                    url: { type: 'string' },
-                    status: { type: 'string' },
-                    last_touched: { type: 'number' },
+                activeBuilds: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      buildId: { type: 'string' },
+                      isCurrent: { type: 'boolean' },
+                      activeBuild: {
+                        type: 'object',
+                        properties: {
+                          fargate_task_arn: { type: 'string' },
+                          fargate_private_ip: { type: 'string' },
+                          url: { type: 'string' },
+                          status: { type: 'string' },
+                          last_touched: { type: 'number' },
+                        },
+                      },
+                    },
                   },
                 },
-                allBuilds: {
+                buildHistory: {
                   type: 'array',
                   items: {
                     type: 'object',
@@ -226,6 +236,7 @@ export class InternalCacheManagementService {
                   },
                 },
                 timestamp: { type: 'string' },
+                message: { type: 'string' },
               },
             },
             401: {
@@ -385,23 +396,51 @@ export class InternalCacheManagementService {
         CACHE_KEYS.protoCurrentBuild(prototypeId),
       );
 
-      let activeBuild: ActiveBuild | null = null;
+      // Get ALL active builds for this prototype by scanning for build IDs that contain the prototype ID
+      const allActiveBuilds: Array<{
+        buildId: string;
+        activeBuild: ActiveBuild;
+        isCurrent: boolean;
+      }> = [];
 
-      // If we have a current build ID, get the active build data
-      if (currentBuildId) {
-        const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuildJson = await this.cache.get(activeBuildKey);
+      // Scan all active_build:* keys to find ones for this prototype
+      const allActiveBuildKeys = await this.scanAllKeys(request.log2);
+      const prototypeActiveBuildKeys = allActiveBuildKeys.filter((key) =>
+        key.startsWith('active_build:') && key.includes(`build_${prototypeId}_`)
+      );
 
-        if (existingBuildJson) {
-          const parsedBuild = JSON.parse(existingBuildJson as string);
-          if (isActiveBuildType(parsedBuild)) {
-            activeBuild = parsedBuild;
-          } else {
-            request.log2.warn('Invalid active build data found in cache', {
-              prototypeId,
-              currentBuildId,
-            });
+      request.log2.consoleLogDevOnly('info', 'Found active build keys for prototype', {
+        prototypeId,
+        foundKeys: prototypeActiveBuildKeys.length,
+        keys: prototypeActiveBuildKeys,
+      });
+
+      // Get the data for each active build
+      for (const buildKey of prototypeActiveBuildKeys) {
+        try {
+          const buildJson = await this.cache.get(buildKey);
+          if (buildJson) {
+            const parsedBuild = JSON.parse(buildJson as string);
+            if (isActiveBuildType(parsedBuild)) {
+              const buildId = buildKey.replace('active_build:', '');
+              allActiveBuilds.push({
+                buildId,
+                activeBuild: parsedBuild,
+                isCurrent: buildId === currentBuildId,
+              });
+            } else {
+              request.log2.warn('Invalid active build data found in cache', {
+                prototypeId,
+                buildKey,
+              });
+            }
           }
+        } catch (error) {
+          request.log2.warn('Failed to parse active build data', {
+            prototypeId,
+            buildKey,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -460,8 +499,11 @@ export class InternalCacheManagementService {
       // Sort by timestamp descending (newest first)
       allBuilds.sort((a, b) => b.timestamp - a.timestamp);
 
-      // If no current build and no builds in history, return 404-like response but with 200 status
-      if (!currentBuildId && allBuilds.length === 0) {
+      // Sort active builds by last_touched descending (most recent first)
+      allActiveBuilds.sort((a, b) => b.activeBuild.last_touched - a.activeBuild.last_touched);
+
+      // If no current build and no builds in history and no active builds, return 404-like response but with 200 status
+      if (!currentBuildId && allBuilds.length === 0 && allActiveBuilds.length === 0) {
         request.log2.info('No build data found for prototype', {
           prototypeId,
         });
@@ -470,8 +512,8 @@ export class InternalCacheManagementService {
           success: true,
           prototypeId,
           currentBuildId: null,
-          activeBuild: null,
-          allBuilds: [],
+          activeBuilds: [],
+          buildHistory: [],
           timestamp: new Date().toISOString(),
           message: 'No build data found for this prototype',
         });
@@ -480,16 +522,16 @@ export class InternalCacheManagementService {
       request.log2.info('Successfully retrieved prototype build data', {
         prototypeId,
         currentBuildId,
-        activeBuildStatus: activeBuild?.status,
-        totalBuilds: allBuilds.length,
+        totalActiveBuilds: allActiveBuilds.length,
+        totalBuildsInHistory: allBuilds.length,
       });
 
       return reply.status(HTTP_STATUS.OK).send({
         success: true,
         prototypeId,
         currentBuildId: currentBuildId || null,
-        activeBuild,
-        allBuilds,
+        activeBuilds: allActiveBuilds,
+        buildHistory: allBuilds,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

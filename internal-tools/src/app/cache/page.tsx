@@ -384,7 +384,7 @@ export default function CacheManagementPage() {
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Build Data for {prototypeBuildData.prototypeId}</h4>
                   <Badge variant="outline">
-                    {prototypeBuildData.currentBuildId ? "Has Active Build" : "No Active Build"}
+                    {prototypeBuildData.activeBuilds.length > 0 ? `${prototypeBuildData.activeBuilds.length} Active Build${prototypeBuildData.activeBuilds.length > 1 ? 's' : ''}` : "No Active Builds"}
                   </Badge>
                 </div>
 
@@ -396,76 +396,90 @@ export default function CacheManagementPage() {
                   </Alert>
                 )}
 
-                {prototypeBuildData.activeBuild ? (
-                  <>
-                    {/* Current Active Build */}
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Activity className="h-4 w-4" />
-                          <span className="font-medium">Current Build Status</span>
+                {prototypeBuildData.activeBuilds.length > 0 ? (
+                  <div className="space-y-4">
+                    <h5 className="font-medium">Active Builds</h5>
+                    {prototypeBuildData.activeBuilds.map((buildData, idx) => (
+                      <div
+                        key={idx}
+                        className={`border rounded-lg p-4 space-y-4 ${
+                          buildData.isCurrent
+                            ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+                            : "bg-background"
+                        }`}
+                      >
+                        {/* Build Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm font-mono">{buildData.buildId}</span>
+                            {buildData.isCurrent && (
+                              <Badge variant="outline" className="text-xs">Current</Badge>
+                            )}
+                          </div>
+                          <Badge variant={getStatusBadgeVariant(buildData.activeBuild.status)}>
+                            {buildData.activeBuild.status}
+                          </Badge>
                         </div>
-                        <Badge variant={getStatusBadgeVariant(prototypeBuildData.activeBuild.status)}>
-                          {prototypeBuildData.activeBuild.status}
-                        </Badge>
-                      </div>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          <span className="font-medium">Last Touched</span>
+                        {/* Build Details Grid */}
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span className="font-medium text-sm">Last Touched</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {formatTimestamp(buildData.activeBuild.last_touched)}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Server className="h-4 w-4" />
+                              <span className="font-medium text-sm">Fargate Private IP</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border">
+                              {buildData.activeBuild.fargate_private_ip || "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Link className="h-4 w-4" />
+                              <span className="font-medium text-sm">Build URL</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.url || "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Database className="h-4 w-4" />
+                              <span className="font-medium text-sm">Task ARN</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.fargate_task_arn || "N/A"}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          {formatTimestamp(prototypeBuildData.activeBuild.last_touched)}
-                        </span>
                       </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Server className="h-4 w-4" />
-                          <span className="font-medium">Fargate Private IP</span>
-                        </div>
-                        <span className="text-sm font-mono bg-background p-1 rounded border">
-                          {prototypeBuildData.activeBuild.fargate_private_ip || "N/A"}
-                        </span>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Link className="h-4 w-4" />
-                          <span className="font-medium">Build URL</span>
-                        </div>
-                        <span className="text-sm font-mono bg-background p-1 rounded border break-all">
-                          {prototypeBuildData.activeBuild.url || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Task ARN */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Database className="h-4 w-4" />
-                        <span className="font-medium">Fargate Task ARN</span>
-                      </div>
-                      <div className="text-xs font-mono bg-background p-2 rounded border break-all">
-                        {prototypeBuildData.activeBuild.fargate_task_arn || "N/A"}
-                      </div>
-                    </div>
-                  </>
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center py-4 text-muted-foreground">
-                    No active build found for this prototype
+                    No active builds found for this prototype
                   </div>
                 )}
 
                 {/* Build History */}
-                {prototypeBuildData.allBuilds.length > 0 && (
+                {prototypeBuildData.buildHistory.length > 0 && (
                   <>
                     <Separator />
                     <div className="space-y-2">
-                      <h5 className="font-medium">Build History ({prototypeBuildData.allBuilds.length} total)</h5>
+                      <h5 className="font-medium">Build History ({prototypeBuildData.buildHistory.length} total)</h5>
                       <div className="max-h-40 overflow-y-auto space-y-1">
-                        {prototypeBuildData.allBuilds.slice(0, 10).map((build, idx) => (
+                        {prototypeBuildData.buildHistory.slice(0, 10).map((build, idx) => (
                           <div
                             key={idx}
                             className={`flex justify-between items-center text-xs p-2 rounded border ${
@@ -483,9 +497,9 @@ export default function CacheManagementPage() {
                             )}
                           </div>
                         ))}
-                        {prototypeBuildData.allBuilds.length > 10 && (
+                        {prototypeBuildData.buildHistory.length > 10 && (
                           <div className="text-xs text-muted-foreground italic text-center">
-                            ... and {prototypeBuildData.allBuilds.length - 10} more builds
+                            ... and {prototypeBuildData.buildHistory.length - 10} more builds
                           </div>
                         )}
                       </div>

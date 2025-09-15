@@ -45,14 +45,18 @@ export interface PrototypeBuildData {
   success: boolean;
   prototypeId: string;
   currentBuildId: string | null;
-  activeBuild: {
-    fargate_task_arn: string;
-    fargate_private_ip: string;
-    url: string;
-    status: string;
-    last_touched: number;
-  } | null;
-  allBuilds: {
+  activeBuilds: {
+    buildId: string;
+    isCurrent: boolean;
+    activeBuild: {
+      fargate_task_arn: string;
+      fargate_private_ip: string;
+      url: string;
+      status: string;
+      last_touched: number;
+    };
+  }[];
+  buildHistory: {
     buildId: string;
     timestamp: number;
   }[];
