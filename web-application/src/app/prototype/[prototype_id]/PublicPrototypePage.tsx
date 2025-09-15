@@ -48,6 +48,7 @@ import {
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -161,6 +162,7 @@ export default function PrototypePage() {
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [renderStatus, setRenderStatus] = useState<RenderStatus>("Static build");
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -328,9 +330,9 @@ export default function PrototypePage() {
             <CardContent className="h-full p-0">
               <MaterializeRenderSection
                 viewing_url={viewingUrl ?? ""}
-                onRenderStatusChange={() => {
-                  // no-op
-                }}
+                prototypeId={prototypeId}
+                currentRenderStatus={renderStatus}
+                onRenderStatusChange={setRenderStatus}
               />
             </CardContent>
           </Card>
