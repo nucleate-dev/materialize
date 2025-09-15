@@ -1,5 +1,6 @@
 "use client";
 
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
@@ -30,6 +37,7 @@ interface CodeEditorProps {
   onBuildingStateChange?: (isBuilding: boolean) => void;
   // Save behavior control
   saveMode?: "single-file" | "all-files"; // Defaults to 'single-file' for better performance
+  currentRenderStatus?: RenderStatus;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -40,6 +48,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onViewingUrlUpdate,
   onBuildingStateChange,
   saveMode = "single-file", // Default to single file saves
+  currentRenderStatus,
 }) => {
   const logger = useProductLogger();
   // Extract values from fileSystem
@@ -119,6 +128,43 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [newFileError, setNewFileError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Determine save button state based on render status
+  const getSaveButtonState = () => {
+    switch (currentRenderStatus) {
+      case "Static build":
+        return {
+          disabled: true,
+          tooltip: "Start dev server to enable file saving",
+        };
+      case "Starting Dev Server..":
+        return {
+          disabled: true,
+          tooltip: "Wait for dev server to start before saving",
+        };
+      case "Disconnected":
+        return {
+          disabled: true,
+          tooltip: "Dev server disconnected - restart to enable saving",
+        };
+      case "Connected":
+      case "Connecting..":
+      case "Updating..":
+        return {
+          disabled: false,
+          tooltip:
+            saveMode === "single-file" ? "Save current file" : "Save all files",
+        };
+      default:
+        return {
+          disabled: false,
+          tooltip:
+            saveMode === "single-file" ? "Save current file" : "Save all files",
+        };
+    }
+  };
+
+  const saveButtonState = getSaveButtonState();
 
   const handleCreateFile = () => {
     if (!newFileName.trim()) {
@@ -484,241 +530,255 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {fileSystem.state.selectedFile && (
-        <div className="flex items-center justify-between p-3 bg-muted/60 border-b border-border">
-          <div className="flex items-center space-x-2">
-            <FileText className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-semibold text-foreground">
-              {fileSystem.state.selectedFile}
-            </span>
-            {readOnly && (
-              <span className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded-md font-medium">
-                Read Only
+    <TooltipProvider>
+      <div className="h-full flex flex-col">
+        {fileSystem.state.selectedFile && (
+          <div className="flex items-center justify-between p-3 bg-muted/60 border-b border-border">
+            <div className="flex items-center space-x-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">
+                {fileSystem.state.selectedFile}
               </span>
-            )}
-          </div>
+              {readOnly && (
+                <span className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded-md font-medium">
+                  Read Only
+                </span>
+              )}
+            </div>
 
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
-              {isAssetImage ? "IMAGE ASSET" : editorLanguage}
-            </span>
-            {!readOnly && (
-              <div className="flex items-center space-x-1">
-                {prototypeId && fileSystem.state.files && (
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
+                {isAssetImage ? "IMAGE ASSET" : editorLanguage}
+              </span>
+              {!readOnly && (
+                <div className="flex items-center space-x-1">
+                  {prototypeId && fileSystem.state.files && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={
+                              saveMode === "single-file"
+                                ? handleSaveSingleFile
+                                : handleSaveFiles
+                            }
+                            disabled={isSaving || saveButtonState.disabled}
+                          >
+                            <Save
+                              className={`w-3 h-3 ${isSaving ? "animate-pulse" : ""} ${saveButtonState.disabled ? "opacity-50" : ""}`}
+                            />
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>{saveButtonState.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={
-                      saveMode === "single-file"
-                        ? handleSaveSingleFile
-                        : handleSaveFiles
-                    }
-                    disabled={isSaving}
-                    title={
-                      saveMode === "single-file"
-                        ? "Save current file"
-                        : "Save all files"
-                    }
+                    onClick={() => setShowNewFileModal(true)}
+                    title="Create new file"
                   >
-                    <Save
-                      className={`w-3 h-3 ${isSaving ? "animate-pulse" : ""}`}
-                    />
+                    <Plus className="w-3 h-3" />
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setShowNewFileModal(true)}
-                  title="Create new file"
-                >
-                  <Plus className="w-3 h-3" />
-                </Button>
-                {canDelete && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={handleDeleteFile}
-                    title={`Delete ${fileSystem.state.selectedFile}`}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      <div className="flex-1">
-        {isAssetImage && imageUrl ? (
-          <div className="h-full flex items-center justify-center bg-muted/20 p-4">
-            <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
-              <img
-                src={imageUrl}
-                alt={fileSystem.state.selectedFile}
-                className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
-                onError={(e) => {
-                  logger.debug("error", "Failed to load image:", {
-                    imageurl: imageUrl,
-                  });
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-              <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {fileSystem.state.selectedFile}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Asset file • Click to view full size
-                </p>
-                <a
-                  href={imageUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                >
-                  View Full Size
-                </a>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Editor
-            height="100%"
-            language={editorLanguage}
-            value={fileSystem.getSelectedFileContent()}
-            onChange={onChange}
-            theme="vs-dark"
-            beforeMount={beforeMount}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: "on",
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              wordWrap: "on",
-              folding: true,
-              lineDecorationsWidth: 10,
-              lineNumbersMinChars: 3,
-              readOnly,
-              contextmenu: !readOnly,
-              quickSuggestions: !readOnly,
-              parameterHints: { enabled: !readOnly },
-              suggestOnTriggerCharacters: !readOnly,
-              acceptSuggestionOnEnter: readOnly ? "off" : "on",
-              tabCompletion: readOnly ? "off" : "on",
-              wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
-              scrollbar: {
-                vertical: "visible",
-                horizontal: "visible",
-                useShadows: true,
-                verticalHasArrows: true,
-                horizontalHasArrows: true,
-                verticalScrollbarSize: 14,
-                horizontalScrollbarSize: 14,
-              },
-            }}
-          />
-        )}
-      </div>
-
-      {/* New File Modal */}
-      <Dialog
-        open={showNewFileModal}
-        onOpenChange={(open) => {
-          setShowNewFileModal(open);
-          if (!open) {
-            handleModalClose();
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create New File</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="fileName" className="text-sm font-medium">
-                File Name
-              </Label>
-              <Input
-                id="fileName"
-                type="text"
-                value={newFileName}
-                onChange={(e) => {
-                  setNewFileName(e.target.value);
-                  setNewFileError("");
-                }}
-                placeholder="e.g., components/MyComponent.tsx"
-                className="mt-2"
-                autoFocus
-              />
-              {newFileError && (
-                <p className="text-destructive text-sm mt-1">{newFileError}</p>
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={handleDeleteFile}
+                      title={`Delete ${fileSystem.state.selectedFile}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
-
-            <div className="text-sm text-muted-foreground">
-              <p className="mb-2">Supported file types:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>.js, .jsx - JavaScript/React components</li>
-                <li>.ts, .tsx - TypeScript/React components</li>
-                <li>.json - JSON configuration files</li>
-                <li>.md - Markdown documentation</li>
-                <li>.css - Stylesheets</li>
-              </ul>
+          </div>
+        )}
+        <div className="flex-1">
+          {isAssetImage && imageUrl ? (
+            <div className="h-full flex items-center justify-center bg-muted/20 p-4">
+              <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
+                <img
+                  src={imageUrl}
+                  alt={fileSystem.state.selectedFile}
+                  className="max-w-full max-h-[calc(100vh-200px)] object-contain rounded-lg shadow-lg"
+                  onError={(e) => {
+                    logger.debug("error", "Failed to load image:", {
+                      imageurl: imageUrl,
+                    });
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {fileSystem.state.selectedFile}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Asset file • Click to view full size
+                  </p>
+                  <a
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                  >
+                    View Full Size
+                  </a>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowNewFileModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateFile}>Create File</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Modal */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete File</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete{" "}
-              <span className="font-mono font-medium text-foreground">
-                {fileSystem.state.selectedFile}
-              </span>
-              ? This action cannot be undone.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (fileSystem.state.selectedFile) {
-                  fileSystem.deleteFile(fileSystem.state.selectedFile);
-                }
-                setShowDeleteConfirm(false);
+          ) : (
+            <Editor
+              height="100%"
+              language={editorLanguage}
+              value={fileSystem.getSelectedFileContent()}
+              onChange={onChange}
+              theme="vs-dark"
+              beforeMount={beforeMount}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: "on",
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                wordWrap: "on",
+                folding: true,
+                lineDecorationsWidth: 10,
+                lineNumbersMinChars: 3,
+                readOnly,
+                contextmenu: !readOnly,
+                quickSuggestions: !readOnly,
+                parameterHints: { enabled: !readOnly },
+                suggestOnTriggerCharacters: !readOnly,
+                acceptSuggestionOnEnter: readOnly ? "off" : "on",
+                tabCompletion: readOnly ? "off" : "on",
+                wordBasedSuggestions: !readOnly ? "currentDocument" : "off",
+                scrollbar: {
+                  vertical: "visible",
+                  horizontal: "visible",
+                  useShadows: true,
+                  verticalHasArrows: true,
+                  horizontalHasArrows: true,
+                  verticalScrollbarSize: 14,
+                  horizontalScrollbarSize: 14,
+                },
               }}
-            >
-              Delete File
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            />
+          )}
+        </div>
+
+        {/* New File Modal */}
+        <Dialog
+          open={showNewFileModal}
+          onOpenChange={(open) => {
+            setShowNewFileModal(open);
+            if (!open) {
+              handleModalClose();
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New File</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="fileName" className="text-sm font-medium">
+                  File Name
+                </Label>
+                <Input
+                  id="fileName"
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => {
+                    setNewFileName(e.target.value);
+                    setNewFileError("");
+                  }}
+                  placeholder="e.g., components/MyComponent.tsx"
+                  className="mt-2"
+                  autoFocus
+                />
+                {newFileError && (
+                  <p className="text-destructive text-sm mt-1">
+                    {newFileError}
+                  </p>
+                )}
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-2">Supported file types:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>.js, .jsx - JavaScript/React components</li>
+                  <li>.ts, .tsx - TypeScript/React components</li>
+                  <li>.json - JSON configuration files</li>
+                  <li>.md - Markdown documentation</li>
+                  <li>.css - Stylesheets</li>
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setShowNewFileModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateFile}>Create File</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete File</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {fileSystem.state.selectedFile}
+                </span>
+                ? This action cannot be undone.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (fileSystem.state.selectedFile) {
+                    fileSystem.deleteFile(fileSystem.state.selectedFile);
+                  }
+                  setShowDeleteConfirm(false);
+                }}
+              >
+                Delete File
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 };
 

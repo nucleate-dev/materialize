@@ -700,6 +700,7 @@ export default function InternalPrototypePage() {
                           fileSystem={fileSystem}
                           prototypeId={prototypeId}
                           onViewingUrlUpdate={setViewingUrl}
+                          currentRenderStatus={currentRenderStatus}
                         />
                       </div>
                     </div>
