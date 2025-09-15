@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { generateText } from 'ai';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -77,6 +78,13 @@ const ProductKeys = Object.freeze({
 
 const MAX_ERROR_FIX_RETRIES = 1;
 
+// Model Configuration
+const CURRENT_MODEL: 'google' | 'anthropic' = 'google'; // Change this to switch models
+const MODEL_CONFIGS = {
+  google: 'gemini-2.5-flash',
+  anthropic: 'claude-sonnet-4-20250514', // Claude Sonnet 4
+} as const;
+
 function filterCriticalErrors(buildErrors: CodeError[]): CodeError[] {
   return buildErrors.filter(
     (error) => error.type === 'syntax' || error.type === 'dependency',
@@ -89,7 +97,9 @@ function createErrorFixingContext(errors: CodeError[]): string {
   const errorList = errors
     .map((error) => {
       const location = error.file
-        ? `${error.file}${error.line ? `:${error.line}` : ''}${error.column ? `:${error.column}` : ''}`
+        ? `${error.file}${error.line ? `:${error.line}` : ''}${
+            error.column ? `:${error.column}` : ''
+          }`
         : 'unknown location';
       return `- ${error.type.toUpperCase()}: ${error.message} (${location})`;
     })
@@ -114,11 +124,13 @@ export class ChatService {
   private supabaseUrl: string;
   private supabaseServiceKey: string;
   private googleAiApiKey: string;
+  private anthropicApiKey: string;
   private stripeSecretKey: string;
   private jwtSecret: string;
   private serverEndpoint: string;
 
   private google: ReturnType<typeof createGoogleGenerativeAI>;
+  private anthropic: ReturnType<typeof createAnthropic>;
   private stripe: Stripe;
 
   constructor(fastifyApp: FastifyInstance) {
@@ -128,6 +140,7 @@ export class ChatService {
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     this.googleAiApiKey = process.env.GOOGLE_AI_API_KEY!;
+    this.anthropicApiKey = process.env.ANTHROPIC_API_KEY!;
     this.stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
     this.jwtSecret = process.env.JWT_SECRET!;
     this.serverEndpoint = process.env.SERVER_ENDPOINT!;
@@ -136,6 +149,7 @@ export class ChatService {
       !this.supabaseUrl ||
       !this.supabaseServiceKey ||
       !this.googleAiApiKey ||
+      !this.anthropicApiKey ||
       !this.stripeSecretKey ||
       !this.jwtSecret ||
       !this.serverEndpoint
@@ -143,12 +157,28 @@ export class ChatService {
       throw new Error('Missing required environment variables for ChatService');
     }
 
-    // Initialize Google AI and Stripe
+    // Initialize AI providers and Stripe
     this.google = createGoogleGenerativeAI({
       apiKey: this.googleAiApiKey,
     });
 
+    this.anthropic = createAnthropic({
+      apiKey: this.anthropicApiKey,
+    });
+
     this.stripe = new Stripe(this.stripeSecretKey);
+  }
+
+  // Helper method to get the current model based on configuration
+  private getCurrentModel() {
+    switch (CURRENT_MODEL) {
+      case 'google':
+        return this.google(MODEL_CONFIGS.google);
+      case 'anthropic':
+        return this.anthropic(MODEL_CONFIGS.anthropic);
+      default:
+        return this.google(MODEL_CONFIGS.google);
+    }
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -769,7 +799,7 @@ export class ChatService {
 
     // Phase 1: Get the planning response
     let response = await generateText({
-      model: this.google('gemini-2.5-pro'),
+      model: this.getCurrentModel(),
       system: PLANNING_PROMPT,
       tools: MODEL_TOOLS,
       messages: [
@@ -840,7 +870,7 @@ export class ChatService {
             );
 
             response = await generateText({
-              model: this.google('gemini-2.5-flash'),
+              model: this.getCurrentModel(),
               system: PLANNING_PROMPT,
               messages: [
                 ...messages.slice(0, -1).map((msg: ChatMessage) => ({
@@ -931,7 +961,7 @@ export class ChatService {
       }
 
       response = await generateText({
-        model: this.google('gemini-2.5-flash'),
+        model: this.getCurrentModel(),
         system: PLANNING_PROMPT,
         tools: MODEL_TOOLS,
         messages: [
@@ -974,7 +1004,7 @@ export class ChatService {
         '[handlePlanningPhase] No valid execution plan found, generating fallback plan',
       );
       const fallbackResponse = await generateText({
-        model: this.google('gemini-2.5-flash'),
+        model: this.getCurrentModel(),
         system:
           PLANNING_PROMPT +
           '\n\nCRITICAL: You MUST create an EXECUTION_PLAN in the exact format specified. Do not use any tools.',
@@ -1331,7 +1361,7 @@ MANDATORY: Before creating this screen, you MUST:
 
     // Use AI SDK with tool support
     let response = await generateText({
-      model: this.google('gemini-2.5-flash'),
+      model: this.getCurrentModel(),
       system: EXECUTION_PROMPT,
       tools: MODEL_TOOLS,
       messages: [
@@ -1401,7 +1431,7 @@ Either:
 Do NOT repeat the same tool call. Focus on completing this single step.`;
 
           response = await generateText({
-            model: this.google('gemini-2.5-flash'),
+            model: this.getCurrentModel(),
             system: EXECUTION_PROMPT,
             messages: [
               ...messages
@@ -1533,7 +1563,7 @@ Do NOT repeat the same tool call. Focus on completing this single step.`;
       }
 
       response = await generateText({
-        model: this.google('gemini-2.5-flash'),
+        model: this.getCurrentModel(),
         system: EXECUTION_PROMPT,
         tools: MODEL_TOOLS,
         messages: [
