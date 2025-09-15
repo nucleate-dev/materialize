@@ -341,27 +341,25 @@ export default function InternalPrototypePage() {
     async function pollFetchViewingUrl() {
       if (!prototypeId) return;
 
-      let pollInterval: number;
-      switch (currentRenderStatus) {
-        case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
-          pollInterval = 45000;
-          break;
-        case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
-          pollInterval = 15000;
-          break;
-        case "Static build":
-        case "Connecting..":
-        case "Updating..":
-          // Connecting and Updating the dev server is obviously just active. poll every minute though just in case
-          pollInterval = 60000;
-          break;
-        case "Disconnected":
-          // disconnected then we probably want to refresh, poll every 30 seconds
-          pollInterval = 30000;
-          break;
-        default:
-          return;
-      }
+      const getIntervalForStatus = (status: RenderStatus): number => {
+        switch (status) {
+          case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
+            return 45000;
+          case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
+            return 25000;
+          case "Static build":
+            return 150000;
+          case "Connecting..":
+          case "Updating..": // Connecting and Updating the dev server is obviously active. poll every minute though just in case
+            return 60000;
+          case "Disconnected": // disconnected then we probably want to refresh, poll every 30 seconds
+            return 30000;
+          default:
+            return 60000;
+        }
+      };
+
+      let pollInterval: number = getIntervalForStatus(currentRenderStatus);
 
       const doPoll = async () => {
         try {
@@ -401,11 +399,24 @@ export default function InternalPrototypePage() {
             ) {
               data as FetchViewingUrlSuccessResponse;
               setViewingUrl(data.viewing_url);
-              // Update render status based on response
+
+              // Determine new status based on response
+              let newStatus: RenderStatus;
               if (data.source === "editable_instance") {
-                setCurrentRenderStatus("Connecting..");
+                newStatus = "Connecting..";
               } else {
-                setCurrentRenderStatus("Static build");
+                newStatus = "Static build";
+              }
+              if (newStatus === currentRenderStatus) {
+                return;
+              }
+              setCurrentRenderStatus(newStatus);
+              // Reset timer with new interval for the new status
+              const newInterval = getIntervalForStatus(newStatus);
+              if (pollTimer && newInterval !== pollInterval) {
+                clearInterval(pollTimer);
+                pollTimer = setInterval(doPoll, newInterval);
+                pollInterval = newInterval; // Update the local variable
               }
             }
           }
@@ -418,9 +429,6 @@ export default function InternalPrototypePage() {
 
       // Start polling with the determined interval
       pollTimer = setInterval(doPoll, pollInterval);
-
-      // Also call once immediately
-      doPoll();
     }
 
     pollFetchViewingUrl();
