@@ -1,6 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   PrototypeAssetInsert,
   PrototypeFileInsert,
@@ -12,6 +13,7 @@ import type {
   DeletePrototypeResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
+  DispatchRequestBody,
   FetchViewingUrlRequestBody,
   FetchViewingUrlResponse,
   FetchViewingUrlSuccessResponse,
@@ -34,7 +36,6 @@ import {
   getPrototypeViewingUrl,
 } from '../utils/s3Operations.js';
 import { hasExceededPrototypeCreationLimit } from '../utils/subscriptionChecks.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -121,6 +122,22 @@ export class PrototypeManagementService {
         },
       },
       this.handleDeletePrototype.bind(this),
+    );
+
+    app.post<{ Params: { prototype_id: string } }>(
+      '/prototype/:prototype_id/reset',
+      {
+        schema: {
+          params: {
+            type: 'object',
+            required: ['prototype_id'],
+            properties: {
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleResetPrototype.bind(this),
     );
   }
 
@@ -384,6 +401,242 @@ export class PrototypeManagementService {
     }
   }
 
+  private async handleResetPrototype(
+    request: FastifyRequest<{ Params: { prototype_id: string } }>,
+    reply: FastifyReply,
+  ): Promise<void> {
+    try {
+      const { prototype_id } = request.params;
+
+      // 1. Get JWT token and validate authentication
+      const token = request.headers.authorization?.split(' ')[1];
+      if (!token || !request.headers.authorization?.startsWith('Bearer')) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'No authentication token provided',
+        });
+      }
+
+      // 2. Check if user has edit access for the prototype
+      const authResponse = await checkUserHasPrototypeEditAccess(
+        prototype_id,
+        token,
+        request.log2,
+      );
+      if (authResponse === null || !authResponse.canEdit) {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'Access denied for this prototype',
+        });
+      }
+
+      // 3. Create Supabase client for database operations
+      const supabase = createClient<Database>(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        },
+      );
+
+      // 4. Get default app files from S3
+      const defaultFilesResult = await getDefaultAppFilesFromS3(
+        this.s3Client,
+        prototype_id,
+        request.log2,
+      );
+      if (!defaultFilesResult.success) {
+        request.log2.error(
+          defaultFilesResult,
+          '[handleResetPrototype] Failed to get default files from S3',
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          success: false,
+          error: 'S3_ERROR',
+          message: `Failed to get default files: ${defaultFilesResult.error}`,
+        });
+      }
+
+      // 5. Update prototype files in database
+      const { error: filesDeleteError } = await supabase
+        .from('prototype_files')
+        .delete()
+        .eq('prototype_id', prototype_id);
+
+      if (filesDeleteError) {
+        request.log2.error(
+          filesDeleteError,
+          '[handleResetPrototype] Failed to delete existing files',
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          success: false,
+          error: 'DATABASE_ERROR',
+          message: 'Failed to delete existing files',
+        });
+      }
+
+      const { error: filesInsertError } = await supabase
+        .from('prototype_files')
+        .insert(defaultFilesResult.files ?? []);
+
+      if (filesInsertError) {
+        request.log2.error(
+          filesInsertError,
+          '[handleResetPrototype] Failed to insert default files',
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          success: false,
+          error: 'DATABASE_ERROR',
+          message: 'Failed to insert default files',
+        });
+      }
+
+      // 6. Update prototype assets in database
+      const { error: assetsDeleteError } = await supabase
+        .from('prototype_assets')
+        .delete()
+        .eq('prototype_id', prototype_id);
+
+      if (assetsDeleteError) {
+        request.log2.error(
+          assetsDeleteError,
+          '[handleResetPrototype] Failed to delete existing assets',
+        );
+        // Continue execution as this is not critical
+      }
+
+      const { error: assetsInsertError } = await supabase
+        .from('prototype_assets')
+        .insert(defaultFilesResult.assets ?? []);
+
+      if (assetsInsertError) {
+        request.log2.error(
+          assetsInsertError,
+          '[handleResetPrototype] Failed to insert default assets',
+        );
+        // Continue execution as this is not critical
+      }
+
+      // 7. Update S3 bucket with default app files
+      const s3CopyResult = await copyDefaultAppToVersionedPrototype(
+        this.s3Client,
+        prototype_id,
+        request.log2,
+      );
+      if (!s3CopyResult.success) {
+        request.log2.error(
+          s3CopyResult,
+          '[handleResetPrototype] Failed to copy default app to S3',
+        );
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          success: false,
+          error: 'S3_ERROR',
+          message: `Failed to update S3 bucket: ${s3CopyResult.error}`,
+        });
+      }
+
+      // 8. Check if dev server is running and send file updates
+      try {
+        const precheckResponse = await this.fastifyApp.inject({
+          method: 'POST',
+          url: '/dispatch-precheck',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-trace-id': request.log2.getTraceId(),
+          },
+          payload: {
+            jwt: token,
+            prototype_id: prototype_id,
+          } as DispatchPrecheckRequestBody,
+        });
+
+        if (precheckResponse.statusCode === 200) {
+          const precheckData: DispatchPrecheckResponse =
+            precheckResponse.json();
+
+          // Check if there's an active dev server to update
+          if (
+            'success' in precheckData &&
+            isEditableDevServer(precheckData.status)
+          ) {
+            request.log2.consoleLogDevOnly(
+              'info',
+              '[handleResetPrototype] Sending file updates to active dev server',
+            );
+
+            // Convert files to the format expected by dispatch
+            const filesForDispatch = (defaultFilesResult.files ?? []).map(
+              (file) => ({
+                contents: file.contents,
+                name: file.name,
+                prototype_id: file.prototype_id || prototype_id,
+                id: '', // Will be generated by the system
+                created_at: null,
+                updated_at: null,
+              }),
+            );
+
+            const dispatchResponse = await this.fastifyApp.inject({
+              method: 'POST',
+              url: '/dispatch',
+              headers: {
+                'x-trace-id': request.log2.getTraceId(),
+              },
+              payload: {
+                jwt: token,
+                prototype_id: prototype_id,
+                framework: 'expo_react_native',
+                files: filesForDispatch,
+                assets: [], // Default app doesn't have assets in this context
+                file_scope: 'updates',
+              } as DispatchRequestBody,
+            });
+
+            if (dispatchResponse.statusCode !== 200) {
+              request.log2.warn(
+                'Failed to send file updates to dev server, but reset was successful',
+                { statusCode: dispatchResponse.statusCode },
+              );
+            } else {
+              request.log2.consoleLogDevOnly(
+                'info',
+                '[handleResetPrototype] Successfully sent file updates to dev server',
+              );
+            }
+          } else {
+            request.log2.consoleLogDevOnly(
+              'info',
+              '[handleResetPrototype] No active dev server found, skipping file updates',
+            );
+          }
+        }
+      } catch (precheckError) {
+        request.log2.warn(
+          'Failed to check dev server status, but reset was successful',
+          { precheckError },
+        );
+      }
+
+      // 9. Return success response
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        message: 'Prototype successfully reset to default app files',
+      });
+    } catch (error) {
+      request.log2.error(error, '[handleResetPrototype] Unexpected error');
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        error: 'INTERNAL_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
   private async handleDeletePrototype(
     request: FastifyRequest<{ Params: { prototype_id: string } }>,
     reply: FastifyReply,

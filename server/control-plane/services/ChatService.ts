@@ -1,5 +1,6 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { LanguageModelV2 } from '@ai-sdk/provider';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { generateText } from 'ai';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -170,7 +171,7 @@ export class ChatService {
   }
 
   // Helper method to get the current model based on configuration
-  private getCurrentModel() {
+  private getCurrentModel(): LanguageModelV2 {
     switch (CURRENT_MODEL) {
       case 'google':
         return this.google(MODEL_CONFIGS.google);
