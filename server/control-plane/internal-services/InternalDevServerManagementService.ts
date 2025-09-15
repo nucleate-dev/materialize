@@ -2,11 +2,14 @@ import {
   EC2Client,
   RunInstancesCommand,
   DescribeInstancesCommand,
+  DescribeInstanceStatusCommand,
 } from '@aws-sdk/client-ec2';
 import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
+import fs from 'fs';
+import path from 'path';
 
 export class InternalDevServerManagementService {
   private ec2Client: EC2Client;
@@ -282,6 +285,69 @@ export class InternalDevServerManagementService {
     }
   }
 
+  // Load user data script from file
+  private loadUserDataScript(): string {
+    try {
+      const scriptPath = path.resolve(
+        process.cwd(),
+        'infra/ec2/dev-ec2-user-data-script.sh'
+      );
+      return fs.readFileSync(scriptPath, 'utf-8');
+    } catch (error) {
+      throw new Error(
+        `Failed to load user data script: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  // Wait for instance to be ready (user data script completed)
+  private async waitForInstanceReady(
+    instanceId: string,
+    maxWaitTimeMs: number = 300000 // 5 minutes
+  ): Promise<void> {
+    const startTime = Date.now();
+    const pollInterval = 15000; // 15 seconds
+
+    while (Date.now() - startTime < maxWaitTimeMs) {
+      try {
+        // Check instance state
+        const describeCmd = new DescribeInstancesCommand({
+          InstanceIds: [instanceId],
+        });
+        const response = await this.ec2Client.send(describeCmd);
+        const instance = response.Reservations?.[0]?.Instances?.[0];
+
+        // First check if instance is running
+        if (instance?.State?.Name === 'running') {
+          // Check instance status (system and instance status checks)
+          const statusCmd = new DescribeInstanceStatusCommand({
+            InstanceIds: [instanceId],
+          });
+          const statusResponse = await this.ec2Client.send(statusCmd);
+          const instanceStatus = statusResponse.InstanceStatuses?.[0];
+
+          if (
+            instanceStatus?.SystemStatus?.Status === 'ok' &&
+            instanceStatus?.InstanceStatus?.Status === 'ok'
+          ) {
+            // Instance is running and all status checks passed
+            // User data script should have completed by now
+            return;
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      } catch (error) {
+        // Continue polling on temporary errors
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      }
+    }
+
+    throw new Error(
+      `Instance ${instanceId} did not become ready within ${maxWaitTimeMs / 1000} seconds`
+    );
+  }
+
   // Allocate a dev EC2 server
   private async allocateDevServer(serverName: string): Promise<{
     instanceId: string | undefined;
@@ -290,13 +356,7 @@ export class InternalDevServerManagementService {
     publicIpv4: string | undefined;
     sshCommand: string;
   }> {
-    const userDataScript = `#!/bin/bash
-# Schedule termination in 3 hours
-shutdown -h +180
-
-# Update system
-yum update -y
-`;
+    const userDataScript = this.loadUserDataScript();
 
     const cmd = new RunInstancesCommand({
       ImageId: 'ami-00dcc61084e6a2f20', // Amazon Linux 2
@@ -337,8 +397,8 @@ yum update -y
       };
     }
 
-    // Wait a moment for AWS to populate instance metadata
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Wait for instance to be fully ready (user data script completed)
+    await this.waitForInstanceReady(instance.InstanceId);
 
     // Fetch updated instance details to get public DNS and IP
     try {
