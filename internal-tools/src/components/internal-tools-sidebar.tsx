@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Home, Server, Settings } from "lucide-react";
+import { Database, Home, Server, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -34,6 +34,11 @@ const items = [
     title: "Dev Server Management",
     url: "/dev-server",
     icon: Server,
+  },
+  {
+    title: "Users",
+    url: "/users",
+    icon: Users,
   },
 ];
 

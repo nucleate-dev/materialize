@@ -41,6 +41,29 @@ export interface ApiError {
   details?: string;
 }
 
+export interface PrototypeBuildData {
+  success: boolean;
+  prototypeId: string;
+  currentBuildId: string | null;
+  activeBuilds: {
+    buildId: string;
+    isCurrent: boolean;
+    activeBuild: {
+      fargate_task_arn: string;
+      fargate_private_ip: string;
+      url: string;
+      status: string;
+      last_touched: number;
+    };
+  }[];
+  buildHistory: {
+    buildId: string;
+    timestamp: number;
+  }[];
+  timestamp: string;
+  message?: string;
+}
+
 /**
  * Make an authenticated request to the internal tools API
  */
@@ -90,6 +113,16 @@ export async function clearCache(): Promise<ClearCacheResponse> {
   return makeAuthenticatedRequest<ClearCacheResponse>(
     "POST",
     "/internal/cache/clear"
+  );
+}
+
+/**
+ * Get prototype build data by prototype ID
+ */
+export async function getPrototypeBuildData(prototypeId: string): Promise<PrototypeBuildData> {
+  return makeAuthenticatedRequest<PrototypeBuildData>(
+    "GET",
+    `/internal/cache/prototype/${encodeURIComponent(prototypeId)}`
   );
 }
 

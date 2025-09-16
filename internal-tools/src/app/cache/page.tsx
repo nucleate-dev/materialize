@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Database,
   Trash2,
@@ -21,12 +23,19 @@ import {
   Info,
   AlertCircle,
   CheckCircle,
+  Search,
+  Clock,
+  Server,
+  Link,
+  Activity,
 } from "lucide-react";
 import {
   getCacheStats,
   clearCache,
+  getPrototypeBuildData,
   calculatePercentage,
   type CacheStats,
+  type PrototypeBuildData,
 } from "@/lib/cache-api";
 
 export default function CacheManagementPage() {
@@ -35,6 +44,12 @@ export default function CacheManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [clearLoading, setClearLoading] = useState(false);
   const [clearSuccess, setClearSuccess] = useState<string | null>(null);
+
+  // Prototype lookup state
+  const [prototypeId, setPrototypeId] = useState("");
+  const [prototypeBuildData, setPrototypeBuildData] = useState<PrototypeBuildData | null>(null);
+  const [prototypeLoading, setPrototypeLoading] = useState(false);
+  const [prototypeError, setPrototypeError] = useState<string | null>(null);
 
   const fetchStats = async () => {
     try {
@@ -72,6 +87,55 @@ export default function CacheManagementPage() {
   const handleRefreshStats = () => {
     setClearSuccess(null); // Clear any success message
     fetchStats();
+  };
+
+  const handlePrototypeLookup = async () => {
+    if (!prototypeId.trim()) {
+      setPrototypeError("Please enter a prototype ID");
+      return;
+    }
+
+    try {
+      setPrototypeLoading(true);
+      setPrototypeError(null);
+      setPrototypeBuildData(null);
+
+      const data = await getPrototypeBuildData(prototypeId.trim());
+      setPrototypeBuildData(data);
+    } catch (err) {
+      setPrototypeError(
+        err instanceof Error ? err.message : "Failed to fetch prototype data"
+      );
+    } finally {
+      setPrototypeLoading(false);
+    }
+  };
+
+  const handlePrototypeInputKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handlePrototypeLookup();
+    }
+  };
+
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleString();
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "stable":
+        return "default";
+      case "updating":
+      case "building":
+        return "secondary";
+      case "creating":
+        return "outline";
+      case "cleaning":
+      case "error":
+        return "destructive";
+      default:
+        return "outline";
+    }
   };
 
   useEffect(() => {
@@ -271,6 +335,179 @@ export default function CacheManagementPage() {
                 Refresh Stats
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Prototype Build Lookup */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Prototype Build Lookup</CardTitle>
+            <CardDescription>
+              Look up current active build data for a specific prototype ID
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="prototypeId">Prototype ID</Label>
+                <Input
+                  id="prototypeId"
+                  placeholder="Enter prototype ID (e.g., 12345678-1234-1234-1234-123456789abc)"
+                  value={prototypeId}
+                  onChange={(e) => setPrototypeId(e.target.value)}
+                  onKeyPress={handlePrototypeInputKeyPress}
+                  disabled={prototypeLoading}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={handlePrototypeLookup}
+                  disabled={prototypeLoading || !prototypeId.trim()}
+                >
+                  <Search className={`h-4 w-4 mr-2 ${prototypeLoading ? "animate-pulse" : ""}`} />
+                  {prototypeLoading ? "Looking up..." : "Lookup"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Prototype Error */}
+            {prototypeError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{prototypeError}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Prototype Build Data */}
+            {prototypeBuildData && (
+              <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Build Data for {prototypeBuildData.prototypeId}</h4>
+                  <Badge variant="outline">
+                    {prototypeBuildData.activeBuilds.length > 0 ? `${prototypeBuildData.activeBuilds.length} Active Build${prototypeBuildData.activeBuilds.length > 1 ? 's' : ''}` : "No Active Builds"}
+                  </Badge>
+                </div>
+
+                {/* Show message if provided */}
+                {prototypeBuildData.message && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>{prototypeBuildData.message}</AlertDescription>
+                  </Alert>
+                )}
+
+                {prototypeBuildData.activeBuilds.length > 0 ? (
+                  <div className="space-y-4">
+                    <h5 className="font-medium">Active Builds</h5>
+                    {prototypeBuildData.activeBuilds.map((buildData, idx) => (
+                      <div
+                        key={idx}
+                        className={`border rounded-lg p-4 space-y-4 ${
+                          buildData.isCurrent
+                            ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+                            : "bg-background"
+                        }`}
+                      >
+                        {/* Build Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm font-mono">{buildData.buildId}</span>
+                            {buildData.isCurrent && (
+                              <Badge variant="outline" className="text-xs">Current</Badge>
+                            )}
+                          </div>
+                          <Badge variant={getStatusBadgeVariant(buildData.activeBuild.status)}>
+                            {buildData.activeBuild.status}
+                          </Badge>
+                        </div>
+
+                        {/* Build Details Grid */}
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span className="font-medium text-sm">Last Touched</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {formatTimestamp(buildData.activeBuild.last_touched)}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Server className="h-4 w-4" />
+                              <span className="font-medium text-sm">Fargate Private IP</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border">
+                              {buildData.activeBuild.fargate_private_ip || "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Link className="h-4 w-4" />
+                              <span className="font-medium text-sm">Build URL</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.url || "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Database className="h-4 w-4" />
+                              <span className="font-medium text-sm">Task ARN</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.fargate_task_arn || "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No active builds found for this prototype
+                  </div>
+                )}
+
+                {/* Build History */}
+                {prototypeBuildData.buildHistory.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <h5 className="font-medium">Build History ({prototypeBuildData.buildHistory.length} total)</h5>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {prototypeBuildData.buildHistory.slice(0, 10).map((build, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex justify-between items-center text-xs p-2 rounded border ${
+                              build.buildId === prototypeBuildData.currentBuildId
+                                ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+                                : "bg-background"
+                            }`}
+                          >
+                            <span className="font-mono">{build.buildId}</span>
+                            <span className="text-muted-foreground">
+                              {formatTimestamp(build.timestamp)}
+                            </span>
+                            {build.buildId === prototypeBuildData.currentBuildId && (
+                              <Badge variant="outline" className="text-xs">Current</Badge>
+                            )}
+                          </div>
+                        ))}
+                        {prototypeBuildData.buildHistory.length > 10 && (
+                          <div className="text-xs text-muted-foreground italic text-center">
+                            ... and {prototypeBuildData.buildHistory.length - 10} more builds
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

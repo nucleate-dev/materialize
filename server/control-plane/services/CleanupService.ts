@@ -28,7 +28,7 @@ export class CleanupService {
     this.ecsClient = ecsClient;
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
     this.cleanupIntervals = [];
     this.log2 = baseLogger.child({
@@ -339,28 +339,37 @@ export class CleanupService {
           this.saveScreenshotThumbnail(
             responseData.prototypeId,
             responseData.screenshotBase64,
-          ).then((result) => {
-            if (result.success) {
-              this.log2.info('Screenshot thumbnail saved successfully', {
-                prototypeId: responseData.prototypeId,
-              });
-            } else {
-              this.log2.warn('Failed to save screenshot thumbnail', {
-                prototypeId: responseData.prototypeId,
-                error: result.error,
-              });
-            }
-          }).catch((error) => {
-            this.log2.error(error, 'Unexpected error while saving screenshot thumbnail', {
-              prototypeId: responseData.prototypeId,
+          )
+            .then((result) => {
+              if (result.success) {
+                this.log2.info('Screenshot thumbnail saved successfully', {
+                  prototypeId: responseData.prototypeId,
+                });
+              } else {
+                this.log2.warn('Failed to save screenshot thumbnail', {
+                  prototypeId: responseData.prototypeId,
+                  error: result.error,
+                });
+              }
+            })
+            .catch((error) => {
+              this.log2.error(
+                error,
+                'Unexpected error while saving screenshot thumbnail',
+                {
+                  prototypeId: responseData.prototypeId,
+                },
+              );
             });
-          });
         } else if (responseData.screenshotBase64) {
-          this.log2.warn('Screenshot available but prototypeId missing in response', {
-            prototypeId,
-            hasScreenshot: !!responseData.screenshotBase64,
-            hasPrototypeId: !!responseData.prototypeId,
-          });
+          this.log2.warn(
+            'Screenshot available but prototypeId missing in response',
+            {
+              prototypeId,
+              hasScreenshot: !!responseData.screenshotBase64,
+              hasPrototypeId: !!responseData.prototypeId,
+            },
+          );
         }
 
         return {
