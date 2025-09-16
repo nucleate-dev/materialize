@@ -76,6 +76,12 @@ fastify.register(cors, {
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-internal-signature',
+    'x-internal-timestamp',
+  ],
 });
 
 fastify.addHook('onRequest', async (req) => {
