@@ -163,12 +163,66 @@ export default function ProdDeploymentsPage() {
   };
 
   const handleValidateAndDeploy = async () => {
-    // First validate
-    await handleValidateDeployment();
+    try {
+      setValidating(true);
+      setDeploying(true);
+      setError(null);
+      setValidationResult(null);
+      setDeploymentResult(null);
 
-    // Only deploy if validation passes
-    if (validationResult?.success) {
-      await handleDeployToProd();
+      const serverEndpoint = process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
+      if (!serverEndpoint) {
+        throw new Error(
+          "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable."
+        );
+      }
+
+      const { secretKey } = getInternalToolsConfig();
+      const requestBody = JSON.stringify({
+        MinHealthyPercentage: parseInt(minHealthyPercentage),
+        InstanceWarmup: parseInt(instanceWarmup),
+      });
+      const headers = generateAuthHeaders(
+        "POST",
+        "/internal/prod-deployment/validate-and-deploy",
+        requestBody,
+        secretKey
+      );
+
+      const response = await fetch(
+        `${serverEndpoint}/internal/prod-deployment/validate-and-deploy`,
+        {
+          method: "POST",
+          headers,
+          body: requestBody,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Failed to validate and deploy: ${response.status}`
+        );
+      }
+
+      const result = await response.json();
+
+      // Set both validation and deployment results from the combined response
+      if (result.validationResult) {
+        setValidationResult(result.validationResult);
+      }
+      if (result.deploymentResult) {
+        setDeploymentResult(result.deploymentResult);
+      }
+
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to validate and deploy"
+      );
+    } finally {
+      setValidating(false);
+      setDeploying(false);
     }
   };
 

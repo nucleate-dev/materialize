@@ -185,6 +185,103 @@ export class InternalProductionDeploymentService {
       },
       this.handleDeployToProd.bind(this),
     );
+
+    // POST /internal/prod-deployment/validate-and-deploy
+    app.post(
+      '/internal/prod-deployment/validate-and-deploy',
+      {
+        preHandler: authenticateInternalToolsRequest,
+        schema: {
+          description:
+            'Validate deployment safety and deploy to production if validation passes (requires internal tools authentication)',
+          tags: ['internal-tools', 'prod-deployment'],
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
+            },
+          },
+          body: {
+            type: 'object',
+            properties: {
+              MinHealthyPercentage: {
+                type: 'number',
+                minimum: 0,
+                maximum: 100,
+                description:
+                  'Minimum healthy percentage during refresh (default: 100)',
+              },
+              InstanceWarmup: {
+                type: 'number',
+                minimum: 0,
+                description: 'Instance warmup time in seconds (default: 180)',
+              },
+            },
+          },
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                validationResult: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    instanceId: { type: 'string' },
+                    publicIp: { type: 'string' },
+                  },
+                },
+                deploymentResult: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    instanceRefreshId: { type: 'string' },
+                    message: { type: 'string' },
+                  },
+                },
+                message: { type: 'string' },
+                timestamp: { type: 'string' },
+              },
+            },
+            400: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+                requiredHeaders: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            500: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      this.handleValidateAndDeploy.bind(this),
+    );
   }
 
   private async handleValidateDeploymentSafety(
@@ -348,6 +445,192 @@ export class InternalProductionDeploymentService {
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
         message: `Failed to deploy to production: ${e.message}`,
+      });
+    }
+  }
+
+  private async handleValidateAndDeploy(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const body = request.body as {
+      MinHealthyPercentage?: number;
+      InstanceWarmup?: number;
+    };
+
+    request.log2 = request.log2.child({
+      service: 'internal-prod-deployment',
+    });
+    request.log2.info('Starting validate and deploy process', {
+      MinHealthyPercentage: body.MinHealthyPercentage,
+      InstanceWarmup: body.InstanceWarmup,
+    });
+
+    let validationResult: {
+      success: boolean;
+      message: string;
+      instanceId?: string;
+      publicIp?: string;
+    } | null = null;
+    let deploymentResult: {
+      success: boolean;
+      instanceRefreshId?: string;
+      message: string;
+    } | null = null;
+
+    try {
+      // Step 1: Validate deployment safety directly
+      request.log2.info('Step 1: Validating deployment safety');
+
+      let testInstanceId: string | undefined;
+
+      try {
+        // Create test instance with production user data
+        const testResult = await this.createProductionTestInstance(request.log2);
+        testInstanceId = testResult.instanceId;
+
+        if (!testResult.instanceId || !testResult.publicIp) {
+          validationResult = {
+            success: false,
+            message: 'Failed to create test instance or retrieve connection details',
+          };
+        } else {
+          // Perform health check
+          let healthCheckResult = await this.performHealthCheck(
+            testResult.publicIp,
+            request.log2,
+          );
+          if (!healthCheckResult.success) {
+            request.log2.info(
+              'Health check failed, waiting 30 more sec for server to start',
+              {
+                publicIp: testResult.publicIp,
+              },
+            );
+            await new Promise((resolve) => setTimeout(resolve, 30000)); // 30 seconds
+            healthCheckResult = await this.performHealthCheck(
+              testResult.publicIp,
+              request.log2,
+            );
+          }
+
+          // Terminate the test instance after validation is complete (regardless of result)
+          if (testResult.instanceId) {
+            await this.terminateTestInstance(testResult.instanceId, request.log2);
+          }
+
+          if (healthCheckResult.success) {
+            request.log2.info('Deployment validation passed', {
+              instanceId: testResult.instanceId,
+              publicIp: testResult.publicIp,
+            });
+
+            validationResult = {
+              success: true,
+              message: 'Deployment validation passed successfully. Control plane server started and health check passed.',
+              instanceId: testResult.instanceId,
+              publicIp: testResult.publicIp,
+            };
+          } else {
+            request.log2.warn('Deployment validation failed', {
+              instanceId: testResult.instanceId,
+              publicIp: testResult.publicIp,
+              error: healthCheckResult.error,
+            });
+
+            validationResult = {
+              success: false,
+              message: `Deployment validation failed: ${healthCheckResult.error || 'Health check did not pass'}`,
+              instanceId: testResult.instanceId,
+              publicIp: testResult.publicIp,
+            };
+          }
+        }
+      } catch (error) {
+        const e = error instanceof Error ? error : new Error(String(error));
+        request.log2.error(error, 'Deployment validation failed with error');
+
+        // Make sure to terminate the test instance if it was created
+        if (testInstanceId) {
+          try {
+            await this.terminateTestInstance(testInstanceId, request.log2);
+          } catch (cleanupError) {
+            request.log2.error(cleanupError, 'Failed to clean up test instance');
+          }
+        }
+
+        validationResult = {
+          success: false,
+          message: `Deployment validation failed: ${e.message}`,
+        };
+      }
+
+      if (!validationResult.success) {
+        request.log2.info('Validation did not pass, skipping deployment', {
+          validationResult,
+        });
+
+        return reply.status(HTTP_STATUS.OK).send({
+          success: false,
+          validationResult,
+          deploymentResult: null,
+          message: 'Validation failed, deployment not attempted',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Step 2: Deploy to production if validation passed
+      request.log2.info('Step 2: Validation passed, deploying to production');
+
+      try {
+        const result = await this.startInstanceRefresh(
+          body.MinHealthyPercentage ?? 100,
+          body.InstanceWarmup ?? 180,
+          request.log2,
+        );
+
+        request.log2.info('Production deployment initiated successfully', {
+          instanceRefreshId: result.instanceRefreshId,
+          MinHealthyPercentage: body.MinHealthyPercentage ?? 100,
+          InstanceWarmup: body.InstanceWarmup ?? 180,
+        });
+
+        deploymentResult = {
+          success: true,
+          instanceRefreshId: result.instanceRefreshId,
+          message: `Production deployment initiated with instance refresh ID: ${result.instanceRefreshId}`,
+        };
+      } catch (error) {
+        const e = error instanceof Error ? error : new Error(String(error));
+        request.log2.error(error, 'Production deployment failed');
+
+        deploymentResult = {
+          success: false,
+          message: `Production deployment failed: ${e.message}`,
+        };
+      }
+
+      // Both validation and deployment completed successfully
+      request.log2.info('Validate and deploy process completed successfully', {
+        validationResult,
+        deploymentResult,
+      });
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        validationResult,
+        deploymentResult,
+        message: 'Validation passed and deployment initiated successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to validate and deploy');
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Internal Server Error',
+        message: `Failed to validate and deploy: ${e.message}`,
       });
     }
   }
