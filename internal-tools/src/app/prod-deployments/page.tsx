@@ -248,6 +248,60 @@ export default function ProdDeploymentsPage() {
           </Alert>
         )}
 
+        {/* Prerequisites Information Card */}
+        <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/50">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <CardTitle className="text-orange-800 dark:text-orange-200">
+                Prerequisites
+              </CardTitle>
+            </div>
+            <CardDescription className="text-orange-700 dark:text-orange-300">
+              Before deploying to production, ensure your latest changes are
+              available in the deployment artifacts.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="text-sm text-orange-800 dark:text-orange-200">
+              <p className="font-medium mb-2">
+                To deploy your latest changes to production:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>
+                  Navigate to{" "}
+                  <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                    server/control-plane
+                  </code>{" "}
+                  directory
+                </li>
+                <li>
+                  Run{" "}
+                  <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                    npm run build
+                  </code>{" "}
+                  to compile TypeScript
+                </li>
+                <li>
+                  Run{" "}
+                  <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">
+                    npm run deploy:prod
+                  </code>{" "}
+                  to upload build artifacts
+                </li>
+                <li>Then use the validation and deployment tools below</li>
+              </ol>
+            </div>
+            <div className="text-xs text-orange-600 dark:text-orange-400 mt-3 p-2 bg-orange-100 dark:bg-orange-900 rounded">
+              <strong>Note:</strong> The deployment validation and production
+              deployment tools below will use the artifacts uploaded by{" "}
+              <code>npm run deploy:prod</code>. Make sure to run this command
+              after any code changes to ensure your latest updates are included
+              in the deployment.
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Deployment Validation Card */}
         <Card>
           <CardHeader>
@@ -308,7 +362,7 @@ export default function ProdDeploymentsPage() {
             <CardDescription>
               Deploy the changes on the main branch to production via an Auto
               Scaling Group instance refresh. This will gradually replace
-              instances with the latest code from the main branch.
+              instances with the latest code from S3.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -400,40 +454,8 @@ export default function ProdDeploymentsPage() {
 
             <div className="text-xs text-muted-foreground space-y-1">
               <p>• Deployment requires successful validation first</p>
-              <p>
-                • Uses Auto Scaling Group instance refresh for zero-downtime
-                deployment
-              </p>
-              <p>• Gradually replaces instances with latest main branch code</p>
               <p>• Monitor AWS console for deployment progress</p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Information Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Important Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>
-              • Always validate deployment safety before deploying to production
-            </p>
-            <p>
-              • Validation creates a temporary test instance that automatically
-              terminates
-            </p>
-            <p>
-              • Production deployment uses Auto Scaling Group instance refresh
-              for gradual rollout
-            </p>
-            <p>
-              • Monitor CloudWatch and AWS console during deployment for any
-              issues
-            </p>
-            <p>
-              • Instance refresh can be cancelled from AWS console if needed
-            </p>
           </CardContent>
         </Card>
       </div>
