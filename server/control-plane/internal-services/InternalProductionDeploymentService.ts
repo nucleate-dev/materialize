@@ -469,7 +469,7 @@ export class InternalProductionDeploymentService {
     success: boolean;
     error?: string;
     status?: number;
-    response?: any;
+    response?: { status?: string; timestamp?: string; [key: string]: unknown };
   }> {
     try {
       log2.info('Performing health check', { publicIp });
