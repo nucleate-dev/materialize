@@ -357,7 +357,7 @@ export class InternalDevServerManagementService {
     const userDataScript = this.loadUserDataScript();
 
     const cmd = new RunInstancesCommand({
-      ImageId: 'ami-00dcc61084e6a2f20', // Amazon Linux 2
+      ImageId: 'ami-00dcc61084e6a2f20', // Amazon Linux 2023
       InstanceType: 't3.micro',
       MinCount: 1,
       MaxCount: 1,

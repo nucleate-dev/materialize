@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Home, Server, Settings, Users } from "lucide-react";
+import { Database, Home, Server, Settings, Users, Rocket } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -39,6 +39,11 @@ const items = [
     title: "Users",
     url: "/users",
     icon: Users,
+  },
+  {
+    title: "Prod Deployments",
+    url: "/prod-deployments",
+    icon: Rocket,
   },
 ];
 

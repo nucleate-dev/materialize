@@ -1,5 +1,3 @@
-# PASTE THIS SCRIPT INTO THE USER DATA FIELD OF THE AUTO-SCALING GROUP TEMPLATE
-
 #!/bin/bash
 # -------- user-data bootstrap for materialize control-plane (sparse checkout, ESM compiled) --------
 set -euxo pipefail
