@@ -2,6 +2,7 @@ import {
   EC2Client,
   RunInstancesCommand,
   DescribeInstancesCommand,
+  TerminateInstancesCommand,
   waitUntilInstanceRunning,
   waitUntilInstanceStatusOk,
 } from '@aws-sdk/client-ec2';
@@ -195,9 +196,12 @@ export class InternalProductionDeploymentService {
     });
     request.log2.info('Validating deployment safety');
 
+    let testInstanceId: string | undefined;
+
     try {
       // Create test instance with production user data
       const testResult = await this.createProductionTestInstance(request.log2);
+      testInstanceId = testResult.instanceId;
 
       if (!testResult.instanceId || !testResult.publicIp) {
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
@@ -226,6 +230,11 @@ export class InternalProductionDeploymentService {
         );
       }
 
+      // Terminate the test instance after validation is complete (regardless of result)
+      if (testResult.instanceId) {
+        await this.terminateTestInstance(testResult.instanceId, request.log2);
+      }
+
       if (healthCheckResult.success) {
         request.log2.info('Deployment validation passed', {
           instanceId: testResult.instanceId,
@@ -235,7 +244,7 @@ export class InternalProductionDeploymentService {
         return reply.status(HTTP_STATUS.OK).send({
           success: true,
           message:
-            'Deployment validation passed. Server started successfully and health check passed.',
+            'Deployment validation passed. Server started successfully and health check passed. Test instance terminated.',
           instanceId: testResult.instanceId,
           publicIp: testResult.publicIp,
           healthCheckResult,
@@ -254,7 +263,7 @@ export class InternalProductionDeploymentService {
 
         return reply.status(HTTP_STATUS.OK).send({
           success: false,
-          message: `Deployment validation failed. Health check failed: ${healthCheckResult.error}`,
+          message: `Deployment validation failed. Health check failed: ${healthCheckResult.error}. Test instance terminated.`,
           instanceId: testResult.instanceId,
           publicIp: testResult.publicIp,
           healthCheckResult,
@@ -264,6 +273,11 @@ export class InternalProductionDeploymentService {
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       request.log2.error(error, 'Failed to validate deployment safety');
+
+      // Attempt to terminate the instance if it was created
+      if (testInstanceId) {
+        await this.terminateTestInstance(testInstanceId, request.log2);
+      }
 
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
@@ -391,6 +405,26 @@ export class InternalProductionDeploymentService {
     );
 
     log2.info('Instance is fully ready - status checks passed', { instanceId });
+  }
+
+  private async terminateTestInstance(
+    instanceId: string,
+    log2: SystemLogger,
+  ): Promise<void> {
+    try {
+      log2.info('Terminating test instance', { instanceId });
+
+      const terminateCmd = new TerminateInstancesCommand({
+        InstanceIds: [instanceId],
+      });
+
+      await this.ec2Client.send(terminateCmd);
+
+      log2.info('Test instance termination initiated', { instanceId });
+    } catch (error) {
+      // Log the error but don't throw - we don't want termination failure to affect validation result
+      log2.error(error, 'Failed to terminate test instance', { instanceId });
+    }
   }
 
   private async createProductionTestInstance(log2: SystemLogger): Promise<{
