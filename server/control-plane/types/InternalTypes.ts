@@ -102,9 +102,6 @@ export interface CleanupStats {
   idleBuildsFound: number;
   successfulCleanups: number;
   failedCleanups: number;
-  operationsInProgress: number;
-  workerErrors: number;
-  networkIssues: number;
 }
 
 // ============================================================================

@@ -39,28 +39,40 @@ export class CleanupService {
   // Cleanup idle hot reload services
 
   private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
-    const currentTimeReadable = this.formatTimestampEST(Date.now());
-    this.log2.info('Cleaning up idle active builds', {
-      currentTime: Date.now(),
-      currentTimeReadable,
-    });
-
-    // get all active builds
-    const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
-
-    const stats: CleanupStats = {
-      totalBuildsScanned: activeBuildKeys?.length || 0,
-      idleBuildsFound: 0,
+    // 1. get all active builds
+    const { totalBuildsScanned, idleBuilds } =
+      await this.getAllIdleActiveBuildsForCleanup();
+    let stats: CleanupStats = {
+      totalBuildsScanned,
+      idleBuildsFound: idleBuilds.length,
       successfulCleanups: 0,
       failedCleanups: 0,
-      operationsInProgress: 0,
-      workerErrors: 0,
-      networkIssues: 0,
     };
-
-    if (!activeBuildKeys || activeBuildKeys.length === 0) {
-      this.log2.info('No active builds found for hot reload cleanup');
+    if (idleBuilds.length === 0) {
       return stats;
+    }
+
+    // 2. For each idle build, clean it up
+    stats.idleBuildsFound = idleBuilds.length;
+    this.log2.info('Cleanup cycle running -- found idle builds to clean up', {
+      idleBuildsFound: stats.idleBuildsFound,
+    });
+    stats = await this.dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
+      idleBuilds,
+      stats,
+    );
+
+    // TODO: loop through cleaned up builds and screenshot thumbnails via signed S3 urls and puppeteer
+    return stats;
+  }
+
+  private async getAllIdleActiveBuildsForCleanup(): Promise<{
+    totalBuildsScanned: number;
+    idleBuilds: IdleBuildInfo[];
+  }> {
+    const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
+    if (!activeBuildKeys || activeBuildKeys.length === 0) {
+      return { totalBuildsScanned: activeBuildKeys.length, idleBuilds: [] };
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
@@ -68,13 +80,11 @@ export class CleanupService {
 
     // 1. Get all idle builds
     const idleBuilds: IdleBuildInfo[] = [];
-
     for (const buildKey of activeBuildKeys) {
       const buildJson = await this.cache.get(buildKey);
       if (!buildJson) {
         continue;
       }
-
       const parsedBuild = JSON.parse(buildJson as string);
       if (!isActiveBuildType(parsedBuild)) {
         this.log2.warn('Invalid build data found in cache for key', {
@@ -86,9 +96,6 @@ export class CleanupService {
 
       // Skip if already cleaning
       if (build.status === 'cleaning') {
-        this.log2.info('Build is already cleaning, skipping', {
-          buildKey,
-        });
         continue;
       }
 
@@ -100,26 +107,19 @@ export class CleanupService {
       }
     }
 
-    // 2. For each idle build, clean it up
-    stats.idleBuildsFound = idleBuilds.length;
-    this.log2.info('Found idle builds to clean up', {
-      idleBuildsFound: stats.idleBuildsFound,
-    });
+    return { totalBuildsScanned: activeBuildKeys.length, idleBuilds };
+  }
 
+  private async dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
+    idleBuilds: IdleBuildInfo[],
+    stats: CleanupStats,
+  ): Promise<CleanupStats> {
     for (const { build, buildId, buildKey } of idleBuilds) {
-      this.log2.info('Cleaning up idle build', {
-        buildId,
-        buildKey,
-        build,
-        lastTouchedReadable: this.formatTimestampEST(build.last_touched * 1000),
-      });
-
-      // Set status to cleaning first
+      // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
       const cleaningBuild: ActiveBuild = {
         ...build,
         status: 'cleaning',
       };
-
       try {
         await this.cache.set(buildKey, JSON.stringify(cleaningBuild));
       } catch (error) {
@@ -130,93 +130,81 @@ export class CleanupService {
         continue;
       }
 
-      // Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
+      // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
       const prototypeId = buildId.split('_')[1];
 
-      // a. dispatch a request to the fargate instance to kill the build
-      let shouldTerminateTask = true;
-      let killResult: {
-        success: boolean;
-        buildInProgress?: boolean;
-        error?: string;
-      } = {
-        success: true,
-        buildInProgress: false,
-        error: undefined,
-      };
-
-      if (build.fargate_private_ip) {
-        killResult = await this.dispatchKillDevServerRequest(
-          prototypeId,
-          build.fargate_private_ip,
+      // 3. Validate build data. If no fargate task arn or private IP, clean up build from cache appropriately
+      if (!build.fargate_task_arn) {
+        this.log2.error(
+          new Error('Build has no Fargate task ARN, removing build from cache'),
+          undefined,
+          { buildId },
         );
-        if (killResult.buildInProgress) {
-          this.log2.info(
-            'Build operation in progress, skipping Fargate task termination',
-            {
-              buildId,
-              error: killResult.error,
-            },
-          );
-          shouldTerminateTask = false;
-        } else if (!killResult.success) {
+        const removedFromCache = await this.removeBuildDataFromCache(
+          buildKey,
+          prototypeId,
+          buildId,
+        );
+        removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
+      } else if (!build.fargate_private_ip) {
+        // no private IP to dispatch kill request to (but we have arn), just terminate fargate task and remove build from cache
+        const terminateResult = await this.terminateFargateTask(
+          build.fargate_task_arn,
+        );
+        if (!terminateResult.success) {
           this.log2.error(
-            killResult.error,
-            'Failed to kill dev server for build',
-            {
-              buildId,
-              prototypeId,
-            },
+            terminateResult.error,
+            `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
           );
+          // reset status back to stable since we didn't kill the build
+          const activeBuild: ActiveBuild = {
+            ...build,
+            status: 'stable',
+          };
+          try {
+            await this.cache.set(buildKey, JSON.stringify(activeBuild));
+          } catch (error) {
+            this.log2.error(
+              error,
+              'Failed to update build status back to stable',
+              {
+                buildId,
+              },
+            );
+          }
           stats.failedCleanups++;
           continue;
         }
+        const removedFromCache = await this.removeBuildDataFromCache(
+          buildKey,
+          prototypeId,
+          buildId,
+        );
+        removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
       }
 
-      // b. Kill the fargate task using the task arn (only if safe to do so)
-      if (!shouldTerminateTask) {
-        this.log2.info(
-          'Skipping Fargate task termination - operation in progress',
-          {
-            buildId,
-            prototypeId,
-            operationDetails: killResult.error || 'Build operation detected',
-          },
-        );
-
+      // 4. dispatch a request to the fargate instance to kill the build
+      let killResult = await this.dispatchKillDevServerRequest(
+        prototypeId,
+        build.fargate_private_ip,
+      );
+      if (killResult.buildInProgress) {
         // Reset the status back to building since we're not cleaning up yet
+        // TODO: add some sort of counter here so there is a max number of times we can do this
         const activeBuild: ActiveBuild = {
           ...build,
           status: 'building',
         };
-        try {
-          await this.cache.set(buildKey, JSON.stringify(activeBuild));
-          this.log2.info(
-            'Updated build status back to building and refreshed last_touched timestamp',
-            {
-              buildId,
-            },
-          );
-        } catch (error) {
-          this.log2.error(
-            error,
-            'Failed to update build status back to building',
-            {
-              buildId,
-            },
-          );
-        }
-        continue; // Skip termination and cache cleanup
+        const setCacheResult = await this.setCacheActiveBuildData(
+          buildKey,
+          activeBuild,
+          buildId,
+        );
+        if (!setCacheResult) stats.failedCleanups++;
+        continue;
       }
 
-      this.log2.info('Proceeding with Fargate task termination', {
-        buildId,
-        prototypeId,
-        killServerResult: {
-          success: killResult.success,
-          error: killResult.error,
-        },
-      });
+      // 5. Kill the fargate task using the task arn (only if safe to do so)
       const terminateResult = await this.terminateFargateTask(
         build.fargate_task_arn,
       );
@@ -225,39 +213,72 @@ export class CleanupService {
           terminateResult.error,
           `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
         );
+        const activeBuild: ActiveBuild = {
+          ...build,
+          status: 'stable',
+        };
+        await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
         stats.failedCleanups++;
         continue;
       }
 
-      // c. remove the active build from cache and cleanup schema entries
-      try {
-        // Remove from active_build
-        await this.cache.del([buildKey]);
-        // Remove from builds ZSET
-        await this.cache.customCommand([
-          'ZREM',
-          CACHE_KEYS.protoBuilds(prototypeId),
-          buildId,
-        ]);
-        // If this was the current build, remove the current pointer
-        const currentBuildId = await this.cache.get(
-          CACHE_KEYS.protoCurrentBuild(prototypeId),
-        );
-        if (currentBuildId === buildId) {
-          await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
-        }
-        this.log2.info('Removed cache entries for build', {
-          buildId,
-        });
-        stats.successfulCleanups++;
-      } catch (error) {
-        this.log2.error(error, 'Failed to remove cache entries for build', {
-          buildId,
-        });
-        stats.failedCleanups++;
-      }
+      // 6. remove the active build from cache and cleanup schema entries
+      const removedFromCache = await this.removeBuildDataFromCache(
+        buildKey,
+        prototypeId,
+        buildId,
+      );
+      removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
     }
     return stats;
+  }
+
+  private async setCacheActiveBuildData(
+    buildKey: string,
+    activeBuild: ActiveBuild,
+    buildId: string,
+  ): Promise<boolean> {
+    try {
+      await this.cache.set(buildKey, JSON.stringify(activeBuild));
+      return true;
+    } catch (error) {
+      this.log2.error(error, 'Failed to update cache active build data', {
+        buildId,
+      });
+      return false;
+    }
+  }
+
+  // returns true if successful, false if not
+  private async removeBuildDataFromCache(
+    buildKey: string,
+    prototypeId: string,
+    buildId: string,
+  ): Promise<boolean> {
+    try {
+      await this.cache.del([buildKey]);
+      // Remove from builds ZSET
+      await this.cache.customCommand([
+        'ZREM',
+        CACHE_KEYS.protoBuilds(prototypeId),
+        buildId,
+      ]);
+      // If this was the current build, remove the current pointer
+      const currentBuildId = await this.cache.get(
+        CACHE_KEYS.protoCurrentBuild(prototypeId),
+      );
+      if (currentBuildId === buildId) {
+        await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
+      }
+      return true;
+    } catch (error) {
+      this.log2.error(error, 'Failed to remove build data from cache', {
+        buildKey,
+        prototypeId,
+        buildId,
+      });
+      return false;
+    }
   }
 
   // Start cleanup services
