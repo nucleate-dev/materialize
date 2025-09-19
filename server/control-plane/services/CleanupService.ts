@@ -640,6 +640,7 @@ export class CleanupService {
       .upload(fileName, screenshot, {
         contentType: 'image/png',
         upsert: true, // Overwrite if exists
+        cacheControl: '600', // 10 min
       });
     if (error) {
       this.log2.error(error, 'Supabase storage upload failed', {
