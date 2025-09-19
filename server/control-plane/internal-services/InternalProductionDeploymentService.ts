@@ -651,11 +651,10 @@ export class InternalProductionDeploymentService {
     try {
       const scriptPath = path.resolve(
         process.cwd(),
-        'dist/infra/ec2/prod-user-data-setup-script.sh',
+        process.env.NODE_ENV === 'development'
+          ? 'infra/ec2/prod-user-data-setup-script.sh'
+          : 'dist/infra/ec2/prod-user-data-setup-script.sh',
       );
-      // const shutdownCommand =
-      //   '\n\n# Auto-shutdown after 10 minutes for safety validation\nshutdown -h +10\n';
-      // return script + shutdownCommand;
       return fs.readFileSync(scriptPath, 'utf-8');
     } catch (error) {
       throw new Error(
