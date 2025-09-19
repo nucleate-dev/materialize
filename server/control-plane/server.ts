@@ -11,6 +11,7 @@ import { ChatService } from './services/ChatService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { InternalDevServerManagementService } from './internal-services/InternalDevServerManagementService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
+import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { EC2Client } from '@aws-sdk/client-ec2';
@@ -112,6 +113,7 @@ let chatService: ChatService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalDevServerManagementService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
+let internalCleanupServiceManagement: InternalCleanupServiceManagement;
 let cache: GlideClient;
 
 // Health check
@@ -189,6 +191,10 @@ const start = async (): Promise<void> => {
     // Create internal production deployment service and register routes
     internalProductionDeploymentService = new InternalProductionDeploymentService(ec2Client, autoScalingClient, fastify);
     internalProductionDeploymentService.registerRoutes(fastify);
+
+    // Create internal cleanup service management and register routes
+    internalCleanupServiceManagement = new InternalCleanupServiceManagement(cleanupService, fastify);
+    internalCleanupServiceManagement.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,
