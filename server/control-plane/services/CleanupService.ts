@@ -85,12 +85,15 @@ export class CleanupService {
     this.log2.info('Cleanup cycle running -- found idle builds to clean up', {
       idleBuildsFound: stats.idleBuildsFound,
     });
-    stats = await this.dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
-      idleBuilds,
-      stats,
-    );
+    const killedBuilds =
+      await this.dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
+        idleBuilds,
+        stats,
+      );
+    stats = killedBuilds.stats;
 
     // TODO: loop through cleaned up builds and screenshot thumbnails via signed S3 urls and puppeteer
+    // Use puppeteer to take screenshots of the builds
     return stats;
   }
 
@@ -141,19 +144,20 @@ export class CleanupService {
   private async dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
     idleBuilds: IdleBuildInfo[],
     stats: CleanupStats,
-  ): Promise<CleanupStats> {
+  ): Promise<{ stats: CleanupStats; killedPrototypeIds: string[] }> {
+    const killedPrototypeIds: string[] = [];
     for (const { build, buildId, buildKey } of idleBuilds) {
       // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
       const cleaningBuild: ActiveBuild = {
         ...build,
         status: 'cleaning',
       };
-      try {
-        await this.cache.set(buildKey, JSON.stringify(cleaningBuild));
-      } catch (error) {
-        this.log2.error(error, 'Failed to set cleaning status for build', {
-          buildId,
-        });
+      const cacheUpdateResult = await this.setCacheActiveBuildData(
+        buildKey,
+        cleaningBuild,
+        buildId,
+      );
+      if (!cacheUpdateResult) {
         stats.failedCleanups++;
         continue;
       }
@@ -189,17 +193,7 @@ export class CleanupService {
             ...build,
             status: 'stable',
           };
-          try {
-            await this.cache.set(buildKey, JSON.stringify(activeBuild));
-          } catch (error) {
-            this.log2.error(
-              error,
-              'Failed to update build status back to stable',
-              {
-                buildId,
-              },
-            );
-          }
+          await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
           stats.failedCleanups++;
           continue;
         }
@@ -249,6 +243,7 @@ export class CleanupService {
         stats.failedCleanups++;
         continue;
       }
+      killedPrototypeIds.push(prototypeId);
 
       // 6. remove the active build from cache and cleanup schema entries
       const removedFromCache = await this.removeBuildDataFromCache(
@@ -258,7 +253,7 @@ export class CleanupService {
       );
       removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
     }
-    return stats;
+    return { stats, killedPrototypeIds };
   }
 
   private async setCacheActiveBuildData(
