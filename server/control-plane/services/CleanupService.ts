@@ -36,6 +36,34 @@ export class CleanupService {
     });
     this.startCleanupServices();
   }
+
+  // Start cleanup services
+  private startCleanupServices(): void {
+    // Hot reload cleanup every 5 minutes
+    this.cleanupIntervals.push(
+      setInterval(async () => {
+        this.log2.setContext({
+          traceId: cryptoRandomId(),
+        });
+        try {
+          const stats = await this.cleanupIdleActiveBuilds();
+          this.log2.info('Cleanup cycle completed with stats', {
+            stats,
+          });
+        } catch (error) {
+          this.log2.error(error, 'Error in cleanupIdleActiveBuilds');
+        }
+      }, CONFIG.CLEANUP_INTERVAL_HOT_RELOAD),
+    );
+
+    this.log2.info('Cleanup services started');
+  }
+
+  // Stop cleanup services
+  public stopCleanupServices(): void {
+    this.cleanupIntervals.forEach((interval) => clearInterval(interval));
+    this.cleanupIntervals = [];
+  }
   // Cleanup idle hot reload services
 
   private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
@@ -281,39 +309,11 @@ export class CleanupService {
     }
   }
 
-  // Start cleanup services
-  private startCleanupServices(): void {
-    // Hot reload cleanup every 5 minutes
-    this.cleanupIntervals.push(
-      setInterval(async () => {
-        this.log2.setContext({
-          traceId: cryptoRandomId(),
-        });
-        try {
-          const stats = await this.cleanupIdleActiveBuilds();
-          this.log2.info('Cleanup cycle completed with stats', {
-            stats,
-          });
-        } catch (error) {
-          this.log2.error(error, 'Error in cleanupIdleActiveBuilds');
-        }
-      }, CONFIG.CLEANUP_INTERVAL_HOT_RELOAD),
-    );
-
-    this.log2.info('Cleanup services started');
-  }
-
-  // Stop cleanup services
-  public stopCleanupServices(): void {
-    this.cleanupIntervals.forEach((interval) => clearInterval(interval));
-    this.cleanupIntervals = [];
-  }
-
   // Dispatch kill hot reload request to build worker
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
-  ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
+  ): Promise<CleanupOperationResult> {
     try {
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
@@ -329,70 +329,7 @@ export class CleanupService {
 
       // Parse the actual response body to understand what happened
       const responseData: PublicDevServerStopResponse = response.data;
-
-      this.log2.info('Dev server stop response received', {
-        prototypeId,
-        fargatePrivateIp,
-        responseStatus: responseData.status,
-        buildErrorsCount: responseData.build_errors?.length || 0,
-        buildWarningsCount: responseData.build_warnings?.length || 0,
-      });
-
       if (responseData.status === 'success') {
-        this.log2.info(
-          'Successfully completed dev server shutdown for prototype',
-          {
-            prototypeId,
-            fargatePrivateIp,
-            buildUrl: responseData.build_url,
-            hasScreenshot: !!responseData.screenshotBase64,
-          },
-        );
-
-        // Handle screenshot thumbnail if available
-        if (responseData.screenshotBase64 && responseData.prototypeId) {
-          this.log2.info('Processing screenshot thumbnail', {
-            prototypeId: responseData.prototypeId,
-            screenshotLength: responseData.screenshotBase64.length,
-          });
-
-          // Save screenshot asynchronously - don't block cleanup process
-          this.saveScreenshotThumbnail(
-            responseData.prototypeId,
-            responseData.screenshotBase64,
-          )
-            .then((result) => {
-              if (result.success) {
-                this.log2.info('Screenshot thumbnail saved successfully', {
-                  prototypeId: responseData.prototypeId,
-                });
-              } else {
-                this.log2.warn('Failed to save screenshot thumbnail', {
-                  prototypeId: responseData.prototypeId,
-                  error: result.error,
-                });
-              }
-            })
-            .catch((error) => {
-              this.log2.error(
-                error,
-                'Unexpected error while saving screenshot thumbnail',
-                {
-                  prototypeId: responseData.prototypeId,
-                },
-              );
-            });
-        } else if (responseData.screenshotBase64) {
-          this.log2.warn(
-            'Screenshot available but prototypeId missing in response',
-            {
-              prototypeId,
-              hasScreenshot: !!responseData.screenshotBase64,
-              hasPrototypeId: !!responseData.prototypeId,
-            },
-          );
-        }
-
         return {
           success: true,
           buildInProgress: false,
@@ -401,7 +338,6 @@ export class CleanupService {
         return {
           success: false,
           buildInProgress: true,
-          error: String(responseData.server_status) || 'Operation in progress',
         };
       }
     } catch (error: unknown) {
@@ -476,7 +412,7 @@ export class CleanupService {
       });
 
       await this.ecsClient.send(command);
-      return { success: true };
+      return { success: true, buildInProgress: false };
     } catch (error) {
       this.log2.error(error, 'Failed to terminate Fargate task', {
         taskArn,
@@ -484,87 +420,7 @@ export class CleanupService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  // Save screenshot thumbnail to Supabase storage and update prototypes table
-  private async saveScreenshotThumbnail(
-    prototypeId: string,
-    screenshotBase64: string,
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      this.log2.info('Saving screenshot thumbnail', {
-        prototypeId,
-        screenshotLength: screenshotBase64.length,
-      });
-
-      // Convert base64 to binary buffer
-      const screenshotBuffer = Buffer.from(screenshotBase64, 'base64');
-      const fileName = `${prototypeId}.png`;
-
-      // Upload to Supabase storage
-      const { error: uploadError } = await this.supabase.storage
-        .from('prototype-thumbnails')
-        .upload(fileName, screenshotBuffer, {
-          contentType: 'image/png',
-          upsert: true, // Replace if exists
-        });
-
-      if (uploadError) {
-        this.log2.error(uploadError, 'Failed to upload screenshot to storage', {
-          prototypeId,
-          fileName,
-        });
-        return {
-          success: false,
-          error: `Storage upload failed: ${uploadError.message}`,
-        };
-      }
-
-      // Get public URL of the uploaded file
-      const { data: urlData } = this.supabase.storage
-        .from('prototype-thumbnails')
-        .getPublicUrl(fileName);
-
-      const thumbnailUrl = urlData.publicUrl;
-
-      this.log2.info('Screenshot uploaded to storage', {
-        prototypeId,
-        fileName,
-        thumbnailUrl,
-      });
-
-      // Update prototypes table with thumbnail URL
-      const { error: dbError } = await this.supabase
-        .from('prototypes')
-        .update({ thumbnail_url: thumbnailUrl })
-        .eq('id', prototypeId);
-
-      if (dbError) {
-        this.log2.error(dbError, 'Failed to update prototypes table', {
-          prototypeId,
-          thumbnailUrl,
-        });
-        return {
-          success: false,
-          error: `Database update failed: ${dbError.message}`,
-        };
-      }
-
-      this.log2.info('Successfully saved screenshot thumbnail', {
-        prototypeId,
-        thumbnailUrl,
-      });
-
-      return { success: true };
-    } catch (error) {
-      this.log2.error(error, 'Unexpected error saving screenshot thumbnail', {
-        prototypeId,
-      });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        buildInProgress: false,
       };
     }
   }
@@ -596,19 +452,5 @@ export class CleanupService {
     } while (cursor !== '0');
 
     return keys;
-  }
-
-  // Helper method to format timestamp in EST
-  private formatTimestampEST(timestamp: number): string {
-    return new Date(timestamp).toLocaleString('en-US', {
-      timeZone: 'America/New_York',
-      hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
   }
 }

@@ -88,6 +88,7 @@ export interface SubscriptionInfo {
 
 export interface CleanupOperationResult {
   success: boolean;
+  buildInProgress: boolean;
   error?: string;
 }
 
