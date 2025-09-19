@@ -33,17 +33,15 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
 
         // Generate signed URL for the prototype thumbnail
         const { data, error } = await supabase.storage
-          .from('prototype-thumbnails')
+          .from("prototype-thumbnails")
           .createSignedUrl(`${prototypeId}.png`, 3600); // 1 hour expiry
 
         if (error) {
-          console.warn('Failed to generate signed URL for prototype thumbnail:', error);
           setSignedUrl(null);
         } else {
           setSignedUrl(data.signedUrl);
         }
       } catch (error) {
-        console.warn('Error generating signed URL for prototype thumbnail:', error);
         setSignedUrl(null);
       } finally {
         setLoading(false);
