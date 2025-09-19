@@ -1,7 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { generateText, tool } from 'ai';
+import { streamText, tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../loggers/SystemLogger.js';
@@ -323,7 +323,7 @@ export class ChatEngine {
       );
 
       // Generate response with comprehensive tool support
-      const response = await generateText({
+      const response = streamText({
         model: this.getCurrentModel(),
         system: SYSTEM_PROMPT,
         messages: [
@@ -339,38 +339,49 @@ export class ChatEngine {
         tools: this.createFileManagerTools(params),
       });
 
-      // Send the response to the client
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'chat_response',
-            content: response.text,
-          })}\n\n`,
-        ),
-      );
-
-      // Optionally send tool usage information
-      if (response.steps && response.steps.length > 1) {
-        const toolCalls = response.steps
-          .filter((step) => step.toolCalls && step.toolCalls.length > 0)
-          .flatMap((step) => step.toolCalls || []);
-
-        if (toolCalls.length > 0) {
-          log2.info(`[ChatEngine] Executed ${toolCalls.length} tool calls`, {
-            tools: toolCalls.map((call) => call.toolName),
-          });
-
+      // Stream the full response including text and tool calls
+      for await (const part of response.fullStream) {
+        if (part.type === 'text-delta') {
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
-                type: 'tool_usage',
-                toolCalls: toolCalls.length,
-                tools: toolCalls.map((call) => call.toolName),
+                type: 'chat_response_delta',
+                content: part.text,
+              })}\n\n`,
+            ),
+          );
+        } else if (part.type === 'tool-call') {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: 'tool_call',
+                tool: part.toolName,
+                toolCallId: part.toolCallId,
+              })}\n\n`,
+            ),
+          );
+        } else if (part.type === 'tool-result') {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: 'tool_result',
+                tool: part.toolName,
+                toolCallId: part.toolCallId,
+                result: part.output,
               })}\n\n`,
             ),
           );
         }
       }
+
+      // Send completion message
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: 'chat_complete',
+          })}\n\n`,
+        ),
+      );
 
       controller.close();
     } catch (error) {
