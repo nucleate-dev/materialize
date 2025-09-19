@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import type {
@@ -8,21 +7,15 @@ import type {
   DispatchPrecheckResponse,
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
-import type { Database } from '../types/supabase.js';
-import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
-import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
+import { validateChatAuth } from './chat/chat-auth.js';
+import { trackChatUsage } from './chat/usage-tracking.js';
 import {
   ChatEngine,
   FileManager,
   type ChatEngineConfig,
 } from './ChatEngine.js';
 
-const ProductKeys = Object.freeze({
-  FREE_SUBSCRIPTION: 'free',
-  TEAM_SUBSCRIPTION: 'team',
-  PRO_SUBSCRIPTION: 'pro',
-});
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -173,52 +166,30 @@ export class ChatService {
       );
 
       // ------------------------------------------------------------------------------------------------
-      // 2. must be an AUTHORIZED user with prototype edit access
+      // 2 & 3. Authorization and paywall validation
       // ------------------------------------------------------------------------------------------------
-      const token = request.headers.authorization?.split(' ')[1] ?? '';
-      const authResult = await checkUserHasPrototypeEditAccess(
-        prototype_id,
-        token,
-        request.log2,
-      );
-      if (authResult === null) {
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized: Invalid token',
-        } as ChatErrorResponse);
-      } else if (authResult.canEdit === false) {
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error:
-            'Unauthorized: User does not have permissions to edit this prototype',
+      const authValidation = await validateChatAuth(request, prototype_id);
+      if (!authValidation.success) {
+        const statusCode = authValidation.error.type === 'UNAUTHORIZED'
+          ? HTTP_STATUS.UNAUTHORIZED
+          : HTTP_STATUS.UNAUTHORIZED;
+
+        return reply.status(statusCode).send({
+          error: authValidation.error.error,
+          usage: authValidation.error.usage,
         } as ChatErrorResponse);
       }
-      const user = authResult.user;
-      // update logger context
+
+      const { user, userTier, paywallResult } = authValidation.result;
+      const token = request.headers.authorization?.split(' ')[1] ?? '';
+
+      // Update logger context
       request.log2 = request.log2.child({
         userId: user.id,
       });
 
       // ------------------------------------------------------------------------------------------------
-      // 3. Fetch user subscription and paywall the user if needed
-      // ------------------------------------------------------------------------------------------------
-      const paywallResult = await hasExceededChatUsageLimit(
-        token,
-        user.id,
-        request.log2,
-      );
-      if (paywallResult.exceeded) {
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized: User has exceeded their monthly usage limit',
-          usage: {
-            current: paywallResult.current,
-            limit: 15,
-            tier: ProductKeys.FREE_SUBSCRIPTION,
-          },
-        } as ChatErrorResponse);
-      }
-      const userTier = paywallResult.plan;
-
-      // ------------------------------------------------------------------------------------------------
-      // 4. Precheck with dispatcher service to ensure nothing is currently building for this prototype
+      // 3. Precheck with dispatcher service to ensure nothing is currently building for this prototype
       // ------------------------------------------------------------------------------------------------
       const precheckResponse = await this.fastifyApp.inject({
         method: 'POST',
@@ -247,7 +218,7 @@ export class ChatService {
       }
 
       // ------------------------------------------------------------------------------------------------
-      // 5. Load/generate additional project context
+      // 4. Load/generate additional project context
       // ------------------------------------------------------------------------------------------------
       const lastMessage = messages[messages.length - 1];
       const userMessage = lastMessage.content;
@@ -261,14 +232,14 @@ export class ChatService {
       }
 
       // ------------------------------------------------------------------------------------------------
-      // 6. Start streamed response to the client
+      // 5. Start streamed response to the client
       // ------------------------------------------------------------------------------------------------
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start: async (controller): Promise<void> => {
           try {
             // ------------------------------------------------------------------------------------------------
-            // 7. Execute chat through ChatEngine
+            // 6. Execute chat through ChatEngine
             // ------------------------------------------------------------------------------------------------
             await this.chatEngine.executeChat({
               messages,
@@ -286,37 +257,20 @@ export class ChatService {
             });
 
             // ------------------------------------------------------------------------------------------------
-            // 8. Track API usage and get updated count
+            // 7. Track API usage and get updated count
             // ------------------------------------------------------------------------------------------------
-            const supabase = createClient<Database>(
+            const { updatedMessageCount } = await trackChatUsage(
+              this.stripe,
+              user.id,
+              prototype_id,
+              userTier,
+              paywallResult.stripeCustomerId,
+              paywallResult.currentPeriodStart,
+              paywallResult.currentPeriodEnd,
               this.supabaseUrl,
               this.supabaseServiceKey,
+              request.log2,
             );
-            await supabase.from('api_usage').insert({
-              user_id: user.id,
-              prototype_id: prototype_id || null,
-            });
-
-            // Get the updated message count for the current billing period
-            let updatedMessageCount = 0;
-            // For users with subscription, use their billing period
-            const periodStart = paywallResult.currentPeriodStart.toISOString();
-            const periodEnd = paywallResult.currentPeriodEnd.toISOString();
-
-            const { count: newCount, error: countError } = await supabase
-              .from('api_usage')
-              .select('*', { count: 'exact', head: true })
-              .eq('user_id', user.id)
-              .gte('created_at', periodStart)
-              .lte('created_at', periodEnd);
-            if (countError) {
-              request.log2.consoleLogDevOnly(
-                'error',
-                '[handleChat] Error fetching updated message count:',
-                { countError },
-              );
-            }
-            updatedMessageCount = newCount || 0;
 
             // Send updated message count to client
             controller.enqueue(
@@ -327,33 +281,6 @@ export class ChatService {
                 })}\n\n`,
               ),
             );
-
-            // ------------------------------------------------------------------------------------------------
-            // 9. If the user has an active subscription, send the usage data to Stripe
-            // ------------------------------------------------------------------------------------------------
-            if (
-              userTier === ProductKeys.PRO_SUBSCRIPTION &&
-              paywallResult.stripeCustomerId
-            ) {
-              try {
-                await this.stripe.billing.meterEvents.create({
-                  event_name: 'materialize_assistant_messages',
-                  payload: {
-                    stripe_customer_id: paywallResult.stripeCustomerId,
-                    value: '1',
-                  },
-                });
-              } catch (stripeError) {
-                request.log2.error(
-                  stripeError,
-                  '[handleChat] Error sending Stripe meter event:',
-                  {
-                    userId: user.id,
-                    stripeCustomerId: paywallResult.stripeCustomerId,
-                  },
-                );
-              }
-            }
 
             controller.close();
           } catch (error) {
