@@ -1,7 +1,10 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
+import puppeteer from 'puppeteer';
 import { CONFIG } from '../config.js';
 import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
@@ -20,12 +23,16 @@ export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
   private ecsClient: ECSClient;
+  private s3Client: S3Client;
   private supabase: SupabaseClient;
   private log2: SystemLogger;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
     this.ecsClient = ecsClient;
+    this.s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -92,8 +99,7 @@ export class CleanupService {
       );
     stats = killedBuilds.stats;
 
-    // TODO: loop through cleaned up builds and screenshot thumbnails via signed S3 urls and puppeteer
-    // Use puppeteer to take screenshots of the builds
+    await this.takeScreenshotsOfKilledBuilds(killedBuilds.killedPrototypeIds);
     return stats;
   }
 
@@ -206,7 +212,7 @@ export class CleanupService {
       }
 
       // 4. dispatch a request to the fargate instance to kill the build
-      let killResult = await this.dispatchKillDevServerRequest(
+      const killResult = await this.dispatchKillDevServerRequest(
         prototypeId,
         build.fargate_private_ip,
       );
@@ -254,6 +260,51 @@ export class CleanupService {
       removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
     }
     return { stats, killedPrototypeIds };
+  }
+
+  private async takeScreenshotsOfKilledBuilds(
+    killedPrototypeIds: string[],
+  ): Promise<void> {
+    for (const prototypeId of killedPrototypeIds) {
+      try {
+        // Generate signed URL for the S3 object
+        const signedUrl = await this.generateS3SignedUrl(prototypeId);
+        if (!signedUrl) {
+          this.log2.warn('Failed to generate signed URL for prototype', {
+            prototypeId,
+          });
+          continue;
+        }
+
+        // Take screenshot using Puppeteer
+        const screenshot = await this.takeScreenshot(signedUrl);
+        if (!screenshot) {
+          this.log2.warn('Failed to take screenshot for prototype', {
+            prototypeId,
+          });
+          continue;
+        }
+
+        // Upload screenshot to Supabase Storage
+        const uploadSuccess = await this.uploadScreenshotToSupabase(
+          prototypeId,
+          screenshot,
+        );
+        if (uploadSuccess) {
+          this.log2.info('Successfully took and uploaded screenshot', {
+            prototypeId,
+          });
+        } else {
+          this.log2.warn('Failed to upload screenshot to Supabase', {
+            prototypeId,
+          });
+        }
+      } catch (error) {
+        this.log2.error(error, 'Error processing screenshot for prototype', {
+          prototypeId,
+        });
+      }
+    }
   }
 
   private async setCacheActiveBuildData(
@@ -447,5 +498,97 @@ export class CleanupService {
     } while (cursor !== '0');
 
     return keys;
+  }
+
+  private async generateS3SignedUrl(
+    prototypeId: string,
+  ): Promise<string | null> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: 'materialize-sites',
+        Key: `${prototypeId}/latest/index.html`,
+      });
+
+      const signedUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn: 300, // 5 min expiration
+      });
+
+      return signedUrl;
+    } catch (error) {
+      this.log2.error(error, 'Failed to generate S3 signed URL', {
+        prototypeId,
+      });
+      return null;
+    }
+  }
+
+  private async takeScreenshot(url: string): Promise<Buffer | null> {
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+        ],
+      });
+
+      const page = await browser.newPage();
+
+      // Set mobile phone viewport
+      await page.setViewport({
+        width: 375,
+        height: 667,
+        deviceScaleFactor: 2,
+      });
+
+      // Set a reasonable timeout for page load
+      await page.goto(url, {
+        waitUntil: 'networkidle0',
+        timeout: 30000,
+      });
+
+      // Take screenshot
+      const screenshot = await page.screenshot({
+        type: 'png',
+        fullPage: false,
+      });
+
+      return screenshot as Buffer;
+    } catch (error) {
+      this.log2.error(error, 'Failed to take screenshot', { url });
+      return null;
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
+    }
+  }
+
+  private async uploadScreenshotToSupabase(
+    prototypeId: string,
+    screenshot: Buffer,
+  ): Promise<boolean> {
+    const fileName = `${prototypeId}.png`;
+    const { error } = await this.supabase.storage
+      .from('prototype-thumbnails')
+      .upload(fileName, screenshot, {
+        contentType: 'image/png',
+        upsert: true, // Overwrite if exists
+      });
+    if (error) {
+      this.log2.error(error, 'Supabase storage upload failed', {
+        prototypeId,
+        fileName,
+      });
+      return false;
+    }
+    return true;
   }
 }
