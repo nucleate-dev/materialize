@@ -9,7 +9,7 @@ import type {
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 import { validateChatAuth } from './chat/chat-auth.js';
-import { FileManager } from './chat/file-manager.js';
+import { VirtualFileManager } from './chat/file-manager.js';
 import { trackChatUsage } from './chat/usage-tracking.js';
 import { ChatEngine, type ChatEngineConfig } from './ChatEngine.js';
 
@@ -156,7 +156,7 @@ export class ChatService {
         prototype_id,
       } = request.body;
 
-      const fileManager = new FileManager(
+      const fileManager = new VirtualFileManager(
         inputFiles,
         request.log2,
         prototype_id,
