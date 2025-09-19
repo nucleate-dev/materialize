@@ -25,6 +25,47 @@ if command -v dnf >/dev/null 2>&1; then
   fi
   command -v unzip >/dev/null 2>&1 || sudo dnf install -y unzip
   sudo dnf install -y amazon-cloudwatch-agent
+
+  # Install Chrome dependencies for Puppeteer
+  echo "==> Installing Chrome dependencies for Puppeteer..."
+  sudo dnf install -y \
+    xorg-x11-server-Xvfb \
+    gtk3 \
+    libXcomposite \
+    libXcursor \
+    libXdamage \
+    libXext \
+    libXi \
+    libXtst \
+    cups-libs \
+    libXScrnSaver \
+    libXrandr \
+    alsa-lib \
+    atk \
+    cairo \
+    cairo-gobject \
+    fontconfig \
+    freetype \
+    gdk-pixbuf2 \
+    glib2 \
+    glibc \
+    libdrm \
+    libX11 \
+    libXau \
+    libXdmcp \
+    libXrender \
+    libgcc \
+    libstdc++ \
+    nspr \
+    nss \
+    nss-util \
+    pango \
+    libXfixes \
+    libxcb \
+    libXss \
+    libXinerama \
+    libXt \
+    xdg-utils
 else
   # Amazon Linux 2 / RHEL 8 (uses yum)
   if ! command -v node >/dev/null 2>&1; then
@@ -33,6 +74,48 @@ else
   fi
   command -v unzip >/dev/null 2>&1 || sudo yum install -y unzip
   sudo yum install -y amazon-cloudwatch-agent
+
+  # Install Chrome dependencies for Puppeteer
+  echo "==> Installing Chrome dependencies for Puppeteer..."
+  sudo yum install -y \
+    xorg-x11-server-Xvfb \
+    gtk3 \
+    libXcomposite \
+    libXcursor \
+    libXdamage \
+    libXext \
+    libXi \
+    libXtst \
+    cups-libs \
+    libXScrnSaver \
+    libXrandr \
+    GConf2 \
+    alsa-lib \
+    atk \
+    cairo \
+    cairo-gobject \
+    fontconfig \
+    freetype \
+    gdk-pixbuf2 \
+    glib2 \
+    glibc \
+    libdrm \
+    libX11 \
+    libXau \
+    libXdmcp \
+    libXrender \
+    libgcc \
+    libstdc++ \
+    nspr \
+    nss \
+    nss-util \
+    pango \
+    libXfixes \
+    libxcb \
+    libXss \
+    libXinerama \
+    libXt \
+    xdg-utils
 fi
 
 # 2. Create application directory

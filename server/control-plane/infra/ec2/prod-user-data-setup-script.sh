@@ -21,11 +21,94 @@ if command -v dnf >/dev/null 2>&1; then
   dnf -y install jq tar unzip awscli --allowerasing
   curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
   dnf -y install nodejs
+
+  # Install Chrome dependencies for Puppeteer
+  echo "[user-data] Installing Chrome dependencies for Puppeteer..."
+  dnf -y install \
+    xorg-x11-server-Xvfb \
+    gtk3 \
+    libXcomposite \
+    libXcursor \
+    libXdamage \
+    libXext \
+    libXi \
+    libXtst \
+    cups-libs \
+    libXScrnSaver \
+    libXrandr \
+    alsa-lib \
+    atk \
+    cairo \
+    cairo-gobject \
+    fontconfig \
+    freetype \
+    gdk-pixbuf2 \
+    glib2 \
+    glibc \
+    libdrm \
+    libX11 \
+    libXau \
+    libXdmcp \
+    libXrender \
+    libgcc \
+    libstdc++ \
+    nspr \
+    nss \
+    nss-util \
+    pango \
+    libXfixes \
+    libxcb \
+    libXss \
+    libXinerama \
+    libXt \
+    xdg-utils
 else
   yum -y update
   yum -y install jq tar unzip awscli --allowerasing
   curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
   yum -y install nodejs
+
+  # Install Chrome dependencies for Puppeteer
+  echo "[user-data] Installing Chrome dependencies for Puppeteer..."
+  yum -y install \
+    xorg-x11-server-Xvfb \
+    gtk3 \
+    libXcomposite \
+    libXcursor \
+    libXdamage \
+    libXext \
+    libXi \
+    libXtst \
+    cups-libs \
+    libXScrnSaver \
+    libXrandr \
+    GConf2 \
+    alsa-lib \
+    atk \
+    cairo \
+    cairo-gobject \
+    fontconfig \
+    freetype \
+    gdk-pixbuf2 \
+    glib2 \
+    glibc \
+    libdrm \
+    libX11 \
+    libXau \
+    libXdmcp \
+    libXrender \
+    libgcc \
+    libstdc++ \
+    nspr \
+    nss \
+    nss-util \
+    pango \
+    libXfixes \
+    libxcb \
+    libXss \
+    libXinerama \
+    libXt \
+    xdg-utils
 fi
 
 # --- Install CloudWatch Agent ---

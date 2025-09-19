@@ -262,7 +262,7 @@ export class CleanupService {
     return { stats, killedPrototypeIds };
   }
 
-  private async takeScreenshotsOfKilledBuilds(
+  public async takeScreenshotsOfKilledBuilds(
     killedPrototypeIds: string[],
   ): Promise<void> {
     for (const prototypeId of killedPrototypeIds) {
@@ -525,8 +525,9 @@ export class CleanupService {
   private async takeScreenshot(url: string): Promise<Buffer | null> {
     let browser;
     try {
+      // Try to launch with minimal Chrome dependencies
       browser = await puppeteer.launch({
-        headless: true,
+        headless: true, // Use new headless mode
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -536,7 +537,33 @@ export class CleanupService {
           '--no-zygote',
           '--single-process',
           '--disable-gpu',
+          '--disable-gpu-sandbox',
+          '--disable-software-rasterizer',
+          '--disable-web-security',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI,VizDisplayCompositor',
+          '--disable-extensions',
+          '--disable-default-apps',
+          '--no-default-browser-check',
+          '--no-proxy-server',
+          '--disable-sync',
+          '--disable-plugins',
+          '--disable-logging',
+          '--disable-background-media-processing',
+          '--mute-audio',
+          '--disable-audio',
+          '--disable-ipc-flooding-protection',
+          '--disable-hang-monitor',
+          '--disable-prompt-on-repost',
+          '--disable-client-side-phishing-detection',
+          '--disable-component-update',
+          '--disable-domain-reliability',
+          '--disable-background-networking',
         ],
+        timeout: 30000,
+        ignoreDefaultArgs: ['--disable-extensions'],
       });
 
       const page = await browser.newPage();
@@ -562,11 +589,33 @@ export class CleanupService {
 
       return screenshot as Buffer;
     } catch (error) {
-      this.log2.error(error, 'Failed to take screenshot', { url });
+      // Check if this is a Chrome dependency error
+      if (error instanceof Error && error.message.includes('libnspr4.so')) {
+        this.log2.error(
+          error,
+          'Chrome dependencies missing. Run install-chrome-dependencies.sh script to fix this issue.',
+          { url, errorType: 'missing_chrome_dependencies' },
+        );
+      } else if (
+        error instanceof Error &&
+        error.message.includes('Failed to launch the browser process')
+      ) {
+        this.log2.error(
+          error,
+          'Browser launch failed. This may be due to missing system dependencies.',
+          { url, errorType: 'browser_launch_failed' },
+        );
+      } else {
+        this.log2.error(error, 'Failed to take screenshot', { url });
+      }
       return null;
     } finally {
       if (browser) {
-        await browser.close();
+        try {
+          await browser.close();
+        } catch (closeError) {
+          this.log2.error(closeError, 'Failed to close browser');
+        }
       }
     }
   }
