@@ -12,10 +12,20 @@ const KEY = 'dist/control-plane-dist.zip';
 async function main() {
   const projectRoot = process.cwd();
   const distDir = path.join(projectRoot, 'dist');
+  const infraSrc = path.join(projectRoot, 'infra', 'ec2');
+  const infraDest = path.join(distDir, 'infra', 'ec2');
   const outZip = path.join(projectRoot, 'control-plane-dist.zip');
 
   console.log('🚀 Building project...');
   execSync('npm run build', {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    shell: true,
+  });
+
+  console.log('📂 Copying infra scripts into dist...');
+  fs.mkdirSync(infraDest, { recursive: true });
+  execSync(`cp -R ${infraSrc}/* ${infraDest}`, {
     cwd: projectRoot,
     stdio: 'inherit',
     shell: true,
@@ -51,7 +61,7 @@ async function zipBundle({ distDir, projectRoot, outPath }) {
 
     archive.pipe(output);
 
-    // Include compiled code
+    // Include compiled code + infra scripts
     archive.directory(distDir, 'dist');
 
     // Include package.json
