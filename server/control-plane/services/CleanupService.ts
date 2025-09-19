@@ -294,6 +294,16 @@ export class CleanupService {
           this.log2.info('Successfully took and uploaded screenshot', {
             prototypeId,
           });
+
+          // Update the thumbnail_url in the prototypes table
+          const updateSuccess = await this.updatePrototypeThumbnailUrl(
+            prototypeId,
+          );
+          if (!updateSuccess) {
+            this.log2.warn('Failed to update prototype thumbnail_url', {
+              prototypeId,
+            });
+          }
         } else {
           this.log2.warn('Failed to upload screenshot to Supabase', {
             prototypeId,
@@ -636,6 +646,39 @@ export class CleanupService {
         prototypeId,
         fileName,
       });
+      return false;
+    }
+    return true;
+  }
+
+  private async updatePrototypeThumbnailUrl(
+    prototypeId: string,
+  ): Promise<boolean> {
+    // Generate the public URL for the uploaded screenshot
+    const { data } = this.supabase.storage
+      .from('prototype-thumbnails')
+      .getPublicUrl(`${prototypeId}.png`);
+
+    const thumbnailUrl = data.publicUrl;
+
+    // Update the prototypes table with the thumbnail URL
+    const { error } = await this.supabase
+      .from('prototypes')
+      .update({
+        thumbnail_url: thumbnailUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', prototypeId);
+
+    if (error) {
+      this.log2.error(
+        error,
+        'Failed to update prototype thumbnail_url in database',
+        {
+          prototypeId,
+          thumbnailUrl,
+        },
+      );
       return false;
     }
     return true;
