@@ -714,7 +714,33 @@ export class PrototypeManagementService {
         );
       }
 
-      // TODO: Delete the prototype_thumbnail from supabase storage
+      // 5.5. Delete the prototype thumbnail from Supabase Storage
+      try {
+        const supabaseClient = createClient<Database>(
+          this.supabaseUrl,
+          this.supabaseServiceKey,
+        );
+
+        const { error: thumbnailDeleteError } = await supabaseClient.storage
+          .from('prototype-thumbnails')
+          .remove([`${prototype_id}.png`]);
+
+        if (thumbnailDeleteError) {
+          request.log2.warn(
+            'Failed to delete prototype thumbnail from storage (non-critical)',
+            { error: thumbnailDeleteError },
+          );
+        } else {
+          request.log2.info(
+            'Successfully deleted prototype thumbnail from storage',
+          );
+        }
+      } catch (thumbnailError) {
+        request.log2.warn(
+          'Failed to delete prototype thumbnail from storage (non-critical)',
+          { error: thumbnailError },
+        );
+      }
 
       // 6. Delete the prototype from prototypes table (will cascade delete all associated prototype_files, prototype_assets, chat sessions, and messages)
       const { error: prototypeDeleteError } = await supabase
