@@ -45,14 +45,12 @@ import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 interface SSEEvent {
   id: string;
   timestamp: Date;
   type: string;
-  data: any;
+  data: unknown;
   raw: string;
 }
 
@@ -60,7 +58,7 @@ interface RequestLog {
   id: string;
   timestamp: Date;
   type: "request" | "response" | "error";
-  data: any;
+  data: unknown;
 }
 
 export default function ChatTestPage() {
@@ -79,7 +77,7 @@ export default function ChatTestPage() {
   // Chat state
   const [chatSession, setChatSession] = useState<string>(uuidv4());
   const [serverEndpoint, setServerEndpoint] = useState(
-    process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000",
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState("");
@@ -93,7 +91,10 @@ export default function ChatTestPage() {
   const [showLogs, setShowLogs] = useState(true); // Show logs by default for debugging
   const [showFileTree, setShowFileTree] = useState(true); // Show files by default
 
-  const addRequestLog = (type: "request" | "response" | "error", data: any) => {
+  const addRequestLog = (
+    type: "request" | "response" | "error",
+    data: unknown,
+  ) => {
     const log: RequestLog = {
       id: uuidv4(),
       timestamp: new Date(),
@@ -103,7 +104,7 @@ export default function ChatTestPage() {
     setRequestLogs((prev) => [log, ...prev].slice(0, 100)); // Keep last 100 logs
   };
 
-  const addSSEEvent = (type: string, data: any, raw: string) => {
+  const addSSEEvent = (type: string, data: unknown, raw: string) => {
     const event: SSEEvent = {
       id: uuidv4(),
       timestamp: new Date(),
@@ -258,11 +259,7 @@ export default function ChatTestPage() {
         headers: { Authorization: "Bearer ***" },
       });
 
-      // Create EventSource for streaming
-      const url = new URL(`${serverEndpoint}/chat`);
-      const es = new EventSource(url.toString(), {
-        // Note: EventSource doesn't support custom headers, so we'll use fetch instead
-      });
+      // Note: Using fetch instead of EventSource since EventSource doesn't support custom headers
 
       // Use fetch for the actual request since EventSource doesn't support POST with custom headers
       const response = await fetch(`${serverEndpoint}/chat`, {
@@ -343,13 +340,16 @@ export default function ChatTestPage() {
                     case "execution_complete":
                       // Update files if they changed
                       if (event.updatedFiles) {
-                        fileSystem.applyAndPersistFileUpdates(event.updatedFiles);
+                        fileSystem.applyAndPersistFileUpdates(
+                          event.updatedFiles,
+                        );
                       }
                       setMessages((prev) => [
                         ...prev,
                         {
                           role: "assistant",
-                          content: "🎉 **Execution Complete!** All operations finished successfully.",
+                          content:
+                            "🎉 **Execution Complete!** All operations finished successfully.",
                         },
                       ]);
                       break;
@@ -394,7 +394,10 @@ export default function ChatTestPage() {
           }
         } catch (streamError) {
           addRequestLog("error", {
-            error: streamError instanceof Error ? streamError.message : String(streamError),
+            error:
+              streamError instanceof Error
+                ? streamError.message
+                : String(streamError),
           });
         } finally {
           setIsConnected(false);
@@ -425,29 +428,42 @@ export default function ChatTestPage() {
   };
 
   // Debug file system state changes (with dependency tracking to avoid infinite loops)
+  const filesLoaded = !!fileSystem.state.files;
+  const filesCount = fileSystem.state.files
+    ? Object.keys(fileSystem.state.files).length
+    : 0;
+  const assetsLoaded = !!fileSystem.state.assets;
+  const assetsCount = fileSystem.state.assets
+    ? Object.keys(fileSystem.state.assets).length
+    : 0;
+
   useEffect(() => {
     const logData = {
       message: "File system state changed",
       prototypeId: prototype?.id,
-      filesLoaded: !!fileSystem.state.files,
-      filesCount: fileSystem.state.files ? Object.keys(fileSystem.state.files).length : 0,
-      assetsLoaded: !!fileSystem.state.assets,
-      assetsCount: fileSystem.state.assets ? Object.keys(fileSystem.state.assets).length : 0,
+      filesLoaded,
+      filesCount,
+      assetsLoaded,
+      assetsCount,
       selectedFile: fileSystem.state.selectedFile,
       isLoading: fileSystem.state.isLoading,
     };
 
     // Only log if there's actually a meaningful change
     if (prototype?.id || fileSystem.state.files || fileSystem.state.assets) {
-      console.log("File system state:", logData);
+      logger.debug("log", "File system state changed", logData);
     }
   }, [
     prototype?.id,
-    !!fileSystem.state.files,
-    fileSystem.state.files ? Object.keys(fileSystem.state.files).length : 0,
-    !!fileSystem.state.assets,
-    fileSystem.state.assets ? Object.keys(fileSystem.state.assets).length : 0,
+    filesLoaded,
+    filesCount,
+    assetsLoaded,
+    assetsCount,
     fileSystem.state.isLoading,
+    fileSystem.state.selectedFile,
+    fileSystem.state.files,
+    fileSystem.state.assets,
+    logger,
   ]);
 
   const exportSession = () => {
@@ -482,8 +498,12 @@ export default function ChatTestPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">ChatEngine Test</h1>
-            <p className="text-muted-foreground">Test the chat API with real prototypes</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              ChatEngine Test
+            </h1>
+            <p className="text-muted-foreground">
+              Test the chat API with real prototypes
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={exportSession} variant="outline" size="sm">
@@ -573,9 +593,11 @@ export default function ChatTestPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <div
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"}`}
+                  />
                   <span className="text-sm text-muted-foreground">
-                    {isConnected ? 'Connected' : 'Disconnected'}
+                    {isConnected ? "Connected" : "Disconnected"}
                   </span>
                 </div>
               </CardContent>
@@ -593,37 +615,70 @@ export default function ChatTestPage() {
                 {prototype ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${fileSystem.state.files ? 'bg-green-500' : 'bg-yellow-500'
-                        }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          fileSystem.state.files
+                            ? "bg-green-500"
+                            : "bg-yellow-500"
+                        }`}
+                      />
                       <span className="text-sm">
-                        Files: {fileSystem.state.files ? Object.keys(fileSystem.state.files).length : 'Loading...'}
+                        Files:{" "}
+                        {fileSystem.state.files
+                          ? Object.keys(fileSystem.state.files).length
+                          : "Loading..."}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${fileSystem.state.assets ? 'bg-green-500' : 'bg-yellow-500'
-                        }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          fileSystem.state.assets
+                            ? "bg-green-500"
+                            : "bg-yellow-500"
+                        }`}
+                      />
                       <span className="text-sm">
-                        Assets: {fileSystem.state.assets ? Object.keys(fileSystem.state.assets).length : 'Loading...'}
+                        Assets:{" "}
+                        {fileSystem.state.assets
+                          ? Object.keys(fileSystem.state.assets).length
+                          : "Loading..."}
                       </span>
                     </div>
 
                     {/* Chat readiness indicator */}
                     <div className="p-2 bg-muted rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-2 h-2 rounded-full ${(fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length > 0)
-                          ? 'bg-green-500' : 'bg-red-500'
-                          }`} />
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            fileSystem.state.files &&
+                            fileSystem.state.assets &&
+                            Object.keys(fileSystem.state.files).length > 0
+                              ? "bg-green-500"
+                              : "bg-red-500"
+                          }`}
+                        />
                         <span className="text-sm font-medium">
-                          {(fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length > 0)
-                            ? 'Ready for Chat' : 'Not Ready'}
+                          {fileSystem.state.files &&
+                          fileSystem.state.assets &&
+                          Object.keys(fileSystem.state.files).length > 0
+                            ? "Ready for Chat"
+                            : "Not Ready"}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {!fileSystem.state.files && 'Files not loaded'}
-                        {!fileSystem.state.assets && !fileSystem.state.files && ' | '}
-                        {!fileSystem.state.assets && 'Assets not loaded'}
-                        {fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length === 0 && 'No files found'}
-                        {(fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length > 0) && 'All systems ready'}
+                        {!fileSystem.state.files && "Files not loaded"}
+                        {!fileSystem.state.assets &&
+                          !fileSystem.state.files &&
+                          " | "}
+                        {!fileSystem.state.assets && "Assets not loaded"}
+                        {fileSystem.state.files &&
+                          fileSystem.state.assets &&
+                          Object.keys(fileSystem.state.files).length === 0 &&
+                          "No files found"}
+                        {fileSystem.state.files &&
+                          fileSystem.state.assets &&
+                          Object.keys(fileSystem.state.files).length > 0 &&
+                          "All systems ready"}
                       </div>
                     </div>
                   </div>
@@ -636,58 +691,82 @@ export default function ChatTestPage() {
             </Card>
 
             {/* Detailed File List */}
-            {prototype && fileSystem.state.files && Object.keys(fileSystem.state.files).length > 0 && (
-              <Collapsible open={showFileTree} onOpenChange={setShowFileTree}>
-                <Card>
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CodeBracketIcon className="w-5 h-5" />
-                          File Contents ({Object.keys(fileSystem.state.files).length})
-                        </div>
-                        <ChevronDownIcon className="w-4 h-4" />
-                      </CardTitle>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent>
-                      <ScrollArea className="h-80">
-                        <div className="space-y-3">
-                          {Object.entries(fileSystem.state.files).map(([path, file]) => (
-                            <div key={path} className="border rounded-lg p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-mono text-sm font-medium">{path}</div>
-                                <Badge variant="outline" className="text-xs">
-                                  {file.contents ? `${file.contents.length} chars` : 'No content'}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-muted-foreground space-y-1">
-                                <div>ID: {file.id || 'No ID'}</div>
-                                <div>Prototype: {file.prototype_id || 'No prototype ID'}</div>
-                                {file.created_at && (
-                                  <div>Created: {new Date(file.created_at).toLocaleString()}</div>
-                                )}
-                              </div>
-                              {file.contents && (
-                                <details className="mt-2">
-                                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                                    Show content preview
-                                  </summary>
-                                  <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto max-h-32 overflow-y-auto">
-                                    {file.contents.slice(0, 500)}{file.contents.length > 500 && '...'}
-                                  </pre>
-                                </details>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            )}
+            {prototype &&
+              fileSystem.state.files &&
+              Object.keys(fileSystem.state.files).length > 0 && (
+                <Collapsible open={showFileTree} onOpenChange={setShowFileTree}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CodeBracketIcon className="w-5 h-5" />
+                            File Contents (
+                            {Object.keys(fileSystem.state.files).length})
+                          </div>
+                          <ChevronDownIcon className="w-4 h-4" />
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent>
+                        <ScrollArea className="h-80">
+                          <div className="space-y-3">
+                            {Object.entries(fileSystem.state.files).map(
+                              ([path, file]) => (
+                                <div
+                                  key={path}
+                                  className="border rounded-lg p-3"
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="font-mono text-sm font-medium">
+                                      {path}
+                                    </div>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {file.contents
+                                        ? `${file.contents.length} chars`
+                                        : "No content"}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-1">
+                                    <div>ID: {file.id || "No ID"}</div>
+                                    <div>
+                                      Prototype:{" "}
+                                      {file.prototype_id || "No prototype ID"}
+                                    </div>
+                                    {file.created_at && (
+                                      <div>
+                                        Created:{" "}
+                                        {new Date(
+                                          file.created_at,
+                                        ).toLocaleString()}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {file.contents && (
+                                    <details className="mt-2">
+                                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                                        Show content preview
+                                      </summary>
+                                      <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto max-h-32 overflow-y-auto">
+                                        {file.contents.slice(0, 500)}
+                                        {file.contents.length > 500 && "..."}
+                                      </pre>
+                                    </details>
+                                  )}
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
           </div>
 
           {/* Middle Column - Chat */}
@@ -706,10 +785,11 @@ export default function ChatTestPage() {
                     {messages.map((message, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg ${message.role === "user"
-                          ? "bg-primary text-primary-foreground ml-4"
-                          : "bg-muted mr-4"
-                          }`}
+                        className={`p-3 rounded-lg ${
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground ml-4"
+                            : "bg-muted mr-4"
+                        }`}
                       >
                         <div className="text-sm font-medium mb-1">
                           {message.role === "user" ? "You" : "Assistant"}
@@ -734,7 +814,12 @@ export default function ChatTestPage() {
                   <div className="flex gap-2">
                     <Button
                       onClick={handleSendMessage}
-                      disabled={!currentMessage.trim() || !prototype || !fileSystem.state.files || isConnected}
+                      disabled={
+                        !currentMessage.trim() ||
+                        !prototype ||
+                        !fileSystem.state.files ||
+                        isConnected
+                      }
                       className="flex-1"
                     >
                       <PlayIcon className="w-4 h-4 mr-2" />
@@ -817,7 +902,11 @@ export default function ChatTestPage() {
                           <div key={log.id} className="text-xs">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge
-                                variant={log.type === "error" ? "destructive" : "outline"}
+                                variant={
+                                  log.type === "error"
+                                    ? "destructive"
+                                    : "outline"
+                                }
                                 className="text-xs"
                               >
                                 {log.type}
