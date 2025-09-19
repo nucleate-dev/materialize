@@ -897,6 +897,52 @@ export class PrototypeManagementService {
       log2.error(s3CopyResult, '[forkPrototype] Failed to copy S3 bucket');
       throw new Error(`Failed to copy S3 bucket: ${s3CopyResult.error}`);
     }
+
+    // Copy prototype thumbnail from source to new prototype
+    try {
+      const supabaseClient = createClient<Database>(
+        this.supabaseUrl,
+        this.supabaseServiceKey,
+      );
+
+      // Download the source thumbnail
+      const { data: sourceThumbData, error: downloadError } =
+        await supabaseClient.storage
+          .from('prototype-thumbnails')
+          .download(`${sourcePrototypeId}.png`);
+
+      if (downloadError) {
+        log2.info(
+          '[forkPrototype] No thumbnail found for source prototype (non-critical)',
+          {
+            sourcePrototypeId,
+            error: downloadError,
+          },
+        );
+      } else if (sourceThumbData) {
+        // Upload the thumbnail for the new prototype
+        const { error: uploadError } = await supabaseClient.storage
+          .from('prototype-thumbnails')
+          .upload(`${newPrototypeId}.png`, sourceThumbData, {
+            contentType: 'image/png',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          log2.warn('[forkPrototype] Failed to copy thumbnail (non-critical)', {
+            sourcePrototypeId,
+            newPrototypeId,
+            error: uploadError,
+          });
+        }
+      }
+    } catch (thumbnailError) {
+      log2.warn('[forkPrototype] Failed to copy thumbnail (non-critical)', {
+        sourcePrototypeId,
+        newPrototypeId,
+        error: thumbnailError,
+      });
+    }
   }
 
   /**
