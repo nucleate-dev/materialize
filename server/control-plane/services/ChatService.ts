@@ -9,13 +9,9 @@ import type {
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
 import { validateChatAuth } from './chat/chat-auth.js';
+import { FileManager } from './chat/file-manager.js';
 import { trackChatUsage } from './chat/usage-tracking.js';
-import {
-  ChatEngine,
-  FileManager,
-  type ChatEngineConfig,
-} from './ChatEngine.js';
-
+import { ChatEngine, type ChatEngineConfig } from './ChatEngine.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -159,6 +155,7 @@ export class ChatService {
         chat_session_id,
         prototype_id,
       } = request.body;
+
       const fileManager = new FileManager(
         inputFiles,
         request.log2,
@@ -170,9 +167,10 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       const authValidation = await validateChatAuth(request, prototype_id);
       if (!authValidation.success) {
-        const statusCode = authValidation.error.type === 'UNAUTHORIZED'
-          ? HTTP_STATUS.UNAUTHORIZED
-          : HTTP_STATUS.UNAUTHORIZED;
+        const statusCode =
+          authValidation.error.type === 'UNAUTHORIZED'
+            ? HTTP_STATUS.UNAUTHORIZED
+            : HTTP_STATUS.UNAUTHORIZED;
 
         return reply.status(statusCode).send({
           error: authValidation.error.error,
@@ -281,16 +279,20 @@ export class ChatService {
                 })}\n\n`,
               ),
             );
-
-            controller.close();
           } catch (error) {
-            request.log2.error(
-              error,
-              '[handleChat] Streaming error in controller:',
-              {
-                userId: user.id,
-              },
-            );
+            if (
+              error instanceof Error &&
+              !error.message.includes('Controller is already closed')
+            ) {
+              request.log2.error(
+                error,
+                '[handleChat] Streaming error in controller:',
+                {
+                  userId: user.id,
+                },
+              );
+            }
+
             try {
               controller.enqueue(
                 encoder.encode(
@@ -313,10 +315,15 @@ export class ChatService {
             try {
               controller.close();
             } catch (closeError) {
-              request.log2.error(
-                closeError,
-                '[handleChat] Failed to close controller:',
-              );
+              if (
+                closeError instanceof Error &&
+                !closeError.message.includes('Controller is already closed')
+              ) {
+                request.log2.error(
+                  closeError,
+                  '[handleChat] Failed to close controller:',
+                );
+              }
             }
           }
         },
