@@ -295,7 +295,7 @@ export class InternalDevServerManagementService {
     try {
       const scriptPath = path.resolve(
         process.cwd(),
-        'infra/ec2/dev-ec2-user-data-script.sh',
+        'dist/infra/ec2/dev-ec2-user-data-script.sh',
       );
       return fs.readFileSync(scriptPath, 'utf-8');
     } catch (error) {
