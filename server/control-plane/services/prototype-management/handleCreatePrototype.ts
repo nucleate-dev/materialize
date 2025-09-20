@@ -323,9 +323,16 @@ export async function handleCreatePrototypeImpl(
     }
 
     // Insert default prototype assets into Supabase
+    const assetsToInsert: PrototypeAssetInsert[] = (
+      defaultFilesResult.assets ?? []
+    ).map((asset) => ({
+      prototype_id: asset.prototype_id,
+      name: asset.name,
+      storage_url: '',
+    }));
     const { error: assetsError } = await supabase
       .from('prototype_assets')
-      .insert(defaultFilesResult.assets ?? []);
+      .insert(assetsToInsert);
 
     if (assetsError) {
       log2.error(

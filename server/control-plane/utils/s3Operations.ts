@@ -328,7 +328,8 @@ export async function getDefaultAppFilesFromS3(
     }
 
     const files: PrototypeFileInsert[] = [];
-    const assets: PrototypeAssetInsert[] = [];
+    const assets: { name: string; contents: Buffer; prototype_id: string }[] =
+      [];
     let processedFiles = 0;
     let skippedFiles = 0;
     let failedFiles = 0;
@@ -366,26 +367,10 @@ export async function getDefaultAppFilesFromS3(
           // For assets, we need to upload to Supabase Storage
           const bodyBytes = await objectData.Body.transformToByteArray();
           const buffer = Buffer.from(bodyBytes);
-          const uploadResult = await uploadAssetToSupabaseStorage(
-            prototypeId,
-            fileName,
-            buffer,
-            log2,
-          );
-
-          if (!uploadResult.success) {
-            log2.error(
-              uploadResult.error,
-              `[getDefaultAppFilesFromS3] Failed to upload asset ${fileName}`,
-            );
-            failedFiles++;
-            continue;
-          }
-
           assets.push({
             prototype_id: prototypeId,
             name: fileName,
-            storage_url: uploadResult.publicUrl!, // Empty for assets
+            contents: buffer,
           });
         } else {
           // For text files, get the content

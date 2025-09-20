@@ -24,6 +24,7 @@ import {
   getDefaultAppFilesFromS3,
 } from '../../utils/s3Operations.js';
 import { handleCreatePrototypeImpl } from './handleCreatePrototype.js';
+import { PrototypeAssetInsert } from '../../types/InternalTypes.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -357,9 +358,16 @@ export class PrototypeManagementService {
         // Continue execution as this is not critical
       }
 
+      const assetsToInsert: PrototypeAssetInsert[] = (
+        defaultFilesResult.assets ?? []
+      ).map((asset) => ({
+        prototype_id: prototype_id,
+        name: asset.name,
+        storage_url: '',
+      }));
       const { error: assetsInsertError } = await supabase
         .from('prototype_assets')
-        .insert(defaultFilesResult.assets ?? []);
+        .insert(assetsToInsert);
 
       if (assetsInsertError) {
         request.log2.error(

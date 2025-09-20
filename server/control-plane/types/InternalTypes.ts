@@ -134,7 +134,7 @@ export interface S3UploadResult {
 export interface DefaultFilesResult {
   success: boolean;
   files?: PrototypeFileInsert[];
-  assets?: PrototypeAssetInsert[];
+  assets?: { name: string; contents: Buffer; prototype_id: string }[];
   error?: string;
 }
 
