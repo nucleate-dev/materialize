@@ -102,33 +102,39 @@ export async function uploadAssetToSupabaseStorage(
   }
 }
 
-/**
- * Copy asset from one prototype to another in Supabase Storage
- */
-export async function copyAssetInSupabaseStorage(
+export async function copyAllAssetsInSupabaseStorage(
   sourcePrototypeId: string,
   targetPrototypeId: string,
-  fileName: string,
   log2: SystemLogger,
-): Promise<S3UploadResult> {
-  const sourceFilePath = `${sourcePrototypeId}/${fileName}`;
-  const targetFilePath = `${targetPrototypeId}/${fileName}`;
-
-  const { error } = await supabaseStorage.storage
+): Promise<S3CopyResult> {
+  const { data: assets, error: assetsError } = await supabaseStorage.storage
     .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-    .copy(sourceFilePath, targetFilePath);
-  if (error) {
+    .list(sourcePrototypeId);
+  if (assetsError) {
     log2.error(
-      error,
-      `[copyAssetInSupabaseStorage] Failed to copy ${fileName}`,
+      assetsError,
+      '[copyAllAssetsInSupabaseStorage] Failed to list assets',
     );
-    return { success: false, error: error.message, publicUrl: null };
+    return { success: false, error: assetsError.message, copiedObjects: 0 };
   }
-
-  const { data: publicUrlData } = supabaseStorage.storage
-    .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-    .getPublicUrl(targetFilePath);
-  return { success: true, publicUrl: publicUrlData.publicUrl };
+  const copyResults = await Promise.all(
+    assets.map((asset) =>
+      supabaseStorage.storage
+        .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+        .copy(
+          `${sourcePrototypeId}/${asset.name}`,
+          `${targetPrototypeId}/${asset.name}`,
+        ),
+    ),
+  );
+  const firstError = copyResults.find((r) => r.error);
+  return {
+    success: firstError ? false : true,
+    error: firstError
+      ? firstError.error?.message || 'Unknown error during copy'
+      : undefined,
+    copiedObjects: copyResults.length,
+  };
 }
 
 /**
