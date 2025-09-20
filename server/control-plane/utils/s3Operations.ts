@@ -5,7 +5,7 @@ import {
   ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
@@ -14,6 +14,7 @@ import type {
   S3CopyResult,
   S3UploadResult,
 } from '../types/InternalTypes.js';
+import { Database } from '../types/supabase.js';
 
 // Initialize Supabase storage client
 const supabaseStorage = createClient(
@@ -103,11 +104,12 @@ export async function uploadAssetToSupabaseStorage(
 }
 
 export async function copyAllAssetsInSupabaseStorage(
+  supabase: SupabaseClient<Database>,
   sourcePrototypeId: string,
   targetPrototypeId: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const { data: assets, error: assetsError } = await supabaseStorage.storage
+  const { data: assets, error: assetsError } = await supabase.storage
     .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
     .list(sourcePrototypeId);
   if (assetsError) {
@@ -119,7 +121,7 @@ export async function copyAllAssetsInSupabaseStorage(
   }
   const copyResults = await Promise.all(
     assets.map((asset) =>
-      supabaseStorage.storage
+      supabase.storage
         .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
         .copy(
           `${sourcePrototypeId}/${asset.name}`,
@@ -134,6 +136,21 @@ export async function copyAllAssetsInSupabaseStorage(
       ? firstError.error?.message || 'Unknown error during copy'
       : undefined,
     copiedObjects: copyResults.length,
+  };
+}
+
+export async function copyPrototypeThumbnailInSupabaseStorage(
+  supabase: SupabaseClient<Database>,
+  sourcePrototypeId: string,
+  targetPrototypeId: string,
+): Promise<S3CopyResult> {
+  const { error } = await supabase.storage
+    .from('prototype-thumbnails')
+    .copy(`${sourcePrototypeId}.png`, `${targetPrototypeId}.png`);
+  return {
+    success: error ? false : true,
+    error: error ? error.message : undefined,
+    copiedObjects: 1,
   };
 }
 
