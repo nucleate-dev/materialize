@@ -275,20 +275,6 @@ export async function copyS3BucketContents(
 }
 
 /**
- * Copy default app files to a new prototype bucket
- */
-export async function copyDefaultAppToPrototype(
-  s3Client: S3Client,
-  prototypeId: string,
-  log2: SystemLogger,
-): Promise<S3CopyResult> {
-  const sourcePrefix = 'default-app/';
-  const destinationPrefix = `${prototypeId}/`; // Add trailing slash
-
-  return copyS3BucketContents(s3Client, sourcePrefix, destinationPrefix, log2);
-}
-
-/**
  * Copy default app to a new prototype with versioned deployment
  */
 export async function copyDefaultAppToVersionedPrototype(

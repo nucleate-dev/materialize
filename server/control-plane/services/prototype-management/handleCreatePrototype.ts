@@ -252,18 +252,24 @@ export async function handleCreatePrototypeImpl(
 
     const [filesInsertResult, assetsInsertResult] = await Promise.all([
       supabase.from('prototype_files').insert(
-        filesResult.data.map((file) => ({
-          prototype_id: newPrototypeId,
-          name: file.name,
-          contents: file.contents,
-        })),
+        filesResult.data.map(
+          (file) =>
+            ({
+              prototype_id: newPrototypeId,
+              name: file.name,
+              contents: file.contents,
+            } as PrototypeFileInsert),
+        ),
       ),
       supabase.from('prototype_assets').insert(
-        assetsResult.data.map((asset) => ({
-          prototype_id: newPrototypeId,
-          name: asset.name,
-          storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
-        })),
+        assetsResult.data.map(
+          (asset) =>
+            ({
+              prototype_id: newPrototypeId,
+              name: asset.name,
+              storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
+            } as PrototypeAssetInsert),
+        ),
       ),
     ]);
     if (filesInsertResult.error || assetsInsertResult.error) {
