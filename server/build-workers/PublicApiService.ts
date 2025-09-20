@@ -132,7 +132,6 @@ export class PublicApiService {
         build_warnings: [],
         server_operation_status: devServerState.currentOperation,
         server_status: devServerState.devServerStatus,
-        screenshotBase64: devServerState.screenshotBase64,
         prototypeId: devServerState.prototypeId,
       } as PublicDevServerStopResponse;
     }
