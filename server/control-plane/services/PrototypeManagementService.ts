@@ -295,11 +295,11 @@ export class PrototypeManagementService {
         visibility,
       } = request.body;
 
-      if (visibility === 'SELF' && limitCheck.plan === 'free') {
+      if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
         const errorResponse: CreatePrototypeErrorResponse = {
           success: false,
           error: 'INVALID_REQUEST',
-          message: 'Self-visibility is only available for Pro users',
+          message: 'Free tier users can only make public prototypes',
         };
         reply.status(HTTP_STATUS.BAD_REQUEST);
         return errorResponse;
