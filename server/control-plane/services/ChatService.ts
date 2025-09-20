@@ -336,6 +336,7 @@ export class ChatService {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Content-Encoding': 'none',
       });
 
       const reader = stream.getReader();

@@ -76,7 +76,9 @@ export class ChatEngine {
     }
   }
 
-  private createFileManagerTools(params: ChatEngineParams) {
+  private createFileManagerTools(
+    params: ChatEngineParams,
+  ): Record<string, any> {
     const { fileManager, log2 } = params;
 
     return {
