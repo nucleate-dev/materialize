@@ -5,7 +5,7 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-3-128-156-227.us-east-2.compute.amazonaws.com";
+const HOST = "ec2-3-139-78-168.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";

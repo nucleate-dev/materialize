@@ -5,7 +5,7 @@ import cors from '@fastify/cors';
 import { DispatcherService } from './services/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
-import { PrototypeManagementService } from './services/PrototypeManagementService.js';
+import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/ChatService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
@@ -185,15 +185,27 @@ const start = async (): Promise<void> => {
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes
-    internalDevServerManagementService = new InternalDevServerManagementService(ec2Client, ecsClient, fastify);
+    internalDevServerManagementService = new InternalDevServerManagementService(
+      ec2Client,
+      ecsClient,
+      fastify,
+    );
     internalDevServerManagementService.registerRoutes(fastify);
 
     // Create internal production deployment service and register routes
-    internalProductionDeploymentService = new InternalProductionDeploymentService(ec2Client, autoScalingClient, fastify);
+    internalProductionDeploymentService =
+      new InternalProductionDeploymentService(
+        ec2Client,
+        autoScalingClient,
+        fastify,
+      );
     internalProductionDeploymentService.registerRoutes(fastify);
 
     // Create internal cleanup service management and register routes
-    internalCleanupServiceManagement = new InternalCleanupServiceManagement(cleanupService, fastify);
+    internalCleanupServiceManagement = new InternalCleanupServiceManagement(
+      cleanupService,
+      fastify,
+    );
     internalCleanupServiceManagement.registerRoutes(fastify);
 
     await fastify.listen({
