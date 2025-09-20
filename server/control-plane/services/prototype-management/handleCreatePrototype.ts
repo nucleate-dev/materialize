@@ -124,6 +124,7 @@ export async function handleCreatePrototypeImpl(
       if (forkPrototypeId) {
         await forkPrototype(
           supabase,
+          s3Client,
           forkPrototypeId,
           newPrototypeId,
           request.log2,
@@ -188,23 +189,35 @@ export async function handleCreatePrototypeImpl(
    */
   async function forkPrototype(
     supabase: SupabaseClient<Database>,
+    s3Client: S3Client,
     sourcePrototypeId: string,
     newPrototypeId: string,
     log2: SystemLogger,
   ): Promise<void> {
-    log2.consoleLogDevOnly(
-      'info',
-      `Forking prototype ${sourcePrototypeId} to ${newPrototypeId}`,
-    );
-    // 1. Get files from source prototype and copy to new prototype
-    const { data: files, error: filesError } = await supabase
-      .from('prototype_files')
-      .select('*')
-      .eq('prototype_id', sourcePrototypeId);
-    if (filesError) {
-      log2.error(filesError, '[forkPrototype] Failed to fetch prototype files');
-      throw new Error(filesError.message || 'Failed to get prototype files');
+    // 1. Get files and assets from source prototype
+    const [filesResult, assetsResult] = await Promise.all([
+      supabase
+        .from('prototype_files')
+        .select('*')
+        .eq('prototype_id', sourcePrototypeId),
+      supabase
+        .from('prototype_assets')
+        .select('*')
+        .eq('prototype_id', sourcePrototypeId),
+    ]);
+    if (filesResult.error || assetsResult.error) {
+      log2.error(
+        filesResult.error,
+        '[forkPrototype] Failed to fetch prototype files or assets',
+      );
+      throw new Error(
+        filesResult.error?.message ||
+          assetsResult.error?.message ||
+          'Failed to get prototype files',
+      );
     }
+    const files = filesResult.data;
+    const assets = assetsResult.data;
 
     const filesToInsert: PrototypeFileInsert[] = [];
     for (const file of files) {
@@ -233,20 +246,6 @@ export async function handleCreatePrototypeImpl(
     );
 
     // 2. Get assets from source prototype and copy to new prototype
-    const { data: assets, error: assetsFetchError } = await supabase
-      .from('prototype_assets')
-      .select('*')
-      .eq('prototype_id', sourcePrototypeId);
-    if (assetsFetchError) {
-      log2.error(
-        assetsFetchError,
-        '[forkPrototype] Failed to fetch prototype assets',
-      );
-      throw new Error(
-        assetsFetchError.message || 'Failed to get prototype assets',
-      );
-    }
-
     const assetsToInsert: PrototypeAssetInsert[] = [];
     for (const asset of assets) {
       // TODO: Copy the asset to a new supabase storage folder and update the storage_url.
@@ -258,17 +257,7 @@ export async function handleCreatePrototypeImpl(
         log2,
       );
       if (!uploadResult.success || !uploadResult.publicUrl) {
-        log2.error(uploadResult, '[forkPrototype] Failed to copy asset');
-        await deletePrototypeAssetsFromStorage(newPrototypeId, log2);
-        await supabase
-          .from('prototype_assets')
-          .delete()
-          .eq('prototype_id', newPrototypeId);
-        await supabase
-          .from('prototype_files')
-          .delete()
-          .eq('prototype_id', newPrototypeId);
-        throw new Error(`Failed to copy asset: ${uploadResult.error}`);
+        throw new Error(`Failed to copy asset: ${uploadResult.error}`); // throwing the error will result in a cleanup
       }
       assetsToInsert.push({
         prototype_id: newPrototypeId,
