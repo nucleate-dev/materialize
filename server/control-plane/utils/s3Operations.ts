@@ -111,50 +111,24 @@ export async function copyAssetInSupabaseStorage(
   fileName: string,
   log2: SystemLogger,
 ): Promise<S3UploadResult> {
-  try {
-    const sourceFilePath = `${sourcePrototypeId}/${fileName}`;
+  const sourceFilePath = `${sourcePrototypeId}/${fileName}`;
+  const targetFilePath = `${targetPrototypeId}/${fileName}`;
 
-    // Download from source
-    const { data: sourceData, error: downloadError } =
-      await supabaseStorage.storage
-        .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-        .download(sourceFilePath);
-
-    if (downloadError) {
-      log2.error(
-        downloadError,
-        `[copyAssetInSupabaseStorage] Download failed for ${sourceFilePath}`,
-      );
-      return { success: false, error: downloadError.message, publicUrl: null };
-    }
-
-    if (!sourceData) {
-      return {
-        success: false,
-        error: 'No data received from source file',
-        publicUrl: null,
-      };
-    }
-
-    // Convert blob to buffer
-    const arrayBuffer = await sourceData.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Upload to target location
-    return await uploadAssetToSupabaseStorage(
-      targetPrototypeId,
-      fileName,
-      buffer,
-      log2,
+  const { error } = await supabaseStorage.storage
+    .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+    .copy(sourceFilePath, targetFilePath);
+  if (error) {
+    log2.error(
+      error,
+      `[copyAssetInSupabaseStorage] Failed to copy ${fileName}`,
     );
-  } catch (error) {
-    log2.error(error, '[copyAssetInSupabaseStorage] Error');
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      publicUrl: null,
-    };
+    return { success: false, error: error.message, publicUrl: null };
   }
+
+  const { data: publicUrlData } = supabaseStorage.storage
+    .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+    .getPublicUrl(targetFilePath);
+  return { success: true, publicUrl: publicUrlData.publicUrl };
 }
 
 /**
