@@ -306,119 +306,57 @@ export async function getDefaultAppFilesFromS3(
   prototypeId: string,
   log2: SystemLogger,
 ): Promise<DefaultFilesResult> {
+  const sourcePrefix = 'default-app-raw-files/';
   try {
-    const sourcePrefix = 'default-app-raw-files/';
-    // List all files in the default-app-raw-files directory
-    const listCommand = new ListObjectsV2Command({
-      Bucket: S3_PROTOTYPE_BUCKET,
-      Prefix: sourcePrefix,
-    });
+    const listResult = await s3Client.send(
+      new ListObjectsV2Command({
+        Bucket: S3_PROTOTYPE_BUCKET,
+        Prefix: sourcePrefix,
+      }),
+    );
 
-    const listResult = await s3Client.send(listCommand);
-
-    if (!listResult.Contents || listResult.Contents.length === 0) {
+    const keys = (listResult.Contents ?? [])
+      .map((obj) => obj.Key?.replace(sourcePrefix, ''))
+      .filter((key): key is string => Boolean(key));
+    if (keys.length === 0) {
       log2.error(
         null,
         '[getDefaultAppFilesFromS3] No default app files found in S3!',
       );
-      return {
-        success: false,
-        error: 'No default app files found in S3',
-      };
+      return { success: false, error: 'No default app files found in S3' };
     }
 
-    const files: PrototypeFileInsert[] = [];
-    const assets: { name: string; contents: Buffer; prototype_id: string }[] =
-      [];
-    let processedFiles = 0;
-    let skippedFiles = 0;
-    let failedFiles = 0;
+    // Process all files concurrently — fail fast if any error
+    const results = await Promise.all(
+      keys.map(async (fileName) => {
+        const getCommand = new GetObjectCommand({
+          Bucket: S3_PROTOTYPE_BUCKET,
+          Key: `${sourcePrefix}${fileName}`,
+        });
+        const obj = await s3Client.send(getCommand);
+        if (!obj.Body) throw new Error(`No body returned for ${fileName}`);
 
-    for (const object of listResult.Contents) {
-      if (!object.Key) {
-        skippedFiles++;
-        continue;
-      }
-
-      const fileName = object.Key.replace(sourcePrefix, '');
-      if (!fileName) {
-        skippedFiles++;
-        continue;
-      }
-
-      const getCommand = new GetObjectCommand({
-        Bucket: S3_PROTOTYPE_BUCKET,
-        Key: object.Key,
-      });
-
-      try {
-        const objectData = await s3Client.send(getCommand);
-
-        if (!objectData.Body) {
-          skippedFiles++;
-          continue;
-        }
-
-        // Determine if this is a binary asset or text file
         const isAsset =
           /\.(png|jpg|jpeg|gif|ico|svg|ttf|woff|woff2|eot)$/i.test(fileName);
 
         if (isAsset) {
-          // For assets, we need to upload to Supabase Storage
-          const bodyBytes = await objectData.Body.transformToByteArray();
-          const buffer = Buffer.from(bodyBytes);
-          assets.push({
-            prototype_id: prototypeId,
-            name: fileName,
-            contents: buffer,
-          });
+          const buffer = Buffer.from(await obj.Body.transformToByteArray());
+          return { type: 'asset' as const, name: fileName, contents: buffer };
         } else {
-          // For text files, get the content
-          const content = await objectData.Body.transformToString();
-          files.push({
-            prototype_id: prototypeId,
-            name: fileName,
-            contents: content,
-          });
+          const contents = await obj.Body.transformToString();
+          return { type: 'file' as const, name: fileName, contents };
         }
-
-        processedFiles++;
-      } catch (fileError) {
-        log2.error(
-          fileError,
-          `[getDefaultAppFilesFromS3] Error processing file ${fileName}`,
-        );
-        failedFiles++;
-      }
-    }
-
-    log2.consoleLogDevOnly(
-      'info',
-      `[getDefaultAppFilesFromS3] Default app files processing summary:`,
-      {
-        processedFiles,
-        skippedFiles,
-        failedFiles,
-        totalFiles: files.length,
-        totalAssets: assets.length,
-      },
+      }),
     );
+    const files: PrototypeFileInsert[] = results
+      .filter((r) => r.type === 'file')
+      .map((r) => ({ prototype_id: prototypeId, ...r }));
+    const assets: { name: string; contents: Buffer; prototype_id: string }[] =
+      results
+        .filter((r) => r.type === 'asset')
+        .map((r) => ({ prototype_id: prototypeId, ...r }));
 
-    if (files.length === 0) {
-      log2.error(
-        null,
-        '[getDefaultAppFilesFromS3] No files were successfully processed, file count is 0!',
-      );
-      return {
-        success: false,
-        error: 'No files could be processed from default app files',
-      };
-    }
-    return {
-      success: true,
-      files,
-      assets,
-    };
+    return { success: true, files, assets };
   } catch (error) {
     log2.error(error, '[getDefaultAppFilesFromS3] Critical error');
     return {
