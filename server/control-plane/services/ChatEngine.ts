@@ -1,7 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { streamText, tool } from 'ai';
+import { stepCountIs, streamText, tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../loggers/SystemLogger.js';
@@ -88,7 +88,6 @@ export class ChatEngine {
           filePath: z.string().describe('The path to the file to read'),
         }),
         execute: async ({ filePath }: { filePath: string }) => {
-          log2.info(`[ChatEngine] Tool call: read_file`, { filePath });
           const result = fileManager.handleToolCall({
             function: {
               name: 'read_file',
@@ -340,6 +339,7 @@ export class ChatEngine {
         ],
         tools: this.createFileManagerTools(params),
         toolChoice: 'auto', // let the model call tools when needed
+        stopWhen: stepCountIs(10),
       });
 
       let finalBuffer = ''; // Accumulate text deltas here
