@@ -3,6 +3,7 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  ListObjectsV2CommandOutput,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -155,6 +156,37 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
 }
 
 /**
+ * Copy S3 bucket contents with versioned deployment for forking
+ */
+export async function copyS3BucketContentsVersioned(
+  s3Client: S3Client,
+  sourcePrototypeId: string,
+  targetPrototypeId: string,
+  log2: SystemLogger,
+): Promise<S3CopyResult> {
+  const version = Date.now().toString();
+  const [versionedResult, latestResult] = await Promise.all([
+    copyS3BucketContents(
+      s3Client,
+      `${sourcePrototypeId}/latest/`,
+      `${targetPrototypeId}/v${version}/`,
+      log2,
+    ),
+    copyS3BucketContents(
+      s3Client,
+      `${sourcePrototypeId}/latest/`,
+      `${targetPrototypeId}/latest/`,
+      log2,
+    ),
+  ]);
+  return {
+    success: versionedResult.success && latestResult.success,
+    error: versionedResult.error || latestResult.error || undefined,
+    copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+  };
+}
+
+/**
  * Copy S3 bucket contents from one prefix to another
  */
 export async function copyS3BucketContents(
@@ -163,115 +195,61 @@ export async function copyS3BucketContents(
   destinationPrefix: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  try {
-    // List all objects with the source prefix
-    const listCommand = new ListObjectsV2Command({
-      Bucket: S3_PROTOTYPE_BUCKET,
-      Prefix: sourcePrefix,
-    });
-    const listResult = await s3Client.send(listCommand);
-    if (!listResult.Contents || listResult.Contents.length === 0) {
-      return {
-        success: true,
-        copiedObjects: 0,
-      };
-    }
+  let continuationToken: string | undefined = undefined;
+  let successfulCopies = 0;
+  let failedCopies = 0;
 
-    let successfulCopies = 0;
-    let failedCopies = 0;
-    const copyResults: Promise<{
-      success: boolean;
-      sourceKey: string;
-      destinationKey: string;
-      error?: string;
-    }>[] = [];
-
-    // Copy each object to the new destination
-    for (const object of listResult.Contents) {
-      if (!object.Key) {
-        continue;
-      }
-
-      const sourceKey = object.Key;
-      const destinationKey = object.Key.replace(
-        sourcePrefix,
-        destinationPrefix,
-      );
-
-      const copyCommand = new CopyObjectCommand({
+  do {
+    const listResult: ListObjectsV2CommandOutput = await s3Client.send(
+      new ListObjectsV2Command({
         Bucket: S3_PROTOTYPE_BUCKET,
-        CopySource: `${S3_PROTOTYPE_BUCKET}/${encodeURIComponent(sourceKey)}`,
-        Key: destinationKey,
-      });
+        Prefix: sourcePrefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    continuationToken = listResult.NextContinuationToken;
+    if (!listResult.Contents) continue;
 
-      // Wrap each copy operation to track individual results
-      const copyOperation = s3Client
-        .send(copyCommand)
-        .then(() => {
-          return { success: true, sourceKey, destinationKey };
-        })
-        .catch((error) => {
-          return {
-            success: false,
-            sourceKey,
-            destinationKey,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          };
-        });
+    const copyResults = await Promise.all(
+      listResult.Contents.map(async (object) => {
+        if (!object.Key) return { success: false };
+        const sourceKey = object.Key;
+        const destinationKey = object.Key.replace(
+          sourcePrefix,
+          destinationPrefix,
+        );
 
-      copyResults.push(copyOperation);
-    }
-
-    // Wait for all copy operations to complete and collect results
-    const results = await Promise.all(copyResults);
-
-    // Count successes and failures
-    results.forEach((result) => {
-      if (result.success) {
-        successfulCopies++;
-      } else {
-        failedCopies++;
-        log2.error(result.error, `[copyS3BucketContents] Copy failed`, {
-          functionName: 'copyS3BucketContents',
-          source: result.sourceKey,
-          destination: result.destinationKey,
-          error: result.error,
-        });
-      }
-    });
-
-    log2.consoleLogDevOnly(
-      'info',
-      `[copyS3BucketContents] Copy operation summary:`,
-      {
-        successfulCopies,
-        failedCopies,
-        totalAttempted: results.length,
-      },
+        try {
+          await s3Client.send(
+            new CopyObjectCommand({
+              Bucket: S3_PROTOTYPE_BUCKET,
+              CopySource: `${S3_PROTOTYPE_BUCKET}/${encodeURIComponent(
+                sourceKey,
+              )}`,
+              Key: destinationKey,
+            }),
+          );
+          return { success: true };
+        } catch (err) {
+          log2.error(
+            err,
+            `[copyS3BucketContents] Failed: ${sourceKey} → ${destinationKey}`,
+          );
+          return { success: false };
+        }
+      }),
     );
 
-    if (failedCopies > 0) {
-      const errorMessage = `[copyS3BucketContents] Error: ${failedCopies} out of ${results.length} copy operations failed`;
-      log2.error(null, errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-        copiedObjects: successfulCopies,
-      };
-    }
+    copyResults.forEach((r) =>
+      r.success ? successfulCopies++ : failedCopies++,
+    );
+  } while (continuationToken);
 
-    return {
-      success: true,
-      copiedObjects: successfulCopies,
-    };
-  } catch (error) {
-    log2.error(error, '[copyS3BucketContents] Critical error');
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      copiedObjects: 0,
-    };
-  }
+  return {
+    success: failedCopies === 0,
+    copiedObjects: successfulCopies,
+    error: failedCopies ? `${failedCopies} copy operations failed` : undefined,
+  };
 }
 
 /**
@@ -302,45 +280,6 @@ export async function copyDefaultAppToVersionedPrototype(
     s3Client,
     sourcePrefix,
     `${prototypeId}/latest/`,
-    log2,
-  );
-
-  return {
-    success: latestResult.success,
-    error: latestResult.error,
-    copiedObjects:
-      versionedResult.copiedObjects + (latestResult.copiedObjects || 0),
-  };
-}
-
-/**
- * Copy S3 bucket contents with versioned deployment for forking
- */
-export async function copyS3BucketContentsVersioned(
-  s3Client: S3Client,
-  sourcePrototypeId: string,
-  targetPrototypeId: string,
-  log2: SystemLogger,
-): Promise<S3CopyResult> {
-  const version = Date.now().toString();
-
-  // Copy from source latest to target versioned
-  const versionedResult = await copyS3BucketContents(
-    s3Client,
-    `${sourcePrototypeId}/latest/`,
-    `${targetPrototypeId}/v${version}/`,
-    log2,
-  );
-
-  if (!versionedResult.success) {
-    return versionedResult;
-  }
-
-  // Copy from source latest to target latest
-  const latestResult = await copyS3BucketContents(
-    s3Client,
-    `${sourcePrototypeId}/latest/`,
-    `${targetPrototypeId}/latest/`,
     log2,
   );
 
