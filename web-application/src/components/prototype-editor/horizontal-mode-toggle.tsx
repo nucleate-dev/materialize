@@ -2,6 +2,7 @@
 
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { cn } from "@/lib/classNames";
@@ -14,6 +15,11 @@ export function HorizontalModeToggle({
   sidebarExpanded = true,
 }: HorizontalModeToggleProps) {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleTheme = () => {
     if (theme === "light") {
@@ -24,6 +30,23 @@ export function HorizontalModeToggle({
       setTheme("light");
     }
   };
+
+  // Don't render theme-specific content until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <SidebarMenuButton
+        size="lg"
+        className={cn(
+          "w-full justify-start gap-3",
+          !sidebarExpanded && "justify-center",
+        )}
+        disabled
+      >
+        <SunIcon className="h-[1.2rem] w-[1.2rem]" />
+        {sidebarExpanded && <span>System</span>}
+      </SidebarMenuButton>
+    );
+  }
 
   const getThemeLabel = () => {
     switch (theme) {
