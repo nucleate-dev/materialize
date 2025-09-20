@@ -337,11 +337,16 @@ export class ChatEngine {
           },
         ],
         tools: this.createFileManagerTools(params),
+        toolChoice: 'auto', // let the model call tools when needed
       });
+
+      let finalBuffer = ''; // Accumulate text deltas here
 
       // Stream the full response including text and tool calls
       for await (const part of response.fullStream) {
+        log2.info('part', { part });
         if (part.type === 'text-delta') {
+          finalBuffer += part.text; // Accumulate text
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
@@ -372,6 +377,19 @@ export class ChatEngine {
             ),
           );
         }
+      }
+
+      // Always send a final message from our buffer
+      // Some providers return empty response.text when everything came via deltas
+      if (finalBuffer.length > 0) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'chat_response',
+              content: finalBuffer,
+            })}\n\n`,
+          ),
+        );
       }
 
       // Send completion message

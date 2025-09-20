@@ -291,6 +291,8 @@ export default function ChatTestPage() {
 
       // Read the stream
       const readStream = async () => {
+        let assistantBuffer = ''; // Buffer for streaming deltas
+
         try {
           while (true) {
             const { done, value } = await reader.read();
@@ -309,15 +311,53 @@ export default function ChatTestPage() {
 
                   // Handle different event types
                   switch (event.type) {
+                    case "chat_response_delta":
+                      // Handle streaming text deltas
+                      const delta = (event as any).content || '';
+                      assistantBuffer += delta;
+
+                      // Render progressively: append to last assistant message or create new one
+                      setMessages(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last?.role === 'assistant') {
+                          const copy = [...prev];
+                          copy[copy.length - 1] = { ...last, content: (last.content || '') + delta };
+                          return copy;
+                        }
+                        return [...prev, { role: 'assistant', content: delta }];
+                      });
+                      break;
+
                     case "chat_response":
-                      // Add assistant message with simple response
-                      setMessages((prev) => [
-                        ...prev,
-                        {
-                          role: "assistant",
-                          content: (event as any).content,
-                        },
-                      ]);
+                      // Handle final response (use buffer if content is empty)
+                      const finalContent = (event as any).content || assistantBuffer;
+                      if (finalContent) {
+                        setMessages(prev => {
+                          const last = prev[prev.length - 1];
+                          if (last?.role === 'assistant') {
+                            const copy = [...prev];
+                            copy[copy.length - 1] = { ...last, content: finalContent };
+                            return copy;
+                          }
+                          return [...prev, { role: 'assistant', content: finalContent }];
+                        });
+                      }
+                      assistantBuffer = ''; // Reset buffer
+                      break;
+
+                    case "tool_call":
+                      // Show that a tool is being called
+                      console.log("Tool called:", (event as any).tool);
+                      break;
+
+                    case "tool_result":
+                      // Show tool result (could display this to user if desired)
+                      console.log("Tool result:", (event as any).tool, (event as any).result);
+                      break;
+
+                    case "chat_complete":
+                      // Chat is finished
+                      assistantBuffer = ''; // Reset buffer
                       break;
 
                     case "usage_update":
