@@ -24,11 +24,13 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
+  APIResponse,
   ChatMessage,
   ChatRequestBody,
   ChatStreamEvent,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
+  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -149,25 +151,23 @@ export default function ChatTestPage() {
         },
         body: JSON.stringify({
           name: prototypeName.trim(),
-          visibility: "PUBLIC", // Keep test prototypes private
+          visibility: "PUBLIC",
         } as CreatePrototypeRequestBody),
       });
+
+      const result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      > = await response.json();
 
       addRequestLog("response", {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
+        result,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const result: CreatePrototypeResponse = await response.json();
-      addRequestLog("response", { result });
-
-      if (result.success) {
+      if (result.data) {
         addRequestLog("request", {
           message: "Fetching created prototype from database",
           prototypeId: result.data.prototype_id,
@@ -206,7 +206,11 @@ export default function ChatTestPage() {
           throw new Error("No prototype data returned");
         }
       } else {
-        throw new Error(result.message || "Failed to create prototype");
+        addRequestLog("error", {
+          message: "Prototype creation failed",
+          error: result.error,
+        });
+        throw new Error(result.error?.error || "Failed to create prototype");
       }
     } catch (error) {
       logger.debug("error", "Error creating prototype:", { error });
