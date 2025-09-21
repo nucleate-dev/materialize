@@ -155,7 +155,11 @@ export async function handleCreatePrototypeImpl(
       request.log2.error(error, 'Error during prototype setup:');
       await Promise.allSettled([
         cleanupPrototypeS3Objects(s3Client, newPrototypeId, request.log2),
-        deletePrototypeAssetsFromStorage(newPrototypeId, request.log2),
+        deletePrototypeAssetsFromStorage(
+          supabase,
+          newPrototypeId,
+          request.log2,
+        ),
         deletePrototypeThumbnailFromSupabaseStorage(
           supabase,
           newPrototypeId,

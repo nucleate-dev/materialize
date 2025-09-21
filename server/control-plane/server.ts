@@ -35,7 +35,7 @@ export const baseLogger = new SystemLogger({
 
 // Initialize clients
 const initializeClients = async (): Promise<{
-  cache: GlideClient;
+  cacheClient: GlideClient;
   ecsClient: ECSClient;
   ec2Client: EC2Client;
   autoScalingClient: AutoScalingClient;
@@ -53,7 +53,7 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION!,
   });
 
-  const cache = await GlideClient.createClient({
+  const cacheClient = await GlideClient.createClient({
     addresses: [
       {
         host: process.env.CACHE_HOST!,
@@ -72,7 +72,7 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION || 'us-east-2',
   });
 
-  return { cache, ecsClient, ec2Client, autoScalingClient, s3Client };
+  return { cacheClient, ecsClient, ec2Client, autoScalingClient, s3Client };
 };
 
 const fastify = Fastify({
@@ -143,23 +143,17 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
 const start = async (): Promise<void> => {
   try {
     // Initialize clients first
-    const {
-      cache: cacheClient,
-      ecsClient,
-      ec2Client,
-      autoScalingClient,
-      s3Client,
-    } = await initializeClients();
+    const { cacheClient, ecsClient, ec2Client, autoScalingClient, s3Client } =
+      await initializeClients();
 
-    // Assign to global variables
     cache = cacheClient;
 
     // Create dispatcher service with initialized clients and register routes
-    dispatcherService = new DispatcherService(cache, ecsClient, fastify);
+    dispatcherService = new DispatcherService(cacheClient, ecsClient, fastify);
     dispatcherService.registerRoutes(fastify);
 
     // Create cleanup service with cache and ECS client
-    cleanupService = new CleanupService(cache, ecsClient);
+    cleanupService = new CleanupService(cacheClient, ecsClient);
 
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();
@@ -169,6 +163,7 @@ const start = async (): Promise<void> => {
     prototypeManagementService = new PrototypeManagementService(
       fastify,
       s3Client,
+      cacheClient,
     );
     prototypeManagementService.registerRoutes(fastify);
 
@@ -181,7 +176,10 @@ const start = async (): Promise<void> => {
     chatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
-    internalToolsService = new InternalCacheManagementService(cache, fastify);
+    internalToolsService = new InternalCacheManagementService(
+      cacheClient,
+      fastify,
+    );
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes

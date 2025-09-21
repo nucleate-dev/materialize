@@ -6,7 +6,7 @@ import {
   ListObjectsV2CommandOutput,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
@@ -15,12 +15,6 @@ import type {
   S3CopyResult,
 } from '../types/InternalTypes.js';
 import { Database } from '../types/supabase.js';
-
-// Initialize Supabase storage client
-const supabaseStorage = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 const S3_PROTOTYPE_BUCKET = 'materialize-sites';
 const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';

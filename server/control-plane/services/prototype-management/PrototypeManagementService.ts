@@ -17,6 +17,7 @@ import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.j
 import { handleCreatePrototypeImpl } from './handleCreatePrototype.js';
 import handleResetPrototypeImpl from './handleResetPrototype.js';
 import handleDeletePrototypeImpl from './handleDeletePrototype.js';
+import { GlideClient } from '@valkey/valkey-glide';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -24,10 +25,16 @@ export class PrototypeManagementService {
   private supabaseAnonKey: string;
   private supabaseServiceKey: string;
   private s3Client: S3Client;
+  private cache: GlideClient;
 
-  constructor(fastifyApp: FastifyInstance, s3Client: S3Client) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    s3Client: S3Client,
+    cache: GlideClient,
+  ) {
     this.fastifyApp = fastifyApp;
     this.s3Client = s3Client;
+    this.cache = cache;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
@@ -256,6 +263,11 @@ export class PrototypeManagementService {
     request: FastifyRequest<{ Params: { prototype_id: string } }>,
     reply: FastifyReply,
   ): Promise<DeletePrototypeResponse> {
-    return await handleDeletePrototypeImpl(request, reply, this.s3Client);
+    return await handleDeletePrototypeImpl(
+      request,
+      reply,
+      this.s3Client,
+      this.cache,
+    );
   }
 }
