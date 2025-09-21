@@ -76,6 +76,59 @@ export class ChatEngine {
     }
   }
 
+  // NEW: A dedicated method for orchestration tools
+  private createOrchestrationTools(
+    params: ChatEngineParams,
+  ): Record<string, any> {
+    const { log2 } = params;
+    return {
+      create_execution_plan: tool({
+        description:
+          "Creates a detailed, step-by-step execution plan to fulfill the user's coding request. This MUST be the first tool called for any task that involves creating or modifying files.",
+        inputSchema: z.object({
+          steps: z
+            .array(z.string())
+            .describe(
+              'A list of concise, actionable steps the assistant will take to complete the request.',
+            ),
+        }),
+        execute: async ({ steps }: { steps: string[] }) => {
+          log2.info(`[ChatEngine] Execution Plan Created`, { steps });
+          return {
+            success: true,
+            plan: steps,
+            message: 'Execution plan has been created. Proceeding with Step 1.',
+          };
+        },
+      }),
+      confirm_step_completion: tool({
+        description:
+          'Confirms the completion of a specific step in the execution plan. MUST be called after all actions for a single step are finished and before starting the next one.',
+        inputSchema: z.object({
+          step_number: z
+            .number()
+            .describe('The number of the plan step that was just completed.'),
+          summary: z
+            .string()
+            .describe(
+              'A brief, one-sentence summary of what was accomplished in this step.',
+            ),
+        }),
+        execute: async ({ step_number, summary }) => {
+          log2.info(`[ChatEngine] Step ${step_number} confirmed as complete.`, {
+            summary,
+          });
+          return {
+            success: true,
+            step: step_number,
+            summary,
+            message: `Step ${step_number} has been successfully completed.`,
+          };
+        },
+      }),
+    };
+  }
+
   private createFileManagerTools(
     params: ChatEngineParams,
   ): Record<string, any> {
@@ -320,10 +373,9 @@ export class ChatEngine {
     try {
       log2.consoleLogDevOnly(
         'info',
-        '[ChatEngine] Generating response with virtual file system tools...',
+        '[ChatEngine] Generating response with plan-and-execute strategy...',
       );
 
-      // 1. Call streamText and get the result object
       const result = streamText({
         model: this.getCurrentModel(),
         system: SYSTEM_PROMPT,
@@ -337,9 +389,13 @@ export class ChatEngine {
             content: userMessage,
           },
         ],
-        tools: this.createFileManagerTools(params),
+        // UPDATED: Combine all tools
+        tools: {
+          ...this.createOrchestrationTools(params),
+          ...this.createFileManagerTools(params),
+        },
         toolChoice: 'auto',
-        stopWhen: stepCountIs(10),
+        stopWhen: stepCountIs(25), // Increased step count for complex plans
       });
 
       // 2. Process the full stream for tool calls and results, and the text stream for the final answer.
@@ -347,7 +403,7 @@ export class ChatEngine {
       let finalBuffer = '';
 
       // This async function will handle streaming all parts of the multi-step call
-      const processStream = async () => {
+      const processStream = async (): Promise<void> => {
         for await (const part of result.fullStream) {
           log2.info('Stream Part', { part });
 
@@ -380,17 +436,40 @@ export class ChatEngine {
               break;
 
             case 'tool-result':
-              // Inform the client about the result of the tool call
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: 'tool_result',
-                    tool: part.toolName,
-                    toolCallId: part.toolCallId,
-                    result: part.output,
-                  })}\n\n`,
-                ),
-              );
+              // UPDATED: Handle our custom orchestration events
+              if (part.toolName === 'create_execution_plan') {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: 'execution_plan_created',
+                      toolCallId: part.toolCallId,
+                      result: part.output,
+                    })}\n\n`,
+                  ),
+                );
+              } else if (part.toolName === 'confirm_step_completion') {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: 'step_completed',
+                      toolCallId: part.toolCallId,
+                      result: part.output,
+                    })}\n\n`,
+                  ),
+                );
+              } else {
+                // Default handling for all other tools (e.g., file manager)
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: 'tool_result',
+                      tool: part.toolName,
+                      toolCallId: part.toolCallId,
+                      result: part.output,
+                    })}\n\n`,
+                  ),
+                );
+              }
               break;
           }
         }
@@ -399,27 +478,20 @@ export class ChatEngine {
       // 3. Execute the stream processing and wait for it to complete
       await processStream();
 
-      // 4. Send a final aggregated message if needed (optional, as deltas are streamed)
-      // This can be a good fallback if the client misses deltas.
-      if (finalBuffer.length > 0 && result.text) {
-        // The `result.text` promise resolves to the full final text.
-        // We can use it to ensure the client has the complete message.
+      if (finalBuffer.length > 0) {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'chat_response',
-              content: await result.text,
+              content: finalBuffer,
             })}\n\n`,
           ),
         );
       }
 
-      // 5. Signal that the chat is complete and close the connection
       controller.enqueue(
         encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'chat_complete',
-          })}\n\n`,
+          `data: ${JSON.stringify({ type: 'chat_complete' })}\n\n`,
         ),
       );
     } catch (error) {
@@ -434,11 +506,10 @@ export class ChatEngine {
         ),
       );
     } finally {
-      // Ensure the controller is always closed
       try {
         controller.close();
       } catch {
-        // It might already be closed, which is fine.
+        /* Already closed */
       }
     }
   }
