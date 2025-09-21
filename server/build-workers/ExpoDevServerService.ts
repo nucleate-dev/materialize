@@ -219,7 +219,7 @@ export class ExpoDevServerService {
           customlog(
             "debug",
             "Directory removal failed (expected for new projects):",
-            error.message,
+            error instanceof Error ? error.message : String(error),
           );
         }
         // Create new directory and write all files
@@ -243,7 +243,7 @@ export class ExpoDevServerService {
             errorStack,
           );
           buildErrors.push({
-            message: `Dependency installation failed: ${error.message}`,
+            message: `Dependency installation failed: ${errorMessage}`,
             type: "dependency",
           });
         }
@@ -278,10 +278,10 @@ export class ExpoDevServerService {
           errorStack,
         );
         this.state.devServerStatus = DevServerStatus.ERROR;
-        this.state.error = error.message;
-        this.state.addLog(`Failed to start Expo process: ${error.message}`);
+        this.state.error = errorMessage;
+        this.state.addLog(`Failed to start Expo process: ${errorMessage}`);
         buildErrors.push({
-          message: `Failed to start dev server: ${error.message}`,
+          message: `Failed to start dev server: ${errorMessage}`,
           type: "runtime",
         });
       }
@@ -311,17 +311,17 @@ export class ExpoDevServerService {
         errorStack,
       );
       this.state.devServerStatus = DevServerStatus.ERROR;
-      this.state.error = error.message;
-      this.state.addLog(`Internal server error: ${error.message}`);
+      this.state.error = errorMessage;
+      this.state.addLog(`Internal server error: ${errorMessage}`);
       this.state.clearOperation();
 
       return reply.code(500).send({
         success: false,
         status: DevServerStatus.ERROR,
-        error: error.message,
+        error: errorMessage,
         build_errors: [
           {
-            message: `Internal server error: ${error.message}`,
+            message: `Internal server error: ${errorMessage}`,
             type: "build",
           },
         ],
@@ -614,7 +614,7 @@ export class ExpoDevServerService {
           errorMessage,
         );
         this.state.addLog(
-          `Failed to cleanup project directory: ${error.message}`,
+          `Failed to cleanup project directory: ${errorMessage}`,
         );
       }
     }
@@ -791,7 +791,7 @@ export class ExpoDevServerService {
       logger.log("Build failed", false, "", errorMessage);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         buildLog: logger.getBuildLog(),
       };
     }
@@ -847,7 +847,7 @@ export class ExpoDevServerService {
       logger.log("Deploy failed", false, "", errorMessage);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -936,12 +936,12 @@ export class ExpoDevServerService {
         "Build and deploy failed, ready for shutdown",
         false,
         "",
-        error.message,
+        errorMessage,
       );
 
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         buildLog: logger.getBuildLog(),
       };
     } finally {
@@ -1116,10 +1116,10 @@ export class ExpoDevServerService {
             errorStack,
           );
           this.state.addLog(
-            `Dependency update or restart failed: ${error.message}`,
+            `Dependency update or restart failed: ${errorMessage}`,
           );
           buildErrors.push({
-            message: `Dependency update or restart failed: ${error.message}`,
+            message: `Dependency update or restart failed: ${errorMessage}`,
             type: "dependency",
           });
           // Don't return failure here - file updates succeeded even if deps/restart failed
