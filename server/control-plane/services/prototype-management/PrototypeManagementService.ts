@@ -3,7 +3,8 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type {
   APIResponse,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
+  CreatePrototypeErrorResponse,
   DeletePrototypeSuccessResponse,
   DeletePrototypeErrorResponse,
   FetchViewingUrlRequestBody,
@@ -138,7 +139,7 @@ export class PrototypeManagementService {
   private async handleCreatePrototype(
     request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
     reply: FastifyReply,
-  ): Promise<CreatePrototypeResponse> {
+  ): Promise<APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>> {
     return await handleCreatePrototypeImpl(request, reply, this.s3Client);
   }
 

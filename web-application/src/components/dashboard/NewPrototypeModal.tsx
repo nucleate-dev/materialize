@@ -22,8 +22,10 @@ import { ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
+  APIResponse,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
+  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -181,9 +183,12 @@ export default function NewPrototypeModal({
         } as CreatePrototypeRequestBody),
       });
 
-      const result: CreatePrototypeResponse = await response.json();
+      const result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      > = await response.json();
 
-      if (result.success) {
+      if (result.data) {
         // Reset form
         setName("");
         setSelectedProject(null);
@@ -191,13 +196,13 @@ export default function NewPrototypeModal({
         setTouched(false);
         onCreated(result.data.prototype_id);
         onClose();
-      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         onClose();
         setShowUpsellModal(true);
       } else {
         logger.debug("error", "Error creating prototype:", {
-          ...result,
+          ...result.error,
         });
       }
     } catch (error) {

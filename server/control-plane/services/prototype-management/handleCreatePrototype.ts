@@ -1,8 +1,9 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import {
+  APIResponse,
   CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../types/PublicAPITypes.js';
 import { validateJWTToken } from '../../utils/prototypeAuth.js';
@@ -32,16 +33,21 @@ export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
   reply: FastifyReply,
   s3Client: S3Client,
-): Promise<CreatePrototypeResponse> {
+): Promise<
+  APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>
+> {
   try {
     // 1. JWT Token validation and user authentication
     const token = request.headers.authorization?.split(' ')[1] ?? '';
     const user = await validateJWTToken(token, request.log2);
     if (!user) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        success: false,
-        error: 'UNAUTHORIZED',
-        message: 'Invalid authentication token',
+        data: null,
+        error: {
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'Invalid authentication token',
+        },
       });
     }
     // update logger context
@@ -57,9 +63,12 @@ export async function handleCreatePrototypeImpl(
     );
     if (limitCheck.exceeded) {
       return reply.status(HTTP_STATUS.PAYMENT_REQUIRED).send({
-        success: false,
-        error: 'PROTOTYPE_LIMIT_REACHED',
-        message: 'Prototype limit reached',
+        data: null,
+        error: {
+          success: false,
+          error: 'PROTOTYPE_LIMIT_REACHED',
+          message: 'Prototype limit reached',
+        },
       });
     }
 
@@ -74,12 +83,13 @@ export async function handleCreatePrototypeImpl(
 
     if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
       const errorResponse: CreatePrototypeErrorResponse = {
-        success: false,
         error: 'INVALID_REQUEST',
         message: 'Free tier users can only make public prototypes',
       };
-      reply.status(HTTP_STATUS.BAD_REQUEST);
-      return errorResponse;
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        data: null,
+        error: errorResponse,
+      });
     }
 
     // 4. Create prototype in database
@@ -114,12 +124,13 @@ export async function handleCreatePrototypeImpl(
           prototypeInsertError.message,
       );
       const errorResponse: CreatePrototypeErrorResponse = {
-        success: false,
         error: 'DATABASE_ERROR',
         message: 'Failed to create prototype in database',
       };
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      return errorResponse;
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: errorResponse,
+      });
     }
 
     const newPrototypeId = newPrototype.id;
@@ -145,11 +156,11 @@ export async function handleCreatePrototypeImpl(
       // 6. Get viewing URL and return success
       const viewingUrl = getPrototypeViewingUrl(newPrototypeId);
       return reply.status(HTTP_STATUS.OK).send({
-        success: true,
         data: {
           prototype_id: newPrototypeId,
           viewing_url: viewingUrl,
-        },
+        } as CreatePrototypeSuccessResponse,
+        error: null,
       });
     } catch (error) {
       request.log2.error(error, 'Error during prototype setup:');
@@ -168,27 +179,27 @@ export async function handleCreatePrototypeImpl(
       ]);
       await supabase.from('prototypes').delete().eq('id', newPrototypeId);
       const errorResponse: CreatePrototypeErrorResponse = {
-        success: false,
         error: 'S3_ERROR',
         message:
           error instanceof Error
             ? error.message
             : 'Failed to set up prototype files and S3 storage',
       };
-      return reply
-        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .send(errorResponse);
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: errorResponse,
+      });
     }
   } catch (error) {
     request.log2.error(error, '[handleCreatePrototype] Unexpected error:');
     const errorResponse: CreatePrototypeErrorResponse = {
-      success: false,
       error: 'DATABASE_ERROR',
       message: 'An unexpected error occurred',
     };
-
-    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    return errorResponse;
+    return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+      data: null,
+      error: errorResponse,
+    });
   }
 }
 

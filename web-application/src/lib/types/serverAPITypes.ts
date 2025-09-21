@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-21T08:42:47.209Z
+// Last synced: 2025-09-21T08:56:45.765Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -19,6 +19,7 @@ import type { Database } from '../types/supabase.js';
  * Generic API response type following Supabase pattern
  * Either data is present (with error as null) or error is present (with data as null)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type APIResponse<TData = any, TError = any> =
   | { data: TData; error: null }
   | { data: null; error: TError };
@@ -213,7 +214,6 @@ export interface FetchViewingUrlSuccessResponse {
   status: BuildStatus | null;
 }
 
-
 // ============================================================================
 // /prototype/create ENDPOINT
 // ============================================================================
@@ -227,15 +227,11 @@ export interface CreatePrototypeRequestBody {
 }
 
 export interface CreatePrototypeSuccessResponse {
-  success: true;
-  data: {
-    prototype_id: string;
-    viewing_url: string;
-  };
+  prototype_id: string;
+  viewing_url: string;
 }
 
 export interface CreatePrototypeErrorResponse {
-  success: false;
   error:
     | 'UNAUTHORIZED'
     | 'PROTOTYPE_LIMIT_REACHED'
@@ -244,10 +240,6 @@ export interface CreatePrototypeErrorResponse {
     | 'INVALID_REQUEST';
   message: string;
 }
-
-export type CreatePrototypeResponse =
-  | CreatePrototypeSuccessResponse
-  | CreatePrototypeErrorResponse;
 
 // ============================================================================
 // DELETE /prototype/:prototype_id ENDPOINT
@@ -263,7 +255,6 @@ export interface DeletePrototypeErrorResponse {
   error: 'UNAUTHORIZED' | 'NOT_FOUND' | 'DATABASE_ERROR' | 'S3_ERROR';
   message: string;
 }
-
 
 // ============================================================================
 // /files/update-files ENDPOINT

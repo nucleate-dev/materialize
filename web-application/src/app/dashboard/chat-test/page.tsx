@@ -23,11 +23,13 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
+  APIResponse,
   ChatMessage,
   ChatRequestBody,
   ChatStreamEvent,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
+  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -163,10 +165,13 @@ export default function ChatTestPage() {
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      const result: CreatePrototypeResponse = await response.json();
+      const result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      > = await response.json();
       addRequestLog("response", { result });
 
-      if (result.success) {
+      if (result.data) {
         addRequestLog("request", {
           message: "Fetching created prototype from database",
           prototypeId: result.data.prototype_id,
@@ -205,7 +210,7 @@ export default function ChatTestPage() {
           throw new Error("No prototype data returned");
         }
       } else {
-        throw new Error(result.message || "Failed to create prototype");
+        throw new Error(result.error?.message || "Failed to create prototype");
       }
     } catch (error) {
       logger.debug("error", "Error creating prototype:", { error });
