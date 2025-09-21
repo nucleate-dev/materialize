@@ -2,7 +2,16 @@
 
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
-import ChatMessagesUI from "@/components/prototype-editor/ChatMessagesUI";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
@@ -13,16 +22,25 @@ import {
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
+import { getChatIntent } from "@/lib/utils/chatIntentUtils";
+import {
+  ChatBubbleLeftRightIcon,
+  ClipboardDocumentIcon,
+  PlayIcon,
+  StopIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
-type PrototypeChatMessage =
-  Database["public"]["Tables"]["prototype_chat_messages"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export interface PrototypeChatWindowProps {
   prototypeId: string | undefined;
@@ -51,7 +69,6 @@ export default function PrototypeChatWindow({
   isChatLoading,
   setIsChatLoading,
   onViewingUrlUpdate,
-  currentRenderStatus,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
   const { user } = useUser();
@@ -63,13 +80,20 @@ export default function PrototypeChatWindow({
     loadingSubscriptionData,
   } = useSubscriptionAccess();
 
-  const [loadingDots, setLoadingDots] = useState(0);
-  const [isExecutingOperations, setIsExecutingOperations] = useState(false);
+  // Chat state
   const [prototypeChatSession, setPrototypeChatSession] =
     useState<PrototypeChatSession | null>(null);
-  const [prototypeChatMessages, setPrototypeChatMessages] = useState<
-    PrototypeChatMessage[]
-  >([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [currentMessage, setCurrentMessage] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Usage and subscription
+  const [messageCount, setMessageCount] = useState<number>(0);
+  const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
+  const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
+
+  // UI state
+  const [showClearChatDialog, setShowClearChatDialog] = useState(false);
 
   // Use ref to avoid stale closure issues in streaming
   const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
@@ -78,9 +102,6 @@ export default function PrototypeChatWindow({
   useEffect(() => {
     prototypeChatSessionRef.current = prototypeChatSession;
   }, [prototypeChatSession]);
-  const [messageCount, setMessageCount] = useState<number>(0);
-  const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
-  const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -120,7 +141,7 @@ export default function PrototypeChatWindow({
         setPrototypeChatSession(chatSession);
       }
 
-      // Then fetch the messages for this session
+      // Then fetch the messages for this session and convert to ChatMessage format
       const { data: messagesData, error: messagesError } = await supabase
         .from("prototype_chat_messages")
         .select("*")
@@ -134,8 +155,12 @@ export default function PrototypeChatWindow({
         return;
       }
 
-      // Reverse to get chronological order (oldest first)
-      setPrototypeChatMessages(messagesData?.reverse() || []);
+      // Convert to ChatMessage format and reverse to get chronological order
+      const chatMessages: ChatMessage[] = (messagesData?.reverse() || []).map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+      setMessages(chatMessages);
     }
 
     if (prototypeId && userId) {
@@ -185,29 +210,9 @@ export default function PrototypeChatWindow({
     logger,
   ]);
 
-  // Note: Message count is now updated via the API response when a message is sent
-  // This provides the most accurate count from the database
-
-  // Animate loading dots only while executing operations
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (isExecutingOperations) {
-      interval = setInterval(() => {
-        setLoadingDots((prev) => (prev + 1) % 4);
-      }, 500);
-    } else {
-      setLoadingDots(0); // Reset to 0 when not executing
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isExecutingOperations]);
-
-  // Handle streaming execution updates
+  // Handle streaming chat response - processes events from ChatEngine
+  // Current events: chat_response_delta, chat_response, tool_call, tool_result,
+  // execution_plan_created, step_completed, chat_complete, error, usage_update, viewing_url
   const processStreamingResponse = useCallback(
     async (response: Response) => {
       if (!response.body) {
@@ -216,286 +221,165 @@ export default function PrototypeChatWindow({
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let planningMessageId: string | null = null;
-      let operations: Array<{
-        id: string;
-        type: "create" | "modify" | "delete" | "move";
-        title: string;
-        description: string;
-        filePath: string;
-        newFilePath?: string;
-      }> = [];
-      let buffer = ""; // accumulates text across chunks
-
-      const processBuffer = async () => {
-        let sepIndex;
-        while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-          const rawEvent = buffer.slice(0, sepIndex);
-          buffer = buffer.slice(sepIndex + 2);
-
-          const lines = rawEvent.split("\n");
-          const dataLines: string[] = [];
-          for (const line of lines) {
-            if (line.startsWith("data:"))
-              dataLines.push(line.slice(5).trimStart());
-          }
-          if (dataLines.length === 0) continue;
-
-          const dataText = dataLines.join("\n");
-          if (dataText === "[DONE]") continue;
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let data: any;
-          try {
-            data = JSON.parse(dataText);
-          } catch {
-            // put it back and wait for more bytes (likely partial)
-            buffer = dataText + "\n\n" + buffer;
-            break;
-          }
-
-          switch (data.type) {
-            case "planning": {
-              // Add planning message to UI
-              planningMessageId = data.messageId || uuidv4();
-              setPrototypeChatMessages((prev) => [
-                ...prev,
-                {
-                  id: planningMessageId!,
-                  chat_session_id: prototypeChatSession?.id || "",
-                  role: "assistant",
-                  phase: "planning",
-                  content: data.content,
-                  created_at: new Date().toISOString(),
-                },
-              ]);
-
-              // Save updated files from planning
-              if (data.updatedFiles) {
-                await onFilesUpdate(data.updatedFiles);
-              }
-              break;
-            }
-
-            case "dispatch_start": {
-              // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
-              // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
-              clearChatIntent();
-              break;
-            }
-
-            case "dispatch_complete": {
-              break;
-            }
-
-            case "execution_start": {
-              operations = data.operations;
-              setIsExecutingOperations(true);
-
-              // Update the planning message to show execution starting
-              if (planningMessageId) {
-                const executionContent = `🔄 Executing ${operations.length} operations...\n\n${operations
-                  .map((op, index) => `${index + 1}. ${op.title} (${op.type})`)
-                  .join("\n")}`;
-
-                setPrototypeChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === planningMessageId
-                      ? {
-                          ...msg,
-                          content: executionContent,
-                          phase: "execution",
-                        }
-                      : msg,
-                  ),
-                );
-              }
-              break;
-            }
-
-            case "step_start":
-              if (planningMessageId) {
-                const stepIndex = data.stepIndex;
-                const loadingContent = `🔄 Executing ${operations.length} operations...\n\n${operations
-                  .map((op, index) => {
-                    if (index < stepIndex) {
-                      return `✅ ${op.title} (${op.type})`;
-                    } else if (index === stepIndex) {
-                      return `🔄 ${op.title} (${op.type}) - Executing${".".repeat(loadingDots)}`;
-                    } else {
-                      return `${index + 1}. ${op.title} (${op.type})`;
-                    }
-                  })
-                  .join("\n")}`;
-
-                setPrototypeChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === planningMessageId
-                      ? { ...msg, content: loadingContent }
-                      : msg,
-                  ),
-                );
-              }
-              break;
-
-            case "step_complete": {
-              const { stepIndex, result, success } = data;
-
-              if (success && result.updatedFiles) {
-                await onFilesUpdate(result.updatedFiles);
-              }
-
-              // Update the planning message to show completion
-              if (planningMessageId) {
-                const updatedContent = `🔄 Executing ${operations.length} operations...\n\n${operations
-                  .map((op, index) => {
-                    if (index <= stepIndex) {
-                      return success
-                        ? `✅ ${op.title} (${op.type})`
-                        : `❌ ${op.title} (${op.type})`;
-                    } else {
-                      return `${index + 1}. ${op.title} (${op.type})`;
-                    }
-                  })
-                  .join("\n")}`;
-
-                setPrototypeChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === planningMessageId
-                      ? { ...msg, content: updatedContent }
-                      : msg,
-                  ),
-                );
-              }
-              break;
-            }
-
-            case "step_error":
-              logger.debug("error", `Step ${data.stepIndex + 1} failed:`, {
-                ...data.error,
-              });
-
-              // Update the planning message to show error
-              if (planningMessageId) {
-                const errorContent = `🔄 Executing ${operations.length} operations...\n\n${operations
-                  .map((op, index) => {
-                    if (index < data.stepIndex) {
-                      return `✅ ${op.title} (${op.type})`;
-                    } else if (index === data.stepIndex) {
-                      return `❌ ${op.title} (${op.type}) - ${data.error}`;
-                    } else {
-                      return `${index + 1}. ${op.title} (${op.type})`;
-                    }
-                  })
-                  .join("\n")}`;
-
-                setPrototypeChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === planningMessageId
-                      ? { ...msg, content: errorContent }
-                      : msg,
-                  ),
-                );
-              }
-              break;
-
-            case "execution_complete":
-              setIsExecutingOperations(false);
-
-              // Save final updated files
-              if (data.updatedFiles) {
-                await onFilesUpdate(data.updatedFiles);
-              }
-
-              // Update final planning message
-              if (planningMessageId) {
-                const completedCount = operations.length; // All operations assumed completed
-
-                const finalContent = `🎉 Execution completed!\n\n${operations
-                  .map((op) => `✅ ${op.title} (${op.type})`)
-                  .join("\n")}\n\n${completedCount} completed`;
-
-                setPrototypeChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === planningMessageId
-                      ? { ...msg, content: finalContent }
-                      : msg,
-                  ),
-                );
-              }
-              break;
-
-            case "usage_update": {
-              // Update the local message count with the value returned from the API
-              setMessageCount(data.messageCount);
-              break;
-            }
-
-            case "viewing_url": {
-              // Handle viewing URL update from dispatcher
-              if (onViewingUrlUpdate && data.viewing_url) {
-                onViewingUrlUpdate(data.viewing_url);
-              }
-              break;
-            }
-
-            case "error": {
-              logger.debug("error", "Streaming error:", {
-                ...data.error,
-              });
-              setIsExecutingOperations(false);
-              setIsChatLoading(false);
-
-              const errorMessage: PrototypeChatMessage = {
-                id: uuidv4(),
-                chat_session_id: prototypeChatSession?.id || "",
-                role: "assistant",
-                content: `Sorry, I encountered an error: ${data.error}`,
-                created_at: new Date().toISOString(),
-                phase: "execution",
-              };
-
-              setPrototypeChatMessages((prev) => [...prev, errorMessage]);
-              break;
-            }
-          }
-
-          // In step_complete:
-          // if (success && result?.updatedFiles) await onFilesUpdate(result.updatedFiles);
-        }
-      };
+      let buffer = ""; // Buffer for streaming deltas
 
       try {
-        // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          // Append decoded text; { stream:true } preserves partial UTF-8 sequences
-          const text = decoder
-            .decode(value, { stream: true })
-            .replace(/\r\n/g, "\n");
-          buffer += text;
-          await processBuffer();
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+
+              try {
+                const event = JSON.parse(data) as any;
+
+                // Handle different event types
+                switch (event.type) {
+                  case "chat_response_delta":
+                    // Handle streaming text deltas
+                    const delta = String(event.content || '');
+                    buffer += delta;
+
+                    // Render progressively: append to last assistant message or create new one
+                    setMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === 'assistant') {
+                        const copy = [...prev];
+                        copy[copy.length - 1] = { ...last, content: (last.content || '') + delta };
+                        return copy;
+                      }
+                      return [...prev, { role: 'assistant', content: delta }];
+                    });
+                    break;
+
+                  case "chat_response":
+                    // Handle final response (use buffer if content is empty)
+                    const finalContent = String(event.content || buffer);
+                    if (finalContent) {
+                      setMessages(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last?.role === 'assistant') {
+                          const copy = [...prev];
+                          copy[copy.length - 1] = { ...last, content: finalContent };
+                          return copy;
+                        }
+                        return [...prev, { role: 'assistant', content: finalContent }];
+                      });
+                    }
+                    buffer = ''; // Reset buffer
+                    break;
+
+                  case "tool_call":
+                    // Show that a tool is being called as a chat message
+                    const toolName = String(event.tool || event.toolName || 'Unknown tool');
+                    setMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === 'assistant') {
+                        const copy = [...prev];
+                        copy[copy.length - 1] = { ...last, content: `🔧 **Using ${toolName}**...` };
+                        return copy;
+                      }
+                      return [...prev, { role: 'assistant', content: `🔧 **Using ${toolName}**...` }];
+                    });
+                    break;
+
+                  case "tool_result":
+                    // Update files if the tool result contains updated files
+                    if (event.result?.updatedFiles) {
+                      onFilesUpdate(event.result.updatedFiles);
+                    }
+                    // Show tool completion in chat
+                    const toolName2 = String(event.tool || event.toolName || 'Tool');
+                    setMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === 'assistant' && last.content.includes('🔧')) {
+                        const copy = [...prev];
+                        copy[copy.length - 1] = { ...last, content: `✅ **${toolName2}** completed` };
+                        return copy;
+                      }
+                      return prev;
+                    });
+                    break;
+
+                  case "execution_plan_created":
+                    // Show execution plan in chat
+                    const plan = event.result?.plan;
+                    if (plan && Array.isArray(plan)) {
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          role: 'assistant',
+                          content: `📋 **Execution Plan Created:**\n${plan.map((step, i) => `${i + 1}. ${step}`).join('\n')}`,
+                        },
+                      ]);
+                    }
+                    break;
+
+                  case "step_completed":
+                    // Show step completion in chat
+                    const stepNum = event.result?.step;
+                    const summary = event.result?.summary;
+                    if (stepNum && summary) {
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          role: 'assistant',
+                          content: `✅ **Step ${stepNum} Complete:** ${summary}`,
+                        },
+                      ]);
+                    }
+                    break;
+
+                  case "chat_complete":
+                    // Chat is finished
+                    buffer = ''; // Reset buffer
+                    break;
+
+                  case "usage_update":
+                    // Update the local message count with the value returned from the API
+                    if (typeof event.messageCount === 'number') {
+                      setMessageCount(event.messageCount);
+                    }
+                    break;
+
+                  case "viewing_url":
+                    // Handle viewing URL update
+                    if (onViewingUrlUpdate && typeof event.viewing_url === 'string') {
+                      onViewingUrlUpdate(event.viewing_url);
+                    }
+                    break;
+
+                  case "error":
+                    setMessages((prev) => [
+                      ...prev,
+                      {
+                        role: "assistant",
+                        content: `❌ **Error:** ${String(event.error || 'Unknown error')}`,
+                      },
+                    ]);
+                    break;
+                }
+              } catch (parseError) {
+                logger.debug("error", "Failed to parse SSE event:", { line, parseError });
+              }
+            }
+          }
         }
-        // Final flush: drain any remaining decoder bytes and process once more
-        buffer += decoder.decode(); // no args -> flush
-        buffer = buffer.replace(/\r\n/g, "\n");
-        await processBuffer();
+      } catch (streamError) {
+        logger.debug("error", "Stream processing error:", {
+          error: streamError instanceof Error ? streamError.message : String(streamError),
+        });
       } finally {
+        setIsConnected(false);
         reader.releaseLock();
       }
     },
-    [
-      prototypeChatSession,
-      onFilesUpdate,
-      setPrototypeChatMessages,
-      setIsExecutingOperations,
-      setIsChatLoading,
-      loadingDots,
-      onViewingUrlUpdate,
-      logger,
-    ],
+    [onFilesUpdate, onViewingUrlUpdate, logger]
   );
 
   // Calculate limits based on subscription plan
@@ -524,44 +408,26 @@ export default function PrototypeChatWindow({
 
   // Handle sending messages
   const handleSendMessage = useCallback(
-    async (content: string) => {
-      if (isChatLoading) {
-        return;
-      }
-      setIsChatLoading(true);
-
-      if (!prototypeChatSession?.id) {
-        logger.debug("error", "Sending message failed: no chat session found");
-        setIsChatLoading(false);
-        return;
-      }
+    async () => {
+      if (!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading) return;
 
       // Check if user is at limit before sending
       if (isAtLimit) {
-        setIsChatLoading(false);
+        setShowUpsellModal(true);
         return;
       }
 
-      // 1. INSERT USER MESSAGE TO DB
-      const { data: userMessage, error: insertError } = await supabase
-        .from("prototype_chat_messages")
-        .insert({
-          chat_session_id: prototypeChatSession.id,
-          content: content,
-          role: "user" as const,
-        })
-        .select()
-        .single();
-      if (insertError) {
-        logger.debug("error", "Error inserting user message:", {
-          ...insertError,
-        });
-        setIsChatLoading(false);
-        return;
-      }
-      setPrototypeChatMessages((prev) => [...prev, userMessage]);
+      const userMessage: ChatMessage = {
+        role: "user",
+        content: currentMessage.trim(),
+      };
 
-      // 2. SEND MESSAGE TO CHAT API
+      const newMessages = [...messages, userMessage];
+      setMessages(newMessages);
+      setCurrentMessage("");
+      setIsChatLoading(true);
+      setIsConnected(true);
+
       try {
         // Get access token for authentication
         const { data: session } = await supabase.auth.getSession();
@@ -570,11 +436,8 @@ export default function PrototypeChatWindow({
         }
 
         // Convert messages to the expected ServerChatMessage format
-        const serverMessages: ServerChatMessage[] = [
-          ...prototypeChatMessages,
-          userMessage,
-        ].map((msg) => ({
-          role: msg.role as "user" | "assistant",
+        const serverMessages: ServerChatMessage[] = newMessages.map((msg) => ({
+          role: msg.role,
           content: msg.content,
         }));
 
@@ -586,14 +449,14 @@ export default function PrototypeChatWindow({
           prototype_id: prototypeId || "",
         };
 
-        // Make a single streaming request that handles both planning and execution
+        // Make streaming request
         const streamingResponse = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Accept: "text/event-stream", // Signal that we want streaming
+              Accept: "text/event-stream",
               Authorization: `Bearer ${session.session.access_token}`,
               "Cache-Control": "no-cache",
             },
@@ -617,7 +480,6 @@ export default function PrototypeChatWindow({
               throw new Error(errorData.error);
             }
           } catch (parseError) {
-            // If we can't parse the error, use generic message
             throw new Error(`HTTP error! status: ${streamingResponse.status}`);
           }
         }
@@ -625,49 +487,35 @@ export default function PrototypeChatWindow({
         // Process the streaming response
         await processStreamingResponse(streamingResponse);
       } catch (error) {
-        logger.debug("error", "❌ [CLIENT] Error sending message:", {
+        logger.debug("error", "Error sending message:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        logger.debug("error", "❌ [CLIENT] Error details:", {
-          name: error instanceof Error ? error.name : "Unknown",
-          message: error instanceof Error ? error.message : error,
-          stack: error instanceof Error ? error.stack : "No stack trace",
-          serverEndpoint: process.env.NEXT_PUBLIC_SERVER_ENDPOINT!,
-          chatUrl: `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
-        });
 
-        const errorMessage: PrototypeChatMessage = {
-          id: uuidv4(),
-          chat_session_id: prototypeChatSession?.id || "",
-          role: "assistant",
-          content:
-            "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
-          created_at: new Date().toISOString(),
-          phase: "execution",
-        };
-
-        setPrototypeChatMessages([
-          ...prototypeChatMessages,
-          userMessage,
-          errorMessage,
+        setMessages(prev => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
+          },
         ]);
       } finally {
         setIsChatLoading(false);
+        setIsConnected(false);
       }
     },
     [
+      currentMessage,
+      messages,
       prototypeChatSession,
-      prototypeChatMessages,
-      setPrototypeChatMessages,
-      setIsChatLoading,
       files,
       assets,
       prototypeId,
-      processStreamingResponse,
-      isAtLimit,
       isChatLoading,
+      isAtLimit,
+      processStreamingResponse,
       logger,
+      setIsChatLoading,
     ],
   );
 
@@ -689,7 +537,8 @@ export default function PrototypeChatWindow({
         }
 
         // Clear the local state
-        setPrototypeChatMessages([]);
+        setMessages([]);
+        setShowClearChatDialog(false);
       } catch (error) {
         logger.debug("error", "Error clearing chat:", {
           error: error instanceof Error ? error.message : String(error),
@@ -697,16 +546,46 @@ export default function PrototypeChatWindow({
         });
       }
     }
-  }, [prototypeChatSession, setPrototypeChatMessages, logger]);
+  }, [prototypeChatSession, logger]);
 
-  // IF USER CLICKS ON PRE_DEFINED PROMPT, we must send that message when the page loads
+  // Export session data
+  const exportSession = () => {
+    const sessionData = {
+      prototype: { id: prototypeId },
+      messages,
+      chatSession: prototypeChatSession?.id,
+      fileSystemState: { files, assets },
+      timestamp: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(sessionData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat-session-${prototypeChatSession?.id || 'unknown'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Handle disconnection
+  const handleDisconnect = () => {
+    setIsConnected(false);
+  };
+
+  // Handle chat intent from localStorage
   useEffect(() => {
     if (!prototypeId || !prototypeChatSession?.id) return;
 
     // Send chat intent if present in localStorage
     const intent = getChatIntent(prototypeId);
     if (intent && !isChatLoading && files && assets) {
-      handleSendMessage(intent.message);
+      setCurrentMessage(intent.message);
+      // Auto-send the intent message
+      setTimeout(() => {
+        handleSendMessage();
+      }, 100);
     }
   }, [
     prototypeId,
@@ -719,17 +598,152 @@ export default function PrototypeChatWindow({
 
   return (
     <>
-      <ChatMessagesUI
-        messages={prototypeChatMessages}
-        onSendMessage={handleSendMessage}
-        isLoading={isChatLoading}
-        onClearChat={handleClearChat}
-        messageCount={messageCount}
-        messageLimit={messageLimit}
-        isAtLimit={isAtLimit}
-        loadingUsageCount={loadingUsageCount}
-        currentRenderStatus={currentRenderStatus}
-      />
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-2">
+            <ChatBubbleLeftRightIcon className="w-5 h-5" />
+            <h2 className="text-lg font-semibold">Chat Assistant</h2>
+            {isConnected && (
+              <Badge variant="outline" className="text-xs">
+                Streaming...
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={exportSession} variant="outline" size="sm">
+              <ClipboardDocumentIcon className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <Button onClick={() => setShowClearChatDialog(true)} variant="outline" size="sm">
+              <TrashIcon className="w-4 h-4 mr-2" />
+              Clear
+            </Button>
+          </div>
+        </div>
+
+        {/* Usage indicator */}
+        {!loadingUsageCount && (
+          <div className="px-4 py-2 text-xs text-muted-foreground border-b">
+            {userPlan === "free" ? (
+              <span className={messageCount >= messageLimit ? "text-destructive font-medium" : ""}>
+                {messageCount}/{messageLimit} messages used this billing period
+              </span>
+            ) : (
+              <span>{messageCount} messages used this billing period</span>
+            )}
+          </div>
+        )}
+
+        {/* Chat Messages */}
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  }`}
+                >
+                  <div className="text-sm font-medium mb-1">
+                    {message.role === "user" ? "You" : "Assistant"}
+                  </div>
+                  <div className="text-sm whitespace-pre-wrap">
+                    {message.content}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {isChatLoading && isConnected && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+                  <div className="text-sm font-medium mb-1">Assistant</div>
+                  <div className="text-sm text-muted-foreground">
+                    Thinking...
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Input Area */}
+        <div className="p-4 border-t">
+          <div className="space-y-2">
+            <Textarea
+              value={currentMessage}
+              onChange={(e) => setCurrentMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="min-h-[80px] resize-none"
+              disabled={!prototypeChatSession || !files || isChatLoading || isAtLimit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSendMessage}
+                disabled={!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading || isAtLimit}
+                className="flex-1"
+              >
+                <PlayIcon className="w-4 h-4 mr-2" />
+                Send Message
+              </Button>
+              <Button
+                onClick={handleDisconnect}
+                disabled={!isConnected}
+                variant="outline"
+              >
+                <StopIcon className="w-4 h-4" />
+              </Button>
+            </div>
+            {isAtLimit && (
+              <p className="text-sm text-destructive">
+                You&apos;ve reached your message limit. Please upgrade to continue.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Clear Chat Confirmation Dialog */}
+      <Dialog open={showClearChatDialog} onOpenChange={setShowClearChatDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clear Chat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to clear the chat? This will remove all messages and cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleClearChat}
+                variant="destructive"
+                className="flex-1"
+              >
+                Clear Chat
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowClearChatDialog(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Upsell Modal */}
       <ProPlanUpsellModal
