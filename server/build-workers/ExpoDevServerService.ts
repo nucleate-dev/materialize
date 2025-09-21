@@ -211,7 +211,7 @@ export class ExpoDevServerService {
         }
         // Create new directory and write all files
         await fs.mkdir(projectDir, { recursive: true });
-        await writeProjectFiles(files, assets, projectDir);
+        await writeProjectFiles(files, assets, projectDir, request.log2);
 
         // Install dependencies for new project
         try {
@@ -776,12 +776,12 @@ export class ExpoDevServerService {
       }
 
       logger.log("Writing project files");
-      await writeProjectFiles(files, assets, buildDir);
+      await writeProjectFiles(files, assets, buildDir, this.log2);
       logger.log("Project files written", true, `Build directory: ${buildDir}`);
 
       logger.log("Starting dependency installation");
       const installStartTime = Date.now();
-      await installDependencies(buildDir, logger);
+      await installDependencies(buildDir, this.log2);
       const installDuration = Date.now() - installStartTime;
       logger.log(
         "Dependency installation completed",
@@ -985,28 +985,15 @@ export class ExpoDevServerService {
     buildErrors: CodeError[],
     buildWarnings: CodeWarning[]
   ): Promise<void> {
-    // Create a simple logger that captures output
-    const logger = {
-      addLog: (): void => {
-        // Log messages are now handled by SystemLogger
-      },
-      log: (
-        message: string,
-        success: boolean = true,
-        output: string = "",
-        error: string = ""
-      ): void => {
-        if (!success) {
-          const outputToProcess = error || output || "";
-          this.parseNpmOutput(outputToProcess, buildErrors, buildWarnings);
-        }
-      },
-      getBuildLog: (): BuildLogEntry[] => [],
-      getElapsedTime: (): number => 0,
-    };
-
-    // Use shared installDependencies function
-    await installDependencies(projectDir, logger);
+    try {
+      // Use shared installDependencies function with SystemLogger
+      await installDependencies(projectDir, this.log2);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      // Parse npm errors for build errors/warnings
+      this.parseNpmOutput(errorMessage, buildErrors, buildWarnings);
+      throw error;
+    }
   }
 
   async updateDevServerFiles(
@@ -1103,7 +1090,7 @@ export class ExpoDevServerService {
 
     try {
       // Update only the provided files
-      await writeProjectFiles(files, assets, actualProjectDir);
+      await writeProjectFiles(files, assets, actualProjectDir, this.log2);
       this.log2.info("Successfully wrote files to project directory", {
         projectDir: actualProjectDir,
       });
