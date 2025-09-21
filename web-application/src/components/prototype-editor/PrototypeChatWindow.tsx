@@ -237,7 +237,21 @@ export default function PrototypeChatWindow({
               const data = line.slice(6);
 
               try {
-                const event = JSON.parse(data) as any;
+                const event = JSON.parse(data) as {
+                  type: string;
+                  content?: string;
+                  tool?: string;
+                  toolName?: string;
+                  result?: {
+                    plan?: string[];
+                    step?: number;
+                    summary?: string;
+                    updatedFiles?: Record<string, PrototypeFile>;
+                  };
+                  error?: string;
+                  messageCount?: number;
+                  viewing_url?: string;
+                };
 
                 // Handle different event types
                 switch (event.type) {
@@ -653,7 +667,7 @@ export default function PrototypeChatWindow({
                   <div className="text-sm font-medium mb-1">
                     {message.role === "user" ? "You" : "Assistant"}
                   </div>
-                  <div className="text-sm prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2">
+                  <div className="text-sm prose prose-sm max-w-none prose-slate dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current">
                     <ReactMarkdown>
                       {message.content}
                     </ReactMarkdown>
