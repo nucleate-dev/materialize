@@ -4,9 +4,24 @@ import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { PublicApiService } from "./PublicApiService.js";
+import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 
 // Load environment variables
 dotenv.config();
+
+// Extend FastifyRequest to include our custom logger
+declare module "fastify" {
+  interface FastifyRequest {
+    log2: SystemLogger;
+  }
+}
+
+export const baseLogger = new SystemLogger({
+  service: "build-worker",
+  env: process.env.NODE_ENV || "development",
+  metricNamespace: "Materialize/BuildWorker",
+  redactKeys: ["authorization", "cookie", "x-api-key"],
+});
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
@@ -29,13 +44,21 @@ const publicApiService = new PublicApiService(expoDevServerService, WORK_DIR);
 
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
-  logger: {
-    level: "info",
-    transport: {
-      target: "pino-pretty",
-    },
-  },
+  logger: true,
+  disableRequestLogging: true,
   bodyLimit: 50 * 1024 * 1024, // 50MB limit for large file uploads
+});
+
+app.addHook("onRequest", async (req) => {
+  const { requestId, traceId } = genRequestIds(
+    req.headers as Record<string, string | string[] | undefined>
+  );
+  req.log2 = baseLogger.child({
+    requestId,
+    traceId,
+    route: req.routeOptions?.url,
+    method: req.method,
+  });
 });
 
 // --- Health Check ---
@@ -70,19 +93,18 @@ app.get("/health", async () => {
 publicApiService.registerRoutes(app);
 
 // --- Graceful Shutdown Handling ---
-process.on("SIGTERM", async () => {
-  console.log("Received SIGTERM, shutting down gracefully...");
-  await expoDevServerService.shutdown();
-  await app.close();
-  process.exit(0);
-});
+const close = async (): Promise<void> => {
+  baseLogger.info("Shutting down build worker...");
+  try {
+    await expoDevServerService.shutdown();
+    await app.close();
+  } finally {
+    process.exit(0);
+  }
+};
 
-process.on("SIGINT", async () => {
-  console.log("Received SIGINT, shutting down gracefully...");
-  await expoDevServerService.shutdown();
-  await app.close();
-  process.exit(0);
-});
+process.on("SIGINT", close);
+process.on("SIGTERM", close);
 
 // --- Start Server ---
 const start = async (): Promise<void> => {
@@ -91,11 +113,13 @@ const start = async (): Promise<void> => {
     await fs.mkdir(WORK_DIR, { recursive: true });
 
     await app.listen({ port: PORT, host: "0.0.0.0" });
-    console.log(`🚀 Fargate build worker listening on port ${PORT}`);
-    console.log(`📁 Work directory: ${WORK_DIR}`);
-    console.log(`☁️  S3 bucket: ${S3_BUCKET}`);
+    baseLogger.info("Build worker started successfully", {
+      port: PORT,
+      workDir: WORK_DIR,
+      s3Bucket: S3_BUCKET,
+    });
   } catch (err) {
-    app.log.error(err);
+    baseLogger.error(err, "Failed to start build worker");
     process.exit(1);
   }
 };

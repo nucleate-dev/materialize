@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { customlog } from "./logger.js";
+import { baseLogger } from "./worker.js";
 import { PrototypeFileInput } from "./shared-utils.js";
 import {
   CodeError,
@@ -54,11 +54,11 @@ export class PublicApiService {
       // Log input file names (not contents)
       if (request.body.files && request.body.files.length > 0) {
         const fileNames = request.body.files.map((file) => file.name);
-        customlog("info", "POST /dev-server received files:", fileNames);
+        request.log2.info("POST /dev-server received files", { fileNames });
       }
       if (request.body.assets && request.body.assets.length > 0) {
         const assetNames = request.body.assets.map((asset) => asset.name);
-        customlog("info", "POST /dev-server received assets:", assetNames);
+        request.log2.info("POST /dev-server received assets", { assetNames });
       }
 
       if (request.body.file_scope === "complete") {
@@ -102,11 +102,10 @@ export class PublicApiService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      customlog(
-        "error",
-        "Internal server error in startDevServer:",
-        errorMessage,
-        errorStack
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in startDevServer",
+        { stack: errorStack }
       );
       reply.code(500);
       return {
@@ -141,11 +140,9 @@ export class PublicApiService {
 
     try {
       // Start the background build and deploy process
-      customlog(
-        "info",
-        "Starting background build and deploy for prototype:",
-        prototype_id
-      );
+      request.log2.info("Starting background build and deploy for prototype", {
+        prototype_id,
+      });
 
       // Start build/deploy asynchronously - don't await
       this.startBackgroundBuildAndDeploy();
@@ -163,11 +160,10 @@ export class PublicApiService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      customlog(
-        "error",
-        "Internal server error in stopDevServer:",
-        errorMessage,
-        errorStack
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in stopDevServer",
+        { stack: errorStack }
       );
       reply.code(500);
       return {
@@ -191,16 +187,17 @@ export class PublicApiService {
   ): Promise<PublicBuildAndDeployResponse> {
     const { prototype_id, framework } = request.body;
 
-    customlog("info", "POST /build-and-deploy request:", {
+    request.log2.info("POST /build-and-deploy request", {
       prototype_id,
       framework,
     });
 
     if (!prototype_id || !framework) {
-      customlog("error", "Missing required parameters:", {
-        prototype_id,
-        framework,
-      });
+      baseLogger.error(
+        new Error("Missing required parameters"),
+        "Missing required parameters",
+        { prototype_id, framework }
+      );
       reply.code(400);
       return {
         status: "error",
@@ -226,10 +223,11 @@ export class PublicApiService {
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        customlog("error", "Project directory not found:", {
-          projectDir,
-          error: errorMessage,
-        });
+        request.log2.error(
+          new Error(errorMessage),
+          "Project directory not found",
+          { projectDir }
+        );
         return reply.code(404).send({
           status: "error",
           build_errors: [
@@ -247,7 +245,11 @@ export class PublicApiService {
       const { files } = await this.readAllFilesFromDirectory(projectDir);
 
       if (files.length === 0) {
-        customlog("error", "No files found in project directory:", projectDir);
+        request.log2.error(
+          new Error("No files found in project directory"),
+          "No files found in project directory",
+          { projectDir }
+        );
         return reply.code(400).send({
           status: "error",
           build_errors: [
@@ -281,11 +283,10 @@ export class PublicApiService {
             );
           }
         } else if (buildResponse.error) {
-          customlog(
-            "error",
-            "Build and deploy failed:",
-            buildResponse.error,
-            buildResponse.buildLog
+          request.log2.error(
+            new Error(buildResponse.error),
+            "Build and deploy failed",
+            { buildLog: buildResponse.buildLog }
           );
           buildErrors.push({
             message: `Build and deploy failed: ${buildResponse.error}`,
@@ -305,11 +306,10 @@ export class PublicApiService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
-        customlog(
-          "error",
-          "Build and deploy process failed:",
-          errorMessage,
-          errorStack
+        request.log2.error(
+          new Error(errorMessage),
+          "Build and deploy process failed",
+          { stack: errorStack }
         );
         buildErrors.push({
           message: `Build and deploy process failed: ${errorMessage}`,
@@ -327,11 +327,10 @@ export class PublicApiService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      customlog(
-        "error",
-        "Internal server error in buildAndDeploy:",
-        errorMessage,
-        errorStack
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in buildAndDeploy",
+        { stack: errorStack }
       );
       reply.code(500);
       return {
@@ -359,10 +358,10 @@ export class PublicApiService {
         const { files } = await this.readAllFilesFromDirectory(projectDir);
 
         if (files.length === 0) {
-          customlog(
-            "error",
-            "No files found in project directory:",
-            projectDir
+          baseLogger.error(
+            new Error("No files found in project directory"),
+            "No files found in project directory",
+            { projectDir }
           );
           buildErrors.push({
             message: "No files found in project directory",
@@ -375,10 +374,9 @@ export class PublicApiService {
 
           if (buildResponse.success && buildResponse.buildUrl) {
             buildUrl = buildResponse.buildUrl;
-            customlog(
-              "info",
-              "Background build and deploy completed successfully:",
-              buildUrl
+            baseLogger.info(
+              "Background build and deploy completed successfully",
+              { buildUrl }
             );
 
             // Parse build log for errors and warnings
@@ -390,11 +388,10 @@ export class PublicApiService {
               );
             }
           } else if (buildResponse.error) {
-            customlog(
-              "error",
-              "Background build failed:",
-              buildResponse.error,
-              buildResponse.buildLog
+            baseLogger.error(
+              new Error(buildResponse.error),
+              "Background build failed",
+              { buildLog: buildResponse.buildLog }
             );
             buildErrors.push({
               message: `Build failed: ${buildResponse.error}`,
@@ -415,11 +412,10 @@ export class PublicApiService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
-        customlog(
-          "error",
-          "Background build process failed:",
-          errorMessage,
-          errorStack
+        baseLogger.error(
+          new Error(errorMessage),
+          "Background build process failed",
+          { stack: errorStack }
         );
         buildErrors.push({
           message: `Build process failed: ${errorMessage}`,
@@ -429,32 +425,29 @@ export class PublicApiService {
 
       // Always stop the dev server after build completes (success or failure)
       try {
-        customlog(
-          "info",
+        baseLogger.info(
           "Shutting down dev server after background build completion"
         );
         await this.expoDevServerService.shutdown();
-        customlog("info", "Dev server shutdown completed for prototype");
+        baseLogger.info("Dev server shutdown completed for prototype");
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
-        customlog(
-          "error",
-          "Failed to stop dev server after background build:",
-          errorMessage,
-          errorStack
+        baseLogger.error(
+          new Error(errorMessage),
+          "Failed to stop dev server after background build",
+          { stack: errorStack }
         );
       }
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      customlog(
-        "error",
-        "Critical error in background build and deploy:",
-        errorMessage,
-        errorStack
+      baseLogger.error(
+        new Error(errorMessage),
+        "Critical error in background build and deploy",
+        { stack: errorStack }
       );
 
       // Ensure dev server is stopped even on critical failures
@@ -465,10 +458,9 @@ export class PublicApiService {
           shutdownError instanceof Error
             ? shutdownError.message
             : String(shutdownError);
-        customlog(
-          "error",
-          "Failed to shutdown dev server after critical error:",
-          errorMessage
+        baseLogger.error(
+          new Error(errorMessage),
+          "Failed to shutdown dev server after critical error"
         );
       }
     }
@@ -530,11 +522,9 @@ export class PublicApiService {
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        customlog(
-          "warn",
-          "Failed to read directory:",
-          currentPath,
-          errorMessage
+        baseLogger.warn(
+          "Failed to read directory",
+          { currentPath, error: errorMessage }
         );
       }
     };
