@@ -1,10 +1,12 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import type {
+  APIResponse,
   ChatErrorResponse,
   ChatRequestBody,
+  DispatchPrecheckErrorResponse,
   DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
+  DispatchPrecheckSuccessResponse,
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
@@ -201,13 +203,15 @@ export class ChatService {
         } as DispatchPrecheckRequestBody,
       });
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(
-        precheckResponse.payload,
-      );
+      const precheckData: APIResponse<
+        DispatchPrecheckSuccessResponse,
+        DispatchPrecheckErrorResponse
+      > = JSON.parse(precheckResponse.payload);
 
       if (
+        precheckData.data &&
         'success' in precheckData &&
-        isDispatchInProgress(precheckData.status)
+        isDispatchInProgress(precheckData.data.status)
       ) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:
@@ -251,7 +255,6 @@ export class ChatService {
               controller,
               encoder,
               log2: request.log2,
-              precheckData,
             });
 
             // ------------------------------------------------------------------------------------------------

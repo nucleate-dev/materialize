@@ -6,7 +6,6 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
-  DispatchPrecheckResponse,
   PrototypeAssetInput,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
@@ -45,7 +44,6 @@ export interface ChatEngineParams {
   controller: ReadableStreamDefaultController<Uint8Array>;
   encoder: TextEncoder;
   log2: SystemLogger;
-  precheckData: DispatchPrecheckResponse;
 }
 
 export class ChatEngine {
