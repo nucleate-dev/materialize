@@ -323,8 +323,8 @@ export class ChatEngine {
         '[ChatEngine] Generating response with virtual file system tools...',
       );
 
-      // Generate response with comprehensive tool support
-      const response = streamText({
+      // 1. Call streamText and get the result object
+      const result = streamText({
         model: this.getCurrentModel(),
         system: SYSTEM_PROMPT,
         messages: [
@@ -338,63 +338,83 @@ export class ChatEngine {
           },
         ],
         tools: this.createFileManagerTools(params),
-        toolChoice: 'auto', // let the model call tools when needed
+        toolChoice: 'auto',
         stopWhen: stepCountIs(10),
       });
 
-      let finalBuffer = ''; // Accumulate text deltas here
+      // 2. Process the full stream for tool calls and results, and the text stream for the final answer.
+      // We can do this in parallel to correctly handle the entire multi-step process.
+      let finalBuffer = '';
 
-      // Stream the full response including text and tool calls
-      for await (const part of response.fullStream) {
-        log2.info('part', { part });
-        if (part.type === 'text-delta') {
-          finalBuffer += part.text; // Accumulate text
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: 'chat_response_delta',
-                content: part.text,
-              })}\n\n`,
-            ),
-          );
-        } else if (part.type === 'tool-call') {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: 'tool_call',
-                tool: part.toolName,
-                toolCallId: part.toolCallId,
-              })}\n\n`,
-            ),
-          );
-        } else if (part.type === 'tool-result') {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: 'tool_result',
-                tool: part.toolName,
-                toolCallId: part.toolCallId,
-                result: part.output,
-              })}\n\n`,
-            ),
-          );
+      // This async function will handle streaming all parts of the multi-step call
+      const processStream = async () => {
+        for await (const part of result.fullStream) {
+          log2.info('Stream Part', { part });
+
+          switch (part.type) {
+            case 'text-delta':
+              // Accumulate and stream the final text response
+              finalBuffer += part.text;
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'chat_response_delta',
+                    content: part.text,
+                  })}\n\n`,
+                ),
+              );
+              break;
+
+            case 'tool-call':
+              // Inform the client that a tool is being called
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'tool_call',
+                    tool: part.toolName,
+                    toolCallId: part.toolCallId,
+                    args: part.input, // It's useful to show the client what the tool is doing
+                  })}\n\n`,
+                ),
+              );
+              break;
+
+            case 'tool-result':
+              // Inform the client about the result of the tool call
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'tool_result',
+                    tool: part.toolName,
+                    toolCallId: part.toolCallId,
+                    result: part.output,
+                  })}\n\n`,
+                ),
+              );
+              break;
+          }
         }
-      }
+      };
 
-      // Always send a final message from our buffer
-      // Some providers return empty response.text when everything came via deltas
-      if (finalBuffer.length > 0) {
+      // 3. Execute the stream processing and wait for it to complete
+      await processStream();
+
+      // 4. Send a final aggregated message if needed (optional, as deltas are streamed)
+      // This can be a good fallback if the client misses deltas.
+      if (finalBuffer.length > 0 && result.text) {
+        // The `result.text` promise resolves to the full final text.
+        // We can use it to ensure the client has the complete message.
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'chat_response',
-              content: finalBuffer,
+              content: await result.text,
             })}\n\n`,
           ),
         );
       }
 
-      // Send completion message
+      // 5. Signal that the chat is complete and close the connection
       controller.enqueue(
         encoder.encode(
           `data: ${JSON.stringify({
@@ -402,12 +422,8 @@ export class ChatEngine {
           })}\n\n`,
         ),
       );
-
-      controller.close();
     } catch (error) {
       log2.error(error, '[ChatEngine] Error during chat execution');
-
-      // Send error response
       controller.enqueue(
         encoder.encode(
           `data: ${JSON.stringify({
@@ -417,9 +433,13 @@ export class ChatEngine {
           })}\n\n`,
         ),
       );
-
-      controller.close();
-      throw error;
+    } finally {
+      // Ensure the controller is always closed
+      try {
+        controller.close();
+      } catch {
+        // It might already be closed, which is fine.
+      }
     }
   }
 }
