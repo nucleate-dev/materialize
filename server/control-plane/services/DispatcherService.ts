@@ -24,6 +24,9 @@ import {
   type DispatchPrecheckSuccessResponse,
   type DispatchPrecheckErrorResponse,
   type DispatchRequestBody,
+  type DispatchSuccessResponse,
+  type DispatchErrorResponse,
+  type StandardErrorResponse,
   type APIResponse,
   HTTP_STATUS,
   PrototypeAssetInput,
@@ -162,7 +165,7 @@ export class DispatcherService {
   private async handleDispatch(
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse>> {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id, framework, files, assets, file_scope } =
       request.body;
@@ -174,9 +177,12 @@ export class DispatcherService {
     );
     if (!authResult || !authResult.canEdit) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized',
-        message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
       });
     }
     // update logger context
@@ -204,8 +210,11 @@ export class DispatcherService {
           const parsedBuild = JSON.parse(existingBuildJson as string);
           if (!isActiveBuildType(parsedBuild)) {
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-              error: 'Internal Server Error',
-              message: 'Invalid build data in cache',
+              data: null,
+              error: {
+                error: 'Internal Server Error',
+                message: 'Invalid build data in cache',
+              },
             });
           }
           const existingBuild: ActiveBuild = parsedBuild;
@@ -381,20 +390,27 @@ export class DispatcherService {
 
         if (fargateResponse.status === 'success') {
           return reply.status(HTTP_STATUS.OK).send({
-            status: 'success',
-            viewing_url: this.normalizeUrl(
-              fargateResponse.tunnel_url || this.getS3Url(prototype_id),
-            ),
-            build_errors: fargateResponse.build_errors,
-            build_warnings: fargateResponse.build_warnings,
+            data: {
+              status: 'success',
+              viewing_url: this.normalizeUrl(
+                fargateResponse.tunnel_url || this.getS3Url(prototype_id),
+              ),
+              build_errors: fargateResponse.build_errors,
+              build_warnings: fargateResponse.build_warnings,
+            },
+            error: null,
           });
         } else {
           request.log2.error(undefined, 'Build failed on fargate instance', {
             fargateResponse,
           });
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-            error: 'Build Failed',
-            message: 'Build failed on fargate instance',
+            data: null,
+            error: {
+              error: 'Build Failed',
+              message: 'Build failed on fargate instance',
+              viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
+            },
           });
         }
       } catch (error) {
@@ -410,9 +426,12 @@ export class DispatcherService {
         );
 
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'Internal Server Error',
-          message:
-            'There was a server error building the prototype. ' + e.message,
+          data: null,
+          error: {
+            error: 'Internal Server Error',
+            message:
+              'There was a server error building the prototype. ' + e.message,
+          },
         });
       }
     } catch (error) {
@@ -420,8 +439,11 @@ export class DispatcherService {
       request.log2.error(error, 'Dispatch request failed');
 
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Internal Server Error',
-        message: e.message,
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       });
     }
   }

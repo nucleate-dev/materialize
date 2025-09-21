@@ -14,6 +14,9 @@ import type {
   DispatchPrecheckSuccessResponse,
   DispatchPrecheckErrorResponse,
   DispatchRequestBody,
+  DispatchSuccessResponse,
+  DispatchErrorResponse,
+  StandardErrorResponse,
   PrototypeAssetInput,
   PrototypeFileInput,
 } from '../types/PublicAPITypes.js';
@@ -708,26 +711,27 @@ export class ChatEngine {
         });
       }
 
-      const dispatchData = JSON.parse(tempDispatchResponse.payload);
+      const dispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(tempDispatchResponse.payload);
 
       // ERROR FIXING PHASE: Check for build errors and attempt to fix them
       if (
-        'build_errors' in dispatchData &&
-        dispatchData.build_errors.length > 0
+        dispatchData.data &&
+        dispatchData.data.build_errors &&
+        dispatchData.data.build_errors.length > 0
       ) {
         log2.consoleLogDevOnly(
           'info',
           '[ChatEngine] Build errors detected, starting error-fixing phase',
           {
-            errorCount: dispatchData.build_errors.length,
-            criticalErrorCount: filterCriticalErrors(dispatchData.build_errors)
+            errorCount: dispatchData.data.build_errors.length,
+            criticalErrorCount: filterCriticalErrors(dispatchData.data.build_errors)
               .length,
           },
         );
 
         try {
           const remainingErrors = await this.handleErrorFixingPhase(
-            dispatchData.build_errors,
+            dispatchData.data.build_errors,
             fileManager,
             messages,
             inputFiles,
@@ -763,10 +767,10 @@ export class ChatEngine {
             });
 
             // Update dispatchData with final result
-            const finalDispatchData = JSON.parse(finalDispatchResponse.payload);
-            if ('viewing_url' in finalDispatchData) {
+            const finalDispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(finalDispatchResponse.payload);
+            if (finalDispatchData.data && finalDispatchData.data.viewing_url) {
               // Use the final dispatch data for the viewing URL
-              Object.assign(dispatchData, finalDispatchData);
+              dispatchData.data = finalDispatchData.data;
             }
           } else {
             log2.consoleLogDevOnly(
@@ -787,12 +791,12 @@ export class ChatEngine {
       }
 
       // Stream the viewing URL to the client
-      if ('viewing_url' in dispatchData && dispatchData.viewing_url) {
+      if (dispatchData.data && dispatchData.data.viewing_url) {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'viewing_url',
-              viewing_url: dispatchData.viewing_url,
+              viewing_url: dispatchData.data.viewing_url,
             })}\n\n`,
           ),
         );
@@ -903,11 +907,11 @@ export class ChatEngine {
           },
         });
 
-        const testDispatchData = JSON.parse(testDispatchResponse.payload);
+        const testDispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(testDispatchResponse.payload);
 
-        if ('build_errors' in testDispatchData) {
+        if (testDispatchData.data && testDispatchData.data.build_errors) {
           const newCriticalErrors = filterCriticalErrors(
-            testDispatchData.build_errors,
+            testDispatchData.data.build_errors,
           );
 
           log2.consoleLogDevOnly(
