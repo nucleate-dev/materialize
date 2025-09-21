@@ -295,7 +295,7 @@ export async function handleCreatePrototypeImpl(
     const [defaultFilesResult, s3CopyResult] = await Promise.all([
       getDefaultAppFilesFromS3(s3Client, newPrototypeId, log2),
       copyDefaultAppToVersionedPrototype(s3Client, newPrototypeId, log2),
-      // TODO @sourish: copy thumbnail to new prototype
+      // TODO @sourish: create a default app thumbnail to copy to new prototype
     ]);
     if (!defaultFilesResult.success || !s3CopyResult.success) {
       log2.error(

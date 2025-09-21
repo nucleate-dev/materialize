@@ -337,7 +337,14 @@ export async function getDefaultAppFilesFromS3(
     );
     const files: PrototypeFileInsert[] = results
       .filter((r) => r.type === 'file')
-      .map((r) => ({ prototype_id: prototypeId, ...r }));
+      .map(
+        (r) =>
+          ({
+            prototype_id: prototypeId,
+            name: r.name,
+            contents: r.contents,
+          } as PrototypeFileInsert),
+      );
     const assets: { name: string; contents: Buffer; prototype_id: string }[] =
       results
         .filter((r) => r.type === 'asset')
