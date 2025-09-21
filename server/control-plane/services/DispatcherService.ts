@@ -276,7 +276,12 @@ export class DispatcherService {
         const newFargateInstance = await request.log2.time(
           LatencyEvents.launch_fargate_instance_latency,
           async (): Promise<FargateInstanceInfo> => {
-            return await this.launchFargateInstance(prototype_id, request.log2);
+            return await this.launchFargateInstance(
+              prototype_id,
+              request.log2,
+              activeBuildKey,
+              newBuildCacheData,
+            );
           },
         );
         request.log2.info('Successfully launched new fargate instance: ', {
@@ -593,6 +598,8 @@ export class DispatcherService {
   private async launchFargateInstance(
     prototypeId: string,
     log2: SystemLogger,
+    activeBuildKey: string,
+    newBuildCacheData: ActiveBuild,
   ): Promise<FargateInstanceInfo> {
     try {
       const runTaskInput = {
@@ -639,9 +646,18 @@ export class DispatcherService {
       const response = await this.ecsClient.send(command);
 
       if (response.tasks && response.tasks.length > 0) {
+        // save taskArn to the cache immediately to prevent case where server/request fails before cache is updated
+        // this edge case could result in an eternally running fargate task
         const taskArn = response.tasks[0].taskArn!;
+        await this.cache.set(
+          activeBuildKey,
+          JSON.stringify({
+            ...newBuildCacheData,
+            fargate_task_arn: taskArn,
+          }),
+        );
         log2.info(
-          `[launchFargateInstance] Successfully initiated Fargate Task Launch`,
+          `[launchFargateInstance] Successfully initiated Fargate Task Launch, saving arn`,
           {
             taskArn,
           },
@@ -658,33 +674,29 @@ export class DispatcherService {
             tasks: [taskArn],
           },
         );
-
-        log2.consoleLogDevOnly(
-          'info',
-          `[launchFargateInstance] ECS client informed us that the task is running`,
-        );
-
-        // Describe the task to get the private IP
         const describeCommand = new DescribeTasksCommand({
           cluster: process.env.ECS_CLUSTER_NAME!,
           tasks: [taskArn],
         });
         const describeResponse = await this.ecsClient.send(describeCommand);
-
         const task = describeResponse.tasks?.[0];
         const eni = task?.attachments?.[0]?.details?.find(
           (detail) => detail.name === 'networkInterfaceId',
         )?.value;
         let privateIp = '';
-
         if (eni) {
-          // Get private IP from ENI details in task
           const privateIpDetail = task?.attachments?.[0]?.details?.find(
             (detail) => detail.name === 'privateIPv4Address',
           );
           privateIp = privateIpDetail?.value || '';
         }
-
+        log2.consoleLogDevOnly(
+          'info',
+          `[launchFargateInstance] ECS client informed us that the task is running`,
+          {
+            privateIp,
+          },
+        );
         return { taskArn, privateIp };
       } else {
         throw new Error('No task was created');
