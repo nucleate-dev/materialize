@@ -165,7 +165,12 @@ export class DispatcherService {
   private async handleDispatch(
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse>> {
+  ): Promise<
+    APIResponse<
+      DispatchSuccessResponse,
+      DispatchErrorResponse | StandardErrorResponse
+    >
+  > {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id, framework, files, assets, file_scope } =
       request.body;
@@ -451,7 +456,9 @@ export class DispatcherService {
   private async handleDispatchEditIntent(
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>> {
+  ): Promise<
+    APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
+  > {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
     request.log2 = request.log2.child({
@@ -472,9 +479,10 @@ export class DispatcherService {
         } as DispatchPrecheckRequestBody,
       });
 
-      const precheckResponse: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
-        precheckInjectResponse.payload,
-      );
+      const precheckResponse: APIResponse<
+        DispatchPrecheckSuccessResponse,
+        DispatchPrecheckErrorResponse
+      > = JSON.parse(precheckInjectResponse.payload);
 
       // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
       if (
@@ -550,7 +558,9 @@ export class DispatcherService {
   private async handleDispatchPrecheck(
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>> {
+  ): Promise<
+    APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
+  > {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
 
