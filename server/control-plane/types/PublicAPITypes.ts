@@ -290,12 +290,6 @@ export interface StartDevServerSuccessResponse {
   message: string;
 }
 
-export interface StartDevServerErrorResponse {
-  error: string;
-  message: string;
-  status: BuildStatus | null;
-}
-
 // ============================================================================
 // /chat ENDPOINT
 // ============================================================================

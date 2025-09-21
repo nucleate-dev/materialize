@@ -84,7 +84,7 @@ export default async function handleFetchViewingUrlImpl(
             const successResponse: FetchViewingUrlSuccessResponse = {
               viewing_url: staticViewingUrl,
               source: isEditable ? 'editable_instance' : 'static_build',
-              status: precheckData.status,
+              status: precheckData.data.status,
             };
             return reply.status(HTTP_STATUS.OK).send({
               data: successResponse,

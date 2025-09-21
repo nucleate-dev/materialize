@@ -1,10 +1,12 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import type {
+  APIResponse,
   ChatErrorResponse,
   ChatRequestBody,
   DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
+  DispatchPrecheckSuccessResponse,
+  DispatchPrecheckErrorResponse,
 } from '../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
@@ -15,7 +17,6 @@ import {
   FileManager,
   type ChatEngineConfig,
 } from './ChatEngine.js';
-
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -170,9 +171,10 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       const authValidation = await validateChatAuth(request, prototype_id);
       if (!authValidation.success) {
-        const statusCode = authValidation.error.type === 'UNAUTHORIZED'
-          ? HTTP_STATUS.UNAUTHORIZED
-          : HTTP_STATUS.UNAUTHORIZED;
+        const statusCode =
+          authValidation.error.type === 'UNAUTHORIZED'
+            ? HTTP_STATUS.UNAUTHORIZED
+            : HTTP_STATUS.UNAUTHORIZED;
 
         return reply.status(statusCode).send({
           error: authValidation.error.error,
@@ -203,13 +205,14 @@ export class ChatService {
         } as DispatchPrecheckRequestBody,
       });
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(
+      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
         precheckResponse.payload,
       );
 
       if (
-        'success' in precheckData &&
-        isDispatchInProgress(precheckData.status)
+        precheckData.data &&
+        precheckData.data.success &&
+        isDispatchInProgress(precheckData.data.status)
       ) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:

@@ -9,8 +9,10 @@ import { z } from 'zod';
 import { LatencyEvents } from '../loggers/LatencyEvents.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
+  APIResponse,
   CodeError,
-  DispatchPrecheckResponse,
+  DispatchPrecheckSuccessResponse,
+  DispatchPrecheckErrorResponse,
   DispatchRequestBody,
   PrototypeAssetInput,
   PrototypeFileInput,
@@ -123,7 +125,7 @@ export interface ChatEngineParams {
   controller: ReadableStreamDefaultController<Uint8Array>;
   encoder: TextEncoder;
   log2: SystemLogger;
-  precheckData: DispatchPrecheckResponse;
+  precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>;
 }
 
 export class ChatEngine {
@@ -634,7 +636,7 @@ export class ChatEngine {
     log2: SystemLogger,
     messages: { role: string; content: string }[],
     inputFiles: PrototypeFiles | null,
-    precheckData: DispatchPrecheckResponse,
+    precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>,
   ): Promise<void> {
     // Stream dispatch start event to show loading indicator
     const finalFiles = fileManager.getFinalState();
@@ -662,8 +664,9 @@ export class ChatEngine {
       );
 
       if (
-        'status' in precheckData &&
-        isEditableDevServer(precheckData.status)
+        precheckData.data &&
+        precheckData.data.success &&
+        isEditableDevServer(precheckData.data.status)
       ) {
         tempDispatchResponse = await this.config.fastifyApp.inject({
           method: 'POST',

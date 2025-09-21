@@ -3,7 +3,6 @@ import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type {
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
-  StartDevServerErrorResponse,
   UpdateFilesRequestBody,
   UpdateFilesSuccessResponse,
   UpdateFilesErrorResponse,
@@ -440,7 +439,6 @@ export class DevelopmentServerService {
             error: 'Active dev server already exists',
             message:
               'A dev server is currently starting for this prototype. Please wait for it to complete.',
-            status: precheckData.data.status,
           },
         };
       }
