@@ -392,11 +392,19 @@ export async function cleanupPrototypeS3Objects(
 export async function deletePrototypeThumbnailFromSupabaseStorage(
   supabase: SupabaseClient<Database>,
   prototypeId: string,
+  log2: SystemLogger,
 ): Promise<boolean> {
   const removeResult = await supabase.storage
     .from('prototype-thumbnails')
     .remove([`${prototypeId}.png`]);
-  return removeResult.error ? false : true;
+  if (removeResult.error) {
+    log2.error(
+      removeResult.error,
+      '[deletePrototypeThumbnailFromSupabaseStorage] Supabase error',
+    );
+    return false;
+  }
+  return true;
 }
 
 /**

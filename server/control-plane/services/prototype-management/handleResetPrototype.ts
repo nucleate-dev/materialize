@@ -58,7 +58,11 @@ export default async function handleResetPrototypeImpl(
     await Promise.allSettled([
       cleanupPrototypeS3Objects(s3Client, prototype_id, request.log2),
       deletePrototypeAssetsFromStorage(prototype_id, request.log2),
-      deletePrototypeThumbnailFromSupabaseStorage(supabase, prototype_id),
+      deletePrototypeThumbnailFromSupabaseStorage(
+        supabase,
+        prototype_id,
+        request.log2,
+      ),
       supabase.from('prototypes').delete().eq('id', prototype_id), // cascade delete everything relevant
     ]);
 
