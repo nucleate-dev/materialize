@@ -134,7 +134,7 @@ export async function handleCreatePrototypeImpl(
           request.log2,
         );
       } else {
-        await createNewPrototype(
+        await copyAllDefaultsForNewPrototype(
           supabase,
           s3Client,
           newPrototypeId,
@@ -182,171 +182,171 @@ export async function handleCreatePrototypeImpl(
     reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return errorResponse;
   }
+}
 
-  /**
-   * Helper function to fork an existing prototype
-   */
-  async function forkPrototype(
-    supabase: SupabaseClient<Database>,
-    s3Client: S3Client,
-    sourcePrototypeId: string,
-    newPrototypeId: string,
-    log2: SystemLogger,
-  ): Promise<void> {
-    // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
-    const [filesResult, assetsResult, s3CopyResult, thumbnailCopyResult] =
-      await Promise.all([
-        supabase
-          .from('prototype_files')
-          .select('*')
-          .eq('prototype_id', sourcePrototypeId),
-        supabase
-          .from('prototype_assets')
-          .select('*')
-          .eq('prototype_id', sourcePrototypeId),
-        copyS3BucketContentsVersioned(
-          s3Client,
-          sourcePrototypeId,
-          newPrototypeId,
-          log2,
-        ),
-        copyPrototypeThumbnailInSupabaseStorage(
-          supabase,
-          sourcePrototypeId,
-          newPrototypeId,
-        ),
-      ]);
-    if (
-      filesResult.error ||
-      assetsResult.error ||
-      !s3CopyResult.success ||
-      !thumbnailCopyResult.success
-    ) {
-      log2.error(
-        filesResult.error,
-        '[forkPrototype] Failed to copy prototype storage items or fetch prototype files+assets',
-      );
-      throw new Error(
-        filesResult.error?.message ||
-          assetsResult.error?.message ||
-          thumbnailCopyResult.error ||
-          s3CopyResult.error ||
-          'Failed copy operations or fetching protototype files+assets',
-      );
-    }
-
-    const [filesInsertResult, assetsInsertResult, assetsStorageCopyResult] =
-      await Promise.all([
-        supabase.from('prototype_files').insert(
-          filesResult.data.map(
-            (file) =>
-              ({
-                prototype_id: newPrototypeId,
-                name: file.name,
-                contents: file.contents,
-              } as PrototypeFileInsert),
-          ),
-        ),
-        supabase.from('prototype_assets').insert(
-          assetsResult.data.map(
-            (asset) =>
-              ({
-                prototype_id: newPrototypeId,
-                name: asset.name,
-                storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
-              } as PrototypeAssetInsert),
-          ),
-        ),
-        copyAllAssetsInSupabaseStorage(
-          supabase,
-          assetsResult.data,
-          sourcePrototypeId,
-          newPrototypeId,
-        ),
-      ]);
-    if (
-      filesInsertResult.error ||
-      assetsInsertResult.error ||
-      !assetsStorageCopyResult.success
-    ) {
-      log2.error(
-        filesInsertResult.error ||
-          assetsInsertResult.error ||
-          assetsStorageCopyResult.error,
-        '[forkPrototype] Failed to insert files or assets',
-      );
-      throw new Error(
-        `Failed to copy prototype files or assets: ${
-          filesInsertResult.error?.message || assetsInsertResult.error?.message
-        }`,
-      );
-    }
-  }
-
-  /**
-   * Helper function to create a new prototype with default files
-   */
-  async function createNewPrototype(
-    supabase: SupabaseClient<Database>,
-    s3Client: S3Client,
-    newPrototypeId: string,
-    log2: SystemLogger,
-  ): Promise<void> {
-    // Get default app files from S3 raw files
-    const [defaultFilesResult, s3CopyResult] = await Promise.all([
-      getDefaultAppFilesFromS3(s3Client, newPrototypeId, log2),
-      copyDefaultAppToVersionedPrototype(s3Client, newPrototypeId, log2),
-      // TODO @sourish: create a default app thumbnail to copy to new prototype
-    ]);
-    if (!defaultFilesResult.success || !s3CopyResult.success) {
-      log2.error(
-        defaultFilesResult.error || s3CopyResult.error,
-        '[createNewPrototype] Failed to get default files from S3',
-      );
-      throw new Error(
-        `Failed to get default files from S3: ${
-          defaultFilesResult.error || s3CopyResult.error
-        }`,
-      );
-    }
-
-    const [
-      filesInsertResult,
-      assetsInsertResult,
-      supabaseStorageAssetUploadResult,
-    ] = await Promise.all([
-      supabase.from('prototype_files').insert(defaultFilesResult.files ?? []),
-      supabase.from('prototype_assets').insert(
-        (defaultFilesResult.assets ?? []).map((asset) => ({
-          prototype_id: asset.prototype_id,
-          name: asset.name,
-          storage_url: '',
-        })),
-      ),
-      uploadDefaultAssetsToSupabaseStorage(
-        supabase,
-        defaultFilesResult.assets ?? [],
+/**
+ * Helper function to fork an existing prototype
+ */
+async function forkPrototype(
+  supabase: SupabaseClient<Database>,
+  s3Client: S3Client,
+  sourcePrototypeId: string,
+  newPrototypeId: string,
+  log2: SystemLogger,
+): Promise<void> {
+  // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
+  const [filesResult, assetsResult, s3CopyResult, thumbnailCopyResult] =
+    await Promise.all([
+      supabase
+        .from('prototype_files')
+        .select('*')
+        .eq('prototype_id', sourcePrototypeId),
+      supabase
+        .from('prototype_assets')
+        .select('*')
+        .eq('prototype_id', sourcePrototypeId),
+      copyS3BucketContentsVersioned(
+        s3Client,
+        sourcePrototypeId,
+        newPrototypeId,
         log2,
       ),
+      copyPrototypeThumbnailInSupabaseStorage(
+        supabase,
+        sourcePrototypeId,
+        newPrototypeId,
+      ),
     ]);
-    if (
+  if (
+    filesResult.error ||
+    assetsResult.error ||
+    !s3CopyResult.success ||
+    !thumbnailCopyResult.success
+  ) {
+    log2.error(
+      filesResult.error,
+      '[forkPrototype] Failed to copy prototype storage items or fetch prototype files+assets',
+    );
+    throw new Error(
+      filesResult.error?.message ||
+        assetsResult.error?.message ||
+        thumbnailCopyResult.error ||
+        s3CopyResult.error ||
+        'Failed copy operations or fetching protototype files+assets',
+    );
+  }
+
+  const [filesInsertResult, assetsInsertResult, assetsStorageCopyResult] =
+    await Promise.all([
+      supabase.from('prototype_files').insert(
+        filesResult.data.map(
+          (file) =>
+            ({
+              prototype_id: newPrototypeId,
+              name: file.name,
+              contents: file.contents,
+            } as PrototypeFileInsert),
+        ),
+      ),
+      supabase.from('prototype_assets').insert(
+        assetsResult.data.map(
+          (asset) =>
+            ({
+              prototype_id: newPrototypeId,
+              name: asset.name,
+              storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
+            } as PrototypeAssetInsert),
+        ),
+      ),
+      copyAllAssetsInSupabaseStorage(
+        supabase,
+        assetsResult.data,
+        sourcePrototypeId,
+        newPrototypeId,
+      ),
+    ]);
+  if (
+    filesInsertResult.error ||
+    assetsInsertResult.error ||
+    !assetsStorageCopyResult.success
+  ) {
+    log2.error(
       filesInsertResult.error ||
-      assetsInsertResult.error ||
-      !supabaseStorageAssetUploadResult.success
-    ) {
-      log2.error(
-        filesInsertResult.error ||
-          assetsInsertResult.error ||
-          supabaseStorageAssetUploadResult.error,
-        '[createNewPrototype] Failed to insert default files or assets',
-      );
-      throw new Error(
-        `Failed to insert default files or assets: ${
-          filesInsertResult.error?.message ||
-          assetsInsertResult.error?.message ||
-          supabaseStorageAssetUploadResult.error
-        }`,
-      );
-    }
+        assetsInsertResult.error ||
+        assetsStorageCopyResult.error,
+      '[forkPrototype] Failed to insert files or assets',
+    );
+    throw new Error(
+      `Failed to copy prototype files or assets: ${
+        filesInsertResult.error?.message || assetsInsertResult.error?.message
+      }`,
+    );
+  }
+}
+
+/**
+ * Helper function to create a new prototype with default files
+ */
+export async function copyAllDefaultsForNewPrototype(
+  supabase: SupabaseClient<Database>,
+  s3Client: S3Client,
+  newPrototypeId: string,
+  log2: SystemLogger,
+): Promise<void> {
+  // Get default app files from S3 raw files
+  const [defaultFilesResult, s3CopyResult] = await Promise.all([
+    getDefaultAppFilesFromS3(s3Client, newPrototypeId, log2),
+    copyDefaultAppToVersionedPrototype(s3Client, newPrototypeId, log2),
+    // TODO @sourish: create a default app thumbnail to copy to new prototype
+  ]);
+  if (!defaultFilesResult.success || !s3CopyResult.success) {
+    log2.error(
+      defaultFilesResult.error || s3CopyResult.error,
+      '[createNewPrototype] Failed to get default files from S3',
+    );
+    throw new Error(
+      `Failed to get default files from S3: ${
+        defaultFilesResult.error || s3CopyResult.error
+      }`,
+    );
+  }
+
+  const [
+    filesInsertResult,
+    assetsInsertResult,
+    supabaseStorageAssetUploadResult,
+  ] = await Promise.all([
+    supabase.from('prototype_files').insert(defaultFilesResult.files ?? []),
+    supabase.from('prototype_assets').insert(
+      (defaultFilesResult.assets ?? []).map((asset) => ({
+        prototype_id: asset.prototype_id,
+        name: asset.name,
+        storage_url: '',
+      })),
+    ),
+    uploadDefaultAssetsToSupabaseStorage(
+      supabase,
+      defaultFilesResult.assets ?? [],
+      log2,
+    ),
+  ]);
+  if (
+    filesInsertResult.error ||
+    assetsInsertResult.error ||
+    !supabaseStorageAssetUploadResult.success
+  ) {
+    log2.error(
+      filesInsertResult.error ||
+        assetsInsertResult.error ||
+        supabaseStorageAssetUploadResult.error,
+      '[createNewPrototype] Failed to insert default files or assets',
+    );
+    throw new Error(
+      `Failed to insert default files or assets: ${
+        filesInsertResult.error?.message ||
+        assetsInsertResult.error?.message ||
+        supabaseStorageAssetUploadResult.error
+      }`,
+    );
   }
 }
