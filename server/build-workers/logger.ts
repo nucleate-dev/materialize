@@ -52,7 +52,7 @@ class Logger {
     return this.levels[level] >= this.levels[this.config.level];
   }
 
-  private formatMessage(level: LogLevel, args: any[]): string {
+  private formatMessage(level: LogLevel, args: unknown[]): string {
     const timestamp = this.config.includeTimestamp
       ? new Date().toISOString()
       : null;
@@ -90,7 +90,7 @@ class Logger {
     }
   }
 
-  private log(level: LogLevel, ...args: any[]): void {
+  private log(level: LogLevel, ...args: unknown[]): void {
     if (!this.shouldLog(level)) return;
 
     const message = this.formatMessage(level, args);
@@ -117,26 +117,26 @@ class Logger {
     }
   }
 
-  debug(...args: any[]): void {
+  debug(...args: unknown[]): void {
     this.log("debug", ...args);
   }
 
-  info(...args: any[]): void {
+  info(...args: unknown[]): void {
     this.log("info", ...args);
   }
 
-  warn(...args: any[]): void {
+  warn(...args: unknown[]): void {
     this.log("warn", ...args);
   }
 
-  error(...args: any[]): void {
+  error(...args: unknown[]): void {
     this.log("error", ...args);
   }
 }
 
 export const logger = new Logger();
 
-export function customlog(logType: LogLevel, ...logArgs: any[]): void {
+export function customlog(logType: LogLevel, ...logArgs: unknown[]): void {
   logger[logType](...logArgs);
 }
 

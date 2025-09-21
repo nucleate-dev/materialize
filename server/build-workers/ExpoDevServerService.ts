@@ -215,7 +215,7 @@ export class ExpoDevServerService {
         // Remove existing directory if it exists
         try {
           await fs.rm(projectDir, { recursive: true, force: true });
-        } catch (error: any) {
+        } catch (error: unknown) {
           customlog(
             "debug",
             "Directory removal failed (expected for new projects):",
@@ -233,12 +233,14 @@ export class ExpoDevServerService {
             buildErrors,
             buildWarnings,
           );
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : undefined;
           customlog(
             "error",
             "Dependency installation failed for complete scope:",
-            error.message,
-            error.stack,
+            errorMessage,
+            errorStack,
           );
           buildErrors.push({
             message: `Dependency installation failed: ${error.message}`,
@@ -266,12 +268,14 @@ export class ExpoDevServerService {
       // Start Expo dev server and wait for tunnel URL
       try {
         await this.startExpoProcess(this.state.projectDir, this.state.port);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
         customlog(
           "error",
           "Failed to start Expo process:",
-          error.message,
-          error.stack,
+          errorMessage,
+          errorStack,
         );
         this.state.devServerStatus = DevServerStatus.ERROR;
         this.state.error = error.message;
@@ -297,12 +301,14 @@ export class ExpoDevServerService {
         build_errors: buildErrors,
         build_warnings: buildWarnings,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       customlog(
         "error",
         "Internal server error in startDevServer:",
-        error.message,
-        error.stack,
+        errorMessage,
+        errorStack,
       );
       this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = error.message;
@@ -400,7 +406,7 @@ export class ExpoDevServerService {
         }
       }, 60000); // 60 second timeout
 
-      const processOutput = (data: Buffer, source: string) => {
+      const processOutput = (data: Buffer, source: string): void => {
         const output = data.toString();
         this.state.addLog(`Expo ${source}: ${output.trim()}`);
 
@@ -585,10 +591,11 @@ export class ExpoDevServerService {
     try {
       await this.startExpoProcess(projectDir, port);
       this.state.addLog("Dev server restarted successfully");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.state.devServerStatus = DevServerStatus.ERROR;
-      this.state.error = error.message;
-      this.state.addLog(`Failed to restart dev server: ${error.message}`);
+      this.state.error = errorMessage;
+      this.state.addLog(`Failed to restart dev server: ${errorMessage}`);
       throw error;
     }
   }
@@ -598,12 +605,13 @@ export class ExpoDevServerService {
       try {
         await fs.rm(this.state.projectDir, { recursive: true, force: true });
         this.state.addLog("Cleaned up project directory");
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         customlog(
           "warn",
           "Failed to cleanup project directory:",
           this.state.projectDir,
-          error.message,
+          errorMessage,
         );
         this.state.addLog(
           `Failed to cleanup project directory: ${error.message}`,
@@ -658,7 +666,11 @@ export class ExpoDevServerService {
     }
   }
 
-  createLogger(buildId: string) {
+  createLogger(buildId: string): {
+    log: (step: string, success?: boolean, output?: string, error?: string) => void;
+    getBuildLog: () => BuildLogEntry[];
+    getElapsedTime: () => number;
+  } {
     const buildLog: BuildLogEntry[] = [];
     const startTime = Date.now();
 
@@ -668,7 +680,7 @@ export class ExpoDevServerService {
         success: boolean = true,
         output: string = "",
         error: string = "",
-      ) => {
+      ): void => {
         const entry: BuildLogEntry = {
           step,
           success,
@@ -690,15 +702,15 @@ export class ExpoDevServerService {
           console.log(`[${timestamp}] [${buildId}] Output: ${output}`);
         if (error) console.error(`[${timestamp}] [${buildId}] Error: ${error}`);
       },
-      getBuildLog: () => buildLog,
-      getElapsedTime: () => Date.now() - startTime,
+      getBuildLog: (): BuildLogEntry[] => buildLog,
+      getElapsedTime: (): number => Date.now() - startTime,
     };
   }
 
   async buildProjectCore(
     prototype_id: string,
-    files: any[],
-    assets: any[],
+    files: PrototypeFileInput[],
+    assets: PrototypeAssetInputWithContent[],
     buildId?: string,
   ): Promise<BuildResponse> {
     const actualBuildId = buildId || uuidv4();
@@ -774,8 +786,9 @@ export class ExpoDevServerService {
         buildLog: logger.getBuildLog(),
         outputPath,
       };
-    } catch (error: any) {
-      logger.log("Build failed", false, "", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.log("Build failed", false, "", errorMessage);
       return {
         success: false,
         error: error.message,
@@ -829,8 +842,9 @@ export class ExpoDevServerService {
         buildUrl,
         uploadedFiles,
       };
-    } catch (error: any) {
-      logger.log("Deploy failed", false, "", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.log("Deploy failed", false, "", errorMessage);
       return {
         success: false,
         error: error.message,
@@ -912,8 +926,9 @@ export class ExpoDevServerService {
         buildLog: logger.getBuildLog(),
         uploadedFiles,
       };
-    } catch (error: any) {
-      logger.log("Build and deploy failed", false, "", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.log("Build and deploy failed", false, "", errorMessage);
       // Clear operation state on error
       this.state.clearOperation();
 
@@ -949,7 +964,7 @@ export class ExpoDevServerService {
   ): Promise<void> {
     // Create a simple logger that captures output
     const logger = {
-      addLog: (message: string) => {
+      addLog: (message: string): void => {
         this.state.addLog(message);
       },
       log: (
@@ -957,14 +972,14 @@ export class ExpoDevServerService {
         success: boolean = true,
         output: string = "",
         error: string = "",
-      ) => {
+      ): void => {
         if (!success) {
           const outputToProcess = error || output || "";
           this.parseNpmOutput(outputToProcess, buildErrors, buildWarnings);
         }
       },
-      getBuildLog: () => [],
-      getElapsedTime: () => 0,
+      getBuildLog: (): BuildLogEntry[] => [],
+      getElapsedTime: (): number => 0,
     };
 
     // Use shared installDependencies function
@@ -1036,14 +1051,15 @@ export class ExpoDevServerService {
           build_warnings: buildWarnings,
         };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       // Project directory doesn't exist - this shouldn't happen in update mode
       const errorMsg = `Project directory does not exist: ${actualProjectDir}. Cannot perform file update.`;
       this.state.addLog(errorMsg);
       customlog("error", "Project directory missing during update:", {
         projectDir: actualProjectDir,
         prototypeId: this.state.prototypeId,
-        error: error.message,
+        error: errorMessage,
       });
       buildErrors.push({
         message: errorMsg,
@@ -1090,12 +1106,14 @@ export class ExpoDevServerService {
           this.state.addLog(
             "Dev server restarted successfully with new dependencies",
           );
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : undefined;
           customlog(
             "error",
             "Dependency update or dev server restart failed for package.json change:",
-            error.message,
-            error.stack,
+            errorMessage,
+            errorStack,
           );
           this.state.addLog(
             `Dependency update or restart failed: ${error.message}`,
@@ -1121,13 +1139,15 @@ export class ExpoDevServerService {
         build_errors: buildErrors,
         build_warnings: buildWarnings,
       };
-    } catch (error: any) {
-      const errorMsg = `Failed to write files to project directory: ${error.message}`;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const errorMsg = `Failed to write files to project directory: ${errorMessage}`;
       customlog(
         "error",
         "File writing failed during update:",
-        error.message,
-        error.stack,
+        errorMessage,
+        errorStack,
       );
       this.state.addLog(errorMsg);
       buildErrors.push({
@@ -1173,7 +1193,7 @@ export class ExpoDevServerService {
       }, timeoutMs);
 
       // Create a temporary data handler to monitor for errors
-      const errorMonitor = (data: Buffer) => {
+      const errorMonitor = (data: Buffer): void => {
         const output = data.toString();
         const beforeErrors = buildErrors.length;
         this.parseMetroErrors(output, buildErrors, buildWarnings);
@@ -1198,7 +1218,7 @@ export class ExpoDevServerService {
       }
 
       // Clean up the monitors after timeout or early resolution
-      const cleanup = () => {
+      const cleanup = (): void => {
         if (this.state.process) {
           this.state.process.stdout?.removeListener("data", errorMonitor);
           this.state.process.stderr?.removeListener("data", errorMonitor);
@@ -1429,7 +1449,7 @@ export class ExpoDevServerService {
       dirPath: string,
       versionedPrefix: string,
       latestPrefix: string,
-    ) => {
+    ): Promise<void> => {
       const items = await fs.readdir(dirPath);
 
       for (const item of items) {
@@ -1630,7 +1650,11 @@ export class ExpoDevServerService {
 
   private async buildExpoProject(
     projectDir: string,
-    logger: any,
+    logger: {
+      log: (step: string, success?: boolean, output?: string, error?: string) => void;
+      getBuildLog: () => BuildLogEntry[];
+      getElapsedTime: () => number;
+    },
   ): Promise<string> {
     logger.log(
       "Building Expo project",

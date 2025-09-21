@@ -27,7 +27,7 @@ class BuildWorkerService {
   }
 
   // Ensure workspace directory exists
-  async ensureWorkspaceDir() {
+  async ensureWorkspaceDir(): Promise<void> {
     try {
       await fs.ensureDir(CONFIG.WORKSPACE_DIR);
       fastify.log.info(`Workspace directory ready: ${CONFIG.WORKSPACE_DIR}`);
@@ -38,12 +38,12 @@ class BuildWorkerService {
   }
 
   // Get prototype directory path
-  getPrototypeDir(prototypeId) {
+  getPrototypeDir(prototypeId: string): string {
     return path.join(CONFIG.WORKSPACE_DIR, prototypeId);
   }
 
   // Write files to prototype directory
-  async writeFiles(prototypeId, files) {
+  async writeFiles(prototypeId: string, files: Record<string, string | Buffer>): Promise<{ success: boolean; filesWritten: number }> {
     const prototypeDir = this.getPrototypeDir(prototypeId);
 
     try {
@@ -79,7 +79,7 @@ class BuildWorkerService {
   }
 
   // Build React Native Web app
-  async buildApp(prototypeId) {
+  async buildApp(prototypeId: string): Promise<{ success: boolean; buildId: string; url?: string; status: string; buildErrors: string[] }> {
     const prototypeDir = this.getPrototypeDir(prototypeId);
     const buildId = uuidv4();
 
@@ -154,7 +154,7 @@ class BuildWorkerService {
   }
 
   // Upload build to S3
-  async uploadBuildToS3(prototypeId, buildId) {
+  async uploadBuildToS3(prototypeId: string, buildId: string): Promise<string> {
     const prototypeDir = this.getPrototypeDir(prototypeId);
     const buildDir = path.join(prototypeDir, "build"); // Adjust based on your build output dir
 
@@ -194,7 +194,7 @@ class BuildWorkerService {
   }
 
   // Create zip archive
-  async createZipArchive(sourceDir, outputPath) {
+  async createZipArchive(sourceDir: string, outputPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const output = fs.createWriteStream(outputPath);
       const archive = archiver("zip", { zlib: { level: 9 } });
@@ -209,7 +209,7 @@ class BuildWorkerService {
   }
 
   // Start Metro bundler
-  async startMetro(prototypeId, port) {
+  async startMetro(prototypeId: string, port: number): Promise<{ success: boolean; url: string; status: string; port: number }> {
     const prototypeDir = this.getPrototypeDir(prototypeId);
 
     // Kill existing metro if running
@@ -288,7 +288,7 @@ class BuildWorkerService {
   }
 
   // Stop Metro bundler
-  async stopMetro(prototypeId) {
+  async stopMetro(prototypeId: string): Promise<{ success: boolean; message: string }> {
     const metroInfo = this.activeMetroServers.get(prototypeId);
 
     if (metroInfo && metroInfo.process) {
@@ -319,7 +319,7 @@ class BuildWorkerService {
   }
 
   // Build and upload (used when stopping metro)
-  async buildAndUpload(prototypeId) {
+  async buildAndUpload(prototypeId: string): Promise<{ success: boolean; buildId: string; url?: string; status: string; buildErrors: string[] }> {
     try {
       const buildResult = await this.buildApp(prototypeId);
       return buildResult;
@@ -330,7 +330,7 @@ class BuildWorkerService {
   }
 
   // Clean up prototype files
-  async cleanupPrototype(prototypeId) {
+  async cleanupPrototype(prototypeId: string): Promise<{ success: boolean; message: string }> {
     const prototypeDir = this.getPrototypeDir(prototypeId);
 
     try {
@@ -358,14 +358,14 @@ class BuildWorkerService {
   }
 
   // Get public IP (for tunnel URL)
-  getPublicIP() {
+  getPublicIP(): string {
     // In production, you might want to get this from EC2 metadata
     // For now, return the private IP or configure this appropriately
     return process.env.WORKER_IP || "localhost";
   }
 
   // Get worker status
-  getStatus() {
+  getStatus(): { activeMetroServers: Array<{ prototypeId: string; port: number; status: string; startedAt: number }>; activeBuilds: string[]; workspaceDir: string } {
     return {
       activeMetroServers: Array.from(this.activeMetroServers.entries()).map(
         ([id, info]) => ({
@@ -463,7 +463,7 @@ fastify.get("/status", async () => {
 });
 
 // Graceful shutdown
-const gracefulShutdown = async () => {
+const gracefulShutdown = async (): Promise<void> => {
   fastify.log.info("Shutting down worker gracefully...");
 
   // Stop all metro servers
@@ -494,7 +494,7 @@ process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
 
 // Start server
-const start = async () => {
+const start = async (): Promise<void> => {
   try {
     await fastify.listen({
       port: process.env.PORT || 3001,
