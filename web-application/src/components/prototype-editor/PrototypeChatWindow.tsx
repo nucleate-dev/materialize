@@ -31,6 +31,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -458,7 +459,6 @@ export default function PrototypeChatWindow({
               "Content-Type": "application/json",
               Accept: "text/event-stream",
               Authorization: `Bearer ${session.session.access_token}`,
-              "Cache-Control": "no-cache",
             },
             body: JSON.stringify(requestBody),
           },
@@ -653,8 +653,10 @@ export default function PrototypeChatWindow({
                   <div className="text-sm font-medium mb-1">
                     {message.role === "user" ? "You" : "Assistant"}
                   </div>
-                  <div className="text-sm whitespace-pre-wrap">
-                    {message.content}
+                  <div className="text-sm prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2">
+                    <ReactMarkdown>
+                      {message.content}
+                    </ReactMarkdown>
                   </div>
                 </div>
               </div>
