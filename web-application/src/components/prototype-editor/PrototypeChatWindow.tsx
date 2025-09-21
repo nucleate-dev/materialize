@@ -2,6 +2,7 @@
 
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -496,7 +496,7 @@ export default function PrototypeChatWindow({
           ...prev,
           {
             role: "assistant",
-            content: "Sorry, I encountered an error. Please make sure your Google AI API key is configured and try again.",
+            content: "Sorry, I encountered an error.",
           },
         ]);
       } finally {
@@ -641,16 +641,14 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                    }`}
                 >
                   <div className="text-sm font-medium mb-1">
                     {message.role === "user" ? "You" : "Assistant"}
