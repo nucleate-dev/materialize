@@ -18,6 +18,7 @@ import {
   deletePrototypeAssetsFromStorage,
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
+  uploadDefaultAssetsToSupabaseStorage,
 } from '../../utils/s3Operations.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -312,7 +313,11 @@ export async function handleCreatePrototypeImpl(
       );
     }
 
-    const [filesInsertResult, assetsInsertResult] = await Promise.all([
+    const [
+      filesInsertResult,
+      assetsInsertResult,
+      supabaseStorageAssetUploadResult,
+    ] = await Promise.all([
       supabase.from('prototype_files').insert(defaultFilesResult.files ?? []),
       supabase.from('prototype_assets').insert(
         (defaultFilesResult.assets ?? []).map((asset) => ({
@@ -321,18 +326,28 @@ export async function handleCreatePrototypeImpl(
           storage_url: '',
         })),
       ),
-      // TODO @sourish: insert assets in supabase storage to new prototype
+      uploadDefaultAssetsToSupabaseStorage(
+        supabase,
+        defaultFilesResult.assets ?? [],
+        log2,
+      ),
     ]);
-    if (filesInsertResult.error || assetsInsertResult.error) {
+    if (
+      filesInsertResult.error ||
+      assetsInsertResult.error ||
+      !supabaseStorageAssetUploadResult.success
+    ) {
       log2.error(
-        filesInsertResult.error || assetsInsertResult.error,
+        filesInsertResult.error ||
+          assetsInsertResult.error ||
+          supabaseStorageAssetUploadResult.error,
         '[createNewPrototype] Failed to insert default files or assets',
       );
       throw new Error(
         `Failed to insert default files or assets: ${
           filesInsertResult.error?.message ||
           assetsInsertResult.error?.message ||
-          s3CopyResult.error
+          supabaseStorageAssetUploadResult.error
         }`,
       );
     }

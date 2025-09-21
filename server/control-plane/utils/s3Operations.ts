@@ -58,52 +58,6 @@ function getContentType(fileName: string): string {
   }
 }
 
-/**
- * Upload binary asset to Supabase Storage
- */
-export async function uploadAssetToSupabaseStorage(
-  prototypeId: string,
-  fileName: string,
-  fileContent: Buffer,
-  log2: SystemLogger,
-): Promise<S3UploadResult> {
-  try {
-    const filePath = `${prototypeId}/${fileName}`;
-
-    const { error } = await supabaseStorage.storage
-      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-      .upload(filePath, fileContent, {
-        contentType: getContentType(fileName),
-        upsert: true,
-      });
-
-    if (error) {
-      log2.error(error, 'Error uploading to Supabase Storage:', {
-        functionName: 'uploadAssetToSupabaseStorage',
-      });
-      return { success: false, error: error.message, publicUrl: null };
-    }
-
-    const { data: publicUrlData } = supabaseStorage.storage
-      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-      .getPublicUrl(filePath);
-
-    return {
-      success: true,
-      publicUrl: publicUrlData.publicUrl,
-    };
-  } catch (error) {
-    log2.error(error, 'Error in uploadAssetToSupabaseStorage:', {
-      functionName: 'uploadAssetToSupabaseStorage',
-    });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      publicUrl: null,
-    };
-  }
-}
-
 export async function copyAllAssetsInSupabaseStorage(
   supabase: SupabaseClient<Database>,
   sourcePrototypeId: string,
@@ -262,32 +216,57 @@ export async function copyDefaultAppToVersionedPrototype(
 ): Promise<S3CopyResult> {
   const sourcePrefix = 'default-app/';
   const version = Date.now().toString();
-
-  // First copy to versioned location
-  const versionedResult = await copyS3BucketContents(
-    s3Client,
-    sourcePrefix,
-    `${prototypeId}/v${version}/`,
-    log2,
-  );
-
-  if (!versionedResult.success) {
-    return versionedResult;
-  }
-
-  // Then copy to latest location
-  const latestResult = await copyS3BucketContents(
-    s3Client,
-    sourcePrefix,
-    `${prototypeId}/latest/`,
-    log2,
-  );
-
+  const [versionedResult, latestResult] = await Promise.all([
+    copyS3BucketContents(
+      s3Client,
+      sourcePrefix,
+      `${prototypeId}/v${version}/`,
+      log2,
+    ),
+    copyS3BucketContents(
+      s3Client,
+      sourcePrefix,
+      `${prototypeId}/latest/`,
+      log2,
+    ),
+  ]);
   return {
-    success: latestResult.success,
-    error: latestResult.error,
-    copiedObjects:
-      versionedResult.copiedObjects + (latestResult.copiedObjects || 0),
+    success: versionedResult.success && latestResult.success,
+    error: versionedResult.error || latestResult.error || undefined,
+    copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+  };
+}
+
+export async function uploadDefaultAssetsToSupabaseStorage(
+  supabase: SupabaseClient<Database>,
+  assets: { name: string; contents: Buffer; prototype_id: string }[],
+  log2: SystemLogger,
+): Promise<S3CopyResult> {
+  const uploadResults = await Promise.all(
+    assets.map(async (asset) => {
+      const filePath = `${asset.prototype_id}/${asset.name}`;
+      const { error } = await supabase.storage
+        .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+        .upload(filePath, asset.contents, {
+          contentType: getContentType(asset.name),
+          upsert: true,
+        });
+      if (error) {
+        log2.error(error, 'Error uploading to Supabase Storage:', {
+          functionName: 'uploadAssetToSupabaseStorage',
+        });
+        return { success: false, error: error.message };
+      }
+
+      return {
+        success: true,
+      };
+    }),
+  );
+  return {
+    success: uploadResults.every((r) => r.success),
+    error: uploadResults.find((r) => !r.success)?.error || undefined,
+    copiedObjects: uploadResults.length,
   };
 }
 
