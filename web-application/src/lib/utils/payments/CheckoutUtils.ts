@@ -4,7 +4,9 @@ import { loadStripe } from "@stripe/stripe-js";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type {
   CheckoutRequestBody,
-  CheckoutResponse,
+  CheckoutSuccessResponse,
+  CheckoutErrorResponse,
+  APIResponse,
 } from "@/lib/types/serverAPITypes";
 
 /**
@@ -99,16 +101,15 @@ export async function handleRedirectToPaymentsPage(
     throw new Error(`Checkout failed: ${errorData.message || "Unknown error"}`);
   }
 
-  const session: CheckoutResponse = await response.json();
+  const result: APIResponse<CheckoutSuccessResponse, CheckoutErrorResponse> = await response.json();
 
   // Handle successful response
-  if ("id" in session && session.id) {
-    await stripe?.redirectToCheckout({ sessionId: session.id });
-  } else {
+  if (result.data) {
+    await stripe?.redirectToCheckout({ sessionId: result.data.id });
+  } else if (result.error) {
     // Handle error response
-    const errorResponse = session as { error: string; message: string };
     throw new Error(
-      `Checkout failed: ${errorResponse.message || errorResponse.error}`,
+      `Checkout failed: ${result.error.message || result.error.error}`,
     );
   }
 }

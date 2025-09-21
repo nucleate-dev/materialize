@@ -155,10 +155,6 @@ export interface CheckoutErrorResponse {
   message: string;
 }
 
-export type CheckoutResponse =
-  | CheckoutSuccessResponse
-  | CheckoutErrorResponse
-  | StandardErrorResponse;
 
 // ============================================================================
 // /payments/manage-billing ENDPOINT

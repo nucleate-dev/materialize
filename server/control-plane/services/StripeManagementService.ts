@@ -3,6 +3,9 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   type ManageBillingRequestBody,
   type CheckoutRequestBody,
+  type CheckoutSuccessResponse,
+  type CheckoutErrorResponse,
+  type APIResponse,
   HTTP_STATUS,
 } from '../types/PublicAPITypes.js';
 import { validateJWTToken } from '../utils/prototypeAuth.js';
@@ -78,15 +81,19 @@ export class StripeManagementService {
   private async handleCheckout(
     request: FastifyRequest<{ Body: CheckoutRequestBody }>,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<APIResponse<CheckoutSuccessResponse, CheckoutErrorResponse>> {
     // Extract JWT token from Authorization header and validate it
     const token = request.headers.authorization?.split(' ')[1] ?? '';
     const user = await validateJWTToken(token, request.log2);
     if (!user) {
       request.log2.warn('Unauthorized user');
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized',
-        message: 'Invalid token',
+        data: null,
+        error: {
+          id: null,
+          error: 'Unauthorized',
+          message: 'Invalid token',
+        },
       });
     }
     // update logger context
@@ -123,14 +130,20 @@ export class StripeManagementService {
       });
 
       return reply.status(HTTP_STATUS.OK).send({
-        id: session.id,
+        data: {
+          id: session.id,
+        },
+        error: null,
       });
     } catch (error) {
       request.log2.error(error, 'Exception creating checkout session');
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        id: null,
-        error: 'Checkout session creation failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        data: null,
+        error: {
+          id: null,
+          error: 'Checkout session creation failed',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
   }

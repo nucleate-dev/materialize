@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-21T09:26:17.270Z
+// Last synced: 2025-09-21T09:31:19.297Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -164,10 +164,6 @@ export interface CheckoutErrorResponse {
   message: string;
 }
 
-export type CheckoutResponse =
-  | CheckoutSuccessResponse
-  | CheckoutErrorResponse
-  | StandardErrorResponse;
 
 // ============================================================================
 // /payments/manage-billing ENDPOINT
