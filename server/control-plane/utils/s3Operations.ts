@@ -416,36 +416,60 @@ export async function deletePrototypeAssetsFromStorage(
   log2: SystemLogger,
 ): Promise<boolean> {
   try {
-    const { data: files, error: listError } = await supabase.storage
-      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-      .list(prototypeId);
-    if (listError) {
-      log2.error(
-        listError,
-        '[deletePrototypeAssetsFromStorage] Supabase error: ' +
-          listError.message,
-      );
-      return false;
-    }
-    if (!files || files.length === 0) {
+    // Recursively list all files with the prototypeId prefix
+    const allFiles: string[] = [];
+    const listFilesRecursively = async (path: string = ''): Promise<void> => {
+      const { data: items, error: listError } = await supabase.storage
+        .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+        .list(path);
+      if (listError) {
+        throw listError;
+      }
+      if (!items || items.length === 0) {
+        return;
+      }
+      for (const item of items) {
+        const fullPath = path ? `${path}/${item.name}` : item.name;
+        if (item.metadata) {
+          // If it's a file (not a folder), add it to our list
+          allFiles.push(fullPath);
+        } else {
+          // If it's a folder, recurse into it
+          await listFilesRecursively(fullPath);
+        }
+      }
+    };
+    await listFilesRecursively(prototypeId);
+
+    if (allFiles.length === 0) {
       log2.info('[deletePrototypeAssetsFromStorage] No files found');
       return true;
     }
 
-    const filePaths = files.map((file) => `${prototypeId}/${file.name}`);
     log2.consoleLogDevOnly('info', 'Deleting files from Supabase Storage', {
-      filePaths,
+      filePaths: allFiles,
+      totalFiles: allFiles.length,
     });
-    const { error: deleteError } = await supabase.storage
-      .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-      .remove(filePaths);
-    if (deleteError) {
-      log2.error(
-        deleteError,
-        '[deletePrototypeAssetsFromStorage] Supabase error',
-      );
-      return false;
+
+    // Delete files in batches (Supabase has limits on bulk operations)
+    const batchSize = 100;
+    for (let i = 0; i < allFiles.length; i += batchSize) {
+      const batch = allFiles.slice(i, i + batchSize);
+      const { error: deleteError } = await supabase.storage
+        .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
+        .remove(batch);
+
+      if (deleteError) {
+        log2.error(
+          deleteError,
+          `[deletePrototypeAssetsFromStorage] Supabase error deleting batch ${
+            i / batchSize + 1
+          }`,
+        );
+        return false;
+      }
     }
+
     return true;
   } catch (error) {
     log2.error(error, '[deletePrototypeAssetsFromStorage] Error');
