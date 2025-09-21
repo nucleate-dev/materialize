@@ -2,6 +2,8 @@ import Stripe from 'stripe';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   type ManageBillingRequestBody,
+  type ManageBillingSuccessResponse,
+  type ManageBillingErrorResponse,
   type CheckoutRequestBody,
   type CheckoutSuccessResponse,
   type CheckoutErrorResponse,
@@ -190,15 +192,18 @@ export class StripeManagementService {
   private async handleManageBilling(
     request: FastifyRequest<{ Body: ManageBillingRequestBody }>,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse>> {
     // Extract JWT token from Authorization header
     const token = request.headers.authorization?.split(' ')[1] ?? '';
     const user = await validateJWTToken(token, request.log2);
     if (!user) {
       request.log2.warn('Unauthorized user');
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized',
-        message: 'Invalid token',
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'Invalid token',
+        },
       });
     }
     // update logger context
@@ -219,17 +224,23 @@ export class StripeManagementService {
         return_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
       });
 
-      return reply.send({
-        redirect_url: session.url,
+      return reply.status(HTTP_STATUS.OK).send({
+        data: {
+          redirect_url: session.url,
+        },
+        error: null,
       });
     } catch (error) {
       request.log2.error(
         error,
         '[handleManageBilling] Could not create stripe billing portal session:',
       );
-      return reply.status(500).send({
-        error: 'Internal Server Error',
-        message: 'Could not create stripe billing portal session',
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: 'Could not create stripe billing portal session',
+        },
       });
     }
   }

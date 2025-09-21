@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-21T09:31:19.297Z
+// Last synced: 2025-09-21T09:33:34.725Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -177,9 +177,10 @@ export interface ManageBillingSuccessResponse {
   redirect_url: string;
 }
 
-export type ManageBillingResponse =
-  | ManageBillingSuccessResponse
-  | StandardErrorResponse;
+export interface ManageBillingErrorResponse {
+  error: string;
+  message: string;
+}
 
 // ============================================================================
 // HTTP STATUS CODE MAPPINGS

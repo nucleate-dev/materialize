@@ -168,9 +168,10 @@ export interface ManageBillingSuccessResponse {
   redirect_url: string;
 }
 
-export type ManageBillingResponse =
-  | ManageBillingSuccessResponse
-  | StandardErrorResponse;
+export interface ManageBillingErrorResponse {
+  error: string;
+  message: string;
+}
 
 // ============================================================================
 // HTTP STATUS CODE MAPPINGS
