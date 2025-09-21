@@ -710,15 +710,21 @@ export class ExpoDevServerService {
 
         const elapsed = Date.now() - startTime;
         const elapsedStr = `${Math.floor(elapsed / 1000)}s`;
-        const status = success ? "✓" : "✗";
         const timestamp = new Date().toLocaleTimeString();
 
-        console.log(
-          `[${timestamp}] [${buildId}] ${status} ${step} (${elapsedStr})`
-        );
-        if (output)
-          console.log(`[${timestamp}] [${buildId}] Output: ${output}`);
-        if (error) console.error(`[${timestamp}] [${buildId}] Error: ${error}`);
+        this.log2.info("Build step completed", {
+          buildId,
+          step,
+          success,
+          elapsed: elapsedStr,
+          timestamp,
+        });
+        if (output) {
+          this.log2.debug("Build step output", { buildId, step, output });
+        }
+        if (error) {
+          this.log2.error(new Error(error), "Build step error", { buildId, step });
+        }
       },
       getBuildLog: (): BuildLogEntry[] => buildLog,
       getElapsedTime: (): number => Date.now() - startTime,
@@ -1485,7 +1491,7 @@ export class ExpoDevServerService {
           const fileContent = await fs.readFile(fullPath);
 
           if (!fileContent || fileContent.length === 0) {
-            console.warn(`Skipping empty file: ${item}`);
+            this.log2.warn("Skipping empty file during upload", { fileName: item });
             continue;
           }
 
@@ -1558,9 +1564,10 @@ export class ExpoDevServerService {
 
       const objects = await this.s3.send(listCommand);
       if (objects.Contents && objects.Contents.length > 0) {
-        console.log(
-          `Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`
-        );
+        this.log2.info("Deleting existing S3 objects", {
+          count: objects.Contents.length,
+          prefix,
+        });
 
         const deleteCommand = new DeleteObjectsCommand({
           Bucket: this.S3_BUCKET,
@@ -1569,15 +1576,18 @@ export class ExpoDevServerService {
           },
         });
         await this.s3.send(deleteCommand);
-        console.log(`Successfully deleted ${objects.Contents.length} objects`);
+        this.log2.info("Successfully deleted S3 objects", {
+          count: objects.Contents.length,
+        });
       } else {
-        console.log(`No existing objects found with prefix: ${prefix}`);
+        this.log2.debug("No existing S3 objects found", { prefix });
       }
     } catch (error) {
-      console.error(
-        `Failed to delete S3 objects with prefix ${prefix}:`,
-        error
-      );
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.log2.warn("Failed to delete S3 objects", {
+        prefix,
+        error: errorMessage,
+      });
       // Don't throw - continue with upload even if delete fails
     }
   }
@@ -1623,7 +1633,10 @@ export class ExpoDevServerService {
         const output = data.toString();
         stdout += output;
         // Log real-time output
-        console.log(`[STDOUT] ${output.trim()}`);
+        this.log2.debug("Command stdout", {
+          command,
+          output: output.trim(),
+        });
       });
 
       // Handle stderr
@@ -1631,7 +1644,10 @@ export class ExpoDevServerService {
         const output = data.toString();
         stderr += output;
         // Log real-time output
-        console.error(`[STDERR] ${output.trim()}`);
+        this.log2.debug("Command stderr", {
+          command,
+          output: output.trim(),
+        });
       });
 
       // Handle process exit
@@ -1712,10 +1728,10 @@ export class ExpoDevServerService {
       true,
       "Running: npx expo export --platform web"
     );
-    console.log(
-      "Running: npx expo export --platform web with projectDir: ",
-      projectDir
-    );
+    this.log2.info("Running Expo export command", {
+      command: "npx expo export --platform web",
+      projectDir,
+    });
     const result = await this.runCommand(
       "npx",
       ["expo", "export", "--platform", "web"],
