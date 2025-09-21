@@ -350,13 +350,31 @@ export default function ChatTestPage() {
                       break;
 
                     case "tool_call":
-                      // Show that a tool is being called
-                      console.log("Tool called:", (event as any).tool);
+                      // Show that a tool is being called as a chat message
+                      const toolName = (event as any).tool || (event as any).toolName || 'Unknown tool';
+                      setMessages(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last?.role === 'assistant') {
+                          const copy = [...prev];
+                          copy[copy.length - 1] = { ...last, content: `🔧 **Using ${toolName}**...` };
+                          return copy;
+                        }
+                        return [...prev, { role: 'assistant', content: `🔧 **Using ${toolName}**...` }];
+                      });
                       break;
 
                     case "tool_result":
-                      // Show tool result (could display this to user if desired)
-                      console.log("Tool result:", (event as any).tool, (event as any).result);
+                      // Show tool completion in chat
+                      const toolName2 = (event as any).tool || (event as any).toolName || 'Tool';
+                      setMessages(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last?.role === 'assistant' && last.content.includes('🔧')) {
+                          const copy = [...prev];
+                          copy[copy.length - 1] = { ...last, content: `✅ **${toolName2}** completed` };
+                          return copy;
+                        }
+                        return prev;
+                      });
                       break;
 
                     case "chat_complete":
@@ -367,6 +385,35 @@ export default function ChatTestPage() {
                     case "usage_update":
                       // Handle usage update if needed
                       console.log("Usage update:", event);
+                      break;
+
+                    case "execution_plan_created":
+                      // Show execution plan in chat
+                      const plan = (event as any).result?.plan;
+                      if (plan && Array.isArray(plan)) {
+                        setMessages(prev => [
+                          ...prev,
+                          {
+                            role: 'assistant',
+                            content: `📋 **Execution Plan Created:**\n${plan.map((step, i) => `${i + 1}. ${step}`).join('\n')}`,
+                          },
+                        ]);
+                      }
+                      break;
+
+                    case "step_completed":
+                      // Show step completion in chat
+                      const stepNum = (event as any).result?.step;
+                      const summary = (event as any).result?.summary;
+                      if (stepNum && summary) {
+                        setMessages(prev => [
+                          ...prev,
+                          {
+                            role: 'assistant',
+                            content: `✅ **Step ${stepNum} Complete:** ${summary}`,
+                          },
+                        ]);
+                      }
                       break;
 
                     case "error":
