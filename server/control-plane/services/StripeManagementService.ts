@@ -192,7 +192,9 @@ export class StripeManagementService {
   private async handleManageBilling(
     request: FastifyRequest<{ Body: ManageBillingRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse>> {
+  ): Promise<
+    APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse>
+  > {
     // Extract JWT token from Authorization header
     const token = request.headers.authorization?.split(' ')[1] ?? '';
     const user = await validateJWTToken(token, request.log2);

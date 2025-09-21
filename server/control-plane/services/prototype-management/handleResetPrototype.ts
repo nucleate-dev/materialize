@@ -1,7 +1,9 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
+  APIResponse,
   DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
+  DispatchPrecheckSuccessResponse,
+  DispatchPrecheckErrorResponse,
   DispatchRequestBody,
   HTTP_STATUS,
 } from '../../types/PublicAPITypes.js';
@@ -114,11 +116,12 @@ export default async function handleResetPrototypeImpl(
       } as DispatchPrecheckRequestBody,
     });
 
-    const precheckData: DispatchPrecheckResponse = precheckResponse.json();
+    const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = precheckResponse.json();
     if (
       precheckResponse.statusCode !== 200 ||
-      !('success' in precheckData) ||
-      !isEditableDevServer(precheckData.status)
+      !precheckData.data ||
+      !precheckData.data.success ||
+      !isEditableDevServer(precheckData.data.status)
     ) {
       request.log2.warn(
         'Failed to check dev server status, but reset was successful',

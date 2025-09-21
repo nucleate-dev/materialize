@@ -2,7 +2,8 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
   DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
+  DispatchPrecheckSuccessResponse,
+  DispatchPrecheckErrorResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlSuccessResponse,
   HTTP_STATUS,
@@ -61,17 +62,17 @@ export default async function handleFetchViewingUrlImpl(
         });
 
         if (precheckResponse.statusCode === 200) {
-          const precheckData: DispatchPrecheckResponse =
+          const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> =
             precheckResponse.json();
 
           // Type guard to check if it's a success response
           if (
-            'success' in precheckData &&
-            precheckData.success &&
-            precheckData.viewing_url
+            precheckData.data &&
+            precheckData.data.success &&
+            precheckData.data.viewing_url
           ) {
-            const isEditable = isEditableDevServer(precheckData.status);
-            let staticViewingUrl = precheckData.viewing_url;
+            const isEditable = isEditableDevServer(precheckData.data.status);
+            let staticViewingUrl = precheckData.data.viewing_url;
             if (
               !isEditable &&
               token &&
@@ -83,7 +84,7 @@ export default async function handleFetchViewingUrlImpl(
             const successResponse: FetchViewingUrlSuccessResponse = {
               viewing_url: staticViewingUrl,
               source: isEditable ? 'editable_instance' : 'static_build',
-              status: precheckData.status,
+              status: precheckData.data.status,
             };
             return reply.status(HTTP_STATUS.OK).send({
               data: successResponse,

@@ -10,8 +10,10 @@ import type {
   APIResponse,
   DispatchRequestBody,
   DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
-  DispatchResponse,
+  DispatchPrecheckSuccessResponse,
+  DispatchPrecheckErrorResponse,
+  DispatchSuccessResponse,
+  DispatchErrorResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
@@ -182,7 +184,7 @@ export class DevelopmentServerService {
         });
       }
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(
+      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
         precheckResponse.payload,
       );
       request.log2.consoleLogDevOnly(
@@ -193,8 +195,8 @@ export class DevelopmentServerService {
 
       // 3. Check if build is already in progress
       if (
-        'status' in precheckData &&
-        isDispatchInProgress(precheckData.status)
+        precheckData.data &&
+        isDispatchInProgress(precheckData.data.status)
       ) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
@@ -208,8 +210,8 @@ export class DevelopmentServerService {
 
       // 4. Check if there's an active dev server to update
       if (
-        'success' in precheckData &&
-        !isEditableDevServer(precheckData.status)
+        precheckData.data &&
+        !isEditableDevServer(precheckData.data.status)
       ) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
@@ -261,7 +263,7 @@ export class DevelopmentServerService {
         });
       }
 
-      const dispatchData: DispatchResponse = JSON.parse(
+      const dispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(
         dispatchResponse.payload,
       );
 
@@ -272,14 +274,14 @@ export class DevelopmentServerService {
       );
 
       // 6. Return success response with viewing URL
-      if ('status' in dispatchData && dispatchData.status === 'success') {
+      if (dispatchData.data && dispatchData.data.status === 'success') {
         return reply.status(HTTP_STATUS.OK).send({
           data: {
             success: true,
-            status: dispatchData.status,
-            viewing_url: dispatchData.viewing_url,
-            build_errors: dispatchData.build_errors || [],
-            build_warnings: dispatchData.build_warnings || [],
+            status: dispatchData.data.status,
+            viewing_url: dispatchData.data.viewing_url,
+            build_errors: dispatchData.data.build_errors || [],
+            build_warnings: dispatchData.data.build_warnings || [],
             message: 'Files updated successfully in dev server',
           } as UpdateFilesSuccessResponse,
           error: null,
@@ -290,16 +292,9 @@ export class DevelopmentServerService {
           data: null,
           error: {
             error: 'File update failed',
-            message:
-              'error' in dispatchData
-                ? dispatchData.error
-                : 'Unknown file update error',
-            build_errors:
-              'build_errors' in dispatchData ? dispatchData.build_errors : [],
-            build_warnings:
-              'build_warnings' in dispatchData
-                ? dispatchData.build_warnings
-                : [],
+            message: 'File update failed',
+            build_errors: [],
+            build_warnings: [],
           } as UpdateFilesErrorResponse,
         });
       }
@@ -413,7 +408,7 @@ export class DevelopmentServerService {
         };
       }
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(
+      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
         precheckResponse.payload,
       );
       request.log2.consoleLogDevOnly(
@@ -424,8 +419,8 @@ export class DevelopmentServerService {
 
       // 3. Check if dev server already exists
       if (
-        'status' in precheckData &&
-        isEditableDevServer(precheckData.status)
+        precheckData.data &&
+        isEditableDevServer(precheckData.data.status)
       ) {
         request.log2.consoleLogDevOnly(
           'info',
@@ -478,7 +473,7 @@ export class DevelopmentServerService {
         };
       }
 
-      const dispatchData: DispatchResponse = JSON.parse(
+      const dispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(
         dispatchResponse.payload,
       );
       request.log2.consoleLogDevOnly(
@@ -488,13 +483,13 @@ export class DevelopmentServerService {
       );
 
       // 7. Return success response with viewing URL
-      if ('status' in dispatchData && dispatchData.status === 'success') {
+      if (dispatchData.data && dispatchData.data.status === 'success') {
         reply.status(HTTP_STATUS.OK);
         return {
           data: {
             success: true,
-            status: dispatchData.status,
-            viewing_url: dispatchData.viewing_url,
+            status: dispatchData.data.status,
+            viewing_url: dispatchData.data.viewing_url,
             message: 'Files saved and dev server started successfully',
           },
           error: null,
@@ -506,10 +501,7 @@ export class DevelopmentServerService {
           data: null,
           error: {
             error: 'Dev server start failed',
-            message:
-              'error' in dispatchData
-                ? dispatchData.error
-                : 'Unknown dispatch error',
+            message: 'Dev server start failed',
           },
         };
       }

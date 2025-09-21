@@ -99,10 +99,6 @@ export interface DispatchErrorResponse {
   viewing_url: string;
 }
 
-export type DispatchResponse =
-  | DispatchSuccessResponse
-  | DispatchErrorResponse
-  | StandardErrorResponse;
 
 // ============================================================================
 // /dispatch-precheck ENDPOINT and /dispatch-edit-intent ENDPOINT
@@ -119,9 +115,10 @@ export interface DispatchPrecheckSuccessResponse {
   viewing_url: string;
 }
 
-export type DispatchPrecheckResponse =
-  | DispatchPrecheckSuccessResponse
-  | StandardErrorResponse;
+export interface DispatchPrecheckErrorResponse {
+  error: string;
+  message: string;
+}
 
 // ============================================================================
 // /cache/clear ENDPOINT
