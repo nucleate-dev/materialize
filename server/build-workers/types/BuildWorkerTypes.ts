@@ -148,7 +148,6 @@ export interface DevServerStatusResponse {
   tunnelUrl?: string;
   port?: number;
   uptime?: number;
-  logs?: string[];
   prototypeId?: string;
   currentOperation?: OperationStatus;
   operationDuration?: number;

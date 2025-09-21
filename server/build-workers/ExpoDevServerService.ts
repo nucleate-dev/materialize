@@ -40,24 +40,10 @@ class DevServerState {
   public port: number | null = null;
   public devServerStatus: DevServerStatus = DevServerStatus.STOPPED;
   public startTime: Date | null = null;
-  public logs: string[] = [];
   public error: string | null = null;
   public currentOperation: OperationStatus = OperationStatus.IDLE;
   public operationStartTime: Date | null = null;
   public operationId: string | null = null;
-
-  public addLog(message: string): void {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${message}`;
-    this.logs.push(logEntry);
-
-    // Keep only last 100 log entries
-    if (this.logs.length > 100) {
-      this.logs = this.logs.slice(-100);
-    }
-
-    console.log(`[DEV-SERVER] ${logEntry}`);
-  }
 
   public getUptime(): number | null {
     if (!this.startTime) return null;
@@ -72,7 +58,6 @@ class DevServerState {
     this.port = null;
     this.devServerStatus = DevServerStatus.STOPPED;
     this.startTime = null;
-    this.logs = [];
     this.error = null;
     this.currentOperation = OperationStatus.IDLE;
     this.operationStartTime = null;
@@ -83,24 +68,12 @@ class DevServerState {
     this.currentOperation = operation;
     this.operationStartTime = new Date();
     this.operationId = operationId || null;
-    this.addLog(
-      `Operation started: ${operation}${
-        operationId ? ` (ID: ${operationId})` : ""
-      }`
-    );
   }
 
   public clearOperation(): void {
-    const operation = this.currentOperation;
-    const operationId = this.operationId;
     this.currentOperation = OperationStatus.IDLE;
     this.operationStartTime = null;
     this.operationId = null;
-    this.addLog(
-      `Operation completed: ${operation}${
-        operationId ? ` (ID: ${operationId})` : ""
-      }`
-    );
   }
 
   public getOperationDuration(): number | null {
@@ -299,7 +272,10 @@ export class ExpoDevServerService {
         );
         this.state.devServerStatus = DevServerStatus.ERROR;
         this.state.error = errorMessage;
-        this.state.addLog(`Failed to start Expo process: ${errorMessage}`);
+        this.log2.error(
+          new Error(errorMessage),
+          "Failed to start Expo process"
+        );
         buildErrors.push({
           message: `Failed to start dev server: ${errorMessage}`,
           type: "runtime",
@@ -332,7 +308,10 @@ export class ExpoDevServerService {
       );
       this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = errorMessage;
-      this.state.addLog(`Internal server error: ${errorMessage}`);
+      this.log2.error(
+        new Error(errorMessage),
+        "Internal server error in startDevServer"
+      );
       this.state.clearOperation();
 
       return reply.code(500).send({
@@ -357,7 +336,7 @@ export class ExpoDevServerService {
       tunnelUrl: this.state.tunnelUrl || undefined,
       port: this.state.port || undefined,
       uptime: this.state.getUptime() || undefined,
-      logs: this.state.logs.slice(-10), // Last 10 logs
+      // logs removed - using SystemLogger now
       prototypeId: this.state.prototypeId || undefined,
       currentOperation: this.state.currentOperation,
       operationDuration: this.state.getOperationDuration() || undefined,
@@ -380,7 +359,7 @@ export class ExpoDevServerService {
     buildErrors: CodeError[] = [],
     buildWarnings: CodeWarning[] = []
   ): Promise<void> {
-    this.state.addLog(`Starting Expo dev server on port ${port}...`);
+    this.log2.info("Starting Expo dev server", { port });
 
     return new Promise((resolve, reject) => {
       // Create tunnel subdomain from prototype ID
@@ -389,11 +368,11 @@ export class ExpoDevServerService {
         .replace(/[^a-z0-9-]/g, "-")
         .substring(0, 20);
 
-      this.state.addLog(
-        `Starting Expo with args: ["expo", "start", "--web", "--tunnel", "--port", "${port}"]`
-      );
-      this.state.addLog(`Working directory: ${projectDir}`);
-      this.state.addLog(`Tunnel subdomain: ${tunnelSubdomain}`);
+      this.log2.info("Starting Expo with configuration", {
+        args: ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
+        workingDirectory: projectDir,
+        tunnelSubdomain,
+      });
 
       this.state.process = spawn(
         "npx",
@@ -431,7 +410,7 @@ export class ExpoDevServerService {
 
       const processOutput = (data: Buffer, source: string): void => {
         const output = data.toString();
-        this.state.addLog(`Expo ${source}: ${output.trim()}`);
+        this.log2.debug("Expo output", { source, output: output.trim() });
 
         // Parse Metro/Expo output for rendering errors
         this.parseMetroErrors(output, buildErrors, buildWarnings);
@@ -443,15 +422,17 @@ export class ExpoDevServerService {
           output.includes("Metro") ||
           output.includes("Bundler ready")
         ) {
-          this.state.addLog(
-            `File watching appears to be active: ${output.trim()}`
-          );
+          this.log2.info("File watching detected", {
+            output: output.trim(),
+          });
         }
 
         // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
         if (urlMatch && !resolved) {
-          this.state.addLog(`Found URLs in output: ${urlMatch.join(", ")}`);
+          this.log2.debug("URLs found in output", {
+            urls: urlMatch.join(", "),
+          });
 
           const tunnelCandidates = urlMatch.filter(
             (url) =>
@@ -469,7 +450,9 @@ export class ExpoDevServerService {
           if (tunnelCandidates.length > 0) {
             this.state.tunnelUrl = tunnelCandidates[0];
             this.state.devServerStatus = DevServerStatus.RUNNING;
-            this.state.addLog(`Tunnel URL found: ${this.state.tunnelUrl}`);
+            this.log2.info("Tunnel URL found", {
+              tunnelUrl: this.state.tunnelUrl,
+            });
             clearTimeout(timeout);
             resolved = true;
             resolve();
@@ -504,9 +487,9 @@ export class ExpoDevServerService {
           }
 
           this.state.devServerStatus = DevServerStatus.RUNNING;
-          this.state.addLog(
-            `Tunnel ready detected, URL: ${this.state.tunnelUrl}`
-          );
+          this.log2.info("Tunnel ready detected", {
+            tunnelUrl: this.state.tunnelUrl,
+          });
           clearTimeout(timeout);
           resolved = true;
           resolve();
@@ -522,7 +505,7 @@ export class ExpoDevServerService {
         );
 
         this.state.process.on("close", (code) => {
-          this.state.addLog(`Expo process exited with code ${code}`);
+          this.log2.info("Expo process exited", { code });
           if (!resolved) {
             this.log2.error(
               new Error("Expo process exited before tunnel URL found"),
@@ -541,7 +524,7 @@ export class ExpoDevServerService {
 
         this.state.process.on("error", (error) => {
           this.log2.error(error, "Expo process error");
-          this.state.addLog(`Expo process error: ${error.message}`);
+          this.log2.error(error, "Expo process error");
           if (!resolved) {
             this.state.devServerStatus = DevServerStatus.ERROR;
             clearTimeout(timeout);
@@ -554,7 +537,7 @@ export class ExpoDevServerService {
   }
 
   private async killExpoProcess(): Promise<void> {
-    this.state.addLog("Killing any processes on port 19006...");
+    this.log2.info("Killing processes on default port");
 
     try {
       // Kill any process running on port 19006 (Expo's default port)
@@ -564,19 +547,18 @@ export class ExpoDevServerService {
       const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
 
       execSync(killCommand, { stdio: "pipe" });
-      this.state.addLog(`Successfully killed processes on port ${port}`);
+      this.log2.info("Successfully killed processes on port", { port });
     } catch {
       // It's okay if no processes were found on the port
-      this.state.addLog(
-        `No processes found on port ${
-          this.state.port || this.defaultPort
-        } (this is normal if nothing was running)`
-      );
+      this.log2.debug("No processes found on port", {
+        port: this.state.port || this.defaultPort,
+        message: "Normal if nothing was running",
+      });
     }
 
     // Also kill the specific process if it exists
     if (this.state.process) {
-      this.state.addLog("Killing tracked Expo process...");
+      this.log2.info("Killing tracked Expo process");
 
       this.state.process.kill("SIGTERM");
 
@@ -598,7 +580,7 @@ export class ExpoDevServerService {
       );
     }
 
-    this.state.addLog("Restarting dev server after dependency changes...");
+    this.log2.info("Restarting dev server after dependency changes");
 
     // Kill the current process
     await this.killExpoProcess();
@@ -611,17 +593,22 @@ export class ExpoDevServerService {
     // Restart the dev server
     this.state.devServerStatus = DevServerStatus.STARTING;
     this.state.startTime = new Date();
-    this.state.addLog(`Restarting dev server for prototype ${prototypeId}`);
+    this.log2.info("Restarting dev server for prototype", {
+      prototypeId,
+    });
 
     try {
       await this.startExpoProcess(projectDir, port);
-      this.state.addLog("Dev server restarted successfully");
+      this.log2.info("Dev server restarted successfully");
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = errorMessage;
-      this.state.addLog(`Failed to restart dev server: ${errorMessage}`);
+      this.log2.error(
+        new Error(errorMessage),
+        "Failed to restart dev server"
+      );
       throw error;
     }
   }
@@ -630,7 +617,7 @@ export class ExpoDevServerService {
     if (this.state.projectDir) {
       try {
         await fs.rm(this.state.projectDir, { recursive: true, force: true });
-        this.state.addLog("Cleaned up project directory");
+        this.log2.info("Cleaned up project directory");
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -638,16 +625,17 @@ export class ExpoDevServerService {
           projectDir: this.state.projectDir,
           error: errorMessage,
         });
-        this.state.addLog(
-          `Failed to cleanup project directory: ${errorMessage}`
-        );
+        this.log2.warn("Failed to cleanup project directory", {
+          projectDir: this.state.projectDir,
+          error: errorMessage,
+        });
       }
     }
   }
 
   // Graceful shutdown method
   public async shutdown(): Promise<void> {
-    this.state.addLog("Shutting down dev server service...");
+    this.log2.info("Shutting down dev server service");
 
     // Set operation to stopping to indicate shutdown in progress
     if (this.state.currentOperation === OperationStatus.IDLE) {
@@ -660,7 +648,7 @@ export class ExpoDevServerService {
     // Reset state which sets status to "stopped" and operation to "idle"
     this.state.reset();
 
-    this.state.addLog("Dev server service shutdown completed");
+    this.log2.info("Dev server service shutdown completed");
   }
 
   // Builder Service Methods
@@ -984,7 +972,7 @@ export class ExpoDevServerService {
       logger.log("Stopping dev server after build and deploy completion");
       await this.killExpoProcess();
       this.state.devServerStatus = DevServerStatus.STOPPED;
-      this.state.addLog("Dev server stopped after build and deploy completion");
+      this.log2.info("Dev server stopped after build and deploy completion");
 
       // Don't cleanup the build directory since it contains the original project files
       // that might be needed for future operations
@@ -999,8 +987,8 @@ export class ExpoDevServerService {
   ): Promise<void> {
     // Create a simple logger that captures output
     const logger = {
-      addLog: (message: string): void => {
-        this.state.addLog(message);
+      addLog: (): void => {
+        // Log messages are now handled by SystemLogger
       },
       log: (
         message: string,
@@ -1039,7 +1027,7 @@ export class ExpoDevServerService {
       !this.state.projectDir
     ) {
       const errorMsg = "Cannot update files: No active dev server running";
-      this.state.addLog(errorMsg);
+      this.log2.error(new Error(errorMsg), "Cannot update files");
       buildErrors.push({
         message: errorMsg,
         type: "build",
@@ -1061,20 +1049,22 @@ export class ExpoDevServerService {
     // Use the state's project directory as the source of truth
     const actualProjectDir = this.state.projectDir;
 
-    this.state.addLog(
-      `Updating ${files.length} files and ${assets.length} assets in project directory: ${actualProjectDir}`
-    );
+    this.log2.info("Updating project files", {
+      filesCount: files.length,
+      assetsCount: assets.length,
+      projectDirectory: actualProjectDir,
+    });
 
     // Log which files are being updated
     const fileNames = files.map((f) => f.name);
-    this.state.addLog(`Files being updated: ${fileNames.join(", ")}`);
+    this.log2.debug("Files being updated", { files: fileNames });
 
     // Verify project directory exists and is accessible
     try {
       const stats = await fs.stat(actualProjectDir);
       if (!stats.isDirectory()) {
         const errorMsg = `Project path exists but is not a directory: ${actualProjectDir}`;
-        this.state.addLog(errorMsg);
+        this.log2.error(new Error(errorMsg), "Project path validation failed");
         buildErrors.push({
           message: errorMsg,
           type: "build",
@@ -1091,7 +1081,6 @@ export class ExpoDevServerService {
         error instanceof Error ? error.message : String(error);
       // Project directory doesn't exist - this shouldn't happen in update mode
       const errorMsg = `Project directory does not exist: ${actualProjectDir}. Cannot perform file update.`;
-      this.state.addLog(errorMsg);
       this.log2.error(
         new Error(errorMessage),
         "Project directory missing during update",
@@ -1115,10 +1104,12 @@ export class ExpoDevServerService {
     try {
       // Update only the provided files
       await writeProjectFiles(files, assets, actualProjectDir);
-      this.state.addLog(`Successfully wrote files to ${actualProjectDir}`);
+      this.log2.info("Successfully wrote files to project directory", {
+        projectDir: actualProjectDir,
+      });
 
       // Monitor for Metro bundler errors after file updates
-      this.state.addLog("Monitoring Metro output for compilation errors...");
+      this.log2.info("Monitoring Metro output for compilation errors");
       await this.monitorMetroForErrors(buildErrors, buildWarnings, 8000);
 
       // Check if package.json was updated and reinstall if needed
@@ -1126,8 +1117,8 @@ export class ExpoDevServerService {
         (file) => file.name === "package.json"
       );
       if (packageJsonUpdated) {
-        this.state.addLog(
-          "package.json was updated, reinstalling dependencies and restarting dev server..."
+        this.log2.info(
+          "package.json was updated, reinstalling dependencies and restarting dev server"
         );
         try {
           await this.installDependenciesWithErrorParsing(
@@ -1135,14 +1126,14 @@ export class ExpoDevServerService {
             buildErrors,
             buildWarnings
           );
-          this.state.addLog("Dependencies reinstalled successfully");
+          this.log2.info("Dependencies reinstalled successfully");
 
           // Restart the dev server to pick up new dependencies
-          this.state.addLog(
-            "Restarting dev server to pick up new dependencies..."
+          this.log2.info(
+            "Restarting dev server to pick up new dependencies"
           );
           await this.restartDevServer();
-          this.state.addLog(
+          this.log2.info(
             "Dev server restarted successfully with new dependencies"
           );
         } catch (error: unknown) {
@@ -1154,8 +1145,9 @@ export class ExpoDevServerService {
             "Dependency update or dev server restart failed for package.json change",
             { stack: errorStack }
           );
-          this.state.addLog(
-            `Dependency update or restart failed: ${errorMessage}`
+          this.log2.error(
+            new Error(errorMessage),
+            "Dependency update or restart failed"
           );
           buildErrors.push({
             message: `Dependency update or restart failed: ${errorMessage}`,
@@ -1164,7 +1156,7 @@ export class ExpoDevServerService {
           // Don't return failure here - file updates succeeded even if deps/restart failed
         }
       } else {
-        this.state.addLog(
+        this.log2.debug(
           "No package.json changes detected, skipping dependency reinstall"
         );
       }
@@ -1188,7 +1180,6 @@ export class ExpoDevServerService {
         "File writing failed during update",
         { stack: errorStack }
       );
-      this.state.addLog(errorMsg);
       buildErrors.push({
         message: errorMsg,
         type: "build",
@@ -1210,7 +1201,7 @@ export class ExpoDevServerService {
     timeoutMs: number = 10000
   ): Promise<void> {
     if (!this.state.process) {
-      this.state.addLog("No Metro process available for error monitoring");
+      this.log2.debug("No Metro process available for error monitoring");
       return;
     }
 
@@ -1224,9 +1215,10 @@ export class ExpoDevServerService {
           resolved = true;
           const newErrors = buildErrors.length - originalErrorCount;
           const newWarnings = buildWarnings.length - originalWarningCount;
-          this.state.addLog(
-            `Metro error monitoring completed. Found ${newErrors} new errors, ${newWarnings} new warnings`
-          );
+          this.log2.info("Metro error monitoring completed", {
+            newErrors,
+            newWarnings,
+          });
           resolve();
         }
       }, timeoutMs);
@@ -1243,9 +1235,10 @@ export class ExpoDevServerService {
           clearTimeout(timeout);
           const newErrors = buildErrors.length - originalErrorCount;
           const newWarnings = buildWarnings.length - originalWarningCount;
-          this.state.addLog(
-            `Metro errors detected early. Found ${newErrors} new errors, ${newWarnings} new warnings`
-          );
+          this.log2.warn("Metro errors detected early", {
+            newErrors,
+            newWarnings,
+          });
           resolve();
         }
       };
