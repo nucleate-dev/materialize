@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-21T08:14:09.035Z
+// Last synced: 2025-09-21T08:42:47.209Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -264,9 +264,6 @@ export interface DeletePrototypeErrorResponse {
   message: string;
 }
 
-export type DeletePrototypeResponse =
-  | DeletePrototypeSuccessResponse
-  | DeletePrototypeErrorResponse;
 
 // ============================================================================
 // /files/update-files ENDPOINT

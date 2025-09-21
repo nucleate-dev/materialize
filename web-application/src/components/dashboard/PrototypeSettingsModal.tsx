@@ -22,6 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
+import type {
+  APIResponse,
+  DeletePrototypeSuccessResponse,
+  DeletePrototypeErrorResponse,
+} from "@/lib/types/serverAPITypes";
 import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
@@ -110,9 +115,12 @@ export default function PrototypeSettingsModal({
         },
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete prototype");
+      const responseData: APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse> =
+        await response.json();
+
+      if (!response.ok || responseData.error) {
+        const errorMessage = responseData.error?.message || "Failed to delete prototype";
+        throw new Error(errorMessage);
       }
 
       // Success - refresh the parent component and close modal

@@ -255,9 +255,6 @@ export interface DeletePrototypeErrorResponse {
   message: string;
 }
 
-export type DeletePrototypeResponse =
-  | DeletePrototypeSuccessResponse
-  | DeletePrototypeErrorResponse;
 
 // ============================================================================
 // /files/update-files ENDPOINT

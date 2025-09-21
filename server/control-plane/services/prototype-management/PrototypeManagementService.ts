@@ -4,7 +4,8 @@ import type {
   APIResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
-  DeletePrototypeResponse,
+  DeletePrototypeSuccessResponse,
+  DeletePrototypeErrorResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
@@ -156,7 +157,7 @@ export class PrototypeManagementService {
   private async handleDeletePrototype(
     request: FastifyRequest<{ Params: { prototype_id: string } }>,
     reply: FastifyReply,
-  ): Promise<DeletePrototypeResponse> {
+  ): Promise<APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>> {
     return await handleDeletePrototypeImpl(
       request,
       reply,

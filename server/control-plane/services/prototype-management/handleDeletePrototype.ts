@@ -2,7 +2,9 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import {
-  DeletePrototypeResponse,
+  APIResponse,
+  DeletePrototypeSuccessResponse,
+  DeletePrototypeErrorResponse,
   HTTP_STATUS,
 } from '../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
@@ -22,7 +24,7 @@ export default async function handleDeletePrototypeImpl(
   reply: FastifyReply,
   s3Client: S3Client,
   cache: GlideClient,
-): Promise<DeletePrototypeResponse> {
+): Promise<APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>> {
   try {
     const { prototype_id } = request.params;
     // 1. Get JWT token and validate authentication
@@ -34,9 +36,12 @@ export default async function handleDeletePrototypeImpl(
     );
     if (authResponse === null || !authResponse.canEdit) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        success: false,
-        error: 'UNAUTHORIZED',
-        message: 'Access denied for this prototype',
+        data: null,
+        error: {
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'Access denied for this prototype',
+        },
       });
     }
     const supabase = createClient<Database>(
@@ -93,21 +98,30 @@ export default async function handleDeletePrototypeImpl(
         },
       );
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        success: false,
-        error: 'DATABASE_ERROR',
-        message: 'Failed to delete all associated data for prototype',
+        data: null,
+        error: {
+          success: false,
+          error: 'DATABASE_ERROR',
+          message: 'Failed to delete all associated data for prototype',
+        },
       });
     }
     return reply.status(HTTP_STATUS.OK).send({
-      success: true,
-      message: 'Prototype and all associated data deleted successfully',
+      data: {
+        success: true,
+        message: 'Prototype and all associated data deleted successfully',
+      },
+      error: null,
     });
   } catch (error) {
     request.log2.error(error, 'Prototype deletion error');
     return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-      success: false,
-      error: 'DATABASE_ERROR',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      data: null,
+      error: {
+        success: false,
+        error: 'DATABASE_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
     });
   }
 }
