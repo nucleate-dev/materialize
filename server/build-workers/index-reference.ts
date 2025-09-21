@@ -92,11 +92,11 @@ class BuildWorkerService {
 
       this.activeBuildProcesses.set(prototypeId, buildProcess);
 
-      let stdout = "";
       let stderr = "";
 
       buildProcess.stdout.on("data", (data) => {
-        stdout += data.toString();
+        // Accumulate stdout for potential debugging (currently unused)
+        data.toString();
       });
 
       buildProcess.stderr.on("data", (data) => {
@@ -226,13 +226,11 @@ class BuildWorkerService {
         }
       );
 
-      let stdout = "";
       let stderr = "";
       let isResolved = false;
 
       metroProcess.stdout.on("data", (data) => {
         const output = data.toString();
-        stdout += output;
 
         // Check if Metro is ready
         if (
@@ -450,7 +448,7 @@ fastify.post("/process", async (request, reply) => {
 });
 
 // Health check
-fastify.get("/health", async (request, reply) => {
+fastify.get("/health", async () => {
   const status = worker.getStatus();
   return {
     status: "healthy",
@@ -460,7 +458,7 @@ fastify.get("/health", async (request, reply) => {
 });
 
 // Worker status
-fastify.get("/status", async (request, reply) => {
+fastify.get("/status", async () => {
   return worker.getStatus();
 });
 

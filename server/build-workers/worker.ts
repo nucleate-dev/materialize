@@ -3,8 +3,6 @@ import { spawn, SpawnOptions } from "child_process";
 import dotenv from "dotenv";
 import fastify, {
   FastifyInstance,
-  FastifyReply,
-  FastifyRequest,
 } from "fastify";
 import fs from "fs/promises";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
@@ -132,7 +130,7 @@ const app: FastifyInstance = fastify({
 });
 
 // --- Health Check ---
-app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
+app.get("/health", async () => {
   try {
     const resources = await expoDevServerService.checkSystemResources();
     return {
@@ -147,7 +145,7 @@ app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
       workDir: WORK_DIR,
       s3Bucket: S3_BUCKET,
     };
-  } catch (error) {
+  } catch {
     return {
       status: "ok",
       timestamp: new Date().toISOString(),

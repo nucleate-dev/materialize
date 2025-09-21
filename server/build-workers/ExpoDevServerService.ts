@@ -325,10 +325,7 @@ export class ExpoDevServerService {
   }
 
   // Get dev server status
-  private async getStatus(
-    _request: FastifyRequest,
-    _reply: FastifyReply,
-  ): Promise<DevServerStatusResponse> {
+  private async getStatus(): Promise<DevServerStatusResponse> {
     return {
       status: this.state.devServerStatus,
       tunnelUrl: this.state.tunnelUrl || undefined,
@@ -539,7 +536,7 @@ export class ExpoDevServerService {
 
       execSync(killCommand, { stdio: "pipe" });
       this.state.addLog(`Successfully killed processes on port ${port}`);
-    } catch (error) {
+    } catch {
       // It's okay if no processes were found on the port
       this.state.addLog(
         `No processes found on port ${this.state.port || this.defaultPort} (this is normal if nothing was running)`,
@@ -652,7 +649,7 @@ export class ExpoDevServerService {
         memory: memory.trim(),
         processes: processes.trim(),
       };
-    } catch (error) {
+    } catch {
       return {
         disk: "Unable to check",
         memory: "Unable to check",
@@ -872,7 +869,7 @@ export class ExpoDevServerService {
           true,
           `Directory: ${buildDir}`,
         );
-      } catch (error) {
+      } catch {
         return {
           success: false,
           error:

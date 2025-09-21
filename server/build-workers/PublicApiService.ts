@@ -236,7 +236,7 @@ export class PublicApiService {
       }
 
       // Read all files from the project directory
-      const { files, assets } =
+      const { files } =
         await this.readAllFilesFromDirectory(projectDir);
 
       if (files.length === 0) {
