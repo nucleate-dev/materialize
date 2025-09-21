@@ -46,6 +46,10 @@ export class CleanupService {
 
   // Start cleanup services
   private startCleanupServices(): void {
+    if (process.env.NODE_ENV === 'development') {
+      // TO TEST CHANGES TO THIS FILE, COMMENT OUT THIS EARLY RETURN
+      return;
+    }
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(async () => {
