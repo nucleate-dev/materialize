@@ -156,7 +156,11 @@ export async function handleCreatePrototypeImpl(
       await Promise.allSettled([
         cleanupPrototypeS3Objects(s3Client, newPrototypeId, request.log2),
         deletePrototypeAssetsFromStorage(newPrototypeId, request.log2),
-        deletePrototypeThumbnailFromSupabaseStorage(supabase, newPrototypeId),
+        deletePrototypeThumbnailFromSupabaseStorage(
+          supabase,
+          newPrototypeId,
+          request.log2,
+        ),
         supabase.from('prototypes').delete().eq('id', newPrototypeId),
       ]);
       const errorResponse: CreatePrototypeErrorResponse = {
