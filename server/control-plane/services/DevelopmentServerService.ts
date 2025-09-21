@@ -134,7 +134,9 @@ export class DevelopmentServerService {
   private async handleUpdateFiles(
     request: FastifyRequest<{ Body: UpdateFilesRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse>> {
+  ): Promise<
+    APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse>
+  > {
     request.log2.consoleLogDevOnly(
       'info',
       '[handleUpdateFiles] Starting update files',
@@ -145,14 +147,13 @@ export class DevelopmentServerService {
       // 1. Get JWT
       const token = request.headers.authorization?.split(' ')[1];
       if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-        reply.status(HTTP_STATUS.UNAUTHORIZED);
-        return {
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           data: null,
           error: {
             error: 'Unauthorized',
             message: 'No token provided',
-          },
-        };
+          } as StandardErrorResponse,
+        });
       }
 
       // 2. Perform dispatch precheck to authenticate user JWT, verify permissions, and check build status
@@ -173,14 +174,13 @@ export class DevelopmentServerService {
           errorData,
           '[handleUpdateFiles] Dispatch precheck failed:',
         );
-        reply.status(precheckResponse.statusCode);
-        return {
+        return reply.status(precheckResponse.statusCode).send({
           data: null,
           error: {
             error: errorData.error,
             message: errorData.message,
-          },
-        };
+          } as StandardErrorResponse,
+        });
       }
 
       const precheckData: DispatchPrecheckResponse = JSON.parse(
@@ -197,15 +197,14 @@ export class DevelopmentServerService {
         'status' in precheckData &&
         isDispatchInProgress(precheckData.status)
       ) {
-        reply.status(HTTP_STATUS.CONFLICT);
-        return {
+        return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
           error: {
             error: 'Build already in progress',
             message:
               'A dev server operation is currently in progress for this prototype. Please wait for it to complete.',
           },
-        };
+        });
       }
 
       // 4. Check if there's an active dev server to update
@@ -213,15 +212,14 @@ export class DevelopmentServerService {
         'success' in precheckData &&
         !isEditableDevServer(precheckData.status)
       ) {
-        reply.status(HTTP_STATUS.NOT_FOUND);
-        return {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
           error: {
             error: 'No active dev server',
             message:
               'No active dev server found for this prototype. Please start a dev server first.',
-          },
-        };
+          } as StandardErrorResponse,
+        });
       }
 
       // 5. Dispatch update request with file_scope: "updates"
@@ -255,14 +253,13 @@ export class DevelopmentServerService {
             errorData,
           },
         );
-        reply.status(dispatchResponse.statusCode);
-        return {
+        return reply.status(dispatchResponse.statusCode).send({
           data: null,
           error: {
             error: errorData.error,
             message: errorData.message,
-          },
-        };
+          } as StandardErrorResponse,
+        });
       }
 
       const dispatchData: DispatchResponse = JSON.parse(
@@ -277,8 +274,7 @@ export class DevelopmentServerService {
 
       // 6. Return success response with viewing URL
       if ('status' in dispatchData && dispatchData.status === 'success') {
-        reply.status(HTTP_STATUS.OK);
-        return {
+        return reply.status(HTTP_STATUS.OK).send({
           data: {
             success: true,
             status: dispatchData.status,
@@ -286,13 +282,12 @@ export class DevelopmentServerService {
             build_errors: dispatchData.build_errors || [],
             build_warnings: dispatchData.build_warnings || [],
             message: 'Files updated successfully in dev server',
-          },
+          } as UpdateFilesSuccessResponse,
           error: null,
-        };
+        });
       } else {
         // Handle error response
-        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-        return {
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
           error: {
             error: 'File update failed',
@@ -303,9 +298,11 @@ export class DevelopmentServerService {
             build_errors:
               'build_errors' in dispatchData ? dispatchData.build_errors : [],
             build_warnings:
-              'build_warnings' in dispatchData ? dispatchData.build_warnings : [],
-          },
-        };
+              'build_warnings' in dispatchData
+                ? dispatchData.build_warnings
+                : [],
+          } as UpdateFilesErrorResponse,
+        });
       }
     } catch (error) {
       request.log2.consoleLogDevOnly(
@@ -313,14 +310,13 @@ export class DevelopmentServerService {
         '[handleUpdateFiles] Update files API error:',
         { error },
       );
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      return {
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         data: null,
         error: {
           error: 'Internal server error',
           message: error instanceof Error ? error.message : 'Unknown error',
-        },
-      };
+        } as StandardErrorResponse,
+      });
     }
   }
 
