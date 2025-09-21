@@ -16,6 +16,7 @@ import {
   copyPrototypeThumbnailInSupabaseStorage,
   copyS3BucketContentsVersioned,
   deletePrototypeAssetsFromStorage,
+  deletePrototypeThumbnailFromSupabaseStorage,
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
   uploadDefaultAssetsToSupabaseStorage,
@@ -150,18 +151,13 @@ export async function handleCreatePrototypeImpl(
         },
       });
     } catch (error) {
-      // If anything fails after prototype creation, clean up
       request.log2.error(error, 'Error during prototype setup:');
-
-      // Clean up S3 objects
-      await cleanupPrototypeS3Objects(s3Client, newPrototypeId, request.log2);
-
-      // Clean up Supabase Storage assets
-      await deletePrototypeAssetsFromStorage(newPrototypeId, request.log2);
-
-      // Clean up database entry
-      await supabase.from('prototypes').delete().eq('id', newPrototypeId);
-
+      await Promise.allSettled([
+        cleanupPrototypeS3Objects(s3Client, newPrototypeId, request.log2),
+        deletePrototypeAssetsFromStorage(newPrototypeId, request.log2),
+        deletePrototypeThumbnailFromSupabaseStorage(supabase, newPrototypeId),
+        supabase.from('prototypes').delete().eq('id', newPrototypeId),
+      ]);
       const errorResponse: CreatePrototypeErrorResponse = {
         success: false,
         error: 'S3_ERROR',
@@ -170,9 +166,9 @@ export async function handleCreatePrototypeImpl(
             ? error.message
             : 'Failed to set up prototype files and S3 storage',
       };
-
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-      return errorResponse;
+      return reply
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+        .send(errorResponse);
     }
   } catch (error) {
     request.log2.error(error, '[handleCreatePrototype] Unexpected error:');

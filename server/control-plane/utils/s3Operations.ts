@@ -10,10 +10,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
-  PrototypeAssetInsert,
   PrototypeFileInsert,
   S3CopyResult,
-  S3UploadResult,
 } from '../types/InternalTypes.js';
 import { Database } from '../types/supabase.js';
 
@@ -107,6 +105,16 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
     error: error ? error.message : undefined,
     copiedObjects: 1,
   };
+}
+
+export async function deletePrototypeThumbnailFromSupabaseStorage(
+  supabase: SupabaseClient<Database>,
+  prototypeId: string,
+): Promise<boolean> {
+  const removeResult = await supabase.storage
+    .from('prototype-thumbnails')
+    .remove([`${prototypeId}.png`]);
+  return removeResult.error ? false : true;
 }
 
 /**
