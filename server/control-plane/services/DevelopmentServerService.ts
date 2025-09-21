@@ -5,8 +5,10 @@ import type {
   StartDevServerSuccessResponse,
   StartDevServerErrorResponse,
   UpdateFilesRequestBody,
-  UpdateFilesResponse,
+  UpdateFilesSuccessResponse,
+  UpdateFilesErrorResponse,
   StandardErrorResponse,
+  APIResponse,
   DispatchRequestBody,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
@@ -132,7 +134,7 @@ export class DevelopmentServerService {
   private async handleUpdateFiles(
     request: FastifyRequest<{ Body: UpdateFilesRequestBody }>,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse>> {
     request.log2.consoleLogDevOnly(
       'info',
       '[handleUpdateFiles] Starting update files',
@@ -143,10 +145,14 @@ export class DevelopmentServerService {
       // 1. Get JWT
       const token = request.headers.authorization?.split(' ')[1];
       if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'Unauthorized',
-          message: 'No token provided',
-        } as StandardErrorResponse);
+        reply.status(HTTP_STATUS.UNAUTHORIZED);
+        return {
+          data: null,
+          error: {
+            error: 'Unauthorized',
+            message: 'No token provided',
+          },
+        };
       }
 
       // 2. Perform dispatch precheck to authenticate user JWT, verify permissions, and check build status
@@ -167,10 +173,14 @@ export class DevelopmentServerService {
           errorData,
           '[handleUpdateFiles] Dispatch precheck failed:',
         );
-        return reply.status(precheckResponse.statusCode).send({
-          error: errorData.error,
-          message: errorData.message,
-        } as StandardErrorResponse);
+        reply.status(precheckResponse.statusCode);
+        return {
+          data: null,
+          error: {
+            error: errorData.error,
+            message: errorData.message,
+          },
+        };
       }
 
       const precheckData: DispatchPrecheckResponse = JSON.parse(
@@ -187,11 +197,15 @@ export class DevelopmentServerService {
         'status' in precheckData &&
         isDispatchInProgress(precheckData.status)
       ) {
-        return reply.status(HTTP_STATUS.CONFLICT).send({
-          error: 'Build already in progress',
-          message:
-            'A dev server operation is currently in progress for this prototype. Please wait for it to complete.',
-        } as StandardErrorResponse);
+        reply.status(HTTP_STATUS.CONFLICT);
+        return {
+          data: null,
+          error: {
+            error: 'Build already in progress',
+            message:
+              'A dev server operation is currently in progress for this prototype. Please wait for it to complete.',
+          },
+        };
       }
 
       // 4. Check if there's an active dev server to update
@@ -199,11 +213,15 @@ export class DevelopmentServerService {
         'success' in precheckData &&
         !isEditableDevServer(precheckData.status)
       ) {
-        return reply.status(HTTP_STATUS.NOT_FOUND).send({
-          error: 'No active dev server',
-          message:
-            'No active dev server found for this prototype. Please start a dev server first.',
-        } as StandardErrorResponse);
+        reply.status(HTTP_STATUS.NOT_FOUND);
+        return {
+          data: null,
+          error: {
+            error: 'No active dev server',
+            message:
+              'No active dev server found for this prototype. Please start a dev server first.',
+          },
+        };
       }
 
       // 5. Dispatch update request with file_scope: "updates"
@@ -237,10 +255,14 @@ export class DevelopmentServerService {
             errorData,
           },
         );
-        return reply.status(dispatchResponse.statusCode).send({
-          error: errorData.error,
-          message: errorData.message,
-        } as StandardErrorResponse);
+        reply.status(dispatchResponse.statusCode);
+        return {
+          data: null,
+          error: {
+            error: errorData.error,
+            message: errorData.message,
+          },
+        };
       }
 
       const dispatchData: DispatchResponse = JSON.parse(
@@ -255,27 +277,35 @@ export class DevelopmentServerService {
 
       // 6. Return success response with viewing URL
       if ('status' in dispatchData && dispatchData.status === 'success') {
-        return reply.status(HTTP_STATUS.OK).send({
-          success: true,
-          status: dispatchData.status,
-          viewing_url: dispatchData.viewing_url,
-          build_errors: dispatchData.build_errors || [],
-          build_warnings: dispatchData.build_warnings || [],
-          message: 'Files updated successfully in dev server',
-        } as UpdateFilesResponse);
+        reply.status(HTTP_STATUS.OK);
+        return {
+          data: {
+            success: true,
+            status: dispatchData.status,
+            viewing_url: dispatchData.viewing_url,
+            build_errors: dispatchData.build_errors || [],
+            build_warnings: dispatchData.build_warnings || [],
+            message: 'Files updated successfully in dev server',
+          },
+          error: null,
+        };
       } else {
         // Handle error response
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-          error: 'File update failed',
-          message:
-            'error' in dispatchData
-              ? dispatchData.error
-              : 'Unknown file update error',
-          build_errors:
-            'build_errors' in dispatchData ? dispatchData.build_errors : [],
-          build_warnings:
-            'build_warnings' in dispatchData ? dispatchData.build_warnings : [],
-        } as UpdateFilesResponse);
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
+          data: null,
+          error: {
+            error: 'File update failed',
+            message:
+              'error' in dispatchData
+                ? dispatchData.error
+                : 'Unknown file update error',
+            build_errors:
+              'build_errors' in dispatchData ? dispatchData.build_errors : [],
+            build_warnings:
+              'build_warnings' in dispatchData ? dispatchData.build_warnings : [],
+          },
+        };
       }
     } catch (error) {
       request.log2.consoleLogDevOnly(
@@ -283,10 +313,14 @@ export class DevelopmentServerService {
         '[handleUpdateFiles] Update files API error:',
         { error },
       );
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      } as StandardErrorResponse);
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      };
     }
   }
 

@@ -139,7 +139,9 @@ export class PrototypeManagementService {
   private async handleCreatePrototype(
     request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>> {
+  ): Promise<
+    APIResponse<CreatePrototypeSuccessResponse, CreatePrototypeErrorResponse>
+  > {
     return await handleCreatePrototypeImpl(request, reply, this.s3Client);
   }
 
@@ -158,7 +160,9 @@ export class PrototypeManagementService {
   private async handleDeletePrototype(
     request: FastifyRequest<{ Params: { prototype_id: string } }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>> {
+  ): Promise<
+    APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>
+  > {
     return await handleDeletePrototypeImpl(
       request,
       reply,

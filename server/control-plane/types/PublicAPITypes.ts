@@ -273,10 +273,6 @@ export interface UpdateFilesErrorResponse {
   build_warnings?: CodeWarning[];
 }
 
-export type UpdateFilesResponse =
-  | UpdateFilesSuccessResponse
-  | UpdateFilesErrorResponse
-  | StandardErrorResponse;
 
 // ============================================================================
 // /files/start-dev-server ENDPOINT
