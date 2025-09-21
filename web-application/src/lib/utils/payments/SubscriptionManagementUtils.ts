@@ -2,7 +2,9 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
 import { supabase } from "@/ClientConstants";
 import type {
   ManageBillingRequestBody,
-  ManageBillingResponse,
+  ManageBillingSuccessResponse,
+  ManageBillingErrorResponse,
+  APIResponse,
 } from "@/lib/types/serverAPITypes";
 
 /**
@@ -73,13 +75,13 @@ export async function handleRedirectToStripeCustomerPortal(
       return;
     }
 
-    const data: ManageBillingResponse = await response.json();
+    const result: APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse> = await response.json();
 
-    // Type guard to ensure we have a successful response
-    if ("redirect_url" in data) {
-      router.push(data.redirect_url);
-    } else {
-      // This is a StandardErrorResponse
+    // Handle successful response
+    if (result.data) {
+      router.push(result.data.redirect_url);
+    } else if (result.error) {
+      // Handle error response
       alert("Unable to access billing portal. Please try again later.");
     }
   } catch (error) {

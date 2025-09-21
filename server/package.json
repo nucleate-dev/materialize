@@ -7,7 +7,8 @@
     "deploy-default-app": "node deploy-default-app.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.864.0"
+    "@aws-sdk/client-s3": "^3.864.0",
+    "typescript": "^5.9.2"
   },
   "engines": {
     "node": ">=18.0.0"

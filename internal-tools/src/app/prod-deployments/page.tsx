@@ -170,7 +170,8 @@ export default function ProdDeploymentsPage() {
       setValidationResult(null);
       setDeploymentResult(null);
 
-      const serverEndpoint = process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
+      const serverEndpoint =
+        process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
       if (!serverEndpoint) {
         throw new Error(
           "Server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable."
@@ -215,7 +216,6 @@ export default function ProdDeploymentsPage() {
       if (result.deploymentResult) {
         setDeploymentResult(result.deploymentResult);
       }
-
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to validate and deploy"

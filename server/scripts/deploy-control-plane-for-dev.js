@@ -5,7 +5,7 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-3-143-238-2.us-east-2.compute.amazonaws.com";
+const HOST = "ec2-3-139-78-168.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -67,7 +67,7 @@ function fullDeploy() {
     cd ${remoteBase}
     if [ -f package.json ]; then
       unset NODE_ENV
-      npm_config_production=false npm ci --no-audit --no-fund || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund)
+      npm_config_production=false npm install --no-audit --no-fund || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund)
       if ! npx --yes tsx --version >/dev/null 2>&1; then npm install -D tsx; fi
       if ! npx --yes nodemon --version >/dev/null 2>&1; then npm install -D nodemon ts-node; fi
     fi
@@ -140,7 +140,7 @@ function selectiveDeploy(paths) {
     if [ -f package.json ]; then
       unset NODE_ENV
       if [ -f package-lock.json ]; then
-        npm_config_production=false npm ci --no-audit --no-fund || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund)
+        npm_config_production=false npm install --no-audit --no-fund || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund)
       else
         npm_config_production=false npm install --no-audit --no-fund
       fi

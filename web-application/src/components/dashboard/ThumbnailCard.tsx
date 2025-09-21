@@ -11,7 +11,6 @@ import {
   Pencil,
   Rocket,
 } from "lucide-react";
-import Image from "next/image";
 import React from "react";
 
 export interface ThumbnailCardProps {
@@ -23,6 +22,7 @@ export interface ThumbnailCardProps {
   onView?: () => void;
   onEdit?: () => void;
   onSettings?: () => void;
+  loading?: boolean; // New prop for loading state
 }
 
 const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
@@ -34,6 +34,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   onView,
   onEdit,
   onSettings,
+  loading = false,
 }) => {
   // Handle backward compatibility - if onClick is provided but not onEdit, use onClick as onEdit
   const handleEdit = onEdit || onClick;
@@ -83,12 +84,16 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           )}
-          {thumbnailUrl ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center text-muted-foreground">
+              <div className="w-8 h-8 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin mb-3"></div>
+              <span className="text-sm font-medium">Loading preview...</span>
+            </div>
+          ) : thumbnailUrl ? (
             <>
-              <Image
+              <img
                 src={thumbnailUrl}
                 alt={name}
-                fill
                 className="object-cover transition-all duration-300 group-hover:scale-105"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />

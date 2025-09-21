@@ -197,6 +197,7 @@ export default function ProjectPage() {
                   <PrototypeThumbnail
                     key={`${item.type}-${item.id}`}
                     prototypeName={item.name}
+                    prototypeId={item.id}
                     thumbnailUrl={item.thumbnail_url}
                     lastModified={formatRelativeTime(
                       item.updated_at || item.created_at,

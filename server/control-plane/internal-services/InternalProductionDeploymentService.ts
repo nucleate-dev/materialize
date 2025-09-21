@@ -486,13 +486,16 @@ export class InternalProductionDeploymentService {
 
       try {
         // Create test instance with production user data
-        const testResult = await this.createProductionTestInstance(request.log2);
+        const testResult = await this.createProductionTestInstance(
+          request.log2,
+        );
         testInstanceId = testResult.instanceId;
 
         if (!testResult.instanceId || !testResult.publicIp) {
           validationResult = {
             success: false,
-            message: 'Failed to create test instance or retrieve connection details',
+            message:
+              'Failed to create test instance or retrieve connection details',
           };
         } else {
           // Perform health check
@@ -516,7 +519,10 @@ export class InternalProductionDeploymentService {
 
           // Terminate the test instance after validation is complete (regardless of result)
           if (testResult.instanceId) {
-            await this.terminateTestInstance(testResult.instanceId, request.log2);
+            await this.terminateTestInstance(
+              testResult.instanceId,
+              request.log2,
+            );
           }
 
           if (healthCheckResult.success) {
@@ -527,7 +533,8 @@ export class InternalProductionDeploymentService {
 
             validationResult = {
               success: true,
-              message: 'Deployment validation passed successfully. Control plane server started and health check passed.',
+              message:
+                'Deployment validation passed successfully. Control plane server started and health check passed.',
               instanceId: testResult.instanceId,
               publicIp: testResult.publicIp,
             };
@@ -540,7 +547,9 @@ export class InternalProductionDeploymentService {
 
             validationResult = {
               success: false,
-              message: `Deployment validation failed: ${healthCheckResult.error || 'Health check did not pass'}`,
+              message: `Deployment validation failed: ${
+                healthCheckResult.error || 'Health check did not pass'
+              }`,
               instanceId: testResult.instanceId,
               publicIp: testResult.publicIp,
             };
@@ -555,7 +564,10 @@ export class InternalProductionDeploymentService {
           try {
             await this.terminateTestInstance(testInstanceId, request.log2);
           } catch (cleanupError) {
-            request.log2.error(cleanupError, 'Failed to clean up test instance');
+            request.log2.error(
+              cleanupError,
+              'Failed to clean up test instance',
+            );
           }
         }
 
@@ -623,7 +635,6 @@ export class InternalProductionDeploymentService {
         message: 'Validation passed and deployment initiated successfully',
         timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       request.log2.error(error, 'Failed to validate and deploy');
@@ -640,11 +651,10 @@ export class InternalProductionDeploymentService {
     try {
       const scriptPath = path.resolve(
         process.cwd(),
-        'infra/ec2/prod-user-data-setup-script.sh',
+        process.env.NODE_ENV === 'development'
+          ? 'infra/ec2/prod-user-data-setup-script.sh'
+          : 'dist/infra/ec2/prod-user-data-setup-script.sh',
       );
-      // const shutdownCommand =
-      //   '\n\n# Auto-shutdown after 10 minutes for safety validation\nshutdown -h +10\n';
-      // return script + shutdownCommand;
       return fs.readFileSync(scriptPath, 'utf-8');
     } catch (error) {
       throw new Error(

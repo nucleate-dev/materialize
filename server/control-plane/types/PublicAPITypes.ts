@@ -1,6 +1,20 @@
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
 import type { Database } from '../types/supabase.js';
+
+// ============================================================================
+// GENERIC API RESPONSE TYPE
+// ============================================================================
+
+/**
+ * Generic API response type following Supabase pattern
+ * Either data is present (with error as null) or error is present (with data as null)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type APIResponse<TData = any, TError = any> =
+  | { data: TData; error: null }
+  | { data: null; error: TError };
+
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
@@ -141,10 +155,6 @@ export interface CheckoutErrorResponse {
   message: string;
 }
 
-export type CheckoutResponse =
-  | CheckoutSuccessResponse
-  | CheckoutErrorResponse
-  | StandardErrorResponse;
 
 // ============================================================================
 // /payments/manage-billing ENDPOINT
@@ -158,9 +168,10 @@ export interface ManageBillingSuccessResponse {
   redirect_url: string;
 }
 
-export type ManageBillingResponse =
-  | ManageBillingSuccessResponse
-  | StandardErrorResponse;
+export interface ManageBillingErrorResponse {
+  error: string;
+  message: string;
+}
 
 // ============================================================================
 // HTTP STATUS CODE MAPPINGS
@@ -191,10 +202,6 @@ export interface FetchViewingUrlSuccessResponse {
   status: BuildStatus | null;
 }
 
-export type FetchViewingUrlResponse =
-  | FetchViewingUrlSuccessResponse
-  | StandardErrorResponse;
-
 // ============================================================================
 // /prototype/create ENDPOINT
 // ============================================================================
@@ -208,15 +215,11 @@ export interface CreatePrototypeRequestBody {
 }
 
 export interface CreatePrototypeSuccessResponse {
-  success: true;
-  data: {
-    prototype_id: string;
-    viewing_url: string;
-  };
+  prototype_id: string;
+  viewing_url: string;
 }
 
 export interface CreatePrototypeErrorResponse {
-  success: false;
   error:
     | 'UNAUTHORIZED'
     | 'PROTOTYPE_LIMIT_REACHED'
@@ -225,10 +228,6 @@ export interface CreatePrototypeErrorResponse {
     | 'INVALID_REQUEST';
   message: string;
 }
-
-export type CreatePrototypeResponse =
-  | CreatePrototypeSuccessResponse
-  | CreatePrototypeErrorResponse;
 
 // ============================================================================
 // DELETE /prototype/:prototype_id ENDPOINT
@@ -244,10 +243,6 @@ export interface DeletePrototypeErrorResponse {
   error: 'UNAUTHORIZED' | 'NOT_FOUND' | 'DATABASE_ERROR' | 'S3_ERROR';
   message: string;
 }
-
-export type DeletePrototypeResponse =
-  | DeletePrototypeSuccessResponse
-  | DeletePrototypeErrorResponse;
 
 // ============================================================================
 // /files/update-files ENDPOINT
@@ -275,11 +270,6 @@ export interface UpdateFilesErrorResponse {
   build_warnings?: CodeWarning[];
 }
 
-export type UpdateFilesResponse =
-  | UpdateFilesSuccessResponse
-  | UpdateFilesErrorResponse
-  | StandardErrorResponse;
-
 // ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
@@ -298,16 +288,6 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
 }
-
-export interface StartDevServerErrorResponse {
-  error: string;
-  message: string;
-  status: BuildStatus | null;
-}
-
-export type StartDevServerResponse =
-  | StartDevServerSuccessResponse
-  | StartDevServerErrorResponse;
 
 // ============================================================================
 // /chat ENDPOINT
