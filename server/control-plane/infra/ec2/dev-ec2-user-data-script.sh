@@ -28,7 +28,7 @@ if command -v dnf >/dev/null 2>&1; then
 
   # Install Chrome dependencies for Puppeteer
   echo "==> Installing Chrome dependencies for Puppeteer..."
-  sudo dnf install -y \
+  dnf -y install \
     xorg-x11-server-Xvfb \
     gtk3 \
     libXcomposite \
@@ -62,7 +62,6 @@ if command -v dnf >/dev/null 2>&1; then
     pango \
     libXfixes \
     libxcb \
-    libXss \
     libXinerama \
     libXt \
     xdg-utils

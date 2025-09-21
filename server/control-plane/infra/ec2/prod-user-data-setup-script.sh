@@ -58,7 +58,6 @@ if command -v dnf >/dev/null 2>&1; then
     pango \
     libXfixes \
     libxcb \
-    libXss \
     libXinerama \
     libXt \
     xdg-utils
