@@ -10,6 +10,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
+  PrototypeAssetRow,
   PrototypeFileInsert,
   S3CopyResult,
 } from '../types/InternalTypes.js';
@@ -58,20 +59,10 @@ function getContentType(fileName: string): string {
 
 export async function copyAllAssetsInSupabaseStorage(
   supabase: SupabaseClient<Database>,
+  assets: PrototypeAssetRow[],
   sourcePrototypeId: string,
   targetPrototypeId: string,
-  log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const { data: assets, error: assetsError } = await supabase.storage
-    .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
-    .list(sourcePrototypeId);
-  if (assetsError) {
-    log2.error(
-      assetsError,
-      '[copyAllAssetsInSupabaseStorage] Failed to list assets',
-    );
-    return { success: false, error: assetsError.message, copiedObjects: 0 };
-  }
   const copyResults = await Promise.all(
     assets.map((asset) =>
       supabase.storage

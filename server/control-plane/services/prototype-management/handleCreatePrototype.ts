@@ -109,8 +109,9 @@ export async function handleCreatePrototypeImpl(
 
     if (prototypeInsertError) {
       request.log2.error(
-        prototypeInsertError,
-        '[handleCreatePrototype] Error creating prototype:',
+        new Error(prototypeInsertError.message),
+        '[handleCreatePrototype] Error creating prototype:' +
+          prototypeInsertError.message,
       );
       const errorResponse: CreatePrototypeErrorResponse = {
         success: false,
@@ -193,43 +194,31 @@ export async function handleCreatePrototypeImpl(
     log2: SystemLogger,
   ): Promise<void> {
     // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
-    const [
-      filesResult,
-      assetsResult,
-      assetsStorageCopyResult,
-      thumbnailCopyResult,
-      s3CopyResult,
-    ] = await Promise.all([
-      supabase
-        .from('prototype_files')
-        .select('*')
-        .eq('prototype_id', sourcePrototypeId),
-      supabase
-        .from('prototype_assets')
-        .select('*')
-        .eq('prototype_id', sourcePrototypeId),
-      copyAllAssetsInSupabaseStorage(
-        supabase,
-        sourcePrototypeId,
-        newPrototypeId,
-        log2,
-      ),
-      copyS3BucketContentsVersioned(
-        s3Client,
-        sourcePrototypeId,
-        newPrototypeId,
-        log2,
-      ),
-      copyPrototypeThumbnailInSupabaseStorage(
-        supabase,
-        sourcePrototypeId,
-        newPrototypeId,
-      ),
-    ]);
+    const [filesResult, assetsResult, s3CopyResult, thumbnailCopyResult] =
+      await Promise.all([
+        supabase
+          .from('prototype_files')
+          .select('*')
+          .eq('prototype_id', sourcePrototypeId),
+        supabase
+          .from('prototype_assets')
+          .select('*')
+          .eq('prototype_id', sourcePrototypeId),
+        copyS3BucketContentsVersioned(
+          s3Client,
+          sourcePrototypeId,
+          newPrototypeId,
+          log2,
+        ),
+        copyPrototypeThumbnailInSupabaseStorage(
+          supabase,
+          sourcePrototypeId,
+          newPrototypeId,
+        ),
+      ]);
     if (
       filesResult.error ||
       assetsResult.error ||
-      !assetsStorageCopyResult.success ||
       !s3CopyResult.success ||
       !thumbnailCopyResult.success
     ) {
@@ -240,38 +229,50 @@ export async function handleCreatePrototypeImpl(
       throw new Error(
         filesResult.error?.message ||
           assetsResult.error?.message ||
-          assetsStorageCopyResult.error ||
           thumbnailCopyResult.error ||
           s3CopyResult.error ||
           'Failed copy operations or fetching protototype files+assets',
       );
     }
 
-    const [filesInsertResult, assetsInsertResult] = await Promise.all([
-      supabase.from('prototype_files').insert(
-        filesResult.data.map(
-          (file) =>
-            ({
-              prototype_id: newPrototypeId,
-              name: file.name,
-              contents: file.contents,
-            } as PrototypeFileInsert),
+    const [filesInsertResult, assetsInsertResult, assetsStorageCopyResult] =
+      await Promise.all([
+        supabase.from('prototype_files').insert(
+          filesResult.data.map(
+            (file) =>
+              ({
+                prototype_id: newPrototypeId,
+                name: file.name,
+                contents: file.contents,
+              } as PrototypeFileInsert),
+          ),
         ),
-      ),
-      supabase.from('prototype_assets').insert(
-        assetsResult.data.map(
-          (asset) =>
-            ({
-              prototype_id: newPrototypeId,
-              name: asset.name,
-              storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
-            } as PrototypeAssetInsert),
+        supabase.from('prototype_assets').insert(
+          assetsResult.data.map(
+            (asset) =>
+              ({
+                prototype_id: newPrototypeId,
+                name: asset.name,
+                storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
+              } as PrototypeAssetInsert),
+          ),
         ),
-      ),
-    ]);
-    if (filesInsertResult.error || assetsInsertResult.error) {
+        copyAllAssetsInSupabaseStorage(
+          supabase,
+          assetsResult.data,
+          sourcePrototypeId,
+          newPrototypeId,
+        ),
+      ]);
+    if (
+      filesInsertResult.error ||
+      assetsInsertResult.error ||
+      !assetsStorageCopyResult.success
+    ) {
       log2.error(
-        filesInsertResult.error || assetsInsertResult.error,
+        filesInsertResult.error ||
+          assetsInsertResult.error ||
+          assetsStorageCopyResult.error,
         '[forkPrototype] Failed to insert files or assets',
       );
       throw new Error(
