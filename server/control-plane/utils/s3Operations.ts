@@ -98,16 +98,6 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
   };
 }
 
-export async function deletePrototypeThumbnailFromSupabaseStorage(
-  supabase: SupabaseClient<Database>,
-  prototypeId: string,
-): Promise<boolean> {
-  const removeResult = await supabase.storage
-    .from('prototype-thumbnails')
-    .remove([`${prototypeId}.png`]);
-  return removeResult.error ? false : true;
-}
-
 /**
  * Copy S3 bucket contents with versioned deployment for forking
  */
@@ -357,38 +347,56 @@ export async function getDefaultAppFilesFromS3(
 /**
  * Clean up S3 objects if prototype creation fails
  */
-// TODO: Support 1000+ objects when needed.
 export async function cleanupPrototypeS3Objects(
   s3Client: S3Client,
   prototypeId: string,
   log2: SystemLogger,
-): Promise<void> {
+): Promise<boolean> {
   try {
-    const prefix = prototypeId; // This will match everything: prototypeId/latest/, prototypeId/v123/, etc.
+    const prefix = prototypeId; // matches prototypeId/latest/, prototypeId/v123/, etc.
+    let continuationToken: string | undefined = undefined;
 
-    const listParams = {
-      Bucket: S3_PROTOTYPE_BUCKET,
-      Prefix: prefix,
-    };
-
-    const objects = await s3Client.send(new ListObjectsV2Command(listParams));
-    if (objects.Contents && objects.Contents.length > 0) {
-      const deleteParams = {
-        Bucket: S3_PROTOTYPE_BUCKET,
-        Delete: {
-          Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
-        },
-      };
-      await s3Client.send(new DeleteObjectsCommand(deleteParams));
-    } else {
-      log2.consoleLogDevOnly(
-        'info',
-        `[cleanupPrototypeS3Objects] No existing objects found with prefix: ${prefix}`,
+    do {
+      const listResponse: ListObjectsV2CommandOutput = await s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: S3_PROTOTYPE_BUCKET,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
       );
-    }
+
+      const objects = listResponse.Contents ?? [];
+
+      if (objects.length > 0) {
+        const deleteParams = {
+          Bucket: S3_PROTOTYPE_BUCKET,
+          Delete: {
+            Objects: objects.map((obj) => ({ Key: obj.Key! })),
+          },
+        };
+        await s3Client.send(new DeleteObjectsCommand(deleteParams));
+      }
+
+      continuationToken = listResponse.IsTruncated
+        ? listResponse.NextContinuationToken
+        : undefined;
+    } while (continuationToken);
+
+    return true;
   } catch (error) {
     log2.error(error, '[cleanupPrototypeS3Objects] Error');
+    return false;
   }
+}
+
+export async function deletePrototypeThumbnailFromSupabaseStorage(
+  supabase: SupabaseClient<Database>,
+  prototypeId: string,
+): Promise<boolean> {
+  const removeResult = await supabase.storage
+    .from('prototype-thumbnails')
+    .remove([`${prototypeId}.png`]);
+  return removeResult.error ? false : true;
 }
 
 /**
@@ -397,34 +405,29 @@ export async function cleanupPrototypeS3Objects(
 export async function deletePrototypeAssetsFromStorage(
   prototypeId: string,
   log2: SystemLogger,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { data: files, error: listError } = await supabaseStorage.storage
       .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .list(prototypeId);
-
     if (listError || !files || files.length === 0) {
-      return;
+      return true;
     }
 
     const filePaths = files.map((file) => `${prototypeId}/${file.name}`);
-
     const { error: deleteError } = await supabaseStorage.storage
       .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .remove(filePaths);
-
     if (deleteError) {
       log2.error(
         deleteError,
         '[deletePrototypeAssetsFromStorage] Supabase error',
       );
-    } else {
-      log2.consoleLogDevOnly(
-        'info',
-        `[deletePrototypeAssetsFromStorage] Cleaned up ${filePaths.length} Supabase Storage assets for prototype ${prototypeId}`,
-      );
+      return false;
     }
+    return true;
   } catch (error) {
     log2.error(error, '[deletePrototypeAssetsFromStorage] Error');
+    return false;
   }
 }
