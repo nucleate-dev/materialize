@@ -9,10 +9,10 @@ import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../../types/supabase.js';
 import {
-  cleanupPrototypeS3Objects,
+  deletePrototypeS3Builds,
   deletePrototypeAssetsFromStorage,
   deletePrototypeThumbnailFromSupabaseStorage,
-} from '../../utils/s3Operations.js';
+} from './storageOperations.js';
 import { GlideClient } from '@valkey/valkey-glide';
 import { CACHE_KEYS } from '../../types/InternalTypes.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
@@ -54,7 +54,7 @@ export default async function handleDeletePrototypeImpl(
     // 2. Delete everything for this prototype concurrently
     const [s3CleanupResult, assetsCleanupResult, thumbnailCleanupResult] =
       await Promise.all([
-        cleanupPrototypeS3Objects(s3Client, prototype_id, request.log2),
+        deletePrototypeS3Builds(s3Client, prototype_id, request.log2),
         deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
         deletePrototypeThumbnailFromSupabaseStorage(
           supabase,

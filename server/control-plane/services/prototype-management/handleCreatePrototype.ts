@@ -10,7 +10,7 @@ import { hasExceededPrototypeCreationLimit } from '../../utils/subscriptionCheck
 import { Database } from '../../types/supabase.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
-  cleanupPrototypeS3Objects,
+  deletePrototypeS3Builds,
   copyAllAssetsInSupabaseStorage,
   copyDefaultAppToVersionedPrototype,
   copyPrototypeThumbnailInSupabaseStorage,
@@ -20,7 +20,7 @@ import {
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
   uploadDefaultAssetsToSupabaseStorage,
-} from '../../utils/s3Operations.js';
+} from './storageOperations.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { S3Client } from '@aws-sdk/client-s3';
 import {
@@ -154,7 +154,7 @@ export async function handleCreatePrototypeImpl(
     } catch (error) {
       request.log2.error(error, 'Error during prototype setup:');
       await Promise.allSettled([
-        cleanupPrototypeS3Objects(s3Client, newPrototypeId, request.log2),
+        deletePrototypeS3Builds(s3Client, newPrototypeId, request.log2),
         deletePrototypeAssetsFromStorage(
           supabase,
           newPrototypeId,

@@ -10,10 +10,10 @@ import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../../types/supabase.js';
 import {
-  cleanupPrototypeS3Objects,
+  deletePrototypeS3Builds,
   deletePrototypeAssetsFromStorage,
   deletePrototypeThumbnailFromSupabaseStorage,
-} from '../../utils/s3Operations.js';
+} from './storageOperations.js';
 import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
 import { copyAllDefaultsForNewPrototype } from './handleCreatePrototype.js';
 
@@ -56,7 +56,7 @@ export default async function handleResetPrototypeImpl(
 
     // 2. Delete all prototype files, assets from DB and delete all S3 builds, thumbnails, and assets in storage
     await Promise.allSettled([
-      cleanupPrototypeS3Objects(s3Client, prototype_id, request.log2),
+      deletePrototypeS3Builds(s3Client, prototype_id, request.log2),
       deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
       deletePrototypeThumbnailFromSupabaseStorage(
         supabase,

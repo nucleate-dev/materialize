@@ -7,14 +7,14 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
   PrototypeAssetRow,
   PrototypeFileInsert,
   S3CopyResult,
-} from '../types/InternalTypes.js';
-import { Database } from '../types/supabase.js';
+} from '../../types/InternalTypes.js';
+import { Database } from '../../types/supabase.js';
 
 const S3_PROTOTYPE_BUCKET = 'materialize-sites';
 const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';
@@ -126,7 +126,7 @@ export async function copyS3BucketContentsVersioned(
 /**
  * Copy S3 bucket contents from one prefix to another
  */
-export async function copyS3BucketContents(
+async function copyS3BucketContents(
   s3Client: S3Client,
   sourcePrefix: string,
   destinationPrefix: string,
@@ -339,9 +339,9 @@ export async function getDefaultAppFilesFromS3(
 }
 
 /**
- * Clean up S3 objects if prototype creation fails
+ * Delete S3 objects for a prototype
  */
-export async function cleanupPrototypeS3Objects(
+export async function deletePrototypeS3Builds(
   s3Client: S3Client,
   prototypeId: string,
   log2: SystemLogger,

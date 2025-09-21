@@ -4,20 +4,14 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
   DeletePrototypeResponse,
-  DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlResponse,
-  FetchViewingUrlSuccessResponse,
-  StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
-import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
 import { handleCreatePrototypeImpl } from './handleCreatePrototype.js';
 import handleResetPrototypeImpl from './handleResetPrototype.js';
 import handleDeletePrototypeImpl from './handleDeletePrototype.js';
 import { GlideClient } from '@valkey/valkey-glide';
+import handleFetchViewingUrlImpl from './handleFetchViewingUrl.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -133,111 +127,7 @@ export class PrototypeManagementService {
     request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
     reply: FastifyReply,
   ): Promise<FetchViewingUrlResponse> {
-    try {
-      // Extract validated body (validation handled by Fastify schema)
-      const { prototype_id, current_page } = request.body;
-
-      // Get JWT token if provided (optional for this endpoint) and validate user access
-      const token = request.headers.authorization?.startsWith('Bearer ')
-        ? request.headers.authorization.split(' ')[1]
-        : undefined;
-      const authResult = await checkUserHasPrototypeEditAccess(
-        prototype_id,
-        token,
-        request.log2,
-      );
-      if (
-        authResult === null ||
-        authResult.user === null ||
-        authResult.prototype === null
-      ) {
-        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-          error: 'UNAUTHORIZED',
-          message: 'Access denied for this prototype',
-        });
-      }
-
-      // Check if user is prototype owner and current_page is 'edit'
-      if (authResult.canEdit && current_page === 'edit') {
-        try {
-          // Fetch dispatch-precheck from control plane
-          const precheckResponse = await this.fastifyApp.inject({
-            method: 'POST',
-            url: '/dispatch-precheck',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-trace-id': request.log2.getTraceId(),
-            },
-            payload: {
-              jwt: token,
-              prototype_id: prototype_id,
-            } as DispatchPrecheckRequestBody,
-          });
-
-          if (precheckResponse.statusCode === 200) {
-            const precheckData: DispatchPrecheckResponse =
-              precheckResponse.json();
-
-            // Type guard to check if it's a success response
-            if (
-              'success' in precheckData &&
-              precheckData.success &&
-              precheckData.viewing_url
-            ) {
-              const isEditable = isEditableDevServer(precheckData.status);
-              let staticViewingUrl = precheckData.viewing_url;
-              if (
-                !isEditable &&
-                token &&
-                authResult.prototype.visibility !== 'PUBLIC' &&
-                staticViewingUrl.includes('render.materializeui.com')
-              ) {
-                staticViewingUrl += `?token=${encodeURIComponent(token)}`;
-              }
-              const successResponse: FetchViewingUrlSuccessResponse = {
-                viewing_url: staticViewingUrl,
-                source: isEditable ? 'editable_instance' : 'static_build',
-                status: precheckData.status,
-              };
-              return reply.status(HTTP_STATUS.OK).send(successResponse);
-            }
-          }
-        } catch (precheckError) {
-          request.log2.warn(
-            'Failed to fetch dispatch precheck, falling back to static build:',
-            { precheckError },
-          );
-          // Continue to static build fallback
-        }
-      }
-
-      // Return static build URL
-      let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
-      if (token && authResult.prototype.visibility !== 'PUBLIC') {
-        staticViewingUrl += `?token=${encodeURIComponent(token)}`;
-      }
-      request.log2.consoleLogDevOnly(
-        'info',
-        'Returning static build URL ' + staticViewingUrl,
-      );
-
-      const successResponse: FetchViewingUrlSuccessResponse = {
-        viewing_url: staticViewingUrl,
-        source: 'static_build',
-        status: null,
-      };
-
-      return reply.status(HTTP_STATUS.OK).send(successResponse);
-    } catch (error) {
-      request.log2.error(error, 'Fetch viewing URL error:');
-      const errorResponse: StandardErrorResponse = {
-        error: 'Internal Server Error',
-        message: 'Internal server error',
-      };
-      return reply
-        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .send(errorResponse);
-    }
+    return await handleFetchViewingUrlImpl(request, reply, this.fastifyApp);
   }
 
   private async handleCreatePrototype(
