@@ -119,9 +119,10 @@ export interface DispatchPrecheckSuccessResponse {
   viewing_url: string;
 }
 
-export type DispatchPrecheckResponse =
-  | DispatchPrecheckSuccessResponse
-  | StandardErrorResponse;
+export interface DispatchPrecheckErrorResponse {
+  error: string;
+  message: string;
+}
 
 // ============================================================================
 // /cache/clear ENDPOINT
@@ -287,6 +288,12 @@ export interface StartDevServerSuccessResponse {
   status: 'success' | 'error';
   viewing_url: string;
   message: string;
+}
+
+export interface StartDevServerErrorResponse {
+  error: string;
+  message: string;
+  status: BuildStatus | null;
 }
 
 // ============================================================================

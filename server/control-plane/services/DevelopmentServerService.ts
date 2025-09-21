@@ -3,6 +3,7 @@ import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import type {
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
+  StartDevServerErrorResponse,
   UpdateFilesRequestBody,
   UpdateFilesSuccessResponse,
   UpdateFilesErrorResponse,
@@ -10,7 +11,8 @@ import type {
   APIResponse,
   DispatchRequestBody,
   DispatchPrecheckRequestBody,
-  DispatchPrecheckResponse,
+  DispatchPrecheckSuccessResponse,
+  DispatchPrecheckErrorResponse,
   DispatchResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
@@ -182,7 +184,7 @@ export class DevelopmentServerService {
         });
       }
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(
+      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
         precheckResponse.payload,
       );
       request.log2.consoleLogDevOnly(
@@ -193,8 +195,8 @@ export class DevelopmentServerService {
 
       // 3. Check if build is already in progress
       if (
-        'status' in precheckData &&
-        isDispatchInProgress(precheckData.status)
+        precheckData.data &&
+        isDispatchInProgress(precheckData.data.status)
       ) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
@@ -208,8 +210,8 @@ export class DevelopmentServerService {
 
       // 4. Check if there's an active dev server to update
       if (
-        'success' in precheckData &&
-        !isEditableDevServer(precheckData.status)
+        precheckData.data &&
+        !isEditableDevServer(precheckData.data.status)
       ) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
@@ -413,7 +415,7 @@ export class DevelopmentServerService {
         };
       }
 
-      const precheckData: DispatchPrecheckResponse = JSON.parse(
+      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
         precheckResponse.payload,
       );
       request.log2.consoleLogDevOnly(
@@ -424,8 +426,8 @@ export class DevelopmentServerService {
 
       // 3. Check if dev server already exists
       if (
-        'status' in precheckData &&
-        isEditableDevServer(precheckData.status)
+        precheckData.data &&
+        isEditableDevServer(precheckData.data.status)
       ) {
         request.log2.consoleLogDevOnly(
           'info',
@@ -438,6 +440,7 @@ export class DevelopmentServerService {
             error: 'Active dev server already exists',
             message:
               'A dev server is currently starting for this prototype. Please wait for it to complete.',
+            status: precheckData.data.status,
           },
         };
       }

@@ -21,8 +21,10 @@ import {
 } from '../types/InternalTypes.js';
 import {
   type DispatchPrecheckRequestBody,
-  type DispatchPrecheckResponse,
+  type DispatchPrecheckSuccessResponse,
+  type DispatchPrecheckErrorResponse,
   type DispatchRequestBody,
+  type APIResponse,
   HTTP_STATUS,
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
@@ -427,7 +429,7 @@ export class DispatcherService {
   private async handleDispatchEditIntent(
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
-  ): Promise<DispatchPrecheckResponse> {
+  ): Promise<APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>> {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
     request.log2 = request.log2.child({
@@ -448,15 +450,15 @@ export class DispatcherService {
         } as DispatchPrecheckRequestBody,
       });
 
-      const precheckResponse: DispatchPrecheckResponse = JSON.parse(
+      const precheckResponse: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
         precheckInjectResponse.payload,
       );
 
       // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
       if (
-        'success' in precheckResponse &&
-        precheckResponse.success &&
-        isEditableDevServer(precheckResponse.status)
+        precheckResponse.data &&
+        precheckResponse.data.success &&
+        isEditableDevServer(precheckResponse.data.status)
       ) {
         // Get current build ID and update last_touched timestamp
         const currentBuildId = await this.cache.get(
@@ -505,7 +507,7 @@ export class DispatcherService {
       }
 
       // 4. Return the precheck response
-      return precheckResponse;
+      return reply.status(HTTP_STATUS.OK).send(precheckResponse);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       request.log2.error(
@@ -514,8 +516,11 @@ export class DispatcherService {
       );
 
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Internal Server Error',
-        message: e.message,
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       });
     }
   }
@@ -523,7 +528,7 @@ export class DispatcherService {
   private async handleDispatchPrecheck(
     request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
     reply: FastifyReply,
-  ): Promise<DispatchPrecheckResponse> {
+  ): Promise<APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>> {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id } = request.body;
 
@@ -535,9 +540,12 @@ export class DispatcherService {
     );
     if (!authResult || !authResult.canEdit) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'Unauthorized',
-        message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
       });
     }
     // update logger context
@@ -559,38 +567,49 @@ export class DispatcherService {
         if (existingBuildJson) {
           const parsedBuild = JSON.parse(existingBuildJson as string);
           if (!isActiveBuildType(parsedBuild)) {
-            reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-            return {
-              error: 'Internal Server Error',
-              message: 'Invalid build data in storage',
-            };
+            return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+              data: null,
+              error: {
+                error: 'Internal Server Error',
+                message: 'Invalid build data in storage',
+              },
+            });
           }
           const existingBuild: ActiveBuild = parsedBuild;
 
-          return {
-            success: true,
-            status: existingBuild.status,
-            viewing_url: this.normalizeUrl(
-              isEditableDevServer(existingBuild.status)
-                ? existingBuild.url
-                : this.getS3Url(prototype_id),
-            ),
-          };
+          return reply.status(HTTP_STATUS.OK).send({
+            data: {
+              success: true,
+              status: existingBuild.status,
+              viewing_url: this.normalizeUrl(
+                isEditableDevServer(existingBuild.status)
+                  ? existingBuild.url
+                  : this.getS3Url(prototype_id),
+              ),
+            },
+            error: null,
+          });
         }
       }
 
       // No active build, return S3 URL
-      return {
-        success: true,
-        status: null,
-        viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-      };
+      return reply.status(HTTP_STATUS.OK).send({
+        data: {
+          success: true,
+          status: null,
+          viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
+        },
+        error: null,
+      });
     } catch (error) {
       request.log2.error(error, '[handleDispatchPrecheck] Precheck failed');
       const e = error instanceof Error ? error : new Error(String(error));
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        error: 'Internal Server Error',
-        message: e.message,
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       });
     }
   }
