@@ -26,7 +26,7 @@ import {
   type FetchViewingUrlSuccessResponse,
   type StandardErrorResponse,
   type StartDevServerRequestBody,
-  type StartDevServerResponse,
+  type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { hasChatIntent } from "@/lib/utils/chatIntentUtils";
@@ -273,11 +273,14 @@ export default function InternalPrototypePage() {
         );
 
         if (response.ok) {
-          const result: StartDevServerResponse = await response.json();
-          if ("success" in result && result.success) {
+          const result: APIResponse<
+            StartDevServerSuccessResponse,
+            StandardErrorResponse
+          > = await response.json();
+          if (result.data) {
             // Update viewing URL if provided
-            if (result.viewing_url) {
-              setViewingUrl(result.viewing_url);
+            if (result.data.viewing_url) {
+              setViewingUrl(result.data.viewing_url);
               setCurrentRenderStatus("Connected");
               return;
             }

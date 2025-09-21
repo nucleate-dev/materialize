@@ -273,7 +273,6 @@ export interface UpdateFilesErrorResponse {
   build_warnings?: CodeWarning[];
 }
 
-
 // ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
@@ -292,16 +291,6 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
 }
-
-export interface StartDevServerErrorResponse {
-  error: string;
-  message: string;
-  status: BuildStatus | null;
-}
-
-export type StartDevServerResponse =
-  | StartDevServerSuccessResponse
-  | StartDevServerErrorResponse;
 
 // ============================================================================
 // /chat ENDPOINT

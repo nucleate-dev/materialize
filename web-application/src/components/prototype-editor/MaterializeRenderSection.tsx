@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type {
   StartDevServerRequestBody,
-  StartDevServerResponse,
+  StartDevServerSuccessResponse,
+  StandardErrorResponse,
+  APIResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 
@@ -176,21 +178,22 @@ const MaterializeRenderSection = forwardRef<
           },
         );
 
-        const result: StartDevServerResponse = await response.json();
+        const result: APIResponse<
+          StartDevServerSuccessResponse,
+          StandardErrorResponse
+        > = await response.json();
 
-        if (response.ok && "success" in result && result.success) {
+        if (response.ok && result.data) {
           // Update viewing URL if provided
-          if (result.viewing_url && onViewingUrlUpdate) {
-            onViewingUrlUpdate(result.viewing_url);
+          if (result.data.viewing_url && onViewingUrlUpdate) {
+            onViewingUrlUpdate(result.data.viewing_url);
           }
 
           // Force refresh the preview to load the new dev server
           forceRefresh();
         } else {
-          const errorMessage =
-            "error" in result ? result.error : result.message;
           logger.debug("error", "Failed to start dev server:", {
-            error: errorMessage,
+            error: result.error?.message,
           });
         }
       } catch (error) {

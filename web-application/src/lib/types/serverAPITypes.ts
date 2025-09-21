@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-21T09:04:04.421Z
+// Last synced: 2025-09-21T09:25:01.344Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -282,7 +282,6 @@ export interface UpdateFilesErrorResponse {
   build_warnings?: CodeWarning[];
 }
 
-
 // ============================================================================
 // /files/start-dev-server ENDPOINT
 // ============================================================================
@@ -301,16 +300,6 @@ export interface StartDevServerSuccessResponse {
   viewing_url: string;
   message: string;
 }
-
-export interface StartDevServerErrorResponse {
-  error: string;
-  message: string;
-  status: BuildStatus | null;
-}
-
-export type StartDevServerResponse =
-  | StartDevServerSuccessResponse
-  | StartDevServerErrorResponse;
 
 // ============================================================================
 // /chat ENDPOINT
