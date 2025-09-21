@@ -149,7 +149,7 @@ export default function ChatTestPage() {
         },
         body: JSON.stringify({
           name: prototypeName.trim(),
-          // visibility: , // Keep test prototypes private
+          visibility: "PUBLIC", // Keep test prototypes private
         } as CreatePrototypeRequestBody),
       });
 
