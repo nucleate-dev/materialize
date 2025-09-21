@@ -1,4 +1,9 @@
-import AWS from "aws-sdk";
+import {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
 import { ChildProcess, execSync, spawn, SpawnOptions } from "child_process";
 import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
@@ -121,12 +126,12 @@ export class ExpoDevServerService {
   private readonly workDir: string;
   private readonly defaultPort: number = 19006;
   private readonly S3_BUCKET: string;
-  private readonly s3: AWS.S3;
+  private readonly s3: S3Client;
 
   constructor(
     workDir: string = "/tmp/expo-dev",
     s3Bucket: string,
-    s3Instance: AWS.S3,
+    s3Instance: S3Client,
   ) {
     this.workDir = workDir;
     this.S3_BUCKET = s3Bucket;
@@ -1478,31 +1483,29 @@ export class ExpoDevServerService {
 
           // Upload to versioned location
           const versionedKey = `${versionedPrefix}/${item}`;
-          const versionedResult = await this.s3
-            .upload({
-              ...uploadParams,
-              Bucket: this.S3_BUCKET,
-              Key: versionedKey,
-            })
-            .promise();
+          const versionedCommand = new PutObjectCommand({
+            ...uploadParams,
+            Bucket: this.S3_BUCKET,
+            Key: versionedKey,
+          });
+          await this.s3.send(versionedCommand);
 
           // Upload to latest location
           const latestKey = `${latestPrefix}/${item}`;
-          await this.s3
-            .upload({
-              ...uploadParams,
-              Bucket: this.S3_BUCKET,
-              Key: latestKey,
-              // Shorter cache for latest folder to pick up updates faster
-              CacheControl: item.endsWith(".html")
-                ? "public, max-age=300"
-                : uploadParams.CacheControl,
-            })
-            .promise();
+          const latestCommand = new PutObjectCommand({
+            ...uploadParams,
+            Bucket: this.S3_BUCKET,
+            Key: latestKey,
+            // Shorter cache for latest folder to pick up updates faster
+            CacheControl: item.endsWith(".html")
+              ? "public, max-age=300"
+              : uploadParams.CacheControl,
+          });
+          await this.s3.send(latestCommand);
 
           uploadResults.push({
-            key: versionedResult.Key,
-            location: versionedResult.Location,
+            key: versionedKey,
+            location: `https://${this.S3_BUCKET}.s3.amazonaws.com/${versionedKey}`,
           });
         }
       }
@@ -1534,24 +1537,24 @@ export class ExpoDevServerService {
 
   private async deleteS3Prefix(prefix: string): Promise<void> {
     try {
-      const listParams = {
+      const listCommand = new ListObjectsV2Command({
         Bucket: this.S3_BUCKET,
         Prefix: prefix,
-      };
+      });
 
-      const objects = await this.s3.listObjectsV2(listParams).promise();
+      const objects = await this.s3.send(listCommand);
       if (objects.Contents && objects.Contents.length > 0) {
         console.log(
           `Deleting ${objects.Contents.length} existing objects with prefix: ${prefix}`,
         );
 
-        const deleteParams = {
+        const deleteCommand = new DeleteObjectsCommand({
           Bucket: this.S3_BUCKET,
           Delete: {
             Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
           },
-        };
-        await this.s3.deleteObjects(deleteParams).promise();
+        });
+        await this.s3.send(deleteCommand);
         console.log(`Successfully deleted ${objects.Contents.length} objects`);
       } else {
         console.log(`No existing objects found with prefix: ${prefix}`);

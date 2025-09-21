@@ -1,4 +1,4 @@
-import AWS from "aws-sdk";
+import { S3Client } from "@aws-sdk/client-s3";
 import { spawn, SpawnOptions } from "child_process";
 import dotenv from "dotenv";
 import fastify, {
@@ -17,15 +17,14 @@ const WORK_DIR = process.env.WORK_DIR || "/tmp/fargate-builds";
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
 // --- AWS Setup ---
-AWS.config.update({
-  httpOptions: {
-    timeout: 300000, // 5 minutes
-    connectTimeout: 60000, // 1 minute
+const s3 = new S3Client({
+  region: process.env.AWS_REGION || "us-east-1",
+  requestHandler: {
+    requestTimeout: 300000, // 5 minutes
+    connectionTimeout: 60000, // 1 minute
   },
-  maxRetries: 3,
+  maxAttempts: 3,
 });
-
-const s3 = new AWS.S3();
 
 // Initialize ExpoDevServerService
 const expoDevServerService = new ExpoDevServerService(WORK_DIR, S3_BUCKET, s3);

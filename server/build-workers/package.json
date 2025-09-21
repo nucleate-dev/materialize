@@ -20,14 +20,13 @@
     "test:public-dev-server:local": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts --local"
   },
   "dependencies": {
-    "aws-sdk": "^2.1582.0",
+    "@aws-sdk/client-s3": "^3.893.0",
     "dotenv": "^16.4.5",
     "fastify": "^4.26.2",
     "pino-pretty": "^13.1.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/aws-sdk": "^2.7.0",
     "@types/node": "^20.11.24",
     "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
