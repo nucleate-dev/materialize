@@ -37,6 +37,8 @@ import {
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 import { LatencyEvents } from '../loggers/LatencyEvents.js';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../types/supabase.js';
 
 dotenv.config();
 
@@ -163,8 +165,6 @@ export class DispatcherService {
     const { jwt, prototype_id, framework, files, assets, file_scope } =
       request.body;
     const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
-
-    // 2. Authentication and authorization validation
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       jwt,
@@ -182,7 +182,6 @@ export class DispatcherService {
       userId: authResult.user.id,
       prototypeId: prototype_id,
     });
-    request.log2.info('Starting dispatch request');
     try {
       const currentTime = Math.floor(Date.now() / 1000);
 
@@ -323,6 +322,7 @@ export class DispatcherService {
 
       // Dispatch request to fargate instance
       const requestBody = await this.constructRequestBody({
+        token: jwt,
         prototype_id,
         framework: selectedFramework,
         files,
@@ -741,6 +741,7 @@ export class DispatcherService {
   }
 
   private async constructRequestBody({
+    token,
     prototype_id,
     framework,
     files,
@@ -748,6 +749,7 @@ export class DispatcherService {
     file_scope,
     log2,
   }: {
+    token: string;
     prototype_id: string;
     framework: Framework;
     files: PrototypeFileInput[];
@@ -755,42 +757,59 @@ export class DispatcherService {
     file_scope: FileScope;
     log2: SystemLogger;
   }): Promise<StartDevServerRequestBody> {
-    // Convert prototype assets to FileInput format by downloading and encoding
-    const assetInputs: PrototypeAssetInputWithContent[] = [];
-    log2.info(`[constructRequestBody] Converting assets to base64 format: `, {
-      assetCount: assets.length,
-    });
-    for (const asset of assets) {
-      try {
-        const response = await fetch(asset.storage_url);
-        if (!response.ok) {
-          log2.error(
-            new Error(
-              `Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
-            ),
-            `[constructRequestBody] Failed to fetch asset ${asset.name}: ${response.status} ${response.statusText}`,
-          );
-          continue;
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const base64Content = Buffer.from(arrayBuffer).toString('base64');
+    const supabase = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
 
-        assetInputs.push({
-          ...asset,
-          contents: base64Content,
-        });
-      } catch (error) {
-        log2.error(
-          error,
-          `[constructRequestBody] Error converting asset ${asset.name}:`,
-        );
-      }
-    }
+    // Run all downloads concurrently
+    const assetInputs: PrototypeAssetInputWithContent[] = await Promise.all(
+      assets.map(async (asset) => {
+        try {
+          const { data, error } = await supabase.storage
+            .from('prototype-assets')
+            .download(`${asset.prototype_id}/${asset.name}`);
+
+          if (error || !data) {
+            log2.error(
+              error,
+              `[constructRequestBody] Failed to download asset ${asset.name}: ${
+                error?.message ?? 'unknown error'
+              }`,
+            );
+            return null;
+          }
+
+          const arrayBuffer = await data.arrayBuffer();
+          const base64Content = Buffer.from(arrayBuffer).toString('base64');
+
+          return {
+            ...asset,
+            contents: base64Content,
+          };
+        } catch (err) {
+          log2.error(
+            err,
+            `[constructRequestBody] Error converting asset ${asset.name}`,
+          );
+          return null;
+        }
+      }),
+    ).then((results) =>
+      results.filter((r): r is PrototypeAssetInputWithContent => r !== null),
+    );
 
     return {
       prototype_id,
       framework,
-      files: files,
+      files,
       assets: assetInputs,
       file_scope,
     };
