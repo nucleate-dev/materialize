@@ -47,21 +47,20 @@ export default async function handleDeletePrototypeImpl(
     );
 
     // 2. Delete everything for this prototype concurrently
-    const [
-      s3CleanupResult,
-      assetsCleanupResult,
-      thumbnailCleanupResult,
-      prototypeCleanupResult,
-    ] = await Promise.all([
-      cleanupPrototypeS3Objects(s3Client, prototype_id, request.log2),
-      deletePrototypeAssetsFromStorage(prototype_id, request.log2),
-      deletePrototypeThumbnailFromSupabaseStorage(
-        supabase,
-        prototype_id,
-        request.log2,
-      ),
-      supabase.from('prototypes').delete().eq('id', prototype_id), // cascade delete everything relevant
-    ]);
+    const [s3CleanupResult, assetsCleanupResult, thumbnailCleanupResult] =
+      await Promise.all([
+        cleanupPrototypeS3Objects(s3Client, prototype_id, request.log2),
+        deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
+        deletePrototypeThumbnailFromSupabaseStorage(
+          supabase,
+          prototype_id,
+          request.log2,
+        ),
+      ]);
+    const prototypeCleanupResult = await supabase
+      .from('prototypes')
+      .delete()
+      .eq('id', prototype_id); // cascade delete everything relevant
 
     request.log2.info('Deleted all associated data for prototype', {
       prototype_id,

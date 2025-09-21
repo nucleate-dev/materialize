@@ -161,8 +161,8 @@ export async function handleCreatePrototypeImpl(
           newPrototypeId,
           request.log2,
         ),
-        supabase.from('prototypes').delete().eq('id', newPrototypeId),
       ]);
+      await supabase.from('prototypes').delete().eq('id', newPrototypeId);
       const errorResponse: CreatePrototypeErrorResponse = {
         success: false,
         error: 'S3_ERROR',

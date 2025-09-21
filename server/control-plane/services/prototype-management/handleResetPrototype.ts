@@ -57,14 +57,14 @@ export default async function handleResetPrototypeImpl(
     // 2. Delete all prototype files, assets from DB and delete all S3 builds, thumbnails, and assets in storage
     await Promise.allSettled([
       cleanupPrototypeS3Objects(s3Client, prototype_id, request.log2),
-      deletePrototypeAssetsFromStorage(prototype_id, request.log2),
+      deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
       deletePrototypeThumbnailFromSupabaseStorage(
         supabase,
         prototype_id,
         request.log2,
       ),
-      supabase.from('prototypes').delete().eq('id', prototype_id), // cascade delete everything relevant
     ]);
+    await supabase.from('prototypes').delete().eq('id', prototype_id); // cascade delete everything relevant
 
     // 3. Re-create the prototype with same metadata and use existing createPrototype logic to apply all defaults to this prototype
     const { error: newPrototypeError } = await supabase

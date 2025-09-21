@@ -411,19 +411,32 @@ export async function deletePrototypeThumbnailFromSupabaseStorage(
  * Delete prototype assets from Supabase Storage
  */
 export async function deletePrototypeAssetsFromStorage(
+  supabase: SupabaseClient<Database>,
   prototypeId: string,
   log2: SystemLogger,
 ): Promise<boolean> {
   try {
-    const { data: files, error: listError } = await supabaseStorage.storage
+    const { data: files, error: listError } = await supabase.storage
       .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .list(prototypeId);
-    if (listError || !files || files.length === 0) {
+    if (listError) {
+      log2.error(
+        listError,
+        '[deletePrototypeAssetsFromStorage] Supabase error: ' +
+          listError.message,
+      );
+      return false;
+    }
+    if (!files || files.length === 0) {
+      log2.info('[deletePrototypeAssetsFromStorage] No files found');
       return true;
     }
 
     const filePaths = files.map((file) => `${prototypeId}/${file.name}`);
-    const { error: deleteError } = await supabaseStorage.storage
+    log2.consoleLogDevOnly('info', 'Deleting files from Supabase Storage', {
+      filePaths,
+    });
+    const { error: deleteError } = await supabase.storage
       .from(SUPABASE_PROTOTYPE_ASSETS_BUCKET)
       .remove(filePaths);
     if (deleteError) {
