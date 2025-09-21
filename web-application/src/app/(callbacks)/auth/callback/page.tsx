@@ -4,8 +4,10 @@ import { posthogClient, supabase } from "@/ClientConstants";
 import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
+  APIResponse,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
+  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -85,9 +87,11 @@ export default function AuthCallback() {
                 },
               );
 
-              const protoResult: CreatePrototypeResponse =
-                await response.json();
-              if (protoResult.success) {
+              const protoResult: APIResponse<
+                CreatePrototypeSuccessResponse,
+                CreatePrototypeErrorResponse
+              > = await response.json();
+              if (protoResult.data) {
                 prototypeId = protoResult.data.prototype_id;
               }
             } catch (protoError) {

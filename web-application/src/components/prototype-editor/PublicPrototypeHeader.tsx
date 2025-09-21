@@ -16,8 +16,10 @@ import { WAITLIST_MODE } from "@/GlobalConstants";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
+  type APIResponse,
   type CreatePrototypeRequestBody,
-  type CreatePrototypeResponse,
+  type CreatePrototypeSuccessResponse,
+  type CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -160,23 +162,26 @@ export default function PublicPrototypeHeader({
           body: JSON.stringify({
             name: clonedPrototypeName,
             description: prototype.description,
-            project_id: prototype.project_id,
+            project_id: prototype.project_id || undefined,
             prototype_id: prototype.id,
             visibility: "PUBLIC", // TODO evaluate whether this should ever be private
           } as CreatePrototypeRequestBody),
         },
       );
 
-      const result: CreatePrototypeResponse = await response.json();
-      if (result.success) {
+      const result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      > = await response.json();
+      if (result.data) {
         // Navigate to the new prototype in dashboard
         router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
-      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         setShowUpsellModal(true);
       } else {
         logger.debug("error", "Error cloning prototype:", {
-          ...result,
+          ...result.error,
         });
       }
     } catch (err) {

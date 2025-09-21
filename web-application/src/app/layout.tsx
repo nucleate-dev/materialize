@@ -41,8 +41,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <CSPostHogProvider>
-        <body className={inter.className}>
+      <body className={inter.className}>
+        <CSPostHogProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -52,8 +52,8 @@ export default function RootLayout({
           >
             {children}
           </ThemeProvider>
-        </body>
-      </CSPostHogProvider>
+        </CSPostHogProvider>
+      </body>
     </html>
   );
 }

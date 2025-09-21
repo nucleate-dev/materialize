@@ -119,7 +119,9 @@ export async function clearCache(): Promise<ClearCacheResponse> {
 /**
  * Get prototype build data by prototype ID
  */
-export async function getPrototypeBuildData(prototypeId: string): Promise<PrototypeBuildData> {
+export async function getPrototypeBuildData(
+  prototypeId: string
+): Promise<PrototypeBuildData> {
   return makeAuthenticatedRequest<PrototypeBuildData>(
     "GET",
     `/internal/cache/prototype/${encodeURIComponent(prototypeId)}`

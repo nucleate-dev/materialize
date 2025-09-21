@@ -15,8 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
+  APIResponse,
   CreatePrototypeRequestBody,
-  CreatePrototypeResponse,
+  CreatePrototypeSuccessResponse,
+  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import {
   ArrowRight,
@@ -59,7 +61,10 @@ export default function DashboardPage() {
         return;
       }
 
-      let result: CreatePrototypeResponse;
+      let result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      >;
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
@@ -92,7 +97,7 @@ export default function DashboardPage() {
         return;
       }
 
-      if (result.success) {
+      if (result.data) {
         if (typeof window !== "undefined") {
           localStorage.setItem(
             "chat_intent",
@@ -104,12 +109,12 @@ export default function DashboardPage() {
         }
 
         router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
-      } else if (result.error === "PROTOTYPE_LIMIT_REACHED") {
+      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         setShowUpsellModal(true);
       } else {
         logger.debug("error", "Error creating prototype:", {
-          error: result.message,
+          error: result.error?.message,
         });
       }
     } catch (err) {

@@ -5,12 +5,13 @@ import cors from '@fastify/cors';
 import { DispatcherService } from './services/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
-import { PrototypeManagementService } from './services/PrototypeManagementService.js';
+import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/ChatService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { InternalDevServerManagementService } from './internal-services/InternalDevServerManagementService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
+import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { EC2Client } from '@aws-sdk/client-ec2';
@@ -34,7 +35,7 @@ export const baseLogger = new SystemLogger({
 
 // Initialize clients
 const initializeClients = async (): Promise<{
-  cache: GlideClient;
+  cacheClient: GlideClient;
   ecsClient: ECSClient;
   ec2Client: EC2Client;
   autoScalingClient: AutoScalingClient;
@@ -52,7 +53,7 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION!,
   });
 
-  const cache = await GlideClient.createClient({
+  const cacheClient = await GlideClient.createClient({
     addresses: [
       {
         host: process.env.CACHE_HOST!,
@@ -71,7 +72,7 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION || 'us-east-2',
   });
 
-  return { cache, ecsClient, ec2Client, autoScalingClient, s3Client };
+  return { cacheClient, ecsClient, ec2Client, autoScalingClient, s3Client };
 };
 
 const fastify = Fastify({
@@ -112,6 +113,7 @@ let chatService: ChatService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalDevServerManagementService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
+let internalCleanupServiceManagement: InternalCleanupServiceManagement;
 let cache: GlideClient;
 
 // Health check
@@ -141,23 +143,17 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
 const start = async (): Promise<void> => {
   try {
     // Initialize clients first
-    const {
-      cache: cacheClient,
-      ecsClient,
-      ec2Client,
-      autoScalingClient,
-      s3Client,
-    } = await initializeClients();
+    const { cacheClient, ecsClient, ec2Client, autoScalingClient, s3Client } =
+      await initializeClients();
 
-    // Assign to global variables
     cache = cacheClient;
 
     // Create dispatcher service with initialized clients and register routes
-    dispatcherService = new DispatcherService(cache, ecsClient, fastify);
+    dispatcherService = new DispatcherService(cacheClient, ecsClient, fastify);
     dispatcherService.registerRoutes(fastify);
 
     // Create cleanup service with cache and ECS client
-    cleanupService = new CleanupService(cache, ecsClient);
+    cleanupService = new CleanupService(cacheClient, ecsClient);
 
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();
@@ -167,6 +163,7 @@ const start = async (): Promise<void> => {
     prototypeManagementService = new PrototypeManagementService(
       fastify,
       s3Client,
+      cacheClient,
     );
     prototypeManagementService.registerRoutes(fastify);
 
@@ -179,16 +176,35 @@ const start = async (): Promise<void> => {
     chatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
-    internalToolsService = new InternalCacheManagementService(cache, fastify);
+    internalToolsService = new InternalCacheManagementService(
+      cacheClient,
+      fastify,
+    );
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes
-    internalDevServerManagementService = new InternalDevServerManagementService(ec2Client, ecsClient, fastify);
+    internalDevServerManagementService = new InternalDevServerManagementService(
+      ec2Client,
+      ecsClient,
+      fastify,
+    );
     internalDevServerManagementService.registerRoutes(fastify);
 
     // Create internal production deployment service and register routes
-    internalProductionDeploymentService = new InternalProductionDeploymentService(ec2Client, autoScalingClient, fastify);
+    internalProductionDeploymentService =
+      new InternalProductionDeploymentService(
+        ec2Client,
+        autoScalingClient,
+        fastify,
+      );
     internalProductionDeploymentService.registerRoutes(fastify);
+
+    // Create internal cleanup service management and register routes
+    internalCleanupServiceManagement = new InternalCleanupServiceManagement(
+      cleanupService,
+      fastify,
+    );
+    internalCleanupServiceManagement.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,

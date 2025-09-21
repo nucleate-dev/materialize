@@ -1,9 +1,9 @@
-import crypto from 'crypto';
+import crypto from "crypto";
 
 // Configuration for internal tools authentication
 export const INTERNAL_TOOLS_CONFIG = {
-  SIGNATURE_HEADER: 'x-internal-signature',
-  TIMESTAMP_HEADER: 'x-internal-timestamp',
+  SIGNATURE_HEADER: "x-internal-signature",
+  TIMESTAMP_HEADER: "x-internal-timestamp",
 } as const;
 
 /**
@@ -15,16 +15,16 @@ export function generateInternalToolsSignature(
   method: string,
   path: string,
   body: string,
-  secretKey: string,
+  secretKey: string
 ): string {
   // Create the payload to sign: timestamp + method + path + body
   const payload = `${timestamp}.${method.toUpperCase()}.${path}.${body}`;
 
   // Create HMAC-SHA256 signature
   const signature = crypto
-    .createHmac('sha256', secretKey)
-    .update(payload, 'utf8')
-    .digest('hex');
+    .createHmac("sha256", secretKey)
+    .update(payload, "utf8")
+    .digest("hex");
 
   return signature;
 }
@@ -37,7 +37,7 @@ export function generateAuthHeaders(
   method: string,
   path: string,
   body: string,
-  secretKey: string,
+  secretKey: string
 ): Record<string, string> {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = generateInternalToolsSignature(
@@ -45,7 +45,7 @@ export function generateAuthHeaders(
     method,
     path,
     body,
-    secretKey,
+    secretKey
   );
 
   const headers: Record<string, string> = {
@@ -55,7 +55,7 @@ export function generateAuthHeaders(
 
   // Only add Content-Type header if there's a body
   if (body) {
-    headers['Content-Type'] = 'application/json';
+    headers["Content-Type"] = "application/json";
   }
 
   return headers;
@@ -69,11 +69,15 @@ export function getInternalToolsConfig() {
   const serverEndpoint = process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT;
 
   if (!secretKey) {
-    throw new Error('NEXT_PUBLIC_INTERNAL_TOOLS_SECRET_KEY environment variable is required');
+    throw new Error(
+      "NEXT_PUBLIC_INTERNAL_TOOLS_SECRET_KEY environment variable is required"
+    );
   }
 
   if (!serverEndpoint) {
-    throw new Error('NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable is required');
+    throw new Error(
+      "NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT environment variable is required"
+    );
   }
 
   return {

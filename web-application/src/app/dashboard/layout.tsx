@@ -62,19 +62,17 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function RootLayout({
+export default function DashboardRootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body suppressHydrationWarning={true}>
-        <RequireAuth />
-        {/* <WithPaywall> */}
-        <DashboardLayout>{children}</DashboardLayout>
-        {/* </WithPaywall> */}
-      </body>
-    </html>
+    <>
+      <RequireAuth />
+      {/* <WithPaywall> */}
+      <DashboardLayout>{children}</DashboardLayout>
+      {/* </WithPaywall> */}
+    </>
   );
 }

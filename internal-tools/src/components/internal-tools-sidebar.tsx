@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Home, Server, Settings, Users, Rocket } from "lucide-react";
+import { Database, Home, Server, Settings, Users, Rocket, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -44,6 +44,11 @@ const items = [
     title: "Prod Deployments",
     url: "/prod-deployments",
     icon: Rocket,
+  },
+  {
+    title: "Cleanup Service",
+    url: "/cleanup-service",
+    icon: Trash2,
   },
 ];
 

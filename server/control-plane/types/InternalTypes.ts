@@ -88,6 +88,7 @@ export interface SubscriptionInfo {
 
 export interface CleanupOperationResult {
   success: boolean;
+  buildInProgress: boolean;
   error?: string;
 }
 
@@ -102,9 +103,6 @@ export interface CleanupStats {
   idleBuildsFound: number;
   successfulCleanups: number;
   failedCleanups: number;
-  operationsInProgress: number;
-  workerErrors: number;
-  networkIssues: number;
 }
 
 // ============================================================================
@@ -136,7 +134,7 @@ export interface S3UploadResult {
 export interface DefaultFilesResult {
   success: boolean;
   files?: PrototypeFileInsert[];
-  assets?: PrototypeAssetInsert[];
+  assets?: { name: string; contents: Buffer; prototype_id: string }[];
   error?: string;
 }
 
@@ -145,6 +143,8 @@ export type PrototypeInsert =
 export type PrototypeRow = Database['public']['Tables']['prototypes']['Row'];
 export type PrototypeFileRow =
   Database['public']['Tables']['prototype_files']['Row'];
+export type PrototypeAssetRow =
+  Database['public']['Tables']['prototype_assets']['Row'];
 export type PrototypeFileInsert =
   Database['public']['Tables']['prototype_files']['Insert'];
 export type PrototypeAssetInsert =

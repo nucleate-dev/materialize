@@ -30,8 +30,10 @@ import {
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
+  APIResponse,
   FetchViewingUrlRequestBody,
-  FetchViewingUrlResponse,
+  FetchViewingUrlSuccessResponse,
+  StandardErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { logout } from "@/lib/utils/auth/SupabaseAuthUtils";
@@ -212,13 +214,13 @@ export default function PrototypePage() {
           );
 
           if (fetchViewResponse.ok) {
-            const fetchViewData: FetchViewingUrlResponse =
+            const fetchViewData: APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse> =
               await fetchViewResponse.json();
-            if ("viewing_url" in fetchViewData) {
-              setViewingUrl(fetchViewData.viewing_url);
-            } else {
+            if (fetchViewData.data) {
+              setViewingUrl(fetchViewData.data.viewing_url);
+            } else if (fetchViewData.error) {
               logger.debug("error", "Error in fetch-viewing-url response:", {
-                ...fetchViewData,
+                ...fetchViewData.error,
               });
             }
           } else {

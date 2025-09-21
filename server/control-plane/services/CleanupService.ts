@@ -1,7 +1,10 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
+import puppeteer from 'puppeteer';
 import { CONFIG } from '../config.js';
 import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
@@ -20,12 +23,16 @@ export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
   private cache: GlideClient;
   private ecsClient: ECSClient;
+  private s3Client: S3Client;
   private supabase: SupabaseClient;
   private log2: SystemLogger;
 
   constructor(cache: GlideClient, ecsClient: ECSClient) {
     this.cache = cache;
     this.ecsClient = ecsClient;
+    this.s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -36,232 +43,13 @@ export class CleanupService {
     });
     this.startCleanupServices();
   }
-  // Cleanup idle hot reload services
-
-  private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
-    const currentTimeReadable = this.formatTimestampEST(Date.now());
-    this.log2.info('Cleaning up idle active builds', {
-      currentTime: Date.now(),
-      currentTimeReadable,
-    });
-
-    // get all active builds
-    const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
-
-    const stats: CleanupStats = {
-      totalBuildsScanned: activeBuildKeys?.length || 0,
-      idleBuildsFound: 0,
-      successfulCleanups: 0,
-      failedCleanups: 0,
-      operationsInProgress: 0,
-      workerErrors: 0,
-      networkIssues: 0,
-    };
-
-    if (!activeBuildKeys || activeBuildKeys.length === 0) {
-      this.log2.info('No active builds found for hot reload cleanup');
-      return stats;
-    }
-
-    const currentTime = Math.floor(Date.now() / 1000);
-    const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
-
-    // 1. Get all idle builds
-    const idleBuilds: IdleBuildInfo[] = [];
-
-    for (const buildKey of activeBuildKeys) {
-      const buildJson = await this.cache.get(buildKey);
-      if (!buildJson) {
-        continue;
-      }
-
-      const parsedBuild = JSON.parse(buildJson as string);
-      if (!isActiveBuildType(parsedBuild)) {
-        this.log2.warn('Invalid build data found in cache for key', {
-          buildKey,
-        });
-        continue;
-      }
-      const build: ActiveBuild = parsedBuild;
-
-      // Skip if already cleaning
-      if (build.status === 'cleaning') {
-        this.log2.info('Build is already cleaning, skipping', {
-          buildKey,
-        });
-        continue;
-      }
-
-      const timeSinceLastTouch = currentTime - build.last_touched;
-      if (timeSinceLastTouch > idleTimeoutSeconds) {
-        // Extract build ID from key: "active_build:build_id" -> "build_id"
-        const buildId = buildKey.replace('active_build:', '');
-        idleBuilds.push({ build, buildId, buildKey });
-      }
-    }
-
-    // 2. For each idle build, clean it up
-    stats.idleBuildsFound = idleBuilds.length;
-    this.log2.info('Found idle builds to clean up', {
-      idleBuildsFound: stats.idleBuildsFound,
-    });
-
-    for (const { build, buildId, buildKey } of idleBuilds) {
-      this.log2.info('Cleaning up idle build', {
-        buildId,
-        buildKey,
-        build,
-        lastTouchedReadable: this.formatTimestampEST(build.last_touched * 1000),
-      });
-
-      // Set status to cleaning first
-      const cleaningBuild: ActiveBuild = {
-        ...build,
-        status: 'cleaning',
-      };
-
-      try {
-        await this.cache.set(buildKey, JSON.stringify(cleaningBuild));
-      } catch (error) {
-        this.log2.error(error, 'Failed to set cleaning status for build', {
-          buildId,
-        });
-        stats.failedCleanups++;
-        continue;
-      }
-
-      // Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
-      const prototypeId = buildId.split('_')[1];
-
-      // a. dispatch a request to the fargate instance to kill the build
-      let shouldTerminateTask = true;
-      let killResult: {
-        success: boolean;
-        buildInProgress?: boolean;
-        error?: string;
-      } = {
-        success: true,
-        buildInProgress: false,
-        error: undefined,
-      };
-
-      if (build.fargate_private_ip) {
-        killResult = await this.dispatchKillDevServerRequest(
-          prototypeId,
-          build.fargate_private_ip,
-        );
-        if (killResult.buildInProgress) {
-          this.log2.info(
-            'Build operation in progress, skipping Fargate task termination',
-            {
-              buildId,
-              error: killResult.error,
-            },
-          );
-          shouldTerminateTask = false;
-        } else if (!killResult.success) {
-          this.log2.error(
-            killResult.error,
-            'Failed to kill dev server for build',
-            {
-              buildId,
-              prototypeId,
-            },
-          );
-          stats.failedCleanups++;
-          continue;
-        }
-      }
-
-      // b. Kill the fargate task using the task arn (only if safe to do so)
-      if (!shouldTerminateTask) {
-        this.log2.info(
-          'Skipping Fargate task termination - operation in progress',
-          {
-            buildId,
-            prototypeId,
-            operationDetails: killResult.error || 'Build operation detected',
-          },
-        );
-
-        // Reset the status back to building since we're not cleaning up yet
-        const activeBuild: ActiveBuild = {
-          ...build,
-          status: 'building',
-        };
-        try {
-          await this.cache.set(buildKey, JSON.stringify(activeBuild));
-          this.log2.info(
-            'Updated build status back to building and refreshed last_touched timestamp',
-            {
-              buildId,
-            },
-          );
-        } catch (error) {
-          this.log2.error(
-            error,
-            'Failed to update build status back to building',
-            {
-              buildId,
-            },
-          );
-        }
-        continue; // Skip termination and cache cleanup
-      }
-
-      this.log2.info('Proceeding with Fargate task termination', {
-        buildId,
-        prototypeId,
-        killServerResult: {
-          success: killResult.success,
-          error: killResult.error,
-        },
-      });
-      const terminateResult = await this.terminateFargateTask(
-        build.fargate_task_arn,
-      );
-      if (!terminateResult.success) {
-        this.log2.error(
-          terminateResult.error,
-          `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
-        );
-        stats.failedCleanups++;
-        continue;
-      }
-
-      // c. remove the active build from cache and cleanup schema entries
-      try {
-        // Remove from active_build
-        await this.cache.del([buildKey]);
-        // Remove from builds ZSET
-        await this.cache.customCommand([
-          'ZREM',
-          CACHE_KEYS.protoBuilds(prototypeId),
-          buildId,
-        ]);
-        // If this was the current build, remove the current pointer
-        const currentBuildId = await this.cache.get(
-          CACHE_KEYS.protoCurrentBuild(prototypeId),
-        );
-        if (currentBuildId === buildId) {
-          await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
-        }
-        this.log2.info('Removed cache entries for build', {
-          buildId,
-        });
-        stats.successfulCleanups++;
-      } catch (error) {
-        this.log2.error(error, 'Failed to remove cache entries for build', {
-          buildId,
-        });
-        stats.failedCleanups++;
-      }
-    }
-    return stats;
-  }
 
   // Start cleanup services
   private startCleanupServices(): void {
+    if (process.env.NODE_ENV === 'development') {
+      // TO TEST CHANGES TO THIS FILE, COMMENT OUT THIS EARLY RETURN
+      return;
+    }
     // Hot reload cleanup every 5 minutes
     this.cleanupIntervals.push(
       setInterval(async () => {
@@ -287,12 +75,305 @@ export class CleanupService {
     this.cleanupIntervals.forEach((interval) => clearInterval(interval));
     this.cleanupIntervals = [];
   }
+  // Cleanup idle hot reload services
+
+  private async cleanupIdleActiveBuilds(): Promise<CleanupStats> {
+    // 1. get all active builds
+    const { totalBuildsScanned, idleBuilds } =
+      await this.getAllIdleActiveBuildsForCleanup();
+    let stats: CleanupStats = {
+      totalBuildsScanned,
+      idleBuildsFound: idleBuilds.length,
+      successfulCleanups: 0,
+      failedCleanups: 0,
+    };
+    if (idleBuilds.length === 0) {
+      return stats;
+    }
+
+    // 2. For each idle build, clean it up
+    stats.idleBuildsFound = idleBuilds.length;
+    this.log2.info('Cleanup cycle running -- found idle builds to clean up', {
+      idleBuildsFound: stats.idleBuildsFound,
+    });
+    const killedBuilds =
+      await this.dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
+        idleBuilds,
+        stats,
+      );
+    stats = killedBuilds.stats;
+
+    await this.takeScreenshotsOfKilledBuilds(killedBuilds.killedPrototypeIds);
+    return stats;
+  }
+
+  private async getAllIdleActiveBuildsForCleanup(): Promise<{
+    totalBuildsScanned: number;
+    idleBuilds: IdleBuildInfo[];
+  }> {
+    const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
+    if (!activeBuildKeys || activeBuildKeys.length === 0) {
+      return { totalBuildsScanned: activeBuildKeys.length, idleBuilds: [] };
+    }
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    const idleTimeoutSeconds = CONFIG.IDLE_TIMEOUT_HOT_RELOAD / 1000;
+
+    // 1. Get all idle builds
+    const idleBuilds: IdleBuildInfo[] = [];
+    for (const buildKey of activeBuildKeys) {
+      const buildJson = await this.cache.get(buildKey);
+      if (!buildJson) {
+        continue;
+      }
+      const parsedBuild = JSON.parse(buildJson as string);
+      if (!isActiveBuildType(parsedBuild)) {
+        this.log2.warn('Invalid build data found in cache for key', {
+          buildKey,
+        });
+        continue;
+      }
+      const build: ActiveBuild = parsedBuild;
+
+      // Skip if already cleaning
+      if (build.status === 'cleaning') {
+        continue;
+      }
+
+      const timeSinceLastTouch = currentTime - build.last_touched;
+      if (timeSinceLastTouch > idleTimeoutSeconds) {
+        // Extract build ID from key: "active_build:build_id" -> "build_id"
+        const buildId = buildKey.replace('active_build:', '');
+        idleBuilds.push({ build, buildId, buildKey });
+      }
+    }
+
+    return { totalBuildsScanned: activeBuildKeys.length, idleBuilds };
+  }
+
+  private async dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
+    idleBuilds: IdleBuildInfo[],
+    stats: CleanupStats,
+  ): Promise<{ stats: CleanupStats; killedPrototypeIds: string[] }> {
+    const killedPrototypeIds: string[] = [];
+    for (const { build, buildId, buildKey } of idleBuilds) {
+      // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
+      const cleaningBuild: ActiveBuild = {
+        ...build,
+        status: 'cleaning',
+      };
+      const cacheUpdateResult = await this.setCacheActiveBuildData(
+        buildKey,
+        cleaningBuild,
+        buildId,
+      );
+      if (!cacheUpdateResult) {
+        stats.failedCleanups++;
+        continue;
+      }
+
+      // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
+      const prototypeId = buildId.split('_')[1];
+
+      // 3. Validate build data. If no fargate task arn or private IP, clean up build from cache appropriately
+      if (!build.fargate_task_arn) {
+        this.log2.error(
+          new Error('Build has no Fargate task ARN, removing build from cache'),
+          undefined,
+          { buildId },
+        );
+        const removedFromCache = await this.removeBuildDataFromCache(
+          buildKey,
+          prototypeId,
+          buildId,
+        );
+        removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
+      } else if (!build.fargate_private_ip) {
+        // no private IP to dispatch kill request to (but we have arn), just terminate fargate task and remove build from cache
+        const terminateResult = await this.terminateFargateTask(
+          build.fargate_task_arn,
+        );
+        if (!terminateResult.success) {
+          this.log2.error(
+            terminateResult.error,
+            `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
+          );
+          // reset status back to stable since we didn't kill the build
+          const activeBuild: ActiveBuild = {
+            ...build,
+            status: 'stable',
+          };
+          await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
+          stats.failedCleanups++;
+          continue;
+        }
+        const removedFromCache = await this.removeBuildDataFromCache(
+          buildKey,
+          prototypeId,
+          buildId,
+        );
+        removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
+      }
+
+      // 4. dispatch a request to the fargate instance to kill the build
+      const killResult = await this.dispatchKillDevServerRequest(
+        prototypeId,
+        build.fargate_private_ip,
+      );
+      if (killResult.buildInProgress) {
+        // Reset the status back to building since we're not cleaning up yet
+        // TODO: add some sort of counter here so there is a max number of times we can do this
+        const activeBuild: ActiveBuild = {
+          ...build,
+          status: 'building',
+        };
+        const setCacheResult = await this.setCacheActiveBuildData(
+          buildKey,
+          activeBuild,
+          buildId,
+        );
+        if (!setCacheResult) stats.failedCleanups++;
+        continue;
+      }
+
+      // 5. Kill the fargate task using the task arn (only if safe to do so)
+      const terminateResult = await this.terminateFargateTask(
+        build.fargate_task_arn,
+      );
+      if (!terminateResult.success) {
+        this.log2.error(
+          terminateResult.error,
+          `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
+        );
+        const activeBuild: ActiveBuild = {
+          ...build,
+          status: 'stable',
+        };
+        await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
+        stats.failedCleanups++;
+        continue;
+      }
+      killedPrototypeIds.push(prototypeId);
+
+      // 6. remove the active build from cache and cleanup schema entries
+      const removedFromCache = await this.removeBuildDataFromCache(
+        buildKey,
+        prototypeId,
+        buildId,
+      );
+      removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
+    }
+    return { stats, killedPrototypeIds };
+  }
+
+  public async takeScreenshotsOfKilledBuilds(
+    killedPrototypeIds: string[],
+  ): Promise<void> {
+    for (const prototypeId of killedPrototypeIds) {
+      try {
+        // Generate signed URL for the S3 object
+        const signedUrl = await this.generateS3SignedUrl(prototypeId);
+        if (!signedUrl) {
+          this.log2.warn('Failed to generate signed URL for prototype', {
+            prototypeId,
+          });
+          continue;
+        }
+
+        // Take screenshot using Puppeteer
+        const screenshot = await this.takeScreenshot(signedUrl);
+        if (!screenshot) {
+          this.log2.warn('Failed to take screenshot for prototype', {
+            prototypeId,
+          });
+          continue;
+        }
+
+        // Upload screenshot to Supabase Storage
+        const uploadSuccess = await this.uploadScreenshotToSupabase(
+          prototypeId,
+          screenshot,
+        );
+        if (uploadSuccess) {
+          this.log2.info('Successfully took and uploaded screenshot', {
+            prototypeId,
+          });
+
+          // Update the thumbnail_url in the prototypes table
+          const updateSuccess = await this.updatePrototypeThumbnailUrl(
+            prototypeId,
+          );
+          if (!updateSuccess) {
+            this.log2.warn('Failed to update prototype thumbnail_url', {
+              prototypeId,
+            });
+          }
+        } else {
+          this.log2.warn('Failed to upload screenshot to Supabase', {
+            prototypeId,
+          });
+        }
+      } catch (error) {
+        this.log2.error(error, 'Error processing screenshot for prototype', {
+          prototypeId,
+        });
+      }
+    }
+  }
+
+  private async setCacheActiveBuildData(
+    buildKey: string,
+    activeBuild: ActiveBuild,
+    buildId: string,
+  ): Promise<boolean> {
+    try {
+      await this.cache.set(buildKey, JSON.stringify(activeBuild));
+      return true;
+    } catch (error) {
+      this.log2.error(error, 'Failed to update cache active build data', {
+        buildId,
+      });
+      return false;
+    }
+  }
+
+  // returns true if successful, false if not
+  private async removeBuildDataFromCache(
+    buildKey: string,
+    prototypeId: string,
+    buildId: string,
+  ): Promise<boolean> {
+    try {
+      await this.cache.del([buildKey]);
+      // Remove from builds ZSET
+      await this.cache.customCommand([
+        'ZREM',
+        CACHE_KEYS.protoBuilds(prototypeId),
+        buildId,
+      ]);
+      // If this was the current build, remove the current pointer
+      const currentBuildId = await this.cache.get(
+        CACHE_KEYS.protoCurrentBuild(prototypeId),
+      );
+      if (currentBuildId === buildId) {
+        await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
+      }
+      return true;
+    } catch (error) {
+      this.log2.error(error, 'Failed to remove build data from cache', {
+        buildKey,
+        prototypeId,
+        buildId,
+      });
+      return false;
+    }
+  }
 
   // Dispatch kill hot reload request to build worker
   private async dispatchKillDevServerRequest(
     prototypeId: string,
     fargatePrivateIp: string,
-  ): Promise<CleanupOperationResult & { buildInProgress?: boolean }> {
+  ): Promise<CleanupOperationResult> {
     try {
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
@@ -308,70 +389,7 @@ export class CleanupService {
 
       // Parse the actual response body to understand what happened
       const responseData: PublicDevServerStopResponse = response.data;
-
-      this.log2.info('Dev server stop response received', {
-        prototypeId,
-        fargatePrivateIp,
-        responseStatus: responseData.status,
-        buildErrorsCount: responseData.build_errors?.length || 0,
-        buildWarningsCount: responseData.build_warnings?.length || 0,
-      });
-
       if (responseData.status === 'success') {
-        this.log2.info(
-          'Successfully completed dev server shutdown for prototype',
-          {
-            prototypeId,
-            fargatePrivateIp,
-            buildUrl: responseData.build_url,
-            hasScreenshot: !!responseData.screenshotBase64,
-          },
-        );
-
-        // Handle screenshot thumbnail if available
-        if (responseData.screenshotBase64 && responseData.prototypeId) {
-          this.log2.info('Processing screenshot thumbnail', {
-            prototypeId: responseData.prototypeId,
-            screenshotLength: responseData.screenshotBase64.length,
-          });
-
-          // Save screenshot asynchronously - don't block cleanup process
-          this.saveScreenshotThumbnail(
-            responseData.prototypeId,
-            responseData.screenshotBase64,
-          )
-            .then((result) => {
-              if (result.success) {
-                this.log2.info('Screenshot thumbnail saved successfully', {
-                  prototypeId: responseData.prototypeId,
-                });
-              } else {
-                this.log2.warn('Failed to save screenshot thumbnail', {
-                  prototypeId: responseData.prototypeId,
-                  error: result.error,
-                });
-              }
-            })
-            .catch((error) => {
-              this.log2.error(
-                error,
-                'Unexpected error while saving screenshot thumbnail',
-                {
-                  prototypeId: responseData.prototypeId,
-                },
-              );
-            });
-        } else if (responseData.screenshotBase64) {
-          this.log2.warn(
-            'Screenshot available but prototypeId missing in response',
-            {
-              prototypeId,
-              hasScreenshot: !!responseData.screenshotBase64,
-              hasPrototypeId: !!responseData.prototypeId,
-            },
-          );
-        }
-
         return {
           success: true,
           buildInProgress: false,
@@ -380,7 +398,6 @@ export class CleanupService {
         return {
           success: false,
           buildInProgress: true,
-          error: String(responseData.server_status) || 'Operation in progress',
         };
       }
     } catch (error: unknown) {
@@ -455,7 +472,7 @@ export class CleanupService {
       });
 
       await this.ecsClient.send(command);
-      return { success: true };
+      return { success: true, buildInProgress: false };
     } catch (error) {
       this.log2.error(error, 'Failed to terminate Fargate task', {
         taskArn,
@@ -463,87 +480,7 @@ export class CleanupService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  // Save screenshot thumbnail to Supabase storage and update prototypes table
-  private async saveScreenshotThumbnail(
-    prototypeId: string,
-    screenshotBase64: string,
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      this.log2.info('Saving screenshot thumbnail', {
-        prototypeId,
-        screenshotLength: screenshotBase64.length,
-      });
-
-      // Convert base64 to binary buffer
-      const screenshotBuffer = Buffer.from(screenshotBase64, 'base64');
-      const fileName = `${prototypeId}.png`;
-
-      // Upload to Supabase storage
-      const { error: uploadError } = await this.supabase.storage
-        .from('prototype-thumbnails')
-        .upload(fileName, screenshotBuffer, {
-          contentType: 'image/png',
-          upsert: true, // Replace if exists
-        });
-
-      if (uploadError) {
-        this.log2.error(uploadError, 'Failed to upload screenshot to storage', {
-          prototypeId,
-          fileName,
-        });
-        return {
-          success: false,
-          error: `Storage upload failed: ${uploadError.message}`,
-        };
-      }
-
-      // Get public URL of the uploaded file
-      const { data: urlData } = this.supabase.storage
-        .from('prototype-thumbnails')
-        .getPublicUrl(fileName);
-
-      const thumbnailUrl = urlData.publicUrl;
-
-      this.log2.info('Screenshot uploaded to storage', {
-        prototypeId,
-        fileName,
-        thumbnailUrl,
-      });
-
-      // Update prototypes table with thumbnail URL
-      const { error: dbError } = await this.supabase
-        .from('prototypes')
-        .update({ thumbnail_url: thumbnailUrl })
-        .eq('id', prototypeId);
-
-      if (dbError) {
-        this.log2.error(dbError, 'Failed to update prototypes table', {
-          prototypeId,
-          thumbnailUrl,
-        });
-        return {
-          success: false,
-          error: `Database update failed: ${dbError.message}`,
-        };
-      }
-
-      this.log2.info('Successfully saved screenshot thumbnail', {
-        prototypeId,
-        thumbnailUrl,
-      });
-
-      return { success: true };
-    } catch (error) {
-      this.log2.error(error, 'Unexpected error saving screenshot thumbnail', {
-        prototypeId,
-      });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        buildInProgress: false,
       };
     }
   }
@@ -577,17 +514,178 @@ export class CleanupService {
     return keys;
   }
 
-  // Helper method to format timestamp in EST
-  private formatTimestampEST(timestamp: number): string {
-    return new Date(timestamp).toLocaleString('en-US', {
-      timeZone: 'America/New_York',
-      hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+  private async generateS3SignedUrl(
+    prototypeId: string,
+  ): Promise<string | null> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: 'materialize-sites',
+        Key: `${prototypeId}/latest/index.html`,
+      });
+
+      const signedUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn: 300, // 5 min expiration
+      });
+
+      return signedUrl;
+    } catch (error) {
+      this.log2.error(error, 'Failed to generate S3 signed URL', {
+        prototypeId,
+      });
+      return null;
+    }
+  }
+
+  private async takeScreenshot(url: string): Promise<Buffer | null> {
+    let browser;
+    try {
+      // Try to launch with minimal Chrome dependencies
+      browser = await puppeteer.launch({
+        headless: true, // Use new headless mode
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+          '--disable-gpu-sandbox',
+          '--disable-software-rasterizer',
+          '--disable-web-security',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI,VizDisplayCompositor',
+          '--disable-extensions',
+          '--disable-default-apps',
+          '--no-default-browser-check',
+          '--no-proxy-server',
+          '--disable-sync',
+          '--disable-plugins',
+          '--disable-logging',
+          '--disable-background-media-processing',
+          '--mute-audio',
+          '--disable-audio',
+          '--disable-ipc-flooding-protection',
+          '--disable-hang-monitor',
+          '--disable-prompt-on-repost',
+          '--disable-client-side-phishing-detection',
+          '--disable-component-update',
+          '--disable-domain-reliability',
+          '--disable-background-networking',
+        ],
+        timeout: 30000,
+        ignoreDefaultArgs: ['--disable-extensions'],
+      });
+
+      const page = await browser.newPage();
+
+      // Set mobile phone viewport
+      await page.setViewport({
+        width: 375,
+        height: 667,
+        deviceScaleFactor: 2,
+      });
+
+      // Set a reasonable timeout for page load
+      await page.goto(url, {
+        waitUntil: 'networkidle0',
+        timeout: 30000,
+      });
+
+      // Take screenshot
+      const screenshot = await page.screenshot({
+        type: 'png',
+        fullPage: false,
+      });
+
+      return screenshot as Buffer;
+    } catch (error) {
+      // Check if this is a Chrome dependency error
+      if (error instanceof Error && error.message.includes('libnspr4.so')) {
+        this.log2.error(
+          error,
+          'Chrome dependencies missing. Run install-chrome-dependencies.sh script to fix this issue.',
+          { url, errorType: 'missing_chrome_dependencies' },
+        );
+      } else if (
+        error instanceof Error &&
+        error.message.includes('Failed to launch the browser process')
+      ) {
+        this.log2.error(
+          error,
+          'Browser launch failed. This may be due to missing system dependencies.',
+          { url, errorType: 'browser_launch_failed' },
+        );
+      } else {
+        this.log2.error(error, 'Failed to take screenshot', { url });
+      }
+      return null;
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (closeError) {
+          this.log2.error(closeError, 'Failed to close browser');
+        }
+      }
+    }
+  }
+
+  private async uploadScreenshotToSupabase(
+    prototypeId: string,
+    screenshot: Buffer,
+  ): Promise<boolean> {
+    const fileName = `${prototypeId}.png`;
+    const { error } = await this.supabase.storage
+      .from('prototype-thumbnails')
+      .upload(fileName, screenshot, {
+        contentType: 'image/png',
+        upsert: true, // Overwrite if exists
+        cacheControl: '600', // 10 min
+      });
+    if (error) {
+      this.log2.error(error, 'Supabase storage upload failed', {
+        prototypeId,
+        fileName,
+      });
+      return false;
+    }
+    return true;
+  }
+
+  private async updatePrototypeThumbnailUrl(
+    prototypeId: string,
+  ): Promise<boolean> {
+    // Generate the public URL for the uploaded screenshot
+    const { data } = this.supabase.storage
+      .from('prototype-thumbnails')
+      .getPublicUrl(`${prototypeId}.png`);
+
+    const thumbnailUrl = data.publicUrl;
+
+    // Update the prototypes table with the thumbnail URL
+    const { error } = await this.supabase
+      .from('prototypes')
+      .update({
+        thumbnail_url: thumbnailUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', prototypeId);
+
+    if (error) {
+      this.log2.error(
+        error,
+        'Failed to update prototype thumbnail_url in database',
+        {
+          prototypeId,
+          thumbnailUrl,
+        },
+      );
+      return false;
+    }
+    return true;
   }
 }

@@ -24,7 +24,9 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   UpdateFilesRequestBody,
-  UpdateFilesResponse,
+  UpdateFilesSuccessResponse,
+  UpdateFilesErrorResponse,
+  APIResponse,
 } from "@/lib/types/serverAPITypes";
 import Editor from "@monaco-editor/react";
 import { FileText, Plus, Save, Trash2 } from "lucide-react";
@@ -316,19 +318,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         );
       }
 
-      const result: UpdateFilesResponse = await response.json();
+      const result: APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse> = await response.json();
 
       // Handle successful response
-      if ("success" in result && result.success) {
+      if (result.data) {
         // Update viewing URL if provided
-        if (result.viewing_url && onViewingUrlUpdate) {
-          onViewingUrlUpdate(result.viewing_url);
+        if (result.data.viewing_url && onViewingUrlUpdate) {
+          onViewingUrlUpdate(result.data.viewing_url);
         }
-      } else {
+      } else if (result.error) {
         // Handle error response
-        const errorResponse = result as { error: string; message: string };
         logger.debug("error", "Failed to update file:", {
-          ...errorResponse,
+          ...result.error,
         });
         // TODO: if no active dev server, provide helpful message
       }
@@ -404,19 +405,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         );
       }
 
-      const result: UpdateFilesResponse = await response.json();
+      const result: APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse> = await response.json();
 
       // Handle successful response
-      if ("success" in result && result.success) {
+      if (result.data) {
         // Update viewing URL if provided
-        if (result.viewing_url && onViewingUrlUpdate) {
-          onViewingUrlUpdate(result.viewing_url);
+        if (result.data.viewing_url && onViewingUrlUpdate) {
+          onViewingUrlUpdate(result.data.viewing_url);
         }
-      } else {
+      } else if (result.error) {
         // Handle error response
-        const errorResponse = result as { error: string; message: string };
         logger.debug("error", "Failed to update files:", {
-          ...errorResponse,
+          ...result.error,
         });
 
         // TODO: If no active dev server, provide helpful message
