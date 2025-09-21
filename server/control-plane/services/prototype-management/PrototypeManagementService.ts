@@ -128,7 +128,9 @@ export class PrototypeManagementService {
   private async handleFetchViewingUrl(
     request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>> {
+  ): Promise<
+    APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>
+  > {
     return await handleFetchViewingUrlImpl(request, reply, this.fastifyApp);
   }
 

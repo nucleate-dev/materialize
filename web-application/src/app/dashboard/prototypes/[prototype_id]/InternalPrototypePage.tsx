@@ -176,44 +176,32 @@ export default function InternalPrototypePage() {
             } as FetchViewingUrlRequestBody),
           },
         );
-
-        if (fetchViewResponse.ok) {
-          const fetchViewData: APIResponse<
-            FetchViewingUrlSuccessResponse,
-            StandardErrorResponse
-          > = await fetchViewResponse.json();
-          if (fetchViewData.data) {
-            setViewingUrl(fetchViewData.data.viewing_url);
-            if (
-              fetchViewData.data.source === "editable_instance" &&
-              fetchViewData.data.viewing_url?.includes("ngrok")
-            ) {
-              setCurrentRenderStatus("Connecting..");
-              setShouldTriggerInitialFetch(false);
-              return;
-            } else if (
-              fetchViewData.data.status === "updating" ||
-              fetchViewData.data.status === "creating"
-            ) {
-              setCurrentRenderStatus("Starting Dev Server..");
-              setShouldTriggerInitialFetch(false);
-              return;
-            } else {
-              setCurrentRenderStatus("Static build");
-            }
-          } else if (fetchViewData.error) {
-            logger.debug("error", "Error in fetch-viewing-url response:", {
-              ...fetchViewData.error,
-            });
-            setShouldTriggerInitialFetch(false);
-            return;
-          }
-        } else {
-          logger.debug("error", "Failed to fetch viewing URL:", {
-            ...fetchViewResponse,
-          });
+        const fetchViewData: APIResponse<
+          FetchViewingUrlSuccessResponse,
+          StandardErrorResponse
+        > = await fetchViewResponse.json();
+        if (!fetchViewResponse.ok || fetchViewData.error) {
+          logger.debug("error", "Failed to fetch viewing URL:", fetchViewData);
           setShouldTriggerInitialFetch(false);
           return;
+        }
+        setViewingUrl(fetchViewData.data.viewing_url);
+        if (
+          fetchViewData.data.source === "editable_instance" &&
+          fetchViewData.data.viewing_url?.includes("ngrok")
+        ) {
+          setCurrentRenderStatus("Connecting..");
+          setShouldTriggerInitialFetch(false);
+          return;
+        } else if (
+          fetchViewData.data.status === "updating" ||
+          fetchViewData.data.status === "creating"
+        ) {
+          setCurrentRenderStatus("Starting Dev Server..");
+          setShouldTriggerInitialFetch(false);
+          return;
+        } else {
+          setCurrentRenderStatus("Static build");
         }
       } catch (fetchViewError) {
         logger.debug("error", "Error calling fetch-viewing-url API:", {
@@ -368,40 +356,36 @@ export default function InternalPrototypePage() {
               } as FetchViewingUrlRequestBody),
             },
           );
-          logger.debug("log", "Polling fetch viewing url endpoint response:", {
-            response,
-          });
+          const data: APIResponse<
+            FetchViewingUrlSuccessResponse,
+            StandardErrorResponse
+          > = await response.json();
+          if (!response.ok || data.error) {
+            logger.debug("error", "Failed to fetch viewing URL:", data);
+            return;
+          }
+          if (
+            data.data.viewing_url !== viewingUrl // this is important because otherwise we want to maintain the badge status from elsewhere
+          ) {
+            setViewingUrl(data.data.viewing_url);
 
-          if (response.ok) {
-            const data: APIResponse<
-              FetchViewingUrlSuccessResponse,
-              StandardErrorResponse
-            > = await response.json();
-            if (
-              data.data &&
-              data.data.viewing_url &&
-              data.data.viewing_url !== viewingUrl // this is important because otherwise we want to maintain the badge status from elsewhere
-            ) {
-              setViewingUrl(data.data.viewing_url);
-
-              // Determine new status based on response
-              let newStatus: RenderStatus;
-              if (data.data.source === "editable_instance") {
-                newStatus = "Connecting..";
-              } else {
-                newStatus = "Static build";
-              }
-              if (newStatus === currentRenderStatus) {
-                return;
-              }
-              setCurrentRenderStatus(newStatus);
-              // Reset timer with new interval for the new status
-              const newInterval = getIntervalForStatus(newStatus);
-              if (pollTimer && newInterval !== pollInterval) {
-                clearInterval(pollTimer);
-                pollTimer = setInterval(doPoll, newInterval);
-                pollInterval = newInterval; // Update the local variable
-              }
+            // Determine new status based on response
+            let newStatus: RenderStatus;
+            if (data.data.source === "editable_instance") {
+              newStatus = "Connecting..";
+            } else {
+              newStatus = "Static build";
+            }
+            if (newStatus === currentRenderStatus) {
+              return;
+            }
+            setCurrentRenderStatus(newStatus);
+            // Reset timer with new interval for the new status
+            const newInterval = getIntervalForStatus(newStatus);
+            if (pollTimer && newInterval !== pollInterval) {
+              clearInterval(pollTimer);
+              pollTimer = setInterval(doPoll, newInterval);
+              pollInterval = newInterval; // Update the local variable
             }
           }
         } catch (error) {

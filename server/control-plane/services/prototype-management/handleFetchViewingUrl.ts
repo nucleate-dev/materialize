@@ -115,7 +115,6 @@ export default async function handleFetchViewingUrlImpl(
       source: 'static_build',
       status: null,
     };
-
     return reply.status(HTTP_STATUS.OK).send({
       data: successResponse,
       error: null,
