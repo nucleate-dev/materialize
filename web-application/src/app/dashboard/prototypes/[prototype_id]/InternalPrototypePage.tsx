@@ -21,9 +21,10 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
+  type APIResponse,
   type FetchViewingUrlRequestBody,
-  type FetchViewingUrlResponse,
   type FetchViewingUrlSuccessResponse,
+  type StandardErrorResponse,
   type StartDevServerRequestBody,
   type StartDevServerResponse,
 } from "@/lib/types/serverAPITypes";
@@ -144,7 +145,6 @@ export default function InternalPrototypePage() {
         .select("*")
         .eq("id", prototypeId)
         .single();
-
       if (error) {
         logger.debug("error", "Error fetching prototype:", {
           ...error,
@@ -152,7 +152,6 @@ export default function InternalPrototypePage() {
         router.push("/dashboard");
         return;
       }
-
       setPrototype(data);
       setIsPublic(data.visibility === "PUBLIC");
 
@@ -179,21 +178,22 @@ export default function InternalPrototypePage() {
         );
 
         if (fetchViewResponse.ok) {
-          const fetchViewData: FetchViewingUrlResponse =
-            await fetchViewResponse.json();
-          if ("viewing_url" in fetchViewData) {
-            setViewingUrl(fetchViewData.viewing_url);
+          const fetchViewData: APIResponse<
+            FetchViewingUrlSuccessResponse,
+            StandardErrorResponse
+          > = await fetchViewResponse.json();
+          if (fetchViewData.data) {
+            setViewingUrl(fetchViewData.data.viewing_url);
             if (
-              fetchViewData.source === "editable_instance" &&
-              fetchViewData.viewing_url?.includes("ngrok")
+              fetchViewData.data.source === "editable_instance" &&
+              fetchViewData.data.viewing_url?.includes("ngrok")
             ) {
               setCurrentRenderStatus("Connecting..");
               setShouldTriggerInitialFetch(false);
               return;
             } else if (
-              "status" in fetchViewData &&
-              (fetchViewData.status === "updating" ||
-                fetchViewData.status === "creating")
+              fetchViewData.data.status === "updating" ||
+              fetchViewData.data.status === "creating"
             ) {
               setCurrentRenderStatus("Starting Dev Server..");
               setShouldTriggerInitialFetch(false);
@@ -201,9 +201,9 @@ export default function InternalPrototypePage() {
             } else {
               setCurrentRenderStatus("Static build");
             }
-          } else {
+          } else if (fetchViewData.error) {
             logger.debug("error", "Error in fetch-viewing-url response:", {
-              ...fetchViewData,
+              ...fetchViewData.error,
             });
             setShouldTriggerInitialFetch(false);
             return;
@@ -373,18 +373,20 @@ export default function InternalPrototypePage() {
           });
 
           if (response.ok) {
-            const data: FetchViewingUrlResponse = await response.json();
+            const data: APIResponse<
+              FetchViewingUrlSuccessResponse,
+              StandardErrorResponse
+            > = await response.json();
             if (
-              "viewing_url" in data &&
-              data.viewing_url &&
-              data.viewing_url !== viewingUrl // this is important because otherwise we want to maintain the badge status from elsewhere
+              data.data &&
+              data.data.viewing_url &&
+              data.data.viewing_url !== viewingUrl // this is important because otherwise we want to maintain the badge status from elsewhere
             ) {
-              data as FetchViewingUrlSuccessResponse;
-              setViewingUrl(data.viewing_url);
+              setViewingUrl(data.data.viewing_url);
 
               // Determine new status based on response
               let newStatus: RenderStatus;
-              if (data.source === "editable_instance") {
+              if (data.data.source === "editable_instance") {
                 newStatus = "Connecting..";
               } else {
                 newStatus = "Static build";

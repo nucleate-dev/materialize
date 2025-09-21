@@ -1,9 +1,9 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
+  APIResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckResponse,
   FetchViewingUrlRequestBody,
-  FetchViewingUrlResponse,
   FetchViewingUrlSuccessResponse,
   HTTP_STATUS,
   StandardErrorResponse,
@@ -15,7 +15,7 @@ export default async function handleFetchViewingUrlImpl(
   request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
   reply: FastifyReply,
   fastifyApp: FastifyInstance,
-): Promise<FetchViewingUrlResponse> {
+): Promise<APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>> {
   try {
     // Extract validated body (validation handled by Fastify schema)
     const { prototype_id, current_page } = request.body;
@@ -35,8 +35,11 @@ export default async function handleFetchViewingUrlImpl(
       authResult.prototype === null
     ) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        error: 'UNAUTHORIZED',
-        message: 'Access denied for this prototype',
+        data: null,
+        error: {
+          error: 'UNAUTHORIZED',
+          message: 'Access denied for this prototype',
+        },
       });
     }
 
@@ -82,7 +85,10 @@ export default async function handleFetchViewingUrlImpl(
               source: isEditable ? 'editable_instance' : 'static_build',
               status: precheckData.status,
             };
-            return reply.status(HTTP_STATUS.OK).send(successResponse);
+            return reply.status(HTTP_STATUS.OK).send({
+              data: successResponse,
+              error: null,
+            });
           }
         }
       } catch (precheckError) {
@@ -110,13 +116,19 @@ export default async function handleFetchViewingUrlImpl(
       status: null,
     };
 
-    return reply.status(HTTP_STATUS.OK).send(successResponse);
+    return reply.status(HTTP_STATUS.OK).send({
+      data: successResponse,
+      error: null,
+    });
   } catch (error) {
     request.log2.error(error, 'Fetch viewing URL error:');
     const errorResponse: StandardErrorResponse = {
       error: 'Internal Server Error',
       message: 'Internal server error',
     };
-    return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(errorResponse);
+    return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+      data: null,
+      error: errorResponse,
+    });
   }
 }

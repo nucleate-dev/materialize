@@ -5,11 +5,24 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-21T08:00:33.235Z
+// Last synced: 2025-09-21T08:14:09.035Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
 import type { Database } from '../types/supabase.js';
+
+// ============================================================================
+// GENERIC API RESPONSE TYPE
+// ============================================================================
+
+/**
+ * Generic API response type following Supabase pattern
+ * Either data is present (with error as null) or error is present (with data as null)
+ */
+export type APIResponse<TData = any, TError = any> =
+  | { data: TData; error: null }
+  | { data: null; error: TError };
+
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
@@ -200,9 +213,6 @@ export interface FetchViewingUrlSuccessResponse {
   status: BuildStatus | null;
 }
 
-export type FetchViewingUrlResponse =
-  | FetchViewingUrlSuccessResponse
-  | StandardErrorResponse;
 
 // ============================================================================
 // /prototype/create ENDPOINT

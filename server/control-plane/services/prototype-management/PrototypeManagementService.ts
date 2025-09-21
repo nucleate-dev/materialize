@@ -1,11 +1,13 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type {
+  APIResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeResponse,
   DeletePrototypeResponse,
   FetchViewingUrlRequestBody,
-  FetchViewingUrlResponse,
+  FetchViewingUrlSuccessResponse,
+  StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
 import { handleCreatePrototypeImpl } from './handleCreatePrototype.js';
 import handleResetPrototypeImpl from './handleResetPrototype.js';
@@ -126,7 +128,7 @@ export class PrototypeManagementService {
   private async handleFetchViewingUrl(
     request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
     reply: FastifyReply,
-  ): Promise<FetchViewingUrlResponse> {
+  ): Promise<APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>> {
     return await handleFetchViewingUrlImpl(request, reply, this.fastifyApp);
   }
 
