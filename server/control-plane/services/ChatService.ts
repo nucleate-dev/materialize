@@ -14,6 +14,7 @@ import { validateChatAuth } from './chat/chat-auth.js';
 import { VirtualFileManager } from './chat/file-manager.js';
 import { trackChatUsage } from './chat/usage-tracking.js';
 import { ChatEngine, type ChatEngineConfig } from './ChatEngine.js';
+import { parseFileContextFromMessage } from './chat/file-context.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -220,10 +221,31 @@ export class ChatService {
       }
 
       // ------------------------------------------------------------------------------------------------
-      // 4. Load/generate additional project context
+      // 4. Load/generate additional project context and parse file mentions
       // ------------------------------------------------------------------------------------------------
       const lastMessage = messages[messages.length - 1];
       const userMessage = lastMessage.content;
+
+      // Parse file context from the user message
+      const fileContext = parseFileContextFromMessage(
+        userMessage,
+        inputFiles,
+        request.log2,
+      );
+
+      // Update the last message with enhanced content if file mentions were found
+      const enhancedMessages = [...messages];
+      if (fileContext.hasFileMentions && fileContext.enhancedMessage !== userMessage) {
+        enhancedMessages[enhancedMessages.length - 1] = {
+          ...lastMessage,
+          content: fileContext.enhancedMessage,
+        };
+        request.log2.info('[ChatService] Enhanced user message with file context', {
+          originalLength: userMessage.length,
+          enhancedLength: fileContext.enhancedMessage.length,
+          mentionedFiles: fileContext.mentionedFiles,
+        });
+      }
 
       // Check if this request expects streaming (new flow)
       const expectsStreaming = request.headers.accept === 'text/event-stream';
@@ -244,8 +266,8 @@ export class ChatService {
             // 6. Execute chat through ChatEngine
             // ------------------------------------------------------------------------------------------------
             await this.chatEngine.executeChat({
-              messages,
-              userMessage,
+              messages: enhancedMessages,
+              userMessage: fileContext.enhancedMessage,
               fileManager,
               inputFiles,
               inputAssets,

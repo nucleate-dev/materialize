@@ -36,6 +36,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
+import { FileAutocomplete } from "./FileAutocomplete";
+import { useFileAutocomplete } from "@/hooks/useFileAutocomplete";
+
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -108,6 +111,19 @@ export default function PrototypeChatWindow({
   // Use ref to avoid stale closure issues in streaming
   const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
 
+  // File autocomplete functionality
+  const {
+    autocompleteState,
+    handleTextareaChange,
+    handleFileSelect,
+    closeAutocomplete,
+    textareaRef,
+  } = useFileAutocomplete({
+    files,
+    currentMessage,
+    onMessageChange: setCurrentMessage,
+  });
+
   // Keep ref in sync with state
   useEffect(() => {
     prototypeChatSessionRef.current = prototypeChatSession;
@@ -126,6 +142,7 @@ export default function PrototypeChatWindow({
       'analyze_code': 'Analyzing code',
       'install_package': 'Installing package',
       'test_code': 'Testing code',
+      'confirm_step_completion': 'Verifying steps',
     };
 
     return toolNameMap[toolName] || `Working with ${toolName.replace(/_/g, ' ')}`;
@@ -769,19 +786,51 @@ export default function PrototypeChatWindow({
         {/* Input Area */}
         <div className="p-4 border-t">
           <div className="space-y-2">
-            <Textarea
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="min-h-[80px] resize-none"
-              disabled={!prototypeChatSession || !files || isChatLoading || isAtLimit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
+            <div className="relative overflow-visible">
+              <Textarea
+                ref={textareaRef}
+                value={currentMessage}
+                onChange={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  handleTextareaChange(e.target.value, target.selectionStart);
+                }}
+                placeholder="Type your message... Use @filename to reference files"
+                className="min-h-[80px] resize-none"
+                disabled={!prototypeChatSession || !files || isChatLoading || isAtLimit}
+                onKeyDown={(e) => {
+                  // Handle autocomplete navigation
+                  if (autocompleteState.isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
+                    // Let the FileAutocomplete component handle these keys
+                    return;
+                  }
+
+                  if (e.key === "Enter" && !e.shiftKey && !autocompleteState.isOpen) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                onBlur={() => {
+                  // Close autocomplete when clicking outside, but with a small delay
+                  // to allow for clicking on autocomplete items
+                  setTimeout(() => {
+                    closeAutocomplete();
+                  }, 200);
+                }}
+              />
+
+              {/* File Autocomplete - positioned absolutely above textarea */}
+              {autocompleteState.isOpen && (
+                <div className="absolute bottom-full left-0 right-0 z-50 mb-1">
+                  <FileAutocomplete
+                    isOpen={autocompleteState.isOpen}
+                    files={autocompleteState.filteredFiles}
+                    searchTerm={autocompleteState.searchTerm}
+                    onFileSelect={handleFileSelect}
+                    onClose={closeAutocomplete}
+                  />
+                </div>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleSendMessage}
