@@ -184,9 +184,10 @@ export class DevelopmentServerService {
         });
       }
 
-      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
-        precheckResponse.payload,
-      );
+      const precheckData: APIResponse<
+        DispatchPrecheckSuccessResponse,
+        DispatchPrecheckErrorResponse
+      > = JSON.parse(precheckResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
         '🔍 [handleUpdateFiles] Dispatch precheck response:',
@@ -194,10 +195,7 @@ export class DevelopmentServerService {
       );
 
       // 3. Check if build is already in progress
-      if (
-        precheckData.data &&
-        isDispatchInProgress(precheckData.data.status)
-      ) {
+      if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
           error: {
@@ -209,10 +207,7 @@ export class DevelopmentServerService {
       }
 
       // 4. Check if there's an active dev server to update
-      if (
-        precheckData.data &&
-        !isEditableDevServer(precheckData.data.status)
-      ) {
+      if (precheckData.data && !isEditableDevServer(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
           error: {
@@ -263,9 +258,10 @@ export class DevelopmentServerService {
         });
       }
 
-      const dispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(
-        dispatchResponse.payload,
-      );
+      const dispatchData: APIResponse<
+        DispatchSuccessResponse,
+        DispatchErrorResponse | StandardErrorResponse
+      > = JSON.parse(dispatchResponse.payload);
 
       request.log2.consoleLogDevOnly(
         'info',
@@ -408,9 +404,10 @@ export class DevelopmentServerService {
         };
       }
 
-      const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = JSON.parse(
-        precheckResponse.payload,
-      );
+      const precheckData: APIResponse<
+        DispatchPrecheckSuccessResponse,
+        DispatchPrecheckErrorResponse
+      > = JSON.parse(precheckResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Dispatch precheck response:',
@@ -418,10 +415,7 @@ export class DevelopmentServerService {
       );
 
       // 3. Check if dev server already exists
-      if (
-        precheckData.data &&
-        isEditableDevServer(precheckData.data.status)
-      ) {
+      if (precheckData.data && isEditableDevServer(precheckData.data.status)) {
         request.log2.consoleLogDevOnly(
           'info',
           "[handleStartDevServer] There's already an active dev server for this prototype",
@@ -473,9 +467,10 @@ export class DevelopmentServerService {
         };
       }
 
-      const dispatchData: APIResponse<DispatchSuccessResponse, DispatchErrorResponse | StandardErrorResponse> = JSON.parse(
-        dispatchResponse.payload,
-      );
+      const dispatchData: APIResponse<
+        DispatchSuccessResponse,
+        DispatchErrorResponse | StandardErrorResponse
+      > = JSON.parse(dispatchResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Dispatch endpoint response:',

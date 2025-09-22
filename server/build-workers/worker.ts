@@ -1,17 +1,27 @@
-import AWS from "aws-sdk";
-import { spawn, SpawnOptions } from "child_process";
+import { S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
-import fastify, {
-  FastifyInstance,
-  FastifyReply,
-  FastifyRequest,
-} from "fastify";
+import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { PublicApiService } from "./PublicApiService.js";
+import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 
 // Load environment variables
 dotenv.config();
+
+// Extend FastifyRequest to include our custom logger
+declare module "fastify" {
+  interface FastifyRequest {
+    log2: SystemLogger;
+  }
+}
+
+export const baseLogger = new SystemLogger({
+  service: "build-worker",
+  env: process.env.NODE_ENV || "development",
+  metricNamespace: "Materialize/BuildWorker",
+  redactKeys: ["authorization", "cookie", "x-api-key"],
+});
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
@@ -19,120 +29,40 @@ const WORK_DIR = process.env.WORK_DIR || "/tmp/fargate-builds";
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
 // --- AWS Setup ---
-AWS.config.update({
-  httpOptions: {
-    timeout: 300000, // 5 minutes
-    connectTimeout: 60000, // 1 minute
+const s3 = new S3Client({
+  region: process.env.AWS_REGION || "us-east-2",
+  requestHandler: {
+    requestTimeout: 300000, // 5 minutes
+    connectionTimeout: 60000, // 1 minute
   },
-  maxRetries: 3,
+  maxAttempts: 3,
 });
 
-const s3 = new AWS.S3();
-
-// Initialize ExpoDevServerService
+// Initialize Services
 const expoDevServerService = new ExpoDevServerService(WORK_DIR, S3_BUCKET, s3);
-
-// Initialize PublicApiService
 const publicApiService = new PublicApiService(expoDevServerService, WORK_DIR);
-
-// --- Utility Functions ---
-
-export function runCommand(
-  command: string,
-  args: string[],
-  cwd: string,
-  env?: Record<string, string>,
-  timeoutMs: number = 300000 // 5 minutes default
-): Promise<{ stdout: string; stderr: string; code: number }> {
-  return new Promise((resolve, reject) => {
-    let stdout = "";
-    let stderr = "";
-    let processExited = false;
-
-    const spawnOptions: SpawnOptions = {
-      cwd,
-      env: { ...process.env, ...env },
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: false,
-    };
-
-    const childProcess = spawn(command, args, spawnOptions);
-
-    // Set up timeout
-    const timeout = setTimeout(() => {
-      if (!processExited) {
-        processExited = true;
-        childProcess.kill("SIGKILL");
-        reject(
-          new Error(
-            `Command timed out after ${timeoutMs}ms: ${command} ${args.join(
-              " "
-            )}`
-          )
-        );
-      }
-    }, timeoutMs);
-
-    // Handle stdout
-    childProcess.stdout?.on("data", (data: Buffer) => {
-      const output = data.toString();
-      stdout += output;
-      // Log real-time output
-      console.log(`[STDOUT] ${output.trim()}`);
-    });
-
-    // Handle stderr
-    childProcess.stderr?.on("data", (data: Buffer) => {
-      const output = data.toString();
-      stderr += output;
-    });
-
-    // Handle process exit
-    childProcess.on("close", (code: number | null) => {
-      if (!processExited) {
-        processExited = true;
-        clearTimeout(timeout);
-        resolve({
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
-          code: code || 0,
-        });
-      }
-    });
-
-    // Handle process errors
-    childProcess.on("error", (error: Error) => {
-      if (!processExited) {
-        processExited = true;
-        clearTimeout(timeout);
-        reject(new Error(`Failed to start command: ${error.message}`));
-      }
-    });
-
-    // Handle unexpected termination
-    process.on("exit", () => {
-      if (!processExited) {
-        processExited = true;
-        clearTimeout(timeout);
-        childProcess.kill("SIGKILL");
-      }
-    });
-  });
-}
 
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
-  logger: {
-    level: "info",
-    transport: {
-      target: "pino-pretty",
-    },
-  },
+  logger: true,
+  disableRequestLogging: true,
   bodyLimit: 50 * 1024 * 1024, // 50MB limit for large file uploads
 });
 
+app.addHook("onRequest", async (req) => {
+  const { requestId, traceId } = genRequestIds(
+    req.headers as Record<string, string | string[] | undefined>
+  );
+  req.log2 = baseLogger.child({
+    requestId,
+    traceId,
+    route: req.routeOptions?.url,
+    method: req.method,
+  });
+});
+
 // --- Health Check ---
-app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
+app.get("/health", async () => {
   try {
     const resources = await expoDevServerService.checkSystemResources();
     return {
@@ -147,7 +77,7 @@ app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
       workDir: WORK_DIR,
       s3Bucket: S3_BUCKET,
     };
-  } catch (error) {
+  } catch {
     return {
       status: "ok",
       timestamp: new Date().toISOString(),
@@ -163,19 +93,18 @@ app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
 publicApiService.registerRoutes(app);
 
 // --- Graceful Shutdown Handling ---
-process.on("SIGTERM", async () => {
-  console.log("Received SIGTERM, shutting down gracefully...");
-  await expoDevServerService.shutdown();
-  await app.close();
-  process.exit(0);
-});
+const close = async (): Promise<void> => {
+  baseLogger.info("Shutting down build worker...");
+  try {
+    await expoDevServerService.shutdown();
+    await app.close();
+  } finally {
+    process.exit(0);
+  }
+};
 
-process.on("SIGINT", async () => {
-  console.log("Received SIGINT, shutting down gracefully...");
-  await expoDevServerService.shutdown();
-  await app.close();
-  process.exit(0);
-});
+process.on("SIGINT", close);
+process.on("SIGTERM", close);
 
 // --- Start Server ---
 const start = async (): Promise<void> => {
@@ -184,11 +113,13 @@ const start = async (): Promise<void> => {
     await fs.mkdir(WORK_DIR, { recursive: true });
 
     await app.listen({ port: PORT, host: "0.0.0.0" });
-    console.log(`🚀 Fargate build worker listening on port ${PORT}`);
-    console.log(`📁 Work directory: ${WORK_DIR}`);
-    console.log(`☁️  S3 bucket: ${S3_BUCKET}`);
+    baseLogger.info("Build worker started successfully", {
+      port: PORT,
+      workDir: WORK_DIR,
+      s3Bucket: S3_BUCKET,
+    });
   } catch (err) {
-    app.log.error(err);
+    baseLogger.error(err, "Failed to start build worker");
     process.exit(1);
   }
 };

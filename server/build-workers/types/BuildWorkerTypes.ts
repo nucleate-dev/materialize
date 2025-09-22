@@ -1,7 +1,12 @@
-import {
-  PrototypeAssetInputWithContent,
-  PrototypeFileInput,
-} from "./PublicAPITypes.js";
+import { Database } from "./supabase.js";
+
+export type PrototypeFileInput =
+  Database["public"]["Tables"]["prototype_files"]["Row"];
+export type PrototypeAssetInput =
+  Database["public"]["Tables"]["prototype_assets"]["Row"];
+export type PrototypeAssetInputWithContent = PrototypeAssetInput & {
+  contents: string;
+};
 
 // Operation Status Enum
 export enum OperationStatus {
@@ -143,7 +148,6 @@ export interface DevServerStatusResponse {
   tunnelUrl?: string;
   port?: number;
   uptime?: number;
-  logs?: string[];
   prototypeId?: string;
   currentOperation?: OperationStatus;
   operationDuration?: number;
