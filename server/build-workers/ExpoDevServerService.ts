@@ -211,7 +211,7 @@ export class ExpoDevServerService {
         }
         // Create new directory and write all files
         await fs.mkdir(projectDir, { recursive: true });
-        await writeProjectFiles(files, assets, projectDir, request.log2);
+        await writeProjectFiles(files, assets, projectDir);
 
         // Install dependencies for new project
         try {
@@ -765,7 +765,7 @@ export class ExpoDevServerService {
         );
       }
 
-      await writeProjectFiles(files, assets, buildDir, this.log2);
+      await writeProjectFiles(files, assets, buildDir);
       logger.log("Project files written", true, `Build directory: ${buildDir}`);
 
       const installStartTime = Date.now();
@@ -1077,7 +1077,7 @@ export class ExpoDevServerService {
 
     try {
       // Update only the provided files
-      await writeProjectFiles(files, assets, actualProjectDir, this.log2);
+      await writeProjectFiles(files, assets, actualProjectDir);
       this.log2.info("Successfully wrote files to project directory", {
         projectDir: actualProjectDir,
       });

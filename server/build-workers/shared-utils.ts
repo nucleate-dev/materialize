@@ -74,7 +74,6 @@ export async function writeProjectFiles(
   files: PrototypeFileInput[],
   assets: PrototypeAssetInputWithContent[],
   projectDir: string,
-  log2?: SystemLogger,
 ): Promise<void> {
   // Handle text files
   for (const file of files) {

@@ -51,14 +51,6 @@ export class PublicApiService {
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
     try {
-      // Log input file names (not contents)
-      if (request.body.files && request.body.files.length > 0) {
-        const fileNames = request.body.files.map((file) => file.name);
-      }
-      if (request.body.assets && request.body.assets.length > 0) {
-        const assetNames = request.body.assets.map((asset) => asset.name);
-      }
-
       if (request.body.file_scope === "complete") {
         const startResponse = await this.expoDevServerService.startDevServer(
           request,
@@ -123,7 +115,6 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStopResponse> {
-    const { prototype_id } = request.body;
     const devServerState = this.expoDevServerService.getState();
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
       return {
@@ -340,7 +331,6 @@ export class PublicApiService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
       const projectDir = path.join(this.workDir, "project");
-      let buildUrl: string | undefined;
       try {
         // Read all files from the project directory
         const { files } = await this.readAllFilesFromDirectory(projectDir);
@@ -361,8 +351,6 @@ export class PublicApiService {
             await this.expoDevServerService.buildAndDeployProjectCore();
 
           if (buildResponse.success && buildResponse.buildUrl) {
-            buildUrl = buildResponse.buildUrl;
-
             // Parse build log for errors and warnings
             if (buildResponse.buildLog) {
               this.parseBuildLogForErrors(
