@@ -19,4 +19,4 @@ touch /tmp/build-worker.log
 
 # Start the Node.js application with logs redirected to both file and stdout
 echo "Starting build worker application..."
-exec node dist/worker.js 2>&1 | tee /tmp/build-worker.log
+exec node dist/worker.js 2>&1 | tee -a /tmp/build-worker.log
