@@ -17,24 +17,7 @@ export async function installDependencies(
   projectDir: string,
   log2: SystemLogger,
 ): Promise<void> {
-  log2.info("Installing dependencies", { projectDir });
-
-  const packageJsonPath = path.join(projectDir, "package.json");
-  try {
-    const packageJson = await fs.readFile(packageJsonPath, "utf8");
-    const packageData = JSON.parse(packageJson);
-    log2.info("Package.json found", {
-      dependencies: Object.keys(packageData.dependencies || {}).length,
-      devDependencies: Object.keys(packageData.devDependencies || {}).length,
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log2.error(
-      new Error(errorMessage),
-      "Failed to read package.json"
-    );
-    throw new Error("package.json not found or invalid");
-  }
+  log2.info("Installing dependencies");
 
   return new Promise((resolve, reject) => {
     const npmProcess = spawn(
@@ -71,11 +54,11 @@ export async function installDependencies(
         resolve();
       } else {
         const error = `npm install failed with exit code ${code}: ${stderr}`;
-        log2.error(
-          new Error(error),
-          "Install dependencies failed",
-          { code, stdout, stderr }
-        );
+        log2.error(new Error(error), "Install dependencies failed", {
+          code,
+          stdout,
+          stderr,
+        });
         reject(new Error(error));
       }
     });
@@ -100,10 +83,6 @@ export async function writeProjectFiles(
 
     await fs.mkdir(fileDir, { recursive: true });
     await fs.writeFile(filePath, file.contents, "utf8");
-    log2?.debug("Wrote text file", {
-      fileName: file.name,
-      size: file.contents.length,
-    });
   }
 
   // Handle binary assets
@@ -114,9 +93,5 @@ export async function writeProjectFiles(
     await fs.mkdir(fileDir, { recursive: true });
     const binaryContent = Buffer.from(asset.contents, "base64");
     await fs.writeFile(filePath, binaryContent);
-    log2?.debug("Wrote binary asset", {
-      fileName: asset.name,
-      size: binaryContent.length,
-    });
   }
 }
