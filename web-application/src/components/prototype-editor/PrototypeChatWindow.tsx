@@ -29,6 +29,9 @@ import {
   PlayIcon,
   StopIcon,
   TrashIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -96,6 +99,12 @@ export default function PrototypeChatWindow({
   // UI state
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
 
+  // Thoughts and execution plan state
+  const [currentThought, setCurrentThought] = useState<string>("");
+  const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
+  const [executionPlan, setExecutionPlan] = useState<string[]>([]);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+
   // Use ref to avoid stale closure issues in streaming
   const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
 
@@ -103,6 +112,24 @@ export default function PrototypeChatWindow({
   useEffect(() => {
     prototypeChatSessionRef.current = prototypeChatSession;
   }, [prototypeChatSession]);
+
+  // Function to sanitize tool names for display
+  const sanitizeToolName = (toolName: string): string => {
+    const toolNameMap: Record<string, string> = {
+      'create_execution_plan': 'Creating execution plan',
+      'edit_file': 'Editing file',
+      'create_file': 'Creating file',
+      'read_file': 'Reading file',
+      'search_files': 'Searching files',
+      'run_command': 'Running command',
+      'deploy_preview': 'Deploying preview',
+      'analyze_code': 'Analyzing code',
+      'install_package': 'Installing package',
+      'test_code': 'Testing code',
+    };
+
+    return toolNameMap[toolName] || `Working with ${toolName.replace(/_/g, ' ')}`;
+  };
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -290,17 +317,10 @@ export default function PrototypeChatWindow({
                     break;
 
                   case "tool_call":
-                    // Show that a tool is being called as a chat message
+                    // Update current thought instead of showing in chat
                     const toolName = String(event.tool || event.toolName || 'Unknown tool');
-                    setMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === 'assistant') {
-                        const copy = [...prev];
-                        copy[copy.length - 1] = { ...last, content: `🔧 **Using ${toolName}**...` };
-                        return copy;
-                      }
-                      return [...prev, { role: 'assistant', content: `🔧 **Using ${toolName}**...` }];
-                    });
+                    setCurrentThought(sanitizeToolName(toolName));
+                    setIsThoughtsExpanded(true);
                     break;
 
                   case "tool_result":
@@ -308,51 +328,33 @@ export default function PrototypeChatWindow({
                     if (event.result?.updatedFiles) {
                       onFilesUpdate(event.result.updatedFiles);
                     }
-                    // Show tool completion in chat
-                    const toolName2 = String(event.tool || event.toolName || 'Tool');
-                    setMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === 'assistant' && last.content.includes('🔧')) {
-                        const copy = [...prev];
-                        copy[copy.length - 1] = { ...last, content: `✅ **${toolName2}** completed` };
-                        return copy;
-                      }
-                      return prev;
-                    });
+                    // Clear current thought when tool completes
+                    setCurrentThought("");
                     break;
 
                   case "execution_plan_created":
-                    // Show execution plan in chat
+                    // Set execution plan state instead of showing in chat
                     const plan = event.result?.plan;
                     if (plan && Array.isArray(plan)) {
-                      setMessages(prev => [
-                        ...prev,
-                        {
-                          role: 'assistant',
-                          content: `📋 **Execution Plan Created:**\n${plan.map((step, i) => `${i + 1}. ${step}`).join('\n')}`,
-                        },
-                      ]);
+                      setExecutionPlan(plan);
+                      setCompletedSteps(new Set());
+                      setIsThoughtsExpanded(true);
                     }
                     break;
 
                   case "step_completed":
-                    // Show step completion in chat
+                    // Mark step as completed instead of showing in chat
                     const stepNum = event.result?.step;
-                    const summary = event.result?.summary;
-                    if (stepNum && summary) {
-                      setMessages(prev => [
-                        ...prev,
-                        {
-                          role: 'assistant',
-                          content: `✅ **Step ${stepNum} Complete:** ${summary}`,
-                        },
-                      ]);
+                    if (typeof stepNum === 'number') {
+                      setCompletedSteps(prev => new Set([...prev, stepNum - 1])); // Convert to 0-based index
                     }
                     break;
 
                   case "chat_complete":
-                    // Chat is finished
+                    // Chat is finished - clear thoughts and close execution plan
                     buffer = ''; // Reset buffer
+                    setCurrentThought("");
+                    setIsThoughtsExpanded(false);
                     break;
 
                   case "usage_update":
@@ -442,6 +444,12 @@ export default function PrototypeChatWindow({
       setCurrentMessage("");
       setIsChatLoading(true);
       setIsConnected(true);
+
+      // Reset thoughts and execution plan state for new conversation
+      setCurrentThought("");
+      setExecutionPlan([]);
+      setCompletedSteps(new Set());
+      setIsThoughtsExpanded(false);
 
       try {
         // Get access token for authentication
@@ -664,9 +672,9 @@ export default function PrototypeChatWindow({
                     : "bg-muted"
                     }`}
                 >
-                  <div className="text-sm font-medium mb-1">
-                    {message.role === "user" ? "You" : "Assistant"}
-                  </div>
+                  {message.role === "user" && (
+                    <div className="text-sm font-medium mb-1">You</div>
+                  )}
                   <div className="text-sm prose prose-sm max-w-none prose-slate dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current">
                     <ReactMarkdown>
                       {message.content}
@@ -675,10 +683,9 @@ export default function PrototypeChatWindow({
                 </div>
               </div>
             ))}
-            {isChatLoading && isConnected && (
+            {isChatLoading && isConnected && !currentThought && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                  <div className="text-sm font-medium mb-1">Assistant</div>
                   <div className="text-sm text-muted-foreground">
                     Thinking...
                   </div>
@@ -687,6 +694,69 @@ export default function PrototypeChatWindow({
             )}
           </div>
         </ScrollArea>
+
+        {/* Thoughts and Execution Plan Section */}
+        {(currentThought || executionPlan.length > 0) && (
+          <div className="border-t border-b bg-muted/30">
+            <div className="p-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsThoughtsExpanded(!isThoughtsExpanded)}
+                className="w-full justify-between text-sm font-medium"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                  {currentThought || "Working..."}
+                </span>
+                {isThoughtsExpanded ? (
+                  <ChevronUpIcon className="w-4 h-4" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+              </Button>
+
+              {isThoughtsExpanded && (
+                <div className="mt-3 space-y-3">
+                  {currentThought && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                      {currentThought}
+                    </div>
+                  )}
+
+                  {executionPlan.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">Execution Plan:</div>
+                      <div className="space-y-1">
+                        {executionPlan.map((step, index) => (
+                          <div key={index} className="flex items-start gap-2 text-sm">
+                            <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                              completedSteps.has(index)
+                                ? "border-green-500 bg-green-500"
+                                : "border-gray-300"
+                            }`}>
+                              {completedSteps.has(index) && (
+                                <CheckIcon className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className={`${
+                              completedSteps.has(index)
+                                ? "text-muted-foreground line-through"
+                                : "text-foreground"
+                            }`}>
+                              {step}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Input Area */}
         <div className="p-4 border-t">
