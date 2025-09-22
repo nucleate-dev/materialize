@@ -1076,60 +1076,81 @@ export class ExpoDevServerService {
     }
 
     try {
-      // Update only the provided files
+      // 1) If package.json is included, read its current contents before overwrite
+      const packageJsonUpdate = files.find(
+        (file) => file.name === "package.json",
+      );
+      let oldPackageJsonContent = "";
+      if (packageJsonUpdate) {
+        try {
+          const packageJsonPath = path.join(actualProjectDir, "package.json");
+          oldPackageJsonContent = await fs.readFile(packageJsonPath, "utf-8");
+          this.log2.info("Found existing package.json for diffing.");
+        } catch (error) {
+          this.log2.warn(
+            "Could not read old package.json, assuming new file.",
+            { error },
+          );
+          oldPackageJsonContent = "{}";
+        }
+      }
+
+      // 2) Write incoming files to disk
       await writeProjectFiles(files, assets, actualProjectDir);
       this.log2.info("Successfully wrote files to project directory", {
         projectDir: actualProjectDir,
       });
 
-      // Monitor for Metro bundler errors after file updates
+      // 3) Monitor for Metro bundler errors after file updates
       this.log2.info("Monitoring Metro output for compilation errors");
       await this.monitorMetroForErrors(buildErrors, buildWarnings, 8000);
 
-      // Check if package.json was updated and reinstall if needed
-      const packageJsonUpdated = files.some(
-        (file) => file.name === "package.json",
-      );
-      if (packageJsonUpdated) {
-        this.log2.info(
-          "package.json was updated, reinstalling dependencies and restarting dev server",
+      // 4) If package.json changed, diff dependencies and conditionally reinstall/restart
+      if (packageJsonUpdate && oldPackageJsonContent) {
+        const newPackageJsonContent =
+          packageJsonUpdate.contents as unknown as string;
+        const dependenciesHaveChanged = await this._haveDependenciesChanged(
+          oldPackageJsonContent,
+          newPackageJsonContent,
         );
-        try {
-          await this.installDependenciesWithErrorParsing(
-            actualProjectDir,
-            buildErrors,
-            buildWarnings,
-          );
-          this.log2.info("Dependencies reinstalled successfully");
 
-          // Restart the dev server to pick up new dependencies
-          this.log2.info("Restarting dev server to pick up new dependencies");
-          await this.restartDevServer();
+        if (dependenciesHaveChanged) {
           this.log2.info(
-            "Dev server restarted successfully with new dependencies",
+            "Dependency changes detected in package.json. Reinstalling dependencies and restarting dev server.",
           );
-        } catch (error: unknown) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorStack = error instanceof Error ? error.stack : undefined;
-          this.log2.error(
-            new Error(errorMessage),
-            "Dependency update or dev server restart failed for package.json change",
-            { stack: errorStack },
+          try {
+            await this.installDependenciesWithErrorParsing(
+              actualProjectDir,
+              buildErrors,
+              buildWarnings,
+            );
+            this.log2.info("Dependencies reinstalled successfully");
+
+            this.log2.info("Restarting dev server...");
+            await this.restartDevServer();
+            this.log2.info(
+              "Dev server restarted successfully with new dependencies.",
+            );
+          } catch (error: unknown) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.log2.error(
+              new Error(errorMessage),
+              "Dependency update or dev server restart failed for package.json change",
+            );
+            buildErrors.push({
+              message: `Dependency update or restart failed: ${errorMessage}`,
+              type: "dependency",
+            });
+          }
+        } else {
+          this.log2.info(
+            "package.json was updated, but no dependency changes were found. Skipping reinstall and restart.",
           );
-          this.log2.error(
-            new Error(errorMessage),
-            "Dependency update or restart failed",
-          );
-          buildErrors.push({
-            message: `Dependency update or restart failed: ${errorMessage}`,
-            type: "dependency",
-          });
-          // Don't return failure here - file updates succeeded even if deps/restart failed
         }
       } else {
         this.log2.debug(
-          "No package.json changes detected, skipping dependency reinstall",
+          "No package.json changes detected, skipping dependency diff.",
         );
       }
 
@@ -1396,6 +1417,48 @@ export class ExpoDevServerService {
           type: "deprecation",
         });
       }
+    }
+  }
+
+  private async _haveDependenciesChanged(
+    oldContent: string,
+    newContent: string,
+  ): Promise<boolean> {
+    try {
+      const oldPkg = JSON.parse(oldContent || "{}");
+      const newPkg = JSON.parse(newContent || "{}");
+
+      const oldDeps = oldPkg.dependencies || {};
+      const newDeps = newPkg.dependencies || {};
+      const oldDevDeps = oldPkg.devDependencies || {};
+      const newDevDeps = newPkg.devDependencies || {};
+
+      if (
+        Object.keys(oldDeps).length !== Object.keys(newDeps).length ||
+        Object.keys(oldDevDeps).length !== Object.keys(newDevDeps).length
+      ) {
+        return true;
+      }
+
+      for (const key in newDeps) {
+        if (oldDeps[key] !== newDeps[key]) {
+          return true;
+        }
+      }
+
+      for (const key in newDevDeps) {
+        if (oldDevDeps[key] !== newDevDeps[key]) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      this.log2.error(
+        error as Error,
+        "Failed to parse package.json for diffing. Assuming dependencies have changed as a precaution.",
+      );
+      return true;
     }
   }
 
