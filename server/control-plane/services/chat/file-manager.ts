@@ -39,6 +39,7 @@ export class VirtualFileManager implements FileManagerInterface {
   private files: Map<string, PrototypeFile>;
   private log2: SystemLogger;
   private prototypeId?: string;
+  private changedFiles: Set<string> = new Set();
 
   constructor(
     convertedFiles: Record<string, PrototypeFile> | null,
@@ -182,6 +183,7 @@ export class VirtualFileManager implements FileManagerInterface {
       // Update existing file
       existingFile.contents = contents;
       existingFile.updated_at = new Date().toISOString();
+      this.changedFiles.add(normalizedPath);
 
       return {
         success: true,
@@ -233,6 +235,7 @@ export class VirtualFileManager implements FileManagerInterface {
     };
 
     this.files.set(normalizedPath, newFile);
+    this.changedFiles.add(normalizedPath);
 
     return {
       success: true,
@@ -265,6 +268,7 @@ export class VirtualFileManager implements FileManagerInterface {
     }
 
     this.files.delete(normalizedPath);
+    this.changedFiles.add(normalizedPath);
 
     return {
       success: true,
@@ -458,5 +462,29 @@ export class VirtualFileManager implements FileManagerInterface {
 
   public getAllFilePaths(): string[] {
     return Array.from(this.files.keys());
+  }
+
+  // New methods for change tracking and dispatch
+  public hasChanges(): boolean {
+    return this.changedFiles.size > 0;
+  }
+
+  public getChangedFiles(): Record<string, PrototypeFile> {
+    const changedFilesObj: Record<string, PrototypeFile> = {};
+    for (const filePath of this.changedFiles) {
+      const file = this.files.get(filePath);
+      if (file) {
+        changedFilesObj[filePath] = file;
+      }
+    }
+    return changedFilesObj;
+  }
+
+  public getAllFilesForDispatch(): Record<string, PrototypeFile> {
+    return this.getFinalState();
+  }
+
+  public clearChangeTracking(): void {
+    this.changedFiles.clear();
   }
 }

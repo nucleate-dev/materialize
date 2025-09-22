@@ -8,9 +8,10 @@ import { SystemLogger } from '../loggers/SystemLogger.js';
 import type {
   PrototypeAssetInput,
   PrototypeFileInput,
+  DispatchRequestBody,
 } from '../types/PublicAPITypes.js';
 import { SYSTEM_PROMPT } from './chat/PROMPTS.js';
-import { FileManagerInterface } from './chat/file-manager.js';
+import { FileManagerInterface, VirtualFileManager } from './chat/file-manager.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -365,8 +366,97 @@ export class ChatEngine {
     };
   }
 
+  private async persistAndDispatchFiles(
+    fileManager: VirtualFileManager,
+    params: ChatEngineParams,
+  ): Promise<void> {
+    const { prototype_id, token, controller, encoder, log2, inputAssets } = params;
+
+    try {
+      if (!fileManager.hasChanges()) {
+        log2.info('[ChatEngine] No file changes to persist and dispatch');
+        return;
+      }
+
+      log2.info('[ChatEngine] Starting file persistence and dispatch...');
+
+      // Get all files for dispatch (complete file set needed for dispatch)
+      const allFiles = fileManager.getAllFilesForDispatch();
+
+      // Convert to the format expected by dispatch
+      const filesArray = Object.entries(allFiles).map(([path, file]) => ({
+        contents: file.contents,
+        name: path,
+        prototype_id: file.prototype_id || prototype_id,
+        id: file.id,
+        created_at: file.created_at || null,
+        updated_at: file.updated_at || null,
+      }));
+
+      // Convert assets to the expected format (with contents field required)
+      const assetsArray = inputAssets ? Object.entries(inputAssets).map(([path, asset]) => ({
+        storage_url: asset.storage_url,
+        name: path,
+        prototype_id: asset.prototype_id || prototype_id,
+        created_at: asset.created_at || null,
+        updated_at: asset.updated_at || null,
+        id: asset.id || '',
+        contents: '', // Empty contents for existing assets (they're already uploaded)
+      })) : [];
+
+      // Prepare request body for dispatch
+      const requestBody: DispatchRequestBody = {
+        jwt: token,
+        prototype_id: prototype_id,
+        framework: 'expo_react_native',
+        files: filesArray,
+        assets: assetsArray,
+        file_scope: 'complete', // Send all files for proper initialization
+        hot_reload: true, // Enable hot reload for live updates
+      };
+
+      // Call the dispatch endpoint via internal Fastify inject
+      const response = await this.config.fastifyApp.inject({
+        method: 'POST',
+        url: '/dispatch',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-trace-id': log2.getTraceId(),
+        },
+        payload: requestBody,
+      });
+
+      if (response.statusCode === 200) {
+        const result = JSON.parse(response.payload);
+        if (result.data?.viewing_url) {
+          // Send viewing URL update to client
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: 'viewing_url',
+                viewing_url: result.data.viewing_url,
+              })}\\n\\n`,
+            ),
+          );
+          log2.info('[ChatEngine] File dispatch successful, viewing URL updated');
+        }
+      } else {
+        log2.error(
+          '[ChatEngine] File dispatch failed',
+          `Status: ${response.statusCode}, Payload: ${response.payload}`,
+        );
+      }
+
+      // Clear change tracking after successful dispatch
+      fileManager.clearChangeTracking();
+    } catch (error) {
+      log2.error(error, '[ChatEngine] Error in persistAndDispatchFiles');
+      // Don't throw - this shouldn't break the chat flow
+    }
+  }
+
   async executeChat(params: ChatEngineParams): Promise<void> {
-    const { messages, userMessage, controller, encoder, log2 } = params;
+    const { messages, userMessage, controller, encoder, log2, fileManager } = params;
 
     try {
       log2.consoleLogDevOnly(
@@ -457,14 +547,29 @@ export class ChatEngine {
                 );
               } else {
                 // Default handling for all other tools (e.g., file manager)
+                let toolResult = {
+                  type: 'tool_result',
+                  tool: part.toolName,
+                  toolCallId: part.toolCallId,
+                  result: part.output,
+                };
+
+                // For file modification tools, include updated files for client sync
+                if (['write_file', 'create_file', 'delete_file'].includes(part.toolName)) {
+                  toolResult = {
+                    ...toolResult,
+                    result: {
+                      ...(typeof part.output === 'object' ? part.output : {}),
+                      updatedFiles: fileManager instanceof VirtualFileManager
+                        ? fileManager.getAllFilesForDispatch()
+                        : {},
+                    },
+                  };
+                }
+
                 controller.enqueue(
                   encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: 'tool_result',
-                      tool: part.toolName,
-                      toolCallId: part.toolCallId,
-                      result: part.output,
-                    })}\n\n`,
+                    `data: ${JSON.stringify(toolResult)}\n\n`,
                   ),
                 );
               }
@@ -485,6 +590,11 @@ export class ChatEngine {
             })}\n\n`,
           ),
         );
+      }
+
+      // Dispatch files to Fargate before completing chat
+      if (fileManager instanceof VirtualFileManager && fileManager.hasChanges()) {
+        await this.persistAndDispatchFiles(fileManager, params);
       }
 
       controller.enqueue(
