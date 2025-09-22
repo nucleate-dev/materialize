@@ -766,7 +766,6 @@ export default function PrototypeChatWindow({
             </div>
           </div>
         )}
-
         {/* Input Area */}
         <div className="p-4 border-t">
           <div className="space-y-2">
