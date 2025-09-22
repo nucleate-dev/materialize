@@ -25,13 +25,13 @@ import { Database } from "@/lib/types/supabase";
 import { getChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   ChatBubbleLeftRightIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   ClipboardDocumentIcon,
   PlayIcon,
   StopIcon,
   TrashIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  CheckIcon,
 } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -369,6 +369,17 @@ export default function PrototypeChatWindow({
                     if (onViewingUrlUpdate && typeof event.viewing_url === 'string') {
                       onViewingUrlUpdate(event.viewing_url);
                     }
+                    break;
+
+                  case "dispatch_error":
+                    setMessages((prev) => [
+                      ...prev,
+                      {
+                        role: "assistant",
+                        content: `⚠️ **Preview Update Failed:** There was a problem updating the live preview.`,
+                      },
+                    ]);
+                    logger.debug("error", "Dispatch error from server:", { event });
                     break;
 
                   case "error":
@@ -731,20 +742,18 @@ export default function PrototypeChatWindow({
                       <div className="space-y-1">
                         {executionPlan.map((step, index) => (
                           <div key={index} className="flex items-start gap-2 text-sm">
-                            <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                              completedSteps.has(index)
-                                ? "border-green-500 bg-green-500"
-                                : "border-gray-300"
-                            }`}>
+                            <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
+                              ? "border-green-500 bg-green-500"
+                              : "border-gray-300"
+                              }`}>
                               {completedSteps.has(index) && (
                                 <CheckIcon className="w-3 h-3 text-white" />
                               )}
                             </div>
-                            <span className={`${
-                              completedSteps.has(index)
-                                ? "text-muted-foreground line-through"
-                                : "text-foreground"
-                            }`}>
+                            <span className={`${completedSteps.has(index)
+                              ? "text-muted-foreground line-through"
+                              : "text-foreground"
+                              }`}>
                               {step}
                             </span>
                           </div>

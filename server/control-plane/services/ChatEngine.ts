@@ -373,8 +373,7 @@ export class ChatEngine {
     fileManager: VirtualFileManager,
     params: ChatEngineParams,
   ): Promise<void> {
-    const { prototype_id, token, controller, encoder, log2, inputAssets } =
-      params;
+    const { prototype_id, token, controller, encoder, log2 } = params;
 
     try {
       if (!fileManager.hasChanges()) {
@@ -397,26 +396,13 @@ export class ChatEngine {
         updated_at: file.updated_at || null,
       }));
 
-      // Convert assets to the expected format (with contents field required)
-      const assetsArray = inputAssets
-        ? Object.entries(inputAssets).map(([path, asset]) => ({
-            storage_url: asset.storage_url,
-            name: path,
-            prototype_id: asset.prototype_id || prototype_id,
-            created_at: asset.created_at || null,
-            updated_at: asset.updated_at || null,
-            id: asset.id || '',
-            contents: '', // Empty contents for existing assets (they're already uploaded)
-          }))
-        : [];
-
       // Prepare request body for dispatch
       const requestBody: DispatchRequestBody = {
         jwt: token,
         prototype_id: prototype_id,
         framework: 'expo_react_native',
         files: filesArray,
-        assets: assetsArray,
+        assets: [], // The AI chat never updates or creates assets
         file_scope: 'updates', // Send all files for proper initialization
         hot_reload: true, // Enable hot reload for live updates
       };
@@ -449,9 +435,21 @@ export class ChatEngine {
           );
         }
       } else {
+        const errorMessage = `File dispatch failed with status: ${response.statusCode}`;
         log2.error(
-          '[ChatEngine] File dispatch failed',
-          `Status: ${response.statusCode}, Payload: ${response.payload}`,
+          '[ChatEngine] ' + errorMessage,
+          `Payload: ${response.payload}`,
+        );
+
+        // PROPAGATE ERROR TO CLIENT
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'dispatch_error',
+              error: 'Failed to update the live preview.',
+              details: `Dispatch service responded with status ${response.statusCode}.`,
+            })}\\n\\n`,
+          ),
         );
       }
 
