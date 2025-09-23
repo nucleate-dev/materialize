@@ -116,11 +116,13 @@ export default async function handleResetPrototypeImpl(
       } as DispatchPrecheckRequestBody,
     });
 
-    const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> = precheckResponse.json();
+    const precheckData: APIResponse<
+      DispatchPrecheckSuccessResponse,
+      DispatchPrecheckErrorResponse
+    > = precheckResponse.json();
     if (
       precheckResponse.statusCode !== 200 ||
       !precheckData.data ||
-      !precheckData.data.success ||
       !isEditableDevServer(precheckData.data.status)
     ) {
       request.log2.warn(

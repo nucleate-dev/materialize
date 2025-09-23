@@ -99,7 +99,6 @@ export interface DispatchErrorResponse {
   viewing_url: string;
 }
 
-
 // ============================================================================
 // /dispatch-precheck ENDPOINT and /dispatch-edit-intent ENDPOINT
 // ============================================================================
@@ -110,7 +109,6 @@ export interface DispatchPrecheckRequestBody {
 }
 
 export interface DispatchPrecheckSuccessResponse {
-  success: true;
   status: BuildStatus | null;
   viewing_url: string;
 }
@@ -151,7 +149,6 @@ export interface CheckoutErrorResponse {
   error: string;
   message: string;
 }
-
 
 // ============================================================================
 // /payments/manage-billing ENDPOINT

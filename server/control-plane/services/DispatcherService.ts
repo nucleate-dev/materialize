@@ -487,7 +487,6 @@ export class DispatcherService {
       // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
       if (
         precheckResponse.data &&
-        precheckResponse.data.success &&
         isEditableDevServer(precheckResponse.data.status)
       ) {
         // Get current build ID and update last_touched timestamp
@@ -577,7 +576,7 @@ export class DispatcherService {
           error: 'Unauthorized',
           message:
             'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
+        } as DispatchPrecheckErrorResponse,
       });
     }
     // update logger context
@@ -604,21 +603,20 @@ export class DispatcherService {
               error: {
                 error: 'Internal Server Error',
                 message: 'Invalid build data in storage',
-              },
+              } as DispatchPrecheckErrorResponse,
             });
           }
           const existingBuild: ActiveBuild = parsedBuild;
 
           return reply.status(HTTP_STATUS.OK).send({
             data: {
-              success: true,
               status: existingBuild.status,
               viewing_url: this.normalizeUrl(
                 isEditableDevServer(existingBuild.status)
                   ? existingBuild.url
                   : this.getS3Url(prototype_id),
               ),
-            },
+            } as DispatchPrecheckSuccessResponse,
             error: null,
           });
         }
@@ -627,10 +625,9 @@ export class DispatcherService {
       // No active build, return S3 URL
       return reply.status(HTTP_STATUS.OK).send({
         data: {
-          success: true,
           status: null,
           viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        },
+        } as DispatchPrecheckSuccessResponse,
         error: null,
       });
     } catch (error) {
@@ -641,7 +638,7 @@ export class DispatcherService {
         error: {
           error: 'Internal Server Error',
           message: e.message,
-        },
+        } as DispatchPrecheckErrorResponse,
       });
     }
   }

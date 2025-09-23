@@ -22,6 +22,9 @@ export async function trackChatUsage(
   supabaseServiceKey: string,
   log2: SystemLogger,
 ): Promise<UsageTrackingResult> {
+  log2 = log2.child({
+    function: 'trackChatUsage',
+  });
   // ------------------------------------------------------------------------------------------------
   // 1. Track API usage in Supabase
   // ------------------------------------------------------------------------------------------------

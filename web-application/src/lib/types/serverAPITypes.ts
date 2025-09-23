@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-23T00:10:31.225Z
+// Last synced: 2025-09-23T20:28:38.324Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -108,7 +108,6 @@ export interface DispatchErrorResponse {
   viewing_url: string;
 }
 
-
 // ============================================================================
 // /dispatch-precheck ENDPOINT and /dispatch-edit-intent ENDPOINT
 // ============================================================================
@@ -119,7 +118,6 @@ export interface DispatchPrecheckRequestBody {
 }
 
 export interface DispatchPrecheckSuccessResponse {
-  success: true;
   status: BuildStatus | null;
   viewing_url: string;
 }
@@ -160,7 +158,6 @@ export interface CheckoutErrorResponse {
   error: string;
   message: string;
 }
-
 
 // ============================================================================
 // /payments/manage-billing ENDPOINT
@@ -302,6 +299,23 @@ export interface StartDevServerSuccessResponse {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+// Enhanced chat context for storing rich interaction data
+export interface EnhancedChatContext {
+  conversations: Array<{
+    timestamp: string;
+    userMessage: string;
+    executionPlan?: string[];
+    assistantResponse: string;
+    fileChanges?: Record<string, PrototypeFileInput>;
+    completedSteps?: number[];
+    toolCalls?: Array<{
+      toolName: string;
+      input: unknown;
+      output: unknown;
+    }>;
+  }>;
 }
 
 export interface ChatRequestBody {
