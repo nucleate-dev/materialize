@@ -472,7 +472,7 @@ export default function PrototypeChatWindow({
 
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
-  const isDevServerNotReady = currentRenderStatus === "Connected";
+  const isDevServerNotReady = currentRenderStatus === "Starting Dev Server..";
 
   // Show upsell modal when free user reaches limit
   useEffect(() => {
