@@ -1,11 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import {
-  generateAuthHeaders,
-  getInternalToolsConfig,
-} from "@/lib/internal-tools-auth";
 import { PageHeader } from "@/components/page-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,11 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Tooltip,
   TooltipContent,
@@ -25,12 +20,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Server,
-  Container,
+  generateAuthHeaders,
+  getInternalToolsConfig,
+} from "@/lib/internal-tools-auth";
+import {
   AlertCircle,
+  Check,
   CheckCircle,
+  Container,
+  Copy,
   Loader2,
+  Server,
 } from "lucide-react";
+import { useState } from "react";
 
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
@@ -39,6 +41,29 @@ export default function DevServerPage() {
   const [fargateLoading, setFargateLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ec2Details, setEc2Details] = useState<
+    | {
+      instanceId: string;
+      state: string;
+      publicDns?: string;
+      publicIpv4?: string;
+      sshCommand?: string;
+    }
+    | null
+  >(null);
+  const [copiedField, setCopiedField] = useState<
+    null | "publicDns" | "publicIpv4" | "sshCommand"
+  >(null);
+
+  const handleCopy = async (text: string, field: "publicDns" | "publicIpv4" | "sshCommand") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+    } catch (_) {
+      // noop
+    }
+  };
 
   const handleAcquireEC2 = async () => {
     if (!ec2ServerName.trim()) {
@@ -82,7 +107,7 @@ export default function DevServerPage() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to acquire EC2 instance: ${response.status}`
+          `Failed to acquire EC2 instance: ${response.status}`
         );
       }
 
@@ -102,6 +127,13 @@ ${result.sshCommand}
 The instance is accessible and ready to use.`;
 
       setSuccess(successMessage);
+      setEc2Details({
+        instanceId: result.instanceId,
+        state: result.state,
+        publicDns: result.publicDns,
+        publicIpv4: result.publicIpv4,
+        sshCommand: result.sshCommand,
+      });
       setEc2ServerName("");
     } catch (err) {
       setError(
@@ -154,7 +186,7 @@ The instance is accessible and ready to use.`;
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to acquire Fargate task: ${response.status}`
+          `Failed to acquire Fargate task: ${response.status}`
         );
       }
 
@@ -260,6 +292,92 @@ The instance is accessible and ready to use.`;
             </div>
           </CardContent>
         </Card>
+
+        {ec2Details && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">EC2 Instance Details</CardTitle>
+              <CardDescription>
+                Copy values into the appropriate files as instructed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="min-w-32">Public DNS</Label>
+                  <Input
+                    readOnly
+                    value={ec2Details.publicDns || ""}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      ec2Details.publicDns &&
+                      handleCopy(ec2Details.publicDns, "publicDns")
+                    }
+                    aria-label="Copy Public DNS"
+                  >
+                    {copiedField === "publicDns" ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label className="min-w-32">Public IPv4</Label>
+                  <Input
+                    readOnly
+                    value={ec2Details.publicIpv4 || ""}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      ec2Details.publicIpv4 &&
+                      handleCopy(ec2Details.publicIpv4, "publicIpv4")
+                    }
+                    aria-label="Copy Public IPv4"
+                  >
+                    {copiedField === "publicIpv4" ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label className="min-w-32">SSH Command</Label>
+                  <Input
+                    readOnly
+                    value={ec2Details.sshCommand || ""}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      ec2Details.sshCommand &&
+                      handleCopy(ec2Details.sshCommand, "sshCommand")
+                    }
+                    aria-label="Copy SSH Command"
+                  >
+                    {copiedField === "sshCommand" ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Separator />
 
