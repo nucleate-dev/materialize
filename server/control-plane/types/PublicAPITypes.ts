@@ -87,16 +87,9 @@ export interface DispatchRequestBody {
 }
 
 export interface DispatchSuccessResponse {
-  status: 'success';
   viewing_url: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
-}
-
-export interface DispatchErrorResponse {
-  error: string;
-  message: string;
-  viewing_url: string;
 }
 
 // ============================================================================

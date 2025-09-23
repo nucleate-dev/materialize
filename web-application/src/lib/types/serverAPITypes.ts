@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-23T20:28:38.324Z
+// Last synced: 2025-09-23T21:14:16.483Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -96,16 +96,9 @@ export interface DispatchRequestBody {
 }
 
 export interface DispatchSuccessResponse {
-  status: 'success';
   viewing_url: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
-}
-
-export interface DispatchErrorResponse {
-  error: string;
-  message: string;
-  viewing_url: string;
 }
 
 // ============================================================================

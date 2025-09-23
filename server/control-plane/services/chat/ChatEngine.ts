@@ -6,9 +6,12 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
+  APIResponse,
   DispatchRequestBody,
+  DispatchSuccessResponse,
   PrototypeAssetInput,
   PrototypeFileInput,
+  StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
 import { SYSTEM_PROMPT } from '../chat/PROMPTS.js';
 import {
@@ -381,7 +384,10 @@ export class ChatEngine {
     fileManager: VirtualFileManager,
     params: ChatEngineParams,
   ): Promise<void> {
-    const { prototype_id, token, controller, encoder, log2 } = params;
+    const { prototype_id, token, controller, encoder } = params;
+    const log2 = params.log2.child({
+      function: 'persistAndDispatchFiles',
+    });
 
     try {
       if (!fileManager.hasChanges()) {
@@ -390,19 +396,12 @@ export class ChatEngine {
       }
 
       log2.info('[ChatEngine] Starting file persistence and dispatch...');
-
       // Get all files for dispatch (complete file set needed for dispatch)
+      // TODO: if there is already an active dev-server (from precheck), then we should only send updated files
       const allFiles = fileManager.getAllFilesForDispatch();
 
       // Convert to the format expected by dispatch
-      const filesArray = Object.entries(allFiles).map(([path, file]) => ({
-        contents: file.contents,
-        name: path,
-        prototype_id: file.prototype_id || prototype_id,
-        id: file.id,
-        created_at: file.created_at || null,
-        updated_at: file.updated_at || null,
-      }));
+      const filesArray = Object.entries(allFiles).map(([, file]) => file);
 
       // Prepare request body for dispatch
       const requestBody: DispatchRequestBody = {
@@ -411,7 +410,7 @@ export class ChatEngine {
         framework: 'expo_react_native',
         files: filesArray,
         assets: [], // The AI chat never updates or creates assets
-        file_scope: 'updates', // Send all files for proper initialization
+        file_scope: 'updates', // TODO @priyam: this is a BUG -- if the user chats when a dev-server is not already started, we need COMPLETE file scope
         hot_reload: true, // Enable hot reload for live updates
       };
 
@@ -426,27 +425,27 @@ export class ChatEngine {
         payload: requestBody,
       });
 
-      if (response.statusCode === 200) {
-        const result = JSON.parse(response.payload);
-        if (result.data?.viewing_url) {
-          // Send viewing URL update to client
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: 'viewing_url',
-                viewing_url: result.data.viewing_url,
-              })}\\n\\n`,
-            ),
-          );
-          log2.info(
-            '[ChatEngine] File dispatch successful, viewing URL updated',
-          );
-        }
+      const result: APIResponse<
+        DispatchSuccessResponse,
+        StandardErrorResponse
+      > = JSON.parse(response.payload);
+      if (response.statusCode === 200 && result.data) {
+        // Send viewing URL update to client
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'viewing_url',
+              viewing_url: result.data.viewing_url,
+            })}\\n\\n`,
+          ),
+        );
+        log2.info('[ChatEngine] File dispatch successful, viewing URL updated');
       } else {
-        const errorMessage = `File dispatch failed with status: ${response.statusCode}`;
         log2.error(
-          '[ChatEngine] ' + errorMessage,
-          `Payload: ${response.payload}`,
+          new Error('File dispatch failed.'),
+          '[ChatEngine] ' +
+            `File dispatch failed with status: ${response.statusCode}`,
+          result,
         );
 
         // PROPAGATE ERROR TO CLIENT
