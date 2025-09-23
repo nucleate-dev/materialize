@@ -50,6 +50,14 @@ export interface ChatEngineParams {
   log2: SystemLogger;
 }
 
+export interface ChatEngineResult {
+  assistantResponse: string;
+  executionPlan?: string[];
+  completedSteps?: number[];
+  fileChanges?: Record<string, PrototypeFileInput>;
+  toolCalls?: Array<{ toolName: string; input: unknown; output: unknown }>;
+}
+
 export class ChatEngine {
   private google: ReturnType<typeof createGoogleGenerativeAI>;
   private anthropic: ReturnType<typeof createAnthropic>;
@@ -461,9 +469,19 @@ export class ChatEngine {
     }
   }
 
-  async executeChat(params: ChatEngineParams): Promise<void> {
+  async executeChat(params: ChatEngineParams): Promise<ChatEngineResult> {
     const { messages, userMessage, controller, encoder, log2, fileManager } =
       params;
+
+    // Track execution data for persistence
+    let executionPlan: string[] | undefined;
+    const completedSteps: number[] = [];
+    let assistantResponse = '';
+    const toolCalls: Array<{
+      toolName: string;
+      input: unknown;
+      output: unknown;
+    }> = [];
 
     try {
       log2.consoleLogDevOnly(
@@ -506,6 +524,7 @@ export class ChatEngine {
             case 'text-delta':
               // Accumulate and stream the final text response
               finalBuffer += part.text;
+              assistantResponse += part.text; // Capture for persistence
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
@@ -517,6 +536,13 @@ export class ChatEngine {
               break;
 
             case 'tool-call':
+              // Capture tool call for persistence
+              toolCalls.push({
+                toolName: part.toolName,
+                input: part.input,
+                output: null, // Will be filled in tool-result
+              });
+
               // Inform the client that a tool is being called
               controller.enqueue(
                 encoder.encode(
@@ -531,8 +557,24 @@ export class ChatEngine {
               break;
 
             case 'tool-result':
+              // Update tool call output for persistence
+              const toolCall = toolCalls.find(
+                (tc) => tc.toolName === part.toolName && tc.output === null,
+              );
+              if (toolCall) {
+                toolCall.output = part.output;
+              }
+
               // UPDATED: Handle our custom orchestration events
               if (part.toolName === 'create_execution_plan') {
+                // Capture execution plan for persistence
+                if (
+                  part.output &&
+                  typeof part.output === 'object' &&
+                  'plan' in part.output
+                ) {
+                  executionPlan = (part.output as { plan: string[] }).plan;
+                }
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({
@@ -543,6 +585,18 @@ export class ChatEngine {
                   ),
                 );
               } else if (part.toolName === 'confirm_step_completion') {
+                // Capture completed step for persistence
+                if (
+                  part.output &&
+                  typeof part.output === 'object' &&
+                  'step' in part.output
+                ) {
+                  const stepNum = (part.output as { step: number }).step;
+                  if (typeof stepNum === 'number') {
+                    completedSteps.push(stepNum);
+                  }
+                }
+
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({
@@ -615,6 +669,18 @@ export class ChatEngine {
           `data: ${JSON.stringify({ type: 'chat_complete' })}\n\n`,
         ),
       );
+
+      // Return captured data for persistence
+      return {
+        assistantResponse: assistantResponse || finalBuffer,
+        executionPlan,
+        completedSteps,
+        fileChanges:
+          fileManager instanceof VirtualFileManager
+            ? fileManager.getAllFilesForDispatch()
+            : undefined,
+        toolCalls,
+      };
     } catch (error) {
       log2.error(error, '[ChatEngine] Error during chat execution');
       controller.enqueue(
@@ -626,6 +692,18 @@ export class ChatEngine {
           })}\n\n`,
         ),
       );
+
+      // Return partial data even on error
+      return {
+        assistantResponse: assistantResponse || '',
+        executionPlan,
+        completedSteps,
+        fileChanges:
+          fileManager instanceof VirtualFileManager
+            ? fileManager.getAllFilesForDispatch()
+            : undefined,
+        toolCalls,
+      };
     } finally {
       try {
         controller.close();
