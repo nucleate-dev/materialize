@@ -397,13 +397,10 @@ export class ChatEngine {
 
       log2.info('[ChatEngine] Starting file persistence and dispatch...');
       // Get all files for dispatch (complete file set needed for dispatch)
+      // TODO @priyam: stream the updated files back to the client
       // TODO: if there is already an active dev-server (from precheck), then we should only send updated files
       const allFiles = fileManager.getAllFilesForDispatch();
-
-      // Convert to the format expected by dispatch
       const filesArray = Object.entries(allFiles).map(([, file]) => file);
-
-      // Prepare request body for dispatch
       const requestBody: DispatchRequestBody = {
         jwt: token,
         prototype_id: prototype_id,
@@ -413,7 +410,6 @@ export class ChatEngine {
         file_scope: 'updates', // TODO @priyam: this is a BUG -- if the user chats when a dev-server is not already started, we need COMPLETE file scope
         hot_reload: true, // Enable hot reload for live updates
       };
-
       // Call the dispatch endpoint via internal Fastify inject
       const response = await this.config.fastifyApp.inject({
         method: 'POST',
