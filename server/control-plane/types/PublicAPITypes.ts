@@ -295,6 +295,23 @@ export interface ChatMessage {
   content: string;
 }
 
+// Enhanced chat context for storing rich interaction data
+export interface EnhancedChatContext {
+  conversations: Array<{
+    timestamp: string;
+    userMessage: string;
+    executionPlan?: string[];
+    assistantResponse: string;
+    fileChanges?: Record<string, PrototypeFileInput>;
+    completedSteps?: number[];
+    toolCalls?: Array<{
+      toolName: string;
+      input: unknown;
+      output: unknown;
+    }>;
+  }>;
+}
+
 export interface ChatRequestBody {
   messages: ChatMessage[];
   inputFiles: Record<string, PrototypeFileInput> | null;

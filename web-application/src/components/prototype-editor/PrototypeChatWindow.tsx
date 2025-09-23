@@ -697,7 +697,7 @@ export default function PrototypeChatWindow({
                 <div
                   className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
+                    : "bg-muted text-foreground"
                     }`}
                 >
                   {message.role === "user" && (
