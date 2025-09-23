@@ -36,8 +36,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
-import { FileAutocomplete } from "./FileAutocomplete";
 import { useFileAutocomplete } from "@/hooks/useFileAutocomplete";
+import { FileAutocomplete } from "./FileAutocomplete";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -76,6 +76,7 @@ export default function PrototypeChatWindow({
   isChatLoading,
   setIsChatLoading,
   onViewingUrlUpdate,
+  currentRenderStatus,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
   const { user } = useUser();
@@ -142,7 +143,7 @@ export default function PrototypeChatWindow({
       'analyze_code': 'Analyzing code',
       'install_package': 'Installing package',
       'test_code': 'Testing code',
-      'confirm_step_completion': 'Verifying steps',
+      'confirm_step_completion': 'Completed step',
     };
 
     return toolNameMap[toolName] || `Working with ${toolName.replace(/_/g, ' ')}`;
@@ -443,6 +444,7 @@ export default function PrototypeChatWindow({
 
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
+  const isDevServerNotReady = currentRenderStatus !== "Connected";
 
   // Show upsell modal when free user reaches limit
   useEffect(() => {
@@ -454,7 +456,7 @@ export default function PrototypeChatWindow({
   // Handle sending messages
   const handleSendMessage = useCallback(
     async () => {
-      if (!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading) return;
+      if (!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading || isDevServerNotReady) return;
 
       // Check if user is at limit before sending
       if (isAtLimit) {
@@ -563,6 +565,7 @@ export default function PrototypeChatWindow({
       prototypeId,
       isChatLoading,
       isAtLimit,
+      isDevServerNotReady,
       processStreamingResponse,
       logger,
       setIsChatLoading,
@@ -796,7 +799,7 @@ export default function PrototypeChatWindow({
                 }}
                 placeholder="Type your message... Use @filename to reference files"
                 className="min-h-[80px] resize-none"
-                disabled={!prototypeChatSession || !files || isChatLoading || isAtLimit}
+                disabled={!prototypeChatSession || !files || isChatLoading || isAtLimit || isDevServerNotReady}
                 onKeyDown={(e) => {
                   // Handle autocomplete navigation
                   if (autocompleteState.isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
@@ -834,7 +837,7 @@ export default function PrototypeChatWindow({
             <div className="flex gap-2">
               <Button
                 onClick={handleSendMessage}
-                disabled={!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading || isAtLimit}
+                disabled={!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading || isAtLimit || isDevServerNotReady}
                 className="flex-1"
               >
                 <PlayIcon className="w-4 h-4 mr-2" />
@@ -851,6 +854,11 @@ export default function PrototypeChatWindow({
             {isAtLimit && (
               <p className="text-sm text-destructive">
                 You&apos;ve reached your message limit. Please upgrade to continue.
+              </p>
+            )}
+            {isDevServerNotReady && !isAtLimit && (
+              <p className="text-sm text-muted-foreground">
+                Waiting for dev server to connect... ({currentRenderStatus})
               </p>
             )}
           </div>
