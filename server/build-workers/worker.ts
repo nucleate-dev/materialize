@@ -2,8 +2,8 @@ import { S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
-import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { PublicApiService } from "./PublicApiService.js";
+import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
+import { PublicApiService } from "./services/PublicApiService.js";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 
 // Load environment variables

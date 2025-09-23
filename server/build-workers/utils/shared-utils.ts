@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
-import { SystemLogger } from "./loggers/SystemLogger.js";
+import { SystemLogger } from "../loggers/SystemLogger.js";
 
 export interface PrototypeFileInput {
   name: string;
@@ -15,7 +15,7 @@ export interface PrototypeAssetInputWithContent {
 
 export async function installDependencies(
   projectDir: string,
-  log2: SystemLogger,
+  log2: SystemLogger
 ): Promise<void> {
   log2.info("Installing dependencies");
 
@@ -30,7 +30,7 @@ export async function installDependencies(
           NODE_OPTIONS: "--max-old-space-size=2048",
         },
         stdio: ["ignore", "pipe", "pipe"],
-      },
+      }
     );
 
     let stdout = "";
@@ -73,7 +73,7 @@ export async function installDependencies(
 export async function writeProjectFiles(
   files: PrototypeFileInput[],
   assets: PrototypeAssetInputWithContent[],
-  projectDir: string,
+  projectDir: string
 ): Promise<void> {
   // Handle text files
   for (const file of files) {

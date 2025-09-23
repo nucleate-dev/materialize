@@ -9,13 +9,13 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { SystemLogger } from "./loggers/SystemLogger.js";
+import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
   installDependencies,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   writeProjectFiles,
-} from "./shared-utils.js";
+} from "../utils/shared-utils.js";
 import {
   BuildAndDeployResponse,
   BuildLogEntry,
@@ -28,8 +28,8 @@ import {
   DevServerStatusResponse,
   OperationStatus,
   PublicDevServerStartRequest,
-} from "./types/BuildWorkerTypes.js";
-import { baseLogger } from "./worker.js";
+} from "../types/BuildWorkerTypes.js";
+import { baseLogger } from "../worker.js";
 
 // --- Dev Server State ---
 class DevServerState {
@@ -397,16 +397,8 @@ export class ExpoDevServerService {
       );
 
       let resolved = false;
-      let accumulatedOutput = ""; // Buffer to collect all output
-
       const timeout = setTimeout(() => {
         if (!resolved) {
-          // Log accumulated output before timing out
-          if (accumulatedOutput.trim()) {
-            this.log2.debug("startExpoProcess accumulated output", {
-              output: accumulatedOutput.trim(),
-            });
-          }
           this.log2.error(
             new Error("Timeout waiting for tunnel URL after 60 seconds"),
             "Timeout waiting for tunnel URL after 60 seconds"
@@ -418,7 +410,10 @@ export class ExpoDevServerService {
 
       const processOutput = (data: Buffer, source: string): void => {
         const output = data.toString();
-        accumulatedOutput += `[${source}] ${output}`; // Accumulate output with source prefix
+        this.log2.debug("startExpoProcess expo output", {
+          source,
+          output: output.trim(),
+        });
 
         // Parse Metro/Expo output for rendering errors
         this.parseMetroErrors(output, buildErrors, buildWarnings);
@@ -461,12 +456,6 @@ export class ExpoDevServerService {
             this.log2.info("Tunnel URL found", {
               tunnelUrl: this.state.tunnelUrl,
             });
-            // Log accumulated output when tunnel URL is found
-            if (accumulatedOutput.trim()) {
-              this.log2.debug("startExpoProcess accumulated output", {
-                output: accumulatedOutput.trim(),
-              });
-            }
             clearTimeout(timeout);
             resolved = true;
             resolve();
@@ -504,12 +493,6 @@ export class ExpoDevServerService {
           this.log2.info("Tunnel ready detected", {
             tunnelUrl: this.state.tunnelUrl,
           });
-          // Log accumulated output when tunnel is ready
-          if (accumulatedOutput.trim()) {
-            this.log2.debug("startExpoProcess accumulated output", {
-              output: accumulatedOutput.trim(),
-            });
-          }
           clearTimeout(timeout);
           resolved = true;
           resolve();
@@ -526,12 +509,6 @@ export class ExpoDevServerService {
 
         this.state.process.on("close", (code) => {
           this.log2.info("Expo process exited", { code });
-          // Log accumulated output when process closes
-          if (accumulatedOutput.trim()) {
-            this.log2.debug("startExpoProcess accumulated output", {
-              output: accumulatedOutput.trim(),
-            });
-          }
           if (!resolved) {
             this.log2.error(
               new Error("Expo process exited before tunnel URL found"),
@@ -550,12 +527,6 @@ export class ExpoDevServerService {
 
         this.state.process.on("error", (error) => {
           this.log2.error(error, "Expo process error");
-          // Log accumulated output when process errors
-          if (accumulatedOutput.trim()) {
-            this.log2.debug("startExpoProcess accumulated output", {
-              output: accumulatedOutput.trim(),
-            });
-          }
           if (!resolved) {
             this.state.devServerStatus = DevServerStatus.ERROR;
             clearTimeout(timeout);
