@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
-import type { SystemLogger } from '../loggers/SystemLogger.js';
+import type { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
   APIResponse,
   ChatErrorResponse,
@@ -11,13 +11,13 @@ import type {
   DispatchPrecheckSuccessResponse,
   EnhancedChatContext,
   PrototypeFileInput,
-} from '../types/PublicAPITypes.js';
-import { HTTP_STATUS } from '../types/PublicAPITypes.js';
-import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
-import { validateChatAuth } from './chat/chat-auth.js';
-import { parseFileContextFromMessage } from './chat/file-context.js';
-import { VirtualFileManager } from './chat/file-manager.js';
-import { trackChatUsage } from './chat/usage-tracking.js';
+} from '../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
+import { isDispatchInProgress } from '../../utils/prototypeDevServerStatusUtils.js';
+import { validateChatAuth } from './chat-auth.js';
+import { parseFileContextFromMessage } from './file-context.js';
+import { VirtualFileManager } from './file-manager.js';
+import { trackChatUsage } from './usage-tracking.js';
 import { ChatEngine, type ChatEngineConfig } from './ChatEngine.js';
 
 export class ChatService {

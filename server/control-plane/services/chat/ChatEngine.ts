@@ -4,17 +4,17 @@ import { LanguageModelV2 } from '@ai-sdk/provider';
 import { stepCountIs, streamText, tool, Tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { SystemLogger } from '../loggers/SystemLogger.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
   DispatchRequestBody,
   PrototypeAssetInput,
   PrototypeFileInput,
-} from '../types/PublicAPITypes.js';
-import { SYSTEM_PROMPT } from './chat/PROMPTS.js';
+} from '../../types/PublicAPITypes.js';
+import { SYSTEM_PROMPT } from '../chat/PROMPTS.js';
 import {
   FileManagerInterface,
   VirtualFileManager,
-} from './chat/file-manager.js';
+} from '../chat/file-manager.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';

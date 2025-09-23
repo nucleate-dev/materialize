@@ -7,7 +7,7 @@ import { CleanupService } from './services/CleanupService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
-import { ChatService } from './services/ChatService.js';
+import { ChatService } from './services/chat/ChatService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { InternalDevServerManagementService } from './internal-services/InternalDevServerManagementService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
