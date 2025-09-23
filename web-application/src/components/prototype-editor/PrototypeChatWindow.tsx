@@ -133,20 +133,22 @@ export default function PrototypeChatWindow({
   // Function to sanitize tool names for display
   const sanitizeToolName = (toolName: string): string => {
     const toolNameMap: Record<string, string> = {
-      'create_execution_plan': 'Creating execution plan',
-      'edit_file': 'Editing file',
-      'create_file': 'Creating file',
-      'read_file': 'Reading file',
-      'search_files': 'Searching files',
-      'run_command': 'Running command',
-      'deploy_preview': 'Deploying preview',
-      'analyze_code': 'Analyzing code',
-      'install_package': 'Installing package',
-      'test_code': 'Testing code',
-      'confirm_step_completion': 'Completed step',
+      create_execution_plan: "Creating execution plan",
+      edit_file: "Editing file",
+      create_file: "Creating file",
+      read_file: "Reading file",
+      search_files: "Searching files",
+      run_command: "Running command",
+      deploy_preview: "Deploying preview",
+      analyze_code: "Analyzing code",
+      install_package: "Installing package",
+      test_code: "Testing code",
+      confirm_step_completion: "Completed step",
     };
 
-    return toolNameMap[toolName] || `Working with ${toolName.replace(/_/g, ' ')}`;
+    return (
+      toolNameMap[toolName] || `Working with ${toolName.replace(/_/g, " ")}`
+    );
   };
 
   useEffect(() => {
@@ -202,10 +204,12 @@ export default function PrototypeChatWindow({
       }
 
       // Convert to ChatMessage format and reverse to get chronological order
-      const chatMessages: ChatMessage[] = (messagesData?.reverse() || []).map((msg) => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      }));
+      const chatMessages: ChatMessage[] = (messagesData?.reverse() || []).map(
+        (msg) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        }),
+      );
       setMessages(chatMessages);
     }
 
@@ -302,18 +306,21 @@ export default function PrototypeChatWindow({
                 switch (event.type) {
                   case "chat_response_delta":
                     // Handle streaming text deltas
-                    const delta = String(event.content || '');
+                    const delta = String(event.content || "");
                     buffer += delta;
 
                     // Render progressively: append to last assistant message or create new one
-                    setMessages(prev => {
+                    setMessages((prev) => {
                       const last = prev[prev.length - 1];
-                      if (last?.role === 'assistant') {
+                      if (last?.role === "assistant") {
                         const copy = [...prev];
-                        copy[copy.length - 1] = { ...last, content: (last.content || '') + delta };
+                        copy[copy.length - 1] = {
+                          ...last,
+                          content: (last.content || "") + delta,
+                        };
                         return copy;
                       }
-                      return [...prev, { role: 'assistant', content: delta }];
+                      return [...prev, { role: "assistant", content: delta }];
                     });
                     break;
 
@@ -321,22 +328,30 @@ export default function PrototypeChatWindow({
                     // Handle final response (use buffer if content is empty)
                     const finalContent = String(event.content || buffer);
                     if (finalContent) {
-                      setMessages(prev => {
+                      setMessages((prev) => {
                         const last = prev[prev.length - 1];
-                        if (last?.role === 'assistant') {
+                        if (last?.role === "assistant") {
                           const copy = [...prev];
-                          copy[copy.length - 1] = { ...last, content: finalContent };
+                          copy[copy.length - 1] = {
+                            ...last,
+                            content: finalContent,
+                          };
                           return copy;
                         }
-                        return [...prev, { role: 'assistant', content: finalContent }];
+                        return [
+                          ...prev,
+                          { role: "assistant", content: finalContent },
+                        ];
                       });
                     }
-                    buffer = ''; // Reset buffer
+                    buffer = ""; // Reset buffer
                     break;
 
                   case "tool_call":
                     // Update current thought instead of showing in chat
-                    const toolName = String(event.tool || event.toolName || 'Unknown tool');
+                    const toolName = String(
+                      event.tool || event.toolName || "Unknown tool",
+                    );
                     setCurrentThought(sanitizeToolName(toolName));
                     setIsThoughtsExpanded(true);
                     break;
@@ -363,28 +378,33 @@ export default function PrototypeChatWindow({
                   case "step_completed":
                     // Mark step as completed instead of showing in chat
                     const stepNum = event.result?.step;
-                    if (typeof stepNum === 'number') {
-                      setCompletedSteps(prev => new Set([...prev, stepNum - 1])); // Convert to 0-based index
+                    if (typeof stepNum === "number") {
+                      setCompletedSteps(
+                        (prev) => new Set([...prev, stepNum - 1]),
+                      ); // Convert to 0-based index
                     }
                     break;
 
                   case "chat_complete":
                     // Chat is finished - clear thoughts and close execution plan
-                    buffer = ''; // Reset buffer
+                    buffer = ""; // Reset buffer
                     setCurrentThought("");
                     setIsThoughtsExpanded(false);
                     break;
 
                   case "usage_update":
                     // Update the local message count with the value returned from the API
-                    if (typeof event.messageCount === 'number') {
+                    if (typeof event.messageCount === "number") {
                       setMessageCount(event.messageCount);
                     }
                     break;
 
                   case "viewing_url":
                     // Handle viewing URL update
-                    if (onViewingUrlUpdate && typeof event.viewing_url === 'string') {
+                    if (
+                      onViewingUrlUpdate &&
+                      typeof event.viewing_url === "string"
+                    ) {
                       onViewingUrlUpdate(event.viewing_url);
                     }
                     break;
@@ -397,7 +417,9 @@ export default function PrototypeChatWindow({
                         content: `⚠️ **Preview Update Failed:** There was a problem updating the live preview.`,
                       },
                     ]);
-                    logger.debug("error", "Dispatch error from server:", { event });
+                    logger.debug("error", "Dispatch error from server:", {
+                      event,
+                    });
                     break;
 
                   case "error":
@@ -405,27 +427,33 @@ export default function PrototypeChatWindow({
                       ...prev,
                       {
                         role: "assistant",
-                        content: `❌ **Error:** ${String(event.error || 'Unknown error')}`,
+                        content: `❌ **Error:** ${String(event.error || "Unknown error")}`,
                       },
                     ]);
                     break;
                 }
               } catch (parseError) {
-                logger.debug("error", "Failed to parse SSE event:", { line, parseError });
+                logger.debug("error", "Failed to parse SSE event:", {
+                  line,
+                  parseError,
+                });
               }
             }
           }
         }
       } catch (streamError) {
         logger.debug("error", "Stream processing error:", {
-          error: streamError instanceof Error ? streamError.message : String(streamError),
+          error:
+            streamError instanceof Error
+              ? streamError.message
+              : String(streamError),
         });
       } finally {
         setIsConnected(false);
         reader.releaseLock();
       }
     },
-    [onFilesUpdate, onViewingUrlUpdate, logger]
+    [onFilesUpdate, onViewingUrlUpdate, logger],
   );
 
   // Calculate limits based on subscription plan
@@ -444,7 +472,7 @@ export default function PrototypeChatWindow({
 
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
-  const isDevServerNotReady = currentRenderStatus !== "Connected";
+  const isDevServerNotReady = currentRenderStatus === "Connected";
 
   // Show upsell modal when free user reaches limit
   useEffect(() => {
@@ -454,123 +482,127 @@ export default function PrototypeChatWindow({
   }, [userPlan, messageCount, loadingUsageCount]);
 
   // Handle sending messages
-  const handleSendMessage = useCallback(
-    async () => {
-      if (!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading || isDevServerNotReady) return;
+  const handleSendMessage = useCallback(async () => {
+    if (
+      !currentMessage.trim() ||
+      !prototypeChatSession ||
+      !files ||
+      isChatLoading ||
+      isDevServerNotReady
+    )
+      return;
 
-      // Check if user is at limit before sending
-      if (isAtLimit) {
-        setShowUpsellModal(true);
-        return;
+    // Check if user is at limit before sending
+    if (isAtLimit) {
+      setShowUpsellModal(true);
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: currentMessage.trim(),
+    };
+
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setCurrentMessage("");
+    setIsChatLoading(true);
+    setIsConnected(true);
+
+    // Reset thoughts and execution plan state for new conversation
+    setCurrentThought("");
+    setExecutionPlan([]);
+    setCompletedSteps(new Set());
+    setIsThoughtsExpanded(false);
+
+    try {
+      // Get access token for authentication
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) {
+        throw new Error("No access token available");
       }
 
-      const userMessage: ChatMessage = {
-        role: "user",
-        content: currentMessage.trim(),
+      // Convert messages to the expected ServerChatMessage format
+      const serverMessages: ServerChatMessage[] = newMessages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      const requestBody: ChatRequestBody = {
+        messages: serverMessages,
+        inputFiles: files,
+        inputAssets: assets,
+        chat_session_id: prototypeChatSession.id,
+        prototype_id: prototypeId || "",
       };
 
-      const newMessages = [...messages, userMessage];
-      setMessages(newMessages);
-      setCurrentMessage("");
-      setIsChatLoading(true);
-      setIsConnected(true);
-
-      // Reset thoughts and execution plan state for new conversation
-      setCurrentThought("");
-      setExecutionPlan([]);
-      setCompletedSteps(new Set());
-      setIsThoughtsExpanded(false);
-
-      try {
-        // Get access token for authentication
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session?.access_token) {
-          throw new Error("No access token available");
-        }
-
-        // Convert messages to the expected ServerChatMessage format
-        const serverMessages: ServerChatMessage[] = newMessages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
-        const requestBody: ChatRequestBody = {
-          messages: serverMessages,
-          inputFiles: files,
-          inputAssets: assets,
-          chat_session_id: prototypeChatSession.id,
-          prototype_id: prototypeId || "",
-        };
-
-        // Make streaming request
-        const streamingResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "text/event-stream",
-              Authorization: `Bearer ${session.session.access_token}`,
-            },
-            body: JSON.stringify(requestBody),
+      // Make streaming request
+      const streamingResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${session.session.access_token}`,
           },
-        );
+          body: JSON.stringify(requestBody),
+        },
+      );
 
-        if (!streamingResponse.ok) {
-          // Try to parse error response
-          try {
-            const errorData: ChatErrorResponse = await streamingResponse.json();
-            if (errorData.error) {
-              // Handle specific error cases
-              if (
-                errorData.usage &&
-                errorData.usage.current >= errorData.usage.limit
-              ) {
-                setShowUpsellModal(true);
-                return;
-              }
-              throw new Error(errorData.error);
+      if (!streamingResponse.ok) {
+        // Try to parse error response
+        try {
+          const errorData: ChatErrorResponse = await streamingResponse.json();
+          if (errorData.error) {
+            // Handle specific error cases
+            if (
+              errorData.usage &&
+              errorData.usage.current >= errorData.usage.limit
+            ) {
+              setShowUpsellModal(true);
+              return;
             }
-          } catch (parseError) {
-            throw new Error(`HTTP error! status: ${streamingResponse.status}`);
+            throw new Error(errorData.error);
           }
+        } catch (parseError) {
+          throw new Error(`HTTP error! status: ${streamingResponse.status}`);
         }
-
-        // Process the streaming response
-        await processStreamingResponse(streamingResponse);
-      } catch (error) {
-        logger.debug("error", "Error sending message:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-
-        setMessages(prev => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "Sorry, I encountered an error.",
-          },
-        ]);
-      } finally {
-        setIsChatLoading(false);
-        setIsConnected(false);
       }
-    },
-    [
-      currentMessage,
-      messages,
-      prototypeChatSession,
-      files,
-      assets,
-      prototypeId,
-      isChatLoading,
-      isAtLimit,
-      isDevServerNotReady,
-      processStreamingResponse,
-      logger,
-      setIsChatLoading,
-    ],
-  );
+
+      // Process the streaming response
+      await processStreamingResponse(streamingResponse);
+    } catch (error) {
+      logger.debug("error", "Error sending message:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry, I encountered an error.",
+        },
+      ]);
+    } finally {
+      setIsChatLoading(false);
+      setIsConnected(false);
+    }
+  }, [
+    currentMessage,
+    messages,
+    prototypeChatSession,
+    files,
+    assets,
+    prototypeId,
+    isChatLoading,
+    isAtLimit,
+    isDevServerNotReady,
+    processStreamingResponse,
+    logger,
+    setIsChatLoading,
+  ]);
 
   // Handle clear chat
   const handleClearChat = useCallback(async () => {
@@ -617,7 +649,7 @@ export default function PrototypeChatWindow({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `chat-session-${prototypeChatSession?.id || 'unknown'}.json`;
+    a.download = `chat-session-${prototypeChatSession?.id || "unknown"}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -668,7 +700,11 @@ export default function PrototypeChatWindow({
               <ClipboardDocumentIcon className="w-4 h-4 mr-2" />
               Export
             </Button>
-            <Button onClick={() => setShowClearChatDialog(true)} variant="outline" size="sm">
+            <Button
+              onClick={() => setShowClearChatDialog(true)}
+              variant="outline"
+              size="sm"
+            >
               <TrashIcon className="w-4 h-4 mr-2" />
               Clear
             </Button>
@@ -679,7 +715,13 @@ export default function PrototypeChatWindow({
         {!loadingUsageCount && (
           <div className="px-4 py-2 text-xs text-muted-foreground border-b">
             {userPlan === "free" ? (
-              <span className={messageCount >= messageLimit ? "text-destructive font-medium" : ""}>
+              <span
+                className={
+                  messageCount >= messageLimit
+                    ? "text-destructive font-medium"
+                    : ""
+                }
+              >
                 {messageCount}/{messageLimit} messages used this billing period
               </span>
             ) : (
@@ -694,22 +736,22 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                    }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground"
+                  }`}
                 >
                   {message.role === "user" && (
                     <div className="text-sm font-medium mb-1">You</div>
                   )}
                   <div className="text-sm prose prose-sm max-w-none prose-slate dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current">
-                    <ReactMarkdown>
-                      {message.content}
-                    </ReactMarkdown>
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 </div>
               </div>
@@ -761,19 +803,28 @@ export default function PrototypeChatWindow({
                       <div className="text-sm font-medium">Execution Plan:</div>
                       <div className="space-y-1">
                         {executionPlan.map((step, index) => (
-                          <div key={index} className="flex items-start gap-2 text-sm">
-                            <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
-                              ? "border-green-500 bg-green-500"
-                              : "border-gray-300"
-                              }`}>
+                          <div
+                            key={index}
+                            className="flex items-start gap-2 text-sm"
+                          >
+                            <div
+                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                                completedSteps.has(index)
+                                  ? "border-green-500 bg-green-500"
+                                  : "border-gray-300"
+                              }`}
+                            >
                               {completedSteps.has(index) && (
                                 <CheckIcon className="w-3 h-3 text-white" />
                               )}
                             </div>
-                            <span className={`${completedSteps.has(index)
-                              ? "text-muted-foreground line-through"
-                              : "text-foreground"
-                              }`}>
+                            <span
+                              className={`${
+                                completedSteps.has(index)
+                                  ? "text-muted-foreground line-through"
+                                  : "text-foreground"
+                              }`}
+                            >
                               {step}
                             </span>
                           </div>
@@ -799,15 +850,31 @@ export default function PrototypeChatWindow({
                 }}
                 placeholder="Type your message... Use @filename to reference files"
                 className="min-h-[80px] resize-none"
-                disabled={!prototypeChatSession || !files || isChatLoading || isAtLimit || isDevServerNotReady}
+                disabled={
+                  !prototypeChatSession ||
+                  !files ||
+                  isChatLoading ||
+                  isAtLimit ||
+                  isDevServerNotReady
+                }
                 onKeyDown={(e) => {
                   // Handle autocomplete navigation
-                  if (autocompleteState.isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
+                  if (
+                    autocompleteState.isOpen &&
+                    (e.key === "ArrowDown" ||
+                      e.key === "ArrowUp" ||
+                      e.key === "Enter" ||
+                      e.key === "Escape")
+                  ) {
                     // Let the FileAutocomplete component handle these keys
                     return;
                   }
 
-                  if (e.key === "Enter" && !e.shiftKey && !autocompleteState.isOpen) {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !autocompleteState.isOpen
+                  ) {
                     e.preventDefault();
                     handleSendMessage();
                   }
@@ -837,7 +904,14 @@ export default function PrototypeChatWindow({
             <div className="flex gap-2">
               <Button
                 onClick={handleSendMessage}
-                disabled={!currentMessage.trim() || !prototypeChatSession || !files || isChatLoading || isAtLimit || isDevServerNotReady}
+                disabled={
+                  !currentMessage.trim() ||
+                  !prototypeChatSession ||
+                  !files ||
+                  isChatLoading ||
+                  isAtLimit ||
+                  isDevServerNotReady
+                }
                 className="flex-1"
               >
                 <PlayIcon className="w-4 h-4 mr-2" />
@@ -853,7 +927,8 @@ export default function PrototypeChatWindow({
             </div>
             {isAtLimit && (
               <p className="text-sm text-destructive">
-                You&apos;ve reached your message limit. Please upgrade to continue.
+                You&apos;ve reached your message limit. Please upgrade to
+                continue.
               </p>
             )}
             {isDevServerNotReady && !isAtLimit && (
@@ -873,7 +948,8 @@ export default function PrototypeChatWindow({
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to clear the chat? This will remove all messages and cannot be undone.
+              Are you sure you want to clear the chat? This will remove all
+              messages and cannot be undone.
             </p>
             <div className="flex gap-2">
               <Button
