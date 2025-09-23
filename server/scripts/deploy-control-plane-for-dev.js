@@ -5,7 +5,7 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-18-119-101-228.us-east-2.compute.amazonaws.com";
+const HOST = "ec2-18-223-29-87.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -78,7 +78,7 @@ function fullDeploy() {
   console.log("==> Cleaning local zip...");
   try {
     fs.unlinkSync(localZip);
-  } catch { }
+  } catch {}
 }
 
 function selectiveDeploy(paths) {
