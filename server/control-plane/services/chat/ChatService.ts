@@ -382,6 +382,7 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 7. Track API usage and get updated count
             // ------------------------------------------------------------------------------------------------
+            // TODO: only track api usage if there are no errors
             const { updatedMessageCount } = await trackChatUsage(
               this.stripe,
               user.id,
