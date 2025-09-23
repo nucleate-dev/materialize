@@ -1,7 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { stepCountIs, streamText, tool } from 'ai';
+import { stepCountIs, streamText, tool, Tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../loggers/SystemLogger.js';
@@ -89,7 +89,7 @@ export class ChatEngine {
   // NEW: A dedicated method for orchestration tools
   private createOrchestrationTools(
     params: ChatEngineParams,
-  ): Record<string, any> {
+  ): Record<string, Tool> {
     const { log2 } = params;
     return {
       create_execution_plan: tool({
@@ -141,7 +141,7 @@ export class ChatEngine {
 
   private createFileManagerTools(
     params: ChatEngineParams,
-  ): Record<string, any> {
+  ): Record<string, Tool> {
     const { fileManager, log2 } = params;
 
     return {
