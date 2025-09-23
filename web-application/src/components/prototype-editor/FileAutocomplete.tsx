@@ -31,29 +31,29 @@ export function FileAutocomplete({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex(prev => Math.min(prev + 1, files.length - 1));
+          setSelectedIndex((prev) => Math.min(prev + 1, files.length - 1));
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
-          setSelectedIndex(prev => Math.max(prev - 1, 0));
+          setSelectedIndex((prev) => Math.max(prev - 1, 0));
           break;
-        case 'Enter':
+        case "Enter":
           e.preventDefault();
           if (files[selectedIndex]) {
             onFileSelect(files[selectedIndex]);
           }
           break;
-        case 'Escape':
+        case "Escape":
           e.preventDefault();
           onClose();
           break;
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, files, selectedIndex, onFileSelect, onClose]);
 
   if (!isOpen) {
@@ -65,31 +65,31 @@ export function FileAutocomplete({
     return (
       <div className="w-full bg-background border border-border rounded-lg shadow-lg p-4">
         <div className="text-sm text-muted-foreground">
-          No files found matching "{searchTerm}"
+          {`No files found matching "${searchTerm}"`}
         </div>
       </div>
     );
   }
 
   const getFileIcon = (filePath: string) => {
-    const extension = filePath.split('.').pop()?.toLowerCase();
+    const extension = filePath.split(".").pop()?.toLowerCase();
 
     // You could expand this with more specific icons based on file type
     const iconClass = "w-4 h-4 flex-shrink-0";
 
     switch (extension) {
-      case 'tsx':
-      case 'ts':
-      case 'jsx':
-      case 'js':
+      case "tsx":
+      case "ts":
+      case "jsx":
+      case "js":
         return <DocumentIcon className={`${iconClass} text-blue-500`} />;
-      case 'css':
-      case 'scss':
-      case 'sass':
+      case "css":
+      case "scss":
+      case "sass":
         return <DocumentIcon className={`${iconClass} text-pink-500`} />;
-      case 'json':
+      case "json":
         return <DocumentIcon className={`${iconClass} text-yellow-500`} />;
-      case 'md':
+      case "md":
         return <DocumentIcon className={`${iconClass} text-gray-500`} />;
       default:
         return <DocumentIcon className={`${iconClass} text-gray-400`} />;
@@ -99,16 +99,19 @@ export function FileAutocomplete({
   const highlightMatch = (text: string, searchTerm: string) => {
     if (!searchTerm) return text;
 
-    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
-    return parts.map((part, index) => (
+    const parts = text.split(new RegExp(`(${searchTerm})`, "gi"));
+    return parts.map((part, index) =>
       part.toLowerCase() === searchTerm.toLowerCase() ? (
-        <span key={index} className="bg-yellow-200 dark:bg-yellow-900 font-medium">
+        <span
+          key={index}
+          className="bg-yellow-200 dark:bg-yellow-900 font-medium"
+        >
           {part}
         </span>
       ) : (
         part
-      )
-    ));
+      ),
+    );
   };
 
   return (
@@ -128,16 +131,16 @@ export function FileAutocomplete({
       <ScrollArea className="max-h-64">
         <div className="p-1">
           {files.map((filePath, index) => {
-            const fileName = filePath.split('/').pop() || filePath;
-            const directory = filePath.substring(0, filePath.lastIndexOf('/'));
+            const fileName = filePath.split("/").pop() || filePath;
+            const directory = filePath.substring(0, filePath.lastIndexOf("/"));
 
             return (
               <div
                 key={filePath}
                 className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
                   index === selectedIndex
-                    ? 'bg-accent text-accent-foreground'
-                    : 'hover:bg-muted'
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-muted"
                 }`}
                 onClick={() => onFileSelect(filePath)}
                 onMouseEnter={() => setSelectedIndex(index)}
