@@ -17,6 +17,7 @@ import type {
 import { SYSTEM_PROMPT } from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
+  PrototypeFile,
   VirtualFileManager,
 } from '../utils/file-manager.js';
 
@@ -387,6 +388,7 @@ export class ChatEngineV1 {
     params: ChatEngineParams,
   ): Promise<{
     updatedFiles: string[];
+    updatedFilesObject?: Record<string, PrototypeFile>;
     deletedFiles: string[];
   }> {
     const { prototype_id, token, controller, encoder, supabase } = params;
@@ -484,6 +486,7 @@ export class ChatEngineV1 {
         fileManager.clearChangeTracking();
         return {
           updatedFiles: filesArray.map((file) => file.name),
+          updatedFilesObject: allFiles,
           deletedFiles: Array.from(deletedFiles),
         };
       } else {
@@ -713,15 +716,22 @@ export class ChatEngineV1 {
             })}\\n\\n`,
           ),
         );
-        const { updatedFiles, deletedFiles } =
+        const { updatedFiles, deletedFiles, updatedFilesObject } =
           await this.persistAndDispatchFiles(fileManager, params);
+        if (updatedFilesObject) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'files_synced', updatedFilesObject, updatedFiles, deletedFiles })}\n\n`,
+            ),
+          );
+        }
         // Clear change tracking after successful dispatch
         fileManager.clearChangeTracking();
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: 'files_synced', updatedFiles, deletedFiles })}\n\n`,
-          ),
-        );
+        // controller.enqueue(
+        //   encoder.encode(
+        //     `data: ${JSON.stringify({ type: 'files_synced', updatedFiles, deletedFiles })}\n\n`,
+        //   ),
+        // );
       }
 
       controller.enqueue(

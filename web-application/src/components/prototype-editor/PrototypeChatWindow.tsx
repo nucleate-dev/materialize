@@ -302,6 +302,7 @@ export default function PrototypeChatWindow({
                     updatedFiles?: Record<string, PrototypeFile>;
                   };
                   updatedFiles?: string[] | Record<string, PrototypeFile>;
+                  updatedFilesObject?: Record<string, PrototypeFile>;
                   deletedFiles?: string[];
                   error?: string;
                   messageCount?: number;
@@ -427,49 +428,54 @@ export default function PrototypeChatWindow({
 
                   case "files_synced":
                     // Handle final file sync after dispatch
-                    const updatedFileNames = event.updatedFiles as string[] || [];
+                    const updatedFilesObject = event.updatedFilesObject as Record<string, PrototypeFile> || {};
                     const deletedFileNames = event.deletedFiles as string[] || [];
+                    onFilesUpdate({
+                      // updatedFiles: updatedFiles,
+                      updatedFiles: updatedFilesObject,
+                      deletedFiles: deletedFileNames,
+                      applyUpdatesToServer: true,
+                    });
+                    // if (updatedFileNames.length > 0 || deletedFileNames.length > 0) {
+                    //   try {
+                    //     // Fetch full file data from Supabase for updated files
+                    //     let fetchedFiles: Record<string, PrototypeFile> = {};
 
-                    if (updatedFileNames.length > 0 || deletedFileNames.length > 0) {
-                      try {
-                        // Fetch full file data from Supabase for updated files
-                        let fetchedFiles: Record<string, PrototypeFile> = {};
+                    //     if (updatedFileNames.length > 0) {
+                    //       const { data: fileData, error } = await supabase
+                    //         .from("prototype_files")
+                    //         .select("*")
+                    //         .eq("prototype_id", prototypeId)
+                    //         .in("name", updatedFileNames);
 
-                        if (updatedFileNames.length > 0) {
-                          const { data: fileData, error } = await supabase
-                            .from("prototype_files")
-                            .select("*")
-                            .eq("prototype_id", prototypeId)
-                            .in("name", updatedFileNames);
+                    //       if (error) {
+                    //         logger.debug("error", "Failed to fetch updated files:", { error });
+                    //         // Continue with empty files if fetch fails
+                    //       } else if (fileData) {
+                    //         // Convert array to dictionary
+                    //         fetchedFiles = fileData.reduce((acc, file) => {
+                    //           acc[file.name] = file;
+                    //           return acc;
+                    //         }, {} as Record<string, PrototypeFile>);
+                    //       }
+                    //     }
 
-                          if (error) {
-                            logger.debug("error", "Failed to fetch updated files:", { error });
-                            // Continue with empty files if fetch fails
-                          } else if (fileData) {
-                            // Convert array to dictionary
-                            fetchedFiles = fileData.reduce((acc, file) => {
-                              acc[file.name] = file;
-                              return acc;
-                            }, {} as Record<string, PrototypeFile>);
-                          }
-                        }
-
-                        // Update files with fetched data and deleted files
-                        onFilesUpdate({
-                          updatedFiles: fetchedFiles,
-                          deletedFiles: deletedFileNames,
-                          applyUpdatesToServer: false,
-                        });
-                      } catch (fetchError) {
-                        logger.debug("error", "Error in files_synced handler:", { fetchError });
-                        // Continue with empty files if anything fails
-                        onFilesUpdate({
-                          updatedFiles: {},
-                          deletedFiles: deletedFileNames,
-                          applyUpdatesToServer: false,
-                        });
-                      }
-                    }
+                    //     // Update files with fetched data and deleted files
+                    //     onFilesUpdate({
+                    //       updatedFiles: fetchedFiles,
+                    //       deletedFiles: deletedFileNames,
+                    //       applyUpdatesToServer: false,
+                    //     });
+                    //   } catch (fetchError) {
+                    //     logger.debug("error", "Error in files_synced handler:", { fetchError });
+                    //     // Continue with empty files if anything fails
+                    //     onFilesUpdate({
+                    //       updatedFiles: {},
+                    //       deletedFiles: deletedFileNames,
+                    //       applyUpdatesToServer: false,
+                    //     });
+                    //   }
+                    // }
                     break;
 
                   case "dispatch_error":
