@@ -1038,6 +1038,11 @@ export class ExpoDevServerService {
     const fileNames = files.map((f) => f.name);
     this.log2.debug("Files being updated", { files: fileNames });
 
+    // Log which files are being deleted
+    if (deletedFiles.length > 0) {
+      this.log2.debug("Files being deleted", { files: deletedFiles });
+    }
+
     // Verify project directory exists and is accessible
     try {
       const stats = await fs.stat(actualProjectDir);
@@ -1100,17 +1105,41 @@ export class ExpoDevServerService {
         }
       }
 
-      // 2) Write incoming files to disk
+      // 2) Delete files that need to be removed
+      if (deletedFiles.length > 0) {
+        this.log2.info("Deleting files", { files: deletedFiles });
+        for (const filePath of deletedFiles) {
+          try {
+            const fullPath = path.join(actualProjectDir, filePath);
+            await fs.rm(fullPath, { recursive: true, force: true });
+            this.log2.debug("Successfully deleted file", { filePath });
+          } catch (error: unknown) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.log2.warn("Failed to delete file", {
+              filePath,
+              error: errorMessage,
+            });
+            // Add warning but don't fail the entire operation
+            buildWarnings.push({
+              message: `Failed to delete file ${filePath}: ${errorMessage}`,
+              type: "build",
+            });
+          }
+        }
+      }
+
+      // 3) Write incoming files to disk
       await writeProjectFiles(files, assets, actualProjectDir);
       this.log2.info("Successfully wrote files to project directory", {
         projectDir: actualProjectDir,
       });
 
-      // 3) Monitor for Metro bundler errors after file updates
+      // 4) Monitor for Metro bundler errors after file updates
       this.log2.info("Monitoring Metro output for compilation errors");
       await this.monitorMetroForErrors(buildErrors, buildWarnings, 8000);
 
-      // 4) If package.json changed, diff dependencies and conditionally reinstall/restart
+      // 5) If package.json changed, diff dependencies and conditionally reinstall/restart
       if (packageJsonUpdate && oldPackageJsonContent) {
         const newPackageJsonContent =
           packageJsonUpdate.contents as unknown as string;
