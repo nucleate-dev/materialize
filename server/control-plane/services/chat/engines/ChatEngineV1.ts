@@ -407,7 +407,7 @@ export class ChatEngineV1 {
         framework: 'expo_react_native',
         files: filesArray,
         assets: [], // The AI chat never updates or creates assets
-        file_scope: 'updates', // TODO @priyam: this is a BUG -- if the user chats when a dev-server is not already started, we need COMPLETE file scope
+        file_scope: fileManager.getFileScope(),
         hot_reload: true, // Enable hot reload for live updates
       };
       // Call the dispatch endpoint via internal Fastify inject

@@ -13,12 +13,15 @@ import type {
   PrototypeFileInput,
 } from '../../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
-import { isDispatchInProgress } from '../../utils/prototypeDevServerStatusUtils.js';
+import {
+  isDispatchInProgress,
+  isEditableDevServer,
+} from '../../utils/prototypeDevServerStatusUtils.js';
+import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
 import { validateChatAuth } from './utils/chat-auth.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
 import { trackChatUsage } from './utils/usage-tracking.js';
-import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -302,12 +305,17 @@ export class ChatService {
         DispatchPrecheckSuccessResponse,
         DispatchPrecheckErrorResponse
       > = JSON.parse(precheckResponse.payload);
-
+      let file_scope: 'complete' | 'updates' = 'updates';
       if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:
             "Cannot chat while a build is currently in progress. Materialize agents won't be able to build your files.",
         } as ChatErrorResponse);
+      } else if (
+        precheckData.data &&
+        !isEditableDevServer(precheckData.data.status)
+      ) {
+        file_scope = 'complete';
       }
 
       // ------------------------------------------------------------------------------------------------
@@ -357,6 +365,7 @@ export class ChatService {
         inputFiles,
         request.log2,
         prototype_id,
+        file_scope,
       );
       const encoder = new TextEncoder();
       const stream = new ReadableStream({

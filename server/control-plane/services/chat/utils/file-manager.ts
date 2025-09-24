@@ -40,15 +40,26 @@ export class VirtualFileManager implements FileManagerInterface {
   private log2: SystemLogger;
   private prototypeId?: string;
   private changedFiles: Set<string> = new Set();
+  private fileScope: 'complete' | 'updates' = 'updates';
 
   constructor(
     convertedFiles: Record<string, PrototypeFile> | null,
     log2: SystemLogger,
     prototypeId?: string,
+    fileScope: 'complete' | 'updates' = 'updates',
   ) {
     this.files = new Map(Object.entries(convertedFiles || {}));
     this.log2 = log2;
     this.prototypeId = prototypeId;
+    this.fileScope = fileScope;
+  }
+
+  setFileScope(mode: 'complete' | 'updates'): void {
+    this.fileScope = mode;
+  }
+
+  getFileScope(): 'complete' | 'updates' {
+    return this.fileScope;
   }
 
   handleToolCall(toolCall: {
