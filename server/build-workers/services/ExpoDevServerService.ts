@@ -354,6 +354,11 @@ export class ExpoDevServerService {
     return this.state.getOperationStatus();
   }
 
+  private generateTunnelSubdomain(): string {
+    const randomId = uuidv4().replace(/[^a-z0-9]/g, "");
+    return `mat-${randomId.substring(0, 20)}`;
+  }
+
   private async startExpoProcess(
     projectDir: string,
     port: number,
@@ -364,10 +369,7 @@ export class ExpoDevServerService {
 
     return new Promise((resolve, reject) => {
       // Create tunnel subdomain from prototype ID
-      const tunnelSubdomain = this.state
-        .prototypeId!.toLowerCase()
-        .replace(/[^a-z0-9-]/g, "-")
-        .substring(0, 20);
+      const tunnelSubdomain = this.generateTunnelSubdomain();
 
       this.log2.info("Starting Expo with configuration", {
         args: ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
