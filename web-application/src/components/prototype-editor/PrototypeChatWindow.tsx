@@ -674,6 +674,12 @@ export default function PrototypeChatWindow({
         // Clear the local state
         setMessages([]);
         setShowClearChatDialog(false);
+
+        // Clear execution plan and thoughts state
+        setCurrentThought("");
+        setExecutionPlan([]);
+        setCompletedSteps(new Set());
+        setIsThoughtsExpanded(false);
       } catch (error) {
         logger.debug("error", "Error clearing chat:", {
           error: error instanceof Error ? error.message : String(error),
