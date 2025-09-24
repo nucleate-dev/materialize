@@ -708,15 +708,6 @@ export class ChatEngineV1 {
         fileManager instanceof VirtualFileManager &&
         fileManager.hasChanges()
       ) {
-        // Send updated files to client after successful dispatch
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: 'files_synced',
-              updatedFiles: fileManager.getAllFilesForDispatch(),
-            })}\\n\\n`,
-          ),
-        );
         const { updatedFiles, deletedFiles, updatedFilesObject } =
           await this.persistAndDispatchFiles(fileManager, params);
         if (updatedFilesObject) {

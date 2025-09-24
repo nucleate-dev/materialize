@@ -91,13 +91,13 @@ export class ChatService {
       const messagesToInsert = [
         {
           chat_session_id: chatSessionId,
-          role: 'user' as const,
-          content: userMessage,
+          role: 'assistant' as const,
+          content: assistantResponse,
         },
         {
           chat_session_id: chatSessionId,
-          role: 'assistant' as const,
-          content: assistantResponse,
+          role: 'user' as const,
+          content: userMessage,
         },
       ];
 
