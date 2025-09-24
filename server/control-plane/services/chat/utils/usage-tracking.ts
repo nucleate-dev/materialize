@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase.js';
+import type { Database } from '../../../types/supabase.js';
 
 export interface UsageTrackingResult {
   updatedMessageCount: number;
@@ -22,6 +22,9 @@ export async function trackChatUsage(
   supabaseServiceKey: string,
   log2: SystemLogger,
 ): Promise<UsageTrackingResult> {
+  log2 = log2.child({
+    function: 'trackChatUsage',
+  });
   // ------------------------------------------------------------------------------------------------
   // 1. Track API usage in Supabase
   // ------------------------------------------------------------------------------------------------

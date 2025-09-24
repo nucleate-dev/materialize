@@ -1,4 +1,4 @@
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 export interface FileManagerInterface {
   handleToolCall(toolCall: {

@@ -62,15 +62,13 @@ export default async function handleFetchViewingUrlImpl(
         });
 
         if (precheckResponse.statusCode === 200) {
-          const precheckData: APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse> =
-            precheckResponse.json();
+          const precheckData: APIResponse<
+            DispatchPrecheckSuccessResponse,
+            DispatchPrecheckErrorResponse
+          > = precheckResponse.json();
 
           // Type guard to check if it's a success response
-          if (
-            precheckData.data &&
-            precheckData.data.success &&
-            precheckData.data.viewing_url
-          ) {
+          if (precheckData.data && precheckData.data.viewing_url) {
             const isEditable = isEditableDevServer(precheckData.data.status);
             let staticViewingUrl = precheckData.data.viewing_url;
             if (

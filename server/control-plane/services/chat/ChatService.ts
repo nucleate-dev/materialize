@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
-import type { SystemLogger } from '../loggers/SystemLogger.js';
+import type { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
   APIResponse,
   ChatErrorResponse,
@@ -11,14 +11,14 @@ import type {
   DispatchPrecheckSuccessResponse,
   EnhancedChatContext,
   PrototypeFileInput,
-} from '../types/PublicAPITypes.js';
-import { HTTP_STATUS } from '../types/PublicAPITypes.js';
-import { isDispatchInProgress } from '../utils/prototypeDevServerStatusUtils.js';
-import { validateChatAuth } from './chat/chat-auth.js';
-import { parseFileContextFromMessage } from './chat/file-context.js';
-import { VirtualFileManager } from './chat/file-manager.js';
-import { trackChatUsage } from './chat/usage-tracking.js';
-import { ChatEngine, type ChatEngineConfig } from './ChatEngine.js';
+} from '../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
+import { isDispatchInProgress } from '../../utils/prototypeDevServerStatusUtils.js';
+import { validateChatAuth } from './utils/chat-auth.js';
+import { parseFileContextFromMessage } from './utils/file-context.js';
+import { VirtualFileManager } from './utils/file-manager.js';
+import { trackChatUsage } from './utils/usage-tracking.js';
+import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -31,7 +31,7 @@ export class ChatService {
   private serverEndpoint: string;
 
   private stripe: Stripe;
-  private chatEngine: ChatEngine;
+  private chatEngine: ChatEngineV1;
 
   constructor(fastifyApp: FastifyInstance) {
     this.fastifyApp = fastifyApp;
@@ -69,7 +69,7 @@ export class ChatService {
       fastifyApp: this.fastifyApp,
     };
 
-    this.chatEngine = new ChatEngine(chatEngineConfig);
+    this.chatEngine = new ChatEngineV1(chatEngineConfig);
   }
 
   private async persistChatMessages(
@@ -266,34 +266,22 @@ export class ChatService {
         prototype_id,
       } = request.body;
 
-      const fileManager = new VirtualFileManager(
-        inputFiles,
-        request.log2,
-        prototype_id,
-      );
-
       // ------------------------------------------------------------------------------------------------
-      // 2 & 3. Authorization and paywall validation
+      // 2 & 3. Authorization and paywall validation && update logger context
       // ------------------------------------------------------------------------------------------------
       const authValidation = await validateChatAuth(request, prototype_id);
       if (!authValidation.success) {
-        const statusCode =
-          authValidation.error.type === 'UNAUTHORIZED'
-            ? HTTP_STATUS.UNAUTHORIZED
-            : HTTP_STATUS.UNAUTHORIZED;
-
-        return reply.status(statusCode).send({
+        return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
           error: authValidation.error.error,
           usage: authValidation.error.usage,
         } as ChatErrorResponse);
       }
-
       const { user, userTier, paywallResult } = authValidation.result;
       const token = request.headers.authorization?.split(' ')[1] ?? '';
-
-      // Update logger context
       request.log2 = request.log2.child({
         userId: user.id,
+        prototypeId: prototype_id,
+        function: 'handleChat',
       });
 
       // ------------------------------------------------------------------------------------------------
@@ -310,17 +298,12 @@ export class ChatService {
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
-
       const precheckData: APIResponse<
         DispatchPrecheckSuccessResponse,
         DispatchPrecheckErrorResponse
       > = JSON.parse(precheckResponse.payload);
 
-      if (
-        precheckData.data &&
-        'success' in precheckData &&
-        isDispatchInProgress(precheckData.data.status)
-      ) {
+      if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error:
             "Cannot chat while a build is currently in progress. Materialize agents won't be able to build your files.",
@@ -330,10 +313,9 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 4. Load/generate additional project context and parse file mentions
       // ------------------------------------------------------------------------------------------------
+      // Parse file context from the user message
       const lastMessage = messages[messages.length - 1];
       const userMessage = lastMessage.content;
-
-      // Parse file context from the user message
       const fileContext = parseFileContextFromMessage(
         userMessage,
         inputFiles,
@@ -371,6 +353,11 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 5. Start streamed response to the client
       // ------------------------------------------------------------------------------------------------
+      const fileManager = new VirtualFileManager(
+        inputFiles,
+        request.log2,
+        prototype_id,
+      );
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start: async (controller): Promise<void> => {
@@ -395,6 +382,7 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 7. Track API usage and get updated count
             // ------------------------------------------------------------------------------------------------
+            // TODO: only track api usage if there are no errors
             const { updatedMessageCount } = await trackChatUsage(
               this.stripe,
               user.id,

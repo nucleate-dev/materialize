@@ -87,18 +87,10 @@ export interface DispatchRequestBody {
 }
 
 export interface DispatchSuccessResponse {
-  status: 'success';
   viewing_url: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
 }
-
-export interface DispatchErrorResponse {
-  error: string;
-  message: string;
-  viewing_url: string;
-}
-
 
 // ============================================================================
 // /dispatch-precheck ENDPOINT and /dispatch-edit-intent ENDPOINT
@@ -110,7 +102,6 @@ export interface DispatchPrecheckRequestBody {
 }
 
 export interface DispatchPrecheckSuccessResponse {
-  success: true;
   status: BuildStatus | null;
   viewing_url: string;
 }
@@ -151,7 +142,6 @@ export interface CheckoutErrorResponse {
   error: string;
   message: string;
 }
-
 
 // ============================================================================
 // /payments/manage-billing ENDPOINT

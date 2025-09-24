@@ -1,8 +1,8 @@
 import { FastifyRequest } from 'fastify';
 import type { User } from '@supabase/supabase-js';
-import type { ChatRequestBody } from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
-import { hasExceededChatUsageLimit } from '../../utils/subscriptionChecks.js';
+import type { ChatRequestBody } from '../../../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { hasExceededChatUsageLimit } from '../../../utils/subscriptionChecks.js';
 
 export interface ChatAuthResult {
   user: User;
@@ -35,7 +35,10 @@ export interface ChatAuthError {
 export async function validateChatAuth(
   request: FastifyRequest<{ Body: ChatRequestBody }>,
   prototype_id: string,
-): Promise<{ success: true; result: ChatAuthResult } | { success: false; error: ChatAuthError }> {
+): Promise<
+  | { success: true; result: ChatAuthResult }
+  | { success: false; error: ChatAuthError }
+> {
   const token = request.headers.authorization?.split(' ')[1] ?? '';
 
   // ------------------------------------------------------------------------------------------------
@@ -62,7 +65,8 @@ export async function validateChatAuth(
       success: false,
       error: {
         type: 'UNAUTHORIZED',
-        error: 'Unauthorized: User does not have permissions to edit this prototype',
+        error:
+          'Unauthorized: User does not have permissions to edit this prototype',
       },
     };
   }

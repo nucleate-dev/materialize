@@ -13,7 +13,6 @@ import type {
   DispatchPrecheckSuccessResponse,
   DispatchPrecheckErrorResponse,
   DispatchSuccessResponse,
-  DispatchErrorResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
@@ -260,9 +259,8 @@ export class DevelopmentServerService {
 
       const dispatchData: APIResponse<
         DispatchSuccessResponse,
-        DispatchErrorResponse | StandardErrorResponse
+        StandardErrorResponse
       > = JSON.parse(dispatchResponse.payload);
-
       request.log2.consoleLogDevOnly(
         'info',
         '[handleUpdateFiles] Dispatch endpoint response:',
@@ -270,11 +268,11 @@ export class DevelopmentServerService {
       );
 
       // 6. Return success response with viewing URL
-      if (dispatchData.data && dispatchData.data.status === 'success') {
+      if (dispatchData.data) {
         return reply.status(HTTP_STATUS.OK).send({
           data: {
             success: true,
-            status: dispatchData.data.status,
+            status: 'success',
             viewing_url: dispatchData.data.viewing_url,
             build_errors: dispatchData.data.build_errors || [],
             build_warnings: dispatchData.data.build_warnings || [],
@@ -469,7 +467,7 @@ export class DevelopmentServerService {
 
       const dispatchData: APIResponse<
         DispatchSuccessResponse,
-        DispatchErrorResponse | StandardErrorResponse
+        StandardErrorResponse
       > = JSON.parse(dispatchResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
@@ -478,12 +476,12 @@ export class DevelopmentServerService {
       );
 
       // 7. Return success response with viewing URL
-      if (dispatchData.data && dispatchData.data.status === 'success') {
+      if (dispatchData.data) {
         reply.status(HTTP_STATUS.OK);
         return {
           data: {
             success: true,
-            status: dispatchData.data.status,
+            status: 'success',
             viewing_url: dispatchData.data.viewing_url,
             message: 'Files saved and dev server started successfully',
           },

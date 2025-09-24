@@ -18,14 +18,13 @@ import {
   type Framework,
   isActiveBuildType,
   S3_URL_TEMPLATE,
-} from '../types/InternalTypes.js';
+} from '../../types/InternalTypes.js';
 import {
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckSuccessResponse,
   type DispatchPrecheckErrorResponse,
   type DispatchRequestBody,
   type DispatchSuccessResponse,
-  type DispatchErrorResponse,
   type StandardErrorResponse,
   type APIResponse,
   HTTP_STATUS,
@@ -33,17 +32,17 @@ import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   StartDevServerRequestBody,
-} from '../types/PublicAPITypes.js';
+} from '../../types/PublicAPITypes.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
   isEditableDevServer,
-} from '../utils/prototypeDevServerStatusUtils.js';
-import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
-import { LatencyEvents } from '../loggers/LatencyEvents.js';
+} from '../../utils/prototypeDevServerStatusUtils.js';
+import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { LatencyEvents } from '../../loggers/LatencyEvents.js';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/supabase.js';
+import { Database } from '../../types/supabase.js';
 
 dotenv.config();
 
@@ -165,12 +164,7 @@ export class DispatcherService {
   private async handleDispatch(
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
-  ): Promise<
-    APIResponse<
-      DispatchSuccessResponse,
-      DispatchErrorResponse | StandardErrorResponse
-    >
-  > {
+  ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
     // 1. Extract validated body (validation handled by Fastify schema)
     const { jwt, prototype_id, framework, files, assets, file_scope } =
       request.body;
@@ -187,7 +181,7 @@ export class DispatcherService {
           error: 'Unauthorized',
           message:
             'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
+        } as StandardErrorResponse,
       });
     }
     // update logger context
@@ -219,7 +213,7 @@ export class DispatcherService {
               error: {
                 error: 'Internal Server Error',
                 message: 'Invalid build data in cache',
-              },
+              } as StandardErrorResponse,
             });
           }
           const existingBuild: ActiveBuild = parsedBuild;
@@ -234,9 +228,12 @@ export class DispatcherService {
           } else if (isDispatchInProgress(existingBuild.status)) {
             // If build is actively working, return error
             return reply.status(HTTP_STATUS.CONFLICT).send({
-              error: 'Conflict',
-              message:
-                'There is already an active dispatch request for this prototype',
+              data: null,
+              error: {
+                error: 'Conflict',
+                message:
+                  'There is already an active dispatch request for this prototype',
+              } as StandardErrorResponse,
             });
           } else {
             // Reuse existing stable build
@@ -317,8 +314,11 @@ export class DispatcherService {
         const parsedBuild = JSON.parse(existingBuildJson as string);
         if (!isActiveBuildType(parsedBuild)) {
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-            error: 'Internal Server Error',
-            message: 'Invalid build data in cache',
+            data: null,
+            error: {
+              error: 'Internal Server Error',
+              message: 'Invalid build data in cache',
+            } as StandardErrorResponse,
           });
         }
         const existingBuild: ActiveBuild = parsedBuild;
@@ -396,13 +396,12 @@ export class DispatcherService {
         if (fargateResponse.status === 'success') {
           return reply.status(HTTP_STATUS.OK).send({
             data: {
-              status: 'success',
               viewing_url: this.normalizeUrl(
                 fargateResponse.tunnel_url || this.getS3Url(prototype_id),
               ),
               build_errors: fargateResponse.build_errors,
               build_warnings: fargateResponse.build_warnings,
-            },
+            } as DispatchSuccessResponse,
             error: null,
           });
         } else {
@@ -414,8 +413,7 @@ export class DispatcherService {
             error: {
               error: 'Build Failed',
               message: 'Build failed on fargate instance',
-              viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-            },
+            } as StandardErrorResponse,
           });
         }
       } catch (error) {
@@ -436,7 +434,7 @@ export class DispatcherService {
             error: 'Internal Server Error',
             message:
               'There was a server error building the prototype. ' + e.message,
-          },
+          } as StandardErrorResponse,
         });
       }
     } catch (error) {
@@ -448,7 +446,7 @@ export class DispatcherService {
         error: {
           error: 'Internal Server Error',
           message: e.message,
-        },
+        } as StandardErrorResponse,
       });
     }
   }
@@ -487,7 +485,6 @@ export class DispatcherService {
       // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
       if (
         precheckResponse.data &&
-        precheckResponse.data.success &&
         isEditableDevServer(precheckResponse.data.status)
       ) {
         // Get current build ID and update last_touched timestamp
@@ -577,7 +574,7 @@ export class DispatcherService {
           error: 'Unauthorized',
           message:
             'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
+        } as DispatchPrecheckErrorResponse,
       });
     }
     // update logger context
@@ -604,21 +601,20 @@ export class DispatcherService {
               error: {
                 error: 'Internal Server Error',
                 message: 'Invalid build data in storage',
-              },
+              } as DispatchPrecheckErrorResponse,
             });
           }
           const existingBuild: ActiveBuild = parsedBuild;
 
           return reply.status(HTTP_STATUS.OK).send({
             data: {
-              success: true,
               status: existingBuild.status,
               viewing_url: this.normalizeUrl(
                 isEditableDevServer(existingBuild.status)
                   ? existingBuild.url
                   : this.getS3Url(prototype_id),
               ),
-            },
+            } as DispatchPrecheckSuccessResponse,
             error: null,
           });
         }
@@ -627,10 +623,9 @@ export class DispatcherService {
       // No active build, return S3 URL
       return reply.status(HTTP_STATUS.OK).send({
         data: {
-          success: true,
           status: null,
           viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        },
+        } as DispatchPrecheckSuccessResponse,
         error: null,
       });
     } catch (error) {
@@ -641,7 +636,7 @@ export class DispatcherService {
         error: {
           error: 'Internal Server Error',
           message: e.message,
-        },
+        } as DispatchPrecheckErrorResponse,
       });
     }
   }

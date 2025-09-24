@@ -1,5 +1,5 @@
-import type { PrototypeFileInput } from '../../types/PublicAPITypes.js';
-import type { SystemLogger } from '../../loggers/SystemLogger.js';
+import type { PrototypeFileInput } from '../../../types/PublicAPITypes.js';
+import type { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 // Pattern to match file mentions in the format @[filepath]
 const FILE_MENTION_PATTERN = /@\[([^\]]+)\]/g;
@@ -61,9 +61,12 @@ export function parseFileContextFromMessage(
   });
 
   if (!inputFiles) {
-    log2.warn('[FileContext] No input files provided but message has file mentions', {
-      mentionedFiles,
-    });
+    log2.warn(
+      '[FileContext] No input files provided but message has file mentions',
+      {
+        mentionedFiles,
+      },
+    );
     return {
       originalMessage: userMessage,
       enhancedMessage: userMessage,
@@ -105,9 +108,10 @@ ${file.contents}
 
   // If we have file contexts, enhance the message
   if (fileContextSections.length > 0) {
-    const contextHeader = fileContextSections.length === 1
-      ? 'The user has provided the following file context. Use this file\'s content to fulfill their request.'
-      : 'The user has provided the following file contexts. Use these files\' contents to fulfill their request.';
+    const contextHeader =
+      fileContextSections.length === 1
+        ? "The user has provided the following file context. Use this file's content to fulfill their request."
+        : "The user has provided the following file contexts. Use these files' contents to fulfill their request.";
 
     enhancedMessage = `${contextHeader}
 
@@ -145,29 +149,29 @@ User Request: "${userMessage}"`;
  */
 function getLanguageHint(extension: string): string {
   const languageMap: Record<string, string> = {
-    'ts': 'typescript',
-    'tsx': 'typescript',
-    'js': 'javascript',
-    'jsx': 'javascript',
-    'json': 'json',
-    'css': 'css',
-    'scss': 'scss',
-    'sass': 'sass',
-    'html': 'html',
-    'md': 'markdown',
-    'py': 'python',
-    'java': 'java',
-    'cpp': 'cpp',
-    'c': 'c',
-    'go': 'go',
-    'rs': 'rust',
-    'php': 'php',
-    'rb': 'ruby',
-    'yml': 'yaml',
-    'yaml': 'yaml',
-    'xml': 'xml',
-    'sh': 'bash',
-    'sql': 'sql',
+    ts: 'typescript',
+    tsx: 'typescript',
+    js: 'javascript',
+    jsx: 'javascript',
+    json: 'json',
+    css: 'css',
+    scss: 'scss',
+    sass: 'sass',
+    html: 'html',
+    md: 'markdown',
+    py: 'python',
+    java: 'java',
+    cpp: 'cpp',
+    c: 'c',
+    go: 'go',
+    rs: 'rust',
+    php: 'php',
+    rb: 'ruby',
+    yml: 'yaml',
+    yaml: 'yaml',
+    xml: 'xml',
+    sh: 'bash',
+    sql: 'sql',
   };
 
   return languageMap[extension.toLowerCase()] || extension;
