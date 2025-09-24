@@ -646,7 +646,7 @@ export class ChatEngineV1 {
                   type: 'tool_result',
                   tool: part.toolName,
                   toolCallId: part.toolCallId,
-                  result: part.output,
+                  result: {},
                 };
 
                 // For file modification tools, include updated files for client sync

@@ -835,7 +835,7 @@ export default function PrototypeChatWindow({
               >
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                  {currentThought || "Working..."}
+                  {currentThought || "Waiting..."}
                 </span>
                 {isThoughtsExpanded ? (
                   <ChevronUpIcon className="w-4 h-4" />
