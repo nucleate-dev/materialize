@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-24T02:53:57.513Z
+// Last synced: 2025-09-24T04:20:59.125Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -91,6 +91,7 @@ export interface DispatchRequestBody {
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
   assets: PrototypeAssetInputWithContent[];
+  deleted_files?: string[];
   file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
@@ -276,6 +277,7 @@ export interface StartDevServerRequestBody {
   assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
   file_scope?: 'updates' | 'complete';
+  deleted_files?: string[];
 }
 
 export interface StartDevServerSuccessResponse {

@@ -389,7 +389,7 @@ export class ChatEngineV1 {
     params: ChatEngineParams,
   ): Promise<{
     updatedFiles: string[];
-    updatedFilesObject?: Record<string, PrototypeFile>;
+    updatedFilesObject: Record<string, PrototypeFile>;
     deletedFiles: string[];
   }> {
     const { prototype_id, token, controller, encoder } = params;
@@ -402,6 +402,7 @@ export class ChatEngineV1 {
         log2.info('[ChatEngine] No file changes to persist and dispatch');
         return {
           updatedFiles: [],
+          updatedFilesObject: {},
           deletedFiles: [],
         };
       }
@@ -503,6 +504,7 @@ export class ChatEngineV1 {
         );
         return {
           updatedFiles: [],
+          updatedFilesObject: {},
           deletedFiles: [],
         };
       }
@@ -512,6 +514,7 @@ export class ChatEngineV1 {
     }
     return {
       updatedFiles: [],
+      updatedFilesObject: {},
       deletedFiles: [],
     };
   }
@@ -708,12 +711,12 @@ export class ChatEngineV1 {
         fileManager instanceof VirtualFileManager &&
         fileManager.hasChanges()
       ) {
-        const { updatedFiles, deletedFiles, updatedFilesObject } =
+        const { deletedFiles, updatedFilesObject } =
           await this.persistAndDispatchFiles(fileManager, params);
         if (updatedFilesObject) {
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'files_synced', updatedFilesObject, updatedFiles, deletedFiles })}\n\n`,
+              `data: ${JSON.stringify({ type: 'files_synced', updatedFilesObject, deletedFiles })}\n\n`,
             ),
           );
         }
