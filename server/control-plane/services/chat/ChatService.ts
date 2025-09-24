@@ -71,7 +71,6 @@ export class ChatService {
       anthropicApiKey: this.anthropicApiKey,
       fastifyApp: this.fastifyApp,
     };
-
     this.chatEngine = new ChatEngineV1(chatEngineConfig);
   }
 
@@ -371,6 +370,10 @@ export class ChatService {
       const stream = new ReadableStream({
         start: async (controller): Promise<void> => {
           try {
+            const supabase = createClient(
+              this.supabaseUrl,
+              this.supabaseServiceKey,
+            );
             // ------------------------------------------------------------------------------------------------
             // 6. Execute chat through ChatEngine
             // ------------------------------------------------------------------------------------------------
@@ -385,6 +388,7 @@ export class ChatService {
               chat_session_id,
               controller,
               encoder,
+              supabase,
               log2: request.log2,
             });
 

@@ -89,6 +89,7 @@ export interface PublicDevServerStartRequest {
   framework: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
   assets: PrototypeAssetInputWithContent[];
+  deleted_files?: string[];
   file_scope: 'updates' | 'complete';
 }
 

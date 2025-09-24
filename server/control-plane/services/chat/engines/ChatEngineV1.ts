@@ -1,6 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { stepCountIs, streamText, tool, Tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -51,6 +52,7 @@ export interface ChatEngineParams {
   controller: ReadableStreamDefaultController<Uint8Array>;
   encoder: TextEncoder;
   log2: SystemLogger;
+  supabase: SupabaseClient;
 }
 
 export interface ChatEngineResult {
@@ -383,8 +385,11 @@ export class ChatEngineV1 {
   private async persistAndDispatchFiles(
     fileManager: VirtualFileManager,
     params: ChatEngineParams,
-  ): Promise<void> {
-    const { prototype_id, token, controller, encoder } = params;
+  ): Promise<{
+    updatedFiles: string[];
+    deletedFiles: string[];
+  }> {
+    const { prototype_id, token, controller, encoder, supabase } = params;
     const log2 = params.log2.child({
       function: 'persistAndDispatchFiles',
     });
@@ -392,7 +397,10 @@ export class ChatEngineV1 {
     try {
       if (!fileManager.hasChanges()) {
         log2.info('[ChatEngine] No file changes to persist and dispatch');
-        return;
+        return {
+          updatedFiles: [],
+          deletedFiles: [],
+        };
       }
 
       log2.info('[ChatEngine] Starting file persistence and dispatch...');
@@ -400,6 +408,7 @@ export class ChatEngineV1 {
       // TODO @priyam: stream the updated files back to the client
       // TODO: if there is already an active dev-server (from precheck), then we should only send updated files
       const allFiles = fileManager.getAllFilesForDispatch();
+      const deletedFiles = fileManager.getDeletedFiles();
       const filesArray = Object.entries(allFiles).map(([, file]) => file);
       const requestBody: DispatchRequestBody = {
         jwt: token,
@@ -407,6 +416,7 @@ export class ChatEngineV1 {
         framework: 'expo_react_native',
         files: filesArray,
         assets: [], // The AI chat never updates or creates assets
+        deleted_files: Array.from(deletedFiles),
         file_scope: fileManager.getFileScope(),
         hot_reload: true, // Enable hot reload for live updates
       };
@@ -435,15 +445,39 @@ export class ChatEngineV1 {
             })}\\n\\n`,
           ),
         );
-        log2.info('[ChatEngine] File dispatch successful, viewing URL updated');
+        // Send files to supabase
+        const { error } = await supabase
+          .from('prototype_files')
+          .upsert(filesArray, {
+            onConflict: 'name,prototype_id',
+            ignoreDuplicates: false,
+          });
+        const { error: deleteError } = await supabase
+          .from('prototype_files')
+          .delete()
+          .in('name', Array.from(deletedFiles))
+          .eq('prototype_id', prototype_id);
+        if (error || deleteError) {
+          log2.error(error, '[ChatEngine] Error sending files to supabase');
+          log2.error(
+            deleteError,
+            '[ChatEngine] Error deleting files from supabase',
+          );
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: 'dispatch_error',
+                error: 'Failed to update the live preview.',
+              })}\\n\\n`,
+            ),
+          );
+        }
+        fileManager.clearChangeTracking();
+        return {
+          updatedFiles: filesArray.map((file) => file.name),
+          deletedFiles: Array.from(deletedFiles),
+        };
       } else {
-        log2.error(
-          new Error('File dispatch failed.'),
-          '[ChatEngine] ' +
-            `File dispatch failed with status: ${response.statusCode}`,
-          result,
-        );
-
         // PROPAGATE ERROR TO CLIENT
         controller.enqueue(
           encoder.encode(
@@ -454,14 +488,19 @@ export class ChatEngineV1 {
             })}\\n\\n`,
           ),
         );
+        return {
+          updatedFiles: [],
+          deletedFiles: [],
+        };
       }
-
-      // Clear change tracking after successful dispatch
-      fileManager.clearChangeTracking();
     } catch (error) {
       log2.error(error, '[ChatEngine] Error in persistAndDispatchFiles');
       // Don't throw - this shouldn't break the chat flow
     }
+    return {
+      updatedFiles: [],
+      deletedFiles: [],
+    };
   }
 
   async executeChat(params: ChatEngineParams): Promise<ChatEngineResult> {
@@ -665,7 +704,15 @@ export class ChatEngineV1 {
             })}\\n\\n`,
           ),
         );
-        await this.persistAndDispatchFiles(fileManager, params);
+        const { updatedFiles, deletedFiles } =
+          await this.persistAndDispatchFiles(fileManager, params);
+        // Clear change tracking after successful dispatch
+        fileManager.clearChangeTracking();
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: 'files_synced', updatedFiles, deletedFiles })}\n\n`,
+          ),
+        );
       }
 
       controller.enqueue(

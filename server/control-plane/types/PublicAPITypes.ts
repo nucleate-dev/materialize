@@ -82,6 +82,7 @@ export interface DispatchRequestBody {
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
   assets: PrototypeAssetInputWithContent[];
+  deleted_files?: string[];
   file_scope: 'updates' | 'complete';
   hot_reload?: boolean;
 }
@@ -267,6 +268,7 @@ export interface StartDevServerRequestBody {
   assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
   file_scope?: 'updates' | 'complete';
+  deleted_files?: string[];
 }
 
 export interface StartDevServerSuccessResponse {

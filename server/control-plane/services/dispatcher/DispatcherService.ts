@@ -4,10 +4,13 @@ import {
   RunTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
+import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { LatencyEvents } from '../../loggers/LatencyEvents.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
 import {
   type ActiveBuild,
   BUILD_TIMEOUTS,
@@ -20,29 +23,26 @@ import {
   S3_URL_TEMPLATE,
 } from '../../types/InternalTypes.js';
 import {
+  type APIResponse,
+  type DispatchPrecheckErrorResponse,
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckSuccessResponse,
-  type DispatchPrecheckErrorResponse,
   type DispatchRequestBody,
   type DispatchSuccessResponse,
-  type StandardErrorResponse,
-  type APIResponse,
   HTTP_STATUS,
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
+  type StandardErrorResponse,
   StartDevServerRequestBody,
 } from '../../types/PublicAPITypes.js';
+import { Database } from '../../types/supabase.js';
+import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
-import { LatencyEvents } from '../../loggers/LatencyEvents.js';
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '../../types/supabase.js';
 
 dotenv.config();
 
@@ -166,8 +166,15 @@ export class DispatcherService {
     reply: FastifyReply,
   ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
     // 1. Extract validated body (validation handled by Fastify schema)
-    const { jwt, prototype_id, framework, files, assets, file_scope } =
-      request.body;
+    const {
+      jwt,
+      prototype_id,
+      framework,
+      files,
+      assets,
+      file_scope,
+      deleted_files,
+    } = request.body;
     const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
@@ -342,6 +349,7 @@ export class DispatcherService {
         prototype_id,
         framework: selectedFramework,
         files,
+        deleted_files,
         assets,
         file_scope,
         log2: request.log2,
@@ -792,6 +800,7 @@ export class DispatcherService {
     framework,
     files,
     assets,
+    deleted_files,
     file_scope,
     log2,
   }: {
@@ -801,6 +810,7 @@ export class DispatcherService {
     files: PrototypeFileInput[];
     assets: PrototypeAssetInput[];
     file_scope: FileScope;
+    deleted_files?: string[];
     log2: SystemLogger;
   }): Promise<StartDevServerRequestBody> {
     const supabase = createClient<Database>(
@@ -857,6 +867,7 @@ export class DispatcherService {
       framework,
       files,
       assets: assetInputs,
+      deleted_files,
       file_scope,
     };
   }

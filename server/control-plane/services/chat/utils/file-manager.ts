@@ -40,6 +40,7 @@ export class VirtualFileManager implements FileManagerInterface {
   private log2: SystemLogger;
   private prototypeId?: string;
   private changedFiles: Set<string> = new Set();
+  private deletedFiles: Set<string> = new Set();
   private fileScope: 'complete' | 'updates' = 'updates';
 
   constructor(
@@ -60,6 +61,14 @@ export class VirtualFileManager implements FileManagerInterface {
 
   getFileScope(): 'complete' | 'updates' {
     return this.fileScope;
+  }
+
+  getDeletedFiles(): Set<string> {
+    return this.deletedFiles;
+  }
+
+  clearDeletedFiles(): void {
+    this.deletedFiles.clear();
   }
 
   handleToolCall(toolCall: {
@@ -279,7 +288,7 @@ export class VirtualFileManager implements FileManagerInterface {
     }
 
     this.files.delete(normalizedPath);
-    this.changedFiles.add(normalizedPath);
+    this.deletedFiles.add(normalizedPath);
 
     return {
       success: true,
@@ -497,5 +506,6 @@ export class VirtualFileManager implements FileManagerInterface {
 
   public clearChangeTracking(): void {
     this.changedFiles.clear();
+    this.deletedFiles.clear();
   }
 }
