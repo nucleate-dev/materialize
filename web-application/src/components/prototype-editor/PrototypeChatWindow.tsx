@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { DEBUG_MODE } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -434,6 +435,7 @@ export default function PrototypeChatWindow({
               chatResponseBuffer = ""; // Reset buffer
               setCurrentThought("");
               setIsThoughtsExpanded(false);
+              setIsChatLoading(false);
               break;
 
             case "usage_update":
@@ -468,6 +470,7 @@ export default function PrototypeChatWindow({
                 deletedFiles: deletedFileNames,
                 applyUpdatesToServer: true,
               });
+              setIsChatLoading(false);
               break;
 
             case "dispatch_error":
@@ -481,6 +484,7 @@ export default function PrototypeChatWindow({
               logger.debug("error", "Dispatch error from server:", {
                 event,
               });
+              setIsChatLoading(false);
               break;
 
             case "error":
@@ -544,6 +548,15 @@ export default function PrototypeChatWindow({
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
   const isDevServerNotReady = currentRenderStatus === "Starting Dev Server..";
+  const inputDisabledReasons = {
+    noPrototypeChatSession: !prototypeChatSession,
+    noFiles: !files,
+    isChatLoading,
+    isAtLimit,
+    isDevServerNotReady,
+  } as const;
+  const isInputDisabled = Object.values(inputDisabledReasons).some(Boolean);
+  const isSendDisabled = !currentMessage.trim() || isInputDisabled;
 
   // Show upsell modal when free user reaches limit
   useEffect(() => {
@@ -815,16 +828,14 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
+                    }`}
                 >
                   {message.role === "user" && (
                     <div className="text-sm font-medium mb-1">You</div>
@@ -887,11 +898,10 @@ export default function PrototypeChatWindow({
                             className="flex items-start gap-2 text-sm"
                           >
                             <div
-                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                                completedSteps.has(index)
-                                  ? "border-green-500 bg-green-500"
-                                  : "border-gray-300"
-                              }`}
+                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
+                                ? "border-green-500 bg-green-500"
+                                : "border-gray-300"
+                                }`}
                             >
                               {completedSteps.has(index) && (
                                 <div className="relative">
@@ -905,11 +915,10 @@ export default function PrototypeChatWindow({
                               )}
                             </div>
                             <span
-                              className={`${
-                                completedSteps.has(index)
-                                  ? "text-muted-foreground line-through"
-                                  : "text-foreground"
-                              }`}
+                              className={`${completedSteps.has(index)
+                                ? "text-muted-foreground line-through"
+                                : "text-foreground"
+                                }`}
                             >
                               {step}
                             </span>
@@ -936,13 +945,7 @@ export default function PrototypeChatWindow({
                 }}
                 placeholder="Type your message... Use @filename to reference files"
                 className="min-h-[80px] resize-none"
-                disabled={
-                  !prototypeChatSession ||
-                  !files ||
-                  isChatLoading ||
-                  isAtLimit ||
-                  isDevServerNotReady
-                }
+                disabled={isInputDisabled}
                 onKeyDown={(e) => {
                   // Handle autocomplete navigation
                   if (
@@ -990,14 +993,7 @@ export default function PrototypeChatWindow({
             <div className="flex gap-2">
               <Button
                 onClick={handleSendMessage}
-                disabled={
-                  !currentMessage.trim() ||
-                  !prototypeChatSession ||
-                  !files ||
-                  isChatLoading ||
-                  isAtLimit ||
-                  isDevServerNotReady
-                }
+                disabled={isSendDisabled}
                 className="flex-1"
               >
                 <PlayIcon className="w-4 h-4 mr-2" />
@@ -1021,6 +1017,21 @@ export default function PrototypeChatWindow({
               <p className="text-sm text-muted-foreground">
                 Waiting for dev server to connect... ({currentRenderStatus})
               </p>
+            )}
+            {DEBUG_MODE && (
+              <div className="rounded border border-dashed border-muted p-3 text-xs text-muted-foreground">
+                <div className="font-medium text-foreground">Debug state</div>
+                <ul className="list-disc pl-4">
+                  {Object.entries(inputDisabledReasons).map(([key, value]) => (
+                    <li key={key}>
+                      <span className="font-mono">{key}</span>: {String(value)}
+                    </li>
+                  ))}
+                  <li>
+                    <span className="font-mono">isSendDisabled</span>: {String(isSendDisabled)}
+                  </li>
+                </ul>
+              </div>
             )}
           </div>
         </div>
