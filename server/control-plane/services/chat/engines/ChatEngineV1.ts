@@ -420,6 +420,15 @@ export class ChatEngineV1 {
         file_scope: fileManager.getFileScope(),
         hot_reload: true, // Enable hot reload for live updates
       };
+      if (fileManager.getFileScope() === 'complete') {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'dispatch_start',
+            })}\\n\\n`,
+          ),
+        );
+      }
       // Call the dispatch endpoint via internal Fastify inject
       const response = await this.config.fastifyApp.inject({
         method: 'POST',

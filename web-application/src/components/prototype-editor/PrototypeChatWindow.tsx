@@ -22,7 +22,7 @@ import {
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { getChatIntent } from "@/lib/utils/chatIntentUtils";
+import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   ChatBubbleLeftRightIcon,
   CheckIcon,
@@ -310,6 +310,12 @@ export default function PrototypeChatWindow({
 
                 // Handle different event types
                 switch (event.type) {
+                  case "dispatch_start": {
+                    // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
+                    // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
+                    clearChatIntent();
+                    break;
+                  }
                   case "chat_response_delta":
                     // Handle streaming text deltas
                     const delta = String(event.content || "");
