@@ -1,8 +1,8 @@
 import { supabase } from "@/ClientConstants";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { useCallback, useEffect, useState } from "react";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -28,9 +28,11 @@ export interface FileSystemActions {
   saveSingleFile: (filePath: string) => Promise<boolean>;
 
   // Bulk file operations
-  applyAndPersistFileUpdates: (
-    updatedFiles: Record<string, PrototypeFile>,
-  ) => Promise<boolean>;
+  applyAndPersistFileUpdates: (params: {
+    updatedFiles: Record<string, PrototypeFile>;
+    deletedFiles?: string[];
+    applyUpdatesToServer: boolean;
+  }) => Promise<boolean>;
 
   // File management operations
   createFile: (fileName: string, initialContent?: string) => Promise<void>;
@@ -253,47 +255,116 @@ export const useFileSystem = (
 
   // Apply file updates locally and persist them directly to Supabase database
   const applyAndPersistFileUpdates = useCallback(
-    async (updatedFiles: Record<string, PrototypeFile>): Promise<boolean> => {
+    async (params: {
+      updatedFiles: Record<string, PrototypeFile>;
+      deletedFiles?: string[];
+      applyUpdatesToServer: boolean;
+    }): Promise<boolean> => {
+      const { updatedFiles, deletedFiles = [], applyUpdatesToServer } = params;
       if (!prototypeId) {
         logger.debug("error", "Cannot persist file updates: no prototype ID");
         return false;
       }
 
-      if (!updatedFiles || Object.keys(updatedFiles).length === 0) {
+      if (
+        (!updatedFiles || Object.keys(updatedFiles).length === 0) &&
+        deletedFiles.length === 0
+      ) {
         return false;
       }
 
       try {
         // First, apply updates locally
-        applyFileUpdates(updatedFiles);
+        if (updatedFiles && Object.keys(updatedFiles).length > 0) {
+          applyFileUpdates(updatedFiles);
+        }
+
+        // Handle deleted files locally
+        if (deletedFiles.length > 0) {
+          setFiles((prevFiles) => {
+            const newFiles = { ...prevFiles };
+            deletedFiles.forEach((fileName) => {
+              delete newFiles[fileName];
+            });
+            return newFiles;
+          });
+
+          // Update selected file if it was deleted
+          if (deletedFiles.includes(selectedFile)) {
+            setFiles((prevFiles) => {
+              const remainingFiles = Object.keys(prevFiles).filter(
+                (f) => !deletedFiles.includes(f),
+              );
+              if (remainingFiles.length > 0) {
+                setSelectedFile(remainingFiles[0]);
+              }
+              return prevFiles;
+            });
+          }
+        }
 
         // Prepare files for database upsert
-        const filesToUpsert = Object.entries(updatedFiles).map(
-          ([path, file]) => ({
-            id: file.id,
-            name: path,
-            contents: file.contents,
-            prototype_id: file.prototype_id || prototypeId,
-            created_at: file.created_at,
-            updated_at: new Date().toISOString(),
-          }),
-        );
+        if (
+          updatedFiles &&
+          Object.keys(updatedFiles).length > 0 &&
+          applyUpdatesToServer
+        ) {
+          const filesToUpsert = Object.entries(updatedFiles).map(
+            ([path, file]) => ({
+              id: file.id,
+              name: path,
+              contents: file.contents,
+              prototype_id: file.prototype_id || prototypeId,
+              created_at: file.created_at,
+              updated_at: new Date().toISOString(),
+            }),
+          );
 
-        // Use Supabase upsert to insert new files or update existing ones
-        const { error } = await supabase
-          .from("prototype_files")
-          .upsert(filesToUpsert, {
-            onConflict: "name,prototype_id",
-            ignoreDuplicates: false,
-          })
-          .select();
+          // Use Supabase upsert to insert new files or update existing ones
+          const { error: upsertError } = await supabase
+            .from("prototype_files")
+            .upsert(filesToUpsert, {
+              onConflict: "name,prototype_id",
+              ignoreDuplicates: false,
+            })
+            .select();
 
-        if (error) {
-          logger.debug("error", "Error persisting file updates to database:", {
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-          });
-          return false;
+          if (upsertError) {
+            logger.debug(
+              "error",
+              "Error persisting file updates to database:",
+              {
+                error:
+                  upsertError instanceof Error
+                    ? upsertError.message
+                    : String(upsertError),
+                stack:
+                  upsertError instanceof Error ? upsertError.stack : undefined,
+              },
+            );
+            return false;
+          }
+        }
+
+        // Delete files from database
+        if (deletedFiles.length > 0 && applyUpdatesToServer) {
+          const { error: deleteError } = await supabase
+            .from("prototype_files")
+            .delete()
+            .in("name", deletedFiles)
+            .eq("prototype_id", prototypeId);
+
+          if (deleteError) {
+            logger.debug("error", "Error deleting files from database:", {
+              error:
+                deleteError instanceof Error
+                  ? deleteError.message
+                  : String(deleteError),
+              stack:
+                deleteError instanceof Error ? deleteError.stack : undefined,
+            });
+            return false;
+          }
         }
 
         return true;
@@ -305,7 +376,7 @@ export const useFileSystem = (
         return false;
       }
     },
-    [prototypeId, applyFileUpdates, logger],
+    [prototypeId, applyFileUpdates, logger, selectedFile],
   );
 
   // Create a new file

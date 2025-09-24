@@ -439,7 +439,9 @@ export default function ChatTestPage() {
 
                     case "execution_complete":
                       if ((event as any).updatedFiles) {
-                        fileSystem.applyAndPersistFileUpdates((event as any).updatedFiles);
+                        fileSystem.applyAndPersistFileUpdates({
+                          updatedFiles: (event as any).updatedFiles,
+                        });
                       }
                       setMessages((prev) => [
                         ...prev,

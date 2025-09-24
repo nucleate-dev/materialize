@@ -55,7 +55,11 @@ export interface PrototypeChatWindowProps {
   // File system integration
   files: Record<string, PrototypeFile>;
   assets: Record<string, PrototypeAsset>;
-  onFilesUpdate: (files: Record<string, PrototypeFile>) => void;
+  onFilesUpdate: (params: {
+    updatedFiles: Record<string, PrototypeFile>;
+    deletedFiles?: string[];
+    applyUpdatesToServer: boolean;
+  }) => void;
 
   // Loading state
   isChatLoading: boolean;
@@ -297,7 +301,8 @@ export default function PrototypeChatWindow({
                     summary?: string;
                     updatedFiles?: Record<string, PrototypeFile>;
                   };
-                  updatedFiles?: Record<string, PrototypeFile>;
+                  updatedFiles?: string[] | Record<string, PrototypeFile>;
+                  deletedFiles?: string[];
                   error?: string;
                   messageCount?: number;
                   viewing_url?: string;
@@ -359,9 +364,13 @@ export default function PrototypeChatWindow({
 
                   case "tool_result":
                     // Update files if the tool result contains updated files
-                    if (event.result?.updatedFiles) {
-                      onFilesUpdate(event.result.updatedFiles);
-                    }
+                    // TODO (Priyam): This breaks because of streaming. Skip for now.
+                    // if (event.result?.updatedFiles) {
+                    //   onFilesUpdate({
+                    //     updatedFiles: event.result.updatedFiles,
+                    //     applyUpdatesToServer: true,
+                    //   });
+                    // }
                     // Clear current thought when tool completes
                     setCurrentThought("");
                     break;
@@ -412,8 +421,48 @@ export default function PrototypeChatWindow({
 
                   case "files_synced":
                     // Handle final file sync after dispatch
-                    if (event.updatedFiles) {
-                      onFilesUpdate(event.updatedFiles);
+                    const updatedFileNames = event.updatedFiles as string[] || [];
+                    const deletedFileNames = event.deletedFiles as string[] || [];
+
+                    if (updatedFileNames.length > 0 || deletedFileNames.length > 0) {
+                      try {
+                        // Fetch full file data from Supabase for updated files
+                        let fetchedFiles: Record<string, PrototypeFile> = {};
+
+                        if (updatedFileNames.length > 0) {
+                          const { data: fileData, error } = await supabase
+                            .from("prototype_files")
+                            .select("*")
+                            .eq("prototype_id", prototypeId)
+                            .in("name", updatedFileNames);
+
+                          if (error) {
+                            logger.debug("error", "Failed to fetch updated files:", { error });
+                            // Continue with empty files if fetch fails
+                          } else if (fileData) {
+                            // Convert array to dictionary
+                            fetchedFiles = fileData.reduce((acc, file) => {
+                              acc[file.name] = file;
+                              return acc;
+                            }, {} as Record<string, PrototypeFile>);
+                          }
+                        }
+
+                        // Update files with fetched data and deleted files
+                        onFilesUpdate({
+                          updatedFiles: fetchedFiles,
+                          deletedFiles: deletedFileNames,
+                          applyUpdatesToServer: false,
+                        });
+                      } catch (fetchError) {
+                        logger.debug("error", "Error in files_synced handler:", { fetchError });
+                        // Continue with empty files if anything fails
+                        onFilesUpdate({
+                          updatedFiles: {},
+                          deletedFiles: deletedFileNames,
+                          applyUpdatesToServer: false,
+                        });
+                      }
                     }
                     break;
 
@@ -461,7 +510,7 @@ export default function PrototypeChatWindow({
         reader.releaseLock();
       }
     },
-    [onFilesUpdate, onViewingUrlUpdate, logger],
+    [onFilesUpdate, onViewingUrlUpdate, logger, prototypeId],
   );
 
   // Calculate limits based on subscription plan
