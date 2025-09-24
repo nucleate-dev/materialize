@@ -713,13 +713,11 @@ export class ChatEngineV1 {
       ) {
         const { deletedFiles, updatedFilesObject } =
           await this.persistAndDispatchFiles(fileManager, params);
-        if (updatedFilesObject) {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: 'files_synced', updatedFilesObject, deletedFiles })}\n\n`,
-            ),
-          );
-        }
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: 'files_synced', updatedFilesObject, deletedFiles })}\n\n`,
+          ),
+        );
         // Clear change tracking after successful dispatch
         fileManager.clearChangeTracking();
       }
