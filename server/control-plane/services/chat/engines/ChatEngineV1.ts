@@ -391,7 +391,7 @@ export class ChatEngineV1 {
     updatedFilesObject?: Record<string, PrototypeFile>;
     deletedFiles: string[];
   }> {
-    const { prototype_id, token, controller, encoder, supabase } = params;
+    const { prototype_id, token, controller, encoder } = params;
     const log2 = params.log2.child({
       function: 'persistAndDispatchFiles',
     });
@@ -457,32 +457,32 @@ export class ChatEngineV1 {
           ),
         );
         // Send files to supabase
-        const { error } = await supabase
-          .from('prototype_files')
-          .upsert(filesArray, {
-            onConflict: 'name,prototype_id',
-            ignoreDuplicates: false,
-          });
-        const { error: deleteError } = await supabase
-          .from('prototype_files')
-          .delete()
-          .in('name', Array.from(deletedFiles))
-          .eq('prototype_id', prototype_id);
-        if (error || deleteError) {
-          log2.error(error, '[ChatEngine] Error sending files to supabase');
-          log2.error(
-            deleteError,
-            '[ChatEngine] Error deleting files from supabase',
-          );
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: 'dispatch_error',
-                error: 'Failed to update the live preview.',
-              })}\\n\\n`,
-            ),
-          );
-        }
+        // const { error } = await supabase
+        //   .from('prototype_files')
+        //   .upsert(filesArray, {
+        //     onConflict: 'name,prototype_id',
+        //     ignoreDuplicates: false,
+        //   });
+        // const { error: deleteError } = await supabase
+        //   .from('prototype_files')
+        //   .delete()
+        //   .in('name', Array.from(deletedFiles))
+        //   .eq('prototype_id', prototype_id);
+        // if (error || deleteError) {
+        //   log2.error(error, '[ChatEngine] Error sending files to supabase');
+        //   log2.error(
+        //     deleteError,
+        //     '[ChatEngine] Error deleting files from supabase',
+        //   );
+        //   controller.enqueue(
+        //     encoder.encode(
+        //       `data: ${JSON.stringify({
+        //         type: 'dispatch_error',
+        //         error: 'Failed to update the live preview.',
+        //       })}\\n\\n`,
+        //     ),
+        //   );
+        // }
         fileManager.clearChangeTracking();
         return {
           updatedFiles: filesArray.map((file) => file.name),
@@ -727,11 +727,6 @@ export class ChatEngineV1 {
         }
         // Clear change tracking after successful dispatch
         fileManager.clearChangeTracking();
-        // controller.enqueue(
-        //   encoder.encode(
-        //     `data: ${JSON.stringify({ type: 'files_synced', updatedFiles, deletedFiles })}\n\n`,
-        //   ),
-        // );
       }
 
       controller.enqueue(
