@@ -769,12 +769,6 @@ export class ChatEngineV1 {
             : undefined,
         toolCalls,
       };
-    } finally {
-      try {
-        controller.close();
-      } catch {
-        /* Already closed */
-      }
     }
   }
 }
