@@ -43,6 +43,53 @@ export class IdleContainerAllocationSystem {
     );
   }
 
+  private async ensureIdleCapacity(): Promise<void> {
+    const currentIdle = await this.cache.llen('idle_builds:list');
+    const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
+    if (toCreate === 0) return;
+    else if (toCreate > 0) {
+      this.log2.info(
+        `Refreshing idle container capacity: Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
+      );
+      await Promise.all(
+        Array.from({ length: toCreate }, () => this.launchIdleContainer()),
+      );
+    } else {
+      // Too many idle builds, clean them up
+      const toRemove = Math.abs(toCreate);
+      this.log2.warn(
+        `[IdleAlloc] Found ${currentIdle} idle builds, cleaning up ${toRemove} to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
+      );
+
+      // Collect tasks to remove
+      const taskArns: string[] = [];
+      for (let i = 0; i < toRemove; i++) {
+        const taskArn = await this.cache.rpop('idle_builds:list');
+        if (taskArn) {
+          taskArns.push(taskArn as string);
+        }
+      }
+
+      // Run cleanup concurrently
+      await Promise.all(
+        taskArns.map(async (taskArn) => {
+          const idleKey = `idle_builds:${taskArn}`;
+          try {
+            await this.terminateFargateTask(taskArn);
+            await this.cache.del([idleKey]);
+          } catch (error) {
+            this.log2.error(
+              error,
+              `[IdleAlloc] Failed to terminate extra idle task ${taskArn}`,
+            );
+          }
+        }),
+      );
+
+      return;
+    }
+  }
+
   /** Dispatcher calls this to get a ready container for a prototype */
   //   public async allocateFargateDevServer(
   //     prototypeId: string,
@@ -76,23 +123,6 @@ export class IdleContainerAllocationSystem {
   //   }
 
   /** Internal: ensure we always have maxIdle in the pool */
-  private async ensureIdleCapacity(): Promise<void> {
-    const currentIdle = await this.cache.llen('idle_builds:list');
-    const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
-    if (toCreate === 0) return;
-    else if (toCreate < 0) {
-      // TODO cleanup idle builds till we have only MAX_IDLE_FARGATE_BUILDS idle builds
-      return;
-    } else {
-      this.log2.info(
-        `[IdleAlloc] Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
-      );
-
-      await Promise.all(
-        Array.from({ length: toCreate }, () => this.launchIdleContainer()),
-      );
-    }
-  }
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
