@@ -112,6 +112,7 @@ export default function PrototypeChatWindow({
   const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
   const [executionPlan, setExecutionPlan] = useState<string[]>([]);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [explicitlyCompletedSteps, setExplicitlyCompletedSteps] = useState<Set<number>>(new Set());
 
   // Use ref to avoid stale closure issues in streaming
   const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
@@ -400,6 +401,7 @@ export default function PrototypeChatWindow({
               if (plan && Array.isArray(plan)) {
                 setExecutionPlan(plan);
                 setCompletedSteps(new Set());
+                setExplicitlyCompletedSteps(new Set());
                 setIsThoughtsExpanded(true);
               }
               break;
@@ -408,9 +410,20 @@ export default function PrototypeChatWindow({
               // Mark step as completed instead of showing in chat
               const stepNum = event.result?.step;
               if (typeof stepNum === "number") {
-                setCompletedSteps(
-                  (prev) => new Set([...prev, stepNum - 1]),
-                ); // Convert to 0-based index
+                setCompletedSteps((prev) => {
+                  const newCompleted = new Set(prev);
+                  // Mark this step and all previous steps as completed
+                  for (let i = 0; i < stepNum; i++) {
+                    newCompleted.add(i); // 0-based indexing
+                  }
+                  return newCompleted;
+                });
+                // Track which step was explicitly completed
+                setExplicitlyCompletedSteps((prev) => {
+                  const newExplicit = new Set(prev);
+                  newExplicit.add(stepNum - 1); // Convert to 0-based index
+                  return newExplicit;
+                });
               }
               break;
 
@@ -563,6 +576,7 @@ export default function PrototypeChatWindow({
     setCurrentThought("");
     setExecutionPlan([]);
     setCompletedSteps(new Set());
+    setExplicitlyCompletedSteps(new Set());
     setIsThoughtsExpanded(false);
 
     try {
@@ -679,6 +693,7 @@ export default function PrototypeChatWindow({
         setCurrentThought("");
         setExecutionPlan([]);
         setCompletedSteps(new Set());
+        setExplicitlyCompletedSteps(new Set());
         setIsThoughtsExpanded(false);
       } catch (error) {
         logger.debug("error", "Error clearing chat:", {
@@ -868,7 +883,14 @@ export default function PrototypeChatWindow({
                                 }`}
                             >
                               {completedSteps.has(index) && (
-                                <CheckIcon className="w-3 h-3 text-white" />
+                                <div className="relative">
+                                  <CheckIcon className="w-3 h-3 text-white" />
+                                  {!explicitlyCompletedSteps.has(index) && (
+                                    <span className="absolute -top-1 -right-1 text-white text-xs font-bold">
+                                      *
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
                             <span
