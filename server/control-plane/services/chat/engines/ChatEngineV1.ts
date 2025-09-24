@@ -44,6 +44,7 @@ export interface ChatEngineConfig {
 export interface ChatEngineParams {
   messages: ChatMessage[];
   userMessage: string;
+  originalUserMessage: string;
   fileManager: FileManagerInterface;
   inputFiles: Record<string, PrototypeFileInput> | null;
   inputAssets: Record<string, PrototypeAssetInput> | null;

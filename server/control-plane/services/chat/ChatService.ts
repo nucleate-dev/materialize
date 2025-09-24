@@ -322,9 +322,9 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // Parse file context from the user message
       const lastMessage = messages[messages.length - 1];
-      const userMessage = lastMessage.content;
+      const originalUserMessage = lastMessage.content;
       const fileContext = parseFileContextFromMessage(
-        userMessage,
+        originalUserMessage,
         inputFiles,
         request.log2,
       );
@@ -333,7 +333,7 @@ export class ChatService {
       const enhancedMessages = [...messages];
       if (
         fileContext.hasFileMentions &&
-        fileContext.enhancedMessage !== userMessage
+        fileContext.enhancedMessage !== originalUserMessage
       ) {
         enhancedMessages[enhancedMessages.length - 1] = {
           ...lastMessage,
@@ -342,7 +342,7 @@ export class ChatService {
         request.log2.info(
           '[ChatService] Enhanced user message with file context',
           {
-            originalLength: userMessage.length,
+            originalLength: originalUserMessage.length,
             enhancedLength: fileContext.enhancedMessage.length,
             mentionedFiles: fileContext.mentionedFiles,
           },
@@ -380,6 +380,7 @@ export class ChatService {
             const chatResult = await this.chatEngine.executeChat({
               messages: enhancedMessages,
               userMessage: fileContext.enhancedMessage,
+              originalUserMessage,
               fileManager,
               inputFiles,
               inputAssets,
@@ -424,7 +425,7 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             await this.persistChatMessages(
               chat_session_id,
-              fileContext.enhancedMessage,
+              originalUserMessage,
               chatResult.assistantResponse,
               request.log2,
               chatResult.executionPlan,
