@@ -275,241 +275,222 @@ export default function PrototypeChatWindow({
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = ""; // Buffer for streaming deltas
+      let buffer = ""; // accumulates text across chunks
+      let chatResponseBuffer = ""; // Buffer for streaming deltas
+
+      const processBuffer = async () => {
+        let sepIndex;
+        while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+          const rawEvent = buffer.slice(0, sepIndex);
+          buffer = buffer.slice(sepIndex + 2);
+
+          const lines = rawEvent.split("\n");
+          const dataLines: string[] = [];
+          for (const line of lines) {
+            if (line.startsWith("data:"))
+              dataLines.push(line.slice(5).trimStart());
+          }
+          if (dataLines.length === 0) continue;
+
+          const dataText = dataLines.join("\n");
+          if (dataText === "[DONE]") continue;
+
+          let event: {
+            type: string;
+            content?: string;
+            tool?: string;
+            toolName?: string;
+            result?: {
+              plan?: string[];
+              step?: number;
+              summary?: string;
+              updatedFiles?: Record<string, PrototypeFile>;
+            };
+            updatedFiles?: string[] | Record<string, PrototypeFile>;
+            updatedFilesObject?: Record<string, PrototypeFile>;
+            deletedFiles?: string[];
+            error?: string;
+            messageCount?: number;
+            viewing_url?: string;
+          };
+          try {
+            event = JSON.parse(dataText);
+          } catch {
+            // put it back and wait for more bytes (likely partial)
+            buffer = rawEvent + "\n\n" + buffer;
+            break;
+          }
+
+          // Handle different event types
+          switch (event.type) {
+            case "dispatch_start": {
+              // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
+              // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
+              clearChatIntent();
+              break;
+            }
+            case "chat_response_delta":
+              // Handle streaming text deltas
+              const delta = String(event.content || "");
+              chatResponseBuffer += delta;
+
+              // Render progressively: append to last assistant message or create new one
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  const copy = [...prev];
+                  copy[copy.length - 1] = {
+                    ...last,
+                    content: (last.content || "") + delta,
+                  };
+                  return copy;
+                }
+                return [...prev, { role: "assistant", content: delta }];
+              });
+              break;
+
+            case "chat_response":
+              // Handle final response (use chatResponseBuffer if content is empty)
+              const finalContent = String(event.content || chatResponseBuffer);
+              if (finalContent) {
+                setMessages((prev) => {
+                  const last = prev[prev.length - 1];
+                  if (last?.role === "assistant") {
+                    const copy = [...prev];
+                    copy[copy.length - 1] = {
+                      ...last,
+                      content: finalContent,
+                    };
+                    return copy;
+                  }
+                  return [
+                    ...prev,
+                    { role: "assistant", content: finalContent },
+                  ];
+                });
+              }
+              chatResponseBuffer = ""; // Reset buffer
+              break;
+
+            case "tool_call":
+              // Update current thought instead of showing in chat
+              const toolName = String(
+                event.tool || event.toolName || "Unknown tool",
+              );
+              setCurrentThought(sanitizeToolName(toolName));
+              setIsThoughtsExpanded(true);
+              break;
+
+            case "tool_result":
+              // Update files if the tool result contains updated files
+              // TODO (Priyam): This breaks because of streaming. Skip for now.
+              // if (event.result?.updatedFiles) {
+              //   onFilesUpdate({
+              //     updatedFiles: event.result.updatedFiles,
+              //     applyUpdatesToServer: true,
+              //   });
+              // }
+              // Clear current thought when tool completes
+              setCurrentThought("");
+              break;
+
+            case "execution_plan_created":
+              // Set execution plan state instead of showing in chat
+              const plan = event.result?.plan;
+              if (plan && Array.isArray(plan)) {
+                setExecutionPlan(plan);
+                setCompletedSteps(new Set());
+                setIsThoughtsExpanded(true);
+              }
+              break;
+
+            case "step_completed":
+              // Mark step as completed instead of showing in chat
+              const stepNum = event.result?.step;
+              if (typeof stepNum === "number") {
+                setCompletedSteps(
+                  (prev) => new Set([...prev, stepNum - 1]),
+                ); // Convert to 0-based index
+              }
+              break;
+
+            case "chat_complete":
+              // Chat is finished - clear thoughts and close execution plan
+              chatResponseBuffer = ""; // Reset buffer
+              setCurrentThought("");
+              setIsThoughtsExpanded(false);
+              break;
+
+            case "usage_update":
+              // Update the local message count with the value returned from the API
+              if (typeof event.messageCount === "number") {
+                setMessageCount(event.messageCount);
+              }
+              break;
+
+            case "viewing_url":
+              // Handle viewing URL update
+              if (
+                onViewingUrlUpdate &&
+                typeof event.viewing_url === "string"
+              ) {
+                onViewingUrlUpdate(event.viewing_url);
+              }
+              break;
+
+            case "files_synced":
+              // Handle final file sync after dispatch
+              const updatedFilesObject = event.updatedFilesObject as Record<string, PrototypeFile> || {};
+              const deletedFileNames = event.deletedFiles as string[] || [];
+              onFilesUpdate({
+                updatedFiles: updatedFilesObject,
+                deletedFiles: deletedFileNames,
+                applyUpdatesToServer: true,
+              });
+              break;
+
+            case "dispatch_error":
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `⚠️ **Preview Update Failed:** There was a problem updating the live preview.`,
+                },
+              ]);
+              logger.debug("error", "Dispatch error from server:", {
+                event,
+              });
+              break;
+
+            case "error":
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `❌ **Error:** ${String(event.error || "Unknown error")}`,
+                },
+              ]);
+              break;
+          }
+        }
+      };
 
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-
-              try {
-                const event = JSON.parse(data) as {
-                  type: string;
-                  content?: string;
-                  tool?: string;
-                  toolName?: string;
-                  result?: {
-                    plan?: string[];
-                    step?: number;
-                    summary?: string;
-                    updatedFiles?: Record<string, PrototypeFile>;
-                  };
-                  updatedFiles?: string[] | Record<string, PrototypeFile>;
-                  updatedFilesObject?: Record<string, PrototypeFile>;
-                  deletedFiles?: string[];
-                  error?: string;
-                  messageCount?: number;
-                  viewing_url?: string;
-                };
-
-                // Handle different event types
-                switch (event.type) {
-                  case "dispatch_start": {
-                    // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
-                    // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
-                    clearChatIntent();
-                    break;
-                  }
-                  case "chat_response_delta":
-                    // Handle streaming text deltas
-                    const delta = String(event.content || "");
-                    buffer += delta;
-
-                    // Render progressively: append to last assistant message or create new one
-                    setMessages((prev) => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant") {
-                        const copy = [...prev];
-                        copy[copy.length - 1] = {
-                          ...last,
-                          content: (last.content || "") + delta,
-                        };
-                        return copy;
-                      }
-                      return [...prev, { role: "assistant", content: delta }];
-                    });
-                    break;
-
-                  case "chat_response":
-                    // Handle final response (use buffer if content is empty)
-                    const finalContent = String(event.content || buffer);
-                    if (finalContent) {
-                      setMessages((prev) => {
-                        const last = prev[prev.length - 1];
-                        if (last?.role === "assistant") {
-                          const copy = [...prev];
-                          copy[copy.length - 1] = {
-                            ...last,
-                            content: finalContent,
-                          };
-                          return copy;
-                        }
-                        return [
-                          ...prev,
-                          { role: "assistant", content: finalContent },
-                        ];
-                      });
-                    }
-                    buffer = ""; // Reset buffer
-                    break;
-
-                  case "tool_call":
-                    // Update current thought instead of showing in chat
-                    const toolName = String(
-                      event.tool || event.toolName || "Unknown tool",
-                    );
-                    setCurrentThought(sanitizeToolName(toolName));
-                    setIsThoughtsExpanded(true);
-                    break;
-
-                  case "tool_result":
-                    // Update files if the tool result contains updated files
-                    // TODO (Priyam): This breaks because of streaming. Skip for now.
-                    // if (event.result?.updatedFiles) {
-                    //   onFilesUpdate({
-                    //     updatedFiles: event.result.updatedFiles,
-                    //     applyUpdatesToServer: true,
-                    //   });
-                    // }
-                    // Clear current thought when tool completes
-                    setCurrentThought("");
-                    break;
-
-                  case "execution_plan_created":
-                    // Set execution plan state instead of showing in chat
-                    const plan = event.result?.plan;
-                    if (plan && Array.isArray(plan)) {
-                      setExecutionPlan(plan);
-                      setCompletedSteps(new Set());
-                      setIsThoughtsExpanded(true);
-                    }
-                    break;
-
-                  case "step_completed":
-                    // Mark step as completed instead of showing in chat
-                    const stepNum = event.result?.step;
-                    if (typeof stepNum === "number") {
-                      setCompletedSteps(
-                        (prev) => new Set([...prev, stepNum - 1]),
-                      ); // Convert to 0-based index
-                    }
-                    break;
-
-                  case "chat_complete":
-                    // Chat is finished - clear thoughts and close execution plan
-                    buffer = ""; // Reset buffer
-                    setCurrentThought("");
-                    setIsThoughtsExpanded(false);
-                    break;
-
-                  case "usage_update":
-                    // Update the local message count with the value returned from the API
-                    if (typeof event.messageCount === "number") {
-                      setMessageCount(event.messageCount);
-                    }
-                    break;
-
-                  case "viewing_url":
-                    // Handle viewing URL update
-                    if (
-                      onViewingUrlUpdate &&
-                      typeof event.viewing_url === "string"
-                    ) {
-                      onViewingUrlUpdate(event.viewing_url);
-                    }
-                    break;
-
-                  case "files_synced":
-                    // Handle final file sync after dispatch
-                    const updatedFilesObject = event.updatedFilesObject as Record<string, PrototypeFile> || {};
-                    const deletedFileNames = event.deletedFiles as string[] || [];
-                    onFilesUpdate({
-                      // updatedFiles: updatedFiles,
-                      updatedFiles: updatedFilesObject,
-                      deletedFiles: deletedFileNames,
-                      applyUpdatesToServer: true,
-                    });
-                    // if (updatedFileNames.length > 0 || deletedFileNames.length > 0) {
-                    //   try {
-                    //     // Fetch full file data from Supabase for updated files
-                    //     let fetchedFiles: Record<string, PrototypeFile> = {};
-
-                    //     if (updatedFileNames.length > 0) {
-                    //       const { data: fileData, error } = await supabase
-                    //         .from("prototype_files")
-                    //         .select("*")
-                    //         .eq("prototype_id", prototypeId)
-                    //         .in("name", updatedFileNames);
-
-                    //       if (error) {
-                    //         logger.debug("error", "Failed to fetch updated files:", { error });
-                    //         // Continue with empty files if fetch fails
-                    //       } else if (fileData) {
-                    //         // Convert array to dictionary
-                    //         fetchedFiles = fileData.reduce((acc, file) => {
-                    //           acc[file.name] = file;
-                    //           return acc;
-                    //         }, {} as Record<string, PrototypeFile>);
-                    //       }
-                    //     }
-
-                    //     // Update files with fetched data and deleted files
-                    //     onFilesUpdate({
-                    //       updatedFiles: fetchedFiles,
-                    //       deletedFiles: deletedFileNames,
-                    //       applyUpdatesToServer: false,
-                    //     });
-                    //   } catch (fetchError) {
-                    //     logger.debug("error", "Error in files_synced handler:", { fetchError });
-                    //     // Continue with empty files if anything fails
-                    //     onFilesUpdate({
-                    //       updatedFiles: {},
-                    //       deletedFiles: deletedFileNames,
-                    //       applyUpdatesToServer: false,
-                    //     });
-                    //   }
-                    // }
-                    break;
-
-                  case "dispatch_error":
-                    setMessages((prev) => [
-                      ...prev,
-                      {
-                        role: "assistant",
-                        content: `⚠️ **Preview Update Failed:** There was a problem updating the live preview.`,
-                      },
-                    ]);
-                    logger.debug("error", "Dispatch error from server:", {
-                      event,
-                    });
-                    break;
-
-                  case "error":
-                    setMessages((prev) => [
-                      ...prev,
-                      {
-                        role: "assistant",
-                        content: `❌ **Error:** ${String(event.error || "Unknown error")}`,
-                      },
-                    ]);
-                    break;
-                }
-              } catch (parseError) {
-                logger.debug("error", "Failed to parse SSE event:", {
-                  line,
-                  parseError,
-                });
-              }
-            }
-          }
+          // Append decoded text; { stream:true } preserves partial UTF-8 sequences
+          const text = decoder
+            .decode(value, { stream: true })
+            .replace(/\r\n/g, "\n");
+          buffer += text;
+          await processBuffer();
         }
+        // Final flush: drain any remaining decoder bytes and process once more
+        buffer += decoder.decode(); // no args -> flush
+        buffer = buffer.replace(/\r\n/g, "\n");
+        await processBuffer();
       } catch (streamError) {
         logger.debug("error", "Stream processing error:", {
           error:
@@ -522,7 +503,7 @@ export default function PrototypeChatWindow({
         reader.releaseLock();
       }
     },
-    [onFilesUpdate, onViewingUrlUpdate, logger, prototypeId],
+    [onFilesUpdate, onViewingUrlUpdate, logger],
   );
 
   // Calculate limits based on subscription plan
