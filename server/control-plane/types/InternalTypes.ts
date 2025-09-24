@@ -42,6 +42,13 @@ export interface ActiveBuild {
   last_touched: number;
 }
 
+export interface IdleBuild {
+  fargate_task_arn: string;
+  fargate_private_ip: string;
+  status: BuildStatus;
+}
+export type IdleContainerStatus = 'ready' | 'creating';
+
 export interface FargateInstanceInfo {
   taskArn: string;
   privateIp: string;
