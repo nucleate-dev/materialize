@@ -1,6 +1,7 @@
 import {
   DescribeTasksCommand,
   RunTaskCommand,
+  StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
 import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
@@ -78,43 +79,95 @@ export class IdleContainerAllocationSystem {
   private async ensureIdleCapacity(): Promise<void> {
     const currentIdle = await this.cache.llen('idle_builds:list');
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
-    if (toCreate <= 0) return;
+    if (toCreate === 0) return;
+    else if (toCreate < 0) {
+      // TODO cleanup idle builds till we have only MAX_IDLE_FARGATE_BUILDS idle builds
+      return;
+    } else {
+      this.log2.info(
+        `[IdleAlloc] Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
+      );
 
-    this.log2.info(
-      `[IdleAlloc] Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
-    );
-
-    await Promise.all(
-      Array.from({ length: toCreate }, () => this.launchIdleContainer()),
-    );
+      await Promise.all(
+        Array.from({ length: toCreate }, () => this.launchIdleContainer()),
+      );
+    }
   }
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
-  private async launchIdleContainer(): Promise<void> {}
+  private async launchIdleContainer(): Promise<void> {
+    let taskArn: string;
+    try {
+      taskArn = await this.launchFargateInstanceNotReady(this.log2);
+    } catch (error) {
+      this.log2.error(error, 'Failed to launch idle container');
+      return;
+    }
 
-  /** Wait until ECS says task is RUNNING, then cache as ready */
-  private async waitForTaskReadyAndStoreIdleBuildInCache(
-    taskArn: string,
-  ): Promise<FargateInstanceInfo> {
+    // Immediately add placeholder entry in cache
+    const idleKey = `idle_builds:${taskArn}`;
+    try {
+      await this.cache.hset(idleKey, {
+        fargate_task_arn: taskArn,
+        fargate_private_ip: '',
+        status: 'creating',
+      });
+    } catch (error) {
+      this.log2.error(
+        error,
+        'Failed to set initial idle container state in cache',
+      );
+      // If we can't write to cache, terminate the task to avoid leaks
+      await this.terminateFargateTask(taskArn);
+      return;
+    }
+
+    // Wait for container to become ready
     const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
       taskArn,
     );
+
     if (!privateIp) {
-      // TODO
-      return {
-        taskArn,
-        privateIp: 'DNE',
-      };
+      this.log2.error('Failed to get private IP for idle container');
+      await this.terminateFargateTask(taskArn);
+      await this.cache.del([idleKey]);
+      return;
     }
-    await this.cache.hset(`idle_build:${taskArn}`, {
-      taskArn,
-      status: 'ready',
-      privateIp,
-    });
-    return {
-      taskArn,
-      privateIp: 'DNE',
-    };
+
+    // Update entry to ready
+    try {
+      await this.cache.hset(idleKey, {
+        fargate_task_arn: taskArn,
+        fargate_private_ip: privateIp,
+        status: 'ready',
+      });
+      this.log2.info('Idle container launched and marked ready', {
+        taskArn,
+        privateIp,
+      });
+    } catch (error) {
+      this.log2.error(
+        error,
+        'Failed to update idle container state to ready in cache, deleting and cleaning up fargate task',
+      );
+      await this.terminateFargateTask(taskArn);
+      await this.cache.del([idleKey]);
+    }
+  }
+
+  /** Helper to terminate a Fargate task */
+  private async terminateFargateTask(taskArn: string): Promise<void> {
+    try {
+      const command = new StopTaskCommand({
+        cluster: process.env.ECS_CLUSTER_NAME!,
+        task: taskArn,
+        reason: 'Idle container cleanup',
+      });
+      await this.ecsClient.send(command);
+      this.log2.info('Terminated Fargate task', { taskArn });
+    } catch (error) {
+      this.log2.error(error, 'Failed to terminate Fargate task');
+    }
   }
 
   // Returns the task arn
