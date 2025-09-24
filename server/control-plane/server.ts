@@ -154,15 +154,20 @@ const start = async (): Promise<void> => {
     cleanupService = new CleanupService(cacheClient, ecsClient);
 
     // Create idle container allocation system service
-    idleContainerAllocationSystemService = new IdleContainerAllocationSystemService({
-      redis: cacheClient,
-      ecsClient: ecsClient,
-      log2: baseLogger,
-    });
-    await idleContainerAllocationSystemService.init();
+    idleContainerAllocationSystemService =
+      new IdleContainerAllocationSystemService({
+        redis: cacheClient,
+        ecsClient: ecsClient,
+        log2: baseLogger,
+      });
 
     // Create dispatcher service with initialized clients and register routes
-    dispatcherService = new DispatcherService(cacheClient, ecsClient, fastify, idleContainerAllocationSystemService);
+    dispatcherService = new DispatcherService(
+      cacheClient,
+      ecsClient,
+      fastify,
+      idleContainerAllocationSystemService,
+    );
     dispatcherService.registerRoutes(fastify);
 
     // Create stripe management service and register routes

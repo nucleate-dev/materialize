@@ -33,11 +33,11 @@ export class IdleContainerAllocationSystemService {
     this.log2 = opts.log2.child({
       route: 'IdleContainerAllocationSystemService',
     });
+    this.init();
   }
 
   /** Initialize idle pool and start maintenance loop */
   public async init(): Promise<void> {
-    await this.ensureIdleCapacity();
     this.maintenanceTimer = setInterval(
       () =>
         this.ensureIdleCapacity().catch((e) =>
@@ -45,6 +45,7 @@ export class IdleContainerAllocationSystemService {
         ),
       5 * 60 * 1000, // every 5 minutes
     );
+    await this.ensureIdleCapacity();
   }
 
   public shutdown(): void {
