@@ -164,7 +164,6 @@ const start = async (): Promise<void> => {
     // Create dispatcher service with initialized clients and register routes
     dispatcherService = new DispatcherService(
       cacheClient,
-      ecsClient,
       fastify,
       idleContainerAllocationSystemService,
     );

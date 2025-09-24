@@ -1,9 +1,3 @@
-import {
-  DescribeTasksCommand,
-  ECSClient,
-  RunTaskCommand,
-  waitUntilTasksRunning,
-} from '@aws-sdk/client-ecs';
 import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
@@ -48,19 +42,16 @@ import { IdleContainerAllocationSystemService } from './IdleContainerAllocationS
 dotenv.config();
 
 export class DispatcherService {
-  private ecsClient: ECSClient;
   private cache: GlideClient;
   private fastifyApp: FastifyInstance;
   private idleContainerAllocationSystem: IdleContainerAllocationSystemService;
 
   constructor(
     cache: GlideClient,
-    ecsClient: ECSClient,
     fastifyApp: FastifyInstance,
     idleContainerAllocationSystem: IdleContainerAllocationSystemService,
   ) {
     this.cache = cache;
-    this.ecsClient = ecsClient;
     this.fastifyApp = fastifyApp;
     this.idleContainerAllocationSystem = idleContainerAllocationSystem;
   }
@@ -255,13 +246,8 @@ export class DispatcherService {
 
       let activeBuildKey: string;
       let updatedBuildCacheData: ActiveBuild;
-
       if (shouldCreateNewBuild) {
         request.log2.consoleLogDevOnly('info', 'Creating new build');
-        const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        activeBuildKey = CACHE_KEYS.activeBuild(buildId);
         const newBuildCacheData: ActiveBuild = {
           fargate_task_arn: '',
           fargate_private_ip: '',
@@ -269,48 +255,21 @@ export class DispatcherService {
           status: 'creating',
           last_touched: currentTime,
         };
-
-        // Set the new build as active
-        await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
-        // Update current pointer
-        await this.cache.set(
-          CACHE_KEYS.protoCurrentBuild(prototype_id),
-          buildId,
-        );
-        // Add to builds ZSET
-        await this.cache.customCommand([
-          'ZADD',
-          CACHE_KEYS.protoBuilds(prototype_id),
-          currentTime.toString(),
-          buildId,
-        ]);
-        request.log2.consoleLogDevOnly(
-          'info',
-          'Creating a new build. Setting cache data:',
-          {
-            activeBuildData: newBuildCacheData,
-            currentBuildPointer: buildId,
-            buildSetAddition: {
-              timestamp: currentTime.toString(),
-              buildId: buildId,
-            },
-          },
+        activeBuildKey = await this.setNewBuildCacheData(
+          prototype_id,
+          currentTime,
+          newBuildCacheData,
         );
         const newFargateInstance = await request.log2.time(
           LatencyEvents.launch_fargate_instance_latency,
           async (): Promise<FargateInstanceInfo> => {
-            return await this.launchFargateInstance(
+            return await this.idleContainerAllocationSystem.allocateFargateDevServer(
               prototype_id,
-              request.log2,
               activeBuildKey,
               newBuildCacheData,
             );
           },
         );
-        request.log2.info('Successfully launched new fargate instance: ', {
-          newFargateInstance,
-        });
-
         updatedBuildCacheData = {
           ...newBuildCacheData,
           status: 'updating',
@@ -333,14 +292,12 @@ export class DispatcherService {
           });
         }
         const existingBuild: ActiveBuild = parsedBuild;
-
         updatedBuildCacheData = {
           ...existingBuild,
           status: 'updating',
           last_touched: currentTime,
         };
       }
-
       await this.cache.set(
         activeBuildKey,
         JSON.stringify(updatedBuildCacheData),
@@ -358,7 +315,6 @@ export class DispatcherService {
         file_scope,
         log2: request.log2,
       });
-
       try {
         request.log2.info(
           `Dispatching request to fargate instance at ${updatedBuildCacheData.fargate_private_ip}:3002/dev-server: `,
@@ -461,6 +417,29 @@ export class DispatcherService {
         } as StandardErrorResponse,
       });
     }
+  }
+
+  private async setNewBuildCacheData(
+    prototype_id: string,
+    currentTime: number,
+    newBuildCacheData: ActiveBuild,
+  ): Promise<string> {
+    const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+    const activeBuildKey = CACHE_KEYS.activeBuild(buildId);
+    // Set the new build as active
+    await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
+    // Update current pointer
+    await this.cache.set(CACHE_KEYS.protoCurrentBuild(prototype_id), buildId);
+    // Add to builds ZSET
+    await this.cache.customCommand([
+      'ZADD',
+      CACHE_KEYS.protoBuilds(prototype_id),
+      currentTime.toString(),
+      buildId,
+    ]);
+    return activeBuildKey;
   }
 
   private async handleDispatchEditIntent(
@@ -650,122 +629,6 @@ export class DispatcherService {
           message: e.message,
         } as DispatchPrecheckErrorResponse,
       });
-    }
-  }
-
-  private async launchFargateInstance(
-    prototypeId: string,
-    log2: SystemLogger,
-    activeBuildKey: string,
-    newBuildCacheData: ActiveBuild,
-  ): Promise<FargateInstanceInfo> {
-    try {
-      const runTaskInput = {
-        cluster: process.env.ECS_CLUSTER_NAME!,
-        taskDefinition: 'fastify-build-worker',
-        launchType: 'FARGATE' as const,
-        networkConfiguration: {
-          awsvpcConfiguration: {
-            subnets: process.env.ECS_SUBNETS?.split(',') || [],
-            securityGroups: process.env.ECS_SECURITY_GROUPS?.split(',') || [],
-            assignPublicIp: 'ENABLED' as const,
-          },
-        },
-        overrides: {
-          containerOverrides: [
-            {
-              name: 'materialize-fargate-build-worker-container',
-              environment: [
-                {
-                  name: 'PROTOTYPE_ID',
-                  value: prototypeId,
-                },
-                {
-                  name: 'AWS_REGION',
-                  value: process.env.AWS_REGION!,
-                },
-              ],
-            },
-          ],
-        },
-        tags: [
-          {
-            key: 'PrototypeId',
-            value: prototypeId,
-          },
-          {
-            key: 'Service',
-            value: 'materialize-build-worker',
-          },
-        ],
-      };
-
-      const command = new RunTaskCommand(runTaskInput);
-      const response = await this.ecsClient.send(command);
-
-      if (response.tasks && response.tasks.length > 0) {
-        // save taskArn to the cache immediately to prevent case where server/request fails before cache is updated
-        // this edge case could result in an eternally running fargate task
-        const taskArn = response.tasks[0].taskArn!;
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify({
-            ...newBuildCacheData,
-            fargate_task_arn: taskArn,
-          }),
-        );
-        log2.info(
-          `[launchFargateInstance] Successfully initiated Fargate Task Launch, saving arn`,
-          {
-            taskArn,
-          },
-        );
-
-        // Wait for task to be running and get private IP
-        await waitUntilTasksRunning(
-          {
-            client: this.ecsClient,
-            maxWaitTime: BUILD_TIMEOUTS.FARGATE_LAUNCH_TIMEOUT,
-          },
-          {
-            cluster: process.env.ECS_CLUSTER_NAME!,
-            tasks: [taskArn],
-          },
-        );
-        const describeCommand = new DescribeTasksCommand({
-          cluster: process.env.ECS_CLUSTER_NAME!,
-          tasks: [taskArn],
-        });
-        const describeResponse = await this.ecsClient.send(describeCommand);
-        const task = describeResponse.tasks?.[0];
-        const eni = task?.attachments?.[0]?.details?.find(
-          (detail) => detail.name === 'networkInterfaceId',
-        )?.value;
-        let privateIp = '';
-        if (eni) {
-          const privateIpDetail = task?.attachments?.[0]?.details?.find(
-            (detail) => detail.name === 'privateIPv4Address',
-          );
-          privateIp = privateIpDetail?.value || '';
-        }
-        log2.consoleLogDevOnly(
-          'info',
-          `[launchFargateInstance] ECS client informed us that the task is running`,
-          {
-            privateIp,
-          },
-        );
-        return { taskArn, privateIp };
-      } else {
-        throw new Error('No task was created');
-      }
-    } catch (error) {
-      log2.error(error, 'Failed to launch Fargate task:');
-      throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
     }
   }
 
