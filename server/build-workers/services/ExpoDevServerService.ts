@@ -1851,15 +1851,6 @@ export class ExpoDevServerService {
         true,
         `index.html: ${hasIndexHtml}, assets: ${hasAssets}`,
       );
-
-      if (!hasIndexHtml) {
-        logger.log(
-          "Build output warning",
-          false,
-          "",
-          "index.html not found in build output",
-        );
-      }
     } catch (error) {
       logger.log(
         "Verify build output",
