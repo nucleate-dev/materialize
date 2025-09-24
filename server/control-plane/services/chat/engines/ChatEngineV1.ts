@@ -568,8 +568,6 @@ export class ChatEngineV1 {
       // This async function will handle streaming all parts of the multi-step call
       const processStream = async (): Promise<void> => {
         for await (const part of result.fullStream) {
-          log2.info('Stream Part', { part });
-
           switch (part.type) {
             case 'text-delta':
               // Accumulate and stream the final text response
@@ -711,11 +709,14 @@ export class ChatEngineV1 {
         fileManager instanceof VirtualFileManager &&
         fileManager.hasChanges()
       ) {
+        params.log2.info('Sending the files back to the client first: ', {
+          updatedFiles: Object.keys(fileManager.getAllFilesForDispatch()),
+        });
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'files_synced',
-              updatedFilesObject: fileManager.files,
+              updatedFilesObject: fileManager.getAllFilesForDispatch(),
               deletedFiles: fileManager.getDeletedFiles(),
             })}\n\n`,
           ),
