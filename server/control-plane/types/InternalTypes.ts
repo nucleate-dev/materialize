@@ -45,7 +45,7 @@ export interface ActiveBuild {
 export interface IdleBuild {
   fargate_task_arn: string;
   fargate_private_ip: string;
-  status: BuildStatus;
+  status: IdleContainerStatus;
 }
 export type IdleContainerStatus = 'ready' | 'creating';
 

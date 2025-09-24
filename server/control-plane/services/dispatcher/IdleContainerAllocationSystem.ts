@@ -8,12 +8,16 @@ import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import { GlideClient } from '@valkey/valkey-glide';
 import {
+  ActiveBuild,
   BUILD_TIMEOUTS,
   FargateInstanceInfo,
+  IdleBuild,
+  IdleContainerStatus,
 } from '../../types/InternalTypes.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
-export class IdleContainerAllocationSystem {
+
+export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;
   private readonly ecsClient: ECSClient;
   private readonly log2: SystemLogger;
@@ -27,7 +31,7 @@ export class IdleContainerAllocationSystem {
     this.cache = opts.redis;
     this.ecsClient = opts.ecsClient;
     this.log2 = opts.log2.child({
-      route: 'IdleContainerAllocationSystem',
+      route: 'IdleContainerAllocationSystemService',
     });
   }
 
@@ -41,6 +45,10 @@ export class IdleContainerAllocationSystem {
         ),
       5 * 60 * 1000, // every 5 minutes
     );
+  }
+
+  public shutdown(): void {
+    if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
   }
 
   private async ensureIdleCapacity(): Promise<void> {
@@ -91,38 +99,92 @@ export class IdleContainerAllocationSystem {
   }
 
   /** Dispatcher calls this to get a ready container for a prototype */
-  //   public async allocateFargateDevServer(
-  //     prototypeId: string,
-  //   ): Promise<FargateInstanceInfo> {
-  //     const taskArn = await this.cache.lpop('idle_builds:list');
-  //     if (!taskArn) {
-  //       this.log2.info('[IdleAlloc] No idle build available, launching fresh');
-  //       return this.launchAndWait(prototypeId);
-  //     }
+  /** Dispatcher calls this to get a ready container for a prototype */
+  public async allocateFargateDevServer(
+    prototypeId: string,
+    activeBuildKey: string,
+    newBuildCacheData: ActiveBuild,
+  ): Promise<FargateInstanceInfo> {
+    // 1. Try to pop an idle container from the pool
+    const taskArn = (await this.cache.lpop('idle_builds:list')) as  // NOTE: this is an atomic operation
+      | string
+      | null;
 
-  //     const idleKey = `idle_build:${taskArn}`;
-  //     const build = await this.cache.hgetall(idleKey);
+    // 2. No idle containers found. Fallback to direct launch and replenish in background
+    if (!taskArn) {
+      if (MAX_IDLE_FARGATE_BUILDS > 0) {
+        // background replenish
+        this.launchIdleContainer().catch((err) =>
+          this.log2.error(
+            err,
+            '[ContainerAlloc] Failed to replenish idle container',
+          ),
+        );
+      }
+      const info = await this.launchFargateInstanceForDispatcherDirectly(
+        prototypeId,
+        this.log2,
+        activeBuildKey,
+        newBuildCacheData,
+      );
+      return info;
+    }
 
-  //     let info: FargateInstanceInfo;
-  //     if (build.status === 'ready') {
-  //       info = { taskArn: build.taskArn, privateIp: build.privateIp };
-  //       await this.cache.del(idleKey);
-  //       this.ensureIdleCapacity().catch((e) => this.log2.error(e));
-  //     } else if (build.status === 'creating') {
-  //       info = await this.waitForTaskReady(taskArn);
-  //       await this.cache.del(idleKey);
-  //       this.ensureIdleCapacity().catch((e) => this.log2.error(e));
-  //     } else {
-  //       throw new Error(`Idle build had unknown status: ${build.status}`);
-  //     }
+    // 3. We got an idle container reference. Retrieve data from cache and remove from cache
+    const idleKey = `idle_builds:${taskArn}`;
+    const taskData = await this.hgetallAsIdleBuild(idleKey);
+    await this.cache.del([idleKey]);
 
-  //     // Assign real prototypeId to this container
-  //     await this.assignPrototypeToTask(info, prototypeId);
+    // 4. If the idle container is not usable, clean it up in the background and fallback to direct launch
+    if (!taskData || !taskData.fargate_private_ip) {
+      this.log2.warn(
+        `[ContainerAlloc] Idle container ${taskArn} missing metadata, falling back to direct launch`,
+      );
+      this.terminateFargateTask(taskArn); // in background do not await
+      return await this.launchFargateInstanceForDispatcherDirectly(
+        prototypeId,
+        this.log2,
+        activeBuildKey,
+        newBuildCacheData,
+      );
+    }
 
-  //     return info;
-  //   }
+    // 5. Assign idle container to prototype
+    let privateIp: string = '';
+    if (taskData.status === 'creating') {
+      // Status = "creating" → wait until container is ready, then assign prototype
+      this.log2.info(
+        `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating`,
+      );
+      privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+        taskArn,
+      );
+    } else if (taskData.status === 'ready') {
+      privateIp = taskData.fargate_private_ip;
+    }
 
-  /** Internal: ensure we always have maxIdle in the pool */
+    if (!privateIp) {
+      // clean up unusable container and fallback to direct launch
+      this.log2.error(
+        new Error('failed to get private IP for idle container'),
+        `[ContainerAlloc] Idle container ${taskArn} failed to get private IP`,
+      );
+      this.terminateFargateTask(taskArn);
+      return this.launchFargateInstanceForDispatcherDirectly(
+        prototypeId,
+        this.log2,
+        activeBuildKey,
+        newBuildCacheData,
+      );
+    }
+    const info = { taskArn, privateIp };
+    await this.assignPrototypeToTask(info, prototypeId);
+    // Replenish idle pool in background
+    this.launchIdleContainer().catch((err) =>
+      this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
+    );
+    return info;
+  }
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
@@ -142,6 +204,7 @@ export class IdleContainerAllocationSystem {
         fargate_private_ip: '',
         status: 'creating',
       });
+      await this.cache.lpush('idle_builds:list', [taskArn]);
     } catch (error) {
       this.log2.error(
         error,
@@ -156,16 +219,22 @@ export class IdleContainerAllocationSystem {
     const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
       taskArn,
     );
-
     if (!privateIp) {
       this.log2.error('Failed to get private IP for idle container');
       await this.terminateFargateTask(taskArn);
       await this.cache.del([idleKey]);
       return;
     }
-
     // Update entry to ready
     try {
+      const exists = await this.cache.exists([idleKey]);
+      if (!exists) {
+        this.log2.info(
+          'Idle container Fargate Task is ready, but idle container is already popped from the cache for use',
+          { idleKey },
+        );
+        return;
+      }
       await this.cache.hset(idleKey, {
         fargate_task_arn: taskArn,
         fargate_private_ip: privateIp,
@@ -175,6 +244,7 @@ export class IdleContainerAllocationSystem {
         taskArn,
         privateIp,
       });
+      return;
     } catch (error) {
       this.log2.error(
         error,
@@ -182,6 +252,7 @@ export class IdleContainerAllocationSystem {
       );
       await this.terminateFargateTask(taskArn);
       await this.cache.del([idleKey]);
+      return;
     }
   }
 
@@ -200,13 +271,49 @@ export class IdleContainerAllocationSystem {
     }
   }
 
+  public async launchFargateInstanceForDispatcherDirectly(
+    prototypeId: string,
+    log2: SystemLogger,
+    activeBuildKey: string,
+    newBuildCacheData: ActiveBuild,
+  ): Promise<FargateInstanceInfo> {
+    try {
+      const taskArn = await this.launchFargateInstanceNotReady(
+        log2,
+        prototypeId,
+      );
+      await this.cache.set(
+        activeBuildKey,
+        JSON.stringify({
+          ...newBuildCacheData,
+          fargate_task_arn: taskArn,
+        }),
+      );
+      const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+        taskArn,
+      );
+      if (!privateIp) {
+        throw new Error('Failed to get private IP for idle container');
+      }
+      return { taskArn, privateIp };
+    } catch (error) {
+      log2.error(error, 'Failed to launch Fargate task:');
+      throw new Error(
+        `Failed to launch Fargate instance: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+    }
+  }
+
   // Returns the task arn
   private async launchFargateInstanceNotReady(
     log2: SystemLogger,
+    prototypeId: string | null = null,
   ): Promise<string> {
     try {
       const command = new RunTaskCommand(
-        this.getFargateRunTaskCommandConfiguration(),
+        this.getFargateRunTaskCommandConfiguration(prototypeId),
       );
       const response = await this.ecsClient.send(command);
       if (!response.tasks || response.tasks.length === 0) {
@@ -228,7 +335,7 @@ export class IdleContainerAllocationSystem {
   // Return the Fargate private IP
   private async waitForFargateTaskToBeReadyAndGetPrivateIP(
     taskArn: string,
-  ): Promise<string | null> {
+  ): Promise<string> {
     // Wait for task to be running and get private IP
     await waitUntilTasksRunning(
       {
@@ -249,14 +356,16 @@ export class IdleContainerAllocationSystem {
     const eni = task?.attachments?.[0]?.details?.find(
       (detail) => detail.name === 'networkInterfaceId',
     )?.value;
-    if (!eni) return null;
+    if (!eni) return '';
     const privateIpDetail = task?.attachments?.[0]?.details?.find(
       (detail) => detail.name === 'privateIPv4Address',
     );
     return privateIpDetail?.value || '';
   }
 
-  private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
+  private getFargateRunTaskCommandConfiguration(
+    prototypeId: string | null = null,
+  ): RunTaskCommandInput {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition: 'fastify-build-worker',
@@ -275,7 +384,7 @@ export class IdleContainerAllocationSystem {
             environment: [
               {
                 name: 'PROTOTYPE_ID',
-                value: 'idle',
+                value: prototypeId || 'idle',
               },
               {
                 name: 'AWS_REGION',
@@ -288,13 +397,34 @@ export class IdleContainerAllocationSystem {
       tags: [
         {
           key: 'PrototypeId',
-          value: 'idle',
+          value: prototypeId || 'idle',
         },
         {
           key: 'Service',
           value: 'materialize-build-worker',
         },
       ],
+    };
+  }
+
+  private async hgetallAsIdleBuild(key: string): Promise<IdleBuild | null> {
+    const raw = await this.cache.hgetall(key);
+
+    if (!raw || raw.length === 0) return null;
+
+    const obj = Object.fromEntries(
+      raw.map(
+        (e: {
+          field: { toString(): string };
+          value: { toString(): string };
+        }) => [e.field.toString(), e.value.toString()],
+      ),
+    ) as Record<string, string>;
+
+    return {
+      fargate_task_arn: obj.fargate_task_arn,
+      fargate_private_ip: obj.fargate_private_ip,
+      status: obj.status as IdleContainerStatus,
     };
   }
 
