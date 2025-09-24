@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable */
 "use client";
 
 import { supabase } from "@/ClientConstants";
@@ -82,7 +82,7 @@ export default function ChatTestPage() {
   // Chat state
   const [chatSession, setChatSession] = useState<string>(uuidv4());
   const [serverEndpoint, setServerEndpoint] = useState(
-    process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_SERVER_ENDPOINT || "http://localhost:3000",
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState("");
@@ -97,7 +97,10 @@ export default function ChatTestPage() {
   const [showFileTree, setShowFileTree] = useState(true); // Show files by default
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
 
-  const addRequestLog = (type: "request" | "response" | "error", data: unknown) => {
+  const addRequestLog = (
+    type: "request" | "response" | "error",
+    data: unknown,
+  ) => {
     const log: RequestLog = {
       id: uuidv4(),
       timestamp: new Date(),
@@ -295,7 +298,7 @@ export default function ChatTestPage() {
 
       // Read the stream
       const readStream = async () => {
-        let assistantBuffer = ''; // Buffer for streaming deltas
+        let assistantBuffer = ""; // Buffer for streaming deltas
 
         try {
           while (true) {
@@ -311,66 +314,114 @@ export default function ChatTestPage() {
                 addSSEEvent("data", data, line);
 
                 try {
-                  const event: ChatStreamEvent = JSON.parse(data);
+                  let event: {
+                    type: string;
+                    content?: string;
+                    tool?: string;
+                    toolName?: string;
+                    result?: {
+                      plan?: string[];
+                      step?: number;
+                      summary?: string;
+                      updatedFiles?: Record<string, PrototypeFile>;
+                    };
+                    updatedFiles?: string[] | Record<string, PrototypeFile>;
+                    updatedFilesObject?: Record<string, PrototypeFile>;
+                    deletedFiles?: string[];
+                    error?: string;
+                    messageCount?: number;
+                    viewing_url?: string;
+                  } = JSON.parse(data);
 
                   // Handle different event types
                   switch (event.type) {
                     case "chat_response_delta":
                       // Handle streaming text deltas
-                      const delta = (event as any).content || '';
+                      const delta = (event as any).content || "";
                       assistantBuffer += delta;
 
                       // Render progressively: append to last assistant message or create new one
-                      setMessages(prev => {
+                      setMessages((prev) => {
                         const last = prev[prev.length - 1];
-                        if (last?.role === 'assistant') {
+                        if (last?.role === "assistant") {
                           const copy = [...prev];
-                          copy[copy.length - 1] = { ...last, content: (last.content || '') + delta };
+                          copy[copy.length - 1] = {
+                            ...last,
+                            content: (last.content || "") + delta,
+                          };
                           return copy;
                         }
-                        return [...prev, { role: 'assistant', content: delta }];
+                        return [...prev, { role: "assistant", content: delta }];
                       });
                       break;
 
                     case "chat_response":
                       // Handle final response (use buffer if content is empty)
-                      const finalContent = (event as any).content || assistantBuffer;
+                      const finalContent =
+                        (event as any).content || assistantBuffer;
                       if (finalContent) {
-                        setMessages(prev => {
+                        setMessages((prev) => {
                           const last = prev[prev.length - 1];
-                          if (last?.role === 'assistant') {
+                          if (last?.role === "assistant") {
                             const copy = [...prev];
-                            copy[copy.length - 1] = { ...last, content: finalContent };
+                            copy[copy.length - 1] = {
+                              ...last,
+                              content: finalContent,
+                            };
                             return copy;
                           }
-                          return [...prev, { role: 'assistant', content: finalContent }];
+                          return [
+                            ...prev,
+                            { role: "assistant", content: finalContent },
+                          ];
                         });
                       }
-                      assistantBuffer = ''; // Reset buffer
+                      assistantBuffer = ""; // Reset buffer
                       break;
 
                     case "tool_call":
                       // Show that a tool is being called as a chat message
-                      const toolName = (event as any).tool || (event as any).toolName || 'Unknown tool';
-                      setMessages(prev => {
+                      const toolName =
+                        (event as any).tool ||
+                        (event as any).toolName ||
+                        "Unknown tool";
+                      setMessages((prev) => {
                         const last = prev[prev.length - 1];
-                        if (last?.role === 'assistant') {
+                        if (last?.role === "assistant") {
                           const copy = [...prev];
-                          copy[copy.length - 1] = { ...last, content: `🔧 **Using ${toolName}**...` };
+                          copy[copy.length - 1] = {
+                            ...last,
+                            content: `🔧 **Using ${toolName}**...`,
+                          };
                           return copy;
                         }
-                        return [...prev, { role: 'assistant', content: `🔧 **Using ${toolName}**...` }];
+                        return [
+                          ...prev,
+                          {
+                            role: "assistant",
+                            content: `🔧 **Using ${toolName}**...`,
+                          },
+                        ];
                       });
                       break;
 
                     case "tool_result":
                       // Show tool completion in chat
-                      const toolName2 = (event as any).tool || (event as any).toolName || 'Tool';
-                      setMessages(prev => {
+                      const toolName2 =
+                        (event as any).tool ||
+                        (event as any).toolName ||
+                        "Tool";
+                      setMessages((prev) => {
                         const last = prev[prev.length - 1];
-                        if (last?.role === 'assistant' && last.content.includes('🔧')) {
+                        if (
+                          last?.role === "assistant" &&
+                          last.content.includes("🔧")
+                        ) {
                           const copy = [...prev];
-                          copy[copy.length - 1] = { ...last, content: `✅ **${toolName2}** completed` };
+                          copy[copy.length - 1] = {
+                            ...last,
+                            content: `✅ **${toolName2}** completed`,
+                          };
                           return copy;
                         }
                         return prev;
@@ -379,7 +430,7 @@ export default function ChatTestPage() {
 
                     case "chat_complete":
                       // Chat is finished
-                      assistantBuffer = ''; // Reset buffer
+                      assistantBuffer = ""; // Reset buffer
                       break;
 
                     case "usage_update":
@@ -391,11 +442,11 @@ export default function ChatTestPage() {
                       // Show execution plan in chat
                       const plan = (event as any).result?.plan;
                       if (plan && Array.isArray(plan)) {
-                        setMessages(prev => [
+                        setMessages((prev) => [
                           ...prev,
                           {
-                            role: 'assistant',
-                            content: `📋 **Execution Plan Created:**\n${plan.map((step, i) => `${i + 1}. ${step}`).join('\n')}`,
+                            role: "assistant",
+                            content: `📋 **Execution Plan Created:**\n${plan.map((step, i) => `${i + 1}. ${step}`).join("\n")}`,
                           },
                         ]);
                       }
@@ -406,10 +457,10 @@ export default function ChatTestPage() {
                       const stepNum = (event as any).result?.step;
                       const summary = (event as any).result?.summary;
                       if (stepNum && summary) {
-                        setMessages(prev => [
+                        setMessages((prev) => [
                           ...prev,
                           {
-                            role: 'assistant',
+                            role: "assistant",
                             content: `✅ **Step ${stepNum} Complete:** ${summary}`,
                           },
                         ]);
@@ -440,14 +491,19 @@ export default function ChatTestPage() {
                     case "execution_complete":
                       if ((event as any).updatedFiles) {
                         fileSystem.applyAndPersistFileUpdates({
-                          updatedFiles: (event as any).updatedFiles,
+                          updatedFiles: event.updatedFilesObject as Record<
+                            string,
+                            PrototypeFile
+                          >,
+                          applyUpdatesToServer: true,
                         });
                       }
                       setMessages((prev) => [
                         ...prev,
                         {
                           role: "assistant",
-                          content: "🎉 **Execution Complete!** All operations finished successfully.",
+                          content:
+                            "🎉 **Execution Complete!** All operations finished successfully.",
                         },
                       ]);
                       break;
@@ -482,7 +538,10 @@ export default function ChatTestPage() {
           }
         } catch (streamError) {
           addRequestLog("error", {
-            error: streamError instanceof Error ? streamError.message : String(streamError),
+            error:
+              streamError instanceof Error
+                ? streamError.message
+                : String(streamError),
           });
         } finally {
           setIsConnected(false);
@@ -530,9 +589,13 @@ export default function ChatTestPage() {
       message: "File system state changed",
       prototypeId: prototype?.id,
       filesLoaded: !!fileSystem.state.files,
-      filesCount: fileSystem.state.files ? Object.keys(fileSystem.state.files).length : 0,
+      filesCount: fileSystem.state.files
+        ? Object.keys(fileSystem.state.files).length
+        : 0,
       assetsLoaded: !!fileSystem.state.assets,
-      assetsCount: fileSystem.state.assets ? Object.keys(fileSystem.state.assets).length : 0,
+      assetsCount: fileSystem.state.assets
+        ? Object.keys(fileSystem.state.assets).length
+        : 0,
       selectedFile: fileSystem.state.selectedFile,
       isLoading: fileSystem.state.isLoading,
     };
@@ -543,11 +606,12 @@ export default function ChatTestPage() {
     }
   }, [
     prototype?.id,
-    !!fileSystem.state.files,
+    fileSystem.state.files,
     fileSystem.state.files ? Object.keys(fileSystem.state.files).length : 0,
-    !!fileSystem.state.assets,
+    fileSystem.state.assets,
     fileSystem.state.assets ? Object.keys(fileSystem.state.assets).length : 0,
     fileSystem.state.isLoading,
+    fileSystem.state.selectedFile,
   ]);
 
   const exportSession = () => {
@@ -582,15 +646,23 @@ export default function ChatTestPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">ChatEngine Test</h1>
-            <p className="text-muted-foreground">Test the chat API with real prototypes</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              ChatEngine Test
+            </h1>
+            <p className="text-muted-foreground">
+              Test the chat API with real prototypes
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={exportSession} variant="outline" size="sm">
               <ClipboardDocumentIcon className="w-4 h-4 mr-2" />
               Export Session
             </Button>
-            <Button onClick={() => setShowClearChatDialog(true)} variant="outline" size="sm">
+            <Button
+              onClick={() => setShowClearChatDialog(true)}
+              variant="outline"
+              size="sm"
+            >
               <TrashIcon className="w-4 h-4 mr-2" />
               Clear Chat
             </Button>
@@ -677,9 +749,11 @@ export default function ChatTestPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <div
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"}`}
+                  />
                   <span className="text-sm text-muted-foreground">
-                    {isConnected ? 'Connected' : 'Disconnected'}
+                    {isConnected ? "Connected" : "Disconnected"}
                   </span>
                 </div>
               </CardContent>
@@ -697,37 +771,70 @@ export default function ChatTestPage() {
                 {prototype ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${fileSystem.state.files ? 'bg-green-500' : 'bg-yellow-500'
-                        }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          fileSystem.state.files
+                            ? "bg-green-500"
+                            : "bg-yellow-500"
+                        }`}
+                      />
                       <span className="text-sm">
-                        Files: {fileSystem.state.files ? Object.keys(fileSystem.state.files).length : 'Loading...'}
+                        Files:{" "}
+                        {fileSystem.state.files
+                          ? Object.keys(fileSystem.state.files).length
+                          : "Loading..."}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${fileSystem.state.assets ? 'bg-green-500' : 'bg-yellow-500'
-                        }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          fileSystem.state.assets
+                            ? "bg-green-500"
+                            : "bg-yellow-500"
+                        }`}
+                      />
                       <span className="text-sm">
-                        Assets: {fileSystem.state.assets ? Object.keys(fileSystem.state.assets).length : 'Loading...'}
+                        Assets:{" "}
+                        {fileSystem.state.assets
+                          ? Object.keys(fileSystem.state.assets).length
+                          : "Loading..."}
                       </span>
                     </div>
 
                     {/* Chat readiness indicator */}
                     <div className="p-2 bg-muted rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-2 h-2 rounded-full ${(fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length > 0)
-                          ? 'bg-green-500' : 'bg-red-500'
-                          }`} />
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            fileSystem.state.files &&
+                            fileSystem.state.assets &&
+                            Object.keys(fileSystem.state.files).length > 0
+                              ? "bg-green-500"
+                              : "bg-red-500"
+                          }`}
+                        />
                         <span className="text-sm font-medium">
-                          {(fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length > 0)
-                            ? 'Ready for Chat' : 'Not Ready'}
+                          {fileSystem.state.files &&
+                          fileSystem.state.assets &&
+                          Object.keys(fileSystem.state.files).length > 0
+                            ? "Ready for Chat"
+                            : "Not Ready"}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {!fileSystem.state.files && 'Files not loaded'}
-                        {!fileSystem.state.assets && !fileSystem.state.files && ' | '}
-                        {!fileSystem.state.assets && 'Assets not loaded'}
-                        {fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length === 0 && 'No files found'}
-                        {(fileSystem.state.files && fileSystem.state.assets && Object.keys(fileSystem.state.files).length > 0) && 'All systems ready'}
+                        {!fileSystem.state.files && "Files not loaded"}
+                        {!fileSystem.state.assets &&
+                          !fileSystem.state.files &&
+                          " | "}
+                        {!fileSystem.state.assets && "Assets not loaded"}
+                        {fileSystem.state.files &&
+                          fileSystem.state.assets &&
+                          Object.keys(fileSystem.state.files).length === 0 &&
+                          "No files found"}
+                        {fileSystem.state.files &&
+                          fileSystem.state.assets &&
+                          Object.keys(fileSystem.state.files).length > 0 &&
+                          "All systems ready"}
                       </div>
                     </div>
                   </div>
@@ -740,58 +847,82 @@ export default function ChatTestPage() {
             </Card>
 
             {/* Detailed File List */}
-            {prototype && fileSystem.state.files && Object.keys(fileSystem.state.files).length > 0 && (
-              <Collapsible open={showFileTree} onOpenChange={setShowFileTree}>
-                <Card>
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CodeBracketIcon className="w-5 h-5" />
-                          File Contents ({Object.keys(fileSystem.state.files).length})
-                        </div>
-                        <ChevronDownIcon className="w-4 h-4" />
-                      </CardTitle>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent>
-                      <ScrollArea className="h-80">
-                        <div className="space-y-3">
-                          {Object.entries(fileSystem.state.files).map(([path, file]) => (
-                            <div key={path} className="border rounded-lg p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-mono text-sm font-medium">{path}</div>
-                                <Badge variant="outline" className="text-xs">
-                                  {file.contents ? `${file.contents.length} chars` : 'No content'}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-muted-foreground space-y-1">
-                                <div>ID: {file.id || 'No ID'}</div>
-                                <div>Prototype: {file.prototype_id || 'No prototype ID'}</div>
-                                {file.created_at && (
-                                  <div>Created: {new Date(file.created_at).toLocaleString()}</div>
-                                )}
-                              </div>
-                              {file.contents && (
-                                <details className="mt-2">
-                                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                                    Show content preview
-                                  </summary>
-                                  <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto max-h-32 overflow-y-auto">
-                                    {file.contents.slice(0, 500)}{file.contents.length > 500 && '...'}
-                                  </pre>
-                                </details>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            )}
+            {prototype &&
+              fileSystem.state.files &&
+              Object.keys(fileSystem.state.files).length > 0 && (
+                <Collapsible open={showFileTree} onOpenChange={setShowFileTree}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CodeBracketIcon className="w-5 h-5" />
+                            File Contents (
+                            {Object.keys(fileSystem.state.files).length})
+                          </div>
+                          <ChevronDownIcon className="w-4 h-4" />
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent>
+                        <ScrollArea className="h-80">
+                          <div className="space-y-3">
+                            {Object.entries(fileSystem.state.files).map(
+                              ([path, file]) => (
+                                <div
+                                  key={path}
+                                  className="border rounded-lg p-3"
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="font-mono text-sm font-medium">
+                                      {path}
+                                    </div>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {file.contents
+                                        ? `${file.contents.length} chars`
+                                        : "No content"}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-1">
+                                    <div>ID: {file.id || "No ID"}</div>
+                                    <div>
+                                      Prototype:{" "}
+                                      {file.prototype_id || "No prototype ID"}
+                                    </div>
+                                    {file.created_at && (
+                                      <div>
+                                        Created:{" "}
+                                        {new Date(
+                                          file.created_at,
+                                        ).toLocaleString()}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {file.contents && (
+                                    <details className="mt-2">
+                                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                                        Show content preview
+                                      </summary>
+                                      <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto max-h-32 overflow-y-auto">
+                                        {file.contents.slice(0, 500)}
+                                        {file.contents.length > 500 && "..."}
+                                      </pre>
+                                    </details>
+                                  )}
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
           </div>
 
           {/* Middle Column - Chat */}
@@ -810,10 +941,11 @@ export default function ChatTestPage() {
                     {messages.map((message, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg ${message.role === "user"
-                          ? "bg-primary text-primary-foreground ml-4"
-                          : "bg-muted mr-4"
-                          }`}
+                        className={`p-3 rounded-lg ${
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground ml-4"
+                            : "bg-muted mr-4"
+                        }`}
                       >
                         <div className="text-sm font-medium mb-1">
                           {message.role === "user" ? "You" : "Assistant"}
@@ -838,7 +970,12 @@ export default function ChatTestPage() {
                   <div className="flex gap-2">
                     <Button
                       onClick={handleSendMessage}
-                      disabled={!currentMessage.trim() || !prototype || !fileSystem.state.files || isConnected}
+                      disabled={
+                        !currentMessage.trim() ||
+                        !prototype ||
+                        !fileSystem.state.files ||
+                        isConnected
+                      }
                       className="flex-1"
                     >
                       <PlayIcon className="w-4 h-4 mr-2" />
@@ -921,7 +1058,11 @@ export default function ChatTestPage() {
                           <div key={log.id} className="text-xs">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge
-                                variant={log.type === "error" ? "destructive" : "outline"}
+                                variant={
+                                  log.type === "error"
+                                    ? "destructive"
+                                    : "outline"
+                                }
                                 className="text-xs"
                               >
                                 {log.type}
@@ -990,7 +1131,9 @@ export default function ChatTestPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to clear the chat? This will remove all messages and start a new chat session. This action cannot be undone.
+              Are you sure you want to clear the chat? This will remove all
+              messages and start a new chat session. This action cannot be
+              undone.
             </p>
             <div className="flex gap-2">
               <Button
