@@ -36,7 +36,7 @@ export interface PrototypeFile {
 }
 
 export class VirtualFileManager implements FileManagerInterface {
-  private files: Map<string, PrototypeFile>;
+  public files: Map<string, PrototypeFile>;
   private log2: SystemLogger;
   private prototypeId?: string;
   private changedFiles: Set<string> = new Set();
