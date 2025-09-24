@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase.js';
+import type { Database } from '../../../types/supabase.js';
 
 export interface UsageTrackingResult {
   updatedMessageCount: number;

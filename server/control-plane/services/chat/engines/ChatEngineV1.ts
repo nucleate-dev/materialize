@@ -4,7 +4,7 @@ import { LanguageModelV2 } from '@ai-sdk/provider';
 import { stepCountIs, streamText, tool, Tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import type {
   APIResponse,
   DispatchRequestBody,
@@ -12,12 +12,12 @@ import type {
   PrototypeAssetInput,
   PrototypeFileInput,
   StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
-import { SYSTEM_PROMPT } from '../chat/PROMPTS.js';
+} from '../../../types/PublicAPITypes.js';
+import { SYSTEM_PROMPT } from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
   VirtualFileManager,
-} from '../chat/file-manager.js';
+} from '../utils/file-manager.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -61,7 +61,7 @@ export interface ChatEngineResult {
   toolCalls?: Array<{ toolName: string; input: unknown; output: unknown }>;
 }
 
-export class ChatEngine {
+export class ChatEngineV1 {
   private google: ReturnType<typeof createGoogleGenerativeAI>;
   private anthropic: ReturnType<typeof createAnthropic>;
   private config: ChatEngineConfig;

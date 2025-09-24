@@ -2,7 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
-import { DispatcherService } from './services/DispatcherService.js';
+import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';

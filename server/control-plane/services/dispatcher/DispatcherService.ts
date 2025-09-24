@@ -18,7 +18,7 @@ import {
   type Framework,
   isActiveBuildType,
   S3_URL_TEMPLATE,
-} from '../types/InternalTypes.js';
+} from '../../types/InternalTypes.js';
 import {
   type DispatchPrecheckRequestBody,
   type DispatchPrecheckSuccessResponse,
@@ -32,17 +32,17 @@ import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   StartDevServerRequestBody,
-} from '../types/PublicAPITypes.js';
+} from '../../types/PublicAPITypes.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
   isEditableDevServer,
-} from '../utils/prototypeDevServerStatusUtils.js';
-import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
-import { LatencyEvents } from '../loggers/LatencyEvents.js';
+} from '../../utils/prototypeDevServerStatusUtils.js';
+import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { LatencyEvents } from '../../loggers/LatencyEvents.js';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/supabase.js';
+import { Database } from '../../types/supabase.js';
 
 dotenv.config();
 

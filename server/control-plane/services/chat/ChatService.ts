@@ -14,11 +14,11 @@ import type {
 } from '../../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
 import { isDispatchInProgress } from '../../utils/prototypeDevServerStatusUtils.js';
-import { validateChatAuth } from './chat-auth.js';
-import { parseFileContextFromMessage } from './file-context.js';
-import { VirtualFileManager } from './file-manager.js';
-import { trackChatUsage } from './usage-tracking.js';
-import { ChatEngine, type ChatEngineConfig } from './ChatEngine.js';
+import { validateChatAuth } from './utils/chat-auth.js';
+import { parseFileContextFromMessage } from './utils/file-context.js';
+import { VirtualFileManager } from './utils/file-manager.js';
+import { trackChatUsage } from './utils/usage-tracking.js';
+import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -31,7 +31,7 @@ export class ChatService {
   private serverEndpoint: string;
 
   private stripe: Stripe;
-  private chatEngine: ChatEngine;
+  private chatEngine: ChatEngineV1;
 
   constructor(fastifyApp: FastifyInstance) {
     this.fastifyApp = fastifyApp;
@@ -69,7 +69,7 @@ export class ChatService {
       fastifyApp: this.fastifyApp,
     };
 
-    this.chatEngine = new ChatEngine(chatEngineConfig);
+    this.chatEngine = new ChatEngineV1(chatEngineConfig);
   }
 
   private async persistChatMessages(
