@@ -113,6 +113,10 @@ export class IdleContainerAllocationSystemService {
 
     // 2. No idle containers found. Fallback to direct launch and replenish in background
     if (!taskArn) {
+      this.log2.info(
+        '[ContainerAlloc] No idle containers found, falling back to direct launch',
+        { prototypeId },
+      );
       if (MAX_IDLE_FARGATE_BUILDS > 0) {
         // background replenish
         this.launchIdleContainer().catch((err) =>
@@ -178,6 +182,11 @@ export class IdleContainerAllocationSystemService {
         newBuildCacheData,
       );
     }
+    this.log2.info('[ContainerAlloc] Allocating idle container to prototype', {
+      prototypeId,
+      taskArn,
+      privateIp,
+    });
     const info = { taskArn, privateIp };
     await this.assignPrototypeToTask(info, prototypeId);
     // Replenish idle pool in background
@@ -431,27 +440,29 @@ export class IdleContainerAllocationSystemService {
 
   /** Tell running idle container to switch to a real prototypeId */
   private async assignPrototypeToTask(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     info: FargateInstanceInfo,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     prototypeId: string,
   ): Promise<void> {
-    try {
-      const url = `http://${info.privateIp}:4000/assign-prototype`; // adjust if needed
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prototypeId }),
-      });
-      if (!res.ok) throw new Error(`Assign failed: ${res.status}`);
-      this.log2.info('[IdleAlloc] Assigned prototype to idle task', {
-        taskArn: info.taskArn,
-        prototypeId,
-      });
-    } catch (err) {
-      this.log2.error(
-        err,
-        '[IdleAlloc] Failed to assign prototype to idle task',
-      );
-      throw err;
-    }
+    // try {
+    //   const url = `http://${info.privateIp}:4000/assign-prototype`; // adjust if needed
+    //   const res = await fetch(url, {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ prototypeId }),
+    //   });
+    //   if (!res.ok) throw new Error(`Assign failed: ${res.status}`);
+    //   this.log2.info('[IdleAlloc] Assigned prototype to idle task', {
+    //     taskArn: info.taskArn,
+    //     prototypeId,
+    //   });
+    // } catch (err) {
+    //   this.log2.error(
+    //     err,
+    //     '[IdleAlloc] Failed to assign prototype to idle task',
+    //   );
+    //   throw err;
+    // }
   }
 }
