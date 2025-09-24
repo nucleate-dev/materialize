@@ -656,8 +656,6 @@ export class ChatEngineV1 {
         fileManager instanceof VirtualFileManager &&
         fileManager.hasChanges()
       ) {
-        await this.persistAndDispatchFiles(fileManager, params);
-
         // Send updated files to client after successful dispatch
         controller.enqueue(
           encoder.encode(
@@ -667,6 +665,7 @@ export class ChatEngineV1 {
             })}\\n\\n`,
           ),
         );
+        await this.persistAndDispatchFiles(fileManager, params);
       }
 
       controller.enqueue(
