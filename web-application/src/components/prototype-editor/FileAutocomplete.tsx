@@ -99,19 +99,26 @@ export function FileAutocomplete({
   const highlightMatch = (text: string, searchTerm: string) => {
     if (!searchTerm) return text;
 
-    const parts = text.split(new RegExp(`(${searchTerm})`, "gi"));
-    return parts.map((part, index) =>
-      part.toLowerCase() === searchTerm.toLowerCase() ? (
-        <span
-          key={index}
-          className="bg-yellow-200 dark:bg-yellow-900 font-medium"
-        >
-          {part}
-        </span>
-      ) : (
-        part
-      ),
-    );
+    try {
+      // Escape special regex characters to prevent crashes
+      const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const parts = text.split(new RegExp(`(${escapedSearchTerm})`, "gi"));
+      return parts.map((part, index) =>
+        part.toLowerCase() === searchTerm.toLowerCase() ? (
+          <span
+            key={index}
+            className="bg-yellow-200 dark:bg-yellow-900 font-medium"
+          >
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      );
+    } catch (error) {
+      // Fallback to plain text if regex fails
+      return text;
+    }
   };
 
   return (
