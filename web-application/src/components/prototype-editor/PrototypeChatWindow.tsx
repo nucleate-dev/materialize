@@ -528,7 +528,7 @@ export default function PrototypeChatWindow({
         reader.releaseLock();
       }
     },
-    [onFilesUpdate, onViewingUrlUpdate, logger],
+    [onFilesUpdate, onViewingUrlUpdate, logger, setIsChatLoading],
   );
 
   // Calculate limits based on subscription plan
@@ -828,14 +828,16 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                    }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground"
+                  }`}
                 >
                   {message.role === "user" && (
                     <div className="text-sm font-medium mb-1">You</div>
@@ -898,10 +900,11 @@ export default function PrototypeChatWindow({
                             className="flex items-start gap-2 text-sm"
                           >
                             <div
-                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
-                                ? "border-green-500 bg-green-500"
-                                : "border-gray-300"
-                                }`}
+                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                                completedSteps.has(index)
+                                  ? "border-green-500 bg-green-500"
+                                  : "border-gray-300"
+                              }`}
                             >
                               {completedSteps.has(index) && (
                                 <div className="relative">
@@ -915,10 +918,11 @@ export default function PrototypeChatWindow({
                               )}
                             </div>
                             <span
-                              className={`${completedSteps.has(index)
-                                ? "text-muted-foreground line-through"
-                                : "text-foreground"
-                                }`}
+                              className={`${
+                                completedSteps.has(index)
+                                  ? "text-muted-foreground line-through"
+                                  : "text-foreground"
+                              }`}
                             >
                               {step}
                             </span>
@@ -1028,7 +1032,8 @@ export default function PrototypeChatWindow({
                     </li>
                   ))}
                   <li>
-                    <span className="font-mono">isSendDisabled</span>: {String(isSendDisabled)}
+                    <span className="font-mono">isSendDisabled</span>:{" "}
+                    {String(isSendDisabled)}
                   </li>
                 </ul>
               </div>
