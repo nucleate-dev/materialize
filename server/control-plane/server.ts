@@ -4,6 +4,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
+import { IdleContainerAllocationSystemService } from './services/dispatcher/IdleContainerAllocationSystem.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
@@ -106,6 +107,7 @@ fastify.addHook('onRequest', async (req) => {
 
 let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
+let idleContainerAllocationSystemService: IdleContainerAllocationSystemService;
 let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
@@ -148,12 +150,20 @@ const start = async (): Promise<void> => {
 
     cache = cacheClient;
 
-    // Create dispatcher service with initialized clients and register routes
-    dispatcherService = new DispatcherService(cacheClient, ecsClient, fastify);
-    dispatcherService.registerRoutes(fastify);
-
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cacheClient, ecsClient);
+
+    // Create idle container allocation system service
+    idleContainerAllocationSystemService = new IdleContainerAllocationSystemService({
+      redis: cacheClient,
+      ecsClient: ecsClient,
+      log2: baseLogger,
+    });
+    await idleContainerAllocationSystemService.init();
+
+    // Create dispatcher service with initialized clients and register routes
+    dispatcherService = new DispatcherService(cacheClient, ecsClient, fastify, idleContainerAllocationSystemService);
+    dispatcherService.registerRoutes(fastify);
 
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();
@@ -223,6 +233,10 @@ const close = async (): Promise<void> => {
     // Stop cleanup services
     if (cleanupService) {
       cleanupService.stopCleanupServices();
+    }
+    // Stop idle container allocation system service
+    if (idleContainerAllocationSystemService) {
+      idleContainerAllocationSystemService.shutdown();
     }
     await fastify.close();
   } finally {

@@ -43,6 +43,7 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
+import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystem.js';
 
 dotenv.config();
 
@@ -50,15 +51,18 @@ export class DispatcherService {
   private ecsClient: ECSClient;
   private cache: GlideClient;
   private fastifyApp: FastifyInstance;
+  private idleContainerAllocationSystem: IdleContainerAllocationSystemService;
 
   constructor(
     cache: GlideClient,
     ecsClient: ECSClient,
     fastifyApp: FastifyInstance,
+    idleContainerAllocationSystem: IdleContainerAllocationSystemService,
   ) {
     this.cache = cache;
     this.ecsClient = ecsClient;
     this.fastifyApp = fastifyApp;
+    this.idleContainerAllocationSystem = idleContainerAllocationSystem;
   }
 
   // Register routes with Fastify
