@@ -486,7 +486,7 @@ export class VirtualFileManager implements FileManagerInterface {
 
   // New methods for change tracking and dispatch
   public hasChanges(): boolean {
-    return this.changedFiles.size > 0;
+    return this.changedFiles.size > 0 || this.deletedFiles.size > 0;
   }
 
   public getChangedFiles(): Record<string, PrototypeFile> {
