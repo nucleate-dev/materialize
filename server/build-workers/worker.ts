@@ -2,9 +2,9 @@ import { S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
+import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
 import { PublicApiService } from "./services/PublicApiService.js";
-import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 
 // Load environment variables
 dotenv.config();
@@ -25,7 +25,7 @@ export const baseLogger = new SystemLogger({
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
-const WORK_DIR = process.env.WORK_DIR || "/tmp/fargate-builds";
+const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-builds";
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
 // --- AWS Setup ---
@@ -51,7 +51,7 @@ const app: FastifyInstance = fastify({
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
-    req.headers as Record<string, string | string[] | undefined>
+    req.headers as Record<string, string | string[] | undefined>,
   );
   req.log2 = baseLogger.child({
     requestId,
