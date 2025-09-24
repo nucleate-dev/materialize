@@ -662,6 +662,16 @@ export class ChatEngine {
         fileManager.hasChanges()
       ) {
         await this.persistAndDispatchFiles(fileManager, params);
+
+        // Send updated files to client after successful dispatch
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'files_synced',
+              updatedFiles: fileManager.getAllFilesForDispatch(),
+            })}\\n\\n`,
+          ),
+        );
       }
 
       controller.enqueue(

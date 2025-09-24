@@ -293,6 +293,7 @@ export default function PrototypeChatWindow({
                     summary?: string;
                     updatedFiles?: Record<string, PrototypeFile>;
                   };
+                  updatedFiles?: Record<string, PrototypeFile>;
                   error?: string;
                   messageCount?: number;
                   viewing_url?: string;
@@ -386,6 +387,13 @@ export default function PrototypeChatWindow({
                     // Handle viewing URL update
                     if (onViewingUrlUpdate && typeof event.viewing_url === 'string') {
                       onViewingUrlUpdate(event.viewing_url);
+                    }
+                    break;
+
+                  case "files_synced":
+                    // Handle final file sync after dispatch
+                    if (event.updatedFiles) {
+                      onFilesUpdate(event.updatedFiles);
                     }
                     break;
 
