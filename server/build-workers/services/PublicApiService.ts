@@ -71,21 +71,22 @@ export class PublicApiService {
         region: process.env.AWS_REGION!,
         credentials: { accessKeyId, secretAccessKey, sessionToken },
       });
-      this.expoDevServerService.setS3Client(scopedS3, prototypeId);
+      this.expoDevServerService.setS3Client(scopedS3);
       request.log2.info("Allocated worker to prototype for S3 access", {
         prototypeId,
       });
       return reply.status(200).send({ status: "ok" });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       request.log2.error(error, "Failed to allocate worker to prototype", {
         prototypeId,
-        errorMessage
+        errorMessage,
       });
       return reply.code(500).send({
         status: "error",
         error: "Failed to create scoped S3 client",
-        details: errorMessage
+        details: errorMessage,
       });
     }
   }
