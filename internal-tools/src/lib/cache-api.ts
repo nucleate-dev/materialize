@@ -11,16 +11,19 @@ export interface CacheStats {
     activeBuilds: number;
     prototypeBuilds: number;
     currentBuilds: number;
+    idleBuilds: number;
     keyBreakdown: {
       "active_build:*": number;
       "proto:*:builds": number;
       "proto:*:current": number;
+      "idle_builds:*": number;
       other: number;
     };
     sampleKeys: {
       activeBuild: string[];
       prototypeBuild: string[];
       currentBuild: string[];
+      idleBuild: string[];
       other: string[];
     };
   };

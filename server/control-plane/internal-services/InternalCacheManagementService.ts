@@ -5,6 +5,7 @@ import { SystemLogger } from '../loggers/SystemLogger.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
 import {
   CACHE_KEYS,
+  CACHE_PATTERNS,
   isActiveBuildType,
   type ActiveBuild,
 } from '../types/InternalTypes.js';
@@ -114,6 +115,7 @@ export class InternalCacheManagementService {
                     activeBuilds: { type: 'number' },
                     prototypeBuilds: { type: 'number' },
                     currentBuilds: { type: 'number' },
+                    idleBuilds: { type: 'number' },
                     keyBreakdown: {
                       type: 'object',
                       additionalProperties: { type: 'number' },
@@ -134,6 +136,10 @@ export class InternalCacheManagementService {
                           items: { type: 'string' },
                         },
                         other: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        idleBuild: {
                           type: 'array',
                           items: { type: 'string' },
                         },
@@ -333,11 +339,15 @@ export class InternalCacheManagementService {
       const currentBuildKeys = allKeys.filter(
         (key) => key.includes(':current') && key.startsWith('proto:'),
       );
+      const idleBuildKeys = allKeys.filter((key) =>
+        key.startsWith('idle_builds:') && key !== CACHE_KEYS.idleBuildsListKey,
+      );
       const otherKeys = allKeys.filter(
         (key) =>
           !key.startsWith('active_build:') &&
           !(key.includes(':builds') && key.startsWith('proto:')) &&
-          !(key.includes(':current') && key.startsWith('proto:')),
+          !(key.includes(':current') && key.startsWith('proto:')) &&
+          !key.startsWith('idle_builds:'),
       );
 
       const stats = {
@@ -345,16 +355,19 @@ export class InternalCacheManagementService {
         activeBuilds: activeBuildKeys.length,
         prototypeBuilds: prototypeBuildKeys.length,
         currentBuilds: currentBuildKeys.length,
+        idleBuilds: idleBuildKeys.length,
         keyBreakdown: {
           'active_build:*': activeBuildKeys.length,
           'proto:*:builds': prototypeBuildKeys.length,
           'proto:*:current': currentBuildKeys.length,
+          'idle_builds:*': idleBuildKeys.length,
           other: otherKeys.length,
         },
         sampleKeys: {
           activeBuild: activeBuildKeys.slice(0, 5),
           prototypeBuild: prototypeBuildKeys.slice(0, 5),
           currentBuild: currentBuildKeys.slice(0, 5),
+          idleBuild: idleBuildKeys.slice(0, 5),
           other: otherKeys.slice(0, 5),
         },
       };

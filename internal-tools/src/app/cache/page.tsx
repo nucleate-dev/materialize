@@ -205,16 +205,16 @@ export default function CacheManagementPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Total Keys
+                    Idle Builds
                   </CardTitle>
-                  <Database className="h-4 w-4 text-muted-foreground" />
+                  <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {stats?.stats.totalKeys.toLocaleString() || 0}
+                    {stats?.stats.idleBuilds.toLocaleString() || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    All cache keys
+                    idle_builds:* keys
                   </p>
                 </CardContent>
               </Card>
@@ -625,6 +625,37 @@ export default function CacheManagementPage() {
                   ) : (
                     <div className="ml-5 text-xs text-muted-foreground italic">
                       No current build keys
+                    </div>
+                  )}
+                </div>
+
+                {/* Idle Build Keys */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                    <h4 className="font-medium text-sm">
+                      Idle Build Keys ({stats.stats.idleBuilds} total)
+                    </h4>
+                  </div>
+                  {stats.stats.sampleKeys.idleBuild.length > 0 ? (
+                    <div className="ml-5 space-y-1">
+                      {stats.stats.sampleKeys.idleBuild.map((key, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs font-mono bg-muted p-2 rounded border"
+                        >
+                          {key}
+                        </div>
+                      ))}
+                      {stats.stats.idleBuilds > 5 && (
+                        <div className="text-xs text-muted-foreground italic">
+                          ... and {stats.stats.idleBuilds - 5} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="ml-5 text-xs text-muted-foreground italic">
+                      No idle build keys
                     </div>
                   )}
                 </div>
