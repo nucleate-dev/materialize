@@ -10,6 +10,7 @@ import { GlideClient } from '@valkey/valkey-glide';
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
+  CACHE_KEYS,
   FargateInstanceInfo,
   IdleBuild,
   IdleContainerStatus,
@@ -53,7 +54,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
-    const currentIdle = await this.cache.llen('idle_builds:list');
+    const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
@@ -73,7 +74,7 @@ export class IdleContainerAllocationSystemService {
       // Collect tasks to remove
       const taskArns: string[] = [];
       for (let i = 0; i < toRemove; i++) {
-        const taskArn = await this.cache.rpop('idle_builds:list');
+        const taskArn = await this.cache.rpop(CACHE_KEYS.idleBuildsListKey);
         if (taskArn) {
           taskArns.push(taskArn as string);
         }
@@ -82,7 +83,7 @@ export class IdleContainerAllocationSystemService {
       // Run cleanup concurrently
       await Promise.all(
         taskArns.map(async (taskArn) => {
-          const idleKey = `idle_builds:${taskArn}`;
+          const idleKey = CACHE_KEYS.idleBuild(taskArn);
           try {
             await this.terminateFargateTask(taskArn);
             await this.cache.del([idleKey]);
@@ -107,7 +108,7 @@ export class IdleContainerAllocationSystemService {
     newBuildCacheData: ActiveBuild,
   ): Promise<FargateInstanceInfo> {
     // 1. Try to pop an idle container from the pool
-    const taskArn = (await this.cache.lpop('idle_builds:list')) as  // NOTE: this is an atomic operation
+    const taskArn = (await this.cache.lpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
       | string
       | null;
 
@@ -136,7 +137,7 @@ export class IdleContainerAllocationSystemService {
     }
 
     // 3. We got an idle container reference. Retrieve data from cache and remove from cache
-    const idleKey = `idle_builds:${taskArn}`;
+    const idleKey = CACHE_KEYS.idleBuild(taskArn);
     const taskData = await this.hgetallAsIdleBuild(idleKey);
     await this.cache.del([idleKey]);
 
@@ -207,14 +208,14 @@ export class IdleContainerAllocationSystemService {
     }
 
     // Immediately add placeholder entry in cache
-    const idleKey = `idle_builds:${taskArn}`;
+    const idleKey = CACHE_KEYS.idleBuild(taskArn);
     try {
       await this.cache.hset(idleKey, {
         fargate_task_arn: taskArn,
         fargate_private_ip: '',
         status: 'creating',
       });
-      await this.cache.lpush('idle_builds:list', [taskArn]);
+      await this.cache.lpush(CACHE_KEYS.idleBuildsListKey, [taskArn]);
     } catch (error) {
       this.log2.error(
         error,
