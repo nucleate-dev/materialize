@@ -272,12 +272,12 @@ export class DispatcherService {
             },
           );
         } catch (error) {
+          const buildIdFromKey = activeBuildKey.replace('active_build:', '');
           await removeBuildDataFromCache(
             this.cache,
             request.log2,
-            activeBuildKey,
             prototype_id,
-            currentBuildId as string,
+            buildIdFromKey,
           ); // remove build data from cache so it doesn't affect future builds
           request.log2.error(
             error,

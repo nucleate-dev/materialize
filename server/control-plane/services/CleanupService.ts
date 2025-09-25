@@ -183,7 +183,6 @@ export class CleanupService {
         const removedFromCache = await removeBuildDataFromCache(
           this.cache,
           this.log2,
-          buildKey,
           prototypeId,
           buildId,
         );
@@ -210,7 +209,6 @@ export class CleanupService {
         const removedFromCache = await removeBuildDataFromCache(
           this.cache,
           this.log2,
-          buildKey,
           prototypeId,
           buildId,
         );
@@ -261,7 +259,6 @@ export class CleanupService {
       const removedFromCache = await removeBuildDataFromCache(
         this.cache,
         this.log2,
-        buildKey,
         prototypeId,
         buildId,
       );
