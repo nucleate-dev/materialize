@@ -184,3 +184,17 @@ export interface PublicRunCommandResponse {
   exit_code?: number;
   error?: string;
 }
+
+export interface PublicAllocateRequest {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+  expiration?: string;
+  prototypeId: string;
+}
+
+export interface PublicAllocateResponse {
+  status: "ok" | "error";
+  error?: string;
+  details?: string;
+}
