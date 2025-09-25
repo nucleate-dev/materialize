@@ -37,7 +37,7 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
-import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystem.js';
+import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystemService.js';
 
 dotenv.config();
 

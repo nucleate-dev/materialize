@@ -4,7 +4,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
-import { IdleContainerAllocationSystemService } from './services/dispatcher/IdleContainerAllocationSystem.js';
+import { IdleContainerAllocationSystemService } from './services/dispatcher/IdleContainerAllocationSystemService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
