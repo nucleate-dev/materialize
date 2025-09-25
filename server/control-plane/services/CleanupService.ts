@@ -346,6 +346,21 @@ export class CleanupService {
     prototypeId: string,
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult> {
+    return await this.log2.time(
+      'cleanup_dispatch_kill_dev_server_latency',
+      async () => {
+        return await this.dispatchKillDevServerRequestImpl(
+          prototypeId,
+          fargatePrivateIp,
+        );
+      },
+    );
+  }
+
+  private async dispatchKillDevServerRequestImpl(
+    prototypeId: string,
+    fargatePrivateIp: string,
+  ): Promise<CleanupOperationResult> {
     try {
       const response = await axios.delete(
         `http://${fargatePrivateIp}:3002/dev-server`,
