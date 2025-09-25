@@ -309,10 +309,7 @@ export class IdleContainerAllocationSystemService {
     newBuildCacheData: ActiveBuild,
   ): Promise<FargateInstanceInfo> {
     try {
-      const taskArn = await this.launchFargateInstanceNotReady(
-        log2,
-        prototypeId,
-      );
+      const taskArn = await this.launchFargateInstanceNotReady(log2);
       await this.cache.hset(activeBuildKey, {
         fargate_task_arn: taskArn,
         fargate_private_ip: newBuildCacheData.fargate_private_ip,
@@ -353,11 +350,10 @@ export class IdleContainerAllocationSystemService {
   // Returns the task arn
   private async launchFargateInstanceNotReady(
     log2: SystemLogger,
-    prototypeId: string | null = null,
   ): Promise<string> {
     try {
       const command = new RunTaskCommand(
-        this.getFargateRunTaskCommandConfiguration(prototypeId),
+        this.getFargateRunTaskCommandConfiguration(),
       );
       const response = await this.ecsClient.send(command);
       if (!response.tasks || response.tasks.length === 0) {
@@ -407,9 +403,7 @@ export class IdleContainerAllocationSystemService {
     return privateIpDetail?.value || '';
   }
 
-  private getFargateRunTaskCommandConfiguration(
-    prototypeId: string | null = null,
-  ): RunTaskCommandInput {
+  private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition: 'fastify-build-worker',
@@ -427,10 +421,6 @@ export class IdleContainerAllocationSystemService {
             name: 'materialize-fargate-build-worker-container',
             environment: [
               {
-                name: 'PROTOTYPE_ID',
-                value: prototypeId || 'idle',
-              },
-              {
                 name: 'AWS_REGION',
                 value: process.env.AWS_REGION!,
               },
@@ -439,10 +429,6 @@ export class IdleContainerAllocationSystemService {
         ],
       },
       tags: [
-        {
-          key: 'PrototypeId',
-          value: prototypeId || 'idle',
-        },
         {
           key: 'Service',
           value: 'materialize-build-worker',
