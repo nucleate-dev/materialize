@@ -149,6 +149,10 @@ export class IdleContainerAllocationSystemService {
     const idleKey = CACHE_KEYS.idleBuild(taskArn);
     const taskData = await this.hgetallAsIdleBuild(idleKey);
     await this.cache.del([idleKey]);
+    // Replenish idle pool in background
+    this.launchIdleContainer().catch((err) =>
+      this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
+    );
 
     // 4. If the idle container is not usable, clean it up in the background and fallback to direct launch
     if (!taskData || !taskData.fargate_private_ip) {
@@ -210,10 +214,6 @@ export class IdleContainerAllocationSystemService {
         'Could not allocate a container: failed to scope S3 permissions for container',
       );
     }
-    // Replenish idle pool in background
-    this.launchIdleContainer().catch((err) =>
-      this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
-    );
     return info;
   }
 
@@ -326,7 +326,20 @@ export class IdleContainerAllocationSystemService {
       if (!privateIp) {
         throw new Error('Failed to get private IP for idle container');
       }
-      return { taskArn, privateIp };
+      const info = { taskArn, privateIp };
+      try {
+        await this.scopeS3PermissionsForContainer(info, prototypeId);
+      } catch (error) {
+        this.log2.error(
+          error,
+          'Failed to scope S3 permissions for container and initialize S3client',
+        );
+        this.terminateFargateTask(taskArn);
+        throw new Error(
+          'Could not allocate a container: failed to scope S3 permissions for container',
+        );
+      }
+      return info;
     } catch (error) {
       log2.error(error, 'Failed to launch Fargate task:');
       throw new Error(
