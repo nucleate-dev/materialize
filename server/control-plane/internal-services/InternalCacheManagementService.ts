@@ -5,7 +5,6 @@ import { SystemLogger } from '../loggers/SystemLogger.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
 import {
   CACHE_KEYS,
-  CACHE_PATTERNS,
   isActiveBuildType,
   type ActiveBuild,
 } from '../types/InternalTypes.js';
@@ -339,8 +338,10 @@ export class InternalCacheManagementService {
       const currentBuildKeys = allKeys.filter(
         (key) => key.includes(':current') && key.startsWith('proto:'),
       );
-      const idleBuildKeys = allKeys.filter((key) =>
-        key.startsWith('idle_builds:') && key !== CACHE_KEYS.idleBuildsListKey,
+      const idleBuildKeys = allKeys.filter(
+        (key) =>
+          key.startsWith('idle_builds:') &&
+          key !== CACHE_KEYS.idleBuildsListKey,
       );
       const otherKeys = allKeys.filter(
         (key) =>
@@ -418,15 +419,21 @@ export class InternalCacheManagementService {
 
       // Scan all active_build:* keys to find ones for this prototype
       const allActiveBuildKeys = await this.scanAllKeys(request.log2);
-      const prototypeActiveBuildKeys = allActiveBuildKeys.filter((key) =>
-        key.startsWith('active_build:') && key.includes(`build_${prototypeId}_`)
+      const prototypeActiveBuildKeys = allActiveBuildKeys.filter(
+        (key) =>
+          key.startsWith('active_build:') &&
+          key.includes(`build_${prototypeId}_`),
       );
 
-      request.log2.consoleLogDevOnly('info', 'Found active build keys for prototype', {
-        prototypeId,
-        foundKeys: prototypeActiveBuildKeys.length,
-        keys: prototypeActiveBuildKeys,
-      });
+      request.log2.consoleLogDevOnly(
+        'info',
+        'Found active build keys for prototype',
+        {
+          prototypeId,
+          foundKeys: prototypeActiveBuildKeys.length,
+          keys: prototypeActiveBuildKeys,
+        },
+      );
 
       // Get the data for each active build
       for (const buildKey of prototypeActiveBuildKeys) {
@@ -475,13 +482,19 @@ export class InternalCacheManagementService {
               const timestampRaw = allBuildsResult[i + 1];
 
               // Handle both simple string/number responses and complex object responses
-              const buildId = typeof buildIdRaw === 'object' && buildIdRaw !== null && 'key' in buildIdRaw
-                ? String((buildIdRaw as { key: string }).key)
-                : String(buildIdRaw);
+              const buildId =
+                typeof buildIdRaw === 'object' &&
+                buildIdRaw !== null &&
+                'key' in buildIdRaw
+                  ? String((buildIdRaw as { key: string }).key)
+                  : String(buildIdRaw);
 
-              const timestampValue = typeof timestampRaw === 'object' && timestampRaw !== null && 'value' in timestampRaw
-                ? (timestampRaw as { value: number }).value
-                : timestampRaw;
+              const timestampValue =
+                typeof timestampRaw === 'object' &&
+                timestampRaw !== null &&
+                'value' in timestampRaw
+                  ? (timestampRaw as { value: number }).value
+                  : timestampRaw;
 
               const timestamp = parseFloat(String(timestampValue));
 
@@ -502,20 +515,29 @@ export class InternalCacheManagementService {
           }
         }
       } catch (error) {
-        request.log2.warn('Failed to fetch builds ZSET, continuing without build history', {
-          prototypeId,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        request.log2.warn(
+          'Failed to fetch builds ZSET, continuing without build history',
+          {
+            prototypeId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
       }
 
       // Sort by timestamp descending (newest first)
       allBuilds.sort((a, b) => b.timestamp - a.timestamp);
 
       // Sort active builds by last_touched descending (most recent first)
-      allActiveBuilds.sort((a, b) => b.activeBuild.last_touched - a.activeBuild.last_touched);
+      allActiveBuilds.sort(
+        (a, b) => b.activeBuild.last_touched - a.activeBuild.last_touched,
+      );
 
       // If no current build and no builds in history and no active builds, return 404-like response but with 200 status
-      if (!currentBuildId && allBuilds.length === 0 && allActiveBuilds.length === 0) {
+      if (
+        !currentBuildId &&
+        allBuilds.length === 0 &&
+        allActiveBuilds.length === 0
+      ) {
         request.log2.info('No build data found for prototype', {
           prototypeId,
         });
@@ -598,10 +620,15 @@ export class InternalCacheManagementService {
       ),
     ) as Record<string, string>;
 
+    // Handle missing fields gracefully
+    if (!obj.fargate_task_arn || !obj.status || !obj.last_touched) {
+      return null;
+    }
+
     return {
       fargate_task_arn: obj.fargate_task_arn,
-      fargate_private_ip: obj.fargate_private_ip,
-      url: obj.url,
+      fargate_private_ip: obj.fargate_private_ip || '',
+      url: obj.url || '',
       status: obj.status as ActiveBuild['status'],
       last_touched: parseInt(obj.last_touched, 10),
     };

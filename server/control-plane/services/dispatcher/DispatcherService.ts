@@ -294,7 +294,10 @@ export class DispatcherService {
           last_touched: currentTime,
         };
       }
-      await this.cache.hset(activeBuildKey, updatedBuildCacheData);
+      await this.cache.hset(
+        activeBuildKey,
+        this.activeBuildToStringRecord(updatedBuildCacheData),
+      );
       // NOTE: at this point, there should always be an active build, with status "updating"
 
       // Dispatch request to fargate instance
@@ -338,7 +341,10 @@ export class DispatcherService {
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-        await this.cache.hset(activeBuildKey, updatedBuildCacheData);
+        await this.cache.hset(
+          activeBuildKey,
+          this.activeBuildToStringRecord(updatedBuildCacheData),
+        );
         // Update builds ZSET with new timestamp
         const buildIdFromKey = activeBuildKey.replace('active_build:', '');
         await this.cache.customCommand([
@@ -381,7 +387,10 @@ export class DispatcherService {
           'There was an error dispatching the request to the fargate instance',
         );
         updatedBuildCacheData.status = 'error';
-        await this.cache.hset(activeBuildKey, updatedBuildCacheData);
+        await this.cache.hset(
+          activeBuildKey,
+          this.activeBuildToStringRecord(updatedBuildCacheData),
+        );
 
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
@@ -416,7 +425,10 @@ export class DispatcherService {
       .substr(2, 9)}`;
     const activeBuildKey = CACHE_KEYS.activeBuild(buildId);
     // Set the new build as active
-    await this.cache.hset(activeBuildKey, newBuildCacheData);
+    await this.cache.hset(
+      activeBuildKey,
+      this.activeBuildToStringRecord(newBuildCacheData),
+    );
     // Update current pointer
     await this.cache.set(CACHE_KEYS.protoCurrentBuild(prototype_id), buildId);
     // Add to builds ZSET
@@ -483,25 +495,24 @@ export class DispatcherService {
             };
 
             // Update the active build cache with new timestamp
-            await this.cache.hset(activeBuildKey, updatedBuildData);
+            await this.cache.hset(
+              activeBuildKey,
+              this.activeBuildToStringRecord(updatedBuildData),
+            );
 
-              // Update builds ZSET with new timestamp
-              const buildIdFromKey = activeBuildKey.replace(
-                'active_build:',
-                '',
-              );
-              await this.cache.customCommand([
-                'ZADD',
-                CACHE_KEYS.protoBuilds(prototype_id),
-                updatedBuildData.last_touched.toString(),
-                buildIdFromKey,
-              ]);
+            // Update builds ZSET with new timestamp
+            const buildIdFromKey = activeBuildKey.replace('active_build:', '');
+            await this.cache.customCommand([
+              'ZADD',
+              CACHE_KEYS.protoBuilds(prototype_id),
+              updatedBuildData.last_touched.toString(),
+              buildIdFromKey,
+            ]);
 
-              request.log2.consoleLogDevOnly(
-                'info',
-                `[handleDispatchEditIntent] Updated last_touched timestamp for build: ${currentBuildId}`,
-              );
-            }
+            request.log2.consoleLogDevOnly(
+              'info',
+              `[handleDispatchEditIntent] Updated last_touched timestamp for build: ${currentBuildId}`,
+            );
           }
         }
       }
@@ -729,6 +740,18 @@ export class DispatcherService {
     return url && !url.startsWith('http') ? `https://${url}` : url;
   }
 
+  private activeBuildToStringRecord(
+    build: ActiveBuild,
+  ): Record<string, string> {
+    return {
+      fargate_task_arn: build.fargate_task_arn,
+      fargate_private_ip: build.fargate_private_ip,
+      url: build.url,
+      status: build.status,
+      last_touched: build.last_touched.toString(),
+    };
+  }
+
   private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
     const raw = await this.cache.hgetall(key);
 
@@ -743,10 +766,15 @@ export class DispatcherService {
       ),
     ) as Record<string, string>;
 
+    // Handle missing fields gracefully
+    if (!obj.status || !obj.last_touched) {
+      return null;
+    }
+
     return {
-      fargate_task_arn: obj.fargate_task_arn,
-      fargate_private_ip: obj.fargate_private_ip,
-      url: obj.url,
+      fargate_task_arn: obj.fargate_task_arn || '',
+      fargate_private_ip: obj.fargate_private_ip || '',
+      url: obj.url || '',
       status: obj.status as ActiveBuild['status'],
       last_touched: parseInt(obj.last_touched, 10),
     };
