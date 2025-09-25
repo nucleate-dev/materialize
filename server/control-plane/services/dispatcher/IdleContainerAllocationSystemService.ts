@@ -155,7 +155,7 @@ export class IdleContainerAllocationSystemService {
     );
 
     // 4. If the idle container is not usable, clean it up in the background and fallback to direct launch
-    if (!taskData || !taskData.fargate_private_ip) {
+    if (!taskData || !taskData.fargate_task_arn) {
       this.log2.warn(
         `[ContainerAlloc] Idle container ${taskArn} missing metadata, falling back to direct launch`,
       );
