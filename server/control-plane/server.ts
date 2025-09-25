@@ -19,6 +19,7 @@ import { EC2Client } from '@aws-sdk/client-ec2';
 import { AutoScalingClient } from '@aws-sdk/client-auto-scaling';
 import { GlideClient } from '@valkey/valkey-glide';
 import { S3Client } from '@aws-sdk/client-s3';
+import { STSClient } from '@aws-sdk/client-sts';
 
 // Extend FastifyRequest to include our custom logger
 declare module 'fastify' {
@@ -41,6 +42,7 @@ const initializeClients = async (): Promise<{
   ec2Client: EC2Client;
   autoScalingClient: AutoScalingClient;
   s3Client: S3Client;
+  stsClient: STSClient;
 }> => {
   const ecsClient = new ECSClient({
     region: process.env.AWS_REGION!,
@@ -72,8 +74,16 @@ const initializeClients = async (): Promise<{
   const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'us-east-2',
   });
+  const stsClient = new STSClient({ region: process.env.AWS_REGION });
 
-  return { cacheClient, ecsClient, ec2Client, autoScalingClient, s3Client };
+  return {
+    cacheClient,
+    ecsClient,
+    ec2Client,
+    autoScalingClient,
+    s3Client,
+    stsClient,
+  };
 };
 
 const fastify = Fastify({
@@ -145,8 +155,14 @@ fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
 const start = async (): Promise<void> => {
   try {
     // Initialize clients first
-    const { cacheClient, ecsClient, ec2Client, autoScalingClient, s3Client } =
-      await initializeClients();
+    const {
+      cacheClient,
+      ecsClient,
+      ec2Client,
+      autoScalingClient,
+      s3Client,
+      stsClient,
+    } = await initializeClients();
 
     cache = cacheClient;
 
@@ -156,8 +172,9 @@ const start = async (): Promise<void> => {
     // Create idle container allocation system service
     idleContainerAllocationSystemService =
       new IdleContainerAllocationSystemService({
-        redis: cacheClient,
+        cacheClient: cacheClient,
         ecsClient: ecsClient,
+        stsClient: stsClient,
         log2: baseLogger,
       });
 

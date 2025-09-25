@@ -15,6 +15,8 @@ import {
   IdleBuild,
   IdleContainerStatus,
 } from '../../types/InternalTypes.js';
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import axios from 'axios';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -22,15 +24,18 @@ export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;
   private readonly ecsClient: ECSClient;
   private readonly log2: SystemLogger;
+  private readonly stsClient: STSClient;
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
-    redis: GlideClient;
+    cacheClient: GlideClient;
     ecsClient: ECSClient;
+    stsClient: STSClient;
     log2: SystemLogger;
   }) {
-    this.cache = opts.redis;
+    this.cache = opts.cacheClient;
     this.ecsClient = opts.ecsClient;
+    this.stsClient = opts.stsClient;
     this.log2 = opts.log2.child({
       route: 'IdleContainerAllocationSystemService',
     });
@@ -441,29 +446,32 @@ export class IdleContainerAllocationSystemService {
 
   /** Tell running idle container to switch to a real prototypeId */
   private async assignPrototypeToTask(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     info: FargateInstanceInfo,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     prototypeId: string,
   ): Promise<void> {
-    // try {
-    //   const url = `http://${info.privateIp}:4000/assign-prototype`; // adjust if needed
-    //   const res = await fetch(url, {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ prototypeId }),
-    //   });
-    //   if (!res.ok) throw new Error(`Assign failed: ${res.status}`);
-    //   this.log2.info('[IdleAlloc] Assigned prototype to idle task', {
-    //     taskArn: info.taskArn,
-    //     prototypeId,
-    //   });
-    // } catch (err) {
-    //   this.log2.error(
-    //     err,
-    //     '[IdleAlloc] Failed to assign prototype to idle task',
-    //   );
-    //   throw err;
-    // }
+    const out = await this.stsClient.send(
+      new AssumeRoleCommand({
+        RoleArn: process.env.PROTOTYPE_ROLE_ARN!,
+        RoleSessionName: `proto-${prototypeId}`,
+        Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
+        DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
+      }),
+    );
+
+    if (!out.Credentials) throw new Error('Failed to assume role');
+
+    const creds = {
+      accessKeyId: out.Credentials.AccessKeyId!,
+      secretAccessKey: out.Credentials.SecretAccessKey!,
+      sessionToken: out.Credentials.SessionToken!,
+      prototypeId,
+    };
+
+    // Send creds securely to worker
+    await axios.post(`http://${info.privateIp}:3002/allocate`, creds, {
+      headers: {
+        'content-type': 'application/json',
+      },
+    });
   }
 }
