@@ -17,6 +17,10 @@ import {
 } from '../../types/InternalTypes.js';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import axios from 'axios';
+import {
+  PublicAllocateRequest,
+  PublicAllocateResponse,
+} from '../../types/BuildWorkerTypes.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -194,7 +198,18 @@ export class IdleContainerAllocationSystemService {
       privateIp,
     });
     const info = { taskArn, privateIp };
-    await this.assignPrototypeToTask(info, prototypeId);
+    try {
+      await this.scopeS3PermissionsForContainer(info, prototypeId);
+    } catch (error) {
+      this.log2.error(
+        error,
+        'Failed to scope S3 permissions for container and initialize S3client',
+      );
+      this.terminateFargateTask(taskArn);
+      throw new Error(
+        'Could not allocate a container: failed to scope S3 permissions for container',
+      );
+    }
     // Replenish idle pool in background
     this.launchIdleContainer().catch((err) =>
       this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
@@ -445,7 +460,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   /** Tell running idle container to switch to a real prototypeId */
-  private async assignPrototypeToTask(
+  private async scopeS3PermissionsForContainer(
     info: FargateInstanceInfo,
     prototypeId: string,
   ): Promise<void> {
@@ -460,18 +475,36 @@ export class IdleContainerAllocationSystemService {
 
     if (!out.Credentials) throw new Error('Failed to assume role');
 
-    const creds = {
+    const creds: PublicAllocateRequest = {
       accessKeyId: out.Credentials.AccessKeyId!,
       secretAccessKey: out.Credentials.SecretAccessKey!,
       sessionToken: out.Credentials.SessionToken!,
       prototypeId,
     };
 
-    // Send creds securely to worker
-    await axios.post(`http://${info.privateIp}:3002/allocate`, creds, {
-      headers: {
-        'content-type': 'application/json',
-      },
-    });
+    // Send creds to worker
+    try {
+      const allocationResponse: PublicAllocateResponse = await axios.post(
+        `http://${info.privateIp}:3002/allocate`,
+        creds,
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      );
+      if (allocationResponse.status === 'error') {
+        this.log2.error(
+          new Error(allocationResponse.error),
+          `Failed to allocate to worker ${info.privateIp}`,
+        );
+        throw new Error(
+          allocationResponse.error || 'Failed to allocate to worker',
+        );
+      }
+    } catch (error) {
+      this.log2.error(error, 'Failed to make allocation request to worker');
+      throw error;
+    }
   }
 }
