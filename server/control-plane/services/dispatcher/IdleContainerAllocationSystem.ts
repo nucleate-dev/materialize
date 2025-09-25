@@ -74,7 +74,7 @@ export class IdleContainerAllocationSystemService {
       // Collect tasks to remove
       const taskArns: string[] = [];
       for (let i = 0; i < toRemove; i++) {
-        const taskArn = await this.cache.rpop(CACHE_KEYS.idleBuildsListKey);
+        const taskArn = await this.cache.lpop(CACHE_KEYS.idleBuildsListKey); // clean newer tasks that may not be ready first
         if (taskArn) {
           taskArns.push(taskArn as string);
         }
@@ -108,7 +108,7 @@ export class IdleContainerAllocationSystemService {
     newBuildCacheData: ActiveBuild,
   ): Promise<FargateInstanceInfo> {
     // 1. Try to pop an idle container from the pool
-    const taskArn = (await this.cache.lpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
+    const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
       | string
       | null;
 
