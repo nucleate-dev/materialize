@@ -1673,7 +1673,7 @@ export class ExpoDevServerService {
     }
   }
 
-  private runCommand(
+  private runCommandInternal(
     command: string,
     args: string[],
     cwd: string,
@@ -1764,6 +1764,25 @@ export class ExpoDevServerService {
     });
   }
 
+  public async runCommand(
+    command: string,
+    args: string[] = [],
+    cwd?: string,
+    env?: Record<string, string>,
+    timeoutMs: number = 120000,
+  ): Promise<{ stdout: string; stderr: string; code: number }> {
+    const workingDirectory = cwd || this.state.projectDir || this.workDir;
+
+    this.log2.info("Running command", {
+      command,
+      args,
+      workingDirectory,
+      timeout: timeoutMs,
+    });
+
+    return this.runCommandInternal(command, args, workingDirectory, env, timeoutMs);
+  }
+
   private async buildExpoProject(
     projectDir: string,
     logger: {
@@ -1813,7 +1832,7 @@ export class ExpoDevServerService {
       command: "npx expo export --platform web",
       projectDir,
     });
-    const result = await this.runCommand(
+    const result = await this.runCommandInternal(
       "npx",
       ["expo", "export", "--platform", "web"],
       projectDir,

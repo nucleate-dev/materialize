@@ -12,6 +12,8 @@ import {
   PublicDevServerStartResponse,
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
+  PublicRunCommandRequest,
+  PublicRunCommandResponse,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
@@ -43,6 +45,12 @@ export class PublicApiService {
     app.post<{ Body: PublicBuildAndDeployRequest }>(
       "/build-and-deploy",
       this.buildAndDeploy.bind(this),
+    );
+
+    // POST /run-command
+    app.post<{ Body: PublicRunCommandRequest }>(
+      "/run-command",
+      this.runCommand.bind(this),
     );
   }
 
@@ -322,6 +330,57 @@ export class PublicApiService {
           },
         ],
         build_warnings: [],
+      };
+    }
+  }
+
+  private async runCommand(
+    request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicRunCommandResponse> {
+    const { command, args, cwd, env, timeout_ms } = request.body;
+
+    if (!command) {
+      request.log2.error(
+        new Error("Missing required parameter: command"),
+        "Missing required parameter: command",
+        { command, args },
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "command is required",
+      };
+    }
+
+    try {
+      const result = await this.expoDevServerService.runCommand(
+        command,
+        args || [],
+        cwd,
+        env,
+        timeout_ms || 120000,
+      );
+
+      return {
+        status: result.code === 0 ? "success" : "error",
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exit_code: result.code,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(
+        new Error(errorMessage),
+        "Command execution failed",
+        { stack: errorStack, command, args },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
       };
     }
   }

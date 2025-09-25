@@ -168,3 +168,19 @@ export interface DevServerRestartResponse {
   tunnelUrl?: string;
   message: string;
 }
+
+export interface PublicRunCommandRequest {
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  timeout_ms?: number;
+}
+
+export interface PublicRunCommandResponse {
+  status: "success" | "error";
+  stdout?: string;
+  stderr?: string;
+  exit_code?: number;
+  error?: string;
+}
