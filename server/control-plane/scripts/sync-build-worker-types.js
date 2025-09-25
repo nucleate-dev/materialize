@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 // File paths
 const SOURCE_FILE = path.resolve(
   __dirname,
-  '../../build-workers/build-worker-api-types.ts',
+  '../../build-workers/types/BuildWorkerTypes.ts',
 );
 const TARGET_FILE = path.resolve(__dirname, '../types/BuildWorkerTypes.ts');
 
