@@ -205,11 +205,10 @@ export class DispatcherService {
           currentBuildId,
         });
         const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuildJson = await this.cache.get(activeBuildKey);
+        const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
 
-        if (existingBuildJson) {
-          const parsedBuild = JSON.parse(existingBuildJson as string);
-          if (!isActiveBuildType(parsedBuild)) {
+        if (existingBuild) {
+          if (!isActiveBuildType(existingBuild)) {
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
               data: null,
               error: {
@@ -218,7 +217,6 @@ export class DispatcherService {
               } as StandardErrorResponse,
             });
           }
-          const existingBuild: ActiveBuild = parsedBuild;
 
           // If build is cleaning or building, proceed with new build
           if (isDevServerInShutdownStages(existingBuild.status)) {
@@ -280,9 +278,8 @@ export class DispatcherService {
         // Reuse existing build
         request.log2.consoleLogDevOnly('info', 'Reusing existing build');
         activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuildJson = await this.cache.get(activeBuildKey);
-        const parsedBuild = JSON.parse(existingBuildJson as string);
-        if (!isActiveBuildType(parsedBuild)) {
+        const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
+        if (!existingBuild || !isActiveBuildType(existingBuild)) {
           return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
             data: null,
             error: {
@@ -291,17 +288,13 @@ export class DispatcherService {
             } as StandardErrorResponse,
           });
         }
-        const existingBuild: ActiveBuild = parsedBuild;
         updatedBuildCacheData = {
           ...existingBuild,
           status: 'updating',
           last_touched: currentTime,
         };
       }
-      await this.cache.set(
-        activeBuildKey,
-        JSON.stringify(updatedBuildCacheData),
-      );
+      await this.cache.hset(activeBuildKey, updatedBuildCacheData);
       // NOTE: at this point, there should always be an active build, with status "updating"
 
       // Dispatch request to fargate instance
@@ -345,10 +338,7 @@ export class DispatcherService {
         updatedBuildCacheData.url =
           fargateResponse.tunnel_url || this.getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify(updatedBuildCacheData),
-        );
+        await this.cache.hset(activeBuildKey, updatedBuildCacheData);
         // Update builds ZSET with new timestamp
         const buildIdFromKey = activeBuildKey.replace('active_build:', '');
         await this.cache.customCommand([
@@ -391,10 +381,7 @@ export class DispatcherService {
           'There was an error dispatching the request to the fargate instance',
         );
         updatedBuildCacheData.status = 'error';
-        await this.cache.set(
-          activeBuildKey,
-          JSON.stringify(updatedBuildCacheData),
-        );
+        await this.cache.hset(activeBuildKey, updatedBuildCacheData);
 
         return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
           data: null,
@@ -429,7 +416,7 @@ export class DispatcherService {
       .substr(2, 9)}`;
     const activeBuildKey = CACHE_KEYS.activeBuild(buildId);
     // Set the new build as active
-    await this.cache.set(activeBuildKey, JSON.stringify(newBuildCacheData));
+    await this.cache.hset(activeBuildKey, newBuildCacheData);
     // Update current pointer
     await this.cache.set(CACHE_KEYS.protoCurrentBuild(prototype_id), buildId);
     // Add to builds ZSET
@@ -487,21 +474,16 @@ export class DispatcherService {
           const activeBuildKey = CACHE_KEYS.activeBuild(
             currentBuildId as string,
           );
-          const existingBuildJson = await this.cache.get(activeBuildKey);
+          const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
 
-          if (existingBuildJson) {
-            const parsedBuild = JSON.parse(existingBuildJson as string);
-            if (isActiveBuildType(parsedBuild)) {
-              const updatedBuildData = {
-                ...parsedBuild,
-                last_touched: Math.floor(Date.now() / 1000),
-              };
+          if (existingBuild && isActiveBuildType(existingBuild)) {
+            const updatedBuildData = {
+              ...existingBuild,
+              last_touched: Math.floor(Date.now() / 1000),
+            };
 
-              // Update the active build cache with new timestamp
-              await this.cache.set(
-                activeBuildKey,
-                JSON.stringify(updatedBuildData),
-              );
+            // Update the active build cache with new timestamp
+            await this.cache.hset(activeBuildKey, updatedBuildData);
 
               // Update builds ZSET with new timestamp
               const buildIdFromKey = activeBuildKey.replace(
@@ -582,11 +564,10 @@ export class DispatcherService {
 
       if (currentBuildId) {
         const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuildJson = await this.cache.get(activeBuildKey);
+        const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
 
-        if (existingBuildJson) {
-          const parsedBuild = JSON.parse(existingBuildJson as string);
-          if (!isActiveBuildType(parsedBuild)) {
+        if (existingBuild) {
+          if (!isActiveBuildType(existingBuild)) {
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
               data: null,
               error: {
@@ -595,7 +576,6 @@ export class DispatcherService {
               } as DispatchPrecheckErrorResponse,
             });
           }
-          const existingBuild: ActiveBuild = parsedBuild;
 
           return reply.status(HTTP_STATUS.OK).send({
             data: {
@@ -747,5 +727,28 @@ export class DispatcherService {
   private normalizeUrl(url: string): string {
     // Ensure URL has protocol (https://) for iframe loading
     return url && !url.startsWith('http') ? `https://${url}` : url;
+  }
+
+  private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
+    const raw = await this.cache.hgetall(key);
+
+    if (!raw || raw.length === 0) return null;
+
+    const obj = Object.fromEntries(
+      raw.map(
+        (e: {
+          field: { toString(): string };
+          value: { toString(): string };
+        }) => [e.field.toString(), e.value.toString()],
+      ),
+    ) as Record<string, string>;
+
+    return {
+      fargate_task_arn: obj.fargate_task_arn,
+      fargate_private_ip: obj.fargate_private_ip,
+      url: obj.url,
+      status: obj.status as ActiveBuild['status'],
+      last_touched: parseInt(obj.last_touched, 10),
+    };
   }
 }

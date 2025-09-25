@@ -293,13 +293,10 @@ export class IdleContainerAllocationSystemService {
         log2,
         prototypeId,
       );
-      await this.cache.set(
-        activeBuildKey,
-        JSON.stringify({
-          ...newBuildCacheData,
-          fargate_task_arn: taskArn,
-        }),
-      );
+      await this.cache.hset(activeBuildKey, {
+        ...newBuildCacheData,
+        fargate_task_arn: taskArn,
+      });
       const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
         taskArn,
       );

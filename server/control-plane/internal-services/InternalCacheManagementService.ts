@@ -431,14 +431,13 @@ export class InternalCacheManagementService {
       // Get the data for each active build
       for (const buildKey of prototypeActiveBuildKeys) {
         try {
-          const buildJson = await this.cache.get(buildKey);
-          if (buildJson) {
-            const parsedBuild = JSON.parse(buildJson as string);
-            if (isActiveBuildType(parsedBuild)) {
+          const activeBuild = await this.hgetallAsActiveBuild(buildKey);
+          if (activeBuild) {
+            if (isActiveBuildType(activeBuild)) {
               const buildId = buildKey.replace('active_build:', '');
               allActiveBuilds.push({
                 buildId,
-                activeBuild: parsedBuild,
+                activeBuild,
                 isCurrent: buildId === currentBuildId,
               });
             } else {
@@ -583,5 +582,28 @@ export class InternalCacheManagementService {
     } while (cursor !== '0');
 
     return keys;
+  }
+
+  private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
+    const raw = await this.cache.hgetall(key);
+
+    if (!raw || raw.length === 0) return null;
+
+    const obj = Object.fromEntries(
+      raw.map(
+        (e: {
+          field: { toString(): string };
+          value: { toString(): string };
+        }) => [e.field.toString(), e.value.toString()],
+      ),
+    ) as Record<string, string>;
+
+    return {
+      fargate_task_arn: obj.fargate_task_arn,
+      fargate_private_ip: obj.fargate_private_ip,
+      url: obj.url,
+      status: obj.status as ActiveBuild['status'],
+      last_touched: parseInt(obj.last_touched, 10),
+    };
   }
 }
