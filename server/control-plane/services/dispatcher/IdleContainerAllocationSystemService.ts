@@ -466,7 +466,7 @@ export class IdleContainerAllocationSystemService {
   ): Promise<void> {
     const out = await this.stsClient.send(
       new AssumeRoleCommand({
-        RoleArn: process.env.PROTOTYPE_ROLE_ARN!,
+        RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
         RoleSessionName: `proto-${prototypeId}`,
         Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
         DurationSeconds: 3600 * 12, // 12 hours, refresh as needed

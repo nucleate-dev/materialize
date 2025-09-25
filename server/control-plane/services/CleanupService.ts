@@ -14,10 +14,10 @@ import {
   type CleanupOperationResult,
   type CleanupStats,
   type IdleBuildInfo,
-  CACHE_KEYS,
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../types/InternalTypes.js';
+import { removeBuildDataFromCache } from '../utils/cacheInteractionUtils.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -180,7 +180,9 @@ export class CleanupService {
           undefined,
           { buildId },
         );
-        const removedFromCache = await this.removeBuildDataFromCache(
+        const removedFromCache = await removeBuildDataFromCache(
+          this.cache,
+          this.log2,
           buildKey,
           prototypeId,
           buildId,
@@ -205,7 +207,9 @@ export class CleanupService {
           stats.failedCleanups++;
           continue;
         }
-        const removedFromCache = await this.removeBuildDataFromCache(
+        const removedFromCache = await removeBuildDataFromCache(
+          this.cache,
+          this.log2,
           buildKey,
           prototypeId,
           buildId,
@@ -254,7 +258,9 @@ export class CleanupService {
       killedPrototypeIds.push(prototypeId);
 
       // 6. remove the active build from cache and cleanup schema entries
-      const removedFromCache = await this.removeBuildDataFromCache(
+      const removedFromCache = await removeBuildDataFromCache(
+        this.cache,
+        this.log2,
         buildKey,
         prototypeId,
         buildId,
@@ -325,42 +331,13 @@ export class CleanupService {
     buildId: string,
   ): Promise<boolean> {
     try {
-      await this.cache.hset(buildKey, this.activeBuildToStringRecord(activeBuild));
+      await this.cache.hset(
+        buildKey,
+        this.activeBuildToStringRecord(activeBuild),
+      );
       return true;
     } catch (error) {
       this.log2.error(error, 'Failed to update cache active build data', {
-        buildId,
-      });
-      return false;
-    }
-  }
-
-  // returns true if successful, false if not
-  private async removeBuildDataFromCache(
-    buildKey: string,
-    prototypeId: string,
-    buildId: string,
-  ): Promise<boolean> {
-    try {
-      await this.cache.del([buildKey]);
-      // Remove from builds ZSET
-      await this.cache.customCommand([
-        'ZREM',
-        CACHE_KEYS.protoBuilds(prototypeId),
-        buildId,
-      ]);
-      // If this was the current build, remove the current pointer
-      const currentBuildId = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototypeId),
-      );
-      if (currentBuildId === buildId) {
-        await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
-      }
-      return true;
-    } catch (error) {
-      this.log2.error(error, 'Failed to remove build data from cache', {
-        buildKey,
-        prototypeId,
         buildId,
       });
       return false;
@@ -687,7 +664,9 @@ export class CleanupService {
     return true;
   }
 
-  private activeBuildToStringRecord(build: ActiveBuild): Record<string, string> {
+  private activeBuildToStringRecord(
+    build: ActiveBuild,
+  ): Record<string, string> {
     return {
       fargate_task_arn: build.fargate_task_arn,
       fargate_private_ip: build.fargate_private_ip,
