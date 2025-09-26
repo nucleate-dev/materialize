@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import { PrototypeFileInput } from '../../../types/PublicAPITypes.js';
 export interface FileManagerInterface {
   handleToolCall(toolCall: {
     function: { name: string; arguments: Record<string, unknown> };
@@ -26,17 +27,8 @@ export interface FileManagerInterface {
   getFinalState(): Record<string, unknown>;
 }
 
-export interface PrototypeFile {
-  id: string;
-  name: string;
-  contents: string;
-  prototype_id: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
 export class VirtualFileManager implements FileManagerInterface {
-  public files: Map<string, PrototypeFile>;
+  public files: Map<string, PrototypeFileInput>;
   private log2: SystemLogger;
   private prototypeId?: string;
   private changedFiles: Set<string> = new Set();
@@ -44,7 +36,7 @@ export class VirtualFileManager implements FileManagerInterface {
   private fileScope: 'complete' | 'updates' = 'updates';
 
   constructor(
-    convertedFiles: Record<string, PrototypeFile> | null,
+    convertedFiles: Record<string, PrototypeFileInput> | null,
     log2: SystemLogger,
     prototypeId?: string,
     fileScope: 'complete' | 'updates' = 'updates',
@@ -245,7 +237,7 @@ export class VirtualFileManager implements FileManagerInterface {
     const fileName = normalizedPath.split('/').pop() || normalizedPath;
     const now = new Date().toISOString();
 
-    const newFile: PrototypeFile = {
+    const newFile: PrototypeFileInput = {
       id: uuidv4(),
       name: fileName,
       contents: contents || '',
@@ -450,8 +442,8 @@ export class VirtualFileManager implements FileManagerInterface {
     }
   }
 
-  getFinalState(): Record<string, PrototypeFile> {
-    const result: Record<string, PrototypeFile> = {};
+  getFinalState(): Record<string, PrototypeFileInput> {
+    const result: Record<string, PrototypeFileInput> = {};
     for (const [filePath, file] of this.files) {
       result[filePath] = file;
     }
@@ -485,8 +477,8 @@ export class VirtualFileManager implements FileManagerInterface {
     return this.changedFiles.size > 0 || this.deletedFiles.size > 0;
   }
 
-  public getChangedFiles(): Record<string, PrototypeFile> {
-    const changedFilesObj: Record<string, PrototypeFile> = {};
+  public getChangedFiles(): Record<string, PrototypeFileInput> {
+    const changedFilesObj: Record<string, PrototypeFileInput> = {};
     for (const filePath of this.changedFiles) {
       const file = this.files.get(filePath);
       if (file) {
@@ -496,7 +488,7 @@ export class VirtualFileManager implements FileManagerInterface {
     return changedFilesObj;
   }
 
-  public getAllFilesForDispatch(): Record<string, PrototypeFile> {
+  public getAllFilesForDispatch(): Record<string, PrototypeFileInput> {
     return this.getFinalState();
   }
 
