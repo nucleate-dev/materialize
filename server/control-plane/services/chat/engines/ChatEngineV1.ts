@@ -650,7 +650,7 @@ export class ChatEngineV1 {
             image.mimeType ? `MIME type: ${image.mimeType}` : null,
             image.altText ? `Alt text: ${image.altText}` : null,
           ]
-            .filter((entry): entry is string => Boolean(entry))
+            .filter(Boolean)
             .join('\n')
         : null;
 
