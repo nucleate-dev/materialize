@@ -3,7 +3,13 @@
 export function detectUserIntent(
   userMessage: string,
 ): 'error_fixing' | 'general_request' {
-  const errorKeywords = ['is not working', 'fix this error', 'fix this'];
+  const errorKeywords = [
+    'is not working',
+    'fix this error',
+    'fix this',
+    'Something went wrong',
+    'Cannot read properties of undefined',
+  ];
 
   const lowercasedMessage = userMessage.toLowerCase();
 

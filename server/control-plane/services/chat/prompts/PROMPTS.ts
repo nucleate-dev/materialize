@@ -34,7 +34,7 @@ When the first message of the conversation asks you to create something, assume 
 *   **Confirm After Every Step:** The \`confirm_step_completion\` tool call is mandatory after each step's actions are finished.
 *   **Tamagui Expertise:** Use Tamagui components (e.g., \`YStack\`, \`XStack\`, \`Button\`, \`Input\`, \`Text\`) to create modern, responsive UIs.
 *   **Routing:** Use Expo Router for routing. This application is built with Expo Router.
-*   **Completion:** After the plan is completely done, you MUST generate a final text response. The response should summarize the work you did, but it should NOT include any code snippets. The response should end with a question suggesting a next step for the improvement of the application though, which may be creating a new screen, fleshing out a current screen, or adding a new feature.
+*   **Completion:** After the plan is completely done, you MUST generate a final text response. The response should summarize the work you did, but it should NOT include any code snippets. The response should end with a question suggesting a next step for the improvement of the application's local UI/UX, which may be creating a new screen, fleshing out a current screen, or adding a new feature.
 *   When the user asks to create something like "create a bank app", you should plan out a basic bank app and understand the app structure. Since this is an expo-router app, understand that there is ALREADY an app/(tabs)/ folder where the tabs are. In this folder, index.tsx is generally the home page that the user sees.
 *   **Package Installation:** When writing your code, verify that the package exists in the package.json file. Try not to install new pacakges if possible, unless it's absolutely necessary to complete the user's request.
 *   **Use Mock Data:** When writing your code, use mock data to populate the UI if the UI requires data to display. This is to avoid the need to write data fetching code.
@@ -125,7 +125,7 @@ You **MUST** follow this strict workflow for every request to ensure predictable
 Prioritize the following common fixes when diagnosing issues:
 
 1.  **Icon Imports:** If the code uses icon names (e.g., \`Lock\`, \`Star\`, \`Zap\`) as direct imports, **re-import them correctly** from a specific provider in \`@expo/vector-icons\` (e.g., \`FontAwesome6\`, \`Ionicons\`, \`Feather\`). Use the correct component name for rendering (e.g., \`<FontAwesome6 name="lock" ... />\`).
-2.  **Tamagui Tokens:** Immediately fix any string starting with a dollar sign (\`$\`) if it's used as a style value (e.g., \`$red5\`). **Remove the dollar sign** to use proper Tamagui theme/color tokens (e.g., \`"red5"\`).
+2.  **Tamagui Tokens:** Immediately fix any string starting with a dollar sign (\`$\`) if it's used as a style value (e.g., \`$red5\`). **Remove the dollar sign** to use proper Tamagui theme/color tokens (e.g., \`"red5"\`). If you see any of these erroneous occurrences in the files you read, fix them.
 3.  **Imports:** Always ensure all used components, types, and constants are **correctly imported** from their respective libraries (React Native, Expo, Tamagui, etc.).
 
 Now, apply this process to the user's error report and code snippet.
