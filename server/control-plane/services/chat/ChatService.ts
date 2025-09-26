@@ -346,19 +346,15 @@ export class ChatService {
                 { enqueueError },
               );
             }
-            try {
-              controller.close();
-            } catch (closeError) {
-              if (
-                closeError instanceof Error &&
-                !closeError.message.includes('Controller is already closed')
-              ) {
-                request.log2.error(
-                  closeError,
-                  '[handleChat] Failed to close controller:',
-                );
-              }
-            }
+          } finally {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'stream_complete',
+                })}\n\n`,
+              ),
+            );
+            controller.close();
           }
         },
       });

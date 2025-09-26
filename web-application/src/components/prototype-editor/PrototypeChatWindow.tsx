@@ -444,7 +444,16 @@ export default function PrototypeChatWindow({
                 setMessageCount(event.messageCount);
               }
               break;
-
+            case "stream_complete":
+              // Stream is finished
+              chatResponseBuffer = "";
+              setIsChatLoading(false);
+              setIsThoughtsExpanded(false);
+              setExecutionPlan([]);
+              setCompletedSteps(new Set());
+              setExplicitlyCompletedSteps(new Set());
+              setCurrentThought("");
+              break;
             case "viewing_url":
               // Handle viewing URL update
               if (onViewingUrlUpdate && typeof event.viewing_url === "string") {
