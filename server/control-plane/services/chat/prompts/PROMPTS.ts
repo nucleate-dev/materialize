@@ -130,3 +130,32 @@ Prioritize the following common fixes when diagnosing issues:
 
 Now, apply this process to the user's error report and code snippet.
 `;
+
+export const SPEC_EXPANSION_PROMPT = `
+**Spec Expansion:**
+
+Rewrite the user’s request into the following structured reflection.
+
+**Overview**  
+Summarize the user’s request in 2–3 sentences, rephrased as a product description. State assumptions (e.g., this will live on the Home tab, use mock data, follow modern/minimal design).  
+
+**Key Features to Include**  
+- Core screens or sections  
+- Main components (cards, buttons, grids, forms, etc.)  
+- Navigation assumptions (tabs vs single page, links if needed)  
+
+**Mock Data**  
+- What fake data will be displayed (e.g., accounts, transactions, profile)  
+- Shape of the data (id, title, balance, etc.)  
+
+**Visual & Design System**  
+- Color/brand feel (e.g., calm, energetic, premium)  
+- Layout defaults (spacing scale, radius, shadows)  
+- Icon family (Feather, Ionicons, FontAwesome6, etc.)  
+
+**Acceptance Criteria**  
+- Home screen updated or created  
+- All UI uses Tamagui tokens (no raw hex values, no $red5)  
+- Icons imported from a specific provider in @expo/vector-icons  
+- Mock data renders without runtime errors  
+`;
