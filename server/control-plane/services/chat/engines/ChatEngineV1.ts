@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import type {
   APIResponse,
-  ChatImagePayload,
   CodeError,
   DispatchRequestBody,
   DispatchSuccessResponse,
@@ -50,7 +49,7 @@ export interface ChatEngineParams {
   fileManager: FileManagerInterface;
   inputFiles: Record<string, PrototypeFileInput> | null;
   inputAssets: Record<string, PrototypeAssetInput> | null;
-  image: ChatImagePayload | null;
+  image: string | null;
   prototype_id: string;
   token: string;
   chat_session_id: string;
@@ -644,15 +643,7 @@ export class ChatEngineV1 {
         '[ChatEngine] Generating response with plan-and-execute strategy...',
       );
 
-      const imageContext = image
-        ? [
-            `Attached image URL: ${image.url}`,
-            image.mimeType ? `MIME type: ${image.mimeType}` : null,
-            image.altText ? `Alt text: ${image.altText}` : null,
-          ]
-            .filter(Boolean)
-            .join('\n')
-        : null;
+      const imageContext = image ? `Attached: ${image}` : null;
 
       const result = streamText({
         model: this.getCurrentModel(),

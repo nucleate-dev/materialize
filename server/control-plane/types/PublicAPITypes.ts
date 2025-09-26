@@ -310,6 +310,7 @@ export interface ChatRequestBody {
   inputAssets: Record<string, PrototypeAssetInput> | null;
   chat_session_id: string;
   prototype_id: string;
+  image?: string | null;
 }
 
 // Streaming response types for different event types

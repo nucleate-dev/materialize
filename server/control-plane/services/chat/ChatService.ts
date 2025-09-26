@@ -160,6 +160,7 @@ export class ChatService {
         inputAssets,
         chat_session_id,
         prototype_id,
+        image,
       } = request.body;
 
       // ------------------------------------------------------------------------------------------------
@@ -285,6 +286,7 @@ export class ChatService {
               encoder,
               supabase,
               log2: request.log2,
+              image: image ?? null,
             });
 
             // ------------------------------------------------------------------------------------------------
