@@ -52,7 +52,7 @@ export default function DashboardPage() {
         if (typeof window !== "undefined") {
           localStorage.setItem(
             "chat_intent",
-            JSON.stringify({ message: content }),
+            JSON.stringify({ message: content, is_sending: false }),
           );
         }
         router.push("/login");
@@ -102,6 +102,7 @@ export default function DashboardPage() {
             JSON.stringify({
               prototype_id: result.data.prototype_id,
               message: content,
+              is_sending: false,
             }),
           );
         }

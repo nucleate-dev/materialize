@@ -18,12 +18,18 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
-  ChatErrorResponse, ChatRequestBody,
+  ChatErrorResponse,
+  ChatRequestBody,
   CodeError,
-  ChatMessage as ServerChatMessage
+  ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
+import {
+  clearChatIntent,
+  getChatIntent,
+  hasChatIntent,
+  setChatIntent,
+} from "@/lib/utils/chatIntentUtils";
 import {
   ChatBubbleLeftRightIcon,
   CheckIcon,
@@ -580,53 +586,34 @@ export default function PrototypeChatWindow({
   }, [userPlan, messageCount, loadingUsageCount]);
 
   // Handle sending messages
-  const handleSendMessage = useCallback(async () => {
-    if (
-      !currentMessage.trim() ||
-      !prototypeChatSession ||
-      !files ||
-      isChatLoading ||
-      isDevServerNotReady
-    )
-      return;
+  const handleSendMessage = useCallback(
+    async (message: string) => {
+      if (
+        !message.trim() ||
+        !prototypeChatSession ||
+        !files ||
+        isChatLoading ||
+        isDevServerNotReady
+      )
+        return;
 
-    // Check if user is at limit before sending
-    if (isAtLimit) {
-      setShowUpsellModal(true);
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      content: currentMessage.trim(),
-    };
-
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setCurrentMessage("");
-    setIsChatLoading(true);
-    setIsConnected(true);
-
-    // Reset thoughts and execution plan state for new conversation
-    setCurrentThought("");
-    setExecutionPlan([]);
-    setCompletedSteps(new Set());
-    setExplicitlyCompletedSteps(new Set());
-    setIsThoughtsExpanded(false);
-
-    try {
-      // Get access token for authentication
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.access_token) {
-        throw new Error("No access token available");
+      // Check if user is at limit before sending
+      if (isAtLimit) {
+        setShowUpsellModal(true);
+        return;
       }
 
       // Convert messages to the expected ServerChatMessage format
+      const userMessage: ChatMessage = {
+        role: "user",
+        content: message.trim(),
+      };
+
+      const newMessages = [...messages, userMessage];
       const serverMessages: ServerChatMessage[] = newMessages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
-
       const requestBody: ChatRequestBody = {
         messages: serverMessages,
         inputFiles: files,
@@ -635,74 +622,93 @@ export default function PrototypeChatWindow({
         prototype_id: prototypeId || "",
         image: null,
       };
+      setMessages(newMessages);
+      setCurrentMessage("");
+      setIsChatLoading(true);
+      setIsConnected(true);
 
-      // Make streaming request
-      const streamingResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-            Authorization: `Bearer ${session.session.access_token}`,
-          },
-          body: JSON.stringify(requestBody),
-        },
-      );
+      // Reset thoughts and execution plan state for new conversation
+      setCurrentThought("");
+      setExecutionPlan([]);
+      setCompletedSteps(new Set());
+      setExplicitlyCompletedSteps(new Set());
+      setIsThoughtsExpanded(false);
 
-      if (!streamingResponse.ok) {
-        // Try to parse error response
-        try {
-          const errorData: ChatErrorResponse = await streamingResponse.json();
-          if (errorData.error) {
-            // Handle specific error cases
-            if (
-              errorData.usage &&
-              errorData.usage.current >= errorData.usage.limit
-            ) {
-              setShowUpsellModal(true);
-              return;
-            }
-            throw new Error(errorData.error);
-          }
-        } catch (parseError) {
-          throw new Error(`HTTP error! status: ${streamingResponse.status}`);
+      try {
+        // Get access token for authentication
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.access_token) {
+          throw new Error("No access token available");
         }
+
+        // Make streaming request
+        const streamingResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/chat`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "text/event-stream",
+              Authorization: `Bearer ${session.session.access_token}`,
+            },
+            body: JSON.stringify(requestBody),
+          },
+        );
+
+        if (!streamingResponse.ok) {
+          // Try to parse error response
+          try {
+            const errorData: ChatErrorResponse = await streamingResponse.json();
+            if (errorData.error) {
+              // Handle specific error cases
+              if (
+                errorData.usage &&
+                errorData.usage.current >= errorData.usage.limit
+              ) {
+                setShowUpsellModal(true);
+                return;
+              }
+              throw new Error(errorData.error);
+            }
+          } catch (parseError) {
+            throw new Error(`HTTP error! status: ${streamingResponse.status}`);
+          }
+        }
+
+        // Process the streaming response
+        await processStreamingResponse(streamingResponse);
+      } catch (error) {
+        logger.debug("error", "Error sending message:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "Sorry, I encountered an error.",
+          },
+        ]);
+      } finally {
+        setIsChatLoading(false);
+        setIsConnected(false);
       }
-
-      // Process the streaming response
-      await processStreamingResponse(streamingResponse);
-    } catch (error) {
-      logger.debug("error", "Error sending message:", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an error.",
-        },
-      ]);
-    } finally {
-      setIsChatLoading(false);
-      setIsConnected(false);
-    }
-  }, [
-    currentMessage,
-    messages,
-    prototypeChatSession,
-    files,
-    assets,
-    prototypeId,
-    isChatLoading,
-    isAtLimit,
-    isDevServerNotReady,
-    processStreamingResponse,
-    logger,
-    setIsChatLoading,
-  ]);
+    },
+    [
+      messages,
+      prototypeChatSession,
+      files,
+      assets,
+      prototypeId,
+      isChatLoading,
+      isAtLimit,
+      isDevServerNotReady,
+      processStreamingResponse,
+      logger,
+      setIsChatLoading,
+    ],
+  );
 
   // Handle clear chat
   const handleClearChat = useCallback(async () => {
@@ -745,8 +751,11 @@ export default function PrototypeChatWindow({
     if (buildErrors.length === 0) return;
 
     const errorText = buildErrors
-      .map((error) => `${error.file}:${error.line}:${error.column} - ${error.message}`)
-      .join('\n');
+      .map(
+        (error) =>
+          `${error.file}:${error.line}:${error.column} - ${error.message}`,
+      )
+      .join("\n");
 
     const message = `Please help me fix these build errors:\n\n${errorText}`;
     setCurrentMessage(message);
@@ -785,24 +794,30 @@ export default function PrototypeChatWindow({
 
   // Handle chat intent from localStorage
   useEffect(() => {
-    if (!prototypeId || !prototypeChatSession?.id) return;
+    if (
+      !prototypeId ||
+      !prototypeChatSession?.id ||
+      Object.keys(files).length === 0 ||
+      Object.keys(assets).length === 0 ||
+      isChatLoading ||
+      !logger
+    )
+      return;
 
     // Send chat intent if present in localStorage
     const intent = getChatIntent(prototypeId);
-    if (intent && !isChatLoading && files && assets) {
-      setCurrentMessage(intent.message);
-      // Auto-send the intent message
-      setTimeout(() => {
-        handleSendMessage();
-      }, 100);
-    }
+    if (!intent || intent.is_sending) return;
+    // Mark as sending to prevent re-processing
+    setChatIntent(prototypeId, intent.message, true);
+    handleSendMessage(intent.message);
   }, [
     prototypeId,
     prototypeChatSession,
-    handleSendMessage,
     isChatLoading,
     files,
     assets,
+    logger,
+    handleSendMessage,
   ]);
 
   return (
@@ -828,7 +843,8 @@ export default function PrototypeChatWindow({
                 className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
               >
                 <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
-                {buildErrors.length} Error{buildErrors.length > 1 ? 's' : ''} Found
+                {buildErrors.length} Error{buildErrors.length > 1 ? "s" : ""}{" "}
+                Found
               </Button>
             )}
             <Button onClick={exportSession} variant="outline" size="sm">
@@ -1005,7 +1021,7 @@ export default function PrototypeChatWindow({
                     !autocompleteState.isOpen
                   ) {
                     e.preventDefault();
-                    handleSendMessage();
+                    handleSendMessage(currentMessage);
                   }
                 }}
                 onBlur={() => {
@@ -1032,7 +1048,9 @@ export default function PrototypeChatWindow({
             </div>
             <div className="flex gap-2">
               <Button
-                onClick={handleSendMessage}
+                onClick={() => {
+                  handleSendMessage(currentMessage);
+                }}
                 disabled={isSendDisabled}
                 className="flex-1"
               >
