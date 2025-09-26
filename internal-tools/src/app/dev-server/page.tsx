@@ -207,18 +207,9 @@ export default function DevServerPage() {
           </Alert>
         )}
 
-        {/* Success Alert */}
-        {success && (
-          <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/50 dark:text-green-400">
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription className="whitespace-pre-line">
-              {success}
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* EC2 Dev Server Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
           {/* EC2 Acquisition Card */}
           <Card>
             <CardHeader>
@@ -302,104 +293,116 @@ export default function DevServerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {ec2Details && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                  <h4 className="font-medium text-blue-900 mb-2">Usage Instructions:</h4>
-                  <ul className="space-y-1 text-blue-800">
-                    <li>• Paste <strong>Public DNS</strong> into <code>/server/scripts/deploy-control-plane-for-dev.js</code></li>
-                    <li>• Paste <strong>Public IPv4</strong> into <code>.env</code> files for internal-tools and web-application</li>
-                    <li>• Use <strong>SSH Command</strong> to connect to the instance directly</li>
-                  </ul>
-                </div>
-              )}
-
-              <div className="grid gap-3">
-                <div className="flex items-center gap-2">
-                  <Label className="min-w-32">Instance ID</Label>
-                  <Input
-                    readOnly
-                    value={ec2Details?.instanceId || ""}
-                    placeholder={!ec2Details ? "Not available" : ""}
-                    className="flex-1"
-                  />
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="min-w-32">Instance ID</Label>
+                    <Input
+                      readOnly
+                      value={ec2Details?.instanceId || ""}
+                      placeholder={!ec2Details ? "Not available" : ""}
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Label className="min-w-32">Public DNS</Label>
-                  <Input
-                    readOnly
-                    value={ec2Details?.publicDns || ""}
-                    placeholder={!ec2Details ? "Not available" : ""}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      ec2Details?.publicDns &&
-                      handleCopy(ec2Details.publicDns, "publicDns")
-                    }
-                    disabled={!ec2Details?.publicDns}
-                    aria-label="Copy Public DNS"
-                  >
-                    {copiedField === "publicDns" ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="min-w-32">Public DNS</Label>
+                    <Input
+                      readOnly
+                      value={ec2Details?.publicDns || ""}
+                      placeholder={!ec2Details ? "Not available" : ""}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        ec2Details?.publicDns &&
+                        handleCopy(ec2Details.publicDns, "publicDns")
+                      }
+                      disabled={!ec2Details?.publicDns}
+                      aria-label="Copy Public DNS"
+                    >
+                      {copiedField === "publicDns" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {ec2Details && (
+                    <p className="text-xs text-muted-foreground ml-32">
+                      Paste into <code className="bg-muted px-1 py-0.5 rounded">/server/scripts/deploy-control-plane-for-dev.js</code>
+                    </p>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Label className="min-w-32">Public IPv4</Label>
-                  <Input
-                    readOnly
-                    value={ec2Details?.publicIpv4 || ""}
-                    placeholder={!ec2Details ? "Not available" : ""}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      ec2Details?.publicIpv4 &&
-                      handleCopy(ec2Details.publicIpv4, "publicIpv4")
-                    }
-                    disabled={!ec2Details?.publicIpv4}
-                    aria-label="Copy Public IPv4"
-                  >
-                    {copiedField === "publicIpv4" ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="min-w-32">Public IPv4</Label>
+                    <Input
+                      readOnly
+                      value={ec2Details?.publicIpv4 || ""}
+                      placeholder={!ec2Details ? "Not available" : ""}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        ec2Details?.publicIpv4 &&
+                        handleCopy(ec2Details.publicIpv4, "publicIpv4")
+                      }
+                      disabled={!ec2Details?.publicIpv4}
+                      aria-label="Copy Public IPv4"
+                    >
+                      {copiedField === "publicIpv4" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {ec2Details && (
+                    <p className="text-xs text-muted-foreground ml-32">
+                      Paste into <code className="bg-muted px-1 py-0.5 rounded">.env</code> files for internal-tools and web-application
+                    </p>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Label className="min-w-32">SSH Command</Label>
-                  <Input
-                    readOnly
-                    value={ec2Details?.sshCommand || ""}
-                    placeholder={!ec2Details ? "Not available" : ""}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      ec2Details?.sshCommand &&
-                      handleCopy(ec2Details.sshCommand, "sshCommand")
-                    }
-                    disabled={!ec2Details?.sshCommand}
-                    aria-label="Copy SSH Command"
-                  >
-                    {copiedField === "sshCommand" ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="min-w-32">SSH Command</Label>
+                    <Input
+                      readOnly
+                      value={ec2Details?.sshCommand || ""}
+                      placeholder={!ec2Details ? "Not available" : ""}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        ec2Details?.sshCommand &&
+                        handleCopy(ec2Details.sshCommand, "sshCommand")
+                      }
+                      disabled={!ec2Details?.sshCommand}
+                      aria-label="Copy SSH Command"
+                    >
+                      {copiedField === "sshCommand" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {ec2Details && (
+                    <p className="text-xs text-muted-foreground ml-32">
+                      Use this command to connect directly to the instance
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
