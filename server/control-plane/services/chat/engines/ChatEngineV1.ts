@@ -18,7 +18,6 @@ import type {
 import { SYSTEM_PROMPT } from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
-  PrototypeFile,
   VirtualFileManager,
 } from '../utils/file-manager.js';
 
@@ -390,7 +389,7 @@ export class ChatEngineV1 {
     params: ChatEngineParams,
   ): Promise<{
     updatedFiles: string[];
-    updatedFilesObject: Record<string, PrototypeFile>;
+    updatedFilesObject: Record<string, PrototypeFileInput>;
     deletedFiles: string[];
   }> {
     const { prototype_id, token, controller, encoder } = params;
