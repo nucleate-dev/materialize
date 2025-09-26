@@ -233,6 +233,10 @@ const MaterializeRenderSection = forwardRef<
             body: JSON.stringify({ prototype_id: prototypeId }),
           },
         );
+        // TODO(Sourish): Handle Badge Status
+        // onRenderStatusChange("Restarting..");
+        // If restart fails -> Static Build OR /dispatch to start new dev server
+        // If restart succeeds -> Connected
 
         // Force a refresh regardless to reconnect iframe to server
         forceRefresh();
