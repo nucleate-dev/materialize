@@ -73,10 +73,11 @@ export interface PrototypeChatWindowProps {
   setIsChatLoading: (loading: boolean) => void;
 
   // Viewing URL callback
-  onViewingUrlUpdate?: (viewingUrl: string) => void;
+  onViewingUrlUpdate: (viewingUrl: string) => void;
 
   // Render status for disabling input
-  currentRenderStatus?: RenderStatus;
+  currentRenderStatus: RenderStatus;
+  onCurrentRenderStatusChange: (status: RenderStatus) => void;
 }
 
 export default function PrototypeChatWindow({
@@ -88,6 +89,7 @@ export default function PrototypeChatWindow({
   setIsChatLoading,
   onViewingUrlUpdate,
   currentRenderStatus,
+  onCurrentRenderStatusChange,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
   const { user } = useUser();
@@ -332,11 +334,14 @@ export default function PrototypeChatWindow({
             break;
           }
 
+          logger.debug("log", "received event: ", { event });
           // Handle different event types
           switch (event.type) {
             case "dispatch_start": {
               // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
               // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
+              logger.debug("log", "received dispatch_start event");
+              onCurrentRenderStatusChange("Updating..");
               clearChatIntent();
               break;
             }
@@ -463,9 +468,14 @@ export default function PrototypeChatWindow({
               break;
             case "viewing_url":
               // Handle viewing URL update
-              if (onViewingUrlUpdate && typeof event.viewing_url === "string") {
+              logger.debug(
+                "log",
+                "received viewing_url event, setting status to Connected",
+              );
+              if (event.viewing_url) {
                 onViewingUrlUpdate(event.viewing_url);
               }
+              onCurrentRenderStatusChange("Connected");
               break;
 
             case "files_synced":
@@ -547,7 +557,13 @@ export default function PrototypeChatWindow({
         reader.releaseLock();
       }
     },
-    [onFilesUpdate, onViewingUrlUpdate, logger, setIsChatLoading],
+    [
+      onFilesUpdate,
+      onViewingUrlUpdate,
+      logger,
+      setIsChatLoading,
+      onCurrentRenderStatusChange,
+    ],
   );
 
   // Calculate limits based on subscription plan
@@ -807,8 +823,11 @@ export default function PrototypeChatWindow({
     const intent = getChatIntent(prototypeId);
     if (!intent || intent.is_sending) return;
     // Mark as sending to prevent re-processing
-    setChatIntent(prototypeId, intent.message, true);
-    handleSendMessage(intent.message);
+    setCurrentMessage(intent.message);
+    setTimeout(() => {
+      setChatIntent(prototypeId, intent.message, true);
+      handleSendMessage(intent.message);
+    }, 5);
   }, [
     prototypeId,
     prototypeChatSession,

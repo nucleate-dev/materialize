@@ -25,7 +25,7 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
-  ChatImagePayload,
+  // ChatImagePayload,
   ChatMessage,
   ChatRequestBody,
   ChatStreamEvent,

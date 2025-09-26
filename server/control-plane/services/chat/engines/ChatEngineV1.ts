@@ -436,15 +436,17 @@ export class ChatEngineV1 {
         file_scope: fileManager.getFileScope(),
         hot_reload: true, // Enable hot reload for live updates
       };
-      if (fileManager.getFileScope() === 'complete') {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: 'dispatch_start',
-            })}\\n\\n`,
-          ),
-        );
-      }
+      log2.consoleLogDevOnly(
+        'info',
+        '[persistAndDispatchFiles] sending dispatch_start event',
+      );
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: 'dispatch_start',
+          })}\\n\\n`,
+        ),
+      );
       // Call the dispatch endpoint via internal Fastify inject
       const response = await this.config.fastifyApp.inject({
         method: 'POST',
@@ -462,6 +464,10 @@ export class ChatEngineV1 {
       > = JSON.parse(response.payload);
       if (response.statusCode === 200 && result.data) {
         // Send viewing URL update to client
+        log2.consoleLogDevOnly(
+          'info',
+          '[persistAndDispatchFiles] sending viewing_url event',
+        );
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
@@ -842,7 +848,7 @@ export class ChatEngineV1 {
         fileManager.hasChanges()
       ) {
         params.log2.info('Sending the files back to the client first: ', {
-          updatedFiles: Object.keys(fileManager.getAllFilesForDispatch()),
+          updatedFiles: Object.keys(fileManager.getChangedFiles()),
         });
         controller.enqueue(
           encoder.encode(

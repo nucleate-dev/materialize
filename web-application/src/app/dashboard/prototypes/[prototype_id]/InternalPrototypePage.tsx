@@ -569,6 +569,7 @@ export default function InternalPrototypePage() {
                   onViewingUrlUpdate={setViewingUrl}
                   // Render status for disabling input
                   currentRenderStatus={currentRenderStatus}
+                  onCurrentRenderStatusChange={setCurrentRenderStatus}
                 />
               </div>
             </CardContent>

@@ -270,7 +270,7 @@ export class ChatService {
               this.supabaseServiceKey,
             );
             // ------------------------------------------------------------------------------------------------
-            // 6. Execute chat through ChatEngine
+            // 6. Execute chat through ChatEngine (llm planning + execution, file persistence, message persistence, dispatch, & error handling)
             // ------------------------------------------------------------------------------------------------
             await this.chatEngine.executeChat({
               messages: enhancedMessages,
