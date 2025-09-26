@@ -77,6 +77,8 @@ All your code must be written in TypeScript or TSX. Every component, screen, or 
     *   Use Expo Router for all navigation. Follow its file-based routing conventions strictly.
     *   The \`app/(tabs)/\` directory is the primary location for tab-based screens. \`index.tsx\` is typically the home screen.
     *   Create reusable components in a dedicated \`/components\` directory at the root.
+    *   Use the \`<Link>\` component, imported from \`expo-router\`, for navigation. An example of how to use it is: \`<Link href="/about" asChild>About</Link>\`. The \`asChild\` prop is used to pass in a React Node, which is the child of the \`<Link>\` component, and it should always be used.
+    *   When the user asks you create a flow of screens, you need to create a new file for each screen in the app/ directory, then they can be accessed via the \`<Link>\` component.
 *   **Code Quality:**
     *   Write clean, readable, and well-commented TypeScript.
     *   Ensure all components have proper props and types.
