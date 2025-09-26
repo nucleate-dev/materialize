@@ -11,10 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type {
+  APIResponse,
+  StandardErrorResponse,
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
-  StandardErrorResponse,
-  APIResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 
@@ -83,6 +83,7 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 375, height: 750 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
+    const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -212,6 +213,34 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    // Function to restart dev server (simple API call with prototype_id)
+    const handleRestartDevServer = async () => {
+      if (!prototypeId) return;
+      setIsRestartingDevServer(true);
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) return;
+
+        await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/restart-dev-server`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prototype_id: prototypeId }),
+          },
+        );
+
+        // Force a refresh regardless to reconnect iframe to server
+        forceRefresh();
+      } finally {
+        setIsRestartingDevServer(false);
+      }
+    };
+
     const handleModeChange = (mode: PreviewMode) => {
       setPreviewMode(mode);
       // Trigger loading state when switching preview modes
@@ -338,7 +367,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -355,7 +384,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
@@ -427,15 +456,28 @@ const MaterializeRenderSection = forwardRef<
                     }
                   >
                     {currentRenderStatus === "Starting Dev Server.." ||
-                    currentRenderStatus === "Connecting.." ? (
+                      currentRenderStatus === "Connecting.." ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
                       <Play className="w-4 h-4 mr-2" />
                     )}
                     {currentRenderStatus === "Starting Dev Server.." ||
-                    currentRenderStatus === "Connecting.."
+                      currentRenderStatus === "Connecting.."
                       ? "Starting..."
                       : "Start Dev Server"}
+                  </DropdownMenuItem>
+                )}
+                {prototypeId && (
+                  <DropdownMenuItem
+                    onClick={handleRestartDevServer}
+                    disabled={!prototypeId || isRestartingDevServer}
+                  >
+                    {isRestartingDevServer ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    {isRestartingDevServer ? "Restarting..." : "Restart Server"}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
