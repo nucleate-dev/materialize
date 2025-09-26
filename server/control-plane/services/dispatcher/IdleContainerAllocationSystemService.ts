@@ -15,6 +15,12 @@ import {
   IdleBuild,
   IdleContainerStatus,
 } from '../../types/InternalTypes.js';
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+import axios from 'axios';
+import {
+  PublicAllocateRequest,
+  PublicAllocateResponse,
+} from '../../types/BuildWorkerTypes.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -22,15 +28,18 @@ export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;
   private readonly ecsClient: ECSClient;
   private readonly log2: SystemLogger;
+  private readonly stsClient: STSClient;
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
-    redis: GlideClient;
+    cacheClient: GlideClient;
     ecsClient: ECSClient;
+    stsClient: STSClient;
     log2: SystemLogger;
   }) {
-    this.cache = opts.redis;
+    this.cache = opts.cacheClient;
     this.ecsClient = opts.ecsClient;
+    this.stsClient = opts.stsClient;
     this.log2 = opts.log2.child({
       route: 'IdleContainerAllocationSystemService',
     });
@@ -140,9 +149,13 @@ export class IdleContainerAllocationSystemService {
     const idleKey = CACHE_KEYS.idleBuild(taskArn);
     const taskData = await this.hgetallAsIdleBuild(idleKey);
     await this.cache.del([idleKey]);
+    // Replenish idle pool in background
+    this.launchIdleContainer().catch((err) =>
+      this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
+    );
 
     // 4. If the idle container is not usable, clean it up in the background and fallback to direct launch
-    if (!taskData || !taskData.fargate_private_ip) {
+    if (!taskData || !taskData.fargate_task_arn) {
       this.log2.warn(
         `[ContainerAlloc] Idle container ${taskArn} missing metadata, falling back to direct launch`,
       );
@@ -189,11 +202,18 @@ export class IdleContainerAllocationSystemService {
       privateIp,
     });
     const info = { taskArn, privateIp };
-    await this.assignPrototypeToTask(info, prototypeId);
-    // Replenish idle pool in background
-    this.launchIdleContainer().catch((err) =>
-      this.log2.error(err, '[IdleAlloc] Failed to replenish idle container'),
-    );
+    try {
+      await this.scopeS3PermissionsForContainer(info, prototypeId);
+    } catch (error) {
+      this.log2.error(
+        error,
+        'Failed to scope S3 permissions for container and initialize S3client',
+      );
+      this.terminateFargateTask(taskArn);
+      throw new Error(
+        'Could not allocate a container: failed to scope S3 permissions for container',
+      );
+    }
     return info;
   }
 
@@ -289,10 +309,7 @@ export class IdleContainerAllocationSystemService {
     newBuildCacheData: ActiveBuild,
   ): Promise<FargateInstanceInfo> {
     try {
-      const taskArn = await this.launchFargateInstanceNotReady(
-        log2,
-        prototypeId,
-      );
+      const taskArn = await this.launchFargateInstanceNotReady(log2);
       await this.cache.hset(activeBuildKey, {
         fargate_task_arn: taskArn,
         fargate_private_ip: newBuildCacheData.fargate_private_ip,
@@ -306,7 +323,20 @@ export class IdleContainerAllocationSystemService {
       if (!privateIp) {
         throw new Error('Failed to get private IP for idle container');
       }
-      return { taskArn, privateIp };
+      const info = { taskArn, privateIp };
+      try {
+        await this.scopeS3PermissionsForContainer(info, prototypeId);
+      } catch (error) {
+        this.log2.error(
+          error,
+          'Failed to scope S3 permissions for container and initialize S3client',
+        );
+        this.terminateFargateTask(taskArn);
+        throw new Error(
+          'Could not allocate a container: failed to scope S3 permissions for container',
+        );
+      }
+      return info;
     } catch (error) {
       log2.error(error, 'Failed to launch Fargate task:');
       throw new Error(
@@ -320,11 +350,10 @@ export class IdleContainerAllocationSystemService {
   // Returns the task arn
   private async launchFargateInstanceNotReady(
     log2: SystemLogger,
-    prototypeId: string | null = null,
   ): Promise<string> {
     try {
       const command = new RunTaskCommand(
-        this.getFargateRunTaskCommandConfiguration(prototypeId),
+        this.getFargateRunTaskCommandConfiguration(),
       );
       const response = await this.ecsClient.send(command);
       if (!response.tasks || response.tasks.length === 0) {
@@ -374,9 +403,7 @@ export class IdleContainerAllocationSystemService {
     return privateIpDetail?.value || '';
   }
 
-  private getFargateRunTaskCommandConfiguration(
-    prototypeId: string | null = null,
-  ): RunTaskCommandInput {
+  private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition: 'fastify-build-worker',
@@ -394,10 +421,6 @@ export class IdleContainerAllocationSystemService {
             name: 'materialize-fargate-build-worker-container',
             environment: [
               {
-                name: 'PROTOTYPE_ID',
-                value: prototypeId || 'idle',
-              },
-              {
                 name: 'AWS_REGION',
                 value: process.env.AWS_REGION!,
               },
@@ -406,10 +429,6 @@ export class IdleContainerAllocationSystemService {
         ],
       },
       tags: [
-        {
-          key: 'PrototypeId',
-          value: prototypeId || 'idle',
-        },
         {
           key: 'Service',
           value: 'materialize-build-worker',
@@ -440,30 +459,51 @@ export class IdleContainerAllocationSystemService {
   }
 
   /** Tell running idle container to switch to a real prototypeId */
-  private async assignPrototypeToTask(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async scopeS3PermissionsForContainer(
     info: FargateInstanceInfo,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     prototypeId: string,
   ): Promise<void> {
-    // try {
-    //   const url = `http://${info.privateIp}:4000/assign-prototype`; // adjust if needed
-    //   const res = await fetch(url, {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ prototypeId }),
-    //   });
-    //   if (!res.ok) throw new Error(`Assign failed: ${res.status}`);
-    //   this.log2.info('[IdleAlloc] Assigned prototype to idle task', {
-    //     taskArn: info.taskArn,
-    //     prototypeId,
-    //   });
-    // } catch (err) {
-    //   this.log2.error(
-    //     err,
-    //     '[IdleAlloc] Failed to assign prototype to idle task',
-    //   );
-    //   throw err;
-    // }
+    const out = await this.stsClient.send(
+      new AssumeRoleCommand({
+        RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
+        RoleSessionName: `proto-${prototypeId}`,
+        Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
+        DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
+      }),
+    );
+
+    if (!out.Credentials) throw new Error('Failed to assume role');
+
+    const creds: PublicAllocateRequest = {
+      accessKeyId: out.Credentials.AccessKeyId!,
+      secretAccessKey: out.Credentials.SecretAccessKey!,
+      sessionToken: out.Credentials.SessionToken!,
+      prototypeId,
+    };
+
+    // Send creds to worker
+    try {
+      const allocationResponse: PublicAllocateResponse = await axios.post(
+        `http://${info.privateIp}:3002/allocate`,
+        creds,
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      );
+      if (allocationResponse.status === 'error') {
+        this.log2.error(
+          new Error(allocationResponse.error),
+          `Failed to allocate to worker ${info.privateIp}`,
+        );
+        throw new Error(
+          allocationResponse.error || 'Failed to allocate to worker',
+        );
+      }
+    } catch (error) {
+      this.log2.error(error, 'Failed to make allocation request to worker');
+      throw error;
+    }
   }
 }

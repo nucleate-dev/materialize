@@ -31,6 +31,8 @@ import {
 } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 
+const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
+
 // --- Dev Server State ---
 class DevServerState {
   public prototypeId: string | null = null;
@@ -105,24 +107,24 @@ export class ExpoDevServerService {
   private state = new DevServerState();
   private readonly workDir: string;
   private readonly defaultPort: number = 19006;
-  private readonly S3_BUCKET: string;
-  private readonly s3: S3Client;
+  private s3: S3Client | undefined;
   private log2: SystemLogger;
 
-  constructor(
-    workDir: string = "/tmp/expo-dev",
-    s3Bucket: string,
-    s3Instance: S3Client,
-  ) {
+  constructor(workDir: string = "/tmp/expo-dev", s3Instance?: S3Client) {
     this.workDir = workDir;
-    this.S3_BUCKET = s3Bucket;
     this.s3 = s3Instance;
-    this.log2 = baseLogger;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
+    this.log2 = baseLogger.child({
+      route: "ExpoDevServerService",
+    });
   }
 
   public getState(): DevServerState {
     return this.state;
+  }
+
+  public setS3Client(s3Instance: S3Client): void {
+    this.s3 = s3Instance;
   }
 
   // Start Expo dev server
@@ -1548,6 +1550,9 @@ export class ExpoDevServerService {
     prototypeId: string,
     version: string,
   ): Promise<Array<{ key: string; location: string }>> {
+    if (!this.s3) {
+      throw new Error("S3 client not set");
+    }
     const uploadResults: Array<{ key: string; location: string }> = [];
 
     const uploadDirectory = async (
@@ -1555,6 +1560,9 @@ export class ExpoDevServerService {
       versionedPrefix: string,
       latestPrefix: string,
     ): Promise<void> => {
+      if (!this.s3) {
+        throw new Error("S3 client not set");
+      }
       const items = await fs.readdir(dirPath);
 
       for (const item of items) {
@@ -1587,7 +1595,7 @@ export class ExpoDevServerService {
           const versionedKey = `${versionedPrefix}/${item}`;
           const versionedCommand = new PutObjectCommand({
             ...uploadParams,
-            Bucket: this.S3_BUCKET,
+            Bucket: S3_BUCKET,
             Key: versionedKey,
           });
           await this.s3.send(versionedCommand);
@@ -1596,7 +1604,7 @@ export class ExpoDevServerService {
           const latestKey = `${latestPrefix}/${item}`;
           const latestCommand = new PutObjectCommand({
             ...uploadParams,
-            Bucket: this.S3_BUCKET,
+            Bucket: S3_BUCKET,
             Key: latestKey,
             // Shorter cache for latest folder to pick up updates faster
             CacheControl: item.endsWith(".html")
@@ -1607,7 +1615,7 @@ export class ExpoDevServerService {
 
           uploadResults.push({
             key: versionedKey,
-            location: `https://${this.S3_BUCKET}.s3.amazonaws.com/${versionedKey}`,
+            location: `https://${S3_BUCKET}.s3.amazonaws.com/${versionedKey}`,
           });
         }
       }
@@ -1638,9 +1646,12 @@ export class ExpoDevServerService {
   }
 
   private async deleteS3Prefix(prefix: string): Promise<void> {
+    if (!this.s3) {
+      throw new Error("S3 client not set");
+    }
     try {
       const listCommand = new ListObjectsV2Command({
-        Bucket: this.S3_BUCKET,
+        Bucket: S3_BUCKET,
         Prefix: prefix,
       });
 
@@ -1652,7 +1663,7 @@ export class ExpoDevServerService {
         });
 
         const deleteCommand = new DeleteObjectsCommand({
-          Bucket: this.S3_BUCKET,
+          Bucket: S3_BUCKET,
           Delete: {
             Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
           },

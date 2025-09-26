@@ -37,7 +37,8 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
-import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystem.js';
+import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystemService.js';
+import { removeBuildDataFromCache } from '../../utils/cacheInteractionUtils.js';
 
 dotenv.config();
 
@@ -258,16 +259,33 @@ export class DispatcherService {
           currentTime,
           newBuildCacheData,
         );
-        const newFargateInstance = await request.log2.time(
-          LatencyEvents.launch_fargate_instance_latency,
-          async (): Promise<FargateInstanceInfo> => {
-            return await this.idleContainerAllocationSystem.allocateFargateDevServer(
-              prototype_id,
-              activeBuildKey,
-              newBuildCacheData,
-            );
-          },
-        );
+        let newFargateInstance: FargateInstanceInfo;
+        try {
+          newFargateInstance = await request.log2.time(
+            LatencyEvents.launch_fargate_instance_latency,
+            async (): Promise<FargateInstanceInfo> => {
+              return await this.idleContainerAllocationSystem.allocateFargateDevServer(
+                prototype_id,
+                activeBuildKey,
+                newBuildCacheData,
+              );
+            },
+          );
+        } catch (error) {
+          const buildIdFromKey = activeBuildKey.replace('active_build:', '');
+          await removeBuildDataFromCache(
+            this.cache,
+            request.log2,
+            prototype_id,
+            buildIdFromKey,
+          ); // remove build data from cache so it doesn't affect future builds
+          request.log2.error(
+            error,
+            'Failed to launch fargate instance for dispatcher',
+          );
+
+          throw error;
+        }
         updatedBuildCacheData = {
           ...newBuildCacheData,
           status: 'updating',

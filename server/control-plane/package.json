@@ -13,8 +13,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
-    "sync-types": "node scripts/sync-types.js",
-    "sync-build-worker-types": "node scripts/sync-build-worker-types.js",
+    "sync-types": "node scripts/sync-types.js && node scripts/sync-build-worker-types.js",
     "prebuild": "npm run lint:check && npm run sync-types",
     "deploy:prod": "AWS_PROFILE=materialize-deploy node scripts/deploy-build-to-prod.js"
   },
@@ -26,6 +25,7 @@
     "@aws-sdk/client-ec2": "^3.888.0",
     "@aws-sdk/client-ecs": "^3.864.0",
     "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/client-sts": "^3.896.0",
     "@aws-sdk/credential-provider-node": "^3.864.0",
     "@aws-sdk/protocol-http": "^3.370.0",
     "@aws-sdk/s3-request-presigner": "^3.892.0",

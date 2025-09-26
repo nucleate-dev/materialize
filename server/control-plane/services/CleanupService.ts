@@ -14,10 +14,10 @@ import {
   type CleanupOperationResult,
   type CleanupStats,
   type IdleBuildInfo,
-  CACHE_KEYS,
   CACHE_PATTERNS,
   isActiveBuildType,
 } from '../types/InternalTypes.js';
+import { removeBuildDataFromCache } from '../utils/cacheInteractionUtils.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -122,18 +122,16 @@ export class CleanupService {
     // 1. Get all idle builds
     const idleBuilds: IdleBuildInfo[] = [];
     for (const buildKey of activeBuildKeys) {
-      const buildJson = await this.cache.get(buildKey);
-      if (!buildJson) {
+      const build = await this.hgetallAsActiveBuild(buildKey);
+      if (!build) {
         continue;
       }
-      const parsedBuild = JSON.parse(buildJson as string);
-      if (!isActiveBuildType(parsedBuild)) {
+      if (!isActiveBuildType(build)) {
         this.log2.warn('Invalid build data found in cache for key', {
           buildKey,
         });
         continue;
       }
-      const build: ActiveBuild = parsedBuild;
 
       // Skip if already cleaning
       if (build.status === 'cleaning') {
@@ -182,8 +180,9 @@ export class CleanupService {
           undefined,
           { buildId },
         );
-        const removedFromCache = await this.removeBuildDataFromCache(
-          buildKey,
+        const removedFromCache = await removeBuildDataFromCache(
+          this.cache,
+          this.log2,
           prototypeId,
           buildId,
         );
@@ -207,8 +206,9 @@ export class CleanupService {
           stats.failedCleanups++;
           continue;
         }
-        const removedFromCache = await this.removeBuildDataFromCache(
-          buildKey,
+        const removedFromCache = await removeBuildDataFromCache(
+          this.cache,
+          this.log2,
           prototypeId,
           buildId,
         );
@@ -256,8 +256,9 @@ export class CleanupService {
       killedPrototypeIds.push(prototypeId);
 
       // 6. remove the active build from cache and cleanup schema entries
-      const removedFromCache = await this.removeBuildDataFromCache(
-        buildKey,
+      const removedFromCache = await removeBuildDataFromCache(
+        this.cache,
+        this.log2,
         prototypeId,
         buildId,
       );
@@ -327,7 +328,10 @@ export class CleanupService {
     buildId: string,
   ): Promise<boolean> {
     try {
-      await this.cache.set(buildKey, JSON.stringify(activeBuild));
+      await this.cache.hset(
+        buildKey,
+        this.activeBuildToStringRecord(activeBuild),
+      );
       return true;
     } catch (error) {
       this.log2.error(error, 'Failed to update cache active build data', {
@@ -337,40 +341,23 @@ export class CleanupService {
     }
   }
 
-  // returns true if successful, false if not
-  private async removeBuildDataFromCache(
-    buildKey: string,
-    prototypeId: string,
-    buildId: string,
-  ): Promise<boolean> {
-    try {
-      await this.cache.del([buildKey]);
-      // Remove from builds ZSET
-      await this.cache.customCommand([
-        'ZREM',
-        CACHE_KEYS.protoBuilds(prototypeId),
-        buildId,
-      ]);
-      // If this was the current build, remove the current pointer
-      const currentBuildId = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototypeId),
-      );
-      if (currentBuildId === buildId) {
-        await this.cache.del([CACHE_KEYS.protoCurrentBuild(prototypeId)]);
-      }
-      return true;
-    } catch (error) {
-      this.log2.error(error, 'Failed to remove build data from cache', {
-        buildKey,
-        prototypeId,
-        buildId,
-      });
-      return false;
-    }
-  }
-
   // Dispatch kill hot reload request to build worker
   private async dispatchKillDevServerRequest(
+    prototypeId: string,
+    fargatePrivateIp: string,
+  ): Promise<CleanupOperationResult> {
+    return await this.log2.time(
+      'cleanup_dispatch_kill_dev_server_latency',
+      async () => {
+        return await this.dispatchKillDevServerRequestImpl(
+          prototypeId,
+          fargatePrivateIp,
+        );
+      },
+    );
+  }
+
+  private async dispatchKillDevServerRequestImpl(
     prototypeId: string,
     fargatePrivateIp: string,
   ): Promise<CleanupOperationResult> {
@@ -687,5 +674,45 @@ export class CleanupService {
       return false;
     }
     return true;
+  }
+
+  private activeBuildToStringRecord(
+    build: ActiveBuild,
+  ): Record<string, string> {
+    return {
+      fargate_task_arn: build.fargate_task_arn,
+      fargate_private_ip: build.fargate_private_ip,
+      url: build.url,
+      status: build.status,
+      last_touched: build.last_touched.toString(),
+    };
+  }
+
+  private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
+    const raw = await this.cache.hgetall(key);
+
+    if (!raw || raw.length === 0) return null;
+
+    const obj = Object.fromEntries(
+      raw.map(
+        (e: {
+          field: { toString(): string };
+          value: { toString(): string };
+        }) => [e.field.toString(), e.value.toString()],
+      ),
+    ) as Record<string, string>;
+
+    // Handle missing fields gracefully
+    if (!obj.status || !obj.last_touched) {
+      return null;
+    }
+
+    return {
+      fargate_task_arn: obj.fargate_task_arn || '',
+      fargate_private_ip: obj.fargate_private_ip || '',
+      url: obj.url || '',
+      status: obj.status as ActiveBuild['status'],
+      last_touched: parseInt(obj.last_touched, 10),
+    };
   }
 }

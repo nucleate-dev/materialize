@@ -1,4 +1,3 @@
-import { S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
@@ -26,20 +25,9 @@ export const baseLogger = new SystemLogger({
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
 const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-builds";
-const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
-
-// --- AWS Setup ---
-const s3 = new S3Client({
-  region: process.env.AWS_REGION || "us-east-2",
-  requestHandler: {
-    requestTimeout: 300000, // 5 minutes
-    connectionTimeout: 60000, // 1 minute
-  },
-  maxAttempts: 3,
-});
 
 // Initialize Services
-const expoDevServerService = new ExpoDevServerService(WORK_DIR, S3_BUCKET, s3);
+const expoDevServerService = new ExpoDevServerService(WORK_DIR);
 const publicApiService = new PublicApiService(expoDevServerService, WORK_DIR);
 
 // --- Fastify Setup ---
@@ -51,7 +39,7 @@ const app: FastifyInstance = fastify({
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
-    req.headers as Record<string, string | string[] | undefined>,
+    req.headers as Record<string, string | string[] | undefined>
   );
   req.log2 = baseLogger.child({
     requestId,
@@ -75,7 +63,6 @@ app.get("/health", async () => {
         nodeProcesses: resources.processes,
       },
       workDir: WORK_DIR,
-      s3Bucket: S3_BUCKET,
     };
   } catch {
     return {
@@ -84,7 +71,6 @@ app.get("/health", async () => {
       service: "fargate-build-worker",
       system: "Unable to check",
       workDir: WORK_DIR,
-      s3Bucket: S3_BUCKET,
     };
   }
 });
@@ -116,7 +102,6 @@ const start = async (): Promise<void> => {
     baseLogger.info("Build worker started successfully", {
       port: PORT,
       workDir: WORK_DIR,
-      s3Bucket: S3_BUCKET,
     });
   } catch (err) {
     baseLogger.error(err, "Failed to start build worker");
