@@ -120,6 +120,7 @@ export async function copyS3BucketContentsVersioned(
     success: versionedResult.success && latestResult.success,
     error: versionedResult.error || latestResult.error || undefined,
     copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+    version,
   };
 }
 
@@ -217,6 +218,7 @@ export async function copyDefaultAppToVersionedPrototype(
     success: versionedResult.success && latestResult.success,
     error: versionedResult.error || latestResult.error || undefined,
     copiedObjects: versionedResult.copiedObjects + latestResult.copiedObjects,
+    version,
   };
 }
 

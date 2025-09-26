@@ -130,6 +130,7 @@ export interface S3CopyResult {
   success: boolean;
   error?: string;
   copiedObjects: number;
+  version?: string;
 }
 
 export interface S3UploadResult {

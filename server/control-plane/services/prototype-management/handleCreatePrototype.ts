@@ -136,8 +136,9 @@ export async function handleCreatePrototypeImpl(
     const newPrototypeId = newPrototype.id;
     try {
       // 5. Handle prototype files and S3 operations
+      let version: string | undefined;
       if (forkPrototypeId) {
-        await forkPrototype(
+        version = await forkPrototype(
           supabase,
           s3Client,
           forkPrototypeId,
@@ -145,12 +146,34 @@ export async function handleCreatePrototypeImpl(
           request.log2,
         );
       } else {
-        await copyAllDefaultsForNewPrototype(
+        version = await copyAllDefaultsForNewPrototype(
           supabase,
           s3Client,
           newPrototypeId,
           request.log2,
         );
+      }
+
+      // 5.5. Update prototype with latest_build_key if version was created
+      if (version) {
+        try {
+          const { error: updateError } = await supabase
+            .from('prototypes')
+            .update({ latest_build_key: `v${version}` })
+            .eq('id', newPrototypeId);
+
+          if (updateError) {
+            request.log2.error(
+              updateError,
+              '[handleCreatePrototype] Failed to update latest_build_key, but continuing with prototype creation',
+            );
+          }
+        } catch (updateError) {
+          request.log2.error(
+            updateError,
+            '[handleCreatePrototype] Failed to update latest_build_key, but continuing with prototype creation',
+          );
+        }
       }
 
       // 6. Get viewing URL and return success
@@ -212,7 +235,7 @@ async function forkPrototype(
   sourcePrototypeId: string,
   newPrototypeId: string,
   log2: SystemLogger,
-): Promise<void> {
+): Promise<string | undefined> {
   // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
   const [filesResult, assetsResult, s3CopyResult, thumbnailCopyResult] =
     await Promise.all([
@@ -301,6 +324,7 @@ async function forkPrototype(
       }`,
     );
   }
+  return s3CopyResult.version;
 }
 
 /**
@@ -311,7 +335,7 @@ export async function copyAllDefaultsForNewPrototype(
   s3Client: S3Client,
   newPrototypeId: string,
   log2: SystemLogger,
-): Promise<void> {
+): Promise<string | undefined> {
   // Get default app files from S3 raw files
   const [defaultFilesResult, s3CopyResult] = await Promise.all([
     getDefaultAppFilesFromS3(s3Client, newPrototypeId, log2),
@@ -368,4 +392,5 @@ export async function copyAllDefaultsForNewPrototype(
       }`,
     );
   }
+  return s3CopyResult.version;
 }
