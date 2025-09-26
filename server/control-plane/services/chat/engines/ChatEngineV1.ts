@@ -1,7 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { stepCountIs, streamText, tool, Tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -10,6 +10,7 @@ import type {
   APIResponse,
   DispatchRequestBody,
   DispatchSuccessResponse,
+  EnhancedChatContext,
   PrototypeAssetInput,
   PrototypeFileInput,
   StandardErrorResponse,
@@ -458,33 +459,6 @@ export class ChatEngineV1 {
             })}\\n\\n`,
           ),
         );
-        // Send files to supabase
-        // const { error } = await supabase
-        //   .from('prototype_files')
-        //   .upsert(filesArray, {
-        //     onConflict: 'name,prototype_id',
-        //     ignoreDuplicates: false,
-        //   });
-        // const { error: deleteError } = await supabase
-        //   .from('prototype_files')
-        //   .delete()
-        //   .in('name', Array.from(deletedFiles))
-        //   .eq('prototype_id', prototype_id);
-        // if (error || deleteError) {
-        //   log2.error(error, '[ChatEngine] Error sending files to supabase');
-        //   log2.error(
-        //     deleteError,
-        //     '[ChatEngine] Error deleting files from supabase',
-        //   );
-        //   controller.enqueue(
-        //     encoder.encode(
-        //       `data: ${JSON.stringify({
-        //         type: 'dispatch_error',
-        //         error: 'Failed to update the live preview.',
-        //       })}\\n\\n`,
-        //     ),
-        //   );
-        // }
         fileManager.clearChangeTracking();
         return {
           updatedFiles: filesArray.map((file) => file.name),
@@ -519,7 +493,114 @@ export class ChatEngineV1 {
     };
   }
 
-  async executeChat(params: ChatEngineParams): Promise<ChatEngineResult> {
+  private async persistChatMessages(
+    chatSessionId: string,
+    userMessage: string,
+    assistantResponse: string,
+    log2: SystemLogger,
+    executionPlan?: string[],
+    fileChanges?: Record<string, PrototypeFileInput>,
+    completedSteps?: number[],
+    toolCalls?: Array<{ toolName: string; input: unknown; output: unknown }>,
+  ): Promise<void> {
+    try {
+      const supabaseServiceRoleClient = createClient(
+        this.config.supabaseUrl,
+        this.config.supabaseServiceKey,
+      );
+
+      // 1. Insert simple messages into prototype_chat_messages table
+      const messagesToInsert = [
+        {
+          chat_session_id: chatSessionId,
+          role: 'assistant' as const,
+          content: assistantResponse,
+        },
+        {
+          chat_session_id: chatSessionId,
+          role: 'user' as const,
+          content: userMessage,
+        },
+      ];
+
+      const { error: messagesError } = await supabaseServiceRoleClient
+        .from('prototype_chat_messages')
+        .insert(messagesToInsert);
+
+      if (messagesError) {
+        log2.error('Failed to insert chat messages:', messagesError.message);
+        return;
+      }
+
+      // 2. Update enhanced chat context in chat session
+      // First, fetch current context
+      const { data: sessionData, error: fetchError } =
+        await supabaseServiceRoleClient
+          .from('prototype_chat_sessions')
+          .select('chat_context')
+          .eq('id', chatSessionId)
+          .single();
+
+      if (fetchError) {
+        log2.error('Failed to fetch chat session context:', fetchError.message);
+        return;
+      }
+
+      // Parse existing context or create new one
+      let context: EnhancedChatContext;
+      try {
+        context = sessionData?.chat_context
+          ? (JSON.parse(
+              sessionData.chat_context as string,
+            ) as EnhancedChatContext)
+          : { conversations: [] };
+      } catch {
+        log2.warn('Failed to parse existing chat context, creating new one');
+        context = { conversations: [] };
+      }
+
+      // Add new conversation
+      context.conversations.push({
+        timestamp: new Date().toISOString(),
+        userMessage,
+        executionPlan,
+        assistantResponse,
+        fileChanges,
+        completedSteps,
+        toolCalls,
+      });
+
+      // Keep only last 50 conversations to prevent unlimited growth
+      if (context.conversations.length > 50) {
+        context.conversations = context.conversations.slice(-50);
+      }
+
+      // Update the session with new context
+      const { error: updateError } = await supabaseServiceRoleClient
+        .from('prototype_chat_sessions')
+        .update({ chat_context: JSON.stringify(context) })
+        .eq('id', chatSessionId);
+
+      if (updateError) {
+        log2.error(
+          'Failed to update chat session context:',
+          updateError.message,
+        );
+        return;
+      }
+
+      log2.info(
+        '[ChatService] Successfully persisted chat messages and context',
+      );
+    } catch (error) {
+      log2.error(
+        'Error in persistChatMessages:',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+    }
+  }
+
+  async executeChat(params: ChatEngineParams): Promise<void> {
     const { messages, userMessage, controller, encoder, log2, fileManager } =
       params;
 
@@ -716,7 +797,7 @@ export class ChatEngineV1 {
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'files_synced',
-              updatedFilesObject: fileManager.getAllFilesForDispatch(),
+              updatedFilesObject: fileManager.getChangedFiles(),
               deletedFiles: fileManager.getDeletedFiles(),
             })}\n\n`,
           ),
@@ -731,18 +812,18 @@ export class ChatEngineV1 {
           `data: ${JSON.stringify({ type: 'chat_complete' })}\n\n`,
         ),
       );
-
-      // Return captured data for persistence
-      return {
-        assistantResponse: assistantResponse || finalBuffer,
+      await this.persistChatMessages(
+        params.chat_session_id,
+        userMessage,
+        assistantResponse || finalBuffer,
+        params.log2,
         executionPlan,
+        fileManager instanceof VirtualFileManager
+          ? fileManager.getChangedFiles()
+          : undefined,
         completedSteps,
-        fileChanges:
-          fileManager instanceof VirtualFileManager
-            ? fileManager.getAllFilesForDispatch()
-            : undefined,
         toolCalls,
-      };
+      );
     } catch (error) {
       log2.error(error, '[ChatEngine] Error during chat execution');
       controller.enqueue(
@@ -754,18 +835,6 @@ export class ChatEngineV1 {
           })}\n\n`,
         ),
       );
-
-      // Return partial data even on error
-      return {
-        assistantResponse: assistantResponse || '',
-        executionPlan,
-        completedSteps,
-        fileChanges:
-          fileManager instanceof VirtualFileManager
-            ? fileManager.getAllFilesForDispatch()
-            : undefined,
-        toolCalls,
-      };
     }
   }
 }

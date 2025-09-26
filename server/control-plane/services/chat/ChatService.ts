@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
-import type { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
   APIResponse,
   ChatErrorResponse,
@@ -9,8 +8,6 @@ import type {
   DispatchPrecheckErrorResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
-  EnhancedChatContext,
-  PrototypeFileInput,
 } from '../../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
 import {
@@ -72,109 +69,6 @@ export class ChatService {
       fastifyApp: this.fastifyApp,
     };
     this.chatEngine = new ChatEngineV1(chatEngineConfig);
-  }
-
-  private async persistChatMessages(
-    chatSessionId: string,
-    userMessage: string,
-    assistantResponse: string,
-    log2: SystemLogger,
-    executionPlan?: string[],
-    fileChanges?: Record<string, PrototypeFileInput>,
-    completedSteps?: number[],
-    toolCalls?: Array<{ toolName: string; input: unknown; output: unknown }>,
-  ): Promise<void> {
-    try {
-      const supabase = createClient(this.supabaseUrl, this.supabaseServiceKey);
-
-      // 1. Insert simple messages into prototype_chat_messages table
-      const messagesToInsert = [
-        {
-          chat_session_id: chatSessionId,
-          role: 'assistant' as const,
-          content: assistantResponse,
-        },
-        {
-          chat_session_id: chatSessionId,
-          role: 'user' as const,
-          content: userMessage,
-        },
-      ];
-
-      const { error: messagesError } = await supabase
-        .from('prototype_chat_messages')
-        .insert(messagesToInsert);
-
-      if (messagesError) {
-        log2.error('Failed to insert chat messages:', messagesError.message);
-        return;
-      }
-
-      // 2. Update enhanced chat context in chat session
-      // First, fetch current context
-      const { data: sessionData, error: fetchError } = await supabase
-        .from('prototype_chat_sessions')
-        .select('chat_context')
-        .eq('id', chatSessionId)
-        .single();
-
-      if (fetchError) {
-        log2.error('Failed to fetch chat session context:', fetchError.message);
-        return;
-      }
-
-      // Parse existing context or create new one
-      let context: EnhancedChatContext;
-      try {
-        context = sessionData?.chat_context
-          ? (JSON.parse(
-              sessionData.chat_context as string,
-            ) as EnhancedChatContext)
-          : { conversations: [] };
-      } catch {
-        log2.warn('Failed to parse existing chat context, creating new one');
-        context = { conversations: [] };
-      }
-
-      // Add new conversation
-      context.conversations.push({
-        timestamp: new Date().toISOString(),
-        userMessage,
-        executionPlan,
-        assistantResponse,
-        fileChanges,
-        completedSteps,
-        toolCalls,
-      });
-
-      // Keep only last 50 conversations to prevent unlimited growth
-      if (context.conversations.length > 50) {
-        context.conversations = context.conversations.slice(-50);
-      }
-
-      // Update the session with new context
-      const { error: updateError } = await supabase
-        .from('prototype_chat_sessions')
-        .update({ chat_context: JSON.stringify(context) })
-        .eq('id', chatSessionId);
-
-      if (updateError) {
-        log2.error(
-          'Failed to update chat session context:',
-          updateError.message,
-        );
-        return;
-      }
-
-      log2.info(
-        '[ChatService] Successfully persisted chat messages and context',
-      );
-    } catch (error) {
-      log2.error(
-        'Error in persistChatMessages:',
-        error instanceof Error ? error.message : 'Unknown error',
-      );
-    }
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -377,7 +271,7 @@ export class ChatService {
             // ------------------------------------------------------------------------------------------------
             // 6. Execute chat through ChatEngine
             // ------------------------------------------------------------------------------------------------
-            const chatResult = await this.chatEngine.executeChat({
+            await this.chatEngine.executeChat({
               messages: enhancedMessages,
               userMessage: fileContext.enhancedMessage,
               originalUserMessage,
@@ -418,20 +312,6 @@ export class ChatService {
                   messageCount: updatedMessageCount,
                 })}\n\n`,
               ),
-            );
-
-            // ------------------------------------------------------------------------------------------------
-            // 8. Persist chat messages and enhanced context
-            // ------------------------------------------------------------------------------------------------
-            await this.persistChatMessages(
-              chat_session_id,
-              originalUserMessage,
-              chatResult.assistantResponse,
-              request.log2,
-              chatResult.executionPlan,
-              chatResult.fileChanges,
-              chatResult.completedSteps,
-              chatResult.toolCalls,
             );
           } catch (error) {
             if (
