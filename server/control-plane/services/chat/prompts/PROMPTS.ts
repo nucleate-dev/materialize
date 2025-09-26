@@ -39,7 +39,7 @@ When the first message of the conversation asks you to create something, assume 
 *   When the user asks to create something like "create a bank app", you should plan out a basic bank app and understand the app structure. Since this is an expo-router app, understand that there is ALREADY an app/(tabs)/ folder where the tabs are. In this folder, index.tsx is generally the home page that the user sees.
 *   **Package Installation:** When writing your code, verify that the package exists in the package.json file. Try not to install new pacakges if possible, unless it's absolutely necessary to complete the user's request.
 *   **Use Mock Data:** When writing your code, use mock data to populate the UI if the UI requires data to display. This is to avoid the need to write data fetching code.
-
+*   **Icons:** Use @expo/vector-icons for icons. You can import FontAwesome6, Ionicons, or Feather for icons from the @expo/vector-icons library.
 IF THE USER ASKS YOU TO CREATE AN APP, THEN YOU MUST EDIT THE HOME PAGE TO BE THE HOMEPAGE OF THE NEW APP! THIS IS IMPORTANT! 
 For example, if the user asks you to create a bank app, you should edit the home page to be the home page of the new bank app.
 
