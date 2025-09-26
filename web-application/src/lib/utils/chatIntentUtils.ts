@@ -1,6 +1,7 @@
 export interface ChatIntent {
   prototype_id: string;
   message: string;
+  is_sending: boolean;
 }
 
 /**
@@ -39,6 +40,24 @@ export function clearChatIntent(): void {
     return;
   }
   localStorage.removeItem("chat_intent");
+}
+
+export function setChatIntent(
+  prototypeId: string | undefined,
+  message: string,
+  is_sending: boolean,
+): void {
+  if (typeof window === "undefined" || !message) {
+    return;
+  }
+  localStorage.setItem(
+    "chat_intent",
+    JSON.stringify({
+      prototype_id: prototypeId,
+      message: message,
+      is_sending,
+    }),
+  );
 }
 
 /**

@@ -58,7 +58,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -272,24 +272,15 @@ export default function InternalPrototypePage() {
           },
         );
 
-        if (response.ok) {
-          const result: APIResponse<
-            StartDevServerSuccessResponse,
-            StandardErrorResponse
-          > = await response.json();
-          if (result.data) {
-            // Update viewing URL if provided
-            if (result.data.viewing_url) {
-              setViewingUrl(result.data.viewing_url);
-              setCurrentRenderStatus("Connected");
-              return;
-            }
-          } else {
-            return;
-          }
-        } else {
-          return;
-        }
+        if (!response.ok) return;
+        const result: APIResponse<
+          StartDevServerSuccessResponse,
+          StandardErrorResponse
+        > = await response.json();
+        if (!result.data || !result.data.viewing_url) return;
+        // Update viewing URL if provided
+        setViewingUrl(result.data.viewing_url);
+        setCurrentRenderStatus("Connected");
       } catch {
       } finally {
         setShouldTriggerInitialFetch(false);
@@ -533,10 +524,11 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "w-2/5 min-w-[420px] flex"
-            } flex-col relative z-10`}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "w-2/5 min-w-[420px] flex"
+          } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -585,10 +577,11 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "w-3/5 min-w-[500px] flex"
-            } flex-col relative z-10`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "w-3/5 min-w-[500px] flex"
+          } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -665,10 +658,11 @@ export default function InternalPrototypePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${isMobile
-                          ? "w-full max-h-[200px] border-b"
-                          : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                          } border-border`}
+                        className={`${
+                          isMobile
+                            ? "w-full max-h-[200px] border-b"
+                            : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                        } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -721,10 +715,11 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"
