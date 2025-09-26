@@ -19,6 +19,7 @@ import type {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   ArrowRight,
   Code,
@@ -49,12 +50,7 @@ export default function DashboardPage() {
 
     try {
       if (!user?.id) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            "chat_intent",
-            JSON.stringify({ message: content, is_sending: false }),
-          );
-        }
+        setChatIntent(undefined, content, false);
         router.push("/login");
         return;
       }
@@ -96,17 +92,7 @@ export default function DashboardPage() {
       }
 
       if (result.data) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            "chat_intent",
-            JSON.stringify({
-              prototype_id: result.data.prototype_id,
-              message: content,
-              is_sending: false,
-            }),
-          );
-        }
-
+        setChatIntent(result.data.prototype_id, content, false);
         router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
