@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { stepCountIs, streamText, tool, Tool } from 'ai';
+import { generateText, stepCountIs, streamText, tool, Tool } from 'ai';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
@@ -16,7 +16,11 @@ import type {
   PrototypeFileInput,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
-import { ERROR_FIXING_PROMPT, SYSTEM_PROMPT } from '../prompts/PROMPTS.js';
+import {
+  ERROR_FIXING_PROMPT,
+  SPEC_EXPANSION_PROMPT,
+  SYSTEM_PROMPT,
+} from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
   VirtualFileManager,
@@ -646,6 +650,24 @@ export class ChatEngineV1 {
 
       const imageContext = image ? `Attached: ${image}` : null;
       const userIntent = detectUserIntent(userMessage);
+      let userMessageForPrompt = userMessage;
+      const isFirstUserTurn = (msgs: ChatMessage[]): boolean =>
+        msgs.filter((m) => m.role === 'user').length === 1 &&
+        msgs.filter((m) => m.role === 'assistant').length === 0;
+
+      const shouldDoSpecExpansion = (
+        msgs: ChatMessage[],
+        intent: string,
+      ): boolean => isFirstUserTurn(msgs) && intent !== 'error_fixing';
+
+      if (shouldDoSpecExpansion(messages, userIntent)) {
+        const specExpansionResult = await generateText({
+          model: this.getCurrentModel(),
+          system: SPEC_EXPANSION_PROMPT,
+          messages: [{ role: 'user', content: userMessage }],
+        });
+        userMessageForPrompt = specExpansionResult.text;
+      }
       const selectedSystemPrompt =
         userIntent === 'error_fixing' ? ERROR_FIXING_PROMPT : SYSTEM_PROMPT;
       const result = streamText({
@@ -659,8 +681,8 @@ export class ChatEngineV1 {
           {
             role: 'user' as const,
             content: imageContext
-              ? `${userMessage}\n\n${imageContext}`
-              : userMessage,
+              ? `${userMessageForPrompt}\n\n${imageContext}`
+              : userMessageForPrompt,
           },
         ],
         // UPDATED: Combine all tools
