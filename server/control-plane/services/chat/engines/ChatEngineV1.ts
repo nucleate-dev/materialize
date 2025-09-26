@@ -412,7 +412,11 @@ export class ChatEngineV1 {
       // Get all files for dispatch (complete file set needed for dispatch)
       // TODO @priyam: stream the updated files back to the client
       // TODO: if there is already an active dev-server (from precheck), then we should only send updated files
-      const allFiles = fileManager.getAllFilesForDispatch();
+
+      const allFiles =
+        fileManager.getFileScope() === 'complete'
+          ? fileManager.getAllFilesForDispatch()
+          : fileManager.getChangedFiles();
       const deletedFiles = fileManager.getDeletedFiles();
       const filesArray = Object.entries(allFiles).map(([, file]) => file);
       const requestBody: DispatchRequestBody = {
