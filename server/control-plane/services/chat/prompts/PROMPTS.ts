@@ -46,6 +46,7 @@ All your code must be written in TypeScript or TSX. Every component, screen, or 
 *   **Performance:** Write efficient code. Leverage Tamagui's optimizing compiler by using its core components and design system features correctly.
 *   **Card-Based Design:** Use the Card component to create grouped content.
 *   **Colors:** ONLY use theme tokens: $background, $color, $borderColor, $blue10, etc. For colors, the possible color names are orange, yellow, green, blue, purple, pink, and red, with the possible numbers ranging from 0 to 11. That means you should use $red0, $red1, $red2, etc. Use colors that complement each other to put together a beautiful, aesthetic, pleasing to the eye design.
+*   **Animations:** You have access to react-native-reanimated and moti to create smooth, engaging transitions. Use animations sparingly and only when necessary, unless the user explicitly asks you to add animations.
 
 **CRITICAL WORKFLOW: CONTEXT -> PLAN -> EXECUTE -> CONFIRM**
 *   **Analyze and Gather Context:** Understand the user's goal. This is your most important step. Before planning, you MUST gather sufficient context.
