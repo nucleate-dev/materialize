@@ -2,7 +2,6 @@
 
 import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,9 +15,9 @@ import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
+  CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
-  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import {
   ArrowRight,
@@ -31,7 +30,6 @@ import {
   Smartphone,
   Sparkles,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -173,17 +171,8 @@ export default function DashboardPage() {
               <Sparkles className="w-12 h-12" />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Build Your Dream App
+              Build Your Ideas
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Describe your mobile app idea and watch it come to life with
-              AI-powered development. From concept to code in seconds.
-            </p>
-            <div className="flex justify-center gap-4">
-              <Badge variant="secondary">React Native</Badge>
-              <Badge variant="secondary">AI-Powered</Badge>
-              <Badge variant="secondary">Real-time Preview</Badge>
-            </div>
           </div>
 
           {/* Main Chat Interface */}
@@ -191,7 +180,7 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>Create a new prototype</CardTitle>
               <CardDescription>
-                Describe the mobile app or screen you want to build.
+                Describe the mobile app, screen, or flow you want to build.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -268,27 +257,6 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-
-          {/* Bottom CTA */}
-          <div className="mt-16 text-center text-sm text-muted-foreground">
-            <p>
-              Need inspiration? Check out our{" "}
-              <Link
-                href="/dashboard/projects"
-                className="text-primary hover:underline"
-              >
-                project gallery
-              </Link>{" "}
-              or browse{" "}
-              <Link
-                href="/dashboard/whiteboards"
-                className="text-primary hover:underline"
-              >
-                whiteboards
-              </Link>
-              .
-            </p>
           </div>
         </div>
       </div>

@@ -78,7 +78,7 @@ export default function ProjectsPage() {
                 All projects
               </h1>
               <p className="text-sm sm:text-base text-body dark:text-bodydark">
-                Create and manage your design prototypes.
+                Create and manage your projects, which hold your prototypes.
               </p>
             </div>
 

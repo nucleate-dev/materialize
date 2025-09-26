@@ -1,11 +1,14 @@
 "use client";
 import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   BoltIcon,
   CheckBadgeIcon,
   ShareIcon,
   Squares2X2Icon,
 } from "@heroicons/react/24/solid";
+import { useState } from "react";
 
 export default function Home() {
   return (
@@ -36,6 +39,18 @@ function MinimalDepthElements() {
 }
 
 function HeroSection() {
+  const [prompt, setPrompt] = useState("");
+
+  const presetPrompts = {
+    onboarding: "Create a React Native onboarding flow with 3 screens: welcome screen with app logo and tagline, features overview with illustrations, and sign-up form with email/password inputs",
+    paywall: "Design a React Native paywall screen with pricing tiers (Basic $9.99/month, Premium $19.99/month), feature comparison, and subscription buttons with payment integration",
+    recipeApp: "Build a React Native recipe app home screen with search bar, category filters (Breakfast, Lunch, Dinner, Desserts), featured recipes carousel, and recipe cards with images and ratings"
+  };
+
+  const handlePresetClick = (presetKey: keyof typeof presetPrompts) => {
+    setPrompt(presetPrompts[presetKey]);
+  };
+
   return (
     <section className="relative flex items-start justify-center pt-32 pb-16 bg-background">
       <div className="container mx-auto px-6 text-center relative z-20">
@@ -48,51 +63,54 @@ function HeroSection() {
         </div>
 
         {/* Main Heading with Gradient */}
-        <h1 className="text-7xl md:text-8xl lg:text-9xl font-black mb-8 leading-tight">
+        <h1 className="text-5xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight">
           <span className="bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent">
             Materialize
           </span>
         </h1>
 
         {/* Animated Subtitle */}
-        <p className="text-xl md:text-2xl text-foreground max-w-4xl mx-auto mb-16 leading-relaxed">
+        <p className="text-lg md:text-xl text-foreground max-w-4xl mx-auto mb-12 leading-relaxed">
           Prototype React Native screens at the speed of thought—on an infinite
           canvas that turns prompts into production-quality components.
         </p>
 
-        {/* CTAs */}
+        {/* Prompt Input */}
+        <div className="max-w-2xl mx-auto mb-8">
+          <div className="relative">
+            <div className="absolute inset-0 bg-white/10 dark:bg-gray-400/10 rounded-lg blur-xl"></div>
+            <Textarea
+              placeholder="Describe the React Native screen or flow you want to create..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="relative min-h-[120px] text-xl resize-none bg-white/5 border border-white/20 backdrop-blur-sm focus:ring-2 focus:ring-foreground/20 px-6 py-4"
+            />
+          </div>
+        </div>
+
+        {/* Preset Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-          <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSfQ6d-hfVG5x250NpqnTJVPFmMcMqEfFZKUnmTTET7nzD2GEw/viewform?usp=header"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative px-10 py-4 bg-foreground text-background font-bold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-foreground/20"
+          <Button
+            onClick={() => handlePresetClick("onboarding")}
+            variant="outline"
+            className="px-6 py-3 bg-white/5 border border-white/20 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
           >
-            <span className="flex items-center gap-2">
-              Join Waitlist
-              <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </span>
-          </a>
-          {/* <button className="group relative px-6 py-4 bg-transparent border border-gray-300 dark:border-gray-600 text-black dark:text-white font-medium rounded-2xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 dark:hover:bg-gray-900">
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-              Watch 60-sec demo
-            </span>
-          </button> */}
+            Onboarding Flow
+          </Button>
+          <Button
+            onClick={() => handlePresetClick("paywall")}
+            variant="outline"
+            className="px-6 py-3 bg-white/5 border border-white/20 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+          >
+            Paywall
+          </Button>
+          <Button
+            onClick={() => handlePresetClick("recipeApp")}
+            variant="outline"
+            className="px-6 py-3 bg-white/5 border border-white/20 backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+          >
+            Recipe App
+          </Button>
         </div>
       </div>
     </section>
