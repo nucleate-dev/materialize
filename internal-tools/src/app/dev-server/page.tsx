@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -113,20 +114,6 @@ export default function DevServerPage() {
 
       const result = await response.json();
 
-      const successMessage = `EC2 instance acquired successfully!
-
-Instance Details:
-• Instance ID: ${result.instanceId}
-• State: ${result.state}
-• Public DNS (paste into /server/scripts/deploy-control-plane-for-dev.js): ${result.publicDns}
-• Public IPv4 (paste into .env for internal-tools and web-application): ${result.publicIpv4}
-
-SSH Connection:
-${result.sshCommand}
-
-The instance is accessible and ready to use.`;
-
-      setSuccess(successMessage);
       setEc2Details({
         instanceId: result.instanceId,
         state: result.state,
@@ -230,93 +217,129 @@ The instance is accessible and ready to use.`;
           </Alert>
         )}
 
-        {/* EC2 Dev Server Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Server className="h-5 w-5 text-blue-600" />
-              <CardTitle>Dev EC2 Control Plane</CardTitle>
-            </div>
-            <CardDescription>
-              Acquire a development EC2 instance for control plane testing. The
-              instance will automatically terminate after 3 hours.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ec2-server-name">Server Name</Label>
-              <p className="text-sm text-muted-foreground">
-                This will be used as part of the instance name: dev-server-
-                {ec2ServerName || "[name]"}
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Input
-                id="ec2-server-name"
-                placeholder="e.g., dev-control-plane-testing"
-                value={ec2ServerName}
-                onChange={(e) => setEc2ServerName(e.target.value)}
-                disabled={ec2Loading}
-                className="flex-1"
-              />
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleAcquireEC2}
-                    disabled={ec2Loading || !ec2ServerName.trim()}
-                  >
-                    {ec2Loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Acquiring...
-                      </>
-                    ) : (
-                      <>
-                        <Server className="h-4 w-4 mr-2" />
-                        Acquire Dev EC2
-                      </>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="text-xs space-y-1">
-                    <p>• Instance Type: t3.micro</p>
-                    <p>• Auto-termination: 3 hours</p>
-                    <p>• Purpose: Control plane development</p>
-                    <p>• Source: Production control plane</p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </CardContent>
-        </Card>
-
-        {ec2Details && (
+        {/* EC2 Dev Server Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* EC2 Acquisition Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">EC2 Instance Details</CardTitle>
+              <div className="flex items-center gap-2">
+                <Server className="h-5 w-5 text-blue-600" />
+                <CardTitle>Dev EC2 Control Plane</CardTitle>
+              </div>
               <CardDescription>
-                Copy values into the appropriate files as instructed.
+                Acquire a development EC2 instance for control plane testing. The
+                instance will automatically terminate after 3 hours.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ec2-server-name">Server Name</Label>
+                <p className="text-sm text-muted-foreground">
+                  This will be used as part of the instance name: dev-server-
+                  {ec2ServerName || "[name]"}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  id="ec2-server-name"
+                  placeholder="e.g., dev-control-plane-testing"
+                  value={ec2ServerName}
+                  onChange={(e) => setEc2ServerName(e.target.value)}
+                  disabled={ec2Loading}
+                  className="flex-1"
+                />
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleAcquireEC2}
+                      disabled={ec2Loading || !ec2ServerName.trim()}
+                    >
+                      {ec2Loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Acquiring...
+                        </>
+                      ) : (
+                        <>
+                          <Server className="h-4 w-4 mr-2" />
+                          Acquire Dev EC2
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs space-y-1">
+                      <p>• Instance Type: t3.micro</p>
+                      <p>• Auto-termination: 3 hours</p>
+                      <p>• Purpose: Control plane development</p>
+                      <p>• Source: Production control plane</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* EC2 Instance Details Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">EC2 Instance Details</CardTitle>
+                {ec2Details && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Ready
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                {ec2Details
+                  ? "EC2 instance acquired successfully! Copy the values below into the appropriate files."
+                  : "Instance details will appear here after acquisition."
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {ec2Details && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <h4 className="font-medium text-blue-900 mb-2">Usage Instructions:</h4>
+                  <ul className="space-y-1 text-blue-800">
+                    <li>• Paste <strong>Public DNS</strong> into <code>/server/scripts/deploy-control-plane-for-dev.js</code></li>
+                    <li>• Paste <strong>Public IPv4</strong> into <code>.env</code> files for internal-tools and web-application</li>
+                    <li>• Use <strong>SSH Command</strong> to connect to the instance directly</li>
+                  </ul>
+                </div>
+              )}
+
               <div className="grid gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="min-w-32">Instance ID</Label>
+                  <Input
+                    readOnly
+                    value={ec2Details?.instanceId || ""}
+                    placeholder={!ec2Details ? "Not available" : ""}
+                    className="flex-1"
+                  />
+                </div>
+
                 <div className="flex items-center gap-2">
                   <Label className="min-w-32">Public DNS</Label>
                   <Input
                     readOnly
-                    value={ec2Details.publicDns || ""}
+                    value={ec2Details?.publicDns || ""}
+                    placeholder={!ec2Details ? "Not available" : ""}
                     className="flex-1"
                   />
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() =>
-                      ec2Details.publicDns &&
+                      ec2Details?.publicDns &&
                       handleCopy(ec2Details.publicDns, "publicDns")
                     }
+                    disabled={!ec2Details?.publicDns}
                     aria-label="Copy Public DNS"
                   >
                     {copiedField === "publicDns" ? (
@@ -331,16 +354,18 @@ The instance is accessible and ready to use.`;
                   <Label className="min-w-32">Public IPv4</Label>
                   <Input
                     readOnly
-                    value={ec2Details.publicIpv4 || ""}
+                    value={ec2Details?.publicIpv4 || ""}
+                    placeholder={!ec2Details ? "Not available" : ""}
                     className="flex-1"
                   />
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() =>
-                      ec2Details.publicIpv4 &&
+                      ec2Details?.publicIpv4 &&
                       handleCopy(ec2Details.publicIpv4, "publicIpv4")
                     }
+                    disabled={!ec2Details?.publicIpv4}
                     aria-label="Copy Public IPv4"
                   >
                     {copiedField === "publicIpv4" ? (
@@ -355,16 +380,18 @@ The instance is accessible and ready to use.`;
                   <Label className="min-w-32">SSH Command</Label>
                   <Input
                     readOnly
-                    value={ec2Details.sshCommand || ""}
+                    value={ec2Details?.sshCommand || ""}
+                    placeholder={!ec2Details ? "Not available" : ""}
                     className="flex-1"
                   />
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() =>
-                      ec2Details.sshCommand &&
+                      ec2Details?.sshCommand &&
                       handleCopy(ec2Details.sshCommand, "sshCommand")
                     }
+                    disabled={!ec2Details?.sshCommand}
                     aria-label="Copy SSH Command"
                   >
                     {copiedField === "sshCommand" ? (
@@ -377,7 +404,7 @@ The instance is accessible and ready to use.`;
               </div>
             </CardContent>
           </Card>
-        )}
+        </div>
 
         <Separator />
 
