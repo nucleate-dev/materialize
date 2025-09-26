@@ -37,6 +37,7 @@ class DevServerState {
   public process: ChildProcess | null = null;
   public projectDir: string | null = null;
   public tunnelUrl: string | null = null;
+  public tunnelSubdomain: string | null = null;
   public port: number | null = null;
   public devServerStatus: DevServerStatus = DevServerStatus.STOPPED;
   public startTime: Date | null = null;
@@ -55,6 +56,7 @@ class DevServerState {
     this.process = null;
     this.projectDir = null;
     this.tunnelUrl = null;
+    this.tunnelSubdomain = null;
     this.port = null;
     this.devServerStatus = DevServerStatus.STOPPED;
     this.startTime = null;
@@ -116,6 +118,7 @@ export class ExpoDevServerService {
     this.S3_BUCKET = s3Bucket;
     this.s3 = s3Instance;
     this.log2 = baseLogger;
+    this.state.tunnelSubdomain = this.generateTunnelSubdomain();
   }
 
   public getState(): DevServerState {
@@ -368,8 +371,7 @@ export class ExpoDevServerService {
     this.log2.info("Starting Expo dev server", { port });
 
     return new Promise((resolve, reject) => {
-      // Create tunnel subdomain from prototype ID
-      const tunnelSubdomain = this.generateTunnelSubdomain();
+      const tunnelSubdomain = this.state.tunnelSubdomain!;
 
       this.log2.info("Starting Expo with configuration", {
         args: ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
@@ -1780,7 +1782,13 @@ export class ExpoDevServerService {
       timeout: timeoutMs,
     });
 
-    return this.runCommandInternal(command, args, workingDirectory, env, timeoutMs);
+    return this.runCommandInternal(
+      command,
+      args,
+      workingDirectory,
+      env,
+      timeoutMs,
+    );
   }
 
   private async buildExpoProject(
