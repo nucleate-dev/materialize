@@ -1,5 +1,4 @@
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { DiffMatchPatch } from 'diff-match-patch-ts';
 
 export interface FileManagerInterface {
   handleToolCall(toolCall: {
@@ -43,7 +42,6 @@ export class VirtualFileManager implements FileManagerInterface {
   private changedFiles: Set<string> = new Set();
   private deletedFiles: Set<string> = new Set();
   private fileScope: 'complete' | 'updates' = 'updates';
-  private dmp = new DiffMatchPatch();
 
   constructor(
     convertedFiles: Record<string, PrototypeFile> | null,
@@ -124,11 +122,6 @@ export class VirtualFileManager implements FileManagerInterface {
           );
         case 'get_dependencies':
           return this.getDependencies(args.filePath as string);
-        case 'patch_file':
-          return this.patchFile(
-            args.filePath as string,
-            args.patch as string,
-          );
         default:
           return {
             error: `Unknown tool: ${name}`,
@@ -453,71 +446,6 @@ export class VirtualFileManager implements FileManagerInterface {
         error: 'Invalid JSON in package.json',
         operation: 'get_dependencies',
         message: 'Failed to parse package.json file',
-      };
-    }
-  }
-
-  private patchFile(
-    filePath: string,
-    patchText: string,
-  ): {
-    error?: string;
-    success?: boolean;
-    filePath?: string;
-    operation?: string;
-    message?: string;
-  } {
-    if (!filePath) {
-      return { error: 'File path is required', success: false };
-    }
-
-    if (patchText === undefined || patchText === null) {
-      return { error: 'Patch text is required', success: false };
-    }
-
-    const normalizedPath = this.normalizePath(filePath);
-    const file = this.files.get(normalizedPath);
-
-    if (!file) {
-      return {
-        error: 'File does not exist',
-        success: false,
-        filePath: normalizedPath,
-        operation: 'patch_file',
-      };
-    }
-
-    try {
-      const patches = this.dmp.patch_fromText(patchText);
-      const [newContents, results] = this.dmp.patch_apply(patches, file.contents);
-
-      // Check if the patch was applied successfully
-      if (results.every((result: boolean) => result)) {
-        file.contents = newContents;
-        file.updated_at = new Date().toISOString();
-        this.changedFiles.add(normalizedPath);
-
-        return {
-          success: true,
-          filePath: normalizedPath,
-          operation: 'patch_file',
-          message: `Successfully patched file.`,
-        };
-      } else {
-        return {
-          success: false,
-          error: 'Patch could not be applied cleanly.',
-          filePath: normalizedPath,
-          operation: 'patch_file',
-        };
-      }
-    } catch (e) {
-      this.log2.error(e, '[VirtualFileManager] Error applying patch');
-      return {
-        error: 'An error occurred while applying the patch.',
-        success: false,
-        filePath: normalizedPath,
-        operation: 'patch_file',
       };
     }
   }

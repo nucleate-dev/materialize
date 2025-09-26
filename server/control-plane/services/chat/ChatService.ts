@@ -18,8 +18,6 @@ import {
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
 import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
-import { ChatEngineV1 as ChatEngineV2 } from './engines/ChatEngineV2.js';
-import { CHAT_ENGINE_CONFIG } from '../../config/ChatEngineConfig.js';
 import { validateChatAuth } from './utils/chat-auth.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
@@ -36,7 +34,7 @@ export class ChatService {
   private serverEndpoint: string;
 
   private stripe: Stripe;
-  private chatEngine: ChatEngineV1 | ChatEngineV2;
+  private chatEngine: ChatEngineV1;
 
   constructor(fastifyApp: FastifyInstance) {
     this.fastifyApp = fastifyApp;
@@ -73,19 +71,7 @@ export class ChatService {
       anthropicApiKey: this.anthropicApiKey,
       fastifyApp: this.fastifyApp,
     };
-
-    // Switch between chat engine versions based on configuration
-    switch (CHAT_ENGINE_CONFIG.VERSION) {
-      case 'v1':
-        this.chatEngine = new ChatEngineV1(chatEngineConfig);
-        break;
-      case 'v2':
-        this.chatEngine = new ChatEngineV2(chatEngineConfig);
-        break;
-      default:
-        this.chatEngine = new ChatEngineV1(chatEngineConfig);
-        break;
-    }
+    this.chatEngine = new ChatEngineV1(chatEngineConfig);
   }
 
   private async persistChatMessages(
