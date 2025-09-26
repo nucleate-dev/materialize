@@ -1,5 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
-
 export interface FileManagerInterface {
   handleToolCall(toolCall: {
     function: { name: string; arguments: Record<string, unknown> };
@@ -246,7 +246,7 @@ export class VirtualFileManager implements FileManagerInterface {
     const now = new Date().toISOString();
 
     const newFile: PrototypeFile = {
-      id: this.generateId(),
+      id: uuidv4(),
       name: fileName,
       contents: contents || '',
       prototype_id: this.prototypeId || null,
