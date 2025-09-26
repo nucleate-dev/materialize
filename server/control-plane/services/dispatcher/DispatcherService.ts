@@ -177,7 +177,7 @@ export class DispatcherService {
   private async handleRestartDevServer(
     request: FastifyRequest<{ Body: { jwt: string; prototype_id: string } }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<any, StandardErrorResponse>> {
+  ): Promise<APIResponse<unknown, StandardErrorResponse>> {
     const { jwt, prototype_id } = request.body;
 
     // 1. Authentication check
