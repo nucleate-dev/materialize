@@ -582,7 +582,7 @@ export class ExpoDevServerService {
     }
   }
 
-  private async restartDevServer(): Promise<void> {
+  async restartDevServer(): Promise<void> {
     if (!this.state.projectDir || !this.state.port) {
       throw new Error(
         "Cannot restart dev server: missing project directory or port",

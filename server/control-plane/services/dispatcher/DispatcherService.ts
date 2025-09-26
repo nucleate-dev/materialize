@@ -31,6 +31,7 @@ import {
   StartDevServerRequestBody,
 } from '../../types/PublicAPITypes.js';
 import { Database } from '../../types/supabase.js';
+import { removeBuildDataFromCache } from '../../utils/cacheInteractionUtils.js';
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 import {
   isDevServerInShutdownStages,
@@ -38,7 +39,6 @@ import {
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
 import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystemService.js';
-import { removeBuildDataFromCache } from '../../utils/cacheInteractionUtils.js';
 
 dotenv.config();
 
@@ -154,6 +154,166 @@ export class DispatcherService {
       },
       this.handleDispatchEditIntent.bind(this),
     );
+
+    // POST /files/restart-dev-server
+    app.post<{ Body: { jwt: string; prototype_id: string } }>(
+      '/files/restart-dev-server',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['jwt', 'prototype_id'],
+            properties: {
+              jwt: { type: 'string' },
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleRestartDevServer.bind(this),
+    );
+  }
+
+  private async handleRestartDevServer(
+    request: FastifyRequest<{ Body: { jwt: string; prototype_id: string } }>,
+    reply: FastifyReply,
+  ): Promise<APIResponse<any, StandardErrorResponse>> {
+    const { jwt, prototype_id } = request.body;
+
+    // 1. Authentication check
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototype_id,
+      jwt,
+      request.log2,
+    );
+    if (!authResult || !authResult.canEdit) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
+      });
+    }
+
+    request.log2 = request.log2.child({
+      userId: authResult.user.id,
+      prototypeId: prototype_id,
+    });
+
+    try {
+      // 2. Get current build ID
+      const currentBuildId = await this.cache.get(
+        CACHE_KEYS.protoCurrentBuild(prototype_id),
+      );
+
+      if (!currentBuildId) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: 'Not Found',
+            message: 'No active dev server found for this prototype',
+          },
+        });
+      }
+
+      // 3. Get the active build data
+      const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
+      const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
+
+      if (!existingBuild || !isActiveBuildType(existingBuild)) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: 'Not Found',
+            message: 'Invalid or missing build data',
+          },
+        });
+      }
+
+      // 4. Check if dev server is in a restartable state
+      if (!isEditableDevServer(existingBuild.status)) {
+        return reply.status(HTTP_STATUS.CONFLICT).send({
+          data: null,
+          error: {
+            error: 'Conflict',
+            message: `Cannot restart dev server in ${existingBuild.status} state`,
+          },
+        });
+      }
+
+      // 5. Call restart endpoint on the fargate instance
+      const restartResponse = await this.callFargateRestart(
+        existingBuild.fargate_private_ip,
+        request.log2,
+      );
+
+      if (restartResponse.success) {
+        // 6. Update last_touched timestamp
+        const updatedBuildData = {
+          ...existingBuild,
+          last_touched: Math.floor(Date.now() / 1000),
+        };
+
+        await this.cache.hset(
+          activeBuildKey,
+          this.activeBuildToStringRecord(updatedBuildData),
+        );
+
+        return reply.status(HTTP_STATUS.OK).send({
+          data: { message: 'Dev server restarted successfully' },
+          error: null,
+        });
+      } else {
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          data: null,
+          error: {
+            error: 'Internal Server Error',
+            message: 'Failed to restart dev server',
+          },
+        });
+      }
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to restart dev server');
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
+      });
+    }
+  }
+
+  private async callFargateRestart(
+    fargatePrivateIp: string,
+    log2: SystemLogger,
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await axios.post(
+        `http://${fargatePrivateIp}:3002/dev-server/restart`,
+        {},
+        {
+          timeout: 90000, // 90 second timeout for restart
+          headers: {
+            'Content-Type': 'application/json',
+            'x-trace-id': log2.getTraceId(),
+          },
+        },
+      );
+
+      log2.info('Fargate restart response:', { response: response.data });
+      return { success: true };
+    } catch (error) {
+      log2.error(error, 'Error calling fargate restart endpoint');
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   // Route handlers

@@ -121,6 +121,10 @@ export interface PublicDevServerStopResponse {
   prototypeId?: string;
 }
 
+export interface PublicDevServerRestartResponse {
+  status: "success" | "error";
+}
+
 export interface PublicBuildAndDeployRequest {
   prototype_id: string;
   framework: "expo_react_native" | "react";

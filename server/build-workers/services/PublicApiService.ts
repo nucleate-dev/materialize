@@ -12,6 +12,7 @@ import {
   PublicAllocateResponse,
   PublicBuildAndDeployRequest,
   PublicBuildAndDeployResponse,
+  PublicDevServerRestartResponse,
   PublicDevServerStartRequest,
   PublicDevServerStartResponse,
   PublicDevServerStopRequest,
@@ -44,6 +45,8 @@ export class PublicApiService {
       "/dev-server",
       this.stopDevServer.bind(this),
     );
+
+    app.post("/dev-server/restart", this.restartDevServer.bind(this));
 
     // POST /build-and-deploy
     app.post<{ Body: PublicBuildAndDeployRequest }>(
@@ -156,6 +159,14 @@ export class PublicApiService {
         build_warnings: [],
       };
     }
+  }
+
+  private async restartDevServer(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<PublicDevServerRestartResponse> {
+    await this.expoDevServerService.restartDevServer();
+    return { status: "success" } as PublicDevServerRestartResponse;
   }
 
   private async stopDevServer(
