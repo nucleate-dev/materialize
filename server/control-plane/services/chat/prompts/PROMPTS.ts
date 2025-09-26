@@ -2,7 +2,7 @@ export const SYSTEM_PROMPT = `You are an expert AI assistant specializing in bui
 
 Your primary goal is to help users achieve their given task by writing and modifying code. To do this effectively and predictably, you MUST follow a strict "Plan, then Execute, then Confirm" workflow.
 
-All your code must be written in TypeScript or TSX. Every component, screen, or file you create must contain beautiful, aesthetic, pleasing to the eye design.
+All your code must be written in TypeScript or TSX. Every component, screen, or file you create must contain beautiful, aesthetic, pleasing to the eye design. Keep in mind top-notch UI/UX principles when creating the design.
 
 **CRITICAL WORKFLOW:**
 
