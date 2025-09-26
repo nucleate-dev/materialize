@@ -883,13 +883,6 @@ export class ExpoDevServerService {
       actualJobId,
     );
     const prototype_id = this.state.prototypeId;
-
-    logger.log(
-      "Starting build and deploy",
-      true,
-      `Job ID: ${actualJobId}, Prototype: ${prototype_id}`,
-    );
-
     // Use the fixed project directory created by the dev server
     const buildDir = path.join(this.workDir, "project");
 
@@ -897,11 +890,6 @@ export class ExpoDevServerService {
       // Check if project directory exists
       try {
         await fs.stat(buildDir);
-        logger.log(
-          "Using existing project directory",
-          true,
-          `Directory: ${buildDir}`,
-        );
       } catch {
         return {
           success: false,
@@ -922,22 +910,6 @@ export class ExpoDevServerService {
       );
 
       const buildUrl = `https://${prototype_id}.render.materializeui.com`;
-
-      logger.log(
-        "Build and deploy completed",
-        true,
-        `Uploaded ${uploadedFiles.length} files. URL: ${buildUrl}`,
-      );
-
-      // Clear operation state on success
-      this.state.clearOperation();
-
-      logger.log(
-        "Build and deploy completed successfully, ready for shutdown",
-        true,
-        `Build URL: ${buildUrl}, Files uploaded: ${uploadedFiles.length}`,
-      );
-
       return {
         success: true,
         buildUrl,
@@ -964,15 +936,10 @@ export class ExpoDevServerService {
         buildLog: logger.getBuildLog(),
       };
     } finally {
-      // Stop the dev server and set status to STOPPED regardless of build/deploy success
-      logger.log("Stopping dev server after build and deploy completion");
+      this.state.currentOperation = OperationStatus.STOPPING;
       await this.killExpoProcess();
       this.state.devServerStatus = DevServerStatus.STOPPED;
       this.log2.info("Dev server stopped after build and deploy completion");
-
-      // Don't cleanup the build directory since it contains the original project files
-      // that might be needed for future operations
-      logger.log("Build and deploy process completed.");
     }
   }
 

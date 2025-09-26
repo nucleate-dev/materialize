@@ -1,3 +1,4 @@
+import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
@@ -5,6 +6,7 @@ import {
   CodeError,
   CodeWarning,
   DevServerStatus,
+  OperationStatus,
   PrototypeAssetInputWithContent,
   PublicAllocateRequest,
   PublicAllocateResponse,
@@ -20,7 +22,6 @@ import {
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
-import { S3Client } from "@aws-sdk/client-s3";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -35,25 +36,25 @@ export class PublicApiService {
     // POST /dev-server
     app.post<{ Body: PublicDevServerStartRequest }>(
       "/dev-server",
-      this.startDevServer.bind(this)
+      this.startDevServer.bind(this),
     );
 
     // DELETE /dev-server
     app.delete<{ Body: PublicDevServerStopRequest }>(
       "/dev-server",
-      this.stopDevServer.bind(this)
+      this.stopDevServer.bind(this),
     );
 
     // POST /build-and-deploy
     app.post<{ Body: PublicBuildAndDeployRequest }>(
       "/build-and-deploy",
-      this.buildAndDeploy.bind(this)
+      this.buildAndDeploy.bind(this),
     );
 
     // POST /run-command
     app.post<{ Body: PublicRunCommandRequest }>(
       "/run-command",
-      this.runCommand.bind(this)
+      this.runCommand.bind(this),
     );
 
     app.post("/allocate", this.allocate.bind(this));
@@ -61,7 +62,7 @@ export class PublicApiService {
 
   private async allocate(
     request: FastifyRequest<{ Body: PublicAllocateRequest }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<PublicAllocateResponse> {
     const { accessKeyId, secretAccessKey, sessionToken, prototypeId } =
       request.body;
@@ -93,13 +94,13 @@ export class PublicApiService {
 
   private async startDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
     try {
       if (request.body.file_scope === "complete") {
         const startResponse = await this.expoDevServerService.startDevServer(
           request,
-          reply
+          reply,
         );
 
         // Convert response format from ExpoDevServerService to PublicApiService format
@@ -114,7 +115,7 @@ export class PublicApiService {
           await this.expoDevServerService.updateDevServerFiles(
             request.body.files,
             request.body.assets,
-            request.body?.deleted_files || []
+            request.body?.deleted_files || [],
           );
         return {
           status: startResponse.success ? "success" : "error",
@@ -141,7 +142,7 @@ export class PublicApiService {
       request.log2.error(
         new Error(errorMessage),
         "Internal server error in startDevServer",
-        { stack: errorStack }
+        { stack: errorStack },
       );
       reply.code(500);
       return {
@@ -159,12 +160,29 @@ export class PublicApiService {
 
   private async stopDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<PublicDevServerStopResponse> {
     const devServerState = this.expoDevServerService.getState();
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
       return {
         status: "success",
+        build_errors: [],
+        build_warnings: [],
+        server_operation_status: devServerState.currentOperation,
+        server_status: devServerState.devServerStatus,
+        prototypeId: devServerState.prototypeId,
+      } as PublicDevServerStopResponse;
+    }
+
+    if (
+      devServerState.currentOperation === OperationStatus.BUILDING ||
+      devServerState.currentOperation === OperationStatus.DEPLOYING ||
+      devServerState.currentOperation ===
+        OperationStatus.BUILDING_AND_DEPLOYING ||
+      devServerState.currentOperation === OperationStatus.STOPPING
+    ) {
+      return {
+        status: "error",
         build_errors: [],
         build_warnings: [],
         server_operation_status: devServerState.currentOperation,
@@ -193,7 +211,7 @@ export class PublicApiService {
       request.log2.error(
         new Error(errorMessage),
         "Internal server error in stopDevServer",
-        { stack: errorStack }
+        { stack: errorStack },
       );
       reply.code(500);
       return {
@@ -213,7 +231,7 @@ export class PublicApiService {
 
   private async buildAndDeploy(
     request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<PublicBuildAndDeployResponse> {
     const { prototype_id, framework } = request.body;
 
@@ -221,7 +239,7 @@ export class PublicApiService {
       baseLogger.error(
         new Error("Missing required parameters"),
         "Missing required parameters",
-        { prototype_id, framework }
+        { prototype_id, framework },
       );
       reply.code(400);
       return {
@@ -251,7 +269,7 @@ export class PublicApiService {
         request.log2.error(
           new Error(errorMessage),
           "Project directory not found",
-          { projectDir }
+          { projectDir },
         );
         return reply.code(404).send({
           status: "error",
@@ -273,7 +291,7 @@ export class PublicApiService {
         request.log2.error(
           new Error("No files found in project directory"),
           "No files found in project directory",
-          { projectDir }
+          { projectDir },
         );
         return reply.code(400).send({
           status: "error",
@@ -293,7 +311,7 @@ export class PublicApiService {
       try {
         const buildResponse =
           await this.expoDevServerService.buildAndDeployProjectCore(
-            prototype_id
+            prototype_id,
           );
 
         if (buildResponse.success && buildResponse.buildUrl) {
@@ -304,14 +322,14 @@ export class PublicApiService {
             this.parseBuildLogForErrors(
               buildResponse.buildLog,
               buildErrors,
-              buildWarnings
+              buildWarnings,
             );
           }
         } else if (buildResponse.error) {
           request.log2.error(
             new Error(buildResponse.error),
             "Build and deploy failed",
-            { buildLog: buildResponse.buildLog }
+            { buildLog: buildResponse.buildLog },
           );
           buildErrors.push({
             message: `Build and deploy failed: ${buildResponse.error}`,
@@ -323,7 +341,7 @@ export class PublicApiService {
             this.parseBuildLogForErrors(
               buildResponse.buildLog,
               buildErrors,
-              buildWarnings
+              buildWarnings,
             );
           }
         }
@@ -334,7 +352,7 @@ export class PublicApiService {
         request.log2.error(
           new Error(errorMessage),
           "Build and deploy process failed",
-          { stack: errorStack }
+          { stack: errorStack },
         );
         buildErrors.push({
           message: `Build and deploy process failed: ${errorMessage}`,
@@ -355,7 +373,7 @@ export class PublicApiService {
       request.log2.error(
         new Error(errorMessage),
         "Internal server error in buildAndDeploy",
-        { stack: errorStack }
+        { stack: errorStack },
       );
       reply.code(500);
       return {
@@ -373,7 +391,7 @@ export class PublicApiService {
 
   private async runCommand(
     request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<PublicRunCommandResponse> {
     const { command, args, cwd, env, timeout_ms } = request.body;
 
@@ -381,7 +399,7 @@ export class PublicApiService {
       request.log2.error(
         new Error("Missing required parameter: command"),
         "Missing required parameter: command",
-        { command, args }
+        { command, args },
       );
       reply.code(400);
       return {
@@ -396,7 +414,7 @@ export class PublicApiService {
         args || [],
         cwd,
         env,
-        timeout_ms || 120000
+        timeout_ms || 120000,
       );
 
       return {
@@ -436,7 +454,7 @@ export class PublicApiService {
           baseLogger.error(
             new Error("No files found in project directory"),
             "No files found in project directory",
-            { projectDir }
+            { projectDir },
           );
           buildErrors.push({
             message: "No files found in project directory",
@@ -453,14 +471,14 @@ export class PublicApiService {
               this.parseBuildLogForErrors(
                 buildResponse.buildLog,
                 buildErrors,
-                buildWarnings
+                buildWarnings,
               );
             }
           } else if (buildResponse.error) {
             baseLogger.error(
               new Error(buildResponse.error),
               "Background build failed",
-              { buildLog: buildResponse.buildLog }
+              { buildLog: buildResponse.buildLog },
             );
             buildErrors.push({
               message: `Build failed: ${buildResponse.error}`,
@@ -472,7 +490,7 @@ export class PublicApiService {
               this.parseBuildLogForErrors(
                 buildResponse.buildLog,
                 buildErrors,
-                buildWarnings
+                buildWarnings,
               );
             }
           }
@@ -484,7 +502,7 @@ export class PublicApiService {
         baseLogger.error(
           new Error(errorMessage),
           "Background build process failed",
-          { stack: errorStack }
+          { stack: errorStack },
         );
         buildErrors.push({
           message: `Build process failed: ${errorMessage}`,
@@ -502,9 +520,11 @@ export class PublicApiService {
         baseLogger.error(
           new Error(errorMessage),
           "Failed to stop dev server after background build",
-          { stack: errorStack }
+          { stack: errorStack },
         );
       }
+      // Clear operation state on success
+      this.expoDevServerService.getState().clearOperation();
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -512,7 +532,7 @@ export class PublicApiService {
       baseLogger.error(
         new Error(errorMessage),
         "Critical error in background build and deploy",
-        { stack: errorStack }
+        { stack: errorStack },
       );
 
       // Ensure dev server is stopped even on critical failures
@@ -525,7 +545,7 @@ export class PublicApiService {
             : String(shutdownError);
         baseLogger.error(
           new Error(errorMessage),
-          "Failed to shutdown dev server after critical error"
+          "Failed to shutdown dev server after critical error",
         );
       }
     }
@@ -541,7 +561,7 @@ export class PublicApiService {
 
     const readDirectory = async (
       currentPath: string,
-      relativePath: string = ""
+      relativePath: string = "",
     ): Promise<void> => {
       try {
         const items = await fs.readdir(currentPath);
@@ -610,13 +630,13 @@ export class PublicApiService {
       error: string;
     }>,
     buildErrors: CodeError[],
-    buildWarnings: CodeWarning[]
+    buildWarnings: CodeWarning[],
   ): void {
     for (const entry of buildLog) {
       if (!entry.success && entry.error) {
         // Try to parse TypeScript/JavaScript errors
         const errorMatch = entry.error.match(
-          /(.+\.tsx?):(\d+):(\d+)\s*-\s*error\s*TS(\d+):\s*(.+)/
+          /(.+\.tsx?):(\d+):(\d+)\s*-\s*error\s*TS(\d+):\s*(.+)/,
         );
         if (errorMatch) {
           buildErrors.push({
