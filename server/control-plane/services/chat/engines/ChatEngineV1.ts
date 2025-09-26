@@ -16,11 +16,12 @@ import type {
   PrototypeFileInput,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
-import { SYSTEM_PROMPT } from '../prompts/PROMPTS.js';
+import { ERROR_FIXING_PROMPT, SYSTEM_PROMPT } from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
   VirtualFileManager,
 } from '../utils/file-manager.js';
+import { detectUserIntent } from '../utils/intent-classifier.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -644,10 +645,12 @@ export class ChatEngineV1 {
       );
 
       const imageContext = image ? `Attached: ${image}` : null;
-
+      const userIntent = detectUserIntent(userMessage);
+      const selectedSystemPrompt =
+        userIntent === 'error_fixing' ? ERROR_FIXING_PROMPT : SYSTEM_PROMPT;
       const result = streamText({
         model: this.getCurrentModel(),
-        system: SYSTEM_PROMPT,
+        system: selectedSystemPrompt,
         messages: [
           ...messages.slice(0, -1).map((msg: ChatMessage) => ({
             role: msg.role as 'user' | 'assistant',
