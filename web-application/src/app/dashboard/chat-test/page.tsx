@@ -25,6 +25,7 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
+  ChatImagePayload,
   ChatMessage,
   ChatRequestBody,
   ChatStreamEvent,
@@ -259,6 +260,7 @@ export default function ChatTestPage() {
         inputAssets: fileSystem.state.assets,
         chat_session_id: chatSession,
         prototype_id: prototype.id,
+        image: null,
       };
 
       addRequestLog("request", {

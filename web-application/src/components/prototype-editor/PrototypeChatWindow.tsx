@@ -18,9 +18,9 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
-  ChatErrorResponse,
-  ChatRequestBody,
-  ChatMessage as ServerChatMessage,
+  ChatErrorResponse, ChatRequestBody,
+  CodeError,
+  ChatMessage as ServerChatMessage
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
@@ -30,6 +30,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   ClipboardDocumentIcon,
+  ExclamationTriangleIcon,
   PlayIcon,
   StopIcon,
   TrashIcon,
@@ -104,7 +105,7 @@ export default function PrototypeChatWindow({
   const [messageCount, setMessageCount] = useState<number>(0);
   const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
   const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
-
+  const [buildErrors, setBuildErrors] = useState<CodeError[]>([]);
   // UI state
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
 
@@ -316,6 +317,7 @@ export default function PrototypeChatWindow({
             error?: string;
             messageCount?: number;
             viewing_url?: string;
+            build_errors?: CodeError[];
           };
           try {
             event = JSON.parse(dataText);
@@ -474,6 +476,7 @@ export default function PrototypeChatWindow({
               logger.debug("log", "deleted file names: ", {
                 deletedFileNames: Object.keys(deletedFileNames),
               });
+
               onFilesUpdate({
                 updatedFiles: updatedFilesObject,
                 deletedFiles: deletedFileNames,
@@ -481,7 +484,9 @@ export default function PrototypeChatWindow({
               });
               setIsChatLoading(false);
               break;
-
+            case "build_errors":
+              setBuildErrors(event.build_errors || []);
+              break;
             case "dispatch_error":
               setMessages((prev) => [
                 ...prev,
@@ -628,6 +633,7 @@ export default function PrototypeChatWindow({
         inputAssets: assets,
         chat_session_id: prototypeChatSession.id,
         prototype_id: prototypeId || "",
+        image: null,
       };
 
       // Make streaming request
@@ -734,6 +740,23 @@ export default function PrototypeChatWindow({
     }
   }, [prototypeChatSession, logger]);
 
+  // Handle inserting build errors into text box
+  const handleInsertBuildErrors = () => {
+    if (buildErrors.length === 0) return;
+
+    const errorText = buildErrors
+      .map((error) => `${error.file}:${error.line}:${error.column} - ${error.message}`)
+      .join('\n');
+
+    const message = `Please help me fix these build errors:\n\n${errorText}`;
+    setCurrentMessage(message);
+
+    // Focus the textarea
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
   // Export session data
   const exportSession = () => {
     const sessionData = {
@@ -797,6 +820,17 @@ export default function PrototypeChatWindow({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {buildErrors.length > 0 && (
+              <Button
+                onClick={handleInsertBuildErrors}
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
+                {buildErrors.length} Error{buildErrors.length > 1 ? 's' : ''} Found
+              </Button>
+            )}
             <Button onClick={exportSession} variant="outline" size="sm">
               <ClipboardDocumentIcon className="w-4 h-4 mr-2" />
               Export

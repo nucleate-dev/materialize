@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import type {
   APIResponse,
+  ChatImagePayload,
+  CodeError,
   DispatchRequestBody,
   DispatchSuccessResponse,
   EnhancedChatContext,
@@ -48,6 +50,7 @@ export interface ChatEngineParams {
   fileManager: FileManagerInterface;
   inputFiles: Record<string, PrototypeFileInput> | null;
   inputAssets: Record<string, PrototypeAssetInput> | null;
+  image: ChatImagePayload | null;
   prototype_id: string;
   token: string;
   chat_session_id: string;
@@ -391,6 +394,7 @@ export class ChatEngineV1 {
     updatedFiles: string[];
     updatedFilesObject: Record<string, PrototypeFileInput>;
     deletedFiles: string[];
+    build_errors?: CodeError[];
   }> {
     const { prototype_id, token, controller, encoder } = params;
     const log2 = params.log2.child({
@@ -463,10 +467,20 @@ export class ChatEngineV1 {
           ),
         );
         fileManager.clearChangeTracking();
+        const newBuildErrors: CodeError[] = result.data.build_errors;
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'build_errors',
+              build_errors: newBuildErrors,
+            })}\\n\\n`,
+          ),
+        );
         return {
           updatedFiles: filesArray.map((file) => file.name),
           updatedFilesObject: allFiles,
           deletedFiles: Array.from(deletedFiles),
+          build_errors: result.data.build_errors,
         };
       } else {
         // PROPAGATE ERROR TO CLIENT
@@ -604,8 +618,15 @@ export class ChatEngineV1 {
   }
 
   async executeChat(params: ChatEngineParams): Promise<void> {
-    const { messages, userMessage, controller, encoder, log2, fileManager } =
-      params;
+    const {
+      messages,
+      userMessage,
+      image,
+      controller,
+      encoder,
+      log2,
+      fileManager,
+    } = params;
 
     // Track execution data for persistence
     let executionPlan: string[] | undefined;
@@ -623,6 +644,16 @@ export class ChatEngineV1 {
         '[ChatEngine] Generating response with plan-and-execute strategy...',
       );
 
+      const imageContext = image
+        ? [
+            `Attached image URL: ${image.url}`,
+            image.mimeType ? `MIME type: ${image.mimeType}` : null,
+            image.altText ? `Alt text: ${image.altText}` : null,
+          ]
+            .filter((entry): entry is string => Boolean(entry))
+            .join('\n')
+        : null;
+
       const result = streamText({
         model: this.getCurrentModel(),
         system: SYSTEM_PROMPT,
@@ -633,7 +664,9 @@ export class ChatEngineV1 {
           })),
           {
             role: 'user' as const,
-            content: userMessage,
+            content: imageContext
+              ? `${userMessage}\n\n${imageContext}`
+              : userMessage,
           },
         ],
         // UPDATED: Combine all tools
@@ -787,7 +820,6 @@ export class ChatEngineV1 {
           ),
         );
       }
-
       // Dispatch files to Fargate before completing chat
       if (
         fileManager instanceof VirtualFileManager &&
@@ -805,7 +837,11 @@ export class ChatEngineV1 {
             })}\n\n`,
           ),
         );
-        await this.persistAndDispatchFiles(fileManager, params);
+        const dispatchResult = await this.persistAndDispatchFiles(
+          fileManager,
+          params,
+        );
+        dispatchResult.build_errors || [];
         // Clear change tracking after successful dispatch
         fileManager.clearChangeTracking();
       }
