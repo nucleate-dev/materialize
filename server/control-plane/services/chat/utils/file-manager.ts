@@ -450,10 +450,6 @@ export class VirtualFileManager implements FileManagerInterface {
     }
   }
 
-  private generateId(): string {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  }
-
   getFinalState(): Record<string, PrototypeFile> {
     const result: Record<string, PrototypeFile> = {};
     for (const [filePath, file] of this.files) {
