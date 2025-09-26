@@ -413,6 +413,7 @@ export type Database = {
           thumbnail_url: string | null;
           updated_at: string | null;
           visibility: Database["public"]["Enums"]["visibility_level"] | null;
+          latest_build_key: string | null;
         };
         Insert: {
           created_at?: string | null;
@@ -425,6 +426,7 @@ export type Database = {
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+          latest_build_key?: string | null;
         };
         Update: {
           created_at?: string | null;
@@ -437,6 +439,7 @@ export type Database = {
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+          latest_build_key?: string | null;
         };
         Relationships: [
           {
