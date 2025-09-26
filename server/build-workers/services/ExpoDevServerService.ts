@@ -592,6 +592,7 @@ export class ExpoDevServerService {
     this.log2.info("Restarting dev server after dependency changes");
 
     // Kill the current process
+    this.state.currentOperation = OperationStatus.STOPPING;
     await this.killExpoProcess();
 
     // Reset state but keep project directory and port
@@ -600,6 +601,7 @@ export class ExpoDevServerService {
     const prototypeId = this.state.prototypeId;
 
     // Restart the dev server
+    this.state.currentOperation = OperationStatus.STARTING_DEV_SERVER;
     this.state.devServerStatus = DevServerStatus.STARTING;
     this.state.startTime = new Date();
     this.log2.info("Restarting dev server for prototype", {
@@ -643,11 +645,7 @@ export class ExpoDevServerService {
   public async shutdown(): Promise<void> {
     this.log2.info("Shutting down dev server service");
 
-    // Set operation to stopping to indicate shutdown in progress
-    if (this.state.currentOperation === OperationStatus.IDLE) {
-      this.state.setOperation(OperationStatus.STOPPING);
-    }
-
+    this.state.setOperation(OperationStatus.STOPPING);
     await this.killExpoProcess();
     await this.cleanup();
 
