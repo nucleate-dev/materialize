@@ -39,6 +39,7 @@
     "ai": "^5.0.18",
     "aws-sdk": "^2.1491.0",
     "axios": "^1.6.2",
+    "diff-match-patch-ts": "^0.6.0",
     "dotenv": "^17.2.1",
     "fastify": "^5.4.0",
     "form-data": "^4.0.4",
