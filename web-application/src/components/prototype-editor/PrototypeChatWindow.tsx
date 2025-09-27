@@ -73,6 +73,7 @@ export interface PrototypeChatWindowProps {
   setIsChatLoading: (loading: boolean) => void;
 
   // Viewing URL callback
+  currentViewingUrl: string;
   onViewingUrlUpdate: (viewingUrl: string) => void;
 
   // Render status for disabling input
@@ -87,6 +88,7 @@ export default function PrototypeChatWindow({
   prototypeId,
   isChatLoading,
   setIsChatLoading,
+  currentViewingUrl,
   onViewingUrlUpdate,
   currentRenderStatus,
   onCurrentRenderStatusChange,
@@ -472,12 +474,14 @@ export default function PrototypeChatWindow({
                 "log",
                 "received viewing_url event, setting status to Connected",
               );
-              if (event.viewing_url) {
+              if (!event.viewing_url) break;
+              if (event.viewing_url !== currentViewingUrl) {
                 onViewingUrlUpdate(event.viewing_url);
+                onCurrentRenderStatusChange("Connecting..");
+              } else {
+                onCurrentRenderStatusChange("Connected");
               }
-              onCurrentRenderStatusChange("Connected");
               break;
-
             case "files_synced":
               // Handle final file sync after dispatch
               logger.debug("log", "received files_synced event");
@@ -905,14 +909,16 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground"
-                    }`}
+                  }`}
                 >
                   {message.role === "user" && (
                     <div className="text-sm font-medium mb-1">You</div>
@@ -968,10 +974,11 @@ export default function PrototypeChatWindow({
                             className="flex items-start gap-2 text-sm"
                           >
                             <div
-                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
+                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                                completedSteps.has(index)
                                   ? "border-green-500 bg-green-500"
                                   : "border-gray-300"
-                                }`}
+                              }`}
                             >
                               {completedSteps.has(index) && (
                                 <div className="relative">
@@ -985,10 +992,11 @@ export default function PrototypeChatWindow({
                               )}
                             </div>
                             <span
-                              className={`${completedSteps.has(index)
+                              className={`${
+                                completedSteps.has(index)
                                   ? "text-muted-foreground line-through"
                                   : "text-foreground"
-                                }`}
+                              }`}
                             >
                               {step}
                             </span>
