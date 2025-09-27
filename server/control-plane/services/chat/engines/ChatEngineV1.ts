@@ -436,15 +436,11 @@ export class ChatEngineV1 {
         file_scope: fileManager.getFileScope(),
         hot_reload: true, // Enable hot reload for live updates
       };
-      log2.consoleLogDevOnly(
-        'info',
-        '[persistAndDispatchFiles] sending dispatch_start event',
-      );
       controller.enqueue(
         encoder.encode(
           `data: ${JSON.stringify({
             type: 'dispatch_start',
-          })}\\n\\n`,
+          })}\n\n`,
         ),
       );
       // Call the dispatch endpoint via internal Fastify inject
@@ -473,7 +469,7 @@ export class ChatEngineV1 {
             `data: ${JSON.stringify({
               type: 'viewing_url',
               viewing_url: result.data.viewing_url,
-            })}\\n\\n`,
+            })}\n\n`,
           ),
         );
         fileManager.clearChangeTracking();
@@ -483,7 +479,7 @@ export class ChatEngineV1 {
             `data: ${JSON.stringify({
               type: 'build_errors',
               build_errors: newBuildErrors,
-            })}\\n\\n`,
+            })}\n\n`,
           ),
         );
         return {
@@ -500,7 +496,7 @@ export class ChatEngineV1 {
               type: 'dispatch_error',
               error: 'Failed to update the live preview.',
               details: `Dispatch service responded with status ${response.statusCode}.`,
-            })}\\n\\n`,
+            })}\n\n`,
           ),
         );
         return {
