@@ -132,6 +132,7 @@ export interface PublicDevServerStopResponse {
   server_status: DevServerStatus;
   screenshotBase64?: string;
   prototypeId?: string;
+  version?: string;
 }
 
 export interface PublicBuildAndDeployRequest {

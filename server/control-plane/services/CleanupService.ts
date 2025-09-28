@@ -1,5 +1,5 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
@@ -301,9 +301,8 @@ export class CleanupService {
           });
 
           // Update the thumbnail_url in the prototypes table
-          const updateSuccess = await this.updatePrototypeThumbnailUrl(
-            prototypeId,
-          );
+          const updateSuccess =
+            await this.updatePrototypeThumbnailUrl(prototypeId);
           if (!updateSuccess) {
             this.log2.warn('Failed to update prototype thumbnail_url', {
               prototypeId,
@@ -377,6 +376,25 @@ export class CleanupService {
       // Parse the actual response body to understand what happened
       const responseData: PublicDevServerStopResponse = response.data;
       if (responseData.status === 'success') {
+        if (responseData?.version) {
+          const { error: updateBuildVersionError } = await this.supabase
+            .from('prototypes')
+            .update({
+              latest_build_key: responseData.version,
+            })
+            .eq('id', prototypeId);
+          if (updateBuildVersionError) {
+            this.log2.error(
+              updateBuildVersionError,
+              'Failed to update prototype latest_build_key',
+              {
+                prototypeId,
+              },
+            );
+          }
+        }
+        // We should still return success because the fargate task should be cleaned up.
+        // Maybe we need to figure out something better here.
         return {
           success: true,
           buildInProgress: false,

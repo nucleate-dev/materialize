@@ -57,6 +57,7 @@ export interface DeployResponse {
   success: boolean;
   buildUrl?: string;
   uploadedFiles?: Array<{ key: string; location: string }>;
+  version?: string;
   error?: string;
 }
 
@@ -70,6 +71,7 @@ export interface BuildAndDeployResponse {
   buildLog: BuildLogEntry[];
   uploadedFiles?: Array<{ key: string; location: string }>;
   error?: string;
+  version?: string;
 }
 
 // New types for public API
@@ -103,6 +105,7 @@ export interface PublicDevServerStartResponse {
   tunnel_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+  version?: string;
 }
 
 export interface PublicDevServerStopRequest {
@@ -119,6 +122,7 @@ export interface PublicDevServerStopResponse {
   server_status: DevServerStatus;
   screenshotBase64?: string;
   prototypeId?: string;
+  version?: string;
 }
 
 export interface PublicDevServerRestartResponse {
@@ -135,6 +139,7 @@ export interface PublicBuildAndDeployResponse {
   build_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+  version?: string;
 }
 
 // Dev Server Response Types

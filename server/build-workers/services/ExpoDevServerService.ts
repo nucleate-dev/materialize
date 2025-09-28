@@ -47,6 +47,7 @@ class DevServerState {
   public currentOperation: OperationStatus = OperationStatus.IDLE;
   public operationStartTime: Date | null = null;
   public operationId: string | null = null;
+  public builtVersion: string | null = null;
 
   public getUptime(): number | null {
     if (!this.startTime) return null;
@@ -66,6 +67,7 @@ class DevServerState {
     this.currentOperation = OperationStatus.IDLE;
     this.operationStartTime = null;
     this.operationId = null;
+    this.builtVersion = null;
   }
 
   public setOperation(operation: OperationStatus, operationId?: string): void {
@@ -856,7 +858,8 @@ export class ExpoDevServerService {
       return {
         success: true,
         buildUrl,
-        uploadedFiles,
+        uploadedFiles: uploadedFiles.uploadResults,
+        version: uploadedFiles.version,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -902,17 +905,19 @@ export class ExpoDevServerService {
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
       const s3KeyPrefix = `${prototype_id}`;
-      const uploadedFiles = await this.uploadDirectoryToS3(
+      const uploadResult = await this.uploadDirectoryToS3(
         outputPath,
         s3KeyPrefix,
       );
 
       const buildUrl = `https://${prototype_id}.render.materializeui.com`;
+      this.state.builtVersion = uploadResult.version;
       return {
         success: true,
         buildUrl,
         buildLog: logger.getBuildLog(),
-        uploadedFiles,
+        uploadedFiles: uploadResult.uploadResults,
+        version: uploadResult.version,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -1514,7 +1519,10 @@ export class ExpoDevServerService {
     localPath: string,
     prototypeId: string,
     version: string,
-  ): Promise<Array<{ key: string; location: string }>> {
+  ): Promise<{
+    uploadResults: Array<{ key: string; location: string }>;
+    version: string;
+  }> {
     if (!this.s3) {
       throw new Error("S3 client not set");
     }
@@ -1590,13 +1598,16 @@ export class ExpoDevServerService {
     const latestPrefix = `${prototypeId}/latest`;
 
     await uploadDirectory(localPath, versionedPrefix, latestPrefix);
-    return uploadResults;
+    return { uploadResults, version };
   }
 
   private async uploadDirectoryToS3(
     localPath: string,
     s3KeyPrefix: string,
-  ): Promise<Array<{ key: string; location: string }>> {
+  ): Promise<{
+    uploadResults: Array<{ key: string; location: string }>;
+    version: string;
+  }> {
     // Extract prototype ID and version from s3KeyPrefix
     const parts = s3KeyPrefix.split("/");
     const prototypeId = parts[0];

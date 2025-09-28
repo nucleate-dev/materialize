@@ -63,6 +63,7 @@ export interface FargateDevServerResponse {
   tunnel_url?: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+  version?: string;
 }
 
 // ============================================================================

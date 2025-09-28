@@ -182,6 +182,7 @@ export class PublicApiService {
         server_operation_status: devServerState.currentOperation,
         server_status: devServerState.devServerStatus,
         prototypeId: devServerState.prototypeId,
+        version: devServerState.builtVersion,
       } as PublicDevServerStopResponse;
     }
 
@@ -262,12 +263,14 @@ export class PublicApiService {
           },
         ],
         build_warnings: [],
+        version: undefined,
       };
     }
 
     try {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
+      let version: string | undefined;
 
       // Check if project directory exists and read files from disk (fixed path)
       const projectDir = path.join(this.workDir, "project");
@@ -292,6 +295,7 @@ export class PublicApiService {
             },
           ],
           build_warnings: [],
+          version: undefined,
         });
       }
 
@@ -313,6 +317,7 @@ export class PublicApiService {
             },
           ],
           build_warnings: [],
+          version: undefined,
         });
       }
 
@@ -327,6 +332,7 @@ export class PublicApiService {
 
         if (buildResponse.success && buildResponse.buildUrl) {
           buildUrl = buildResponse.buildUrl;
+          version = buildResponse.version;
 
           // Parse build log for errors and warnings
           if (buildResponse.buildLog) {
@@ -376,6 +382,7 @@ export class PublicApiService {
         build_url: buildUrl,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
+        version: version,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -396,6 +403,7 @@ export class PublicApiService {
           },
         ],
         build_warnings: [],
+        version: undefined,
       };
     }
   }
