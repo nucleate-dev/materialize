@@ -23,6 +23,8 @@ export interface FileManagerInterface {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
+    replacementCount?: number;
+    context?: string;
   };
   getFinalState(): Record<string, unknown>;
 }
@@ -114,6 +116,18 @@ export class VirtualFileManager implements FileManagerInterface {
           );
         case 'get_dependencies':
           return this.getDependencies(args.filePath as string);
+        case 'append_file_content':
+          return this.appendFileContent(
+            args.filePath as string,
+            args.content as string,
+          );
+        case 'replace_file_content':
+          return this.replaceFileContent(
+            args.filePath as string,
+            args.searchText as string,
+            args.replaceWith as string,
+            args.expectOneMatch as boolean,
+          );
         default:
           return {
             error: `Unknown tool: ${name}`,
@@ -234,7 +248,7 @@ export class VirtualFileManager implements FileManagerInterface {
       };
     }
 
-    const fileName = normalizedPath.split('/').pop() || normalizedPath;
+    const fileName = normalizedPath;
     const now = new Date().toISOString();
 
     const newFile: PrototypeFileInput = {
@@ -440,6 +454,153 @@ export class VirtualFileManager implements FileManagerInterface {
         message: 'Failed to parse package.json file',
       };
     }
+  }
+
+  private appendFileContent(
+    filePath: string,
+    content: string,
+  ): {
+    error?: string;
+    success?: boolean;
+    filePath?: string;
+    operation?: string;
+    message?: string;
+  } {
+    if (!filePath) {
+      return { error: 'File path is required', success: false };
+    }
+
+    if (content === undefined || content === null) {
+      return { error: 'Content is required', success: false };
+    }
+
+    const normalizedPath = this.normalizePath(filePath);
+    const existingFile = this.files.get(normalizedPath);
+
+    if (existingFile) {
+      // Add newline before appending if file doesn't end with one
+      let contentToAppend = content;
+      if (
+        existingFile.contents.length > 0 &&
+        !existingFile.contents.endsWith('\n')
+      ) {
+        contentToAppend = '\n' + content;
+      }
+
+      existingFile.contents += contentToAppend;
+      existingFile.updated_at = new Date().toISOString();
+      this.changedFiles.add(normalizedPath);
+
+      return {
+        success: true,
+        filePath: normalizedPath,
+        operation: 'append_file_content',
+        message: `Successfully appended ${content.length} characters to file`,
+      };
+    } else {
+      // Create new file with the content
+      return this.createFile(filePath, content);
+    }
+  }
+
+  private replaceFileContent(
+    filePath: string,
+    searchText: string,
+    replaceWith: string,
+    expectOneMatch: boolean = true,
+  ): {
+    error?: string;
+    success?: boolean;
+    filePath?: string;
+    operation?: string;
+    message?: string;
+    replacementCount?: number;
+    context?: string;
+  } {
+    if (!filePath) {
+      return { error: 'File path is required', success: false };
+    }
+
+    if (!searchText) {
+      return { error: 'Search text is required', success: false };
+    }
+
+    if (replaceWith === undefined || replaceWith === null) {
+      return { error: 'Replacement text is required', success: false };
+    }
+
+    const normalizedPath = this.normalizePath(filePath);
+    const file = this.files.get(normalizedPath);
+
+    if (!file) {
+      return {
+        success: false,
+        error: 'File not found',
+        filePath: normalizedPath,
+        operation: 'replace_file_content',
+        message:
+          'Cannot replace content in non-existent file. Use create_file or write_file instead.',
+      };
+    }
+
+    // Count occurrences
+    const occurrences = file.contents.split(searchText).length - 1;
+
+    if (occurrences === 0) {
+      // Show first few lines for context
+      const lines = file.contents.split('\n');
+      const contextLines = lines.slice(0, 3).join('\n');
+      return {
+        success: false,
+        error: 'Search text not found',
+        filePath: normalizedPath,
+        operation: 'replace_file_content',
+        message:
+          'The specified text was not found in the file. Use read_file to check current content.',
+        context: `File starts with:\n${contextLines}${lines.length > 3 ? '\n...' : ''}`,
+      };
+    }
+
+    if (expectOneMatch && occurrences > 1) {
+      // Find and show contexts around matches
+      const lines = file.contents.split('\n');
+      const matchContexts: string[] = [];
+
+      for (let i = 0; i < lines.length && matchContexts.length < 3; i++) {
+        if (lines[i].includes(searchText)) {
+          const start = Math.max(0, i - 1);
+          const end = Math.min(lines.length - 1, i + 1);
+          const context = lines
+            .slice(start, end + 1)
+            .map((line, idx) => (idx === i - start ? `> ${line}` : `  ${line}`))
+            .join('\n');
+          matchContexts.push(`Lines ${start + 1}-${end + 1}:\n${context}`);
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Multiple matches found',
+        filePath: normalizedPath,
+        operation: 'replace_file_content',
+        message: `Found ${occurrences} occurrences but expected only one. Set expectOneMatch to false to replace all, or make search text more specific.`,
+        context: matchContexts.join('\n\n'),
+      };
+    }
+
+    // Perform replacement
+    const newContents = file.contents.replaceAll(searchText, replaceWith);
+    file.contents = newContents;
+    file.updated_at = new Date().toISOString();
+    this.changedFiles.add(normalizedPath);
+
+    return {
+      success: true,
+      filePath: normalizedPath,
+      operation: 'replace_file_content',
+      message: `Successfully replaced ${occurrences} occurrence${occurrences === 1 ? '' : 's'}`,
+      replacementCount: occurrences,
+    };
   }
 
   getFinalState(): Record<string, PrototypeFileInput> {
