@@ -388,6 +388,85 @@ export class ChatEngineV1 {
           };
         },
       }),
+
+      append_file_content: tool({
+        description: 'Add content to the end of an existing file (efficient for adding new functions, imports, etc.)',
+        inputSchema: z.object({
+          filePath: z.string().describe('The path to the file to append to'),
+          content: z.string().describe('The content to append to the file'),
+        }),
+        execute: async ({
+          filePath,
+          content,
+        }: {
+          filePath: string;
+          content: string;
+        }) => {
+          log2.info(`[ChatEngine] Tool call: append_file_content`, {
+            filePath,
+            contentLength: content.length,
+          });
+          const result = fileManager.handleToolCall({
+            function: {
+              name: 'append_file_content',
+              arguments: { filePath, content },
+            },
+          });
+
+          return {
+            success: result.success ?? false,
+            error: result.error ?? '',
+            message: result.message ?? '',
+            filePath: result.filePath ?? filePath,
+          };
+        },
+      }),
+
+      replace_file_content: tool({
+        description: 'Replace exact text content within a file (efficient for small edits)',
+        inputSchema: z.object({
+          filePath: z.string().describe('The path to the file to modify'),
+          searchText: z.string().describe('The exact text to find and replace'),
+          replaceWith: z.string().describe('The text to replace it with'),
+          expectOneMatch: z
+            .boolean()
+            .default(true)
+            .describe('If true, operation fails if more than one match is found (default: true)'),
+        }),
+        execute: async ({
+          filePath,
+          searchText,
+          replaceWith,
+          expectOneMatch = true,
+        }: {
+          filePath: string;
+          searchText: string;
+          replaceWith: string;
+          expectOneMatch?: boolean;
+        }) => {
+          log2.info(`[ChatEngine] Tool call: replace_file_content`, {
+            filePath,
+            searchTextLength: searchText.length,
+            replaceWithLength: replaceWith.length,
+            expectOneMatch,
+          });
+          const result = fileManager.handleToolCall({
+            function: {
+              name: 'replace_file_content',
+              arguments: { filePath, searchText, replaceWith, expectOneMatch },
+            },
+          });
+
+          return {
+            success: result.success ?? false,
+            error: result.error ?? '',
+            message: result.message ?? '',
+            filePath: result.filePath ?? filePath,
+            replacementCount: result.replacementCount,
+            context: result.context,
+          };
+        },
+      }),
     };
   }
 
