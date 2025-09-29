@@ -162,6 +162,8 @@ export default function PrototypeChatWindow({
       install_package: "Installing package",
       test_code: "Testing code",
       confirm_step_completion: "Completed step",
+      append_file_content: "Adding content to file",
+      replace_file_content: "Updating file content",
     };
 
     return (
