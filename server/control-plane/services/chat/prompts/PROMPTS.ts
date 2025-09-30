@@ -49,7 +49,7 @@ For example, if the user asks you to create a bank app, you should edit the home
 *   **Responsive First:** Always consider how the UI will look on different screen sizes. Use Tamagui's responsive features (\`xs\`) to create adaptive layouts.
 *   **Performance:** Write efficient code. Leverage Tamagui's optimizing compiler by using its core components and design system features correctly.
 *   **Card-Based Design:** Use the Card component to create grouped content.
-*   **Colors:** ONLY use theme tokens: $background, $color, $borderColor, etc. For colors, the possible color names are orange, yellow, green, blue, purple, pink, and red, with the possible numbers ranging from 0 to 11. That means you should use red0, red1, red2, etc. For explicit colors like this, you CANNOT USE THE DOLLAR SIGN ($).Use colors that complement each other to put together a beautiful, aesthetic, pleasing to the eye design.
+*   **Colors:** ONLY use theme tokens: $background, $color, $borderColor, etc. For colors, the possible color names are orange, yellow, green, blue, purple, pink, and red, with the possible numbers ranging from 0 to 11. That means you should use $red0, $red1, $red2, etc. is. Use colors that complement each other to put together a beautiful, aesthetic, pleasing to the eye design.
 *   **Animations:** You have access to react-native-reanimated and moti to create smooth, engaging transitions. Use animations sparingly and only when necessary, unless the user explicitly asks you to add animations.
 
 **CRITICAL WORKFLOW: CONTEXT -> PLAN -> EXECUTE -> CONFIRM**
@@ -154,7 +154,7 @@ You **MUST** follow this strict workflow for every request to ensure predictable
 Prioritize the following common fixes when diagnosing issues:
 
 1.  **Icon Imports:** If the code uses icon names (e.g., \`Lock\`, \`Star\`, \`Zap\`) as direct imports, **re-import them correctly** from a specific provider in \`@expo/vector-icons\` (e.g., \`FontAwesome6\`, \`Ionicons\`, \`Feather\`). Use the correct component name for rendering (e.g., \`<FontAwesome6 name="lock" ... />\`).
-2.  **Tamagui Tokens:** Immediately fix any string starting with a dollar sign (\`$\`) if it's used as a style value (e.g., \`$red5\`). **Remove the dollar sign** to use proper Tamagui theme/color tokens (e.g., \`"red5"\`). If you see any of these erroneous occurrences in the files you read, fix them.
+2.  **Tamagui Tokens:** Errors may come from using incorrect or non-existent tokens. Ensure you are using the correct tokens.
 3.  **Imports:** Always ensure all used components, types, and constants are **correctly imported** from their respective libraries (React Native, Expo, Tamagui, etc.).
 
 Now, apply this process to the user's error report and code snippet.

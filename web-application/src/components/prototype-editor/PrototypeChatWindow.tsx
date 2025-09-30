@@ -566,6 +566,7 @@ export default function PrototypeChatWindow({
     [
       onFilesUpdate,
       onViewingUrlUpdate,
+      currentViewingUrl,
       logger,
       setIsChatLoading,
       onCurrentRenderStatusChange,
