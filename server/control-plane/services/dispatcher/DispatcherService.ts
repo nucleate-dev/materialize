@@ -155,9 +155,9 @@ export class DispatcherService {
       this.handleDispatchEditIntent.bind(this),
     );
 
-    // POST /files/restart-dev-server
+    // POST /dev-server/restart
     app.post<{ Body: { jwt: string; prototype_id: string } }>(
-      '/files/restart-dev-server',
+      '/dev-server/restart',
       {
         schema: {
           body: {
@@ -171,6 +171,39 @@ export class DispatcherService {
         },
       },
       this.handleRestartDevServer.bind(this),
+    );
+
+    // POST /dev-server/run-command
+    app.post<{
+      Body: {
+        jwt: string;
+        prototype_id: string;
+        command: string;
+        args?: string[];
+        cwd?: string;
+        env?: Record<string, string>;
+        timeout_ms?: number;
+      };
+    }>(
+      '/dev-server/run-command',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['jwt', 'prototype_id', 'command'],
+            properties: {
+              jwt: { type: 'string' },
+              prototype_id: { type: 'string' },
+              command: { type: 'string' },
+              args: { type: 'array', items: { type: 'string' } },
+              cwd: { type: 'string' },
+              env: { type: 'object' },
+              timeout_ms: { type: 'number' },
+            },
+          },
+        },
+      },
+      this.handleRunCommand.bind(this),
     );
   }
 
@@ -285,6 +318,178 @@ export class DispatcherService {
           message: e.message,
         },
       });
+    }
+  }
+
+  private async handleRunCommand(
+    request: FastifyRequest<{
+      Body: {
+        jwt: string;
+        prototype_id: string;
+        command: string;
+        args?: string[];
+        cwd?: string;
+        env?: Record<string, string>;
+        timeout_ms?: number;
+      };
+    }>,
+    reply: FastifyReply,
+  ): Promise<APIResponse<unknown, StandardErrorResponse>> {
+    const { jwt, prototype_id, command, args, cwd, env, timeout_ms } =
+      request.body;
+
+    // 1. Authentication check
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototype_id,
+      jwt,
+      request.log2,
+    );
+    if (!authResult || !authResult.canEdit) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
+      });
+    }
+
+    request.log2 = request.log2.child({
+      userId: authResult.user.id,
+      prototypeId: prototype_id,
+    });
+
+    try {
+      // 2. Get current build ID
+      const currentBuildId = await this.cache.get(
+        CACHE_KEYS.protoCurrentBuild(prototype_id),
+      );
+
+      if (!currentBuildId) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: 'Not Found',
+            message: 'No active dev server found for this prototype',
+          },
+        });
+      }
+
+      // 3. Get the active build data
+      const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
+      const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
+
+      if (!existingBuild || !isActiveBuildType(existingBuild)) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          data: null,
+          error: {
+            error: 'Not Found',
+            message: 'Invalid or missing build data',
+          },
+        });
+      }
+
+      // 4. Check if dev server is in a runnable state
+      if (!isEditableDevServer(existingBuild.status)) {
+        return reply.status(HTTP_STATUS.CONFLICT).send({
+          data: null,
+          error: {
+            error: 'Conflict',
+            message: `Cannot run command on dev server in ${existingBuild.status} state`,
+          },
+        });
+      }
+
+      // 5. Call run-command endpoint on the fargate instance
+      const commandResponse = await this.callFargateRunCommand(
+        existingBuild.fargate_private_ip,
+        { command, args, cwd, env, timeout_ms },
+        request.log2,
+      );
+
+      if (commandResponse.status === 'success') {
+        // 6. Update last_touched timestamp
+        const updatedBuildData = {
+          ...existingBuild,
+          last_touched: Math.floor(Date.now() / 1000),
+        };
+
+        await this.cache.hset(
+          activeBuildKey,
+          this.activeBuildToStringRecord(updatedBuildData),
+        );
+
+        return reply.status(HTTP_STATUS.OK).send({
+          data: {
+            stdout: commandResponse.stdout,
+            stderr: commandResponse.stderr,
+            exit_code: commandResponse.exit_code,
+          },
+          error: null,
+        });
+      } else {
+        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          data: null,
+          error: {
+            error: 'Command Execution Failed',
+            message:
+              commandResponse.error || 'Failed to run command on dev server',
+          },
+        });
+      }
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to run command on dev server');
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
+      });
+    }
+  }
+
+  private async callFargateRunCommand(
+    fargatePrivateIp: string,
+    params: {
+      command: string;
+      args?: string[];
+      cwd?: string;
+      env?: Record<string, string>;
+      timeout_ms?: number;
+    },
+    log2: SystemLogger,
+  ): Promise<{
+    status: string;
+    stdout?: string;
+    stderr?: string;
+    exit_code?: number;
+    error?: string;
+  }> {
+    try {
+      const response = await axios.post(
+        `http://${fargatePrivateIp}:3002/run-command`,
+        params,
+        {
+          timeout: params.timeout_ms || 120000,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-trace-id': log2.getTraceId(),
+          },
+        },
+      );
+
+      log2.info('Fargate run-command response:', { response: response.data });
+      return response.data;
+    } catch (error) {
+      log2.error(error, 'Error calling fargate run-command endpoint');
+      return {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 

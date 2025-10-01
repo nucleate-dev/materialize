@@ -1,3 +1,4 @@
+// PublicApiService.ts
 import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";

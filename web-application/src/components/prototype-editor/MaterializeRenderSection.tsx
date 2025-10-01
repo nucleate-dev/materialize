@@ -223,7 +223,7 @@ const MaterializeRenderSection = forwardRef<
         if (!token) return;
 
         await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/restart-dev-server`,
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/restart`,
           {
             method: "POST",
             headers: {
