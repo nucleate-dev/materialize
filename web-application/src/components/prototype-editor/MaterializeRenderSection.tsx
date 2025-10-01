@@ -84,6 +84,7 @@ const MaterializeRenderSection = forwardRef<
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
+    const [isRunningLint, setIsRunningLint] = useState(false);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
@@ -242,6 +243,58 @@ const MaterializeRenderSection = forwardRef<
         forceRefresh();
       } finally {
         setIsRestartingDevServer(false);
+      }
+    };
+
+    const handleRunLint = async () => {
+      if (!prototypeId) return;
+      setIsRunningLint(true);
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/run-command`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              prototype_id: prototypeId,
+              command: "npm",
+              args: ["run", "lint"],
+            }),
+          },
+        );
+
+        const result = await response.json();
+
+        if (response.ok && result.data) {
+
+          // TODO: Display lint results in a better way
+          if (result.data.exit_code === 0) {
+            alert("Lint passed successfully!");
+          } else {
+            alert(`Lint failed with exit code ${result.data.exit_code}\n\nCheck console for details.`);
+          }
+        } else {
+          logger.debug("error", "Failed to run lint command", {
+            error: result.error?.message,
+          });
+          alert("Failed to run lint command");
+        }
+      } catch (error) {
+        logger.debug("error", "Error running lint command", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        alert("Error running lint command");
+      } finally {
+        setIsRunningLint(false);
       }
     };
 
@@ -482,6 +535,19 @@ const MaterializeRenderSection = forwardRef<
                       <RefreshCw className="w-4 h-4 mr-2" />
                     )}
                     {isRestartingDevServer ? "Restarting..." : "Restart Server"}
+                  </DropdownMenuItem>
+                )}
+                {prototypeId && currentRenderStatus === "Connected" && (
+                  <DropdownMenuItem
+                    onClick={handleRunLint}
+                    disabled={!prototypeId || isRunningLint}
+                  >
+                    {isRunningLint ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Settings className="w-4 h-4 mr-2" />
+                    )}
+                    {isRunningLint ? "Running Lint..." : "Run Lint"}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
