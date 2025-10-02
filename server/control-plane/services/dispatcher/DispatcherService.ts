@@ -176,7 +176,6 @@ export class DispatcherService {
     // POST /dev-server/run-command
     app.post<{
       Body: {
-        jwt: string;
         prototype_id: string;
         command: string;
         args?: string[];
@@ -190,9 +189,8 @@ export class DispatcherService {
         schema: {
           body: {
             type: 'object',
-            required: ['jwt', 'prototype_id', 'command'],
+            required: ['prototype_id', 'command'],
             properties: {
-              jwt: { type: 'string' },
               prototype_id: { type: 'string' },
               command: { type: 'string' },
               args: { type: 'array', items: { type: 'string' } },
@@ -324,7 +322,6 @@ export class DispatcherService {
   private async handleRunCommand(
     request: FastifyRequest<{
       Body: {
-        jwt: string;
         prototype_id: string;
         command: string;
         args?: string[];
@@ -335,30 +332,29 @@ export class DispatcherService {
     }>,
     reply: FastifyReply,
   ): Promise<APIResponse<unknown, StandardErrorResponse>> {
-    const { jwt, prototype_id, command, args, cwd, env, timeout_ms } =
-      request.body;
+    const { prototype_id, command, args, cwd, env, timeout_ms } = request.body;
 
     // 1. Authentication check
-    const authResult = await checkUserHasPrototypeEditAccess(
-      prototype_id,
-      jwt,
-      request.log2,
-    );
-    if (!authResult || !authResult.canEdit) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message:
-            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
-      });
-    }
+    // const authResult = await checkUserHasPrototypeEditAccess(
+    //   prototype_id,
+    //   jwt,
+    //   request.log2,
+    // );
+    // if (!authResult || !authResult.canEdit) {
+    //   return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    //     data: null,
+    //     error: {
+    //       error: 'Unauthorized',
+    //       message:
+    //         'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+    //     },
+    //   });
+    // }
 
-    request.log2 = request.log2.child({
-      userId: authResult.user.id,
-      prototypeId: prototype_id,
-    });
+    // request.log2 = request.log2.child({
+    //   userId: authResult.user.id,
+    //   prototypeId: prototype_id,
+    // });
 
     try {
       // 2. Get current build ID

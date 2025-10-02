@@ -58,7 +58,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -524,11 +524,10 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${
-            isMobile
+          className={`${isMobile
               ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
               : "w-2/5 min-w-[420px] flex"
-          } flex-col relative z-10`}
+            } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : {}}
         >
           {/* Card Container */}
@@ -562,6 +561,7 @@ export default function InternalPrototypePage() {
                   files={fileSystem.state.files}
                   assets={fileSystem.state.assets}
                   onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
+                  currentViewingUrl={viewingUrl ?? ""}
                   // Loading state
                   isChatLoading={isChatLoading}
                   setIsChatLoading={setIsChatLoading}
@@ -578,11 +578,10 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
+          className={`${isMobile
               ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
               : "w-3/5 min-w-[500px] flex"
-          } flex-col relative z-10`}
+            } flex-col relative z-10`}
         >
           {/* Card Container */}
           <Card
@@ -659,11 +658,10 @@ export default function InternalPrototypePage() {
                     >
                       {/* File Explorer */}
                       <div
-                        className={`${
-                          isMobile
+                        className={`${isMobile
                             ? "w-full max-h-[200px] border-b"
                             : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                        } border-border`}
+                          } border-border`}
                       >
                         <div className="h-full overflow-auto">
                           <FileTree
@@ -716,11 +714,10 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
+                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
-                }`}
+                  }`}
               >
                 <input
                   type="checkbox"
