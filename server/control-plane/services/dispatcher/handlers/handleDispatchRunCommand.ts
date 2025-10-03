@@ -1,5 +1,6 @@
 import {
   APIResponse,
+  BuildStatus,
   RunCommandRequestBody,
   RunCommandSuccessResponse,
   StandardErrorResponse,
@@ -10,6 +11,7 @@ import { GlideClient } from '@valkey/valkey-glide';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
+  hgetallAsDevBuild,
 } from '../../../utils/cacheInteractionUtils.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
@@ -22,6 +24,55 @@ export async function handleRunCommandImpl(
   log2: SystemLogger,
 ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
   const { prototype_id, command, args, cwd, env, timeout_ms } = body;
+
+  // ------------------------------------------------------------------------------------------------
+  // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
+  // all auth & cache management logic and just dispatch to the provided ip directly
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.FARGATE_DEV_MODE === 'true' &&
+    process.env.FARGATE_DEV_IP
+  ) {
+    const devKey = CACHE_KEYS.protoDev(prototype_id);
+    const existingDevData = await hgetallAsDevBuild(cache, devKey);
+    if (
+      !existingDevData?.status ||
+      !isEditableDevServer(existingDevData.status as BuildStatus)
+    ) {
+      return {
+        data: null,
+        error: {
+          error: 'Conflict',
+          message: `There is no editable dev server for this prototype`,
+        },
+      };
+    }
+    const runCommandResponse = await callFargateRunCommand(
+      process.env.FARGATE_DEV_IP,
+      { command, args, cwd, env, timeout_ms },
+      log2,
+    );
+    if (runCommandResponse.status === 'success') {
+      return {
+        data: {
+          stdout: runCommandResponse.stdout ?? '',
+          stderr: runCommandResponse.stderr ?? '',
+          exit_code: runCommandResponse.exit_code ?? -1,
+        } as RunCommandSuccessResponse,
+        error: null,
+      };
+    } else {
+      return {
+        data: null,
+        error: {
+          error: 'Command Execution Failed',
+          message:
+            runCommandResponse.error || 'Failed to run command on dev server',
+        },
+      };
+    }
+  }
+  // ------------------------------------------------------------------------------------------------
 
   // 1. Authentication check
   const authResult = await checkUserHasPrototypeEditAccess(

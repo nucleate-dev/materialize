@@ -1,5 +1,6 @@
 import {
   APIResponse,
+  BuildStatus,
   RestartDevServerRequestBody,
   RestartDevServerSuccessResponse,
   StandardErrorResponse,
@@ -10,6 +11,7 @@ import { CACHE_KEYS, isActiveBuildType } from '../../../types/InternalTypes.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
+  hgetallAsDevBuild,
 } from '../../../utils/cacheInteractionUtils.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
@@ -24,6 +26,51 @@ export async function handleRestartDevServerImpl(
   APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
 > {
   const { prototype_id } = body;
+
+  // ------------------------------------------------------------------------------------------------
+  // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
+  // all auth & cache management logic and just dispatch to the provided ip directly
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.FARGATE_DEV_MODE === 'true' &&
+    process.env.FARGATE_DEV_IP
+  ) {
+    const devKey = CACHE_KEYS.protoDev(prototype_id);
+    const existingDevData = await hgetallAsDevBuild(cache, devKey);
+    if (
+      !existingDevData?.status ||
+      !isEditableDevServer(existingDevData.status as BuildStatus)
+    ) {
+      return {
+        data: null,
+        error: {
+          error: 'Conflict',
+          message: `There is no editable dev server for this prototype`,
+        },
+      };
+    }
+    const restartResponse = await callFargateRestart(
+      process.env.FARGATE_DEV_IP,
+      log2,
+    );
+    if (restartResponse.success) {
+      return {
+        data: {
+          message: 'Dev server restarted successfully',
+        } as RestartDevServerSuccessResponse,
+        error: null,
+      };
+    } else {
+      return {
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: 'Failed to restart dev server',
+        },
+      };
+    }
+  }
+  // ------------------------------------------------------------------------------------------------
 
   // 1. Authentication check
   const authResult = await checkUserHasPrototypeEditAccess(
