@@ -10,7 +10,8 @@ USER="ec2-user"
 REMOTE_BASE="/home/${USER}/control-plane"
 BUILD_WORKERS_BASE="/home/${USER}/build-workers"
 CW_CONFIG_PATH="/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
-CW_LOG_FILE="${REMOTE_BASE}/dev-server.log"
+CW_LOG_FILE_CP="${REMOTE_BASE}/dev-server.log"
+CW_LOG_FILE_BW="${BUILD_WORKERS_BASE}/dev-server.log"
 CW_LOG_GROUP="/ec2/materialize/control-plane-dev"
 
 echo "==> Starting EC2 user data script for Materialize Control Plane Dev"
@@ -200,9 +201,15 @@ sudo bash -c "cat > ${CW_CONFIG_PATH}" <<EOCONFIG
       "files": {
         "collect_list": [
           {
-            "file_path": "${CW_LOG_FILE}",
+            "file_path": "${CW_LOG_FILE_CP}",
             "log_group_name": "${CW_LOG_GROUP}",
-            "log_stream_name": "{instance_id}-dev-server",
+            "log_stream_name": "{instance_id}-control-plane",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          },
+          {
+            "file_path": "${CW_LOG_FILE_BW}",
+            "log_group_name": "${CW_LOG_GROUP}",
+            "log_stream_name": "{instance_id}-build-workers",
             "timestamp_format": "%Y-%m-%d %H:%M:%S"
           }
         ]
