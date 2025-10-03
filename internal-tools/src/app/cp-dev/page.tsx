@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +27,6 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
-  Container,
   Copy,
   Loader2,
   Server,
@@ -37,26 +35,23 @@ import { useState } from "react";
 
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
-  const [fargateTaskName, setFargateTaskName] = useState("");
   const [ec2Loading, setEc2Loading] = useState(false);
-  const [fargateLoading, setFargateLoading] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ec2Details, setEc2Details] = useState<
-    | {
-      instanceId: string;
-      state: string;
-      publicDns?: string;
-      publicIpv4?: string;
-      sshCommand?: string;
-    }
-    | null
-  >(null);
+  const [ec2Details, setEc2Details] = useState<{
+    instanceId: string;
+    state: string;
+    publicDns?: string;
+    publicIpv4?: string;
+    sshCommand?: string;
+  } | null>(null);
   const [copiedField, setCopiedField] = useState<
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
 
-  const handleCopy = async (text: string, field: "publicDns" | "publicIpv4" | "sshCommand") => {
+  const handleCopy = async (
+    text: string,
+    field: "publicDns" | "publicIpv4" | "sshCommand"
+  ) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
@@ -75,7 +70,6 @@ export default function DevServerPage() {
     try {
       setEc2Loading(true);
       setError(null);
-      setSuccess(null);
 
       // Make direct API call to production control plane
       const serverEndpoint =
@@ -108,7 +102,7 @@ export default function DevServerPage() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-          `Failed to acquire EC2 instance: ${response.status}`
+            `Failed to acquire EC2 instance: ${response.status}`
         );
       }
 
@@ -131,66 +125,6 @@ export default function DevServerPage() {
     }
   };
 
-  const handleAcquireFargate = async () => {
-    if (!fargateTaskName.trim()) {
-      setError("Please enter a task name for the Fargate task");
-      return;
-    }
-
-    try {
-      setFargateLoading(true);
-      setError(null);
-      setSuccess(null);
-
-      // Make direct API call to production control plane
-      const serverEndpoint =
-        process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT;
-      if (!serverEndpoint) {
-        throw new Error(
-          "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable."
-        );
-      }
-
-      const { secretKey } = getInternalToolsConfig();
-      const requestBody = JSON.stringify({ taskName: fargateTaskName.trim() });
-      const headers = generateAuthHeaders(
-        "POST",
-        "/internal/dev-server/acquire-fargate",
-        requestBody,
-        secretKey
-      );
-
-      const response = await fetch(
-        `${serverEndpoint}/internal/dev-server/acquire-fargate`,
-        {
-          method: "POST",
-          headers,
-          body: requestBody,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message ||
-          `Failed to acquire Fargate task: ${response.status}`
-        );
-      }
-
-      const result = await response.json();
-      setSuccess(
-        `Fargate task acquired successfully! Task ARN: ${result.taskArn}, State: ${result.state}`
-      );
-      setFargateTaskName("");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to acquire Fargate task"
-      );
-    } finally {
-      setFargateLoading(false);
-    }
-  };
-
   return (
     <TooltipProvider>
       <PageHeader
@@ -207,7 +141,6 @@ export default function DevServerPage() {
           </Alert>
         )}
 
-
         {/* EC2 Dev Server Section */}
         <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
           {/* EC2 Acquisition Card */}
@@ -218,8 +151,8 @@ export default function DevServerPage() {
                 <CardTitle>Dev EC2 Control Plane</CardTitle>
               </div>
               <CardDescription>
-                Acquire a development EC2 instance for control plane testing. The
-                instance will automatically terminate after 3 hours.
+                Acquire a development EC2 instance for control plane testing.
+                The instance will automatically terminate after 3 hours.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -277,9 +210,14 @@ export default function DevServerPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">EC2 Instance Details</CardTitle>
+                <CardTitle className="text-base">
+                  EC2 Instance Details
+                </CardTitle>
                 {ec2Details && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                  <Badge
+                    variant="secondary"
+                    className="bg-green-100 text-green-800 border-green-200"
+                  >
                     <CheckCircle className="h-3 w-3 mr-1" />
                     Ready
                   </Badge>
@@ -288,8 +226,7 @@ export default function DevServerPage() {
               <CardDescription>
                 {ec2Details
                   ? "EC2 instance acquired successfully! Copy the values below into the appropriate files."
-                  : "Instance details will appear here after acquisition."
-                }
+                  : "Instance details will appear here after acquisition."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -334,7 +271,10 @@ export default function DevServerPage() {
                   </div>
                   {ec2Details && (
                     <p className="text-xs text-muted-foreground ml-32">
-                      Paste into <code className="bg-muted px-1 py-0.5 rounded">/server/scripts/deploy-control-plane-for-dev.js</code>
+                      Paste into{" "}
+                      <code className="bg-muted px-1 py-0.5 rounded">
+                        /server/scripts/deploy-control-plane-for-dev.js
+                      </code>
                     </p>
                   )}
                 </div>
@@ -367,7 +307,9 @@ export default function DevServerPage() {
                   </div>
                   {ec2Details && (
                     <p className="text-xs text-muted-foreground ml-32">
-                      Paste into <code className="bg-muted px-1 py-0.5 rounded">.env</code> files for internal-tools and web-application
+                      Paste into{" "}
+                      <code className="bg-muted px-1 py-0.5 rounded">.env</code>{" "}
+                      files for internal-tools and web-application
                     </p>
                   )}
                 </div>
@@ -408,85 +350,6 @@ export default function DevServerPage() {
             </CardContent>
           </Card>
         </div>
-
-        <Separator />
-
-        {/* Fargate Dev Task Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Container className="h-5 w-5 text-orange-600" />
-              <CardTitle>Dev Fargate Build Worker</CardTitle>
-            </div>
-            <CardDescription>
-              Acquire a development Fargate task for build worker testing. The
-              task will run until manually stopped.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fargate-task-name">Task Name</Label>
-              <Input
-                id="fargate-task-name"
-                placeholder="e.g., dev-build-worker-testing"
-                value={fargateTaskName}
-                onChange={(e) => setFargateTaskName(e.target.value)}
-                disabled={fargateLoading}
-              />
-              <p className="text-sm text-muted-foreground">
-                This will be used as part of the task name for identification
-              </p>
-            </div>
-
-            <Button
-              onClick={handleAcquireFargate}
-              disabled={fargateLoading || !fargateTaskName.trim()}
-              className="w-full sm:w-auto"
-            >
-              {fargateLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Acquiring Fargate...
-                </>
-              ) : (
-                <>
-                  <Container className="h-4 w-4 mr-2" />
-                  Acquire Dev Fargate Task
-                </>
-              )}
-            </Button>
-
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>• Task Definition: Build worker container</p>
-              <p>• Auto-termination: Manual stop required</p>
-              <p>• Purpose: Build worker development</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Information Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Important Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>
-              • EC2 instances will automatically terminate after 3 hours to
-              prevent unnecessary costs
-            </p>
-            <p>
-              • Fargate tasks need to be manually stopped when no longer needed
-            </p>
-            <p>
-              • Both resources are intended for development and testing purposes
-              only
-            </p>
-            <p>
-              • Ensure you have the necessary AWS permissions to create these
-              resources
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </TooltipProvider>
   );
