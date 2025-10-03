@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 
-export class InternalDevServerManagementService {
+export class InternalControlPlaneDevelopmentService {
   private ec2Client: EC2Client;
 
   constructor(ec2Client: EC2Client) {

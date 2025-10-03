@@ -10,7 +10,7 @@ import { PrototypeManagementService } from './services/prototype-management/Prot
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/chat/ChatService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
-import { InternalDevServerManagementService } from './internal-services/InternalDevServerManagementService.js';
+import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
 import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
@@ -123,7 +123,7 @@ let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
 let internalToolsService: InternalCacheManagementService;
-let internalDevServerManagementService: InternalDevServerManagementService;
+let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
 let cache: GlideClient;
@@ -217,9 +217,8 @@ const start = async (): Promise<void> => {
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes
-    internalDevServerManagementService = new InternalDevServerManagementService(
-      ec2Client,
-    );
+    internalDevServerManagementService =
+      new InternalControlPlaneDevelopmentService(ec2Client);
     internalDevServerManagementService.registerRoutes(fastify);
 
     // Create internal production deployment service and register routes
