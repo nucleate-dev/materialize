@@ -150,11 +150,11 @@ export class DispatcherService {
       this.handleRestartDevServer.bind(this),
     );
 
-    // POST /dev-server/run-command
+    // POST /dispatch-run-command
     app.post<{
       Body: RunCommandRequestBody;
     }>(
-      '/dev-server/run-command',
+      '/dispatch-run-command',
       {
         schema: {
           body: {
