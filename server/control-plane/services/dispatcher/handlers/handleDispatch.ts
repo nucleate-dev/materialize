@@ -49,6 +49,47 @@ export async function handleDispatchImpl(
     body;
   const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
+  // ------------------------------------------------------------------------------------------------
+  // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
+  // all auth & cache management logic and just dispatch to the provided ip directly
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.FARGATE_DEV_MODE === 'true' &&
+    process.env.FARGATE_DEV_IP
+  ) {
+    const fargateResponse = await dispatchRequestToFargateInstanceServer({
+      jwt,
+      prototype_id,
+      framework: selectedFramework,
+      files,
+      deleted_files,
+      assets,
+      file_scope,
+      log2,
+      fargate_private_ip: process.env.FARGATE_DEV_IP,
+    });
+    if (fargateResponse.status === 'success') {
+      return {
+        data: {
+          viewing_url: normalizeUrl(
+            fargateResponse.tunnel_url || getS3Url(prototype_id),
+          ),
+          build_errors: fargateResponse.build_errors,
+          build_warnings: fargateResponse.build_warnings,
+        },
+        error: null,
+      };
+    }
+    return {
+      data: null,
+      error: {
+        error: 'Build Failed',
+        message: 'Build failed on development fargate instance',
+      },
+    };
+  }
+  // ------------------------------------------------------------------------------------------------
+
   // 2. Authenticate
   const authResult = await checkUserHasPrototypeEditAccess(
     prototype_id,
@@ -195,42 +236,18 @@ export async function handleDispatchImpl(
     // NOTE: at this point, there should always be an active build, with status "updating"
 
     // Dispatch request to fargate instance
-    const requestBody = await constructRequestBody({
-      token: jwt,
-      prototype_id,
-      framework: selectedFramework,
-      files,
-      deleted_files,
-      assets,
-      file_scope,
-      log2: log2,
-    });
     try {
-      log2.info(
-        `Dispatching request to fargate instance at ${updatedBuildCacheData.fargate_private_ip}:3002/dev-server: `,
-        {
-          requestBodyDetails: {
-            prototypeId: prototype_id,
-            fileCount: files.length,
-            assetCount: assets.length,
-            fileScope: file_scope,
-            activeBuildKey,
-          },
-        },
-      );
-      const fargateResponse = await log2.time(
-        LatencyEvents.dispatch_request_to_fargate_server_latency,
-        async (): Promise<FargateDevServerResponse> => {
-          return await dispatchFormedRequestToFargateInstanceServer(
-            updatedBuildCacheData.fargate_private_ip,
-            requestBody,
-            log2,
-          );
-        },
-        { fileScope: file_scope },
-      );
-      log2.info('Fargate responded: ', { fargateResponse });
-
+      const fargateResponse = await dispatchRequestToFargateInstanceServer({
+        jwt,
+        prototype_id,
+        framework: selectedFramework,
+        files,
+        deleted_files,
+        assets,
+        file_scope,
+        log2,
+        fargate_private_ip: updatedBuildCacheData.fargate_private_ip,
+      });
       updatedBuildCacheData.status = 'stable';
       updatedBuildCacheData.url =
         fargateResponse.tunnel_url || getS3Url(prototype_id);
@@ -307,6 +324,63 @@ export async function handleDispatchImpl(
       },
     };
   }
+}
+
+async function dispatchRequestToFargateInstanceServer({
+  jwt,
+  prototype_id,
+  framework,
+  files,
+  deleted_files,
+  assets,
+  file_scope,
+  log2,
+  fargate_private_ip,
+}: {
+  jwt: string;
+  prototype_id: string;
+  framework: Framework;
+  files: PrototypeFileInput[];
+  deleted_files?: string[];
+  assets: PrototypeAssetInput[];
+  file_scope: FileScope;
+  log2: SystemLogger;
+  fargate_private_ip: string;
+}): Promise<FargateDevServerResponse> {
+  const requestBody = await constructRequestBody({
+    token: jwt,
+    prototype_id,
+    framework,
+    files,
+    deleted_files,
+    assets,
+    file_scope,
+    log2,
+  });
+  log2.info(
+    `Dispatching request to fargate instance at ${fargate_private_ip}:3002/dev-server: `,
+    {
+      requestBodyDetails: {
+        prototypeId: prototype_id,
+        fileCount: files.length,
+        assetCount: assets.length,
+        fileScope: file_scope,
+      },
+    },
+  );
+  const fargateResponse = await log2.time(
+    LatencyEvents.dispatch_request_to_fargate_server_latency,
+    async (): Promise<FargateDevServerResponse> => {
+      return await dispatchFormedRequestToFargateInstanceServer(
+        fargate_private_ip,
+        requestBody,
+        log2,
+      );
+    },
+    { fileScope: file_scope },
+  );
+  log2.info('Fargate responded: ', { fargateResponse });
+  return fargateResponse;
 }
 
 async function constructRequestBody({
