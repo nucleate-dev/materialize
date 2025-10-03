@@ -138,6 +138,7 @@ export class ChatService {
               },
               chat_session_id: { type: 'string' },
               prototype_id: { type: 'string' },
+              image: { type: 'string' },
             },
           },
         },

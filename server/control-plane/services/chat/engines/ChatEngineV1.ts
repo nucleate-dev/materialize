@@ -729,7 +729,6 @@ export class ChatEngineV1 {
         '[ChatEngine] Generating response with plan-and-execute strategy...',
       );
 
-      const imageContext = image ? `Attached: ${image}` : null;
       const userIntent = detectUserIntent(userMessage);
       let userMessageForPrompt = userMessage;
       const isFirstUserTurn = (msgs: ChatMessage[]): boolean =>
@@ -751,6 +750,18 @@ export class ChatEngineV1 {
       }
       const selectedSystemPrompt =
         userIntent === 'error_fixing' ? ERROR_FIXING_PROMPT : SYSTEM_PROMPT;
+
+      // Build the final user message with multimodal support
+      const finalUserMessage = {
+        role: 'user' as const,
+        content: image
+          ? [
+              { type: 'text' as const, text: userMessageForPrompt },
+              { type: 'image' as const, image }
+            ]
+          : userMessageForPrompt,
+      };
+
       const result = streamText({
         model: this.getCurrentModel(),
         system: selectedSystemPrompt,
@@ -759,12 +770,7 @@ export class ChatEngineV1 {
             role: msg.role as 'user' | 'assistant',
             content: msg.content,
           })),
-          {
-            role: 'user' as const,
-            content: imageContext
-              ? `${userMessageForPrompt}\n\n${imageContext}`
-              : userMessageForPrompt,
-          },
+          finalUserMessage,
         ],
         // UPDATED: Combine all tools
         tools: {
