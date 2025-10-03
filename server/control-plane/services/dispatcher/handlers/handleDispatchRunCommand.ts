@@ -2,29 +2,29 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
   HTTP_STATUS,
-  RestartDevServerRequestBody,
-  RestartDevServerSuccessResponse,
+  RunCommandRequestBody,
+  RunCommandSuccessResponse,
   StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
+} from '../../../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { CACHE_KEYS, isActiveBuildType } from '../../../types/InternalTypes.js';
 import { GlideClient } from '@valkey/valkey-glide';
-import { CACHE_KEYS, isActiveBuildType } from '../../types/InternalTypes.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
-} from '../../utils/cacheInteractionUtils.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+} from '../../../utils/cacheInteractionUtils.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
 
-export async function handleRestartDevServerImpl(
-  request: FastifyRequest<{ Body: RestartDevServerRequestBody }>,
+export async function handleRunCommandImpl(
+  request: FastifyRequest<{
+    Body: RunCommandRequestBody;
+  }>,
   reply: FastifyReply,
   cache: GlideClient,
-): Promise<
-  APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
-> {
-  const { prototype_id } = request.body;
+): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+  const { prototype_id, command, args, cwd, env, timeout_ms } = request.body;
 
   // 1. Extract JWT from Authorization header
   const jwt = request.headers.authorization?.split(' ')[1];
@@ -94,25 +94,26 @@ export async function handleRestartDevServerImpl(
       };
     }
 
-    // 5. Check if dev server is in a restartable state
+    // 5. Check if dev server is in a runnable state
     if (!isEditableDevServer(existingBuild.status)) {
       reply.status(HTTP_STATUS.CONFLICT);
       return {
         data: null,
         error: {
           error: 'Conflict',
-          message: `Cannot restart dev server in ${existingBuild.status} state`,
+          message: `Cannot run command on dev server in ${existingBuild.status} state`,
         },
       };
     }
 
-    // 6. Call restart endpoint on the fargate instance
-    const restartResponse = await callFargateRestart(
+    // 6. Call run-command endpoint on the fargate instance
+    const commandResponse = await callFargateRunCommand(
       existingBuild.fargate_private_ip,
+      { command, args, cwd, env, timeout_ms },
       request.log2,
     );
 
-    if (restartResponse.success) {
+    if (commandResponse.status === 'success') {
       // 7. Update last_touched timestamp
       const updatedBuildData = {
         ...existingBuild,
@@ -127,8 +128,10 @@ export async function handleRestartDevServerImpl(
       reply.status(HTTP_STATUS.OK);
       return {
         data: {
-          message: 'Dev server restarted successfully',
-        } as RestartDevServerSuccessResponse,
+          stdout: commandResponse.stdout ?? '',
+          stderr: commandResponse.stderr ?? '',
+          exit_code: commandResponse.exit_code ?? -1,
+        } as RunCommandSuccessResponse,
         error: null,
       };
     } else {
@@ -136,14 +139,15 @@ export async function handleRestartDevServerImpl(
       return {
         data: null,
         error: {
-          error: 'Internal Server Error',
-          message: 'Failed to restart dev server',
+          error: 'Command Execution Failed',
+          message:
+            commandResponse.error || 'Failed to run command on dev server',
         },
       };
     }
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
-    request.log2.error(error, 'Failed to restart dev server');
+    request.log2.error(error, 'Failed to run command on dev server');
 
     reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
@@ -156,16 +160,29 @@ export async function handleRestartDevServerImpl(
   }
 }
 
-async function callFargateRestart(
+async function callFargateRunCommand(
   fargatePrivateIp: string,
+  params: {
+    command: string;
+    args?: string[];
+    cwd?: string;
+    env?: Record<string, string>;
+    timeout_ms?: number;
+  },
   log2: SystemLogger,
-): Promise<{ success: boolean; message?: string }> {
+): Promise<{
+  status: string;
+  stdout?: string;
+  stderr?: string;
+  exit_code?: number;
+  error?: string;
+}> {
   try {
     const response = await axios.post(
-      `http://${fargatePrivateIp}:3002/dev-server/restart`,
-      {},
+      `http://${fargatePrivateIp}:3002/run-command`,
+      params,
       {
-        timeout: 90000, // 90 second timeout for restart
+        timeout: params.timeout_ms || 120000,
         headers: {
           'Content-Type': 'application/json',
           'x-trace-id': log2.getTraceId(),
@@ -173,13 +190,13 @@ async function callFargateRestart(
       },
     );
 
-    log2.info('Fargate restart response:', { response: response.data });
-    return { success: true };
+    log2.info('Fargate run-command response:', { response: response.data });
+    return response.data;
   } catch (error) {
-    log2.error(error, 'Error calling fargate restart endpoint');
+    log2.error(error, 'Error calling fargate run-command endpoint');
     return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

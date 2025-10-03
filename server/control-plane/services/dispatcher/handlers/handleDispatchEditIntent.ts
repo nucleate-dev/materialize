@@ -5,13 +5,13 @@ import {
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   HTTP_STATUS,
-} from '../../types/PublicAPITypes.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
-import { CACHE_KEYS, isActiveBuildType } from '../../types/InternalTypes.js';
+} from '../../../types/PublicAPITypes.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
+import { CACHE_KEYS, isActiveBuildType } from '../../../types/InternalTypes.js';
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
-} from '../../utils/cacheInteractionUtils.js';
+} from '../../../utils/cacheInteractionUtils.js';
 import { GlideClient } from '@valkey/valkey-glide';
 
 export async function handleDispatchEditIntentImpl(

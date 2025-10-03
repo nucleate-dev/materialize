@@ -15,11 +15,11 @@ import {
   type StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
 import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystemService.js';
-import { handleDispatchImpl } from './handleDispatch.js';
-import { handleDispatchEditIntentImpl } from './handleDispatchEditIntent.js';
-import { handleDispatchPrecheckImpl } from './handleDispatchPrecheck.js';
-import { handleRunCommandImpl } from './handleDispatchRunCommand.js';
-import { handleRestartDevServerImpl } from './handleDispatchRestartServer.js';
+import { handleDispatchImpl } from './handlers/handleDispatch.js';
+import { handleDispatchEditIntentImpl } from './handlers/handleDispatchEditIntent.js';
+import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
+import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
+import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
 
 dotenv.config();
 

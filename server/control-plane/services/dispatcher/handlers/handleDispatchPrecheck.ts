@@ -5,16 +5,16 @@ import {
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   HTTP_STATUS,
-} from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
+} from '../../../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import {
   CACHE_KEYS,
   isActiveBuildType,
   S3_URL_TEMPLATE,
-} from '../../types/InternalTypes.js';
+} from '../../../types/InternalTypes.js';
 import { GlideClient } from '@valkey/valkey-glide';
-import { hgetallAsActiveBuild } from '../../utils/cacheInteractionUtils.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
+import { hgetallAsActiveBuild } from '../../../utils/cacheInteractionUtils.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 
 export async function handleDispatchPrecheckImpl(
   request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
