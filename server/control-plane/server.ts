@@ -183,6 +183,7 @@ const start = async (): Promise<void> => {
       cacheClient,
       fastify,
       idleContainerAllocationSystemService,
+      baseLogger,
     );
     dispatcherService.registerRoutes(fastify);
 

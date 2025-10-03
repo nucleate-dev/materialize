@@ -20,6 +20,7 @@ import { handleDispatchEditIntentImpl } from './handlers/handleDispatchEditInten
 import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
 import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
 import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
 
 dotenv.config();
 
@@ -27,15 +28,20 @@ export class DispatcherService {
   private cache: GlideClient;
   private fastifyApp: FastifyInstance;
   private idleContainerAllocationSystem: IdleContainerAllocationSystemService;
+  private log2: SystemLogger;
 
   constructor(
     cache: GlideClient,
     fastifyApp: FastifyInstance,
     idleContainerAllocationSystem: IdleContainerAllocationSystemService,
+    log2: SystemLogger,
   ) {
     this.cache = cache;
     this.fastifyApp = fastifyApp;
     this.idleContainerAllocationSystem = idleContainerAllocationSystem;
+    this.log2 = log2.child({
+      route: 'DispatcherService',
+    });
   }
 
   // Register routes with Fastify
