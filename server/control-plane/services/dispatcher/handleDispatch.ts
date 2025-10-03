@@ -50,7 +50,7 @@ export async function handleDispatchImpl(
     request.body;
   const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
-  // 2. Extract JWT from Authorization header
+  // 2. Extract JWT from Authorization header && authenticate
   const jwt = request.headers.authorization?.split(' ')[1];
   if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
     return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -61,8 +61,6 @@ export async function handleDispatchImpl(
       } as StandardErrorResponse,
     });
   }
-
-  // 3. Authentication and authorization validation
   const authResult = await checkUserHasPrototypeEditAccess(
     prototype_id,
     jwt,
@@ -83,6 +81,7 @@ export async function handleDispatchImpl(
     userId: authResult.user.id,
     prototypeId: prototype_id,
   });
+
   try {
     const currentTime = Math.floor(Date.now() / 1000);
 

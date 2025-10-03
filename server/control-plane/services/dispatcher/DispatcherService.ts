@@ -181,6 +181,9 @@ export class DispatcherService {
   ): Promise<
     APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
   > {
+    request.log2 = request.log2.child({
+      function: 'handleRestartDevServer',
+    });
     return handleRestartDevServerImpl(request, reply, this.cache);
   }
 
@@ -190,6 +193,9 @@ export class DispatcherService {
     }>,
     reply: FastifyReply,
   ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+    request.log2 = request.log2.child({
+      function: 'handleRunCommand',
+    });
     return handleRunCommandImpl(request, reply, this.cache);
   }
 
@@ -198,6 +204,9 @@ export class DispatcherService {
     request: FastifyRequest<{ Body: DispatchRequestBody }>,
     reply: FastifyReply,
   ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
+    request.log2 = request.log2.child({
+      function: 'handleDispatch',
+    });
     return handleDispatchImpl(
       request,
       reply,
@@ -212,6 +221,9 @@ export class DispatcherService {
   ): Promise<
     APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
   > {
+    request.log2 = request.log2.child({
+      function: 'handleDispatchEditIntent',
+    });
     return handleDispatchEditIntentImpl(
       request,
       reply,
@@ -226,6 +238,9 @@ export class DispatcherService {
   ): Promise<
     APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
   > {
+    request.log2 = request.log2.child({
+      function: 'handleDispatchPrecheck',
+    });
     return handleDispatchPrecheckImpl(request, reply, this.cache);
   }
 }
