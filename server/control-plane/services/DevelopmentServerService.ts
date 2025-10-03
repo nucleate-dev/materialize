@@ -190,8 +190,10 @@ export class DevelopmentServerService {
       token,
       request.log2,
     );
-    reply.status(result.statusCode);
-    return result.response;
+    reply.status(
+      result.data ? HTTP_STATUS.OK : HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
+    return result;
   }
 
   private async handleRestartDevServer(
@@ -216,8 +218,10 @@ export class DevelopmentServerService {
       token,
       request.log2,
     );
-    reply.status(result.statusCode);
-    return result.response;
+    reply.status(
+      result.data ? HTTP_STATUS.OK : HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
+    return result;
   }
 
   private async handleUpdateFiles(
@@ -251,25 +255,23 @@ export class DevelopmentServerService {
         token,
         request.log2,
       );
-      if (precheckResult.statusCode !== HTTP_STATUS.OK) {
+      if (precheckResult.error) {
         request.log2.error(
-          precheckResult.response.error,
+          precheckResult.error,
           '[handleUpdateFiles] Dispatch precheck failed:',
         );
-        return reply
-          .status(precheckResult.statusCode)
-          .send(precheckResult.response);
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return precheckResult;
       }
 
-      const precheckData = precheckResult.response;
       request.log2.consoleLogDevOnly(
         'info',
         '🔍 [handleUpdateFiles] Dispatch precheck response:',
-        { precheckData },
+        { precheckResult },
       );
 
       // 3. Check if build is already in progress
-      if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
+      if (isDispatchInProgress(precheckResult.data.status)) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
           error: {
@@ -281,7 +283,7 @@ export class DevelopmentServerService {
       }
 
       // 4. Check if there's an active dev server to update
-      if (precheckData.data && !isEditableDevServer(precheckData.data.status)) {
+      if (!isEditableDevServer(precheckResult.data.status)) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
           error: {
@@ -309,43 +311,30 @@ export class DevelopmentServerService {
         token,
         request.log2,
       );
-
-      if (dispatchResult.statusCode !== HTTP_STATUS.OK) {
-        request.log2.consoleLogDevOnly(
-          'error',
-          '[update-files]Dispatch request failed:',
-          {
-            errorData: dispatchResult.response.error,
-          },
-        );
-        return reply
-          .status(dispatchResult.statusCode)
-          .send(dispatchResult.response);
-      }
-
-      const dispatchData = dispatchResult.response;
       request.log2.consoleLogDevOnly(
         'info',
         '[handleUpdateFiles] Dispatch endpoint response:',
-        { dispatchData },
+        { dispatchResult },
       );
 
       // 6. Return success response with viewing URL
-      if (dispatchData.data) {
-        return reply.status(HTTP_STATUS.OK).send({
+      if (dispatchResult.data) {
+        reply.status(HTTP_STATUS.OK);
+        return {
           data: {
             success: true,
             status: 'success',
-            viewing_url: dispatchData.data.viewing_url,
-            build_errors: dispatchData.data.build_errors || [],
-            build_warnings: dispatchData.data.build_warnings || [],
+            viewing_url: dispatchResult.data.viewing_url,
+            build_errors: dispatchResult.data.build_errors || [],
+            build_warnings: dispatchResult.data.build_warnings || [],
             message: 'Files updated successfully in dev server',
-          } as UpdateFilesSuccessResponse,
+          },
           error: null,
-        });
+        };
       } else {
         // Handle error response
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
           data: null,
           error: {
             error: 'File update failed',
@@ -353,7 +342,7 @@ export class DevelopmentServerService {
             build_errors: [],
             build_warnings: [],
           } as UpdateFilesErrorResponse,
-        });
+        };
       }
     } catch (error) {
       request.log2.consoleLogDevOnly(
@@ -442,31 +431,23 @@ export class DevelopmentServerService {
         token,
         request.log2,
       );
-      if (
-        precheckResult.statusCode !== HTTP_STATUS.OK ||
-        precheckResult.response.error !== null
-      ) {
+      if (precheckResult.error) {
         request.log2.consoleLogDevOnly(
           'error',
           '[handleStartDevServer] Dispatch precheck failed:',
-          { precheckResponse: precheckResult.response },
+          { precheckResponse: precheckResult },
         );
-        reply.status(precheckResult.statusCode);
-        return {
-          data: null,
-          error: precheckResult.response.error as StandardErrorResponse,
-        };
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return precheckResult;
       }
-
-      const precheckData = precheckResult.response;
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Dispatch precheck response:',
-        { precheckData },
+        { precheckResult },
       );
 
       // 3. Check if dev server already exists
-      if (precheckData.data && isEditableDevServer(precheckData.data.status)) {
+      if (isEditableDevServer(precheckResult.data.status)) {
         request.log2.consoleLogDevOnly(
           'info',
           "[handleStartDevServer] There's already an active dev server for this prototype",
@@ -498,36 +479,29 @@ export class DevelopmentServerService {
         token,
         request.log2,
       );
-      if (
-        dispatchResult.statusCode !== HTTP_STATUS.OK ||
-        dispatchResult.response.error
-      ) {
+      if (dispatchResult.error) {
         request.log2.error(
-          dispatchResult.response.error,
+          dispatchResult.error,
           '[handleStartDevServer] Dispatch request failed:',
         );
-        reply.status(dispatchResult.statusCode);
-        return {
-          data: null,
-          error: dispatchResult.response.error as StandardErrorResponse,
-        };
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return dispatchResult;
       }
 
-      const dispatchData = dispatchResult.response;
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Dispatch endpoint response:',
-        { dispatchData },
+        { dispatchResult },
       );
 
       // 7. Return success response with viewing URL
-      if (dispatchData.data) {
+      if (dispatchResult.data) {
         reply.status(HTTP_STATUS.OK);
         return {
           data: {
             success: true,
             status: 'success',
-            viewing_url: dispatchData.data.viewing_url,
+            viewing_url: dispatchResult.data.viewing_url,
             message: 'Files saved and dev server started successfully',
           },
           error: null,

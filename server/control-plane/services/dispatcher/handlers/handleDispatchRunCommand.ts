@@ -1,6 +1,5 @@
 import {
   APIResponse,
-  HTTP_STATUS,
   RunCommandRequestBody,
   RunCommandSuccessResponse,
   StandardErrorResponse,
@@ -21,10 +20,7 @@ export async function handleRunCommandImpl(
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<{
-  statusCode: number;
-  response: APIResponse<RunCommandSuccessResponse, StandardErrorResponse>;
-}> {
+): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
   const { prototype_id, command, args, cwd, env, timeout_ms } = body;
 
   // 1. Authentication check
@@ -35,14 +31,11 @@ export async function handleRunCommandImpl(
   );
   if (!authResult || !authResult.canEdit) {
     return {
-      statusCode: HTTP_STATUS.UNAUTHORIZED,
-      response: {
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message:
-            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
+      data: null,
+      error: {
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
       },
     };
   }
@@ -60,13 +53,10 @@ export async function handleRunCommandImpl(
 
     if (!currentBuildId) {
       return {
-        statusCode: HTTP_STATUS.NOT_FOUND,
-        response: {
-          data: null,
-          error: {
-            error: 'Not Found',
-            message: 'No active dev server found for this prototype',
-          },
+        data: null,
+        error: {
+          error: 'Not Found',
+          message: 'No active dev server found for this prototype',
         },
       };
     }
@@ -77,13 +67,10 @@ export async function handleRunCommandImpl(
 
     if (!existingBuild || !isActiveBuildType(existingBuild)) {
       return {
-        statusCode: HTTP_STATUS.NOT_FOUND,
-        response: {
-          data: null,
-          error: {
-            error: 'Not Found',
-            message: 'Invalid or missing build data',
-          },
+        data: null,
+        error: {
+          error: 'Not Found',
+          message: 'Invalid or missing build data',
         },
       };
     }
@@ -91,13 +78,10 @@ export async function handleRunCommandImpl(
     // 5. Check if dev server is in a runnable state
     if (!isEditableDevServer(existingBuild.status)) {
       return {
-        statusCode: HTTP_STATUS.CONFLICT,
-        response: {
-          data: null,
-          error: {
-            error: 'Conflict',
-            message: `Cannot run command on dev server in ${existingBuild.status} state`,
-          },
+        data: null,
+        error: {
+          error: 'Conflict',
+          message: `Cannot run command on dev server in ${existingBuild.status} state`,
         },
       };
     }
@@ -122,26 +106,20 @@ export async function handleRunCommandImpl(
       );
 
       return {
-        statusCode: HTTP_STATUS.OK,
-        response: {
-          data: {
-            stdout: commandResponse.stdout ?? '',
-            stderr: commandResponse.stderr ?? '',
-            exit_code: commandResponse.exit_code ?? -1,
-          } as RunCommandSuccessResponse,
-          error: null,
-        },
+        data: {
+          stdout: commandResponse.stdout ?? '',
+          stderr: commandResponse.stderr ?? '',
+          exit_code: commandResponse.exit_code ?? -1,
+        } as RunCommandSuccessResponse,
+        error: null,
       };
     } else {
       return {
-        statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        response: {
-          data: null,
-          error: {
-            error: 'Command Execution Failed',
-            message:
-              commandResponse.error || 'Failed to run command on dev server',
-          },
+        data: null,
+        error: {
+          error: 'Command Execution Failed',
+          message:
+            commandResponse.error || 'Failed to run command on dev server',
         },
       };
     }
@@ -150,13 +128,10 @@ export async function handleRunCommandImpl(
     log2.error(error, 'Failed to run command on dev server');
 
     return {
-      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      response: {
-        data: null,
-        error: {
-          error: 'Internal Server Error',
-          message: e.message,
-        },
+      data: null,
+      error: {
+        error: 'Internal Server Error',
+        message: e.message,
       },
     };
   }

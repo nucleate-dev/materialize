@@ -44,10 +44,7 @@ export class DispatcherService {
     body: DispatchRequestBody,
     jwt: string,
     log2: SystemLogger,
-  ): Promise<{
-    statusCode: number;
-    response: APIResponse<DispatchSuccessResponse, StandardErrorResponse>;
-  }> {
+  ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
     const localLog = log2.child({
       function: 'dispatch',
     });
@@ -64,13 +61,9 @@ export class DispatcherService {
     body: DispatchPrecheckRequestBody,
     jwt: string,
     log2: SystemLogger,
-  ): Promise<{
-    statusCode: number;
-    response: APIResponse<
-      DispatchPrecheckSuccessResponse,
-      StandardErrorResponse
-    >;
-  }> {
+  ): Promise<
+    APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
+  > {
     const localLog = log2.child({
       function: 'dispatchPrecheck',
     });
@@ -81,13 +74,9 @@ export class DispatcherService {
     body: DispatchPrecheckRequestBody,
     jwt: string,
     log2: SystemLogger,
-  ): Promise<{
-    statusCode: number;
-    response: APIResponse<
-      DispatchPrecheckSuccessResponse,
-      StandardErrorResponse
-    >;
-  }> {
+  ): Promise<
+    APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
+  > {
     const localLog = log2.child({
       function: 'dispatchEditIntent',
     });
@@ -98,13 +87,9 @@ export class DispatcherService {
     body: RestartDevServerRequestBody,
     jwt: string,
     log2: SystemLogger,
-  ): Promise<{
-    statusCode: number;
-    response: APIResponse<
-      RestartDevServerSuccessResponse,
-      StandardErrorResponse
-    >;
-  }> {
+  ): Promise<
+    APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
+  > {
     const localLog = log2.child({
       function: 'restartDevServer',
     });
@@ -115,10 +100,7 @@ export class DispatcherService {
     body: RunCommandRequestBody,
     jwt: string,
     log2: SystemLogger,
-  ): Promise<{
-    statusCode: number;
-    response: APIResponse<RunCommandSuccessResponse, StandardErrorResponse>;
-  }> {
+  ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
     const localLog = log2.child({
       function: 'runCommand',
     });

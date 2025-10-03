@@ -52,31 +52,27 @@ export default async function handleFetchViewingUrlImpl(
           request.log2,
         );
 
-        if (precheckResult.statusCode === 200) {
-          const precheckData = precheckResult.response;
-
+        if (precheckResult.data && precheckResult.data.viewing_url) {
           // Type guard to check if it's a success response
-          if (precheckData.data && precheckData.data.viewing_url) {
-            const isEditable = isEditableDevServer(precheckData.data.status);
-            let staticViewingUrl = precheckData.data.viewing_url;
-            if (
-              !isEditable &&
-              token &&
-              authResult.prototype.visibility !== 'PUBLIC' &&
-              staticViewingUrl.includes('render.materializeui.com')
-            ) {
-              staticViewingUrl += `?token=${encodeURIComponent(token)}`;
-            }
-            const successResponse: FetchViewingUrlSuccessResponse = {
-              viewing_url: staticViewingUrl,
-              source: isEditable ? 'editable_instance' : 'static_build',
-              status: precheckData.data.status,
-            };
-            return reply.status(HTTP_STATUS.OK).send({
-              data: successResponse,
-              error: null,
-            });
+          const isEditable = isEditableDevServer(precheckResult.data.status);
+          let staticViewingUrl = precheckResult.data.viewing_url;
+          if (
+            !isEditable &&
+            token &&
+            authResult.prototype.visibility !== 'PUBLIC' &&
+            staticViewingUrl.includes('render.materializeui.com')
+          ) {
+            staticViewingUrl += `?token=${encodeURIComponent(token)}`;
           }
+          const successResponse: FetchViewingUrlSuccessResponse = {
+            viewing_url: staticViewingUrl,
+            source: isEditable ? 'editable_instance' : 'static_build',
+            status: precheckResult.data.status,
+          };
+          return reply.status(HTTP_STATUS.OK).send({
+            data: successResponse,
+            error: null,
+          });
         }
       } catch (precheckError) {
         request.log2.warn(

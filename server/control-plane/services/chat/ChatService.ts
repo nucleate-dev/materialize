@@ -190,7 +190,7 @@ export class ChatService {
         token,
         request.log2,
       );
-      const precheckData = precheckResult.response;
+      const precheckData = precheckResult;
       let file_scope: 'complete' | 'updates' = 'updates';
       if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({

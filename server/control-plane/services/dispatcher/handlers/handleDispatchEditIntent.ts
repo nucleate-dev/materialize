@@ -3,7 +3,6 @@ import {
   StandardErrorResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
-  HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { CACHE_KEYS, isActiveBuildType } from '../../../types/InternalTypes.js';
@@ -20,10 +19,9 @@ export async function handleDispatchEditIntentImpl(
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<{
-  statusCode: number;
-  response: APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>;
-}> {
+): Promise<
+  APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
+> {
   // 1. Extract validated body
   const { prototype_id } = body;
   log2 = log2.child({
@@ -39,12 +37,10 @@ export async function handleDispatchEditIntentImpl(
       log2,
     );
 
-    const precheckResponse = precheckResult.response;
-
     // 4. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
     if (
-      precheckResponse.data &&
-      isEditableDevServer(precheckResponse.data.status)
+      precheckResult.data &&
+      isEditableDevServer(precheckResult.data.status)
     ) {
       // Get current build ID and update last_touched timestamp
       const currentBuildId = await cache.get(
@@ -85,22 +81,16 @@ export async function handleDispatchEditIntentImpl(
     }
 
     // 5. Return the precheck response
-    return {
-      statusCode: HTTP_STATUS.OK,
-      response: precheckResponse,
-    };
+    return precheckResult;
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     log2.error(error, '[handleDispatchEditIntent] Edit intent request failed');
 
     return {
-      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      response: {
-        data: null,
-        error: {
-          error: 'Internal Server Error',
-          message: e.message,
-        },
+      data: null,
+      error: {
+        error: 'Internal Server Error',
+        message: e.message,
       },
     };
   }

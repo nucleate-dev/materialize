@@ -2,7 +2,6 @@ import {
   APIResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
-  HTTP_STATUS,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
@@ -21,10 +20,9 @@ export async function handleDispatchPrecheckImpl(
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<{
-  statusCode: number;
-  response: APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>;
-}> {
+): Promise<
+  APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
+> {
   // 1. Extract validated body
   const { prototype_id } = body;
 
@@ -36,14 +34,11 @@ export async function handleDispatchPrecheckImpl(
   );
   if (!authResult || !authResult.canEdit) {
     return {
-      statusCode: HTTP_STATUS.UNAUTHORIZED,
-      response: {
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message:
-            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
+      data: null,
+      error: {
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
       },
     };
   }
@@ -66,56 +61,44 @@ export async function handleDispatchPrecheckImpl(
       if (existingBuild) {
         if (!isActiveBuildType(existingBuild)) {
           return {
-            statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-            response: {
-              data: null,
-              error: {
-                error: 'Internal Server Error',
-                message: 'Invalid build data in storage',
-              },
+            data: null,
+            error: {
+              error: 'Internal Server Error',
+              message: 'Invalid build data in storage',
             },
           };
         }
 
         return {
-          statusCode: HTTP_STATUS.OK,
-          response: {
-            data: {
-              status: existingBuild.status,
-              viewing_url: normalizeUrl(
-                isEditableDevServer(existingBuild.status)
-                  ? existingBuild.url
-                  : getS3Url(prototype_id),
-              ),
-            },
-            error: null,
+          data: {
+            status: existingBuild.status,
+            viewing_url: normalizeUrl(
+              isEditableDevServer(existingBuild.status)
+                ? existingBuild.url
+                : getS3Url(prototype_id),
+            ),
           },
+          error: null,
         };
       }
     }
 
     // No active build, return S3 URL
     return {
-      statusCode: HTTP_STATUS.OK,
-      response: {
-        data: {
-          status: null,
-          viewing_url: normalizeUrl(getS3Url(prototype_id)),
-        },
-        error: null,
+      data: {
+        status: null,
+        viewing_url: normalizeUrl(getS3Url(prototype_id)),
       },
+      error: null,
     };
   } catch (error) {
     log2.error(error, '[handleDispatchPrecheck] Precheck failed');
     const e = error instanceof Error ? error : new Error(String(error));
     return {
-      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      response: {
-        data: null,
-        error: {
-          error: 'Internal Server Error',
-          message: e.message,
-        },
+      data: null,
+      error: {
+        error: 'Internal Server Error',
+        message: e.message,
       },
     };
   }

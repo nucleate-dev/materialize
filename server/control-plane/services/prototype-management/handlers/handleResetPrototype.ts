@@ -1,7 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import {
-  HTTP_STATUS,
-} from '../../../types/PublicAPITypes.js';
+import { HTTP_STATUS } from '../../../types/PublicAPITypes.js';
 import { S3Client } from '@aws-sdk/client-s3';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
@@ -105,11 +103,9 @@ export default async function handleResetPrototypeImpl(
       request.log2,
     );
 
-    const precheckData = precheckResult.response;
     if (
-      precheckResult.statusCode !== 200 ||
-      !precheckData.data ||
-      !isEditableDevServer(precheckData.data.status)
+      precheckResult.error ||
+      !isEditableDevServer(precheckResult.data?.status)
     ) {
       request.log2.warn(
         'Failed to check dev server status, but reset was successful',

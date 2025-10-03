@@ -528,9 +528,7 @@ export class ChatEngineV1 {
         token,
         log2,
       );
-
-      const result = dispatchResult.response;
-      if (dispatchResult.statusCode === 200 && result.data) {
+      if (dispatchResult.data) {
         // Send viewing URL update to client
         log2.consoleLogDevOnly(
           'info',
@@ -540,12 +538,12 @@ export class ChatEngineV1 {
           encoder.encode(
             `data: ${JSON.stringify({
               type: 'viewing_url',
-              viewing_url: result.data.viewing_url,
+              viewing_url: dispatchResult.data.viewing_url,
             })}\n\n`,
           ),
         );
         fileManager.clearChangeTracking();
-        const newBuildErrors: CodeError[] = result.data.build_errors;
+        const newBuildErrors: CodeError[] = dispatchResult.data.build_errors;
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
@@ -558,7 +556,7 @@ export class ChatEngineV1 {
           updatedFiles: filesArray.map((file) => file.name),
           updatedFilesObject: allFiles,
           deletedFiles: Array.from(deletedFiles),
-          build_errors: result.data.build_errors,
+          build_errors: dispatchResult.data.build_errors,
         };
       } else {
         // PROPAGATE ERROR TO CLIENT
@@ -567,7 +565,7 @@ export class ChatEngineV1 {
             `data: ${JSON.stringify({
               type: 'dispatch_error',
               error: 'Failed to update the live preview.',
-              details: `Dispatch service responded with status ${dispatchResult.statusCode}.`,
+              details: `${dispatchResult.error}`,
             })}\n\n`,
           ),
         );

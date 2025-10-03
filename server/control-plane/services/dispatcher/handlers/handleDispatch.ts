@@ -2,7 +2,6 @@ import {
   APIResponse,
   DispatchRequestBody,
   DispatchSuccessResponse,
-  HTTP_STATUS,
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
@@ -44,10 +43,7 @@ export async function handleDispatchImpl(
   cache: GlideClient,
   idleContainerAllocationSystem: IdleContainerAllocationSystemService,
   log2: SystemLogger,
-): Promise<{
-  statusCode: number;
-  response: APIResponse<DispatchSuccessResponse, StandardErrorResponse>;
-}> {
+): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
   // 1. Extract validated body
   const { prototype_id, framework, files, assets, file_scope, deleted_files } =
     body;
@@ -61,14 +57,11 @@ export async function handleDispatchImpl(
   );
   if (!authResult || !authResult.canEdit) {
     return {
-      statusCode: HTTP_STATUS.UNAUTHORIZED,
-      response: {
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message:
-            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        },
+      data: null,
+      error: {
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
       },
     };
   }
@@ -97,13 +90,10 @@ export async function handleDispatchImpl(
       if (existingBuild) {
         if (!isActiveBuildType(existingBuild)) {
           return {
-            statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-            response: {
-              data: null,
-              error: {
-                error: 'Internal Server Error',
-                message: 'Invalid build data in cache',
-              },
+            data: null,
+            error: {
+              error: 'Internal Server Error',
+              message: 'Invalid build data in cache',
             },
           };
         }
@@ -118,14 +108,11 @@ export async function handleDispatchImpl(
         } else if (isDispatchInProgress(existingBuild.status)) {
           // If build is actively working, return error
           return {
-            statusCode: HTTP_STATUS.CONFLICT,
-            response: {
-              data: null,
-              error: {
-                error: 'Conflict',
-                message:
-                  'There is already an active dispatch request for this prototype',
-              },
+            data: null,
+            error: {
+              error: 'Conflict',
+              message:
+                'There is already an active dispatch request for this prototype',
             },
           };
         } else {
@@ -188,13 +175,10 @@ export async function handleDispatchImpl(
       const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
       if (!existingBuild || !isActiveBuildType(existingBuild)) {
         return {
-          statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-          response: {
-            data: null,
-            error: {
-              error: 'Internal Server Error',
-              message: 'Invalid build data in cache',
-            },
+          data: null,
+          error: {
+            error: 'Internal Server Error',
+            message: 'Invalid build data in cache',
           },
         };
       }
@@ -269,30 +253,24 @@ export async function handleDispatchImpl(
 
       if (fargateResponse.status === 'success') {
         return {
-          statusCode: HTTP_STATUS.OK,
-          response: {
-            data: {
-              viewing_url: normalizeUrl(
-                fargateResponse.tunnel_url || getS3Url(prototype_id),
-              ),
-              build_errors: fargateResponse.build_errors,
-              build_warnings: fargateResponse.build_warnings,
-            },
-            error: null,
+          data: {
+            viewing_url: normalizeUrl(
+              fargateResponse.tunnel_url || getS3Url(prototype_id),
+            ),
+            build_errors: fargateResponse.build_errors,
+            build_warnings: fargateResponse.build_warnings,
           },
+          error: null,
         };
       } else {
         log2.error(undefined, 'Build failed on fargate instance', {
           fargateResponse,
         });
         return {
-          statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-          response: {
-            data: null,
-            error: {
-              error: 'Build Failed',
-              message: 'Build failed on fargate instance',
-            },
+          data: null,
+          error: {
+            error: 'Build Failed',
+            message: 'Build failed on fargate instance',
           },
         };
       }
@@ -309,14 +287,11 @@ export async function handleDispatchImpl(
       );
 
       return {
-        statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        response: {
-          data: null,
-          error: {
-            error: 'Internal Server Error',
-            message:
-              'There was a server error building the prototype. ' + e.message,
-          },
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message:
+            'There was a server error building the prototype. ' + e.message,
         },
       };
     }
@@ -325,13 +300,10 @@ export async function handleDispatchImpl(
     log2.error(error, 'Dispatch request failed');
 
     return {
-      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      response: {
-        data: null,
-        error: {
-          error: 'Internal Server Error',
-          message: e.message,
-        },
+      data: null,
+      error: {
+        error: 'Internal Server Error',
+        message: e.message,
       },
     };
   }
