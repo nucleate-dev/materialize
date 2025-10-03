@@ -78,7 +78,6 @@ if command -v dnf >/dev/null 2>&1; then
     openssl-devel \
     pcre2-devel \
     libevent-devel \
-    curl \
     rust \
     cargo
 else
@@ -143,7 +142,6 @@ else
     openssl-devel \
     pcre2-devel \
     libevent-devel \
-    curl \
     rust \
     cargo
 fi

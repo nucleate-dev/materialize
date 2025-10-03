@@ -5,7 +5,7 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-18-188-157-212.us-east-2.compute.amazonaws.com"; // TODO: Update with build workers dev EC2 host
+const HOST = "ec2-18-218-34-205.us-east-2.compute.amazonaws.com";
 
 const localBase = path.resolve("build-workers");
 const localZip = "build-workers.zip";
