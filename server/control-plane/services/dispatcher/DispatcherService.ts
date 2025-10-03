@@ -133,9 +133,9 @@ export class DispatcherService {
       this.handleDispatchEditIntent.bind(this),
     );
 
-    // POST /dev-server/restart
+    // POST /dispatch-restart
     app.post<{ Body: RestartDevServerRequestBody }>(
-      '/dev-server/restart',
+      '/dispatch-restart',
       {
         schema: {
           body: {

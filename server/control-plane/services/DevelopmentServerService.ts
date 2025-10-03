@@ -13,6 +13,8 @@ import type {
   DispatchPrecheckSuccessResponse,
   DispatchPrecheckErrorResponse,
   DispatchSuccessResponse,
+  RestartDevServerRequestBody,
+  RestartDevServerSuccessResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
@@ -129,6 +131,56 @@ export class DevelopmentServerService {
       },
       this.handleStartDevServer.bind(this),
     );
+
+    // POST /dev-server/restart
+    app.post<{ Body: RestartDevServerRequestBody }>(
+      '/dev-server/restart',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['prototype_id'],
+            properties: {
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleRestartDevServer.bind(this),
+    );
+  }
+
+  private async handleRestartDevServer(
+    request: FastifyRequest<{ Body: RestartDevServerRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
+  > {
+    const token = request.headers.authorization?.split(' ')[1];
+    if (!token || !request.headers.authorization?.startsWith('Bearer')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No token provided',
+        } as StandardErrorResponse,
+      });
+    }
+
+    const restartResponse = await this.fastifyApp.inject({
+      method: 'POST',
+      url: '/dispatch-restart',
+      headers: {
+        'x-trace-id': request.log2.getTraceId(),
+        authorization: `Bearer ${token}`,
+      },
+    });
+    const restartData: APIResponse<
+      RestartDevServerSuccessResponse,
+      StandardErrorResponse
+    > = JSON.parse(restartResponse.payload);
+    reply.status(restartResponse.statusCode);
+    return restartData;
   }
 
   private async handleUpdateFiles(
