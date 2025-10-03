@@ -3,12 +3,7 @@ import axios from 'axios';
 import * as dotenv from 'dotenv';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
-import {
-  type ActiveBuild,
-  CACHE_KEYS,
-  isActiveBuildType,
-  S3_URL_TEMPLATE,
-} from '../../types/InternalTypes.js';
+import { CACHE_KEYS, isActiveBuildType } from '../../types/InternalTypes.js';
 import {
   type APIResponse,
   type DispatchPrecheckErrorResponse,
@@ -26,9 +21,13 @@ import {
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
 import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystemService.js';
-import { activeBuildToStringRecord } from '../../utils/cacheInteractionUtils.js';
+import {
+  activeBuildToStringRecord,
+  hgetallAsActiveBuild,
+} from '../../utils/cacheInteractionUtils.js';
 import { handleDispatchImpl } from './handleDispatch.js';
 import { handleDispatchEditIntentImpl } from './handleDispatchEditIntent.js';
+import { handleDispatchPrecheckImpl } from './handleDispatchPrecheck.js';
 
 dotenv.config();
 
@@ -244,7 +243,10 @@ export class DispatcherService {
 
       // 4. Get the active build data
       const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-      const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
+      const existingBuild = await hgetallAsActiveBuild(
+        this.cache,
+        activeBuildKey,
+      );
 
       if (!existingBuild || !isActiveBuildType(existingBuild)) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
@@ -374,7 +376,10 @@ export class DispatcherService {
 
       // 4. Get the active build data
       const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-      const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
+      const existingBuild = await hgetallAsActiveBuild(
+        this.cache,
+        activeBuildKey,
+      );
 
       if (!existingBuild || !isActiveBuildType(existingBuild)) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
@@ -550,134 +555,6 @@ export class DispatcherService {
   ): Promise<
     APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
   > {
-    // 1. Extract validated body (validation handled by Fastify schema)
-    const { prototype_id } = request.body;
-
-    // 2. Extract JWT from Authorization header
-    const jwt = request.headers.authorization?.split(' ')[1];
-    if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message: 'No JWT token provided in Authorization header',
-        } as DispatchPrecheckErrorResponse,
-      });
-    }
-
-    // 3. Authentication and authorization validation
-    const authResult = await checkUserHasPrototypeEditAccess(
-      prototype_id,
-      jwt,
-      request.log2,
-    );
-    if (!authResult || !authResult.canEdit) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message:
-            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-        } as DispatchPrecheckErrorResponse,
-      });
-    }
-    // update logger context
-    request.log2 = request.log2.child({
-      userId: authResult.user.id,
-      prototypeId: prototype_id,
-    });
-
-    try {
-      // Check current build pointer
-      const currentBuildId = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototype_id),
-      );
-
-      if (currentBuildId) {
-        const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-        const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
-
-        if (existingBuild) {
-          if (!isActiveBuildType(existingBuild)) {
-            return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-              data: null,
-              error: {
-                error: 'Internal Server Error',
-                message: 'Invalid build data in storage',
-              } as DispatchPrecheckErrorResponse,
-            });
-          }
-
-          return reply.status(HTTP_STATUS.OK).send({
-            data: {
-              status: existingBuild.status,
-              viewing_url: this.normalizeUrl(
-                isEditableDevServer(existingBuild.status)
-                  ? existingBuild.url
-                  : this.getS3Url(prototype_id),
-              ),
-            } as DispatchPrecheckSuccessResponse,
-            error: null,
-          });
-        }
-      }
-
-      // No active build, return S3 URL
-      return reply.status(HTTP_STATUS.OK).send({
-        data: {
-          status: null,
-          viewing_url: this.normalizeUrl(this.getS3Url(prototype_id)),
-        } as DispatchPrecheckSuccessResponse,
-        error: null,
-      });
-    } catch (error) {
-      request.log2.error(error, '[handleDispatchPrecheck] Precheck failed');
-      const e = error instanceof Error ? error : new Error(String(error));
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-        data: null,
-        error: {
-          error: 'Internal Server Error',
-          message: e.message,
-        } as DispatchPrecheckErrorResponse,
-      });
-    }
-  }
-
-  private getS3Url(prototypeId: string): string {
-    // Construct S3/CloudFront URL for the prototype
-    return S3_URL_TEMPLATE(prototypeId);
-  }
-
-  private normalizeUrl(url: string): string {
-    // Ensure URL has protocol (https://) for iframe loading
-    return url && !url.startsWith('http') ? `https://${url}` : url;
-  }
-
-  private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
-    const raw = await this.cache.hgetall(key);
-
-    if (!raw || raw.length === 0) return null;
-
-    const obj = Object.fromEntries(
-      raw.map(
-        (e: {
-          field: { toString(): string };
-          value: { toString(): string };
-        }) => [e.field.toString(), e.value.toString()],
-      ),
-    ) as Record<string, string>;
-
-    // Handle missing fields gracefully
-    if (!obj.status || !obj.last_touched) {
-      return null;
-    }
-
-    return {
-      fargate_task_arn: obj.fargate_task_arn || '',
-      fargate_private_ip: obj.fargate_private_ip || '',
-      url: obj.url || '',
-      status: obj.status as ActiveBuild['status'],
-      last_touched: parseInt(obj.last_touched, 10),
-    };
+    return handleDispatchPrecheckImpl(request, reply, this.cache);
   }
 }
