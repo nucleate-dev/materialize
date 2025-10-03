@@ -1,6 +1,15 @@
 "use client";
 
-import { Database, Home, Server, Settings, Users, Rocket, Trash2 } from "lucide-react";
+import {
+  Database,
+  Home,
+  Server,
+  Settings,
+  Users,
+  Rocket,
+  Trash2,
+  Container,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,19 +30,19 @@ import { cn } from "@/lib/utils";
 // Menu items.
 const items = [
   {
-    title: "Dashboard",
-    url: "/",
-    icon: Home,
+    title: "Control Plane Development",
+    url: "/cp-dev",
+    icon: Server,
+  },
+  {
+    title: "Build Workers Development",
+    url: "/bw-dev",
+    icon: Container,
   },
   {
     title: "Cache Management",
     url: "/cache",
     icon: Database,
-  },
-  {
-    title: "Dev Server Management",
-    url: "/dev-server",
-    icon: Server,
   },
   {
     title: "Users",
@@ -81,7 +90,8 @@ export function InternalToolsSidebar() {
                     asChild
                     className={cn(
                       "w-full justify-start",
-                      pathname === item.url && "bg-accent text-accent-foreground"
+                      pathname === item.url &&
+                        "bg-accent text-accent-foreground"
                     )}
                   >
                     <Link href={item.url}>

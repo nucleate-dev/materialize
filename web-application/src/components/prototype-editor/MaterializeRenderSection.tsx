@@ -12,6 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type {
   APIResponse,
+  RestartDevServerRequestBody,
+  RestartDevServerSuccessResponse,
+  RunCommandRequestBody,
+  RunCommandSuccessResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
@@ -223,7 +227,7 @@ const MaterializeRenderSection = forwardRef<
         const token = session.data.session?.access_token;
         if (!token) return;
 
-        await fetch(
+        const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/restart`,
           {
             method: "POST",
@@ -231,13 +235,31 @@ const MaterializeRenderSection = forwardRef<
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ prototype_id: prototypeId }),
+            body: JSON.stringify({
+              prototype_id: prototypeId,
+            } as RestartDevServerRequestBody),
           },
         );
+
         // TODO(Sourish): Handle Badge Status
         // onRenderStatusChange("Restarting..");
         // If restart fails -> Static Build OR /dispatch to start new dev server
         // If restart succeeds -> Connected
+
+        const result: APIResponse<
+          RestartDevServerSuccessResponse,
+          StandardErrorResponse
+        > = await response.json();
+
+        if (response.ok && result.data) {
+          logger.debug("log", "Dev server restarted successfully", {
+            message: result.data.message,
+          });
+        } else {
+          logger.debug("error", "Failed to restart dev server", {
+            error: result.error?.message,
+          });
+        }
 
         // Force a refresh regardless to reconnect iframe to server
         forceRefresh();
@@ -268,19 +290,23 @@ const MaterializeRenderSection = forwardRef<
               prototype_id: prototypeId,
               command: "npm",
               args: ["run", "lint"],
-            }),
+            } as RunCommandRequestBody),
           },
         );
 
-        const result = await response.json();
+        const result: APIResponse<
+          RunCommandSuccessResponse,
+          StandardErrorResponse
+        > = await response.json();
 
         if (response.ok && result.data) {
-
           // TODO: Display lint results in a better way
           if (result.data.exit_code === 0) {
             alert("Lint passed successfully!");
           } else {
-            alert(`Lint failed with exit code ${result.data.exit_code}\n\nCheck console for details.`);
+            alert(
+              `Lint failed with exit code ${result.data.exit_code}\n\nCheck console for details.`,
+            );
           }
         } else {
           logger.debug("error", "Failed to run lint command", {
@@ -424,7 +450,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -441,7 +467,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
@@ -513,13 +539,13 @@ const MaterializeRenderSection = forwardRef<
                     }
                   >
                     {currentRenderStatus === "Starting Dev Server.." ||
-                      currentRenderStatus === "Connecting.." ? (
+                    currentRenderStatus === "Connecting.." ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
                       <Play className="w-4 h-4 mr-2" />
                     )}
                     {currentRenderStatus === "Starting Dev Server.." ||
-                      currentRenderStatus === "Connecting.."
+                    currentRenderStatus === "Connecting.."
                       ? "Starting..."
                       : "Start Dev Server"}
                   </DropdownMenuItem>

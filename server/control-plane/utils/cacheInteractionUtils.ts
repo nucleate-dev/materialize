@@ -1,5 +1,5 @@
 import { GlideClient } from '@valkey/valkey-glide';
-import { CACHE_KEYS } from '../types/InternalTypes.js';
+import { ActiveBuild, CACHE_KEYS } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
 
 // returns true if successful, false if not
@@ -38,4 +38,73 @@ export async function removeBuildDataFromCache(
     });
     return false;
   }
+}
+
+export async function hgetallAsActiveBuild(
+  cache: GlideClient,
+  key: string,
+): Promise<ActiveBuild | null> {
+  const raw = await cache.hgetall(key);
+
+  if (!raw || raw.length === 0) return null;
+
+  const obj = Object.fromEntries(
+    raw.map(
+      (e: { field: { toString(): string }; value: { toString(): string } }) => [
+        e.field.toString(),
+        e.value.toString(),
+      ],
+    ),
+  ) as Record<string, string>;
+
+  // Handle missing fields gracefully
+  if (!obj.status || !obj.last_touched) {
+    return null;
+  }
+
+  return {
+    fargate_task_arn: obj.fargate_task_arn || '',
+    fargate_private_ip: obj.fargate_private_ip || '',
+    url: obj.url || '',
+    status: obj.status as ActiveBuild['status'],
+    last_touched: parseInt(obj.last_touched, 10),
+  };
+}
+
+export function activeBuildToStringRecord(
+  build: ActiveBuild,
+): Record<string, string> {
+  return {
+    fargate_task_arn: build.fargate_task_arn,
+    fargate_private_ip: build.fargate_private_ip,
+    url: build.url,
+    status: build.status,
+    last_touched: build.last_touched.toString(),
+  };
+}
+
+/* 
+THIS IS ONLY MEANT TO BE USED FOR INTERNAL FARGATE DEV MODE
+*/
+export async function hgetallAsDevBuild(
+  cache: GlideClient,
+  key: string,
+): Promise<{ status: string | null; url: string } | null> {
+  const raw = await cache.hgetall(key);
+
+  if (!raw || raw.length === 0) return null;
+
+  const obj = Object.fromEntries(
+    raw.map(
+      (e: { field: { toString(): string }; value: { toString(): string } }) => [
+        e.field.toString(),
+        e.value.toString(),
+      ],
+    ),
+  ) as Record<string, string>;
+
+  return {
+    status: obj.status || null,
+    url: obj.url || '',
+  };
 }

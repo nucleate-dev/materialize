@@ -1,21 +1,19 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
-  DispatchPrecheckRequestBody,
-  DispatchPrecheckSuccessResponse,
-  DispatchPrecheckErrorResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlSuccessResponse,
   HTTP_STATUS,
   StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
+} from '../../../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 export default async function handleFetchViewingUrlImpl(
   request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
   reply: FastifyReply,
-  fastifyApp: FastifyInstance,
+  dispatcherService: DispatcherService,
 ): Promise<APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>> {
   try {
     // Extract validated body (validation handled by Fastify schema)
@@ -48,47 +46,33 @@ export default async function handleFetchViewingUrlImpl(
     if (authResult.canEdit && current_page === 'edit') {
       try {
         // Fetch dispatch-precheck from control plane
-        const precheckResponse = await fastifyApp.inject({
-          method: 'POST',
-          url: '/dispatch-precheck',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-trace-id': request.log2.getTraceId(),
-          },
-          payload: {
-            jwt: token,
-            prototype_id: prototype_id,
-          } as DispatchPrecheckRequestBody,
-        });
+        const precheckResult = await dispatcherService.dispatchPrecheck(
+          { prototype_id },
+          token!,
+          request.log2,
+        );
 
-        if (precheckResponse.statusCode === 200) {
-          const precheckData: APIResponse<
-            DispatchPrecheckSuccessResponse,
-            DispatchPrecheckErrorResponse
-          > = precheckResponse.json();
-
+        if (precheckResult.data && precheckResult.data.viewing_url) {
           // Type guard to check if it's a success response
-          if (precheckData.data && precheckData.data.viewing_url) {
-            const isEditable = isEditableDevServer(precheckData.data.status);
-            let staticViewingUrl = precheckData.data.viewing_url;
-            if (
-              !isEditable &&
-              token &&
-              authResult.prototype.visibility !== 'PUBLIC' &&
-              staticViewingUrl.includes('render.materializeui.com')
-            ) {
-              staticViewingUrl += `?token=${encodeURIComponent(token)}`;
-            }
-            const successResponse: FetchViewingUrlSuccessResponse = {
-              viewing_url: staticViewingUrl,
-              source: isEditable ? 'editable_instance' : 'static_build',
-              status: precheckData.data.status,
-            };
-            return reply.status(HTTP_STATUS.OK).send({
-              data: successResponse,
-              error: null,
-            });
+          const isEditable = isEditableDevServer(precheckResult.data.status);
+          let staticViewingUrl = precheckResult.data.viewing_url;
+          if (
+            !isEditable &&
+            token &&
+            authResult.prototype.visibility !== 'PUBLIC' &&
+            staticViewingUrl.includes('render.materializeui.com')
+          ) {
+            staticViewingUrl += `?token=${encodeURIComponent(token)}`;
           }
+          const successResponse: FetchViewingUrlSuccessResponse = {
+            viewing_url: staticViewingUrl,
+            source: isEditable ? 'editable_instance' : 'static_build',
+            status: precheckResult.data.status,
+          };
+          return reply.status(HTTP_STATUS.OK).send({
+            data: successResponse,
+            error: null,
+          });
         }
       } catch (precheckError) {
         request.log2.warn(

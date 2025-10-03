@@ -11,11 +11,12 @@ import type {
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
-import { handleCreatePrototypeImpl } from './handleCreatePrototype.js';
-import handleResetPrototypeImpl from './handleResetPrototype.js';
-import handleDeletePrototypeImpl from './handleDeletePrototype.js';
+import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
+import handleResetPrototypeImpl from './handlers/handleResetPrototype.js';
+import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
 import { GlideClient } from '@valkey/valkey-glide';
-import handleFetchViewingUrlImpl from './handleFetchViewingUrl.js';
+import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
+import { DispatcherService } from '../dispatcher/DispatcherService.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -24,15 +25,18 @@ export class PrototypeManagementService {
   private supabaseServiceKey: string;
   private s3Client: S3Client;
   private cache: GlideClient;
+  private dispatcherService: DispatcherService;
 
   constructor(
     fastifyApp: FastifyInstance,
     s3Client: S3Client,
     cache: GlideClient,
+    dispatcherService: DispatcherService,
   ) {
     this.fastifyApp = fastifyApp;
     this.s3Client = s3Client;
     this.cache = cache;
+    this.dispatcherService = dispatcherService;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
@@ -133,7 +137,7 @@ export class PrototypeManagementService {
   ): Promise<
     APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>
   > {
-    return await handleFetchViewingUrlImpl(request, reply, this.fastifyApp);
+    return await handleFetchViewingUrlImpl(request, reply, this.dispatcherService);
   }
 
   private async handleCreatePrototype(
@@ -153,7 +157,7 @@ export class PrototypeManagementService {
       request,
       reply,
       this.s3Client,
-      this.fastifyApp,
+      this.dispatcherService,
     );
   }
 

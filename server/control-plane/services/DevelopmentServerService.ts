@@ -8,11 +8,10 @@ import type {
   UpdateFilesErrorResponse,
   StandardErrorResponse,
   APIResponse,
-  DispatchRequestBody,
-  DispatchPrecheckRequestBody,
-  DispatchPrecheckSuccessResponse,
-  DispatchPrecheckErrorResponse,
-  DispatchSuccessResponse,
+  RestartDevServerRequestBody,
+  RestartDevServerSuccessResponse,
+  RunCommandRequestBody,
+  RunCommandSuccessResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
@@ -20,26 +19,26 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../utils/prototypeDevServerStatusUtils.js';
+import { DispatcherService } from './dispatcher/DispatcherService.js';
 
 export class DevelopmentServerService {
   private fastifyApp: FastifyInstance;
   private supabaseUrl: string;
   private supabaseAnonKey: string;
-  private supabaseServiceKey: string;
+  private dispatcherService: DispatcherService;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    dispatcherService: DispatcherService,
+  ) {
     this.fastifyApp = fastifyApp;
+    this.dispatcherService = dispatcherService;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
-    this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    if (
-      !this.supabaseUrl ||
-      !this.supabaseAnonKey ||
-      !this.supabaseServiceKey
-    ) {
+    if (!this.supabaseUrl || !this.supabaseAnonKey) {
       throw new Error(
         'Missing required Supabase environment variables for DevelopmentServerService',
       );
@@ -129,6 +128,100 @@ export class DevelopmentServerService {
       },
       this.handleStartDevServer.bind(this),
     );
+
+    // POST /dev-server/restart
+    app.post<{ Body: RestartDevServerRequestBody }>(
+      '/dev-server/restart',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['prototype_id'],
+            properties: {
+              prototype_id: { type: 'string' },
+            },
+          },
+        },
+      },
+      this.handleRestartDevServer.bind(this),
+    );
+
+    // POST /dev-server/run-command
+    app.post<{
+      Body: RunCommandRequestBody;
+    }>(
+      '/dev-server/run-command',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['prototype_id', 'command'],
+            properties: {
+              prototype_id: { type: 'string' },
+              command: { type: 'string' },
+              args: { type: 'array', items: { type: 'string' } },
+              cwd: { type: 'string' },
+              env: { type: 'object' },
+              timeout_ms: { type: 'number' },
+            },
+          },
+        },
+      },
+      this.handleRunCommand.bind(this),
+    );
+  }
+
+  private async handleRunCommand(
+    request: FastifyRequest<{ Body: RunCommandRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+    const token = request.headers.authorization?.split(' ')[1];
+    if (!token || !request.headers.authorization?.startsWith('Bearer')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No token provided',
+        } as StandardErrorResponse,
+      });
+    }
+    const result = await this.dispatcherService.runCommand(
+      request.body,
+      token,
+      request.log2,
+    );
+    reply.status(
+      result.data ? HTTP_STATUS.OK : HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
+    return result;
+  }
+
+  private async handleRestartDevServer(
+    request: FastifyRequest<{ Body: RestartDevServerRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
+  > {
+    const token = request.headers.authorization?.split(' ')[1];
+    if (!token || !request.headers.authorization?.startsWith('Bearer')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No token provided',
+        } as StandardErrorResponse,
+      });
+    }
+
+    const result = await this.dispatcherService.restartDevServer(
+      request.body,
+      token,
+      request.log2,
+    );
+    reply.status(
+      result.data ? HTTP_STATUS.OK : HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
+    return result;
   }
 
   private async handleUpdateFiles(
@@ -157,44 +250,28 @@ export class DevelopmentServerService {
       }
 
       // 2. Perform dispatch precheck to authenticate user JWT, verify permissions, and check build status
-      const precheckResponse = await this.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch-precheck',
-        headers: {
-          'x-trace-id': request.log2.getTraceId(),
-        },
-        payload: {
-          jwt: token,
-          prototype_id: prototype_id,
-        } as DispatchPrecheckRequestBody,
-      });
-      if (precheckResponse.statusCode !== HTTP_STATUS.OK) {
-        const errorData = JSON.parse(precheckResponse.payload);
+      const precheckResult = await this.dispatcherService.dispatchPrecheck(
+        { prototype_id },
+        token,
+        request.log2,
+      );
+      if (precheckResult.error) {
         request.log2.error(
-          errorData,
+          precheckResult.error,
           '[handleUpdateFiles] Dispatch precheck failed:',
         );
-        return reply.status(precheckResponse.statusCode).send({
-          data: null,
-          error: {
-            error: errorData.error,
-            message: errorData.message,
-          } as StandardErrorResponse,
-        });
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return precheckResult;
       }
 
-      const precheckData: APIResponse<
-        DispatchPrecheckSuccessResponse,
-        DispatchPrecheckErrorResponse
-      > = JSON.parse(precheckResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
         '🔍 [handleUpdateFiles] Dispatch precheck response:',
-        { precheckData },
+        { precheckResult },
       );
 
       // 3. Check if build is already in progress
-      if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
+      if (isDispatchInProgress(precheckResult.data.status)) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
           error: {
@@ -206,7 +283,7 @@ export class DevelopmentServerService {
       }
 
       // 4. Check if there's an active dev server to update
-      if (precheckData.data && !isEditableDevServer(precheckData.data.status)) {
+      if (!isEditableDevServer(precheckResult.data.status)) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           data: null,
           error: {
@@ -223,66 +300,41 @@ export class DevelopmentServerService {
         '[handleUpdateFiles]Dispatching file update request to server',
       );
 
-      const dispatchResponse = await this.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch',
-        headers: {
-          'x-trace-id': request.log2.getTraceId(),
-        },
-        payload: {
-          jwt: token,
+      const dispatchResult = await this.dispatcherService.dispatch(
+        {
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: files,
           assets: [], // update-files only deals with text files, so assets array is empty
           file_scope: 'updates', // This is the key difference - only update files, don't rebuild
-        } as DispatchRequestBody,
-      });
-
-      if (dispatchResponse.statusCode !== HTTP_STATUS.OK) {
-        const errorData = JSON.parse(dispatchResponse.payload);
-        request.log2.consoleLogDevOnly(
-          'error',
-          '[update-files]Dispatch request failed:',
-          {
-            errorData,
-          },
-        );
-        return reply.status(dispatchResponse.statusCode).send({
-          data: null,
-          error: {
-            error: errorData.error,
-            message: errorData.message,
-          } as StandardErrorResponse,
-        });
-      }
-
-      const dispatchData: APIResponse<
-        DispatchSuccessResponse,
-        StandardErrorResponse
-      > = JSON.parse(dispatchResponse.payload);
+        },
+        token,
+        request.log2,
+      );
       request.log2.consoleLogDevOnly(
         'info',
         '[handleUpdateFiles] Dispatch endpoint response:',
-        { dispatchData },
+        { dispatchResult },
       );
 
       // 6. Return success response with viewing URL
-      if (dispatchData.data) {
-        return reply.status(HTTP_STATUS.OK).send({
+      if (dispatchResult.data) {
+        reply.status(HTTP_STATUS.OK);
+        return {
           data: {
             success: true,
             status: 'success',
-            viewing_url: dispatchData.data.viewing_url,
-            build_errors: dispatchData.data.build_errors || [],
-            build_warnings: dispatchData.data.build_warnings || [],
+            viewing_url: dispatchResult.data.viewing_url,
+            build_errors: dispatchResult.data.build_errors || [],
+            build_warnings: dispatchResult.data.build_warnings || [],
             message: 'Files updated successfully in dev server',
-          } as UpdateFilesSuccessResponse,
+          },
           error: null,
-        });
+        };
       } else {
         // Handle error response
-        return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
           data: null,
           error: {
             error: 'File update failed',
@@ -290,7 +342,7 @@ export class DevelopmentServerService {
             build_errors: [],
             build_warnings: [],
           } as UpdateFilesErrorResponse,
-        });
+        };
       }
     } catch (error) {
       request.log2.consoleLogDevOnly(
@@ -374,46 +426,28 @@ export class DevelopmentServerService {
       }
 
       // 3. Perform dispatch precheck to verify permissions and build status
-      const precheckResponse = await this.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch-precheck',
-        headers: {
-          'x-trace-id': request.log2.getTraceId(),
-        },
-        payload: {
-          jwt: token,
-          prototype_id: prototype_id,
-        } as DispatchPrecheckRequestBody,
-      });
-      if (precheckResponse.statusCode !== HTTP_STATUS.OK) {
-        const precheckResponsePayload = JSON.parse(precheckResponse.payload);
+      const precheckResult = await this.dispatcherService.dispatchPrecheck(
+        { prototype_id },
+        token,
+        request.log2,
+      );
+      if (precheckResult.error) {
         request.log2.consoleLogDevOnly(
           'error',
           '[handleStartDevServer] Dispatch precheck failed:',
-          { precheckResponsePayload },
+          { precheckResponse: precheckResult },
         );
-        reply.status(precheckResponse.statusCode);
-        return {
-          data: null,
-          error: {
-            error: precheckResponsePayload.error,
-            message: precheckResponsePayload.message,
-          },
-        };
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return precheckResult;
       }
-
-      const precheckData: APIResponse<
-        DispatchPrecheckSuccessResponse,
-        DispatchPrecheckErrorResponse
-      > = JSON.parse(precheckResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Dispatch precheck response:',
-        { precheckData },
+        { precheckResult },
       );
 
       // 3. Check if dev server already exists
-      if (precheckData.data && isEditableDevServer(precheckData.data.status)) {
+      if (isEditableDevServer(precheckResult.data.status)) {
         request.log2.consoleLogDevOnly(
           'info',
           "[handleStartDevServer] There's already an active dev server for this prototype",
@@ -434,55 +468,40 @@ export class DevelopmentServerService {
         'info',
         '[handleStartDevServer] Dispatching dev server start request to server',
       );
-      const dispatchResponse = await this.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch',
-        headers: {
-          'x-trace-id': request.log2.getTraceId(),
-        },
-        payload: {
-          jwt: token,
+      const dispatchResult = await this.dispatcherService.dispatch(
+        {
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: files,
           assets: assets,
           file_scope: 'complete', // all start-dev-server requests must have complete file scope
-        } as DispatchRequestBody,
-      });
-      if (dispatchResponse.statusCode !== HTTP_STATUS.OK) {
-        const errorData = JSON.parse(dispatchResponse.payload);
+        },
+        token,
+        request.log2,
+      );
+      if (dispatchResult.error) {
         request.log2.error(
-          errorData,
+          dispatchResult.error,
           '[handleStartDevServer] Dispatch request failed:',
         );
-        reply.status(dispatchResponse.statusCode);
-        return {
-          data: null,
-          error: {
-            error: errorData.error,
-            message: errorData.message,
-          },
-        };
+        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return dispatchResult;
       }
 
-      const dispatchData: APIResponse<
-        DispatchSuccessResponse,
-        StandardErrorResponse
-      > = JSON.parse(dispatchResponse.payload);
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Dispatch endpoint response:',
-        { dispatchData },
+        { dispatchResult },
       );
 
       // 7. Return success response with viewing URL
-      if (dispatchData.data) {
+      if (dispatchResult.data) {
         reply.status(HTTP_STATUS.OK);
         return {
           data: {
             success: true,
             status: 'success',
-            viewing_url: dispatchData.data.viewing_url,
+            viewing_url: dispatchResult.data.viewing_url,
             message: 'Files saved and dev server started successfully',
           },
           error: null,

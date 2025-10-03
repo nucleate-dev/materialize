@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-28T06:10:46.540Z
+// Last synced: 2025-10-03T04:37:03.636Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -86,7 +86,6 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 // ============================================================================
 
 export interface DispatchRequestBody {
-  jwt: string;
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
@@ -107,18 +106,12 @@ export interface DispatchSuccessResponse {
 // ============================================================================
 
 export interface DispatchPrecheckRequestBody {
-  jwt: string;
   prototype_id: string;
 }
 
 export interface DispatchPrecheckSuccessResponse {
   status: BuildStatus | null;
   viewing_url: string;
-}
-
-export interface DispatchPrecheckErrorResponse {
-  error: string;
-  message: string;
 }
 
 // ============================================================================
@@ -285,6 +278,37 @@ export interface StartDevServerSuccessResponse {
   status: 'success' | 'error';
   viewing_url: string;
   message: string;
+}
+
+// ============================================================================
+// /dev-server/restart ENDPOINT
+// ============================================================================
+
+export interface RestartDevServerRequestBody {
+  prototype_id: string;
+}
+
+export interface RestartDevServerSuccessResponse {
+  message: string;
+}
+
+// ============================================================================
+// /dev-server/run-command ENDPOINT
+// ============================================================================
+
+export interface RunCommandRequestBody {
+  prototype_id: string;
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  timeout_ms?: number;
+}
+
+export interface RunCommandSuccessResponse {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
 }
 
 // ============================================================================

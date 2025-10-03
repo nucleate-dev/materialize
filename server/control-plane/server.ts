@@ -4,13 +4,13 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
-import { IdleContainerAllocationSystemService } from './services/dispatcher/IdleContainerAllocationSystemService.js';
+import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/chat/ChatService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
-import { InternalDevServerManagementService } from './internal-services/InternalDevServerManagementService.js';
+import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
 import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
@@ -123,7 +123,7 @@ let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
 let internalToolsService: InternalCacheManagementService;
-let internalDevServerManagementService: InternalDevServerManagementService;
+let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
 let cache: GlideClient;
@@ -178,13 +178,12 @@ const start = async (): Promise<void> => {
         log2: baseLogger,
       });
 
-    // Create dispatcher service with initialized clients and register routes
+    // Create dispatcher service with initialized clients
     dispatcherService = new DispatcherService(
       cacheClient,
-      fastify,
       idleContainerAllocationSystemService,
+      baseLogger,
     );
-    dispatcherService.registerRoutes(fastify);
 
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();
@@ -195,15 +194,19 @@ const start = async (): Promise<void> => {
       fastify,
       s3Client,
       cacheClient,
+      dispatcherService,
     );
     prototypeManagementService.registerRoutes(fastify);
 
     // Create development server service and register routes
-    developmentServerService = new DevelopmentServerService(fastify);
+    developmentServerService = new DevelopmentServerService(
+      fastify,
+      dispatcherService,
+    );
     developmentServerService.registerRoutes(fastify);
 
     // Create chat service and register routes
-    chatService = new ChatService(fastify);
+    chatService = new ChatService(fastify, dispatcherService);
     chatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
@@ -214,11 +217,8 @@ const start = async (): Promise<void> => {
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes
-    internalDevServerManagementService = new InternalDevServerManagementService(
-      ec2Client,
-      ecsClient,
-      fastify,
-    );
+    internalDevServerManagementService =
+      new InternalControlPlaneDevelopmentService(ec2Client);
     internalDevServerManagementService.registerRoutes(fastify);
 
     // Create internal production deployment service and register routes

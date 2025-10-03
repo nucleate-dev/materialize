@@ -2,12 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import type {
-  APIResponse,
   ChatErrorResponse,
   ChatRequestBody,
-  DispatchPrecheckErrorResponse,
-  DispatchPrecheckRequestBody,
-  DispatchPrecheckSuccessResponse,
 } from '../../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
 import {
@@ -19,9 +15,11 @@ import { validateChatAuth } from './utils/chat-auth.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
 import { trackChatUsage } from './utils/usage-tracking.js';
+import { DispatcherService } from '../dispatcher/DispatcherService.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
+  private dispatcherService: DispatcherService;
   private supabaseUrl: string;
   private supabaseServiceKey: string;
   private googleAiApiKey: string;
@@ -33,9 +31,12 @@ export class ChatService {
   private stripe: Stripe;
   private chatEngine: ChatEngineV1;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    dispatcherService: DispatcherService,
+  ) {
     this.fastifyApp = fastifyApp;
-
+    this.dispatcherService = dispatcherService;
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -66,7 +67,7 @@ export class ChatService {
       supabaseServiceKey: this.supabaseServiceKey,
       googleAiApiKey: this.googleAiApiKey,
       anthropicApiKey: this.anthropicApiKey,
-      fastifyApp: this.fastifyApp,
+      dispatcherService: this.dispatcherService,
     };
     this.chatEngine = new ChatEngineV1(chatEngineConfig);
   }
@@ -185,21 +186,12 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 3. Precheck with dispatcher service to ensure nothing is currently building for this prototype
       // ------------------------------------------------------------------------------------------------
-      const precheckResponse = await this.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch-edit-intent',
-        headers: {
-          'x-trace-id': request.log2.getTraceId(),
-        },
-        payload: {
-          jwt: token,
-          prototype_id: prototype_id,
-        } as DispatchPrecheckRequestBody,
-      });
-      const precheckData: APIResponse<
-        DispatchPrecheckSuccessResponse,
-        DispatchPrecheckErrorResponse
-      > = JSON.parse(precheckResponse.payload);
+      const precheckResult = await this.dispatcherService.dispatchEditIntent(
+        { prototype_id },
+        token,
+        request.log2,
+      );
+      const precheckData = precheckResult;
       let file_scope: 'complete' | 'updates' = 'updates';
       if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
