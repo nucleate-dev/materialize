@@ -277,6 +277,18 @@ export interface StartDevServerSuccessResponse {
 }
 
 // ============================================================================
+// /dev-server/restart ENDPOINT
+// ============================================================================
+
+export interface RestartDevServerRequestBody {
+  prototype_id: string;
+}
+
+export interface RestartDevServerSuccessResponse {
+  message: string;
+}
+
+// ============================================================================
 // /dev-server/run-command ENDPOINT
 // ============================================================================
 

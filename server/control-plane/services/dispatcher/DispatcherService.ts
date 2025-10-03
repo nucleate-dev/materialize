@@ -27,6 +27,8 @@ import {
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
+  type RestartDevServerRequestBody,
+  type RestartDevServerSuccessResponse,
   type RunCommandRequestBody,
   type RunCommandSuccessResponse,
   type StandardErrorResponse,
@@ -155,7 +157,7 @@ export class DispatcherService {
     );
 
     // POST /dev-server/restart
-    app.post<{ Body: { prototype_id: string } }>(
+    app.post<{ Body: RestartDevServerRequestBody }>(
       '/dev-server/restart',
       {
         schema: {
@@ -197,9 +199,11 @@ export class DispatcherService {
   }
 
   private async handleRestartDevServer(
-    request: FastifyRequest<{ Body: { prototype_id: string } }>,
+    request: FastifyRequest<{ Body: RestartDevServerRequestBody }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<unknown, StandardErrorResponse>> {
+  ): Promise<
+    APIResponse<RestartDevServerSuccessResponse, StandardErrorResponse>
+  > {
     const { prototype_id } = request.body;
 
     // 1. Extract JWT from Authorization header
@@ -296,7 +300,9 @@ export class DispatcherService {
         );
 
         return reply.status(HTTP_STATUS.OK).send({
-          data: { message: 'Dev server restarted successfully' },
+          data: {
+            message: 'Dev server restarted successfully',
+          } as RestartDevServerSuccessResponse,
           error: null,
         });
       } else {
