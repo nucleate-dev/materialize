@@ -162,9 +162,9 @@ export class DevelopmentServerService {
         url: '/dispatch-precheck',
         headers: {
           'x-trace-id': request.log2.getTraceId(),
+          authorization: `Bearer ${token}`,
         },
         payload: {
-          jwt: token,
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
@@ -228,9 +228,9 @@ export class DevelopmentServerService {
         url: '/dispatch',
         headers: {
           'x-trace-id': request.log2.getTraceId(),
+          authorization: `Bearer ${token}`,
         },
         payload: {
-          jwt: token,
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: files,
@@ -379,9 +379,9 @@ export class DevelopmentServerService {
         url: '/dispatch-precheck',
         headers: {
           'x-trace-id': request.log2.getTraceId(),
+          authorization: `Bearer ${token}`,
         },
         payload: {
-          jwt: token,
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });
@@ -439,9 +439,9 @@ export class DevelopmentServerService {
         url: '/dispatch',
         headers: {
           'x-trace-id': request.log2.getTraceId(),
+          authorization: `Bearer ${token}`,
         },
         payload: {
-          jwt: token,
           prototype_id: prototype_id,
           framework: 'expo_react_native',
           files: files,

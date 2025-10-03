@@ -506,7 +506,6 @@ export class ChatEngineV1 {
       const deletedFiles = fileManager.getDeletedFiles();
       const filesArray = Object.entries(allFiles).map(([, file]) => file);
       const requestBody: DispatchRequestBody = {
-        jwt: token,
         prototype_id: prototype_id,
         framework: 'expo_react_native',
         files: filesArray,
@@ -529,6 +528,7 @@ export class ChatEngineV1 {
         headers: {
           'Content-Type': 'application/json',
           'x-trace-id': log2.getTraceId(),
+          authorization: `Bearer ${token}`,
         },
         payload: requestBody,
       });

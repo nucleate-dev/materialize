@@ -189,9 +189,9 @@ export class ChatService {
         url: '/dispatch-edit-intent',
         headers: {
           'x-trace-id': request.log2.getTraceId(),
+          authorization: `Bearer ${token}`,
         },
         payload: {
-          jwt: token,
           prototype_id: prototype_id,
         } as DispatchPrecheckRequestBody,
       });

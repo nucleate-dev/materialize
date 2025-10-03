@@ -109,9 +109,9 @@ export default async function handleResetPrototypeImpl(
       headers: {
         'Content-Type': 'application/json',
         'x-trace-id': request.log2.getTraceId(),
+        authorization: `Bearer ${token}`,
       },
       payload: {
-        jwt: token,
         prototype_id: prototype_id,
       } as DispatchPrecheckRequestBody,
     });
@@ -162,9 +162,9 @@ export default async function handleResetPrototypeImpl(
       url: '/dispatch',
       headers: {
         'x-trace-id': request.log2.getTraceId(),
+        authorization: `Bearer ${token}`,
       },
       payload: {
-        jwt: token,
         prototype_id: prototype_id,
         framework: 'expo_react_native',
         files: defaultFilesResult.data,

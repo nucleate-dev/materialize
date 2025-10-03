@@ -77,7 +77,6 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 // ============================================================================
 
 export interface DispatchRequestBody {
-  jwt: string;
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
@@ -98,7 +97,6 @@ export interface DispatchSuccessResponse {
 // ============================================================================
 
 export interface DispatchPrecheckRequestBody {
-  jwt: string;
   prototype_id: string;
 }
 

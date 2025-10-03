@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-09-28T06:10:46.540Z
+// Last synced: 2025-10-03T00:54:44.397Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -86,7 +86,6 @@ export type HealthResponse = HealthSuccessResponse | StandardErrorResponse;
 // ============================================================================
 
 export interface DispatchRequestBody {
-  jwt: string;
   prototype_id: string;
   framework?: 'expo_react_native' | 'react';
   files: PrototypeFileInput[];
@@ -107,7 +106,6 @@ export interface DispatchSuccessResponse {
 // ============================================================================
 
 export interface DispatchPrecheckRequestBody {
-  jwt: string;
   prototype_id: string;
 }
 

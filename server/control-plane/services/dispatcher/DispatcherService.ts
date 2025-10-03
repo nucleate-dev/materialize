@@ -67,9 +67,8 @@ export class DispatcherService {
         schema: {
           body: {
             type: 'object',
-            required: ['jwt', 'prototype_id', 'files', 'assets', 'file_scope'],
+            required: ['prototype_id', 'files', 'assets', 'file_scope'],
             properties: {
-              jwt: { type: 'string' },
               prototype_id: { type: 'string' },
               framework: {
                 type: 'string',
@@ -126,9 +125,8 @@ export class DispatcherService {
         schema: {
           body: {
             type: 'object',
-            required: ['jwt', 'prototype_id'],
+            required: ['prototype_id'],
             properties: {
-              jwt: { type: 'string' },
               prototype_id: { type: 'string' },
             },
           },
@@ -144,9 +142,8 @@ export class DispatcherService {
         schema: {
           body: {
             type: 'object',
-            required: ['jwt', 'prototype_id'],
+            required: ['prototype_id'],
             properties: {
-              jwt: { type: 'string' },
               prototype_id: { type: 'string' },
             },
           },
@@ -156,15 +153,14 @@ export class DispatcherService {
     );
 
     // POST /dev-server/restart
-    app.post<{ Body: { jwt: string; prototype_id: string } }>(
+    app.post<{ Body: { prototype_id: string } }>(
       '/dev-server/restart',
       {
         schema: {
           body: {
             type: 'object',
-            required: ['jwt', 'prototype_id'],
+            required: ['prototype_id'],
             properties: {
-              jwt: { type: 'string' },
               prototype_id: { type: 'string' },
             },
           },
@@ -206,12 +202,24 @@ export class DispatcherService {
   }
 
   private async handleRestartDevServer(
-    request: FastifyRequest<{ Body: { jwt: string; prototype_id: string } }>,
+    request: FastifyRequest<{ Body: { prototype_id: string } }>,
     reply: FastifyReply,
   ): Promise<APIResponse<unknown, StandardErrorResponse>> {
-    const { jwt, prototype_id } = request.body;
+    const { prototype_id } = request.body;
 
-    // 1. Authentication check
+    // 1. Extract JWT from Authorization header
+    const jwt = request.headers.authorization?.split(' ')[1];
+    if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No JWT token provided in Authorization header',
+        },
+      });
+    }
+
+    // 2. Authentication check
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       jwt,
@@ -234,7 +242,7 @@ export class DispatcherService {
     });
 
     try {
-      // 2. Get current build ID
+      // 3. Get current build ID
       const currentBuildId = await this.cache.get(
         CACHE_KEYS.protoCurrentBuild(prototype_id),
       );
@@ -249,7 +257,7 @@ export class DispatcherService {
         });
       }
 
-      // 3. Get the active build data
+      // 4. Get the active build data
       const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
       const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
 
@@ -263,7 +271,7 @@ export class DispatcherService {
         });
       }
 
-      // 4. Check if dev server is in a restartable state
+      // 5. Check if dev server is in a restartable state
       if (!isEditableDevServer(existingBuild.status)) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
@@ -274,14 +282,14 @@ export class DispatcherService {
         });
       }
 
-      // 5. Call restart endpoint on the fargate instance
+      // 6. Call restart endpoint on the fargate instance
       const restartResponse = await this.callFargateRestart(
         existingBuild.fargate_private_ip,
         request.log2,
       );
 
       if (restartResponse.success) {
-        // 6. Update last_touched timestamp
+        // 7. Update last_touched timestamp
         const updatedBuildData = {
           ...existingBuild,
           last_touched: Math.floor(Date.now() / 1000),
@@ -334,7 +342,19 @@ export class DispatcherService {
   ): Promise<APIResponse<unknown, StandardErrorResponse>> {
     const { prototype_id, command, args, cwd, env, timeout_ms } = request.body;
 
-    // 1. Authentication check
+    // 1. Extract JWT from Authorization header (commented out for now)
+    // const jwt = request.headers.authorization?.split(' ')[1];
+    // if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
+    //   return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    //     data: null,
+    //     error: {
+    //       error: 'Unauthorized',
+    //       message: 'No JWT token provided in Authorization header',
+    //     },
+    //   });
+    // }
+
+    // 2. Authentication check (commented out for now)
     // const authResult = await checkUserHasPrototypeEditAccess(
     //   prototype_id,
     //   jwt,
@@ -357,7 +377,7 @@ export class DispatcherService {
     // });
 
     try {
-      // 2. Get current build ID
+      // 3. Get current build ID
       const currentBuildId = await this.cache.get(
         CACHE_KEYS.protoCurrentBuild(prototype_id),
       );
@@ -372,7 +392,7 @@ export class DispatcherService {
         });
       }
 
-      // 3. Get the active build data
+      // 4. Get the active build data
       const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
       const existingBuild = await this.hgetallAsActiveBuild(activeBuildKey);
 
@@ -386,7 +406,7 @@ export class DispatcherService {
         });
       }
 
-      // 4. Check if dev server is in a runnable state
+      // 5. Check if dev server is in a runnable state
       if (!isEditableDevServer(existingBuild.status)) {
         return reply.status(HTTP_STATUS.CONFLICT).send({
           data: null,
@@ -397,7 +417,7 @@ export class DispatcherService {
         });
       }
 
-      // 5. Call run-command endpoint on the fargate instance
+      // 6. Call run-command endpoint on the fargate instance
       const commandResponse = await this.callFargateRunCommand(
         existingBuild.fargate_private_ip,
         { command, args, cwd, env, timeout_ms },
@@ -405,7 +425,7 @@ export class DispatcherService {
       );
 
       if (commandResponse.status === 'success') {
-        // 6. Update last_touched timestamp
+        // 7. Update last_touched timestamp
         const updatedBuildData = {
           ...existingBuild,
           last_touched: Math.floor(Date.now() / 1000),
@@ -524,7 +544,6 @@ export class DispatcherService {
   ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
     // 1. Extract validated body (validation handled by Fastify schema)
     const {
-      jwt,
       prototype_id,
       framework,
       files,
@@ -533,6 +552,20 @@ export class DispatcherService {
       deleted_files,
     } = request.body;
     const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
+
+    // 2. Extract JWT from Authorization header
+    const jwt = request.headers.authorization?.split(' ')[1];
+    if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No JWT token provided in Authorization header',
+        } as StandardErrorResponse,
+      });
+    }
+
+    // 3. Authentication and authorization validation
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       jwt,
@@ -827,21 +860,33 @@ export class DispatcherService {
     APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
   > {
     // 1. Extract validated body (validation handled by Fastify schema)
-    const { jwt, prototype_id } = request.body;
+    const { prototype_id } = request.body;
     request.log2 = request.log2.child({
       prototypeId: prototype_id,
     });
 
+    // 2. Extract JWT from Authorization header
+    const jwt = request.headers.authorization?.split(' ')[1];
+    if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No JWT token provided in Authorization header',
+        },
+      });
+    }
+
     try {
-      // 2. Make a call to dispatch precheck to get the precheck response
+      // 3. Make a call to dispatch precheck to get the precheck response
       const precheckInjectResponse = await this.fastifyApp.inject({
         method: 'POST',
         url: '/dispatch-precheck',
         headers: {
           'x-trace-id': request.log2.getTraceId(),
+          authorization: `Bearer ${jwt}`,
         },
         payload: {
-          jwt,
           prototype_id,
         } as DispatchPrecheckRequestBody,
       });
@@ -851,7 +896,7 @@ export class DispatcherService {
         DispatchPrecheckErrorResponse
       > = JSON.parse(precheckInjectResponse.payload);
 
-      // 3. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
+      // 4. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
       if (
         precheckResponse.data &&
         isEditableDevServer(precheckResponse.data.status)
@@ -896,7 +941,7 @@ export class DispatcherService {
         }
       }
 
-      // 4. Return the precheck response
+      // 5. Return the precheck response
       return reply.status(HTTP_STATUS.OK).send(precheckResponse);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
@@ -922,9 +967,21 @@ export class DispatcherService {
     APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
   > {
     // 1. Extract validated body (validation handled by Fastify schema)
-    const { jwt, prototype_id } = request.body;
+    const { prototype_id } = request.body;
 
-    // 2. Authentication and authorization validation
+    // 2. Extract JWT from Authorization header
+    const jwt = request.headers.authorization?.split(' ')[1];
+    if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No JWT token provided in Authorization header',
+        } as DispatchPrecheckErrorResponse,
+      });
+    }
+
+    // 3. Authentication and authorization validation
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       jwt,
