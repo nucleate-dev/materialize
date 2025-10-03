@@ -8,9 +8,9 @@ import {
   FetchViewingUrlSuccessResponse,
   HTTP_STATUS,
   StandardErrorResponse,
-} from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
+} from '../../../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 
 export default async function handleFetchViewingUrlImpl(
   request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,

@@ -11,11 +11,11 @@ import type {
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
-import { handleCreatePrototypeImpl } from './handleCreatePrototype.js';
-import handleResetPrototypeImpl from './handleResetPrototype.js';
-import handleDeletePrototypeImpl from './handleDeletePrototype.js';
+import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
+import handleResetPrototypeImpl from './handlers/handleResetPrototype.js';
+import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
 import { GlideClient } from '@valkey/valkey-glide';
-import handleFetchViewingUrlImpl from './handleFetchViewingUrl.js';
+import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;

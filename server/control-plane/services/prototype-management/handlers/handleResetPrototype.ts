@@ -6,17 +6,17 @@ import {
   DispatchPrecheckErrorResponse,
   DispatchRequestBody,
   HTTP_STATUS,
-} from '../../types/PublicAPITypes.js';
+} from '../../../types/PublicAPITypes.js';
 import { S3Client } from '@aws-sdk/client-s3';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../../types/supabase.js';
+import { Database } from '../../../types/supabase.js';
 import {
   deletePrototypeS3Builds,
   deletePrototypeAssetsFromStorage,
   deletePrototypeThumbnailFromSupabaseStorage,
-} from './storageOperations.js';
-import { isEditableDevServer } from '../../utils/prototypeDevServerStatusUtils.js';
+} from '../storageOperations.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { copyAllDefaultsForNewPrototype } from './handleCreatePrototype.js';
 
 export default async function handleResetPrototypeImpl(

@@ -5,10 +5,10 @@ import {
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
-} from '../../types/PublicAPITypes.js';
-import { validateJWTToken } from '../../utils/prototypeAuth.js';
-import { hasExceededPrototypeCreationLimit } from '../../utils/subscriptionChecks.js';
-import { Database } from '../../types/supabase.js';
+} from '../../../types/PublicAPITypes.js';
+import { validateJWTToken } from '../../../utils/prototypeAuth.js';
+import { hasExceededPrototypeCreationLimit } from '../../../utils/subscriptionChecks.js';
+import { Database } from '../../../types/supabase.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   deletePrototypeS3Builds,
@@ -21,13 +21,13 @@ import {
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
   uploadDefaultAssetsToSupabaseStorage,
-} from './storageOperations.js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+} from '../storageOperations.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   PrototypeAssetInsert,
   PrototypeFileInsert,
-} from '../../types/InternalTypes.js';
+} from '../../../types/InternalTypes.js';
 
 export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,

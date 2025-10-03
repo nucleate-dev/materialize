@@ -6,25 +6,27 @@ import {
   DeletePrototypeSuccessResponse,
   DeletePrototypeErrorResponse,
   HTTP_STATUS,
-} from '../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
+} from '../../../types/PublicAPITypes.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../../types/supabase.js';
+import { Database } from '../../../types/supabase.js';
 import {
   deletePrototypeS3Builds,
   deletePrototypeAssetsFromStorage,
   deletePrototypeThumbnailFromSupabaseStorage,
-} from './storageOperations.js';
+} from '../storageOperations.js';
 import { GlideClient } from '@valkey/valkey-glide';
-import { CACHE_KEYS } from '../../types/InternalTypes.js';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { CACHE_KEYS } from '../../../types/InternalTypes.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 export default async function handleDeletePrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
   reply: FastifyReply,
   s3Client: S3Client,
   cache: GlideClient,
-): Promise<APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>> {
+): Promise<
+  APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>
+> {
   try {
     const { prototype_id } = request.params;
     // 1. Get JWT token and validate authentication
