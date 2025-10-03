@@ -8,6 +8,7 @@ set -euxo pipefail
 # Variables - these should match the deploy script
 USER="ec2-user"
 REMOTE_BASE="/home/${USER}/control-plane"
+BUILD_WORKERS_BASE="/home/${USER}/build-workers"
 CW_CONFIG_PATH="/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
 CW_LOG_FILE="${REMOTE_BASE}/dev-server.log"
 CW_LOG_GROUP="/ec2/materialize/control-plane-dev"
@@ -65,6 +66,21 @@ if command -v dnf >/dev/null 2>&1; then
     libXinerama \
     libXt \
     xdg-utils
+
+  # Install build-workers dependencies (watchman prerequisites)
+  echo "==> Installing build-workers dependencies for watchman..."
+  dnf -y install \
+    autoconf \
+    automake \
+    libtool \
+    python3 \
+    python3-devel \
+    openssl-devel \
+    pcre2-devel \
+    libevent-devel \
+    curl \
+    rust \
+    cargo
 else
   # Amazon Linux 2 / RHEL 8 (uses yum)
   if ! command -v node >/dev/null 2>&1; then
@@ -115,16 +131,67 @@ else
     libXinerama \
     libXt \
     xdg-utils
+
+  # Install build-workers dependencies (watchman prerequisites)
+  echo "==> Installing build-workers dependencies for watchman..."
+  sudo yum install -y \
+    autoconf \
+    automake \
+    libtool \
+    python3 \
+    python3-devel \
+    openssl-devel \
+    pcre2-devel \
+    libevent-devel \
+    curl \
+    rust \
+    cargo
 fi
 
-# 2. Create application directory
-echo "==> Creating application directory..."
+# 2. Install watchman for build-workers
+echo "==> Installing watchman from prebuilt binary..."
+WATCHMAN_VERSION="2024.01.15.00"
+cd /tmp
+curl -L "https://github.com/facebook/watchman/releases/download/v${WATCHMAN_VERSION}/watchman-v${WATCHMAN_VERSION}-linux.zip" -o watchman.zip
+unzip watchman.zip
+cd watchman-v${WATCHMAN_VERSION}-linux
+mkdir -p /usr/local/bin /usr/local/lib /usr/local/var/run/watchman
+cp bin/* /usr/local/bin/
+cp lib/* /usr/local/lib/
+chmod 755 /usr/local/bin/watchman
+chmod 2777 /usr/local/var/run/watchman
+cd ..
+rm -rf watchman*
+ldconfig /usr/local/lib
+
+# 3. Install global npm packages for build-workers
+echo "==> Installing @expo/ngrok globally..."
+npm install -g @expo/ngrok@^4.1.0
+
+# 4. Create application directories
+echo "==> Creating application directories..."
 mkdir -p ${REMOTE_BASE}
+mkdir -p ${BUILD_WORKERS_BASE}
+mkdir -p /tmp/logs
+mkdir -p /tmp/npm-cache
+chmod 777 /tmp/npm-cache
 chown ${USER}:${USER} ${REMOTE_BASE}
+chown ${USER}:${USER} ${BUILD_WORKERS_BASE}
+chown ${USER}:${USER} /tmp/logs
+
+# 5. Set environment variables for build-workers
+echo "==> Setting environment variables in ec2-user's profile..."
+cat >> /home/${USER}/.bashrc << 'EOF'
+export EXPO_NO_TELEMETRY=1
+export CHOKIDAR_USEPOLLING=1
+export CHOKIDAR_INTERVAL=100
+export WATCHPACK_POLLING=true
+export NPM_CONFIG_CACHE=/tmp/npm-cache
+EOF
 
 echo "✅ System prerequisites installed successfully"
 
-# 3. Configure CloudWatch Agent
+# 6. Configure CloudWatch Agent
 echo "==> Configuring CloudWatch Agent..."
 
 # Write CloudWatch Agent configuration
@@ -157,7 +224,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
 echo "✅ CloudWatch Agent configured and started successfully"
 
-# 4. Schedule auto-termination in 3 hours
+# 7. Schedule auto-termination in 3 hours
 echo "==> Scheduling auto-termination in 3 hours..."
 shutdown -h +180
 
