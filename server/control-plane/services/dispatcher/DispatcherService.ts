@@ -343,38 +343,38 @@ export class DispatcherService {
     const { prototype_id, command, args, cwd, env, timeout_ms } = request.body;
 
     // 1. Extract JWT from Authorization header (commented out for now)
-    // const jwt = request.headers.authorization?.split(' ')[1];
-    // if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    //   return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-    //     data: null,
-    //     error: {
-    //       error: 'Unauthorized',
-    //       message: 'No JWT token provided in Authorization header',
-    //     },
-    //   });
-    // }
+    const jwt = request.headers.authorization?.split(' ')[1];
+    if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message: 'No JWT token provided in Authorization header',
+        },
+      });
+    }
 
     // 2. Authentication check (commented out for now)
-    // const authResult = await checkUserHasPrototypeEditAccess(
-    //   prototype_id,
-    //   jwt,
-    //   request.log2,
-    // );
-    // if (!authResult || !authResult.canEdit) {
-    //   return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-    //     data: null,
-    //     error: {
-    //       error: 'Unauthorized',
-    //       message:
-    //         'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-    //     },
-    //   });
-    // }
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototype_id,
+      jwt,
+      request.log2,
+    );
+    if (!authResult || !authResult.canEdit) {
+      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
+      });
+    }
 
-    // request.log2 = request.log2.child({
-    //   userId: authResult.user.id,
-    //   prototypeId: prototype_id,
-    // });
+    request.log2 = request.log2.child({
+      userId: authResult.user.id,
+      prototypeId: prototype_id,
+    });
 
     try {
       // 3. Get current build ID
