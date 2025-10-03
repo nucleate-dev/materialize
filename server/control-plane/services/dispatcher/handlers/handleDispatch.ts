@@ -33,7 +33,7 @@ import {
   isDispatchInProgress,
 } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
-import { IdleContainerAllocationSystemService } from '../IdleContainerAllocationSystemService.js';
+import { IdleContainerAllocationSystemService } from '../../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';

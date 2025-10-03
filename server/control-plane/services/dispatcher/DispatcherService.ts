@@ -14,7 +14,7 @@ import {
   type RunCommandSuccessResponse,
   type StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
-import { IdleContainerAllocationSystemService } from './IdleContainerAllocationSystemService.js';
+import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { handleDispatchImpl } from './handlers/handleDispatch.js';
 import { handleDispatchEditIntentImpl } from './handlers/handleDispatchEditIntent.js';
 import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
