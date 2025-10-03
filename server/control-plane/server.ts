@@ -219,8 +219,6 @@ const start = async (): Promise<void> => {
     // Create internal dev server management service and register routes
     internalDevServerManagementService = new InternalDevServerManagementService(
       ec2Client,
-      ecsClient,
-      fastify,
     );
     internalDevServerManagementService.registerRoutes(fastify);
 
