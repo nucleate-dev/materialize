@@ -24,26 +24,26 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../utils/prototypeDevServerStatusUtils.js';
+import { DispatcherService } from './dispatcher/DispatcherService.js';
 
 export class DevelopmentServerService {
   private fastifyApp: FastifyInstance;
   private supabaseUrl: string;
   private supabaseAnonKey: string;
-  private supabaseServiceKey: string;
+  private dispatcherService: DispatcherService;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    dispatcherService: DispatcherService,
+  ) {
     this.fastifyApp = fastifyApp;
+    this.dispatcherService = dispatcherService;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
-    this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    if (
-      !this.supabaseUrl ||
-      !this.supabaseAnonKey ||
-      !this.supabaseServiceKey
-    ) {
+    if (!this.supabaseUrl || !this.supabaseAnonKey) {
       throw new Error(
         'Missing required Supabase environment variables for DevelopmentServerService',
       );

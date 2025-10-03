@@ -16,6 +16,7 @@ import handleResetPrototypeImpl from './handlers/handleResetPrototype.js';
 import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
 import { GlideClient } from '@valkey/valkey-glide';
 import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
+import { DispatcherService } from '../dispatcher/DispatcherService.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -24,15 +25,18 @@ export class PrototypeManagementService {
   private supabaseServiceKey: string;
   private s3Client: S3Client;
   private cache: GlideClient;
+  private dispatcherService: DispatcherService;
 
   constructor(
     fastifyApp: FastifyInstance,
     s3Client: S3Client,
     cache: GlideClient,
+    dispatcherService: DispatcherService,
   ) {
     this.fastifyApp = fastifyApp;
     this.s3Client = s3Client;
     this.cache = cache;
+    this.dispatcherService = dispatcherService;
 
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;

@@ -19,9 +19,11 @@ import { validateChatAuth } from './utils/chat-auth.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
 import { trackChatUsage } from './utils/usage-tracking.js';
+import { DispatcherService } from '../dispatcher/DispatcherService.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
+  private dispatcherService: DispatcherService;
   private supabaseUrl: string;
   private supabaseServiceKey: string;
   private googleAiApiKey: string;
@@ -33,9 +35,12 @@ export class ChatService {
   private stripe: Stripe;
   private chatEngine: ChatEngineV1;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    dispatcherService: DispatcherService,
+  ) {
     this.fastifyApp = fastifyApp;
-
+    this.dispatcherService = dispatcherService;
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

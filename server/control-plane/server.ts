@@ -195,15 +195,19 @@ const start = async (): Promise<void> => {
       fastify,
       s3Client,
       cacheClient,
+      dispatcherService,
     );
     prototypeManagementService.registerRoutes(fastify);
 
     // Create development server service and register routes
-    developmentServerService = new DevelopmentServerService(fastify);
+    developmentServerService = new DevelopmentServerService(
+      fastify,
+      dispatcherService,
+    );
     developmentServerService.registerRoutes(fastify);
 
     // Create chat service and register routes
-    chatService = new ChatService(fastify);
+    chatService = new ChatService(fastify, dispatcherService);
     chatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
