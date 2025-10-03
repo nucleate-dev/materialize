@@ -1,5 +1,6 @@
 import {
   APIResponse,
+  BuildStatus,
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   StandardErrorResponse,
@@ -11,7 +12,10 @@ import {
   S3_URL_TEMPLATE,
 } from '../../../types/InternalTypes.js';
 import { GlideClient } from '@valkey/valkey-glide';
-import { hgetallAsActiveBuild } from '../../../utils/cacheInteractionUtils.js';
+import {
+  hgetallAsActiveBuild,
+  hgetallAsDevBuild,
+} from '../../../utils/cacheInteractionUtils.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 
@@ -25,6 +29,26 @@ export async function handleDispatchPrecheckImpl(
 > {
   // 1. Extract validated body
   const { prototype_id } = body;
+
+  // ------------------------------------------------------------------------------------------------
+  // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
+  // all auth & cache management logic and just dispatch to the provided ip directly
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.FARGATE_DEV_MODE === 'true' &&
+    process.env.FARGATE_DEV_IP
+  ) {
+    const devKey = CACHE_KEYS.protoDev(prototype_id);
+    const existingDevData = await hgetallAsDevBuild(cache, devKey);
+    return {
+      data: {
+        status: (existingDevData?.status as BuildStatus) || null,
+        viewing_url: existingDevData?.url || '',
+      },
+      error: null,
+    };
+  }
+  // ------------------------------------------------------------------------------------------------
 
   // 2. Authentication and authorization validation
   const authResult = await checkUserHasPrototypeEditAccess(

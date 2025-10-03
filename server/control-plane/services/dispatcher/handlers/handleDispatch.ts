@@ -1,5 +1,6 @@
 import {
   APIResponse,
+  BuildStatus,
   DispatchRequestBody,
   DispatchSuccessResponse,
   PrototypeAssetInput,
@@ -24,6 +25,7 @@ import {
 import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
+  hgetallAsDevBuild,
   removeBuildDataFromCache,
 } from '../../../utils/cacheInteractionUtils.js';
 import {
@@ -57,6 +59,29 @@ export async function handleDispatchImpl(
     process.env.FARGATE_DEV_MODE === 'true' &&
     process.env.FARGATE_DEV_IP
   ) {
+    const devKey = CACHE_KEYS.protoDev(prototype_id);
+    const existingDevData = await hgetallAsDevBuild(cache, devKey);
+
+    if (
+      existingDevData?.status &&
+      isDispatchInProgress(existingDevData.status as BuildStatus)
+    ) {
+      return {
+        data: null,
+        error: {
+          error: 'Conflict',
+          message:
+            'There is already an active dispatch request for this prototype',
+        },
+      };
+    }
+
+    // Set initial status and url
+    await cache.hset(devKey, {
+      status: 'updating' as BuildStatus,
+      url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+    });
+
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
       jwt,
       prototype_id,
@@ -68,25 +93,36 @@ export async function handleDispatchImpl(
       log2,
       fargate_private_ip: process.env.FARGATE_DEV_IP,
     });
+
     if (fargateResponse.status === 'success') {
+      const newUrl = normalizeUrl(
+        fargateResponse.tunnel_url || getS3Url(prototype_id),
+      );
+      await cache.hset(devKey, {
+        status: 'stable' as BuildStatus,
+        url: newUrl,
+      });
       return {
         data: {
-          viewing_url: normalizeUrl(
-            fargateResponse.tunnel_url || getS3Url(prototype_id),
-          ),
+          viewing_url: newUrl,
           build_errors: fargateResponse.build_errors,
           build_warnings: fargateResponse.build_warnings,
         },
         error: null,
       };
+    } else {
+      await cache.hset(devKey, {
+        status: 'error' as BuildStatus,
+        url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+      });
+      return {
+        data: null,
+        error: {
+          error: 'Build Failed',
+          message: 'Build failed on development fargate instance',
+        },
+      };
     }
-    return {
-      data: null,
-      error: {
-        error: 'Build Failed',
-        message: 'Build failed on development fargate instance',
-      },
-    };
   }
   // ------------------------------------------------------------------------------------------------
 

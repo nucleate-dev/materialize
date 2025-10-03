@@ -212,6 +212,7 @@ export const CACHE_KEYS = {
   activeBuild: (buildId: string) => `active_build:${buildId}`,
   idleBuildsListKey: 'idle_builds:list',
   idleBuild: (taskArn: string) => `idle_builds:${taskArn}`,
+  protoDev: (prototypeId: string) => `development:${prototypeId}`,
 } as const;
 
 export const CACHE_PATTERNS = {

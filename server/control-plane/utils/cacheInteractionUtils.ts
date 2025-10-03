@@ -82,3 +82,29 @@ export function activeBuildToStringRecord(
     last_touched: build.last_touched.toString(),
   };
 }
+
+/* 
+THIS IS ONLY MEANT TO BE USED FOR INTERNAL FARGATE DEV MODE
+*/
+export async function hgetallAsDevBuild(
+  cache: GlideClient,
+  key: string,
+): Promise<{ status: string | null; url: string } | null> {
+  const raw = await cache.hgetall(key);
+
+  if (!raw || raw.length === 0) return null;
+
+  const obj = Object.fromEntries(
+    raw.map(
+      (e: { field: { toString(): string }; value: { toString(): string } }) => [
+        e.field.toString(),
+        e.value.toString(),
+      ],
+    ),
+  ) as Record<string, string>;
+
+  return {
+    status: obj.status || null,
+    url: obj.url || '',
+  };
+}
