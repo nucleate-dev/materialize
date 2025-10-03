@@ -27,6 +27,8 @@ import {
   PrototypeAssetInput,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
+  type RunCommandRequestBody,
+  type RunCommandSuccessResponse,
   type StandardErrorResponse,
   StartDevServerRequestBody,
 } from '../../types/PublicAPITypes.js';
@@ -171,14 +173,7 @@ export class DispatcherService {
 
     // POST /dev-server/run-command
     app.post<{
-      Body: {
-        prototype_id: string;
-        command: string;
-        args?: string[];
-        cwd?: string;
-        env?: Record<string, string>;
-        timeout_ms?: number;
-      };
+      Body: RunCommandRequestBody;
     }>(
       '/dev-server/run-command',
       {
@@ -329,20 +324,13 @@ export class DispatcherService {
 
   private async handleRunCommand(
     request: FastifyRequest<{
-      Body: {
-        prototype_id: string;
-        command: string;
-        args?: string[];
-        cwd?: string;
-        env?: Record<string, string>;
-        timeout_ms?: number;
-      };
+      Body: RunCommandRequestBody;
     }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<unknown, StandardErrorResponse>> {
+  ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
     const { prototype_id, command, args, cwd, env, timeout_ms } = request.body;
 
-    // 1. Extract JWT from Authorization header (commented out for now)
+    // 1. Extract JWT from Authorization header
     const jwt = request.headers.authorization?.split(' ')[1];
     if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -354,7 +342,7 @@ export class DispatcherService {
       });
     }
 
-    // 2. Authentication check (commented out for now)
+    // 2. Authentication check
     const authResult = await checkUserHasPrototypeEditAccess(
       prototype_id,
       jwt,
@@ -438,10 +426,10 @@ export class DispatcherService {
 
         return reply.status(HTTP_STATUS.OK).send({
           data: {
-            stdout: commandResponse.stdout,
-            stderr: commandResponse.stderr,
-            exit_code: commandResponse.exit_code,
-          },
+            stdout: commandResponse.stdout ?? '',
+            stderr: commandResponse.stderr ?? '',
+            exit_code: commandResponse.exit_code ?? -1,
+          } as RunCommandSuccessResponse,
           error: null,
         });
       } else {

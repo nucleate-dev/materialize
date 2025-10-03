@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-10-03T00:54:44.397Z
+// Last synced: 2025-10-03T01:40:37.653Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -283,6 +283,25 @@ export interface StartDevServerSuccessResponse {
   status: 'success' | 'error';
   viewing_url: string;
   message: string;
+}
+
+// ============================================================================
+// /dev-server/run-command ENDPOINT
+// ============================================================================
+
+export interface RunCommandRequestBody {
+  prototype_id: string;
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  timeout_ms?: number;
+}
+
+export interface RunCommandSuccessResponse {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
 }
 
 // ============================================================================

@@ -277,6 +277,25 @@ export interface StartDevServerSuccessResponse {
 }
 
 // ============================================================================
+// /dev-server/run-command ENDPOINT
+// ============================================================================
+
+export interface RunCommandRequestBody {
+  prototype_id: string;
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  timeout_ms?: number;
+}
+
+export interface RunCommandSuccessResponse {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
+}
+
+// ============================================================================
 // /chat ENDPOINT
 // ============================================================================
 

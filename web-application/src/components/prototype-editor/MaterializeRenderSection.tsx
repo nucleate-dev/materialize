@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type {
   APIResponse,
+  RunCommandRequestBody,
+  RunCommandSuccessResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
   StartDevServerSuccessResponse,
@@ -268,11 +270,14 @@ const MaterializeRenderSection = forwardRef<
               prototype_id: prototypeId,
               command: "npm",
               args: ["run", "lint"],
-            }),
+            } as RunCommandRequestBody),
           },
         );
 
-        const result = await response.json();
+        const result: APIResponse<
+          RunCommandSuccessResponse,
+          StandardErrorResponse
+        > = await response.json();
 
         if (response.ok && result.data) {
 
