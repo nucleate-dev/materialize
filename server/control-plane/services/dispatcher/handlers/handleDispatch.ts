@@ -1,4 +1,3 @@
-import { FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
   DispatchRequestBody,
@@ -40,46 +39,41 @@ import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 
 export async function handleDispatchImpl(
-  request: FastifyRequest<{ Body: DispatchRequestBody }>,
-  reply: FastifyReply,
+  body: DispatchRequestBody,
+  jwt: string,
   cache: GlideClient,
   idleContainerAllocationSystem: IdleContainerAllocationSystemService,
-): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
-  // 1. Extract validated body (validation handled by Fastify schema)
+  log2: SystemLogger,
+): Promise<{
+  statusCode: number;
+  response: APIResponse<DispatchSuccessResponse, StandardErrorResponse>;
+}> {
+  // 1. Extract validated body
   const { prototype_id, framework, files, assets, file_scope, deleted_files } =
-    request.body;
+    body;
   const selectedFramework = framework || 'expo_react_native'; // Default framework to expo_react_native if not provided
 
-  // 2. Extract JWT from Authorization header && authenticate
-  const jwt = request.headers.authorization?.split(' ')[1];
-  if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
-    return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message: 'No JWT token provided in Authorization header',
-      },
-    };
-  }
+  // 2. Authenticate
   const authResult = await checkUserHasPrototypeEditAccess(
     prototype_id,
     jwt,
-    request.log2,
+    log2,
   );
   if (!authResult || !authResult.canEdit) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
     return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      statusCode: HTTP_STATUS.UNAUTHORIZED,
+      response: {
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
       },
     };
   }
   // update logger context
-  request.log2 = request.log2.child({
+  log2 = log2.child({
     userId: authResult.user.id,
     prototypeId: prototype_id,
   });
@@ -94,7 +88,7 @@ export async function handleDispatchImpl(
 
     let shouldCreateNewBuild = true;
     if (currentBuildId) {
-      request.log2.consoleLogDevOnly('info', 'Current build ID found: ', {
+      log2.consoleLogDevOnly('info', 'Current build ID found: ', {
         currentBuildId,
       });
       const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
@@ -102,32 +96,36 @@ export async function handleDispatchImpl(
 
       if (existingBuild) {
         if (!isActiveBuildType(existingBuild)) {
-          reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
           return {
-            data: null,
-            error: {
-              error: 'Internal Server Error',
-              message: 'Invalid build data in cache',
+            statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            response: {
+              data: null,
+              error: {
+                error: 'Internal Server Error',
+                message: 'Invalid build data in cache',
+              },
             },
           };
         }
 
         // If build is cleaning or building, proceed with new build
         if (isDevServerInShutdownStages(existingBuild.status)) {
-          request.log2.consoleLogDevOnly(
+          log2.consoleLogDevOnly(
             'info',
             `Existing devserver ${currentBuildId} is cleaning or building, creating new devserver`,
           );
           shouldCreateNewBuild = true;
         } else if (isDispatchInProgress(existingBuild.status)) {
           // If build is actively working, return error
-          reply.status(HTTP_STATUS.CONFLICT);
           return {
-            data: null,
-            error: {
-              error: 'Conflict',
-              message:
-                'There is already an active dispatch request for this prototype',
+            statusCode: HTTP_STATUS.CONFLICT,
+            response: {
+              data: null,
+              error: {
+                error: 'Conflict',
+                message:
+                  'There is already an active dispatch request for this prototype',
+              },
             },
           };
         } else {
@@ -140,7 +138,7 @@ export async function handleDispatchImpl(
     let activeBuildKey: string;
     let updatedBuildCacheData: ActiveBuild;
     if (shouldCreateNewBuild) {
-      request.log2.consoleLogDevOnly('info', 'Creating new build');
+      log2.consoleLogDevOnly('info', 'Creating new build');
       const newBuildCacheData: ActiveBuild = {
         fargate_task_arn: '',
         fargate_private_ip: '',
@@ -156,7 +154,7 @@ export async function handleDispatchImpl(
       );
       let newFargateInstance: FargateInstanceInfo;
       try {
-        newFargateInstance = await request.log2.time(
+        newFargateInstance = await log2.time(
           LatencyEvents.launch_fargate_instance_latency,
           async (): Promise<FargateInstanceInfo> => {
             return await idleContainerAllocationSystem.allocateFargateDevServer(
@@ -170,14 +168,11 @@ export async function handleDispatchImpl(
         const buildIdFromKey = activeBuildKey.replace('active_build:', '');
         await removeBuildDataFromCache(
           cache,
-          request.log2,
+          log2,
           prototype_id,
           buildIdFromKey,
         ); // remove build data from cache so it doesn't affect future builds
-        request.log2.error(
-          error,
-          'Failed to launch fargate instance for dispatcher',
-        );
+        log2.error(error, 'Failed to launch fargate instance for dispatcher');
         throw error;
       }
       updatedBuildCacheData = {
@@ -188,16 +183,18 @@ export async function handleDispatchImpl(
       };
     } else {
       // Reuse existing build
-      request.log2.consoleLogDevOnly('info', 'Reusing existing build');
+      log2.consoleLogDevOnly('info', 'Reusing existing build');
       activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
       const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
       if (!existingBuild || !isActiveBuildType(existingBuild)) {
-        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
         return {
-          data: null,
-          error: {
-            error: 'Internal Server Error',
-            message: 'Invalid build data in cache',
+          statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          response: {
+            data: null,
+            error: {
+              error: 'Internal Server Error',
+              message: 'Invalid build data in cache',
+            },
           },
         };
       }
@@ -222,10 +219,10 @@ export async function handleDispatchImpl(
       deleted_files,
       assets,
       file_scope,
-      log2: request.log2,
+      log2: log2,
     });
     try {
-      request.log2.info(
+      log2.info(
         `Dispatching request to fargate instance at ${updatedBuildCacheData.fargate_private_ip}:3002/dev-server: `,
         {
           requestBodyDetails: {
@@ -237,18 +234,18 @@ export async function handleDispatchImpl(
           },
         },
       );
-      const fargateResponse = await request.log2.time(
+      const fargateResponse = await log2.time(
         LatencyEvents.dispatch_request_to_fargate_server_latency,
         async (): Promise<FargateDevServerResponse> => {
           return await dispatchFormedRequestToFargateInstanceServer(
             updatedBuildCacheData.fargate_private_ip,
             requestBody,
-            request.log2,
+            log2,
           );
         },
         { fileScope: file_scope },
       );
-      request.log2.info('Fargate responded: ', { fargateResponse });
+      log2.info('Fargate responded: ', { fargateResponse });
 
       updatedBuildCacheData.status = 'stable';
       updatedBuildCacheData.url =
@@ -266,38 +263,42 @@ export async function handleDispatchImpl(
         updatedBuildCacheData.last_touched.toString(),
         buildIdFromKey,
       ]);
-      request.log2.info('Updated build cache data: ', {
+      log2.info('Updated build cache data: ', {
         activeBuildCacheData: updatedBuildCacheData,
       });
 
       if (fargateResponse.status === 'success') {
-        reply.status(HTTP_STATUS.OK);
         return {
-          data: {
-            viewing_url: normalizeUrl(
-              fargateResponse.tunnel_url || getS3Url(prototype_id),
-            ),
-            build_errors: fargateResponse.build_errors,
-            build_warnings: fargateResponse.build_warnings,
+          statusCode: HTTP_STATUS.OK,
+          response: {
+            data: {
+              viewing_url: normalizeUrl(
+                fargateResponse.tunnel_url || getS3Url(prototype_id),
+              ),
+              build_errors: fargateResponse.build_errors,
+              build_warnings: fargateResponse.build_warnings,
+            },
+            error: null,
           },
-          error: null,
         };
       } else {
-        request.log2.error(undefined, 'Build failed on fargate instance', {
+        log2.error(undefined, 'Build failed on fargate instance', {
           fargateResponse,
         });
-        reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
         return {
-          data: null,
-          error: {
-            error: 'Build Failed',
-            message: 'Build failed on fargate instance',
+          statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          response: {
+            data: null,
+            error: {
+              error: 'Build Failed',
+              message: 'Build failed on fargate instance',
+            },
           },
         };
       }
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      request.log2.error(
+      log2.error(
         error,
         'There was an error dispatching the request to the fargate instance',
       );
@@ -307,26 +308,30 @@ export async function handleDispatchImpl(
         activeBuildToStringRecord(updatedBuildCacheData),
       );
 
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
-        data: null,
-        error: {
-          error: 'Internal Server Error',
-          message:
-            'There was a server error building the prototype. ' + e.message,
+        statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        response: {
+          data: null,
+          error: {
+            error: 'Internal Server Error',
+            message:
+              'There was a server error building the prototype. ' + e.message,
+          },
         },
       };
     }
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
-    request.log2.error(error, 'Dispatch request failed');
+    log2.error(error, 'Dispatch request failed');
 
-    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
-      data: null,
-      error: {
-        error: 'Internal Server Error',
-        message: e.message,
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      response: {
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       },
     };
   }

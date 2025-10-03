@@ -1,7 +1,6 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
-  DispatchPrecheckErrorResponse,
+  StandardErrorResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   HTTP_STATUS,
@@ -13,52 +12,34 @@ import {
   hgetallAsActiveBuild,
 } from '../../../utils/cacheInteractionUtils.js';
 import { GlideClient } from '@valkey/valkey-glide';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import { handleDispatchPrecheckImpl } from './handleDispatchPrecheck.js';
 
 export async function handleDispatchEditIntentImpl(
-  request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
-  reply: FastifyReply,
+  body: DispatchPrecheckRequestBody,
+  jwt: string,
   cache: GlideClient,
-  fastifyApp: FastifyInstance,
-): Promise<
-  APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
-> {
+  log2: SystemLogger,
+): Promise<{
+  statusCode: number;
+  response: APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>;
+}> {
   // 1. Extract validated body
-  const { prototype_id } = request.body;
-  request.log2 = request.log2.child({
+  const { prototype_id } = body;
+  log2 = log2.child({
     prototypeId: prototype_id,
   });
 
-  // 2. Extract JWT from Authorization header
-  const jwt = request.headers.authorization?.split(' ')[1];
-  if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
-    return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message: 'No JWT token provided in Authorization header',
-      },
-    };
-  }
-
   try {
-    // 3. Make a call to dispatch precheck to get the precheck response
-    const precheckInjectResponse = await fastifyApp.inject({
-      method: 'POST',
-      url: '/dispatch-precheck',
-      headers: {
-        'x-trace-id': request.log2.getTraceId(),
-        authorization: `Bearer ${jwt}`,
-      },
-      payload: {
-        prototype_id,
-      } as DispatchPrecheckRequestBody,
-    });
+    // 2. Make a call to dispatch precheck to get the precheck response
+    const precheckResult = await handleDispatchPrecheckImpl(
+      body,
+      jwt,
+      cache,
+      log2,
+    );
 
-    const precheckResponse: APIResponse<
-      DispatchPrecheckSuccessResponse,
-      DispatchPrecheckErrorResponse
-    > = JSON.parse(precheckInjectResponse.payload);
+    const precheckResponse = precheckResult.response;
 
     // 4. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
     if (
@@ -95,7 +76,7 @@ export async function handleDispatchEditIntentImpl(
             buildIdFromKey,
           ]);
 
-          request.log2.consoleLogDevOnly(
+          log2.consoleLogDevOnly(
             'info',
             `[handleDispatchEditIntent] Updated last_touched timestamp for build: ${currentBuildId}`,
           );
@@ -104,21 +85,22 @@ export async function handleDispatchEditIntentImpl(
     }
 
     // 5. Return the precheck response
-    reply.status(HTTP_STATUS.OK);
-    return precheckResponse;
+    return {
+      statusCode: HTTP_STATUS.OK,
+      response: precheckResponse,
+    };
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
-    request.log2.error(
-      error,
-      '[handleDispatchEditIntent] Edit intent request failed',
-    );
+    log2.error(error, '[handleDispatchEditIntent] Edit intent request failed');
 
-    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
-      data: null,
-      error: {
-        error: 'Internal Server Error',
-        message: e.message,
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      response: {
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       },
     };
   }

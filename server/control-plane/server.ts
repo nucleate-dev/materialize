@@ -178,14 +178,12 @@ const start = async (): Promise<void> => {
         log2: baseLogger,
       });
 
-    // Create dispatcher service with initialized clients and register routes
+    // Create dispatcher service with initialized clients
     dispatcherService = new DispatcherService(
       cacheClient,
-      fastify,
       idleContainerAllocationSystemService,
       baseLogger,
     );
-    dispatcherService.registerRoutes(fastify);
 
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();

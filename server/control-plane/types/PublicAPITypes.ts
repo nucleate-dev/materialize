@@ -105,11 +105,6 @@ export interface DispatchPrecheckSuccessResponse {
   viewing_url: string;
 }
 
-export interface DispatchPrecheckErrorResponse {
-  error: string;
-  message: string;
-}
-
 // ============================================================================
 // /cache/clear ENDPOINT
 // ============================================================================

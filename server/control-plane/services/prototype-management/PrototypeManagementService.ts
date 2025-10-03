@@ -137,7 +137,7 @@ export class PrototypeManagementService {
   ): Promise<
     APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>
   > {
-    return await handleFetchViewingUrlImpl(request, reply, this.fastifyApp);
+    return await handleFetchViewingUrlImpl(request, reply, this.dispatcherService);
   }
 
   private async handleCreatePrototype(
@@ -157,7 +157,7 @@ export class PrototypeManagementService {
       request,
       reply,
       this.s3Client,
-      this.fastifyApp,
+      this.dispatcherService,
     );
   }
 

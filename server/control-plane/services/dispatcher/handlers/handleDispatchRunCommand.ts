@@ -1,4 +1,3 @@
-import { FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
   HTTP_STATUS,
@@ -18,46 +17,37 @@ import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
 
 export async function handleRunCommandImpl(
-  request: FastifyRequest<{
-    Body: RunCommandRequestBody;
-  }>,
-  reply: FastifyReply,
+  body: RunCommandRequestBody,
+  jwt: string,
   cache: GlideClient,
-): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
-  const { prototype_id, command, args, cwd, env, timeout_ms } = request.body;
+  log2: SystemLogger,
+): Promise<{
+  statusCode: number;
+  response: APIResponse<RunCommandSuccessResponse, StandardErrorResponse>;
+}> {
+  const { prototype_id, command, args, cwd, env, timeout_ms } = body;
 
-  // 1. Extract JWT from Authorization header
-  const jwt = request.headers.authorization?.split(' ')[1];
-  if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
-    return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message: 'No JWT token provided in Authorization header',
-      },
-    };
-  }
-
-  // 2. Authentication check
+  // 1. Authentication check
   const authResult = await checkUserHasPrototypeEditAccess(
     prototype_id,
     jwt,
-    request.log2,
+    log2,
   );
   if (!authResult || !authResult.canEdit) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
     return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      statusCode: HTTP_STATUS.UNAUTHORIZED,
+      response: {
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
       },
     };
   }
 
-  request.log2 = request.log2.child({
+  log2 = log2.child({
     userId: authResult.user.id,
     prototypeId: prototype_id,
   });
@@ -69,12 +59,14 @@ export async function handleRunCommandImpl(
     );
 
     if (!currentBuildId) {
-      reply.status(HTTP_STATUS.NOT_FOUND);
       return {
-        data: null,
-        error: {
-          error: 'Not Found',
-          message: 'No active dev server found for this prototype',
+        statusCode: HTTP_STATUS.NOT_FOUND,
+        response: {
+          data: null,
+          error: {
+            error: 'Not Found',
+            message: 'No active dev server found for this prototype',
+          },
         },
       };
     }
@@ -84,24 +76,28 @@ export async function handleRunCommandImpl(
     const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
 
     if (!existingBuild || !isActiveBuildType(existingBuild)) {
-      reply.status(HTTP_STATUS.NOT_FOUND);
       return {
-        data: null,
-        error: {
-          error: 'Not Found',
-          message: 'Invalid or missing build data',
+        statusCode: HTTP_STATUS.NOT_FOUND,
+        response: {
+          data: null,
+          error: {
+            error: 'Not Found',
+            message: 'Invalid or missing build data',
+          },
         },
       };
     }
 
     // 5. Check if dev server is in a runnable state
     if (!isEditableDevServer(existingBuild.status)) {
-      reply.status(HTTP_STATUS.CONFLICT);
       return {
-        data: null,
-        error: {
-          error: 'Conflict',
-          message: `Cannot run command on dev server in ${existingBuild.status} state`,
+        statusCode: HTTP_STATUS.CONFLICT,
+        response: {
+          data: null,
+          error: {
+            error: 'Conflict',
+            message: `Cannot run command on dev server in ${existingBuild.status} state`,
+          },
         },
       };
     }
@@ -110,7 +106,7 @@ export async function handleRunCommandImpl(
     const commandResponse = await callFargateRunCommand(
       existingBuild.fargate_private_ip,
       { command, args, cwd, env, timeout_ms },
-      request.log2,
+      log2,
     );
 
     if (commandResponse.status === 'success') {
@@ -125,36 +121,42 @@ export async function handleRunCommandImpl(
         activeBuildToStringRecord(updatedBuildData),
       );
 
-      reply.status(HTTP_STATUS.OK);
       return {
-        data: {
-          stdout: commandResponse.stdout ?? '',
-          stderr: commandResponse.stderr ?? '',
-          exit_code: commandResponse.exit_code ?? -1,
-        } as RunCommandSuccessResponse,
-        error: null,
+        statusCode: HTTP_STATUS.OK,
+        response: {
+          data: {
+            stdout: commandResponse.stdout ?? '',
+            stderr: commandResponse.stderr ?? '',
+            exit_code: commandResponse.exit_code ?? -1,
+          } as RunCommandSuccessResponse,
+          error: null,
+        },
       };
     } else {
-      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
       return {
-        data: null,
-        error: {
-          error: 'Command Execution Failed',
-          message:
-            commandResponse.error || 'Failed to run command on dev server',
+        statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        response: {
+          data: null,
+          error: {
+            error: 'Command Execution Failed',
+            message:
+              commandResponse.error || 'Failed to run command on dev server',
+          },
         },
       };
     }
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
-    request.log2.error(error, 'Failed to run command on dev server');
+    log2.error(error, 'Failed to run command on dev server');
 
-    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
-      data: null,
-      error: {
-        error: 'Internal Server Error',
-        message: e.message,
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      response: {
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       },
     };
   }

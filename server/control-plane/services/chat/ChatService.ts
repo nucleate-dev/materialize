@@ -2,12 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Stripe from 'stripe';
 import type {
-  APIResponse,
   ChatErrorResponse,
   ChatRequestBody,
-  DispatchPrecheckErrorResponse,
-  DispatchPrecheckRequestBody,
-  DispatchPrecheckSuccessResponse,
 } from '../../types/PublicAPITypes.js';
 import { HTTP_STATUS } from '../../types/PublicAPITypes.js';
 import {
@@ -71,7 +67,7 @@ export class ChatService {
       supabaseServiceKey: this.supabaseServiceKey,
       googleAiApiKey: this.googleAiApiKey,
       anthropicApiKey: this.anthropicApiKey,
-      fastifyApp: this.fastifyApp,
+      dispatcherService: this.dispatcherService,
     };
     this.chatEngine = new ChatEngineV1(chatEngineConfig);
   }
@@ -189,21 +185,12 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 3. Precheck with dispatcher service to ensure nothing is currently building for this prototype
       // ------------------------------------------------------------------------------------------------
-      const precheckResponse = await this.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch-edit-intent',
-        headers: {
-          'x-trace-id': request.log2.getTraceId(),
-          authorization: `Bearer ${token}`,
-        },
-        payload: {
-          prototype_id: prototype_id,
-        } as DispatchPrecheckRequestBody,
-      });
-      const precheckData: APIResponse<
-        DispatchPrecheckSuccessResponse,
-        DispatchPrecheckErrorResponse
-      > = JSON.parse(precheckResponse.payload);
+      const precheckResult = await this.dispatcherService.dispatchEditIntent(
+        { prototype_id },
+        token,
+        request.log2,
+      );
+      const precheckData = precheckResult.response;
       let file_scope: 'complete' | 'updates' = 'updates';
       if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({

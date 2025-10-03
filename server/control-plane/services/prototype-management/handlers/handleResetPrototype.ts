@@ -1,10 +1,5 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import {
-  APIResponse,
-  DispatchPrecheckRequestBody,
-  DispatchPrecheckSuccessResponse,
-  DispatchPrecheckErrorResponse,
-  DispatchRequestBody,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -18,12 +13,13 @@ import {
 } from '../storageOperations.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { copyAllDefaultsForNewPrototype } from './handleCreatePrototype.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 export default async function handleResetPrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
   reply: FastifyReply,
   s3Client: S3Client,
-  fastifyApp: FastifyInstance,
+  dispatcherService: DispatcherService,
 ): Promise<void> {
   try {
     const { prototype_id } = request.params;
@@ -103,31 +99,21 @@ export default async function handleResetPrototypeImpl(
     }
 
     // 4. Check if dev server is running and send file updates
-    const precheckResponse = await fastifyApp.inject({
-      method: 'POST',
-      url: '/dispatch-precheck',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-trace-id': request.log2.getTraceId(),
-        authorization: `Bearer ${token}`,
-      },
-      payload: {
-        prototype_id: prototype_id,
-      } as DispatchPrecheckRequestBody,
-    });
+    const precheckResult = await dispatcherService.dispatchPrecheck(
+      { prototype_id },
+      token!,
+      request.log2,
+    );
 
-    const precheckData: APIResponse<
-      DispatchPrecheckSuccessResponse,
-      DispatchPrecheckErrorResponse
-    > = precheckResponse.json();
+    const precheckData = precheckResult.response;
     if (
-      precheckResponse.statusCode !== 200 ||
+      precheckResult.statusCode !== 200 ||
       !precheckData.data ||
       !isEditableDevServer(precheckData.data.status)
     ) {
       request.log2.warn(
         'Failed to check dev server status, but reset was successful',
-        { precheckResponse },
+        { precheckResult },
       );
       return reply.status(HTTP_STATUS.OK).send({
         success: true,
@@ -157,21 +143,17 @@ export default async function handleResetPrototypeImpl(
           'Prototype successfully reset to default app files, dev server not updated',
       });
     }
-    await fastifyApp.inject({
-      method: 'POST',
-      url: '/dispatch',
-      headers: {
-        'x-trace-id': request.log2.getTraceId(),
-        authorization: `Bearer ${token}`,
-      },
-      payload: {
+    await dispatcherService.dispatch(
+      {
         prototype_id: prototype_id,
         framework: 'expo_react_native',
         files: defaultFilesResult.data,
         assets: [], // Default app doesn't have assets in this context
         file_scope: 'updates',
-      } as DispatchRequestBody,
-    });
+      },
+      token!,
+      request.log2,
+    );
 
     // 5. Return success response
     return reply.status(HTTP_STATUS.OK).send({

@@ -1,10 +1,9 @@
-import { FastifyReply, FastifyRequest } from 'fastify';
 import {
   APIResponse,
-  DispatchPrecheckErrorResponse,
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   HTTP_STATUS,
+  StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import {
@@ -15,49 +14,41 @@ import {
 import { GlideClient } from '@valkey/valkey-glide';
 import { hgetallAsActiveBuild } from '../../../utils/cacheInteractionUtils.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 export async function handleDispatchPrecheckImpl(
-  request: FastifyRequest<{ Body: DispatchPrecheckRequestBody }>,
-  reply: FastifyReply,
+  body: DispatchPrecheckRequestBody,
+  jwt: string,
   cache: GlideClient,
-): Promise<
-  APIResponse<DispatchPrecheckSuccessResponse, DispatchPrecheckErrorResponse>
-> {
-  // 1. Extract validated body (validation handled by Fastify schema)
-  const { prototype_id } = request.body;
+  log2: SystemLogger,
+): Promise<{
+  statusCode: number;
+  response: APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>;
+}> {
+  // 1. Extract validated body
+  const { prototype_id } = body;
 
-  // 2. Extract JWT from Authorization header
-  const jwt = request.headers.authorization?.split(' ')[1];
-  if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
-    return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message: 'No JWT token provided in Authorization header',
-      },
-    };
-  }
-
-  // 3. Authentication and authorization validation
+  // 2. Authentication and authorization validation
   const authResult = await checkUserHasPrototypeEditAccess(
     prototype_id,
     jwt,
-    request.log2,
+    log2,
   );
   if (!authResult || !authResult.canEdit) {
-    reply.status(HTTP_STATUS.UNAUTHORIZED);
     return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      statusCode: HTTP_STATUS.UNAUTHORIZED,
+      response: {
+        data: null,
+        error: {
+          error: 'Unauthorized',
+          message:
+            'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+        },
       },
     };
   }
   // update logger context
-  request.log2 = request.log2.child({
+  log2 = log2.child({
     userId: authResult.user.id,
     prototypeId: prototype_id,
   });
@@ -74,49 +65,57 @@ export async function handleDispatchPrecheckImpl(
 
       if (existingBuild) {
         if (!isActiveBuildType(existingBuild)) {
-          reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
           return {
-            data: null,
-            error: {
-              error: 'Internal Server Error',
-              message: 'Invalid build data in storage',
+            statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            response: {
+              data: null,
+              error: {
+                error: 'Internal Server Error',
+                message: 'Invalid build data in storage',
+              },
             },
           };
         }
 
-        reply.status(HTTP_STATUS.OK);
         return {
-          data: {
-            status: existingBuild.status,
-            viewing_url: normalizeUrl(
-              isEditableDevServer(existingBuild.status)
-                ? existingBuild.url
-                : getS3Url(prototype_id),
-            ),
+          statusCode: HTTP_STATUS.OK,
+          response: {
+            data: {
+              status: existingBuild.status,
+              viewing_url: normalizeUrl(
+                isEditableDevServer(existingBuild.status)
+                  ? existingBuild.url
+                  : getS3Url(prototype_id),
+              ),
+            },
+            error: null,
           },
-          error: null,
         };
       }
     }
 
     // No active build, return S3 URL
-    reply.status(HTTP_STATUS.OK);
     return {
-      data: {
-        status: null,
-        viewing_url: normalizeUrl(getS3Url(prototype_id)),
+      statusCode: HTTP_STATUS.OK,
+      response: {
+        data: {
+          status: null,
+          viewing_url: normalizeUrl(getS3Url(prototype_id)),
+        },
+        error: null,
       },
-      error: null,
     };
   } catch (error) {
-    request.log2.error(error, '[handleDispatchPrecheck] Precheck failed');
+    log2.error(error, '[handleDispatchPrecheck] Precheck failed');
     const e = error instanceof Error ? error : new Error(String(error));
-    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
-      data: null,
-      error: {
-        error: 'Internal Server Error',
-        message: e.message,
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      response: {
+        data: null,
+        error: {
+          error: 'Internal Server Error',
+          message: e.message,
+        },
       },
     };
   }

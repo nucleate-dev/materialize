@@ -3,18 +3,14 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { generateText, stepCountIs, streamText, tool, Tool } from 'ai';
-import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import type {
-  APIResponse,
   CodeError,
   DispatchRequestBody,
-  DispatchSuccessResponse,
   EnhancedChatContext,
   PrototypeAssetInput,
   PrototypeFileInput,
-  StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
 import {
   ERROR_FIXING_PROMPT,
@@ -26,6 +22,7 @@ import {
   VirtualFileManager,
 } from '../utils/file-manager.js';
 import { detectUserIntent } from '../utils/intent-classifier.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -44,7 +41,7 @@ export interface ChatEngineConfig {
   supabaseServiceKey: string;
   googleAiApiKey: string;
   anthropicApiKey: string;
-  fastifyApp: FastifyInstance;
+  dispatcherService: DispatcherService;
 }
 
 export interface ChatEngineParams {
@@ -390,7 +387,8 @@ export class ChatEngineV1 {
       }),
 
       append_file_content: tool({
-        description: 'Add content to the end of an existing file (efficient for adding new functions, imports, etc.)',
+        description:
+          'Add content to the end of an existing file (efficient for adding new functions, imports, etc.)',
         inputSchema: z.object({
           filePath: z.string().describe('The path to the file to append to'),
           content: z.string().describe('The content to append to the file'),
@@ -423,7 +421,8 @@ export class ChatEngineV1 {
       }),
 
       replace_file_content: tool({
-        description: 'Replace exact text content within a file (efficient for small edits)',
+        description:
+          'Replace exact text content within a file (efficient for small edits)',
         inputSchema: z.object({
           filePath: z.string().describe('The path to the file to modify'),
           searchText: z.string().describe('The exact text to find and replace'),
@@ -431,7 +430,9 @@ export class ChatEngineV1 {
           expectOneMatch: z
             .boolean()
             .default(true)
-            .describe('If true, operation fails if more than one match is found (default: true)'),
+            .describe(
+              'If true, operation fails if more than one match is found (default: true)',
+            ),
         }),
         execute: async ({
           filePath,
@@ -521,23 +522,15 @@ export class ChatEngineV1 {
           })}\n\n`,
         ),
       );
-      // Call the dispatch endpoint via internal Fastify inject
-      const response = await this.config.fastifyApp.inject({
-        method: 'POST',
-        url: '/dispatch',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-trace-id': log2.getTraceId(),
-          authorization: `Bearer ${token}`,
-        },
-        payload: requestBody,
-      });
+      // Call the dispatch endpoint
+      const dispatchResult = await this.config.dispatcherService.dispatch(
+        requestBody,
+        token,
+        log2,
+      );
 
-      const result: APIResponse<
-        DispatchSuccessResponse,
-        StandardErrorResponse
-      > = JSON.parse(response.payload);
-      if (response.statusCode === 200 && result.data) {
+      const result = dispatchResult.response;
+      if (dispatchResult.statusCode === 200 && result.data) {
         // Send viewing URL update to client
         log2.consoleLogDevOnly(
           'info',
@@ -574,7 +567,7 @@ export class ChatEngineV1 {
             `data: ${JSON.stringify({
               type: 'dispatch_error',
               error: 'Failed to update the live preview.',
-              details: `Dispatch service responded with status ${response.statusCode}.`,
+              details: `Dispatch service responded with status ${dispatchResult.statusCode}.`,
             })}\n\n`,
           ),
         );
