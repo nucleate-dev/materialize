@@ -29,13 +29,14 @@ export async function handleDispatchPrecheckImpl(
   // 2. Extract JWT from Authorization header
   const jwt = request.headers.authorization?.split(' ')[1];
   if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    reply.status(HTTP_STATUS.UNAUTHORIZED);
+    return {
       data: null,
       error: {
         error: 'Unauthorized',
         message: 'No JWT token provided in Authorization header',
-      } as DispatchPrecheckErrorResponse,
-    });
+      },
+    };
   }
 
   // 3. Authentication and authorization validation
@@ -45,14 +46,15 @@ export async function handleDispatchPrecheckImpl(
     request.log2,
   );
   if (!authResult || !authResult.canEdit) {
-    return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    reply.status(HTTP_STATUS.UNAUTHORIZED);
+    return {
       data: null,
       error: {
         error: 'Unauthorized',
         message:
           'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-      } as DispatchPrecheckErrorResponse,
-    });
+      },
+    };
   }
   // update logger context
   request.log2 = request.log2.child({
@@ -72,16 +74,18 @@ export async function handleDispatchPrecheckImpl(
 
       if (existingBuild) {
         if (!isActiveBuildType(existingBuild)) {
-          return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+          reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+          return {
             data: null,
             error: {
               error: 'Internal Server Error',
               message: 'Invalid build data in storage',
-            } as DispatchPrecheckErrorResponse,
-          });
+            },
+          };
         }
 
-        return reply.status(HTTP_STATUS.OK).send({
+        reply.status(HTTP_STATUS.OK);
+        return {
           data: {
             status: existingBuild.status,
             viewing_url: normalizeUrl(
@@ -89,30 +93,32 @@ export async function handleDispatchPrecheckImpl(
                 ? existingBuild.url
                 : getS3Url(prototype_id),
             ),
-          } as DispatchPrecheckSuccessResponse,
+          },
           error: null,
-        });
+        };
       }
     }
 
     // No active build, return S3 URL
-    return reply.status(HTTP_STATUS.OK).send({
+    reply.status(HTTP_STATUS.OK);
+    return {
       data: {
         status: null,
         viewing_url: normalizeUrl(getS3Url(prototype_id)),
-      } as DispatchPrecheckSuccessResponse,
+      },
       error: null,
-    });
+    };
   } catch (error) {
     request.log2.error(error, '[handleDispatchPrecheck] Precheck failed');
     const e = error instanceof Error ? error : new Error(String(error));
-    return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
       data: null,
       error: {
         error: 'Internal Server Error',
         message: e.message,
-      } as DispatchPrecheckErrorResponse,
-    });
+      },
+    };
   }
 }
 

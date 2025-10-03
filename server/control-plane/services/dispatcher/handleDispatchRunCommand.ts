@@ -29,13 +29,14 @@ export async function handleRunCommandImpl(
   // 1. Extract JWT from Authorization header
   const jwt = request.headers.authorization?.split(' ')[1];
   if (!jwt || !request.headers.authorization?.startsWith('Bearer ')) {
-    return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    reply.status(HTTP_STATUS.UNAUTHORIZED);
+    return {
       data: null,
       error: {
         error: 'Unauthorized',
         message: 'No JWT token provided in Authorization header',
       },
-    });
+    };
   }
 
   // 2. Authentication check
@@ -45,14 +46,15 @@ export async function handleRunCommandImpl(
     request.log2,
   );
   if (!authResult || !authResult.canEdit) {
-    return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
+    reply.status(HTTP_STATUS.UNAUTHORIZED);
+    return {
       data: null,
       error: {
         error: 'Unauthorized',
         message:
           'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
       },
-    });
+    };
   }
 
   request.log2 = request.log2.child({
@@ -67,13 +69,14 @@ export async function handleRunCommandImpl(
     );
 
     if (!currentBuildId) {
-      return reply.status(HTTP_STATUS.NOT_FOUND).send({
+      reply.status(HTTP_STATUS.NOT_FOUND);
+      return {
         data: null,
         error: {
           error: 'Not Found',
           message: 'No active dev server found for this prototype',
         },
-      });
+      };
     }
 
     // 4. Get the active build data
@@ -81,24 +84,26 @@ export async function handleRunCommandImpl(
     const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
 
     if (!existingBuild || !isActiveBuildType(existingBuild)) {
-      return reply.status(HTTP_STATUS.NOT_FOUND).send({
+      reply.status(HTTP_STATUS.NOT_FOUND);
+      return {
         data: null,
         error: {
           error: 'Not Found',
           message: 'Invalid or missing build data',
         },
-      });
+      };
     }
 
     // 5. Check if dev server is in a runnable state
     if (!isEditableDevServer(existingBuild.status)) {
-      return reply.status(HTTP_STATUS.CONFLICT).send({
+      reply.status(HTTP_STATUS.CONFLICT);
+      return {
         data: null,
         error: {
           error: 'Conflict',
           message: `Cannot run command on dev server in ${existingBuild.status} state`,
         },
-      });
+      };
     }
 
     // 6. Call run-command endpoint on the fargate instance
@@ -120,35 +125,38 @@ export async function handleRunCommandImpl(
         activeBuildToStringRecord(updatedBuildData),
       );
 
-      return reply.status(HTTP_STATUS.OK).send({
+      reply.status(HTTP_STATUS.OK);
+      return {
         data: {
           stdout: commandResponse.stdout ?? '',
           stderr: commandResponse.stderr ?? '',
           exit_code: commandResponse.exit_code ?? -1,
         } as RunCommandSuccessResponse,
         error: null,
-      });
+      };
     } else {
-      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
         data: null,
         error: {
           error: 'Command Execution Failed',
           message:
             commandResponse.error || 'Failed to run command on dev server',
         },
-      });
+      };
     }
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     request.log2.error(error, 'Failed to run command on dev server');
 
-    return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
       data: null,
       error: {
         error: 'Internal Server Error',
         message: e.message,
       },
-    });
+    };
   }
 }
 

@@ -104,7 +104,8 @@ export async function handleDispatchEditIntentImpl(
     }
 
     // 5. Return the precheck response
-    return reply.status(HTTP_STATUS.OK).send(precheckResponse);
+    reply.status(HTTP_STATUS.OK);
+    return precheckResponse;
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     request.log2.error(
@@ -112,12 +113,13 @@ export async function handleDispatchEditIntentImpl(
       '[handleDispatchEditIntent] Edit intent request failed',
     );
 
-    return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+    reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
       data: null,
       error: {
         error: 'Internal Server Error',
         message: e.message,
       },
-    });
+    };
   }
 }
