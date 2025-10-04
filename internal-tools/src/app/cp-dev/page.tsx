@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
+  GitCommit,
   Copy,
   Loader2,
   ListTree,
@@ -52,8 +53,10 @@ export default function DevServerPage() {
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
   const [fileTree, setFileTree] = useState<ControlPlaneFileNode[]>([]);
+  const [changedPaths, setChangedPaths] = useState<string[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [deployingAll, setDeployingAll] = useState(false);
+  const [deployingChanged, setDeployingChanged] = useState(false);
   const [deployingSelected, setDeployingSelected] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [deployOutput, setDeployOutput] = useState("");
@@ -93,7 +96,11 @@ export default function DevServerPage() {
     setFilesLoading(true);
     try {
       const response = await fetch("/api/control-plane");
-      let data: { files?: ControlPlaneFileNode[]; error?: string } = {};
+      let data: {
+        files?: ControlPlaneFileNode[];
+        changedPaths?: string[];
+        error?: string;
+      } = {};
       try {
         data = await response.json();
       } catch {
@@ -109,6 +116,10 @@ export default function DevServerPage() {
       const files = Array.isArray(data.files) ? data.files : [];
       setFileTree(files);
       const available = new Set(flattenFileTree(files));
+      const gitChangedPaths = Array.isArray(data.changedPaths)
+        ? data.changedPaths.filter((path) => available.has(path))
+        : [];
+      setChangedPaths(gitChangedPaths);
       setSelectedPaths((prev) => prev.filter((path) => available.has(path)));
     } catch (err) {
       setError(
@@ -192,6 +203,39 @@ export default function DevServerPage() {
     }
   }, [callDeploy]);
 
+  const handleDeployChanged = useCallback(async () => {
+    if (!changedPaths.length) {
+      return;
+    }
+
+    setSelectedPaths([...changedPaths]);
+    setDeployingChanged(true);
+    setError(null);
+    setDeployOutput("");
+    try {
+      const result = await callDeploy(changedPaths);
+      setDeployOutput(
+        result.output?.trim() ||
+          "Changed files deploy completed successfully."
+      );
+    } catch (err) {
+      const output =
+        err && typeof err === "object" && "output" in err
+          ? String((err as { output?: string }).output || "")
+          : "";
+      if (output) {
+        setDeployOutput(output);
+      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to deploy changed files"
+      );
+    } finally {
+      setDeployingChanged(false);
+    }
+  }, [callDeploy, changedPaths]);
+
   const handleDeploySelected = useCallback(async () => {
     if (!selectedPaths.length) {
       return;
@@ -235,8 +279,14 @@ export default function DevServerPage() {
     () => [...selectedPaths].sort((a, b) => a.localeCompare(b)),
     [selectedPaths]
   );
+  const sortedChangedPaths = useMemo(
+    () => [...changedPaths].sort((a, b) => a.localeCompare(b)),
+    [changedPaths]
+  );
 
   const hasSelection = selectedPaths.length > 0;
+  const hasChangedFiles = changedPaths.length > 0;
+  const isDeploying = deployingAll || deployingChanged || deployingSelected;
 
   const handleAcquireEC2 = async () => {
     if (!ec2ServerName.trim()) {
@@ -542,7 +592,7 @@ export default function DevServerPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={handleDeployAll} disabled={deployingAll}>
+                <Button onClick={handleDeployAll} disabled={isDeploying}>
                   {deployingAll ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -556,9 +606,31 @@ export default function DevServerPage() {
                   )}
                 </Button>
                 <Button
+                  variant="outline"
+                  onClick={handleDeployChanged}
+                  disabled={!hasChangedFiles || isDeploying}
+                >
+                  {deployingChanged ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying changed...
+                    </>
+                  ) : (
+                    <>
+                      <GitCommit className="mr-2 h-4 w-4" />
+                      Deploy Changed
+                    </>
+                  )}
+                  {hasChangedFiles ? (
+                    <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground">
+                      {changedPaths.length}
+                    </span>
+                  ) : null}
+                </Button>
+                <Button
                   variant="secondary"
                   onClick={handleDeploySelected}
-                  disabled={!hasSelection || deployingSelected}
+                  disabled={!hasSelection || isDeploying}
                 >
                   {deployingSelected ? (
                     <>
@@ -578,26 +650,45 @@ export default function DevServerPage() {
                   ) : null}
                 </Button>
                 <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleRefreshFiles}
-                  disabled={filesLoading}
-                  aria-label="Refresh control plane files"
-                >
-                  {filesLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleClearSelection}
-                  disabled={!hasSelection}
+                  disabled={!hasSelection || isDeploying}
                 >
                   Clear Selection
                 </Button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm font-medium">
+                  <span>Changed git paths</span>
+                  {hasChangedFiles ? (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <GitCommit className="h-3 w-3" />
+                      {changedPaths.length}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">Clean</Badge>
+                  )}
+                </div>
+                {hasChangedFiles ? (
+                  <div className="max-h-32 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
+                    <ul className="space-y-1">
+                      {sortedChangedPaths.map((path) => (
+                        <li key={path}>{path}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No local git changes detected for server/control-plane.
+                  </p>
+                )}
+                {hasChangedFiles ? (
+                  <p className="text-xs text-muted-foreground">
+                    Use &quot;Deploy Changed&quot; to deploy only these git-tracked updates.
+                  </p>
+                ) : null}
               </div>
 
               {hasSelection ? (
@@ -641,9 +732,30 @@ export default function DevServerPage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <ListTree className="h-5 w-5 text-blue-600" />
-                <CardTitle>Control Plane Files</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ListTree className="h-5 w-5 text-blue-600" />
+                  <CardTitle>Control Plane Files</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshFiles}
+                  disabled={filesLoading}
+                  className="flex items-center gap-2"
+                >
+                  {filesLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcw className="h-4 w-4" />
+                      Refresh
+                    </>
+                  )}
+                </Button>
               </div>
               <CardDescription>
                 Browse files under
