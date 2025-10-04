@@ -115,6 +115,7 @@ export class InternalCacheManagementService {
                     prototypeBuilds: { type: 'number' },
                     currentBuilds: { type: 'number' },
                     idleBuilds: { type: 'number' },
+                    developmentKeys: { type: 'number' },
                     keyBreakdown: {
                       type: 'object',
                       additionalProperties: { type: 'number' },
@@ -139,6 +140,10 @@ export class InternalCacheManagementService {
                           items: { type: 'string' },
                         },
                         idleBuild: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        development: {
                           type: 'array',
                           items: { type: 'string' },
                         },
@@ -275,6 +280,64 @@ export class InternalCacheManagementService {
       },
       this.handleGetPrototypeBuildData.bind(this),
     );
+
+    // DELETE /internal/cache/development - Clear all development cache keys
+    app.delete(
+      '/internal/cache/development',
+      {
+        preHandler: authenticateInternalToolsRequest,
+        schema: {
+          description:
+            'Clear all development:* cache keys (requires internal tools authentication)',
+          tags: ['internal-tools'],
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
+            },
+          },
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' },
+                deletedCount: { type: 'number' },
+                timestamp: { type: 'string' },
+                durationMs: { type: 'number' },
+              },
+            },
+            401: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+                requiredHeaders: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+            },
+            500: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      this.handleClearDevelopmentCache.bind(this),
+    );
   }
 
   // Route handler for clearing cache
@@ -343,12 +406,16 @@ export class InternalCacheManagementService {
           key.startsWith('idle_builds:') &&
           key !== CACHE_KEYS.idleBuildsListKey,
       );
+      const developmentKeys = allKeys.filter((key) =>
+        key.startsWith('development:'),
+      );
       const otherKeys = allKeys.filter(
         (key) =>
           !key.startsWith('active_build:') &&
           !(key.includes(':builds') && key.startsWith('proto:')) &&
           !(key.includes(':current') && key.startsWith('proto:')) &&
-          !key.startsWith('idle_builds:'),
+          !key.startsWith('idle_builds:') &&
+          !key.startsWith('development:'),
       );
 
       const stats = {
@@ -357,11 +424,13 @@ export class InternalCacheManagementService {
         prototypeBuilds: prototypeBuildKeys.length,
         currentBuilds: currentBuildKeys.length,
         idleBuilds: idleBuildKeys.length,
+        developmentKeys: developmentKeys.length,
         keyBreakdown: {
           'active_build:*': activeBuildKeys.length,
           'proto:*:builds': prototypeBuildKeys.length,
           'proto:*:current': currentBuildKeys.length,
           'idle_builds:*': idleBuildKeys.length,
+          'development:*': developmentKeys.length,
           other: otherKeys.length,
         },
         sampleKeys: {
@@ -369,6 +438,7 @@ export class InternalCacheManagementService {
           prototypeBuild: prototypeBuildKeys.slice(0, 5),
           currentBuild: currentBuildKeys.slice(0, 5),
           idleBuild: idleBuildKeys.slice(0, 5),
+          development: developmentKeys.slice(0, 5),
           other: otherKeys.slice(0, 5),
         },
       };
@@ -604,6 +674,68 @@ export class InternalCacheManagementService {
     } while (cursor !== '0');
 
     return keys;
+  }
+
+  // Route handler for clearing development cache keys
+  private async handleClearDevelopmentCache(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const startTime = Date.now();
+    request.log2 = request.log2.child({
+      service: 'internal-services',
+    });
+    request.log2.info('Starting development cache clear operation');
+
+    try {
+      // Scan for all development:* keys
+      const allKeys = await this.scanAllKeys(request.log2);
+      const developmentKeys = allKeys.filter((key) =>
+        key.startsWith('development:'),
+      );
+
+      request.log2.info('Found development keys to delete', {
+        count: developmentKeys.length,
+      });
+
+      // Delete development keys one by one to avoid cross-slot errors in Redis Cluster
+      let deletedCount = 0;
+      if (developmentKeys.length > 0) {
+        for (const key of developmentKeys) {
+          try {
+            await this.cache.del([key]);
+            deletedCount++;
+          } catch (error) {
+            request.log2.warn('Failed to delete development key', {
+              key,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      request.log2.info('Development cache cleared successfully', {
+        deletedCount,
+        durationMs: duration,
+      });
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        message: `Cleared ${deletedCount} development cache key${deletedCount !== 1 ? 's' : ''}`,
+        deletedCount,
+        timestamp: new Date().toISOString(),
+        durationMs: duration,
+      });
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to clear development cache');
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: 'Internal Server Error',
+        message: `Failed to clear development cache: ${e.message}`,
+      });
+    }
   }
 
   private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
