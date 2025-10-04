@@ -32,6 +32,7 @@ import {
 import {
   getCacheStats,
   clearCache,
+  clearDevelopmentCache,
   getPrototypeBuildData,
   calculatePercentage,
   type CacheStats,
@@ -44,6 +45,8 @@ export default function CacheManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [clearLoading, setClearLoading] = useState(false);
   const [clearSuccess, setClearSuccess] = useState<string | null>(null);
+  const [clearDevLoading, setClearDevLoading] = useState(false);
+  const [clearDevSuccess, setClearDevSuccess] = useState<string | null>(null);
 
   // Prototype lookup state
   const [prototypeId, setPrototypeId] = useState("");
@@ -86,7 +89,26 @@ export default function CacheManagementPage() {
 
   const handleRefreshStats = () => {
     setClearSuccess(null); // Clear any success message
+    setClearDevSuccess(null); // Clear any dev success message
     fetchStats();
+  };
+
+  const handleClearDevelopmentCache = async () => {
+    try {
+      setClearDevLoading(true);
+      setClearDevSuccess(null);
+      setError(null);
+
+      const result = await clearDevelopmentCache();
+      setClearDevSuccess(result.message);
+
+      // Refresh stats after clearing
+      await fetchStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear development cache");
+    } finally {
+      setClearDevLoading(false);
+    }
   };
 
   const handlePrototypeLookup = async () => {
@@ -191,10 +213,19 @@ export default function CacheManagementPage() {
           </Alert>
         )}
 
+        {/* Dev Success Alert */}
+        {clearDevSuccess && (
+          <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/50 dark:text-green-400">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>{clearDevSuccess}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Cache Overview */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {loading ? (
             <>
+              <StatSkeleton />
               <StatSkeleton />
               <StatSkeleton />
               <StatSkeleton />
@@ -278,6 +309,23 @@ export default function CacheManagementPage() {
                   </p>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Development Keys
+                  </CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats?.stats.developmentKeys || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    development:* keys
+                  </p>
+                </CardContent>
+              </Card>
             </>
           )}
         </div>
@@ -311,6 +359,30 @@ export default function CacheManagementPage() {
                   }`}
                 />
                 {clearLoading ? "Clearing..." : "Clear Cache"}
+              </Button>
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h4 className="font-medium">Clear Development Cache</h4>
+                <p className="text-sm text-muted-foreground">
+                  Remove all development:* keys from the cache. These are used during local development.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleClearDevelopmentCache}
+                disabled={clearDevLoading || loading}
+              >
+                <Trash2
+                  className={`h-4 w-4 mr-2 ${
+                    clearDevLoading ? "animate-pulse" : ""
+                  }`}
+                />
+                {clearDevLoading ? "Clearing..." : "Clear Dev Cache"}
               </Button>
             </div>
 
@@ -656,6 +728,37 @@ export default function CacheManagementPage() {
                   ) : (
                     <div className="ml-5 text-xs text-muted-foreground italic">
                       No idle build keys
+                    </div>
+                  )}
+                </div>
+
+                {/* Development Keys */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <h4 className="font-medium text-sm">
+                      Development Keys ({stats.stats.developmentKeys || 0} total)
+                    </h4>
+                  </div>
+                  {stats.stats.sampleKeys.development && stats.stats.sampleKeys.development.length > 0 ? (
+                    <div className="ml-5 space-y-1">
+                      {stats.stats.sampleKeys.development.map((key, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs font-mono bg-muted p-2 rounded border"
+                        >
+                          {key}
+                        </div>
+                      ))}
+                      {(stats.stats.developmentKeys || 0) > 5 && (
+                        <div className="text-xs text-muted-foreground italic">
+                          ... and {(stats.stats.developmentKeys || 0) - 5} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="ml-5 text-xs text-muted-foreground italic">
+                      No development keys
                     </div>
                   )}
                 </div>

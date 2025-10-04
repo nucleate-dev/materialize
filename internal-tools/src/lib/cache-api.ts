@@ -12,11 +12,13 @@ export interface CacheStats {
     prototypeBuilds: number;
     currentBuilds: number;
     idleBuilds: number;
+    developmentKeys: number;
     keyBreakdown: {
       "active_build:*": number;
       "proto:*:builds": number;
       "proto:*:current": number;
       "idle_builds:*": number;
+      "development:*": number;
       other: number;
     };
     sampleKeys: {
@@ -24,6 +26,7 @@ export interface CacheStats {
       prototypeBuild: string[];
       currentBuild: string[];
       idleBuild: string[];
+      development: string[];
       other: string[];
     };
   };
@@ -33,6 +36,14 @@ export interface CacheStats {
 export interface ClearCacheResponse {
   success: boolean;
   message: string;
+  timestamp: string;
+  durationMs?: number;
+}
+
+export interface ClearDevelopmentCacheResponse {
+  success: boolean;
+  message: string;
+  deletedCount: number;
   timestamp: string;
   durationMs?: number;
 }
@@ -128,6 +139,16 @@ export async function getPrototypeBuildData(
   return makeAuthenticatedRequest<PrototypeBuildData>(
     "GET",
     `/internal/cache/prototype/${encodeURIComponent(prototypeId)}`
+  );
+}
+
+/**
+ * Clear all development cache keys
+ */
+export async function clearDevelopmentCache(): Promise<ClearDevelopmentCacheResponse> {
+  return makeAuthenticatedRequest<ClearDevelopmentCacheResponse>(
+    "DELETE",
+    "/internal/cache/development"
   );
 }
 
