@@ -57,7 +57,7 @@ export function verifyInternalToolsSignature(
   if (timeDiff > INTERNAL_TOOLS_CONFIG.MAX_TIMESTAMP_DIFF) {
     return {
       isValid: false,
-      error: `Request timestamp too old. Diff: ${timeDiff}s, Max: ${INTERNAL_TOOLS_CONFIG.MAX_TIMESTAMP_DIFF}s`
+      error: `Request timestamp too old. Diff: ${timeDiff}s, Max: ${INTERNAL_TOOLS_CONFIG.MAX_TIMESTAMP_DIFF}s`,
     };
   }
 
@@ -104,15 +104,22 @@ export async function authenticateInternalToolsRequest(
   }
 
   // Extract headers
-  const signature = request.headers[INTERNAL_TOOLS_CONFIG.SIGNATURE_HEADER] as string;
-  const timestamp = request.headers[INTERNAL_TOOLS_CONFIG.TIMESTAMP_HEADER] as string;
+  const signature = request.headers[
+    INTERNAL_TOOLS_CONFIG.SIGNATURE_HEADER
+  ] as string;
+  const timestamp = request.headers[
+    INTERNAL_TOOLS_CONFIG.TIMESTAMP_HEADER
+  ] as string;
 
   if (!signature || !timestamp) {
-    request.log2.warn('Missing authentication headers for internal tools request', {
-      hasSignature: !!signature,
-      hasTimestamp: !!timestamp,
-      headers: Object.keys(request.headers),
-    });
+    request.log2.warn(
+      'Missing authentication headers for internal tools request',
+      {
+        hasSignature: !!signature,
+        hasTimestamp: !!timestamp,
+        headers: Object.keys(request.headers),
+      },
+    );
     return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
       error: 'Unauthorized',
       message: 'Missing required authentication headers',

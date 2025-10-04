@@ -137,7 +137,11 @@ export class PrototypeManagementService {
   ): Promise<
     APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>
   > {
-    return await handleFetchViewingUrlImpl(request, reply, this.dispatcherService);
+    return await handleFetchViewingUrlImpl(
+      request,
+      reply,
+      this.dispatcherService,
+    );
   }
 
   private async handleCreatePrototype(

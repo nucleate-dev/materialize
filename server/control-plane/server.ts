@@ -239,7 +239,8 @@ const start = async (): Promise<void> => {
     );
     internalCleanupServiceManagement.registerRoutes(fastify);
 
-    internalBuildWorkerDevProxyService = new InternalBuildWorkerDevProxyService();
+    internalBuildWorkerDevProxyService =
+      new InternalBuildWorkerDevProxyService();
     internalBuildWorkerDevProxyService.registerRoutes(fastify);
 
     await fastify.listen({

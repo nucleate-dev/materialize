@@ -100,7 +100,10 @@ export class InternalCleanupServiceManagement {
         });
       }
 
-      if (typeof prototype_id !== 'string' || prototype_id.trim().length === 0) {
+      if (
+        typeof prototype_id !== 'string' ||
+        prototype_id.trim().length === 0
+      ) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           success: false,
           error: 'prototype_id must be a non-empty string',

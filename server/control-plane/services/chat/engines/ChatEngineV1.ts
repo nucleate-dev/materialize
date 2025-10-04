@@ -748,7 +748,7 @@ export class ChatEngineV1 {
         content: image
           ? [
               { type: 'text' as const, text: userMessageForPrompt },
-              { type: 'image' as const, image }
+              { type: 'image' as const, image },
             ]
           : userMessageForPrompt,
       };

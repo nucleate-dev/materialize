@@ -287,7 +287,7 @@ async function forkPrototype(
               prototype_id: newPrototypeId,
               name: file.name,
               contents: file.contents,
-            } as PrototypeFileInsert),
+            }) as PrototypeFileInsert,
         ),
       ),
       supabase.from('prototype_assets').insert(
@@ -297,7 +297,7 @@ async function forkPrototype(
               prototype_id: newPrototypeId,
               name: asset.name,
               storage_url: '', // TODO @sourish: remove this altogether, storage_url is not necessary given that we have filename and need to create a signedUrl for access anyways given RLS
-            } as PrototypeAssetInsert),
+            }) as PrototypeAssetInsert,
         ),
       ),
       copyAllAssetsInSupabaseStorage(

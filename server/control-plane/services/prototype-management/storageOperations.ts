@@ -320,7 +320,7 @@ export async function getDefaultAppFilesFromS3(
             prototype_id: prototypeId,
             name: r.name,
             contents: r.contents,
-          } as PrototypeFileInsert),
+          }) as PrototypeFileInsert,
       );
     const assets: { name: string; contents: Buffer; prototype_id: string }[] =
       results

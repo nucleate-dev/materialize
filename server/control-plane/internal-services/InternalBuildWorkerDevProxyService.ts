@@ -110,7 +110,10 @@ export class InternalBuildWorkerDevProxyService {
             properties: {
               endpoint: { type: 'string' },
               path: { type: 'string' },
-              method: { type: 'string', enum: ['POST', 'DELETE', 'GET', 'PUT'] },
+              method: {
+                type: 'string',
+                enum: ['POST', 'DELETE', 'GET', 'PUT'],
+              },
               payload: {},
               headers: {
                 type: 'object',
@@ -173,15 +176,20 @@ export class InternalBuildWorkerDevProxyService {
         });
       }
 
-      const normalizedMethod = method?.toUpperCase() as BuildWorkerProxyRequestBody['method'];
-      if (!normalizedMethod || !['POST', 'DELETE', 'GET', 'PUT'].includes(normalizedMethod)) {
+      const normalizedMethod =
+        method?.toUpperCase() as BuildWorkerProxyRequestBody['method'];
+      if (
+        !normalizedMethod ||
+        !['POST', 'DELETE', 'GET', 'PUT'].includes(normalizedMethod)
+      ) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error: 'Bad Request',
           message: 'method must be one of POST, DELETE, GET, or PUT',
         });
       }
 
-      const routeKey = `${normalizedMethod} ${normalizePath(path)}` as `${string} ${string}`;
+      const routeKey =
+        `${normalizedMethod} ${normalizePath(path)}` as `${string} ${string}`;
       if (!ALLOWED_ROUTE_KEYS.has(routeKey)) {
         return reply.status(HTTP_STATUS.BAD_REQUEST).send({
           error: 'Bad Request',
@@ -202,7 +210,9 @@ export class InternalBuildWorkerDevProxyService {
       }
 
       const sanitizedHeaders = sanitizeHeaders(headers);
-      const fetchHeaders: Record<string, string> = sanitizedHeaders ? { ...sanitizedHeaders } : {};
+      const fetchHeaders: Record<string, string> = sanitizedHeaders
+        ? { ...sanitizedHeaders }
+        : {};
 
       let body: string | undefined;
       if (payload !== undefined) {
@@ -234,14 +244,10 @@ export class InternalBuildWorkerDevProxyService {
         const isTimeout = err.name === 'TimeoutError';
         return reply
           .status(
-            isTimeout
-              ? HTTP_STATUS.GATEWAY_TIMEOUT
-              : HTTP_STATUS.BAD_GATEWAY,
+            isTimeout ? HTTP_STATUS.GATEWAY_TIMEOUT : HTTP_STATUS.BAD_GATEWAY,
           )
           .send({
-            error: isTimeout
-              ? 'BuildWorkerTimeout'
-              : 'BuildWorkerUnreachable',
+            error: isTimeout ? 'BuildWorkerTimeout' : 'BuildWorkerUnreachable',
             message: `Failed to reach build worker endpoint: ${err.message}`,
           });
       }

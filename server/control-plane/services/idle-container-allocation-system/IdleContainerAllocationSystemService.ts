@@ -175,9 +175,8 @@ export class IdleContainerAllocationSystemService {
       this.log2.info(
         `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating`,
       );
-      privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
-        taskArn,
-      );
+      privateIp =
+        await this.waitForFargateTaskToBeReadyAndGetPrivateIP(taskArn);
     } else if (taskData.status === 'ready') {
       privateIp = taskData.fargate_private_ip;
     }
@@ -247,9 +246,8 @@ export class IdleContainerAllocationSystemService {
     }
 
     // Wait for container to become ready
-    const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
-      taskArn,
-    );
+    const privateIp =
+      await this.waitForFargateTaskToBeReadyAndGetPrivateIP(taskArn);
     if (!privateIp) {
       this.log2.error('Failed to get private IP for idle container');
       await this.terminateFargateTask(taskArn);
@@ -317,9 +315,8 @@ export class IdleContainerAllocationSystemService {
         status: newBuildCacheData.status,
         last_touched: newBuildCacheData.last_touched.toString(),
       });
-      const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
-        taskArn,
-      );
+      const privateIp =
+        await this.waitForFargateTaskToBeReadyAndGetPrivateIP(taskArn);
       if (!privateIp) {
         throw new Error('Failed to get private IP for idle container');
       }

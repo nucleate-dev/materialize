@@ -8,19 +8,23 @@ export default {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Require authenticateInternalToolsRequest preHandler for internal service routes',
+      description:
+        'Require authenticateInternalToolsRequest preHandler for internal service routes',
       category: 'Security',
-      recommended: true
+      recommended: true,
     },
     fixable: null,
-    schema: []
+    schema: [],
   },
 
   create(context) {
     const filename = context.getFilename();
 
     // Only apply this rule to files in internal-services directory
-    if (!filename.includes('/internal-services/') && !filename.includes('\\internal-services\\')) {
+    if (
+      !filename.includes('/internal-services/') &&
+      !filename.includes('\\internal-services\\')
+    ) {
       return {};
     }
 
@@ -34,7 +38,9 @@ export default {
           node.callee.object &&
           node.callee.object.name === 'app' &&
           node.callee.property &&
-          ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(node.callee.property.name)
+          ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(
+            node.callee.property.name,
+          )
         ) {
           const httpMethod = node.callee.property.name;
 
@@ -47,7 +53,10 @@ export default {
           let hasAuthPreHandler = false;
 
           // Check if second argument is options object or direct handler
-          if (node.arguments[1] && node.arguments[1].type === 'ObjectExpression') {
+          if (
+            node.arguments[1] &&
+            node.arguments[1].type === 'ObjectExpression'
+          ) {
             optionsArg = node.arguments[1];
           }
 
@@ -93,11 +102,11 @@ export default {
           if (!hasAuthPreHandler) {
             context.report({
               node,
-              message: `Route ${httpMethod.toUpperCase()} in internal-services must include 'authenticateInternalToolsRequest' as preHandler for security. Add: preHandler: authenticateInternalToolsRequest`
+              message: `Route ${httpMethod.toUpperCase()} in internal-services must include 'authenticateInternalToolsRequest' as preHandler for security. Add: preHandler: authenticateInternalToolsRequest`,
             });
           }
         }
-      }
+      },
     };
-  }
+  },
 };

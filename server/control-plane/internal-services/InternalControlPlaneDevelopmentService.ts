@@ -284,8 +284,8 @@ export class InternalControlPlaneDevelopmentService {
       const sshCommand = publicDns
         ? `ssh -i "${keyName}.pem" ec2-user@${publicDns}`
         : publicIpv4
-        ? `ssh -i "${keyName}.pem" ec2-user@${publicIpv4}`
-        : `ssh -i "${keyName}.pem" ec2-user@<pending-public-address>`;
+          ? `ssh -i "${keyName}.pem" ec2-user@${publicIpv4}`
+          : `ssh -i "${keyName}.pem" ec2-user@<pending-public-address>`;
 
       return {
         instanceId: instance.InstanceId,
