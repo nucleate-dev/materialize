@@ -54,12 +54,12 @@ export default function PremiumHeader() {
             >
               Changelog
             </a> */}
-            <a
+            <Link
               href="/blog"
               className="text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-all duration-200 text-sm font-medium"
             >
               Blog
-            </a>
+            </Link>
           </div>
 
           {/* CTA Buttons */}

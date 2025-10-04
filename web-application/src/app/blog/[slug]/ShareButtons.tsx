@@ -18,7 +18,7 @@ export default function ShareButtons({ title }: ShareButtonsProps) {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       logger.debug("error", "Failed to copy URL");
     }
   };

@@ -41,7 +41,7 @@ const PrototypeThumbnail: React.FC<PrototypeThumbnailProps> = ({
         } else {
           setSignedUrl(data.signedUrl);
         }
-      } catch (error) {
+      } catch {
         setSignedUrl(null);
       } finally {
         setLoading(false);

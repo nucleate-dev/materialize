@@ -15,7 +15,8 @@
     "lint:check": "eslint . --max-warnings 0",
     "sync-types": "node scripts/sync-types.js && node scripts/sync-build-worker-types.js",
     "prebuild": "npm run lint:check && npm run sync-types",
-    "deploy:prod": "AWS_PROFILE=materialize-deploy node scripts/deploy-build-to-prod.js"
+    "deploy:prod": "AWS_PROFILE=materialize-deploy node scripts/deploy-build-to-prod.js",
+    "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.17",
@@ -51,16 +52,16 @@
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.7",
-    "@typescript-eslint/eslint-plugin": "^8.39.1",
-    "@typescript-eslint/parser": "^8.39.1",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
     "archiver": "^7.0.1",
-    "eslint": "^9.33.0",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "jest": "^29.7.0",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

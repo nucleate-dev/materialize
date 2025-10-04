@@ -115,7 +115,7 @@ export function FileAutocomplete({
           part
         ),
       );
-    } catch (error) {
+    } catch {
       // Fallback to plain text if regex fails
       return text;
     }

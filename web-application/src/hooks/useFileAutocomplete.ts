@@ -18,7 +18,7 @@ interface UseFileAutocompleteReturn {
   handleTextareaChange: (value: string, cursorPosition?: number) => void;
   handleFileSelect: (filePath: string) => void;
   closeAutocomplete: () => void;
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 const FILE_MENTION_PATTERN = /@\[([^\]]+)\]/g;

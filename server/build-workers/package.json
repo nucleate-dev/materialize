@@ -17,7 +17,8 @@
     "test:build-deploy": "node --loader ts-node/esm testscripts/test-build-and-deploy-endpoint.ts",
     "test:local": "node --loader ts-node/esm testscripts/test-build-and-deploy-endpoint.ts --local",
     "test:public-dev-server": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts",
-    "test:public-dev-server:local": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts --local"
+    "test:public-dev-server:local": "node --loader ts-node/esm testscripts/test-public-dev-server-endpoint.ts --local",
+    "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.893.0",
@@ -29,13 +30,13 @@
   "devDependencies": {
     "@types/node": "^20.11.24",
     "@types/uuid": "^9.0.8",
-    "@typescript-eslint/eslint-plugin": "^8.44.0",
-    "@typescript-eslint/parser": "^8.44.0",
-    "eslint": "^9.36.0",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

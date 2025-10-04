@@ -163,8 +163,8 @@ export class PublicApiService {
   }
 
   private async restartDevServer(
-    request: FastifyRequest,
-    reply: FastifyReply,
+    _request: FastifyRequest,
+    _reply: FastifyReply,
   ): Promise<PublicDevServerRestartResponse> {
     await this.expoDevServerService.restartDevServer();
     return { status: "success" } as PublicDevServerRestartResponse;

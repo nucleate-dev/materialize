@@ -96,7 +96,7 @@ export function getPostBySlug(slug: string): BlogPost | null {
       category: frontmatter.category,
       featured: frontmatter.featured || false,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

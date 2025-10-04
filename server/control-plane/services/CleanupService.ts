@@ -528,7 +528,8 @@ export class CleanupService {
         Key: `${prototypeId}/latest/index.html`,
       });
 
-      const signedUrl = await getSignedUrl(this.s3Client, command, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signedUrl = await getSignedUrl(this.s3Client as any, command as any, {
         expiresIn: 300, // 5 min expiration
       });
 

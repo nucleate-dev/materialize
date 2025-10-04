@@ -791,7 +791,7 @@ export default function PrototypeChatWindow({
               }
               throw new Error(errorData.error);
             }
-          } catch (parseError) {
+          } catch {
             throw new Error(`HTTP error! status: ${streamingResponse.status}`);
           }
         }

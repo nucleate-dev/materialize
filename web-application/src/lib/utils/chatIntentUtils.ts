@@ -27,7 +27,7 @@ export function getChatIntent(
       return intent;
     }
     return null;
-  } catch (err) {
+  } catch {
     return null;
   }
 }

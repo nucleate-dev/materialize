@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "pull-prototype": "node scripts/pull-prototype.js",
-    "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > src/lib/types/supabase.ts"
+    "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > src/lib/types/supabase.ts",
+    "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
     "@ai-sdk/react": "^1.2.12",
@@ -62,16 +63,16 @@
     "jsvectormap": "^1.6.0",
     "lucide-react": "^0.525.0",
     "micro": "^10.0.1",
-    "next": "^14.2.30",
+    "next": "^15.5.3",
     "next-mdx-remote": "^5.0.0",
     "next-themes": "^0.4.6",
     "postcss": "^8.5.6",
     "posthog-js": "^1.165.0",
     "posthog-node": "^4.2.0",
-    "react": "^18",
+    "react": "^19.2.0",
     "react-apexcharts": "^1.4.1",
     "react-day-picker": "^9.8.1",
-    "react-dom": "^18",
+    "react-dom": "^19.2.0",
     "react-jvectormap": "^0.0.16",
     "react-markdown": "^10.1.0",
     "react-monaco-editor": "^0.59.0",
@@ -91,15 +92,16 @@
     "@next/eslint-plugin-next": "^15.4.5",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "@typescript-eslint/eslint-plugin": "^6.20.0",
-    "@typescript-eslint/parser": "^6.20.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
     "autoprefixer": "^10.0.1",
     "dotenv": "^16.4.5",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "^15.0.0-canary.130",
+    "eslint": "^9.37.0",
+    "eslint-config-next": "^15.5.3",
+    "eslint-config-prettier": "^9.1.2",
     "supabase": "^2.34.3",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
   }
 }

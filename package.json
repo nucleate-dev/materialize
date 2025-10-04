@@ -1,0 +1,31 @@
+{
+  "name": "repo-root",
+  "private": true,
+  "workspaces": [
+    "web-application",
+    "internal-tools",
+    "server/control-plane",
+    "server/build-workers"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "clean": "node -e \"require('fs').rmSync('node_modules',{recursive:true,force:true});['web-application','internal-tools','server/control-plane','server/build-workers'].forEach(d=>require('fs').rmSync(d+'/node_modules',{recursive:true,force:true}))\" && rm -f package-lock.json",
+    "build": "npm run build -ws --if-present",
+    "dev": "npm run dev:web",
+    "dev:web": "npm -w web-starter-pack run dev",
+    "dev:internal": "npm -w internal-tools run dev",
+    "dev:cp": "npm -w rn-web-control-plane run dev",
+    "dev:worker": "npm -w rn-web-build-worker run dev",
+    "start:web": "npm -w web-starter-pack run start",
+    "start:internal": "npm -w internal-tools run start",
+    "start:cp": "npm -w rn-web-control-plane run start",
+    "start:worker": "npm -w rn-web-build-worker run start",
+    "lint": "npm run lint -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "test": "npm run test -ws --if-present"
+  },
+  "engines": {
+    "node": ">=20 <=22",
+    "npm": ">=9"
+  }
+}

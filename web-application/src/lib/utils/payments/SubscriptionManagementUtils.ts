@@ -84,7 +84,7 @@ export async function handleRedirectToStripeCustomerPortal(
       // Handle error response
       alert("Unable to access billing portal. Please try again later.");
     }
-  } catch (error) {
+  } catch {
     alert(
       "Unable to access billing portal. Please check your connection and try again.",
     );
