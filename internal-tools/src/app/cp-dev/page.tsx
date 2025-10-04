@@ -25,6 +25,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   generateAuthHeaders,
   getInternalToolsConfig,
 } from "@/lib/internal-tools-auth";
@@ -59,6 +66,8 @@ type InstanceStatus = "not-ready" | "ready" | "checking" | "terminated";
 
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
+  const [instanceType, setInstanceType] = useState("t3.medium");
+  const [lifespanHours, setLifespanHours] = useState("3");
   const [ec2Loading, setEc2Loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ec2Details, setEc2Details] = useState<{
@@ -68,7 +77,8 @@ export default function DevServerPage() {
     publicIpv4?: string;
     sshCommand?: string;
   } | null>(null);
-  const [instanceStatus, setInstanceStatus] = useState<InstanceStatus>("checking");
+  const [instanceStatus, setInstanceStatus] =
+    useState<InstanceStatus>("checking");
   const [copiedField, setCopiedField] = useState<
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
@@ -330,14 +340,14 @@ export default function DevServerPage() {
           finalResult.error ||
             (paths.length
               ? "Selective deploy failed"
-              : "Control plane deploy failed")
+              : "Control plane deploy failed"),
         );
         throw error;
       }
 
       return finalResult;
     },
-    []
+    [],
   );
 
   const handleDeployAll = useCallback(async () => {
@@ -350,7 +360,7 @@ export default function DevServerPage() {
       });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to run full deploy"
+        err instanceof Error ? err.message : "Failed to run full deploy",
       );
     } finally {
       setDeployingAll(false);
@@ -372,7 +382,7 @@ export default function DevServerPage() {
       });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to deploy changed files"
+        err instanceof Error ? err.message : "Failed to deploy changed files",
       );
     } finally {
       setDeployingChanged(false);
@@ -393,7 +403,7 @@ export default function DevServerPage() {
       });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to run selective deploy"
+        err instanceof Error ? err.message : "Failed to run selective deploy",
       );
     } finally {
       setDeployingSelected(false);
@@ -445,7 +455,11 @@ export default function DevServerPage() {
       }
 
       const { secretKey } = getInternalToolsConfig();
-      const requestBody = JSON.stringify({ serverName: ec2ServerName.trim() });
+      const requestBody = JSON.stringify({
+        serverName: ec2ServerName.trim(),
+        instanceType,
+        lifespanHours: parseInt(lifespanHours, 10)
+      });
       const headers = generateAuthHeaders(
         "POST",
         "/internal/dev-server/acquire-ec2",
@@ -465,7 +479,10 @@ export default function DevServerPage() {
       });
 
       console.log("[EC2 Acquire] Response status:", response.status);
-      console.log("[EC2 Acquire] Response headers:", Object.fromEntries(response.headers.entries()));
+      console.log(
+        "[EC2 Acquire] Response headers:",
+        Object.fromEntries(response.headers.entries()),
+      );
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
@@ -495,7 +512,10 @@ export default function DevServerPage() {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log("[EC2 Acquire] Stream complete. Total messages received:", messageCount);
+          console.log(
+            "[EC2 Acquire] Stream complete. Total messages received:",
+            messageCount,
+          );
           break;
         }
 
@@ -567,7 +587,8 @@ export default function DevServerPage() {
       setEc2ServerName("");
     } catch (err) {
       console.error("[EC2 Acquire] Fatal error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to acquire EC2 instance";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to acquire EC2 instance";
       setError(errorMessage);
       setInstanceStatus("terminated");
     } finally {
@@ -592,7 +613,7 @@ export default function DevServerPage() {
         )}
 
         {/* EC2 Dev Server Section */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[30%_70%]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[40%_60%]">
           {/* EC2 Acquisition Card */}
           <Card>
             <CardHeader>
@@ -602,7 +623,7 @@ export default function DevServerPage() {
               </div>
               <CardDescription>
                 Acquire a development EC2 instance for control plane testing.
-                The instance will automatically terminate after 3 hours.
+                Configure the instance type and lifespan below.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -612,17 +633,45 @@ export default function DevServerPage() {
                   This will be used as part of the instance name: dev-server-
                   {ec2ServerName || "[name]"}
                 </p>
-              </div>
-
-              <div className="flex gap-2">
                 <Input
                   id="ec2-server-name"
                   placeholder="e.g., dev-control-plane-testing"
                   value={ec2ServerName}
                   onChange={(e) => setEc2ServerName(e.target.value)}
                   disabled={ec2Loading}
-                  className="flex-1"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="instance-type">Instance Type</Label>
+                <Select value={instanceType} onValueChange={setInstanceType} disabled={ec2Loading}>
+                  <SelectTrigger id="instance-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="t3.micro">t3.micro (2 vCPU, 1GB RAM)</SelectItem>
+                    <SelectItem value="t3.medium">t3.medium (2 vCPU, 4GB RAM)</SelectItem>
+                    <SelectItem value="t3.large">t3.large (2 vCPU, 8GB RAM)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lifespan">Lifespan</Label>
+                <Select value={lifespanHours} onValueChange={setLifespanHours} disabled={ec2Loading}>
+                  <SelectTrigger id="lifespan">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3 hours</SelectItem>
+                    <SelectItem value="4">4 hours</SelectItem>
+                    <SelectItem value="5">5 hours</SelectItem>
+                    <SelectItem value="6">6 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2">
 
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -645,8 +694,8 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="text-xs space-y-1">
-                      <p>• Instance Type: t3.micro</p>
-                      <p>• Auto-termination: 3 hours</p>
+                      <p>• Instance Type: {instanceType}</p>
+                      <p>• Auto-termination: {lifespanHours} hours</p>
                       <p>• Purpose: Control plane development</p>
                       <p>• Source: Production control plane</p>
                     </div>
@@ -718,7 +767,6 @@ export default function DevServerPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4">
-
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Label className="min-w-32">Public DNS</Label>

@@ -53,6 +53,17 @@ export class InternalControlPlaneDevelopmentService {
                 type: 'string',
                 description: 'Name for the dev server',
               },
+              instanceType: {
+                type: 'string',
+                description: 'EC2 instance type (t3.micro, t3.medium, or t3.large)',
+                enum: ['t3.micro', 't3.medium', 't3.large'],
+              },
+              lifespanHours: {
+                type: 'number',
+                description: 'Instance lifespan in hours (3-6)',
+                minimum: 3,
+                maximum: 6,
+              },
             },
           },
           response: {
@@ -171,11 +182,19 @@ export class InternalControlPlaneDevelopmentService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    const { serverName } = request.body as { serverName: string };
+    const {
+      serverName,
+      instanceType = 't3.medium',
+      lifespanHours = 3
+    } = request.body as {
+      serverName: string;
+      instanceType?: string;
+      lifespanHours?: number;
+    };
     request.log2 = request.log2.child({
       service: 'internal-services',
     });
-    request.log2.info('Acquiring dev EC2 instance', { serverName });
+    request.log2.info('Acquiring dev EC2 instance', { serverName, instanceType, lifespanHours });
 
     // Validate server name
     if (!serverName || serverName.trim().length === 0) {
@@ -205,6 +224,8 @@ export class InternalControlPlaneDevelopmentService {
       // Step 1: Acquire the instance (without waiting for ready state)
       const instanceId = await this.allocateDevServerInitial(
         serverName.trim(),
+        instanceType,
+        lifespanHours,
         request.log2,
       );
 
@@ -329,7 +350,7 @@ export class InternalControlPlaneDevelopmentService {
   }
 
   // Load user data script from file
-  private loadUserDataScript(): string {
+  private loadUserDataScript(lifespanHours: number): string {
     try {
       const scriptPath = path.resolve(
         process.cwd(),
@@ -337,7 +358,15 @@ export class InternalControlPlaneDevelopmentService {
           ? 'infra/ec2/dev-cp-user-data-script.sh'
           : 'dist/infra/ec2/dev-cp-user-data-script.sh',
       );
-      return fs.readFileSync(scriptPath, 'utf-8');
+      const baseScript = fs.readFileSync(scriptPath, 'utf-8');
+
+      // Calculate minutes from hours
+      const shutdownMinutes = lifespanHours * 60;
+
+      // Append shutdown command to the script
+      const shutdownCommand = `\n\n# Auto-shutdown after ${lifespanHours} hours\nshutdown -h +${shutdownMinutes}\n`;
+
+      return baseScript + shutdownCommand;
     } catch (error) {
       throw new Error(
         `Failed to load user data script: ${
@@ -386,13 +415,15 @@ export class InternalControlPlaneDevelopmentService {
   // Allocate a dev EC2 server (initial step - just create the instance)
   private async allocateDevServerInitial(
     serverName: string,
+    instanceType: string,
+    lifespanHours: number,
     log2: SystemLogger,
   ): Promise<string> {
-    const userDataScript = this.loadUserDataScript();
+    const userDataScript = this.loadUserDataScript(lifespanHours);
 
     const cmd = new RunInstancesCommand({
       ImageId: 'ami-00dcc61084e6a2f20', // Amazon Linux 2023
-      InstanceType: 't3.medium',
+      InstanceType: instanceType as 't3.micro' | 't3.medium' | 't3.large',
       MinCount: 1,
       MaxCount: 1,
       KeyName: process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME!,
@@ -410,7 +441,8 @@ export class InternalControlPlaneDevelopmentService {
             { Key: 'Name', Value: `dev-server-${serverName}` },
             { Key: 'Purpose', Value: 'dev-server' },
             { Key: 'Environment', Value: 'development' },
-            { Key: 'AutoTerminate', Value: '3-hours' },
+            { Key: 'AutoTerminate', Value: `${lifespanHours}-hours` },
+            { Key: 'InstanceType', Value: instanceType },
           ],
         },
       ],

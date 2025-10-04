@@ -264,8 +264,8 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 echo "✅ CloudWatch Agent configured and started successfully"
 
 # 9. Schedule auto-termination in 3 hours
-echo "==> Scheduling auto-termination in 3 hours..."
-shutdown -h +180
+# echo "==> Scheduling auto-termination in 3 hours..."
+# shutdown -h +180
 
 echo "==> EC2 user data script completed successfully"
 echo "Instance is ready for application deployment"
