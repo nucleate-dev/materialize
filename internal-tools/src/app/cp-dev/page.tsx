@@ -90,6 +90,8 @@ export default function DevServerPage() {
   const [deployingSelected, setDeployingSelected] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [deployOutput, setDeployOutput] = useState("");
+  const [configuringFiles, setConfiguringFiles] = useState(false);
+  const [configureSuccess, setConfigureSuccess] = useState(false);
 
   // Load instance from localStorage on mount
   useEffect(() => {
@@ -418,6 +420,47 @@ export default function DevServerPage() {
     setSelectedPaths([]);
   }, []);
 
+  const handleAutoConfigureFiles = async () => {
+    if (!ec2Details?.publicDns || !ec2Details?.publicIpv4) {
+      setError("Missing instance details for auto-configuration");
+      return;
+    }
+
+    setConfiguringFiles(true);
+    setError(null);
+    setConfigureSuccess(false);
+
+    try {
+      const response = await fetch("/api/update-instance-config", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          publicDns: ec2Details.publicDns,
+          publicIpv4: ec2Details.publicIpv4,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to update files");
+      }
+
+      setConfigureSuccess(true);
+      setTimeout(() => setConfigureSuccess(false), 3000);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to auto-configure files"
+      );
+    } finally {
+      setConfiguringFiles(false);
+    }
+  };
+
   const sortedSelectedPaths = useMemo(
     () => [...selectedPaths].sort((a, b) => a.localeCompare(b)),
     [selectedPaths],
@@ -723,48 +766,77 @@ export default function DevServerPage() {
                     </code>
                   )}
                 </div>
-                {ec2Details && (
-                  <>
-                    {instanceStatus === "ready" && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-green-100 text-green-800 border-green-200"
-                      >
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Ready
-                      </Badge>
-                    )}
-                    {instanceStatus === "not-ready" && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-red-100 text-red-800 border-red-200"
-                      >
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Not Ready
-                      </Badge>
-                    )}
-                    {instanceStatus === "checking" && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-800 border-blue-200"
-                      >
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Checking...
-                      </Badge>
-                    )}
-                    {instanceStatus === "terminated" && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-gray-100 text-gray-800 border-gray-200"
-                      >
-                        Terminated
-                      </Badge>
-                    )}
-                  </>
-                )}
+                <div className="flex items-center gap-2">
+                  {ec2Details && (
+                    <Button
+                      onClick={handleAutoConfigureFiles}
+                      disabled={configuringFiles || instanceStatus !== "ready"}
+                      size="sm"
+                      className="bg-black text-white hover:bg-black/90 disabled:bg-black/50"
+                    >
+                      {configuringFiles ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Configuring...
+                        </>
+                      ) : configureSuccess ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Configured!
+                        </>
+                      ) : (
+                        <>
+                          <Server className="h-4 w-4 mr-2" />
+                          Auto-configure files
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {ec2Details && (
+                    <>
+                      {instanceStatus === "ready" && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-green-100 text-green-800 border-green-200"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Ready
+                        </Badge>
+                      )}
+                      {instanceStatus === "not-ready" && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-red-100 text-red-800 border-red-200"
+                        >
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Not Ready
+                        </Badge>
+                      )}
+                      {instanceStatus === "checking" && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-100 text-blue-800 border-blue-200"
+                        >
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Checking...
+                        </Badge>
+                      )}
+                      {instanceStatus === "terminated" && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-gray-100 text-gray-800 border-gray-200"
+                        >
+                          Terminated
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
               <CardDescription>
-                {ec2Details
+                {ec2Details && instanceStatus === "ready"
+                  ? "EC2 instance is ready! Click 'Auto-configure files' to automatically update your local configuration files."
+                  : ec2Details
                   ? "EC2 instance acquired successfully! Copy the values below into the appropriate files."
                   : "Instance details will appear here after acquisition."}
               </CardDescription>
