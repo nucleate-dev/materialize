@@ -198,11 +198,13 @@ export async function GET() {
   }
 }
 
-function runDeployScript(paths: string[] = []) {
+function runDeployScriptWithStreaming(
+  paths: string[],
+  onData: (data: string) => void
+) {
   return new Promise<{
     code: number | null;
-    stdout: string;
-    stderr: string;
+    success: boolean;
   }>((resolve, reject) => {
     if (!fs.existsSync(DEPLOY_SCRIPT)) {
       reject(new Error(`Deploy script not found at ${DEPLOY_SCRIPT}`));
@@ -214,15 +216,12 @@ function runDeployScript(paths: string[] = []) {
       env: process.env,
     });
 
-    let stdout = "";
-    let stderr = "";
-
     child.stdout.on("data", (data) => {
-      stdout += data.toString();
+      onData(data.toString());
     });
 
     child.stderr.on("data", (data) => {
-      stderr += data.toString();
+      onData(data.toString());
     });
 
     child.on("error", (error) => {
@@ -230,7 +229,7 @@ function runDeployScript(paths: string[] = []) {
     });
 
     child.on("close", (code) => {
-      resolve({ code, stdout, stderr });
+      resolve({ code, success: code === 0 });
     });
   });
 }
@@ -251,25 +250,51 @@ export async function POST(request: NextRequest) {
     path.join("control-plane", relativePath)
   );
 
-  try {
-    const { code, stdout, stderr } = await runDeployScript(normalizedPaths);
-    const output = `${stdout}${stderr}`.trim();
+  // Create a readable stream for streaming the deploy output
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const result = await runDeployScriptWithStreaming(
+          normalizedPaths,
+          (data) => {
+            // Send each chunk of output as it arrives
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ type: "data", data }) + "\n")
+            );
+          }
+        );
 
-    if (code === 0) {
-      return NextResponse.json({ success: true, output });
-    }
+        // Send final status
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({
+              type: "done",
+              success: result.success,
+              code: result.code,
+            }) + "\n"
+          )
+        );
 
-    return NextResponse.json(
-      { success: false, output, error: "Deploy script exited with an error" },
-      { status: 500 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: (error as Error).message || "Failed to execute deploy script",
-      },
-      { status: 500 }
-    );
-  }
+        controller.close();
+      } catch (error) {
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({
+              type: "error",
+              error: (error as Error).message || "Failed to execute deploy script",
+            }) + "\n"
+          )
+        );
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+    },
+  });
 }

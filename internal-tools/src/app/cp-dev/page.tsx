@@ -146,57 +146,88 @@ export default function DevServerPage() {
     );
   }, []);
 
-  const callDeploy = useCallback(async (paths: string[]) => {
-    const response = await fetch("/api/control-plane", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paths.length ? { paths } : {}),
-    });
+  const callDeploy = useCallback(
+    async (paths: string[], onOutput: (output: string) => void) => {
+      const response = await fetch("/api/control-plane", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(paths.length ? { paths } : {}),
+      });
 
-    let data: { success?: boolean; output?: string; error?: string } = {};
-    try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
-
-    if (!response.ok || data.success === false) {
-      const message =
-        data.error ||
-        (paths.length
-          ? "Selective deploy failed"
-          : "Control plane deploy failed");
-      const error = new Error(message) as Error & { output?: string };
-      if (typeof data.output === "string") {
-        error.output = data.output;
+      if (!response.ok) {
+        throw new Error("Failed to start deploy");
       }
-      throw error;
-    }
 
-    return data;
-  }, []);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      let buffer = "";
+      let finalResult: { success: boolean; error?: string } = {
+        success: false,
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const message = JSON.parse(line);
+
+            if (message.type === "data") {
+              onOutput(message.data);
+            } else if (message.type === "done") {
+              finalResult = { success: message.success };
+            } else if (message.type === "error") {
+              finalResult = { success: false, error: message.error };
+            }
+          } catch (e) {
+            console.error("Failed to parse message:", line, e);
+          }
+        }
+      }
+
+      if (!finalResult.success) {
+        const error = new Error(
+          finalResult.error ||
+            (paths.length
+              ? "Selective deploy failed"
+              : "Control plane deploy failed")
+        );
+        throw error;
+      }
+
+      return finalResult;
+    },
+    []
+  );
 
   const handleDeployAll = useCallback(async () => {
     setDeployingAll(true);
     setError(null);
     setDeployOutput("");
     try {
-      const result = await callDeploy([]);
-      setDeployOutput(
-        result.output?.trim() || "Full deploy completed successfully.",
-      );
+      await callDeploy([], (data) => {
+        setDeployOutput((prev) => prev + data);
+      });
     } catch (err) {
-      const output =
-        err && typeof err === "object" && "output" in err
-          ? String((err as { output?: string }).output || "")
-          : "";
-      if (output) {
-        setDeployOutput(output);
-      }
       setError(
-        err instanceof Error ? err.message : "Failed to run full deploy",
+        err instanceof Error ? err.message : "Failed to run full deploy"
       );
     } finally {
       setDeployingAll(false);
@@ -213,20 +244,12 @@ export default function DevServerPage() {
     setError(null);
     setDeployOutput("");
     try {
-      const result = await callDeploy(changedPaths);
-      setDeployOutput(
-        result.output?.trim() || "Changed files deploy completed successfully.",
-      );
+      await callDeploy(changedPaths, (data) => {
+        setDeployOutput((prev) => prev + data);
+      });
     } catch (err) {
-      const output =
-        err && typeof err === "object" && "output" in err
-          ? String((err as { output?: string }).output || "")
-          : "";
-      if (output) {
-        setDeployOutput(output);
-      }
       setError(
-        err instanceof Error ? err.message : "Failed to deploy changed files",
+        err instanceof Error ? err.message : "Failed to deploy changed files"
       );
     } finally {
       setDeployingChanged(false);
@@ -242,20 +265,12 @@ export default function DevServerPage() {
     setError(null);
     setDeployOutput("");
     try {
-      const result = await callDeploy(selectedPaths);
-      setDeployOutput(
-        result.output?.trim() || "Selective deploy completed successfully.",
-      );
+      await callDeploy(selectedPaths, (data) => {
+        setDeployOutput((prev) => prev + data);
+      });
     } catch (err) {
-      const output =
-        err && typeof err === "object" && "output" in err
-          ? String((err as { output?: string }).output || "")
-          : "";
-      if (output) {
-        setDeployOutput(output);
-      }
       setError(
-        err instanceof Error ? err.message : "Failed to run selective deploy",
+        err instanceof Error ? err.message : "Failed to run selective deploy"
       );
     } finally {
       setDeployingSelected(false);
