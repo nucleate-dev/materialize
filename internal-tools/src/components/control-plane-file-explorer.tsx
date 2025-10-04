@@ -26,6 +26,7 @@ type ControlPlaneFileExplorerProps = {
   files: ControlPlaneFileNode[];
   selectedPaths: string[];
   onToggle: (path: string) => void;
+  onToggleWithChildren?: (paths: string[]) => void;
 };
 
 type ExpandedState = Record<string, boolean>;
@@ -37,6 +38,7 @@ function NodeItem({
   toggleExpanded,
   selected,
   onToggle,
+  onToggleWithChildren,
 }: {
   node: ControlPlaneFileNode;
   depth: number;
@@ -44,14 +46,33 @@ function NodeItem({
   toggleExpanded: (path: string) => void;
   selected: Set<string>;
   onToggle: (path: string) => void;
+  onToggleWithChildren?: (paths: string[]) => void;
 }) {
   const isDirectory = node.type === "directory";
-  const isExpanded = isDirectory
-    ? expanded[node.path] ?? depth === 0
-    : false;
+  const isExpanded = isDirectory ? expanded[node.path] ?? false : false;
   const isSelected = selected.has(node.path);
   const hasChanges = Boolean(node.hasChanges);
   const checkboxId = `cp-node-${node.path.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+
+  // Helper to collect all descendant paths
+  const getAllDescendantPaths = (n: ControlPlaneFileNode): string[] => {
+    const paths: string[] = [n.path];
+    if (n.children) {
+      for (const child of n.children) {
+        paths.push(...getAllDescendantPaths(child));
+      }
+    }
+    return paths;
+  };
+
+  const handleCheckboxChange = () => {
+    if (isDirectory && onToggleWithChildren) {
+      const allPaths = getAllDescendantPaths(node);
+      onToggleWithChildren(allPaths);
+    } else {
+      onToggle(node.path);
+    }
+  };
 
   return (
     <div key={node.path} className="space-y-1">
@@ -79,16 +100,14 @@ function NodeItem({
             )}
           </Button>
         ) : (
-          <span className="inline-flex size-6 items-center justify-center text-muted-foreground">
-            <FileIcon className="h-4 w-4" />
-          </span>
+          <span className="size-6 shrink-0" />
         )}
 
         <div className="flex flex-1 items-center gap-2" title={node.path}>
           <Checkbox
             id={checkboxId}
             checked={isSelected}
-            onCheckedChange={() => onToggle(node.path)}
+            onCheckedChange={handleCheckboxChange}
           />
           <Label
             htmlFor={checkboxId}
@@ -129,6 +148,7 @@ function NodeItem({
               toggleExpanded={toggleExpanded}
               selected={selected}
               onToggle={onToggle}
+              onToggleWithChildren={onToggleWithChildren}
             />
           ))}
         </div>
@@ -156,6 +176,23 @@ export function ControlPlaneFileExplorer({
     }));
   };
 
+  const handleToggleWithChildren = (paths: string[]) => {
+    // Check if the directory itself is currently selected
+    const isCurrentlySelected = selectedPaths.includes(paths[0]);
+
+    if (isCurrentlySelected) {
+      // If selected, remove all paths
+      paths.forEach(path => onToggle(path));
+    } else {
+      // If not selected, add all paths that aren't already selected
+      paths.forEach(path => {
+        if (!selectedPaths.includes(path)) {
+          onToggle(path);
+        }
+      });
+    }
+  };
+
   if (!files.length) {
     return (
       <div className="text-sm text-muted-foreground">No files found.</div>
@@ -173,6 +210,7 @@ export function ControlPlaneFileExplorer({
           toggleExpanded={toggleExpanded}
           selected={selected}
           onToggle={onToggle}
+          onToggleWithChildren={handleToggleWithChildren}
         />
       ))}
     </div>
