@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   ChevronDown,
   ChevronRight,
@@ -47,6 +51,7 @@ function NodeItem({
     : false;
   const isSelected = selected.has(node.path);
   const hasChanges = Boolean(node.hasChanges);
+  const checkboxId = `cp-node-${node.path.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 
   return (
     <div key={node.path} className="space-y-1">
@@ -59,10 +64,12 @@ function NodeItem({
         )}
       >
         {isDirectory ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => toggleExpanded(node.path)}
-            className="flex size-6 items-center justify-center rounded border border-transparent text-muted-foreground hover:border-border hover:bg-muted/60"
+            className="size-6 shrink-0 border border-transparent text-muted-foreground hover:border-border"
             aria-label={isExpanded ? "Collapse directory" : "Expand directory"}
           >
             {isExpanded ? (
@@ -70,21 +77,27 @@ function NodeItem({
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-          </button>
+          </Button>
         ) : (
           <span className="inline-flex size-6 items-center justify-center text-muted-foreground">
             <FileIcon className="h-4 w-4" />
           </span>
         )}
 
-        <label className="flex flex-1 cursor-pointer items-center gap-2" title={node.path}>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-purple-600"
+        <div className="flex flex-1 items-center gap-2" title={node.path}>
+          <Checkbox
+            id={checkboxId}
             checked={isSelected}
-            onChange={() => onToggle(node.path)}
+            onCheckedChange={() => onToggle(node.path)}
           />
-          <div className="flex flex-1 items-center gap-2">
+          <Label
+            htmlFor={checkboxId}
+            className={cn(
+              "flex flex-1 cursor-pointer select-none items-center gap-2 truncate",
+              isDirectory ? "font-medium" : undefined,
+              hasChanges && !isSelected && "font-semibold text-amber-700"
+            )}
+          >
             {isDirectory ? (
               isExpanded ? (
                 <FolderOpen className="h-4 w-4 text-blue-600" />
@@ -94,22 +107,15 @@ function NodeItem({
             ) : (
               <FileIcon className="h-4 w-4 text-muted-foreground" />
             )}
-            <span
-              className={cn(
-                "truncate",
-                isDirectory ? "font-medium" : undefined,
-                hasChanges && !isSelected && "font-semibold text-amber-700"
-              )}
-            >
-              {node.name}
-            </span>
-          </div>
-          {hasChanges ? (
-            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
-              Changed
-            </span>
-          ) : null}
-        </label>
+            <span className="truncate">{node.name}</span>
+          </Label>
+        </div>
+
+        {hasChanges ? (
+          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+            Changed
+          </Badge>
+        ) : null}
       </div>
 
       {isDirectory && isExpanded && node.children?.length ? (

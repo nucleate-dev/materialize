@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -369,7 +370,7 @@ export default function DevServerPage() {
         )}
 
         {/* EC2 Dev Server Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[30%_70%]">
           {/* EC2 Acquisition Card */}
           <Card>
             <CardHeader>
@@ -730,15 +731,37 @@ export default function DevServerPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
+        </div>
+
+        <Card className="w-full">
+          <CardHeader>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <ListTree className="h-5 w-5 text-blue-600" />
-                  <CardTitle>Control Plane Files</CardTitle>
+                  <CardTitle>Control Plane Files & Deploy</CardTitle>
                 </div>
+                <CardDescription>
+                  Browse files under
+                  <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                    server/control-plane
+                  </span>
+                  , curate a selection, and deploy updates to your dev EC2.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
+                  onClick={handleClearSelection}
+                  disabled={!hasSelection || isDeploying}
+                  className="flex items-center gap-2"
+                >
+                  <ListTree className="h-4 w-4" />
+                  Clear selection
+                </Button>
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={handleRefreshFiles}
                   disabled={filesLoading}
@@ -747,40 +770,213 @@ export default function DevServerPage() {
                   {filesLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Refreshing...
+                      Refreshing
                     </>
                   ) : (
                     <>
                       <RefreshCcw className="h-4 w-4" />
-                      Refresh
+                      Refresh files
                     </>
                   )}
                 </Button>
               </div>
-              <CardDescription>
-                Browse files under
-                <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                  server/control-plane
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleDeployAll}
+                      disabled={isDeploying}
+                      className="flex items-center gap-2"
+                    >
+                      {deployingAll ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deploying all
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="h-4 w-4" />
+                          Deploy all
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Run the full dev control plane deploy script.</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      onClick={handleDeployChanged}
+                      disabled={isDeploying || !hasChangedFiles}
+                      className="flex items-center gap-2"
+                    >
+                      {deployingChanged ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deploying changed
+                        </>
+                      ) : (
+                        <>
+                          <GitCommit className="h-4 w-4" />
+                          Deploy changed
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Deploy only files detected as git changes.</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={handleDeploySelected}
+                      disabled={isDeploying || !hasSelection}
+                      className="flex items-center gap-2"
+                    >
+                      {deployingSelected ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deploying selection
+                        </>
+                      ) : (
+                        <>
+                          <ListTree className="h-4 w-4" />
+                          Deploy selection
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Deploy only the paths you have checked in the explorer.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <GitCommit className="h-4 w-4" />
+                  {hasChangedFiles
+                    ? `${changedPaths.length} changed`
+                    : "No git changes"}
                 </span>
-                and select them for selective deploys.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filesLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading files...
+                <span className="flex items-center gap-1">
+                  <ListTree className="h-4 w-4" />
+                  {hasSelection
+                    ? `${selectedPaths.length} selected`
+                    : "No selection"}
+                </span>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              <div className="space-y-4">
+                <div className="rounded-md border bg-muted/40">
+                  {filesLoading ? (
+                    <div className="flex h-[420px] items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading files...
+                    </div>
+                  ) : (
+                    <div className="max-h-[420px] overflow-auto p-2">
+                      <ControlPlaneFileExplorer
+                        files={fileTree}
+                        selectedPaths={selectedPaths}
+                        onToggle={toggleSelectedPath}
+                      />
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <ControlPlaneFileExplorer
-                  files={fileTree}
-                  selectedPaths={selectedPaths}
-                  onToggle={toggleSelectedPath}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                <p className="text-xs text-muted-foreground">
+                  Tip: Selecting a directory adds all nested files to your deploy batch.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2 rounded-md border bg-background p-4">
+                  <div className="flex items-center justify-between text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <GitCommit className="h-4 w-4 text-muted-foreground" />
+                      Git tracked changes
+                    </span>
+                    {hasChangedFiles ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <GitCommit className="h-3 w-3" />
+                        {changedPaths.length}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Clean</Badge>
+                    )}
+                  </div>
+                  {hasChangedFiles ? (
+                    <div className="max-h-36 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
+                      <ul className="space-y-1">
+                        {sortedChangedPaths.map((path) => (
+                          <li key={path}>{path}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No local git changes detected for server/control-plane.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 rounded-md border bg-background p-4">
+                  <div className="flex items-center justify-between text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <ListTree className="h-4 w-4 text-muted-foreground" />
+                      Selected paths
+                    </span>
+                    <Badge variant="outline">{selectedPaths.length}</Badge>
+                  </div>
+                  {hasSelection ? (
+                    <div className="max-h-40 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
+                      <ul className="space-y-1">
+                        {sortedSelectedPaths.map((path) => (
+                          <li key={path}>{path}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Use the explorer to choose specific files or directories for a selective deploy.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 rounded-md border bg-background p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Rocket className="h-4 w-4 text-muted-foreground" />
+                    Deploy output
+                  </div>
+                  <div className="max-h-64 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                    {deployOutput ? (
+                      deployOutput
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Deployment output will appear here after running a deploy.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </TooltipProvider>
   );
