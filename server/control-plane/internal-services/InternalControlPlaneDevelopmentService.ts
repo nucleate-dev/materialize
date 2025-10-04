@@ -225,7 +225,7 @@ export class InternalControlPlaneDevelopmentService {
 
     const cmd = new RunInstancesCommand({
       ImageId: 'ami-00dcc61084e6a2f20', // Amazon Linux 2023
-      InstanceType: 't3.micro',
+      InstanceType: 't3.medium',
       MinCount: 1,
       MaxCount: 1,
       KeyName: process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME!, // Replace with your key pair name
