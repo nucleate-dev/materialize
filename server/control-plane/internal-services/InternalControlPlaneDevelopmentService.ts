@@ -2,6 +2,7 @@ import {
   EC2Client,
   RunInstancesCommand,
   DescribeInstancesCommand,
+  DescribeInstanceStatusCommand,
   waitUntilInstanceRunning,
   waitUntilInstanceStatusOk,
 } from '@aws-sdk/client-ec2';
@@ -275,6 +276,7 @@ export class InternalControlPlaneDevelopmentService {
     });
 
     try {
+      // Get basic instance information
       const describeCmd = new DescribeInstancesCommand({
         InstanceIds: [instanceId],
       });
@@ -290,9 +292,18 @@ export class InternalControlPlaneDevelopmentService {
       }
 
       const state = instance.State?.Name || 'unknown';
+
+      // Get instance status checks separately
+      const statusCmd = new DescribeInstanceStatusCommand({
+        InstanceIds: [instanceId],
+      });
+
+      const statusResp = await this.ec2Client.send(statusCmd);
+      const instanceStatus = statusResp.InstanceStatuses?.[0];
+
       const statusChecksOk =
-        instance.InstanceStatus?.Status === 'ok' &&
-        instance.SystemStatus?.Status === 'ok'
+        instanceStatus?.InstanceStatus?.Status === 'ok' &&
+        instanceStatus?.SystemStatus?.Status === 'ok'
           ? 'ok'
           : 'initializing';
 

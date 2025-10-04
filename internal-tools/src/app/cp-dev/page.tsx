@@ -686,7 +686,7 @@ export default function DevServerPage() {
                         variant="secondary"
                         className="bg-red-100 text-red-800 border-red-200"
                       >
-                        <AlertCircle className="h-3 w-3 mr-1" />
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                         Not Ready
                       </Badge>
                     )}
