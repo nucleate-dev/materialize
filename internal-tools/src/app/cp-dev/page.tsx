@@ -50,7 +50,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const INSTANCE_STORAGE_KEY = "dev-ec2-instance";
-const INSTANCE_EXPIRY_HOURS = 3;
 
 interface StoredInstance {
   instanceId: string;
@@ -60,6 +59,8 @@ interface StoredInstance {
   sshCommand: string;
   createdAt: number;
   ready: boolean;
+  lifespanHours: number;
+  instanceType: string;
 }
 
 type InstanceStatus = "not-ready" | "ready" | "checking" | "terminated";
@@ -92,6 +93,7 @@ export default function DevServerPage() {
   const [deployOutput, setDeployOutput] = useState("");
   const [configuringFiles, setConfiguringFiles] = useState(false);
   const [configureSuccess, setConfigureSuccess] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
 
   // Load instance from localStorage on mount
   useEffect(() => {
@@ -105,8 +107,9 @@ export default function DevServerPage() {
       const instance: StoredInstance = JSON.parse(stored);
       const ageHours = (Date.now() - instance.createdAt) / (1000 * 60 * 60);
 
-      // Check if instance has expired (3 hours)
-      if (ageHours >= INSTANCE_EXPIRY_HOURS) {
+      // Check if instance has expired based on its lifespan
+      const lifespanHours = instance.lifespanHours || 3;
+      if (ageHours >= lifespanHours) {
         localStorage.removeItem(INSTANCE_STORAGE_KEY);
         setInstanceStatus("terminated");
         return;
@@ -138,6 +141,8 @@ export default function DevServerPage() {
     publicIpv4: string;
     sshCommand: string;
     ready: boolean;
+    lifespanHours: number;
+    instanceType: string;
   }) => {
     const stored: StoredInstance = {
       ...instance,
@@ -420,6 +425,48 @@ export default function DevServerPage() {
     setSelectedPaths([]);
   }, []);
 
+  // Countdown timer effect
+  useEffect(() => {
+    const updateCountdown = () => {
+      const stored = localStorage.getItem(INSTANCE_STORAGE_KEY);
+      if (!stored) {
+        setTimeRemaining("");
+        return;
+      }
+
+      try {
+        const instance: StoredInstance = JSON.parse(stored);
+        const lifespanHours = instance.lifespanHours || 3;
+        const expiryTime = instance.createdAt + lifespanHours * 60 * 60 * 1000;
+        const remaining = expiryTime - Date.now();
+
+        if (remaining <= 0) {
+          setTimeRemaining("Expired");
+          localStorage.removeItem(INSTANCE_STORAGE_KEY);
+          setInstanceStatus("terminated");
+          setEc2Details(null);
+          return;
+        }
+
+        const hours = Math.floor(remaining / (1000 * 60 * 60));
+        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+        setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+      } catch {
+        setTimeRemaining("");
+      }
+    };
+
+    // Update immediately
+    updateCountdown();
+
+    // Update every second
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [ec2Details]);
+
   const handleAutoConfigureFiles = async () => {
     if (!ec2Details?.publicDns || !ec2Details?.publicIpv4) {
       setError("Missing instance details for auto-configuration");
@@ -597,6 +644,8 @@ export default function DevServerPage() {
               saveInstanceToStorage({
                 ...instanceDetails,
                 ready: false,
+                lifespanHours: parseInt(lifespanHours, 10),
+                instanceType,
               });
             } else if (message.type === "instance-ready") {
               // Second step: instance is ready
@@ -616,6 +665,8 @@ export default function DevServerPage() {
               saveInstanceToStorage({
                 ...instanceDetails,
                 ready: true,
+                lifespanHours: parseInt(lifespanHours, 10),
+                instanceType,
               });
             } else if (message.type === "error") {
               console.error("[EC2 Acquire] Server error:", message.error);
@@ -842,6 +893,14 @@ export default function DevServerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {timeRemaining && (
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Time Remaining</span>
+                    <span className="text-sm font-mono font-semibold">{timeRemaining}</span>
+                  </div>
+                </div>
+              )}
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
