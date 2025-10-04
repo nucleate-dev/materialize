@@ -13,6 +13,7 @@ import { InternalCacheManagementService } from './internal-services/InternalCach
 import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
 import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
+import { InternalBuildWorkerDevProxyService } from './internal-services/InternalBuildWorkerDevProxyService.js';
 import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { EC2Client } from '@aws-sdk/client-ec2';
@@ -126,6 +127,7 @@ let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
 let internalCleanupServiceManagement: InternalCleanupServiceManagement;
+let internalBuildWorkerDevProxyService: InternalBuildWorkerDevProxyService;
 let cache: GlideClient;
 
 // Health check
@@ -236,6 +238,9 @@ const start = async (): Promise<void> => {
       fastify,
     );
     internalCleanupServiceManagement.registerRoutes(fastify);
+
+    internalBuildWorkerDevProxyService = new InternalBuildWorkerDevProxyService();
+    internalBuildWorkerDevProxyService.registerRoutes(fastify);
 
     await fastify.listen({
       port: 3000,
