@@ -36,9 +36,11 @@ import {
   ChevronUpIcon,
   ClipboardDocumentIcon,
   ExclamationTriangleIcon,
+  PhotoIcon,
   PlayIcon,
   StopIcon,
   TrashIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -127,8 +129,13 @@ export default function PrototypeChatWindow({
     Set<number>
   >(new Set());
 
+  // Image upload state
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
   // Use ref to avoid stale closure issues in streaming
   const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // File autocomplete functionality
   const {
@@ -147,6 +154,98 @@ export default function PrototypeChatWindow({
   useEffect(() => {
     prototypeChatSessionRef.current = prototypeChatSession;
   }, [prototypeChatSession]);
+
+  // Convert image file to base64 data URI
+  const convertImageToBase64 = useCallback(
+    (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+    [],
+  );
+
+  // Handle image selection from file input or drag-and-drop
+  const handleImageSelect = useCallback(
+    async (file: File) => {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        logger.debug("error", "Invalid file type - must be an image", {
+          fileType: file.type,
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        logger.debug("error", "Image file too large - max 5MB", {
+          fileSize: file.size,
+        });
+        return;
+      }
+
+      try {
+        const base64 = await convertImageToBase64(file);
+        setImagePreview(base64);
+      } catch (error) {
+        logger.debug("error", "Error converting image to base64:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [convertImageToBase64, logger],
+  );
+
+  // Handle file input change
+  const handleFileInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        handleImageSelect(file);
+      }
+      // Reset input value to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [handleImageSelect],
+  );
+
+  // Handle drag-and-drop events
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsDraggingOver(false);
+
+      const file = event.dataTransfer.files?.[0];
+      if (file) {
+        handleImageSelect(file);
+      }
+    },
+    [handleImageSelect],
+  );
+
+  // Remove selected image
+  const handleRemoveImage = useCallback(() => {
+    setImagePreview(null);
+  }, []);
 
   // Function to sanitize tool names for display
   const sanitizeToolName = (toolName: string): string => {
@@ -642,7 +741,7 @@ export default function PrototypeChatWindow({
         inputAssets: assets,
         chat_session_id: prototypeChatSession.id,
         prototype_id: prototypeId || "",
-        image: null,
+        image: imagePreview,
       };
       setMessages(newMessages);
       setCurrentMessage("");
@@ -699,6 +798,9 @@ export default function PrototypeChatWindow({
 
         // Process the streaming response
         await processStreamingResponse(streamingResponse);
+
+        // Clear image after successful send
+        handleRemoveImage();
       } catch (error) {
         logger.debug("error", "Error sending message:", {
           error: error instanceof Error ? error.message : String(error),
@@ -729,6 +831,8 @@ export default function PrototypeChatWindow({
       processStreamingResponse,
       logger,
       setIsChatLoading,
+      imagePreview,
+      handleRemoveImage,
     ],
   );
 
@@ -847,7 +951,12 @@ export default function PrototypeChatWindow({
 
   return (
     <>
-      <div className="flex flex-col h-full">
+      <div
+        className="flex flex-col h-full"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
@@ -912,16 +1021,14 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
+                    }`}
                 >
                   {message.role === "user" && (
                     <div className="text-sm font-medium mb-1">You</div>
@@ -977,11 +1084,10 @@ export default function PrototypeChatWindow({
                             className="flex items-start gap-2 text-sm"
                           >
                             <div
-                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                                completedSteps.has(index)
-                                  ? "border-green-500 bg-green-500"
-                                  : "border-gray-300"
-                              }`}
+                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
+                                ? "border-green-500 bg-green-500"
+                                : "border-gray-300"
+                                }`}
                             >
                               {completedSteps.has(index) && (
                                 <div className="relative">
@@ -995,11 +1101,10 @@ export default function PrototypeChatWindow({
                               )}
                             </div>
                             <span
-                              className={`${
-                                completedSteps.has(index)
-                                  ? "text-muted-foreground line-through"
-                                  : "text-foreground"
-                              }`}
+                              className={`${completedSteps.has(index)
+                                ? "text-muted-foreground line-through"
+                                : "text-foreground"
+                                }`}
                             >
                               {step}
                             </span>
@@ -1013,9 +1118,38 @@ export default function PrototypeChatWindow({
             </div>
           </div>
         )}
+        {/* Drag overlay */}
+        {isDraggingOver && (
+          <div className="absolute inset-0 bg-primary/10 border-4 border-dashed border-primary z-50 flex items-center justify-center">
+            <div className="bg-background rounded-lg p-6 shadow-lg">
+              <PhotoIcon className="w-12 h-12 mx-auto mb-2 text-primary" />
+              <p className="text-lg font-medium">Drop image here</p>
+            </div>
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="p-4 border-t">
           <div className="space-y-2">
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="relative inline-block">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="max-w-xs max-h-32 rounded-lg border"
+                />
+                <Button
+                  onClick={handleRemoveImage}
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-1 right-1 h-6 w-6 p-0"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
             <div className="relative overflow-visible">
               <Textarea
                 ref={textareaRef}
@@ -1072,6 +1206,26 @@ export default function PrototypeChatWindow({
               )}
             </div>
             <div className="flex gap-2">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+
+              {/* Image upload button */}
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isInputDisabled}
+                variant="outline"
+                size="icon"
+                title="Upload image"
+              >
+                <PhotoIcon className="w-4 h-4" />
+              </Button>
+
               <Button
                 onClick={() => {
                   handleSendMessage(currentMessage);
