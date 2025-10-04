@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-10-04T10:08:00.964Z
+// Last synced: 2025-10-04T15:42:13.090Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -175,6 +175,8 @@ export const HTTP_STATUS = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+  GATEWAY_TIMEOUT: 504,
 } as const;
 
 // ============================================================================

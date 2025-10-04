@@ -152,10 +152,10 @@ export class InternalBuildWorkerDevProxyService {
   }
 
   private async handleProxyRequest(
-    request: FastifyRequest<{ Body: BuildWorkerProxyRequestBody }>,
+    request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    const { endpoint, path, method, payload, headers, query } = request.body;
+    const { endpoint, path, method, payload, headers, query } = request.body as BuildWorkerProxyRequestBody;
     const log = request.log2.child({
       service: 'internal-services',
       route: 'build-worker-dev-proxy',

@@ -216,7 +216,7 @@ export class InternalControlPlaneDevelopmentService {
         'Content-Type, x-internal-signature, x-internal-timestamp',
     });
 
-    const sendMessage = (message: Record<string, unknown>) => {
+    const sendMessage = (message: Record<string, unknown>): void => {
       reply.raw.write(JSON.stringify(message) + '\n');
     };
 
