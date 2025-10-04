@@ -163,11 +163,31 @@ cd ..
 rm -rf watchman*
 ldconfig /usr/local/lib
 
-# 3. Install global npm packages for build-workers
+# 3. (NEW) Harden npm for root (this script runs as root)
+echo "==> Hardening npm (root) for flaky networks..."
+# Writable cache used by global installs during user-data
+mkdir -p /tmp/npm-cache
+chmod 777 /tmp/npm-cache
+
+# Apply resilient settings for root user (global scope)
+npm config set registry "https://registry.npmjs.org/"
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 600000
+npm config set network-timeout 600000
+npm config set maxsockets 1
+npm config set cache /tmp/npm-cache
+
+# If you do NOT use a proxy, ensure proxy values are cleared
+npm config delete proxy || true
+npm config delete https-proxy || true
+unset HTTP_PROXY HTTPS_PROXY NO_PROXY || true
+
+# 4. Install global npm packages for build-workers
 echo "==> Installing @expo/ngrok globally..."
 npm install -g @expo/ngrok@^4.1.0
 
-# 4. Create application directories
+# 5. Create application directories
 echo "==> Creating application directories..."
 mkdir -p ${REMOTE_BASE}
 mkdir -p ${BUILD_WORKERS_BASE}
@@ -178,7 +198,7 @@ chown ${USER}:${USER} ${REMOTE_BASE}
 chown ${USER}:${USER} ${BUILD_WORKERS_BASE}
 chown ${USER}:${USER} /tmp/logs
 
-# 5. Set environment variables for build-workers
+# 6. Set environment variables for build-workers
 echo "==> Setting environment variables in ec2-user's profile..."
 cat >> /home/${USER}/.bashrc << 'EOF'
 export EXPO_NO_TELEMETRY=1
@@ -188,9 +208,23 @@ export WATCHPACK_POLLING=true
 export NPM_CONFIG_CACHE=/tmp/npm-cache
 EOF
 
+# 7. (NEW) Harden npm for ec2-user (the user that runs your build-workers)
+echo "==> Hardening npm (ec2-user) for flaky networks..."
+sudo -u ${USER} -H bash -lc '
+  npm config set registry "https://registry.npmjs.org/"
+  npm config set fetch-retries 5
+  npm config set fetch-retry-mintimeout 20000
+  npm config set fetch-retry-maxtimeout 600000
+  npm config set network-timeout 600000
+  npm config set maxsockets 1
+  npm config set cache /tmp/npm-cache
+  npm config delete proxy || true
+  npm config delete https-proxy || true
+'
+
 echo "✅ System prerequisites installed successfully"
 
-# 6. Configure CloudWatch Agent
+# 8. Configure CloudWatch Agent
 echo "==> Configuring CloudWatch Agent..."
 
 # Write CloudWatch Agent configuration
@@ -229,7 +263,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
 echo "✅ CloudWatch Agent configured and started successfully"
 
-# 7. Schedule auto-termination in 3 hours
+# 9. Schedule auto-termination in 3 hours
 echo "==> Scheduling auto-termination in 3 hours..."
 shutdown -h +180
 
