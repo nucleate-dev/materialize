@@ -1152,7 +1152,7 @@ export default function PrototypeChatWindow({
 
             <div className="relative overflow-visible">
               <Textarea
-                ref={textareaRef}
+                ref={textareaRef as React.RefObject<HTMLTextAreaElement>}
                 value={currentMessage}
                 onChange={(e) => {
                   const target = e.target as HTMLTextAreaElement;
