@@ -42,6 +42,21 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+const INSTANCE_STORAGE_KEY = "dev-ec2-instance";
+const INSTANCE_EXPIRY_HOURS = 3;
+
+interface StoredInstance {
+  instanceId: string;
+  state: string;
+  publicDns: string;
+  publicIpv4: string;
+  sshCommand: string;
+  createdAt: number;
+  ready: boolean;
+}
+
+type InstanceStatus = "not-ready" | "ready" | "checking" | "terminated";
+
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
   const [ec2Loading, setEc2Loading] = useState(false);
@@ -53,6 +68,7 @@ export default function DevServerPage() {
     publicIpv4?: string;
     sshCommand?: string;
   } | null>(null);
+  const [instanceStatus, setInstanceStatus] = useState<InstanceStatus>("checking");
   const [copiedField, setCopiedField] = useState<
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
@@ -64,6 +80,113 @@ export default function DevServerPage() {
   const [deployingSelected, setDeployingSelected] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [deployOutput, setDeployOutput] = useState("");
+
+  // Load instance from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(INSTANCE_STORAGE_KEY);
+    if (!stored) {
+      setInstanceStatus("terminated");
+      return;
+    }
+
+    try {
+      const instance: StoredInstance = JSON.parse(stored);
+      const ageHours = (Date.now() - instance.createdAt) / (1000 * 60 * 60);
+
+      // Check if instance has expired (3 hours)
+      if (ageHours >= INSTANCE_EXPIRY_HOURS) {
+        localStorage.removeItem(INSTANCE_STORAGE_KEY);
+        setInstanceStatus("terminated");
+        return;
+      }
+
+      // Load instance details
+      setEc2Details({
+        instanceId: instance.instanceId,
+        state: instance.state,
+        publicDns: instance.publicDns,
+        publicIpv4: instance.publicIpv4,
+        sshCommand: instance.sshCommand,
+      });
+
+      setInstanceStatus(instance.ready ? "ready" : "not-ready");
+
+      // Verify instance is still active
+      checkInstanceStatus(instance.instanceId);
+    } catch {
+      localStorage.removeItem(INSTANCE_STORAGE_KEY);
+      setInstanceStatus("terminated");
+    }
+  }, []);
+
+  const saveInstanceToStorage = (instance: {
+    instanceId: string;
+    state: string;
+    publicDns: string;
+    publicIpv4: string;
+    sshCommand: string;
+    ready: boolean;
+  }) => {
+    const stored: StoredInstance = {
+      ...instance,
+      createdAt: Date.now(),
+    };
+    localStorage.setItem(INSTANCE_STORAGE_KEY, JSON.stringify(stored));
+  };
+
+  const checkInstanceStatus = async (instanceId: string) => {
+    try {
+      const serverEndpoint =
+        process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT;
+      if (!serverEndpoint) return;
+
+      const { secretKey } = getInternalToolsConfig();
+      const headers = generateAuthHeaders(
+        "GET",
+        `/internal/dev-server/instance-status/${instanceId}`,
+        "",
+        secretKey,
+      );
+
+      const response = await fetch(
+        `${serverEndpoint}/internal/dev-server/instance-status/${instanceId}`,
+        {
+          method: "GET",
+          headers,
+        },
+      );
+
+      if (!response.ok) {
+        // Instance not found or terminated
+        localStorage.removeItem(INSTANCE_STORAGE_KEY);
+        setInstanceStatus("terminated");
+        setEc2Details(null);
+        return;
+      }
+
+      const result = await response.json();
+
+      if (result.state === "terminated" || result.state === "terminating") {
+        localStorage.removeItem(INSTANCE_STORAGE_KEY);
+        setInstanceStatus("terminated");
+        setEc2Details(null);
+      } else if (result.statusChecks === "ok") {
+        setInstanceStatus("ready");
+        // Update stored instance to mark as ready
+        const stored = localStorage.getItem(INSTANCE_STORAGE_KEY);
+        if (stored) {
+          const instance: StoredInstance = JSON.parse(stored);
+          instance.ready = true;
+          localStorage.setItem(INSTANCE_STORAGE_KEY, JSON.stringify(instance));
+        }
+      } else {
+        setInstanceStatus("not-ready");
+      }
+    } catch {
+      // If we can't check, assume it's still there but checking failed
+      // Don't remove from storage
+    }
+  };
 
   const handleCopy = async (
     text: string,
@@ -307,10 +430,14 @@ export default function DevServerPage() {
     try {
       setEc2Loading(true);
       setError(null);
+      setInstanceStatus("checking");
 
       // Make direct API call to production control plane
       const serverEndpoint =
         process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT;
+
+      console.log("[EC2 Acquire] Server endpoint:", serverEndpoint);
+
       if (!serverEndpoint) {
         throw new Error(
           "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable.",
@@ -326,37 +453,123 @@ export default function DevServerPage() {
         secretKey,
       );
 
-      const response = await fetch(
-        `${serverEndpoint}/internal/dev-server/acquire-ec2`,
-        {
-          method: "POST",
-          headers,
-          body: requestBody,
-        },
-      );
+      const url = `${serverEndpoint}/internal/dev-server/acquire-ec2`;
+      console.log("[EC2 Acquire] Request URL:", url);
+      console.log("[EC2 Acquire] Request headers:", headers);
+      console.log("[EC2 Acquire] Request body:", requestBody);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: requestBody,
+      });
+
+      console.log("[EC2 Acquire] Response status:", response.status);
+      console.log("[EC2 Acquire] Response headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message ||
-            `Failed to acquire EC2 instance: ${response.status}`,
-        );
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          console.error("[EC2 Acquire] Error response:", errorData);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          console.error("[EC2 Acquire] Failed to parse error response:", e);
+        }
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      // Handle streaming response
+      console.log("[EC2 Acquire] Starting to read streaming response...");
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      setEc2Details({
-        instanceId: result.instanceId,
-        state: result.state,
-        publicDns: result.publicDns,
-        publicIpv4: result.publicIpv4,
-        sshCommand: result.sshCommand,
-      });
+      if (!reader) {
+        throw new Error("No response body available for streaming");
+      }
+
+      let buffer = "";
+      let messageCount = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          console.log("[EC2 Acquire] Stream complete. Total messages received:", messageCount);
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        console.log("[EC2 Acquire] Received chunk:", chunk);
+
+        buffer += chunk;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          console.log("[EC2 Acquire] Processing line:", line);
+
+          try {
+            const message = JSON.parse(line);
+            messageCount++;
+            console.log("[EC2 Acquire] Parsed message:", message);
+
+            if (message.type === "instance-created") {
+              // First step: instance created but not ready
+              const instanceDetails = {
+                instanceId: message.instanceId,
+                state: message.state,
+                publicDns: message.publicDns,
+                publicIpv4: message.publicIpv4,
+                sshCommand: message.sshCommand,
+              };
+
+              console.log("[EC2 Acquire] Instance created:", instanceDetails);
+              setEc2Details(instanceDetails);
+              setInstanceStatus("not-ready");
+
+              // Save to localStorage
+              saveInstanceToStorage({
+                ...instanceDetails,
+                ready: false,
+              });
+            } else if (message.type === "instance-ready") {
+              // Second step: instance is ready
+              const instanceDetails = {
+                instanceId: message.instanceId,
+                state: message.state,
+                publicDns: message.publicDns,
+                publicIpv4: message.publicIpv4,
+                sshCommand: message.sshCommand,
+              };
+
+              console.log("[EC2 Acquire] Instance ready:", instanceDetails);
+              setEc2Details(instanceDetails);
+              setInstanceStatus("ready");
+
+              // Update localStorage
+              saveInstanceToStorage({
+                ...instanceDetails,
+                ready: true,
+              });
+            } else if (message.type === "error") {
+              console.error("[EC2 Acquire] Server error:", message.error);
+              throw new Error(message.error);
+            }
+          } catch (e) {
+            console.error("[EC2 Acquire] Failed to parse message:", line, e);
+          }
+        }
+      }
+
       setEc2ServerName("");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to acquire EC2 instance",
-      );
+      console.error("[EC2 Acquire] Fatal error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to acquire EC2 instance";
+      setError(errorMessage);
+      setInstanceStatus("terminated");
     } finally {
       setEc2Loading(false);
     }
@@ -447,17 +660,54 @@ export default function DevServerPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">
-                  EC2 Instance Details
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">
+                    EC2 Instance Details
+                  </CardTitle>
+                  {ec2Details && (
+                    <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
+                      {ec2Details.instanceId}
+                    </code>
+                  )}
+                </div>
                 {ec2Details && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-green-100 text-green-800 border-green-200"
-                  >
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Ready
-                  </Badge>
+                  <>
+                    {instanceStatus === "ready" && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-green-100 text-green-800 border-green-200"
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Ready
+                      </Badge>
+                    )}
+                    {instanceStatus === "not-ready" && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-red-100 text-red-800 border-red-200"
+                      >
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Not Ready
+                      </Badge>
+                    )}
+                    {instanceStatus === "checking" && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-blue-100 text-blue-800 border-blue-200"
+                      >
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Checking...
+                      </Badge>
+                    )}
+                    {instanceStatus === "terminated" && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-gray-100 text-gray-800 border-gray-200"
+                      >
+                        Terminated
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
               <CardDescription>
@@ -468,17 +718,6 @@ export default function DevServerPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label className="min-w-32">Instance ID</Label>
-                    <Input
-                      readOnly
-                      value={ec2Details?.instanceId || ""}
-                      placeholder={!ec2Details ? "Not available" : ""}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">

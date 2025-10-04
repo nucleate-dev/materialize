@@ -98,9 +98,74 @@ export class InternalControlPlaneDevelopmentService {
       },
       this.handleAcquireEC2.bind(this),
     );
+
+    // GET /internal/dev-server/instance-status/:instanceId - Check instance status
+    app.get(
+      '/internal/dev-server/instance-status/:instanceId',
+      {
+        preHandler: authenticateInternalToolsRequest,
+        schema: {
+          description:
+            'Check the status of a dev EC2 instance (requires internal tools authentication)',
+          tags: ['internal-tools', 'dev-server'],
+          headers: {
+            type: 'object',
+            required: ['x-internal-signature', 'x-internal-timestamp'],
+            properties: {
+              'x-internal-signature': {
+                type: 'string',
+                description: 'HMAC-SHA256 signature',
+              },
+              'x-internal-timestamp': {
+                type: 'string',
+                description: 'Unix timestamp',
+              },
+            },
+          },
+          params: {
+            type: 'object',
+            required: ['instanceId'],
+            properties: {
+              instanceId: {
+                type: 'string',
+                description: 'EC2 instance ID',
+              },
+            },
+          },
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                instanceId: { type: 'string' },
+                state: { type: 'string' },
+                statusChecks: { type: 'string' },
+                publicDns: { type: 'string' },
+                publicIpv4: { type: 'string' },
+              },
+            },
+            404: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+            500: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      this.handleGetInstanceStatus.bind(this),
+    );
   }
 
-  // Route handler for acquiring EC2 dev server
+  // Route handler for acquiring EC2 dev server with streaming
   private async handleAcquireEC2(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -111,36 +176,74 @@ export class InternalControlPlaneDevelopmentService {
     });
     request.log2.info('Acquiring dev EC2 instance', { serverName });
 
-    try {
-      // Validate server name
-      if (!serverName || serverName.trim().length === 0) {
-        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-          error: 'Bad Request',
-          message: 'Server name is required',
-        });
-      }
+    // Validate server name
+    if (!serverName || serverName.trim().length === 0) {
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        error: 'Bad Request',
+        message: 'Server name is required',
+      });
+    }
 
-      // Acquire the EC2 instance
-      const result = await this.allocateDevServer(
+    // Set up streaming response - hijack the reply to bypass schema validation
+    reply.hijack();
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, x-internal-signature, x-internal-timestamp',
+    });
+
+    const sendMessage = (message: Record<string, unknown>) => {
+      reply.raw.write(JSON.stringify(message) + '\n');
+    };
+
+    try {
+      // Step 1: Acquire the instance (without waiting for ready state)
+      const instanceId = await this.allocateDevServerInitial(
         serverName.trim(),
         request.log2,
       );
 
-      request.log2.info('EC2 dev server acquired successfully', {
-        serverName,
-        instanceId: result.instanceId,
-        state: result.state,
+      // Get initial instance details
+      const initialDetails = await this.getInstanceDetails(
+        instanceId,
+        request.log2,
+      );
+
+      sendMessage({
+        type: 'instance-created',
+        instanceId: initialDetails.instanceId,
+        state: initialDetails.state,
+        publicDns: initialDetails.publicDns,
+        publicIpv4: initialDetails.publicIpv4,
+        sshCommand: initialDetails.sshCommand,
+        ready: false,
       });
 
-      return reply.status(HTTP_STATUS.OK).send({
-        success: true,
-        instanceId: result.instanceId,
-        state: result.state,
-        publicDns: result.publicDns,
-        publicIpv4: result.publicIpv4,
-        sshCommand: result.sshCommand,
-        message: `Dev server '${serverName}' acquired successfully`,
-        timestamp: new Date().toISOString(),
+      // Step 2: Wait for instance to be ready
+      await this.waitForInstanceReady(instanceId, request.log2);
+
+      // Get updated instance details
+      const readyDetails = await this.getInstanceDetails(
+        instanceId,
+        request.log2,
+      );
+
+      sendMessage({
+        type: 'instance-ready',
+        instanceId: readyDetails.instanceId,
+        state: readyDetails.state,
+        publicDns: readyDetails.publicDns,
+        publicIpv4: readyDetails.publicIpv4,
+        sshCommand: readyDetails.sshCommand,
+        ready: true,
+      });
+
+      request.log2.info('EC2 dev server ready', {
+        serverName,
+        instanceId,
       });
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
@@ -148,9 +251,64 @@ export class InternalControlPlaneDevelopmentService {
         serverName,
       });
 
+      sendMessage({
+        type: 'error',
+        error: e.message || 'Failed to acquire dev server',
+      });
+    }
+
+    reply.raw.end();
+  }
+
+  // Route handler for getting instance status
+  private async handleGetInstanceStatus(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const { instanceId } = request.params as { instanceId: string };
+    request.log2 = request.log2.child({
+      service: 'internal-services',
+    });
+
+    try {
+      const describeCmd = new DescribeInstancesCommand({
+        InstanceIds: [instanceId],
+      });
+
+      const describeResp = await this.ec2Client.send(describeCmd);
+      const instance = describeResp.Reservations?.[0]?.Instances?.[0];
+
+      if (!instance) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          error: 'Not Found',
+          message: `Instance ${instanceId} not found`,
+        });
+      }
+
+      const state = instance.State?.Name || 'unknown';
+      const statusChecksOk =
+        instance.InstanceStatus?.Status === 'ok' &&
+        instance.SystemStatus?.Status === 'ok'
+          ? 'ok'
+          : 'initializing';
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        instanceId,
+        state,
+        statusChecks: statusChecksOk,
+        publicDns: instance.PublicDnsName || 'pending',
+        publicIpv4: instance.PublicIpAddress || 'pending',
+      });
+    } catch (error) {
+      const e = error instanceof Error ? error : new Error(String(error));
+      request.log2.error(error, 'Failed to get instance status', {
+        instanceId,
+      });
+
       return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
         error: 'Internal Server Error',
-        message: `Failed to acquire dev server: ${e.message}`,
+        message: `Failed to get instance status: ${e.message}`,
       });
     }
   }
@@ -210,17 +368,11 @@ export class InternalControlPlaneDevelopmentService {
     log2.info('Instance is fully ready - status checks passed', { instanceId });
   }
 
-  // Allocate a dev EC2 server
-  private async allocateDevServer(
+  // Allocate a dev EC2 server (initial step - just create the instance)
+  private async allocateDevServerInitial(
     serverName: string,
     log2: SystemLogger,
-  ): Promise<{
-    instanceId: string | undefined;
-    state: string | undefined;
-    publicDns: string | undefined;
-    publicIpv4: string | undefined;
-    sshCommand: string;
-  }> {
+  ): Promise<string> {
     const userDataScript = this.loadUserDataScript();
 
     const cmd = new RunInstancesCommand({
@@ -228,14 +380,14 @@ export class InternalControlPlaneDevelopmentService {
       InstanceType: 't3.medium',
       MinCount: 1,
       MaxCount: 1,
-      KeyName: process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME!, // Replace with your key pair name
+      KeyName: process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME!,
       SecurityGroupIds:
-        process.env.INTERNAL_TOOLS_EC2_SECURITY_GROUPS?.split(',') || [], // Replace with your security group
+        process.env.INTERNAL_TOOLS_EC2_SECURITY_GROUPS?.split(',') || [],
       IamInstanceProfile: {
         Name: process.env.INTERNAL_TOOLS_EC2_IAM_INSTANCE_PROFILE_NAME!,
-      }, // Replace with your instance role
+      },
       InstanceInitiatedShutdownBehavior: 'terminate',
-      UserData: Buffer.from(userDataScript).toString('base64'), // Must be base64 encoded
+      UserData: Buffer.from(userDataScript).toString('base64'),
       TagSpecifications: [
         {
           ResourceType: 'instance',
@@ -253,30 +405,35 @@ export class InternalControlPlaneDevelopmentService {
     const instance = runResp.Instances?.[0];
 
     if (!instance?.InstanceId) {
-      return {
-        instanceId: undefined,
-        state: undefined,
-        publicDns: undefined,
-        publicIpv4: undefined,
-        sshCommand: 'Unable to generate SSH command - no instance ID',
-      };
+      throw new Error('Failed to create EC2 instance - no instance ID returned');
     }
 
-    // Wait for instance to be fully ready (user data script completed)
-    await this.waitForInstanceReady(instance.InstanceId, log2);
+    log2.info('EC2 instance created', { instanceId: instance.InstanceId });
+    return instance.InstanceId;
+  }
 
-    // Fetch updated instance details to get public DNS and IP
+  // Get instance details
+  private async getInstanceDetails(
+    instanceId: string,
+    log2: SystemLogger,
+  ): Promise<{
+    instanceId: string;
+    state: string;
+    publicDns: string;
+    publicIpv4: string;
+    sshCommand: string;
+  }> {
     try {
       const describeCmd = new DescribeInstancesCommand({
-        InstanceIds: [instance.InstanceId],
+        InstanceIds: [instanceId],
       });
 
       const describeResp = await this.ec2Client.send(describeCmd);
-      const detailedInstance = describeResp.Reservations?.[0]?.Instances?.[0];
+      const instance = describeResp.Reservations?.[0]?.Instances?.[0];
 
-      const publicDns = detailedInstance?.PublicDnsName;
-      const publicIpv4 = detailedInstance?.PublicIpAddress;
-      const state = detailedInstance?.State?.Name || instance?.State?.Name;
+      const publicDns = instance?.PublicDnsName;
+      const publicIpv4 = instance?.PublicIpAddress;
+      const state = instance?.State?.Name || 'unknown';
 
       // Generate SSH command
       const keyName =
@@ -288,20 +445,20 @@ export class InternalControlPlaneDevelopmentService {
           : `ssh -i "${keyName}.pem" ec2-user@<pending-public-address>`;
 
       return {
-        instanceId: instance.InstanceId,
+        instanceId,
         state,
         publicDns: publicDns || 'pending',
         publicIpv4: publicIpv4 || 'pending',
         sshCommand,
       };
-    } catch {
-      // If describe fails, return what we have from the initial run
+    } catch (error) {
+      log2.error(error, 'Failed to get instance details', { instanceId });
       const keyName =
         process.env.INTERNAL_TOOLS_EC2_SSH_KEY_NAME || 'unknown-key';
 
       return {
-        instanceId: instance.InstanceId,
-        state: instance?.State?.Name,
+        instanceId,
+        state: 'unknown',
         publicDns: 'pending',
         publicIpv4: 'pending',
         sshCommand: `ssh -i "${keyName}.pem" ec2-user@<pending-public-address>`,
