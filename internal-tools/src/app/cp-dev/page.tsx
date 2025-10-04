@@ -627,48 +627,52 @@ export default function DevServerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="ec2-server-name">Server Name</Label>
-                <p className="text-sm text-muted-foreground">
-                  This will be used as part of the instance name: dev-server-
-                  {ec2ServerName || "[name]"}
-                </p>
-                <Input
-                  id="ec2-server-name"
-                  placeholder="e.g., dev-control-plane-testing"
-                  value={ec2ServerName}
-                  onChange={(e) => setEc2ServerName(e.target.value)}
-                  disabled={ec2Loading}
-                />
-              </div>
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="ec2-server-name" className="min-w-32">Server Name</Label>
+                    <Input
+                      id="ec2-server-name"
+                      placeholder="e.g., dev-control-plane-testing"
+                      value={ec2ServerName}
+                      onChange={(e) => setEc2ServerName(e.target.value)}
+                      disabled={ec2Loading}
+                      className="flex-1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground ml-32">
+                    Will be named: dev-server-{ec2ServerName || "[name]"}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="instance-type">Instance Type</Label>
-                <Select value={instanceType} onValueChange={setInstanceType} disabled={ec2Loading}>
-                  <SelectTrigger id="instance-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="t3.micro">t3.micro (2 vCPU, 1GB RAM)</SelectItem>
-                    <SelectItem value="t3.medium">t3.medium (2 vCPU, 4GB RAM)</SelectItem>
-                    <SelectItem value="t3.large">t3.large (2 vCPU, 8GB RAM)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="instance-type" className="min-w-32">Instance Type</Label>
+                  <Select value={instanceType} onValueChange={setInstanceType} disabled={ec2Loading}>
+                    <SelectTrigger id="instance-type" className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="t3.micro">t3.micro (2 vCPU, 1GB RAM)</SelectItem>
+                      <SelectItem value="t3.medium">t3.medium (2 vCPU, 4GB RAM)</SelectItem>
+                      <SelectItem value="t3.large">t3.large (2 vCPU, 8GB RAM)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="lifespan">Lifespan</Label>
-                <Select value={lifespanHours} onValueChange={setLifespanHours} disabled={ec2Loading}>
-                  <SelectTrigger id="lifespan">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 hours</SelectItem>
-                    <SelectItem value="4">4 hours</SelectItem>
-                    <SelectItem value="5">5 hours</SelectItem>
-                    <SelectItem value="6">6 hours</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="lifespan" className="min-w-32">Lifespan</Label>
+                  <Select value={lifespanHours} onValueChange={setLifespanHours} disabled={ec2Loading}>
+                    <SelectTrigger id="lifespan" className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 hours</SelectItem>
+                      <SelectItem value="4">4 hours</SelectItem>
+                      <SelectItem value="5">5 hours</SelectItem>
+                      <SelectItem value="6">6 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="flex gap-2">
