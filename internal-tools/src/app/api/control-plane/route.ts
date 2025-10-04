@@ -40,16 +40,17 @@ function parseGitStatusOutput(output: string) {
   const changed = new Set<string>();
 
   for (const rawLine of output.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) {
+    // Don't trim before slicing - git porcelain format has specific positions
+    if (!rawLine) {
       continue;
     }
 
-    if (line.length < 4) {
+    if (rawLine.length < 4) {
       continue;
     }
 
-    let filePath = line.slice(3).trim();
+    // Git porcelain format: positions 0-1 are status, position 2 is space, position 3+ is filename
+    let filePath = rawLine.slice(3).trim();
     if (!filePath) {
       continue;
     }
