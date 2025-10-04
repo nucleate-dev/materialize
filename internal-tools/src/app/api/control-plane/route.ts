@@ -29,9 +29,101 @@ type FileNode = {
   path: string;
   type: "file" | "directory";
   children?: FileNode[];
+  hasChanges?: boolean;
 };
 
-async function readDirectory(directory: string): Promise<FileNode[]> {
+function normalizeRelativePath(relativePath: string) {
+  return relativePath.split(path.sep).join(path.posix.sep);
+}
+
+function parseGitStatusOutput(output: string) {
+  const changed = new Set<string>();
+
+  for (const rawLine of output.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+
+    if (line.length < 4) {
+      continue;
+    }
+
+    let filePath = line.slice(3).trim();
+    if (!filePath) {
+      continue;
+    }
+
+    if (filePath.includes(" -> ")) {
+      const parts = filePath.split(" -> ");
+      filePath = parts[parts.length - 1] ?? filePath;
+    }
+
+    const absolutePath = path.resolve(REPO_ROOT, filePath);
+    if (!absolutePath.startsWith(CONTROL_PLANE_DIR)) {
+      continue;
+    }
+
+    const relativePath = path.relative(CONTROL_PLANE_DIR, absolutePath);
+    if (!relativePath || relativePath.startsWith("..")) {
+      continue;
+    }
+
+    changed.add(normalizeRelativePath(relativePath));
+  }
+
+  return Array.from(changed).sort((a, b) => a.localeCompare(b));
+}
+
+async function getGitChangedPaths() {
+  return new Promise<string[]>((resolve, reject) => {
+    const child = spawn(
+      "git",
+      ["status", "--porcelain", "--", "server/control-plane"],
+      {
+        cwd: REPO_ROOT,
+        env: process.env,
+      }
+    );
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            stderr.trim() || "Failed to retrieve git status for control plane"
+          )
+        );
+        return;
+      }
+
+      try {
+        resolve(parseGitStatusOutput(stdout));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function readDirectory(
+  directory: string,
+  changedPaths: Set<string>
+): Promise<FileNode[]> {
   const entries = await fsp.readdir(directory, { withFileTypes: true });
   const results: FileNode[] = [];
 
@@ -41,21 +133,27 @@ async function readDirectory(directory: string): Promise<FileNode[]> {
     }
 
     const fullPath = path.join(directory, entry.name);
-    const relativePath = path.relative(CONTROL_PLANE_DIR, fullPath);
+    const relativePath = normalizeRelativePath(
+      path.relative(CONTROL_PLANE_DIR, fullPath)
+    );
 
     if (entry.isDirectory()) {
-      const children = await readDirectory(fullPath);
+      const children = await readDirectory(fullPath, changedPaths);
+      const hasChanges = children.some((child) => child.hasChanges);
       results.push({
         name: entry.name,
         path: relativePath,
         type: "directory",
         children,
+        hasChanges,
       });
     } else {
+      const hasChanges = changedPaths.has(relativePath);
       results.push({
         name: entry.name,
         path: relativePath,
         type: "file",
+        hasChanges,
       });
     }
   }
@@ -81,8 +179,16 @@ export async function GET() {
   }
 
   try {
-    const files = await readDirectory(CONTROL_PLANE_DIR);
-    return NextResponse.json({ files });
+    let gitChangedPaths: string[] = [];
+    try {
+      gitChangedPaths = await getGitChangedPaths();
+    } catch {
+      gitChangedPaths = [];
+    }
+
+    const changedSet = new Set(gitChangedPaths);
+    const files = await readDirectory(CONTROL_PLANE_DIR, changedSet);
+    return NextResponse.json({ files, changedPaths: gitChangedPaths });
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message || "Failed to read control plane files" },

@@ -15,6 +15,7 @@ export type ControlPlaneFileNode = {
   path: string;
   type: "file" | "directory";
   children?: ControlPlaneFileNode[];
+  hasChanges?: boolean;
 };
 
 type ControlPlaneFileExplorerProps = {
@@ -45,13 +46,16 @@ function NodeItem({
     ? expanded[node.path] ?? depth === 0
     : false;
   const isSelected = selected.has(node.path);
+  const hasChanges = Boolean(node.hasChanges);
 
   return (
     <div key={node.path} className="space-y-1">
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md px-2 py-1 text-sm",
-          isSelected && "bg-accent text-accent-foreground"
+          "flex items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition-colors",
+          isSelected && "bg-accent text-accent-foreground",
+          !isSelected && hasChanges && "border-amber-300 bg-amber-50/70 text-amber-900",
+          !isSelected && !hasChanges && "hover:bg-muted/60"
         )}
       >
         {isDirectory ? (
@@ -80,21 +84,31 @@ function NodeItem({
             checked={isSelected}
             onChange={() => onToggle(node.path)}
           />
-          {isDirectory ? (
-            <>
-              {isExpanded ? (
+          <div className="flex flex-1 items-center gap-2">
+            {isDirectory ? (
+              isExpanded ? (
                 <FolderOpen className="h-4 w-4 text-blue-600" />
               ) : (
                 <Folder className="h-4 w-4 text-blue-600" />
-              )}
-              <span className="truncate font-medium">{node.name}</span>
-            </>
-          ) : (
-            <>
+              )
+            ) : (
               <FileIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">{node.name}</span>
-            </>
-          )}
+            )}
+            <span
+              className={cn(
+                "truncate",
+                isDirectory ? "font-medium" : undefined,
+                hasChanges && !isSelected && "font-semibold text-amber-700"
+              )}
+            >
+              {node.name}
+            </span>
+          </div>
+          {hasChanges ? (
+            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+              Changed
+            </span>
+          ) : null}
         </label>
       </div>
 
