@@ -192,7 +192,8 @@ export class InternalControlPlaneDevelopmentService {
       'Transfer-Encoding': 'chunked',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-internal-signature, x-internal-timestamp',
+      'Access-Control-Allow-Headers':
+        'Content-Type, x-internal-signature, x-internal-timestamp',
     });
 
     const sendMessage = (message: Record<string, unknown>) => {
@@ -205,6 +206,9 @@ export class InternalControlPlaneDevelopmentService {
         serverName.trim(),
         request.log2,
       );
+
+      // Await for 2 seconds for aws to populate instance metadata
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Get initial instance details
       const initialDetails = await this.getInstanceDetails(
@@ -405,7 +409,9 @@ export class InternalControlPlaneDevelopmentService {
     const instance = runResp.Instances?.[0];
 
     if (!instance?.InstanceId) {
-      throw new Error('Failed to create EC2 instance - no instance ID returned');
+      throw new Error(
+        'Failed to create EC2 instance - no instance ID returned',
+      );
     }
 
     log2.info('EC2 instance created', { instanceId: instance.InstanceId });
