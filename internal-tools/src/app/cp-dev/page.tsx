@@ -1,6 +1,9 @@
 "use client";
 
-import { ControlPlaneFileExplorer, ControlPlaneFileNode } from "@/components/control-plane-file-explorer";
+import {
+  ControlPlaneFileExplorer,
+  ControlPlaneFileNode,
+} from "@/components/control-plane-file-explorer";
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +67,7 @@ export default function DevServerPage() {
 
   const handleCopy = async (
     text: string,
-    field: "publicDns" | "publicIpv4" | "sshCommand"
+    field: "publicDns" | "publicIpv4" | "sshCommand",
   ) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -109,9 +112,7 @@ export default function DevServerPage() {
       }
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "Failed to load control plane files"
-        );
+        throw new Error(data.error || "Failed to load control plane files");
       }
 
       const files = Array.isArray(data.files) ? data.files : [];
@@ -126,7 +127,7 @@ export default function DevServerPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to load control plane files"
+          : "Failed to load control plane files",
       );
     } finally {
       setFilesLoading(false);
@@ -141,7 +142,7 @@ export default function DevServerPage() {
     setSelectedPaths((prev) =>
       prev.includes(path)
         ? prev.filter((item) => item !== path)
-        : [...prev, path]
+        : [...prev, path],
     );
   }, []);
 
@@ -184,7 +185,7 @@ export default function DevServerPage() {
     try {
       const result = await callDeploy([]);
       setDeployOutput(
-        result.output?.trim() || "Full deploy completed successfully."
+        result.output?.trim() || "Full deploy completed successfully.",
       );
     } catch (err) {
       const output =
@@ -195,9 +196,7 @@ export default function DevServerPage() {
         setDeployOutput(output);
       }
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to run full deploy"
+        err instanceof Error ? err.message : "Failed to run full deploy",
       );
     } finally {
       setDeployingAll(false);
@@ -216,8 +215,7 @@ export default function DevServerPage() {
     try {
       const result = await callDeploy(changedPaths);
       setDeployOutput(
-        result.output?.trim() ||
-          "Changed files deploy completed successfully."
+        result.output?.trim() || "Changed files deploy completed successfully.",
       );
     } catch (err) {
       const output =
@@ -228,9 +226,7 @@ export default function DevServerPage() {
         setDeployOutput(output);
       }
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to deploy changed files"
+        err instanceof Error ? err.message : "Failed to deploy changed files",
       );
     } finally {
       setDeployingChanged(false);
@@ -248,7 +244,7 @@ export default function DevServerPage() {
     try {
       const result = await callDeploy(selectedPaths);
       setDeployOutput(
-        result.output?.trim() || "Selective deploy completed successfully."
+        result.output?.trim() || "Selective deploy completed successfully.",
       );
     } catch (err) {
       const output =
@@ -259,9 +255,7 @@ export default function DevServerPage() {
         setDeployOutput(output);
       }
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to run selective deploy"
+        err instanceof Error ? err.message : "Failed to run selective deploy",
       );
     } finally {
       setDeployingSelected(false);
@@ -278,11 +272,11 @@ export default function DevServerPage() {
 
   const sortedSelectedPaths = useMemo(
     () => [...selectedPaths].sort((a, b) => a.localeCompare(b)),
-    [selectedPaths]
+    [selectedPaths],
   );
   const sortedChangedPaths = useMemo(
     () => [...changedPaths].sort((a, b) => a.localeCompare(b)),
-    [changedPaths]
+    [changedPaths],
   );
 
   const hasSelection = selectedPaths.length > 0;
@@ -304,7 +298,7 @@ export default function DevServerPage() {
         process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT;
       if (!serverEndpoint) {
         throw new Error(
-          "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable."
+          "Production server endpoint not configured. Please set NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT environment variable.",
         );
       }
 
@@ -314,7 +308,7 @@ export default function DevServerPage() {
         "POST",
         "/internal/dev-server/acquire-ec2",
         requestBody,
-        secretKey
+        secretKey,
       );
 
       const response = await fetch(
@@ -323,14 +317,14 @@ export default function DevServerPage() {
           method: "POST",
           headers,
           body: requestBody,
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.message ||
-            `Failed to acquire EC2 instance: ${response.status}`
+            `Failed to acquire EC2 instance: ${response.status}`,
         );
       }
 
@@ -346,7 +340,7 @@ export default function DevServerPage() {
       setEc2ServerName("");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to acquire EC2 instance"
+        err instanceof Error ? err.message : "Failed to acquire EC2 instance",
       );
     } finally {
       setEc2Loading(false);
@@ -579,160 +573,6 @@ export default function DevServerPage() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[35%_65%] gap-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Rocket className="h-5 w-5 text-purple-600" />
-                <CardTitle>Control Plane Deployment</CardTitle>
-              </div>
-              <CardDescription>
-                Deploy the dev control plane to your EC2 instance directly from
-                this dashboard.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={handleDeployAll} disabled={isDeploying}>
-                  {deployingAll ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying...
-                    </>
-                  ) : (
-                    <>
-                      <Rocket className="mr-2 h-4 w-4" />
-                      Deploy All Files
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleDeployChanged}
-                  disabled={!hasChangedFiles || isDeploying}
-                >
-                  {deployingChanged ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying changed...
-                    </>
-                  ) : (
-                    <>
-                      <GitCommit className="mr-2 h-4 w-4" />
-                      Deploy Changed
-                    </>
-                  )}
-                  {hasChangedFiles ? (
-                    <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground">
-                      {changedPaths.length}
-                    </span>
-                  ) : null}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={handleDeploySelected}
-                  disabled={!hasSelection || isDeploying}
-                >
-                  {deployingSelected ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying selected...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Deploy Selected
-                    </>
-                  )}
-                  {hasSelection ? (
-                    <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground">
-                      {selectedPaths.length}
-                    </span>
-                  ) : null}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearSelection}
-                  disabled={!hasSelection || isDeploying}
-                >
-                  Clear Selection
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>Changed git paths</span>
-                  {hasChangedFiles ? (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <GitCommit className="h-3 w-3" />
-                      {changedPaths.length}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">Clean</Badge>
-                  )}
-                </div>
-                {hasChangedFiles ? (
-                  <div className="max-h-32 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
-                    <ul className="space-y-1">
-                      {sortedChangedPaths.map((path) => (
-                        <li key={path}>{path}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No local git changes detected for server/control-plane.
-                  </p>
-                )}
-                {hasChangedFiles ? (
-                  <p className="text-xs text-muted-foreground">
-                    Use &quot;Deploy Changed&quot; to deploy only these git-tracked updates.
-                  </p>
-                ) : null}
-              </div>
-
-              {hasSelection ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm font-medium">
-                    <span>Selected paths ({selectedPaths.length})</span>
-                    <Badge variant="outline">Selective deploy</Badge>
-                  </div>
-                  <div className="max-h-40 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
-                    <ul className="space-y-1">
-                      {sortedSelectedPaths.map((path) => (
-                        <li key={path}>{path}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Select files or directories from the explorer to deploy only
-                  what you need.
-                </p>
-              )}
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <span>Deploy output</span>
-                  <Badge variant="secondary">deploy-control-plane-for-dev.js</Badge>
-                </div>
-                <div className="max-h-64 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed">
-                  {deployOutput ? (
-                    deployOutput
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Deployment output will appear here after running a deploy.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-        </div>
-
         <Card className="w-full">
           <CardHeader>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -806,7 +646,9 @@ export default function DevServerPage() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs">Run the full dev control plane deploy script.</p>
+                    <p className="text-xs">
+                      Run the full dev control plane deploy script.
+                    </p>
                   </TooltipContent>
                 </Tooltip>
 
@@ -832,7 +674,9 @@ export default function DevServerPage() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs">Deploy only files detected as git changes.</p>
+                    <p className="text-xs">
+                      Deploy only files detected as git changes.
+                    </p>
                   </TooltipContent>
                 </Tooltip>
 
@@ -858,7 +702,9 @@ export default function DevServerPage() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs">Deploy only the paths you have checked in the explorer.</p>
+                    <p className="text-xs">
+                      Deploy only the paths you have checked in the explorer.
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -900,7 +746,8 @@ export default function DevServerPage() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Tip: Selecting a directory adds all nested files to your deploy batch.
+                  Tip: Selecting a directory adds all nested files to your
+                  deploy batch.
                 </p>
               </div>
 
@@ -953,7 +800,8 @@ export default function DevServerPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Use the explorer to choose specific files or directories for a selective deploy.
+                      Use the explorer to choose specific files or directories
+                      for a selective deploy.
                     </p>
                   )}
                 </div>
@@ -968,7 +816,8 @@ export default function DevServerPage() {
                       deployOutput
                     ) : (
                       <span className="text-muted-foreground">
-                        Deployment output will appear here after running a deploy.
+                        Deployment output will appear here after running a
+                        deploy.
                       </span>
                     )}
                   </div>
