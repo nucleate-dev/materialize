@@ -5,7 +5,8 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-52-15-71-44.us-east-2.compute.amazonaws.com";
+const HOST = "ec2-13-59-181-15.us-east-2.compute.amazonaws.com";
+const SSH_OPTS = "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -25,7 +26,7 @@ function sq(s) {
 }
 
 function runRemoteBash(script) {
-  const cmd = `ssh -i "${KEY_PATH}" ${USER}@${HOST} "bash -lc ${sq(script)}"`;
+  const cmd = `ssh ${SSH_OPTS} -i "${KEY_PATH}" ${USER}@${HOST} "bash -lc ${sq(script)}"`;
   run(cmd);
 }
 
@@ -48,15 +49,15 @@ function fullDeploy() {
 
   run(
     `bash -lc 'cd ${sq(localBase).slice(1, -1)} && zip -r ${sq(
-      path.resolve(localZip)
+      path.resolve(localZip),
     ).slice(
       1,
-      -1
-    )} . -x "node_modules/*" -x "*/node_modules/*" -x "dist/*" -x "*/dist/*" -x "control-plane-dist.zip"'`
+      -1,
+    )} . -x "node_modules/*" -x "*/node_modules/*" -x "dist/*" -x "*/dist/*" -x "control-plane-dist.zip"'`,
   );
 
   console.log("==> Copying zip to EC2...");
-  run(`scp -i "${KEY_PATH}" ${localZip} ${USER}@${HOST}:${remoteZip}`);
+  run(`scp ${SSH_OPTS} -i "${KEY_PATH}" ${localZip} ${USER}@${HOST}:${remoteZip}`);
 
   console.log("==> Unzipping remotely & installing dependencies...");
   const script = `
@@ -105,19 +106,19 @@ function selectiveDeploy(paths) {
     new Set(
       items
         .map(({ rel }) => path.posix.dirname(rel))
-        .filter((d) => d && d !== ".")
-    )
+        .filter((d) => d && d !== "."),
+    ),
   );
   if (parentDirs.length) {
     const mkdirs = parentDirs
       .map((d) => `mkdir -p ${path.posix.join(remoteBase, d)}`)
       .join(" && ");
     runRemoteBash(
-      `set -euxo pipefail; ${mkdirs}; echo "✅ Remote directories ensured"`
+      `set -euxo pipefail; ${mkdirs}; echo "✅ Remote directories ensured"`,
     );
   } else {
     runRemoteBash(
-      `set -euxo pipefail; mkdir -p ${remoteBase}; echo "✅ Remote base ensured"`
+      `set -euxo pipefail; mkdir -p ${remoteBase}; echo "✅ Remote base ensured"`,
     );
   }
 
@@ -128,7 +129,7 @@ function selectiveDeploy(paths) {
     const isDir = fs.lstatSync(abs).isDirectory();
     const flag = isDir ? "-r" : "";
     run(
-      `scp -i "${KEY_PATH}" ${flag} "${abs}" ${USER}@${HOST}:"${remoteDir}/"`
+      `scp ${SSH_OPTS} -i "${KEY_PATH}" ${flag} "${abs}" ${USER}@${HOST}:"${remoteDir}/"`,
     );
   }
 
