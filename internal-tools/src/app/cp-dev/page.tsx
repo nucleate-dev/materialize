@@ -1,5 +1,6 @@
 "use client";
 
+import { ControlPlaneFileExplorer, ControlPlaneFileNode } from "@/components/control-plane-file-explorer";
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +30,12 @@ import {
   CheckCircle,
   Copy,
   Loader2,
+  ListTree,
+  RefreshCcw,
+  Rocket,
   Server,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
@@ -47,6 +51,12 @@ export default function DevServerPage() {
   const [copiedField, setCopiedField] = useState<
     null | "publicDns" | "publicIpv4" | "sshCommand"
   >(null);
+  const [fileTree, setFileTree] = useState<ControlPlaneFileNode[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [deployingAll, setDeployingAll] = useState(false);
+  const [deployingSelected, setDeployingSelected] = useState(false);
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [deployOutput, setDeployOutput] = useState("");
 
   const handleCopy = async (
     text: string,
@@ -56,10 +66,177 @@ export default function DevServerPage() {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 1500);
-    } catch (_) {
+    } catch {
       // noop
     }
   };
+
+  const flattenFileTree = useCallback((nodes: ControlPlaneFileNode[]) => {
+    const stack = [...nodes];
+    const paths: string[] = [];
+
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current) {
+        continue;
+      }
+      paths.push(current.path);
+      if (current.children?.length) {
+        stack.push(...current.children);
+      }
+    }
+
+    return paths;
+  }, []);
+
+  const fetchFiles = useCallback(async () => {
+    setFilesLoading(true);
+    try {
+      const response = await fetch("/api/control-plane");
+      let data: { files?: ControlPlaneFileNode[]; error?: string } = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to load control plane files"
+        );
+      }
+
+      const files = Array.isArray(data.files) ? data.files : [];
+      setFileTree(files);
+      const available = new Set(flattenFileTree(files));
+      setSelectedPaths((prev) => prev.filter((path) => available.has(path)));
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load control plane files"
+      );
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [flattenFileTree]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  const toggleSelectedPath = useCallback((path: string) => {
+    setSelectedPaths((prev) =>
+      prev.includes(path)
+        ? prev.filter((item) => item !== path)
+        : [...prev, path]
+    );
+  }, []);
+
+  const callDeploy = useCallback(async (paths: string[]) => {
+    const response = await fetch("/api/control-plane", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paths.length ? { paths } : {}),
+    });
+
+    let data: { success?: boolean; output?: string; error?: string } = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+
+    if (!response.ok || data.success === false) {
+      const message =
+        data.error ||
+        (paths.length
+          ? "Selective deploy failed"
+          : "Control plane deploy failed");
+      const error = new Error(message) as Error & { output?: string };
+      if (typeof data.output === "string") {
+        error.output = data.output;
+      }
+      throw error;
+    }
+
+    return data;
+  }, []);
+
+  const handleDeployAll = useCallback(async () => {
+    setDeployingAll(true);
+    setError(null);
+    setDeployOutput("");
+    try {
+      const result = await callDeploy([]);
+      setDeployOutput(
+        result.output?.trim() || "Full deploy completed successfully."
+      );
+    } catch (err) {
+      const output =
+        err && typeof err === "object" && "output" in err
+          ? String((err as { output?: string }).output || "")
+          : "";
+      if (output) {
+        setDeployOutput(output);
+      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to run full deploy"
+      );
+    } finally {
+      setDeployingAll(false);
+    }
+  }, [callDeploy]);
+
+  const handleDeploySelected = useCallback(async () => {
+    if (!selectedPaths.length) {
+      return;
+    }
+
+    setDeployingSelected(true);
+    setError(null);
+    setDeployOutput("");
+    try {
+      const result = await callDeploy(selectedPaths);
+      setDeployOutput(
+        result.output?.trim() || "Selective deploy completed successfully."
+      );
+    } catch (err) {
+      const output =
+        err && typeof err === "object" && "output" in err
+          ? String((err as { output?: string }).output || "")
+          : "";
+      if (output) {
+        setDeployOutput(output);
+      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to run selective deploy"
+      );
+    } finally {
+      setDeployingSelected(false);
+    }
+  }, [callDeploy, selectedPaths]);
+
+  const handleRefreshFiles = useCallback(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedPaths([]);
+  }, []);
+
+  const sortedSelectedPaths = useMemo(
+    () => [...selectedPaths].sort((a, b) => a.localeCompare(b)),
+    [selectedPaths]
+  );
+
+  const hasSelection = selectedPaths.length > 0;
 
   const handleAcquireEC2 = async () => {
     if (!ec2ServerName.trim()) {
@@ -347,6 +524,148 @@ export default function DevServerPage() {
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[35%_65%] gap-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-purple-600" />
+                <CardTitle>Control Plane Deployment</CardTitle>
+              </div>
+              <CardDescription>
+                Deploy the dev control plane to your EC2 instance directly from
+                this dashboard.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={handleDeployAll} disabled={deployingAll}>
+                  {deployingAll ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying...
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="mr-2 h-4 w-4" />
+                      Deploy All Files
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleDeploySelected}
+                  disabled={!hasSelection || deployingSelected}
+                >
+                  {deployingSelected ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying selected...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Deploy Selected
+                    </>
+                  )}
+                  {hasSelection ? (
+                    <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground">
+                      {selectedPaths.length}
+                    </span>
+                  ) : null}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefreshFiles}
+                  disabled={filesLoading}
+                  aria-label="Refresh control plane files"
+                >
+                  {filesLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearSelection}
+                  disabled={!hasSelection}
+                >
+                  Clear Selection
+                </Button>
+              </div>
+
+              {hasSelection ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm font-medium">
+                    <span>Selected paths ({selectedPaths.length})</span>
+                    <Badge variant="outline">Selective deploy</Badge>
+                  </div>
+                  <div className="max-h-40 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono">
+                    <ul className="space-y-1">
+                      {sortedSelectedPaths.map((path) => (
+                        <li key={path}>{path}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Select files or directories from the explorer to deploy only
+                  what you need.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span>Deploy output</span>
+                  <Badge variant="secondary">deploy-control-plane-for-dev.js</Badge>
+                </div>
+                <div className="max-h-64 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                  {deployOutput ? (
+                    deployOutput
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Deployment output will appear here after running a deploy.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <ListTree className="h-5 w-5 text-blue-600" />
+                <CardTitle>Control Plane Files</CardTitle>
+              </div>
+              <CardDescription>
+                Browse files under
+                <span className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                  server/control-plane
+                </span>
+                and select them for selective deploys.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading files...
+                </div>
+              ) : (
+                <ControlPlaneFileExplorer
+                  files={fileTree}
+                  selectedPaths={selectedPaths}
+                  onToggle={toggleSelectedPath}
+                />
+              )}
             </CardContent>
           </Card>
         </div>
