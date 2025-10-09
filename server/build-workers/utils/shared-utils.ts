@@ -3,6 +3,13 @@ import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 
+export class InvalidProjectPathError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidProjectPathError";
+  }
+}
+
 export interface PrototypeFileInput {
   name: string;
   contents: string;
@@ -77,7 +84,7 @@ export async function writeProjectFiles(
 ): Promise<void> {
   // Handle text files
   for (const file of files) {
-    const filePath = path.join(projectDir, file.name);
+    const filePath = resolvePathWithinProject(projectDir, file.name);
     const fileDir = path.dirname(filePath);
 
     await fs.mkdir(fileDir, { recursive: true });
@@ -86,11 +93,38 @@ export async function writeProjectFiles(
 
   // Handle binary assets
   for (const asset of assets) {
-    const filePath = path.join(projectDir, asset.name);
+    const filePath = resolvePathWithinProject(projectDir, asset.name);
     const fileDir = path.dirname(filePath);
 
     await fs.mkdir(fileDir, { recursive: true });
     const binaryContent = Buffer.from(asset.contents, "base64");
     await fs.writeFile(filePath, binaryContent);
   }
+}
+
+export function resolvePathWithinProject(
+  projectDir: string,
+  relativePath: string,
+): string {
+  if (!relativePath) {
+    throw new InvalidProjectPathError(
+      "Path must not be empty when writing project files",
+    );
+  }
+
+  if (relativePath.includes("\0")) {
+    throw new InvalidProjectPathError("Path contains null bytes");
+  }
+
+  const normalizedProjectDir = path.resolve(projectDir);
+  const resolvedTargetPath = path.resolve(normalizedProjectDir, relativePath);
+  const relative = path.relative(normalizedProjectDir, resolvedTargetPath);
+
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new InvalidProjectPathError(
+      `Path ${relativePath} resolves outside of the project directory`,
+    );
+  }
+
+  return resolvedTargetPath;
 }
