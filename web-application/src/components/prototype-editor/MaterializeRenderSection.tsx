@@ -87,6 +87,15 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 375, height: 750 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
+    const [currentRoute, setCurrentRoute] = useState(() => {
+      try {
+        const parsedUrl = new URL(viewing_url);
+        const path = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+        return path || "/";
+      } catch (error) {
+        return "/";
+      }
+    });
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [isRunningLint, setIsRunningLint] = useState(false);
 
@@ -365,6 +374,37 @@ const MaterializeRenderSection = forwardRef<
       document.body.style.userSelect = "none";
     };
 
+    // Update the current route when the viewing URL changes externally
+    useEffect(() => {
+      try {
+        const parsedUrl = new URL(viewing_url);
+        const path = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+        setCurrentRoute(path || "/");
+      } catch (error) {
+        setCurrentRoute("/");
+      }
+    }, [viewing_url]);
+
+    // Poll the iframe for its current path so we can reflect navigation changes
+    useEffect(() => {
+      const interval = window.setInterval(() => {
+        const iframeWindow = webPreviewRef.current;
+        if (!iframeWindow) return;
+
+        try {
+          const { pathname, search, hash } = iframeWindow.location;
+          const nextRoute = `${pathname}${search}${hash}` || "/";
+          setCurrentRoute((prev) => (prev !== nextRoute ? nextRoute : prev));
+        } catch (error) {
+          // Accessing the iframe location will fail for cross-origin previews.
+          // In that case we keep showing the last known route derived from the
+          // viewing_url (likely the initial route).
+        }
+      }, 500);
+
+      return () => window.clearInterval(interval);
+    }, []);
+
     // Handle iframe loading events
     const handleIframeLoad = useCallback(() => {
       setIsIframeLoading(false);
@@ -606,19 +646,26 @@ const MaterializeRenderSection = forwardRef<
             </div>
           ) : previewMode === "mobile" ? (
             /* --- START: iPhone 15 Pro device frame --- */
-            <div
-              id="mobile-frame"
-              className="relative mx-auto select-none"
-              style={{
-                width: mobileSize.width + 16,
-                height: mobileSize.height + 16,
-              }}
-            >
-              {/* iPhone 15 Pro frame with titanium-like appearance */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm shadow-sm">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Current Route</span>
+                <span className="font-mono text-sm text-foreground">
+                  {currentRoute || "/"}
+                </span>
+              </div>
               <div
-                className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
+                id="mobile-frame"
+                className="relative mx-auto select-none"
                 style={{
                   width: mobileSize.width + 16,
+                  height: mobileSize.height + 16,
+                }}
+              >
+                {/* iPhone 15 Pro frame with titanium-like appearance */}
+                <div
+                  className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
+                  style={{
+                    width: mobileSize.width + 16,
                   height: mobileSize.height + 16,
                   borderRadius: "2.5rem",
                   border: "1px solid #1f2937",
