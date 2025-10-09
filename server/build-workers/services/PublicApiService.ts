@@ -481,37 +481,56 @@ export class PublicApiService {
             type: "build",
           });
         } else {
-          // Use ExpoDevServerService to build and deploy
-          const buildResponse =
-            await this.expoDevServerService.buildAndDeployProjectCore();
+          const activePrototypeId =
+            this.expoDevServerService.getState().prototypeId;
 
-          if (buildResponse.success && buildResponse.buildUrl) {
-            // Parse build log for errors and warnings
-            if (buildResponse.buildLog) {
-              this.parseBuildLogForErrors(
-                buildResponse.buildLog,
-                buildErrors,
-                buildWarnings,
-              );
-            }
-          } else if (buildResponse.error) {
+          if (!activePrototypeId) {
+            const errorMessage =
+              "Cannot build and deploy: prototype ID is not set";
             baseLogger.error(
-              new Error(buildResponse.error),
+              new Error(errorMessage),
               "Background build failed",
-              { buildLog: buildResponse.buildLog },
+              { projectDir },
             );
             buildErrors.push({
-              message: `Build failed: ${buildResponse.error}`,
+              message: errorMessage,
               type: "build",
             });
-
-            // Parse build log for additional context
-            if (buildResponse.buildLog) {
-              this.parseBuildLogForErrors(
-                buildResponse.buildLog,
-                buildErrors,
-                buildWarnings,
+          } else {
+            // Use ExpoDevServerService to build and deploy
+            const buildResponse =
+              await this.expoDevServerService.buildAndDeployProjectCore(
+                activePrototypeId,
               );
+
+            if (buildResponse.success && buildResponse.buildUrl) {
+              // Parse build log for errors and warnings
+              if (buildResponse.buildLog) {
+                this.parseBuildLogForErrors(
+                  buildResponse.buildLog,
+                  buildErrors,
+                  buildWarnings,
+                );
+              }
+            } else if (buildResponse.error) {
+              baseLogger.error(
+                new Error(buildResponse.error),
+                "Background build failed",
+                { buildLog: buildResponse.buildLog },
+              );
+              buildErrors.push({
+                message: `Build failed: ${buildResponse.error}`,
+                type: "build",
+              });
+
+              // Parse build log for additional context
+              if (buildResponse.buildLog) {
+                this.parseBuildLogForErrors(
+                  buildResponse.buildLog,
+                  buildErrors,
+                  buildWarnings,
+                );
+              }
             }
           }
         }
