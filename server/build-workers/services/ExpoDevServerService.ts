@@ -25,8 +25,10 @@ import {
 } from "../types/BuildWorkerTypes.js";
 import {
   installDependencies,
+  InvalidProjectPathError,
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
+  resolvePathWithinProject,
   writeProjectFiles,
 } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
@@ -256,6 +258,9 @@ export class ExpoDevServerService {
       this.state.devServerStatus = DevServerStatus.STARTING;
       this.state.startTime = new Date();
       this.state.projectDir = projectDir;
+      if (!this.state.tunnelSubdomain) {
+        this.state.tunnelSubdomain = this.generateTunnelSubdomain();
+      }
       this.log2.consoleLogDevOnly(
         "info",
         `Starting dev server for prototype ${prototype_id}`,
@@ -309,6 +314,7 @@ export class ExpoDevServerService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
+      const isPathError = error instanceof InvalidProjectPathError;
       request.log2.error(
         new Error(errorMessage),
         "Internal server error in startDevServer",
@@ -322,13 +328,18 @@ export class ExpoDevServerService {
       );
       this.state.clearOperation();
 
-      return reply.code(500).send({
+      const statusCode = isPathError ? 400 : 500;
+      const messagePrefix = isPathError
+        ? "Invalid project file path"
+        : "Internal server error";
+
+      return reply.code(statusCode).send({
         success: false,
         status: DevServerStatus.ERROR,
         error: errorMessage,
         build_errors: [
           {
-            message: `Internal server error: ${errorMessage}`,
+            message: `${messagePrefix}: ${errorMessage}`,
             type: "build",
           },
         ],
@@ -873,6 +884,7 @@ export class ExpoDevServerService {
   }
 
   async buildAndDeployProjectCore(
+    prototypeId?: string,
     jobId?: string,
   ): Promise<BuildAndDeployResponse> {
     const actualJobId = jobId || uuidv4();
@@ -883,7 +895,28 @@ export class ExpoDevServerService {
       OperationStatus.BUILDING_AND_DEPLOYING,
       actualJobId,
     );
-    const prototype_id = this.state.prototypeId;
+    const resolvedPrototypeId = prototypeId ?? this.state.prototypeId ?? null;
+    if (!resolvedPrototypeId) {
+      const errorMessage =
+        "Cannot build and deploy without a prototype ID";
+      logger.log("Build and deploy failed", false, "", errorMessage);
+      this.state.clearOperation();
+      return {
+        success: false,
+        error: errorMessage,
+        buildLog: logger.getBuildLog(),
+      };
+    }
+
+    if (!this.state.prototypeId) {
+      this.state.prototypeId = resolvedPrototypeId;
+    } else if (this.state.prototypeId !== resolvedPrototypeId) {
+      this.log2.warn("Prototype ID mismatch during build", {
+        statePrototypeId: this.state.prototypeId,
+        requestedPrototypeId: resolvedPrototypeId,
+      });
+      this.state.prototypeId = resolvedPrototypeId;
+    }
     // Use the fixed project directory created by the dev server
     const buildDir = path.join(this.workDir, "project");
 
@@ -904,13 +937,13 @@ export class ExpoDevServerService {
       // when the dev server was started
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
-      const s3KeyPrefix = `${prototype_id}`;
+      const s3KeyPrefix = `${resolvedPrototypeId}`;
       const uploadResult = await this.uploadDirectoryToS3(
         outputPath,
         s3KeyPrefix,
       );
 
-      const buildUrl = `https://${prototype_id}.render.materializeui.com`;
+      const buildUrl = `https://${resolvedPrototypeId}.render.materializeui.com`;
       this.state.builtVersion = uploadResult.version;
       return {
         success: true,
@@ -1086,7 +1119,10 @@ export class ExpoDevServerService {
         this.log2.info("Deleting files", { files: deletedFiles });
         for (const filePath of deletedFiles) {
           try {
-            const fullPath = path.join(actualProjectDir, filePath);
+            const fullPath = resolvePathWithinProject(
+              actualProjectDir,
+              filePath,
+            );
             await fs.rm(fullPath, { recursive: true, force: true });
             this.log2.debug("Successfully deleted file", { filePath });
           } catch (error: unknown) {
@@ -1673,6 +1709,7 @@ export class ExpoDevServerService {
       let stdout = "";
       let stderr = "";
       let processExited = false;
+      let timeoutHandle: NodeJS.Timeout | null = null;
 
       const spawnOptions: SpawnOptions = {
         cwd,
@@ -1683,10 +1720,26 @@ export class ExpoDevServerService {
 
       const childProcess = spawn(command, args, spawnOptions);
 
-      // Set up timeout
-      const timeout = setTimeout(() => {
+      const onProcessExit = (): void => {
         if (!processExited) {
           processExited = true;
+          childProcess.kill("SIGKILL");
+        }
+      };
+
+      const cleanup = (): void => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+        process.removeListener("exit", onProcessExit);
+      };
+
+      // Set up timeout
+      timeoutHandle = setTimeout(() => {
+        if (!processExited) {
+          processExited = true;
+          cleanup();
           childProcess.kill("SIGKILL");
           reject(
             new Error(
@@ -1697,6 +1750,8 @@ export class ExpoDevServerService {
           );
         }
       }, timeoutMs);
+
+      process.once("exit", onProcessExit);
 
       // Handle stdout
       childProcess.stdout?.on("data", (data: Buffer) => {
@@ -1721,33 +1776,47 @@ export class ExpoDevServerService {
       });
 
       // Handle process exit
-      childProcess.on("close", (code: number | null) => {
-        if (!processExited) {
-          processExited = true;
-          clearTimeout(timeout);
-          resolve({
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-            code: code || 0,
-          });
-        }
-      });
+      childProcess.on(
+        "close",
+        (code: number | null, signal: NodeJS.Signals | null) => {
+          if (!processExited) {
+            processExited = true;
+            cleanup();
 
-      // Handle process errors
+            const trimmedStdout = stdout.trim();
+            let trimmedStderr = stderr.trim();
+            let exitCode: number;
+
+            if (typeof code === "number") {
+              exitCode = code;
+            } else if (signal) {
+              exitCode = 128;
+            } else {
+              exitCode = 1;
+            }
+
+            if (signal) {
+              const signalMessage = `Process terminated by signal ${signal}`;
+              this.log2.warn(signalMessage, { command, signal });
+              trimmedStderr = trimmedStderr
+                ? `${trimmedStderr}\n${signalMessage}`
+                : signalMessage;
+            }
+
+            resolve({
+              stdout: trimmedStdout,
+              stderr: trimmedStderr,
+              code: exitCode,
+            });
+          }
+        },
+      );
+
       childProcess.on("error", (error: Error) => {
         if (!processExited) {
           processExited = true;
-          clearTimeout(timeout);
+          cleanup();
           reject(new Error(`Failed to start command: ${error.message}`));
-        }
-      });
-
-      // Handle unexpected termination
-      process.on("exit", () => {
-        if (!processExited) {
-          processExited = true;
-          clearTimeout(timeout);
-          childProcess.kill("SIGKILL");
         }
       });
     });

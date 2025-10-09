@@ -242,6 +242,16 @@ export class PublicApiService {
     }
   }
 
+  /**
+   * Kick off a one-shot build for the requesting prototype using the assets currently on disk.
+   *
+   * The handler intentionally:
+   *   1. Validates that the caller specified both the prototype id and framework.
+   *   2. Reads the worker's "project" directory to confirm the dev server has hydrated files.
+   *   3. Invokes ExpoDevServerService.buildAndDeployProjectCore with the caller-provided prototype id
+   *      (rather than relying on mutable worker state) so the build uploads to the expected S3 prefix.
+   *   4. Parses the build log for structured errors/warnings that align with the public API schema.
+   */
   private async buildAndDeploy(
     request: FastifyRequest<{ Body: PublicBuildAndDeployRequest }>,
     reply: FastifyReply,
@@ -481,37 +491,56 @@ export class PublicApiService {
             type: "build",
           });
         } else {
-          // Use ExpoDevServerService to build and deploy
-          const buildResponse =
-            await this.expoDevServerService.buildAndDeployProjectCore();
+          const activePrototypeId =
+            this.expoDevServerService.getState().prototypeId;
 
-          if (buildResponse.success && buildResponse.buildUrl) {
-            // Parse build log for errors and warnings
-            if (buildResponse.buildLog) {
-              this.parseBuildLogForErrors(
-                buildResponse.buildLog,
-                buildErrors,
-                buildWarnings,
-              );
-            }
-          } else if (buildResponse.error) {
+          if (!activePrototypeId) {
+            const errorMessage =
+              "Cannot build and deploy: prototype ID is not set";
             baseLogger.error(
-              new Error(buildResponse.error),
+              new Error(errorMessage),
               "Background build failed",
-              { buildLog: buildResponse.buildLog },
+              { projectDir },
             );
             buildErrors.push({
-              message: `Build failed: ${buildResponse.error}`,
+              message: errorMessage,
               type: "build",
             });
-
-            // Parse build log for additional context
-            if (buildResponse.buildLog) {
-              this.parseBuildLogForErrors(
-                buildResponse.buildLog,
-                buildErrors,
-                buildWarnings,
+          } else {
+            // Use ExpoDevServerService to build and deploy
+            const buildResponse =
+              await this.expoDevServerService.buildAndDeployProjectCore(
+                activePrototypeId,
               );
+
+            if (buildResponse.success && buildResponse.buildUrl) {
+              // Parse build log for errors and warnings
+              if (buildResponse.buildLog) {
+                this.parseBuildLogForErrors(
+                  buildResponse.buildLog,
+                  buildErrors,
+                  buildWarnings,
+                );
+              }
+            } else if (buildResponse.error) {
+              baseLogger.error(
+                new Error(buildResponse.error),
+                "Background build failed",
+                { buildLog: buildResponse.buildLog },
+              );
+              buildErrors.push({
+                message: `Build failed: ${buildResponse.error}`,
+                type: "build",
+              });
+
+              // Parse build log for additional context
+              if (buildResponse.buildLog) {
+                this.parseBuildLogForErrors(
+                  buildResponse.buildLog,
+                  buildErrors,
+                  buildWarnings,
+                );
+              }
             }
           }
         }
