@@ -51,7 +51,7 @@ export default async function handleResetPrototypeImpl(
     );
 
     // 2. Delete all prototype files, assets from DB and delete all S3 builds, thumbnails, and assets in storage
-    await Promise.allSettled([
+    const [s3Deleted, assetsDeleted, thumbnailDeleted] = await Promise.all([
       deletePrototypeS3Builds(s3Client, prototype_id, request.log2),
       deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
       deletePrototypeThumbnailFromSupabaseStorage(
@@ -60,12 +60,48 @@ export default async function handleResetPrototypeImpl(
         request.log2,
       ),
     ]);
-    await supabase.from('prototypes').delete().eq('id', prototype_id); // cascade delete everything relevant
+
+    if (!s3Deleted || !assetsDeleted || !thumbnailDeleted) {
+      request.log2.error(
+        new Error('Failed to delete existing prototype artifacts'),
+        '[handleResetPrototype] Cleanup failure before reset',
+        {
+          s3Deleted,
+          assetsDeleted,
+          thumbnailDeleted,
+        },
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        error: 'CLEANUP_FAILED',
+        message: 'Failed to clean up existing prototype artifacts',
+      });
+    }
+
+    const { error: deleteError } = await supabase
+      .from('prototypes')
+      .delete()
+      .eq('id', prototype_id); // cascade delete everything relevant
+    if (deleteError) {
+      request.log2.error(
+        deleteError,
+        '[handleResetPrototype] Failed to delete prototype before recreation',
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        error: 'DATABASE_ERROR',
+        message: 'Failed to clean existing prototype data',
+      });
+    }
 
     // 3. Re-create the prototype with same metadata and use existing createPrototype logic to apply all defaults to this prototype
+    const prototypeToRecreate = {
+      ...authResponse.prototype,
+      latest_build_key: null,
+    };
     const { error: newPrototypeError } = await supabase
       .from('prototypes')
-      .insert(authResponse.prototype);
+      .insert(prototypeToRecreate);
     if (newPrototypeError) {
       request.log2.error(
         newPrototypeError,
@@ -77,8 +113,9 @@ export default async function handleResetPrototypeImpl(
         message: 'Failed to re-create prototype',
       });
     }
+    let version: string | undefined;
     try {
-      await copyAllDefaultsForNewPrototype(
+      version = await copyAllDefaultsForNewPrototype(
         supabase,
         s3Client,
         prototype_id,
@@ -93,6 +130,35 @@ export default async function handleResetPrototypeImpl(
         success: false,
         error: 'INTERNAL_ERROR',
         message: 'Failed to copy defaults to new prototype',
+      });
+    }
+
+    if (!version) {
+      request.log2.error(
+        new Error('Missing deployment version after copying defaults'),
+        '[handleResetPrototype] No version returned after copyAllDefaultsForNewPrototype',
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        error: 'INTERNAL_ERROR',
+        message: 'Failed to finalize prototype reset',
+      });
+    }
+
+    const { error: updateLatestBuildError } = await supabase
+      .from('prototypes')
+      .update({ latest_build_key: `v${version}` })
+      .eq('id', prototype_id);
+
+    if (updateLatestBuildError) {
+      request.log2.error(
+        updateLatestBuildError,
+        '[handleResetPrototype] Failed to update latest_build_key after reset',
+      );
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        error: 'DATABASE_ERROR',
+        message: 'Failed to finalize prototype reset',
       });
     }
 
