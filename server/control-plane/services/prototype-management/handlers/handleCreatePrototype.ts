@@ -6,7 +6,10 @@ import {
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
-import { validateJWTToken } from '../../../utils/prototypeAuth.js';
+import {
+  checkUserHasPrototypeViewingAccess,
+  validateJWTToken,
+} from '../../../utils/prototypeAuth.js';
 import { hasExceededPrototypeCreationLimit } from '../../../utils/subscriptionChecks.js';
 import { Database } from '../../../types/supabase.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -143,6 +146,7 @@ export async function handleCreatePrototypeImpl(
           s3Client,
           forkPrototypeId,
           newPrototypeId,
+          token,
           request.log2,
         );
       } else {
@@ -234,8 +238,22 @@ async function forkPrototype(
   s3Client: S3Client,
   sourcePrototypeId: string,
   newPrototypeId: string,
+  jwtToken: string | undefined,
   log2: SystemLogger,
 ): Promise<string | undefined> {
+  const accessResult = await checkUserHasPrototypeViewingAccess(
+    sourcePrototypeId,
+    jwtToken,
+    log2,
+  );
+  if (!accessResult?.prototype) {
+    log2.warn('[forkPrototype] User attempted to fork prototype without access', {
+      sourcePrototypeId,
+      newPrototypeId,
+    });
+    throw new Error('Access denied for source prototype');
+  }
+
   // 1. Fetch files and assets from source prototype and copy assets + s3 builds + thumbnail to new prototype
   const [filesResult, assetsResult, s3CopyResult, thumbnailCopyResult] =
     await Promise.all([
