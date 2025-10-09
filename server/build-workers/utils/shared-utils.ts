@@ -24,7 +24,8 @@ export async function installDependencies(
   projectDir: string,
   log2: SystemLogger
 ): Promise<void> {
-  log2.info("Installing dependencies");
+  // Use dev-only logging so repeated npm chatter stays out of production logs.
+  log2.consoleLogDevOnly("info", "Installing dependencies");
 
   return new Promise((resolve, reject) => {
     const npmProcess = spawn(
@@ -44,20 +45,28 @@ export async function installDependencies(
     let stderr = "";
 
     npmProcess.stdout.on("data", (data) => {
-      const output = data.toString();
-      stdout += output;
-      log2.debug("npm stdout", { output: output.trim() });
+      stdout += data.toString();
+      // Buffer output and log once after completion to avoid flooding CloudWatch.
     });
 
     npmProcess.stderr.on("data", (data) => {
-      const output = data.toString();
-      stderr += output;
-      log2.debug("npm stderr", { output: output.trim() });
+      stderr += data.toString();
+      // Buffer output and log once after completion to avoid flooding CloudWatch.
     });
 
     npmProcess.on("close", (code) => {
       if (code === 0) {
-        log2.info("Dependencies installed successfully");
+        const trimmedStdout = stdout.trim();
+        const trimmedStderr = stderr.trim();
+        if (trimmedStdout || trimmedStderr) {
+          // Surface the combined npm output only in dev environments for easier debugging.
+          log2.consoleLogDevOnly("debug", "npm install output", {
+            stdout: trimmedStdout,
+            stderr: trimmedStderr,
+          });
+        }
+        // Keep success noise in dev logs so production success paths stay quiet.
+        log2.consoleLogDevOnly("info", "Dependencies installed successfully");
         resolve();
       } else {
         const error = `npm install failed with exit code ${code}: ${stderr}`;

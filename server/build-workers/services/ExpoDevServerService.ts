@@ -388,7 +388,8 @@ export class ExpoDevServerService {
     return new Promise((resolve, reject) => {
       const tunnelSubdomain = this.state.tunnelSubdomain!;
 
-      this.log2.info("Starting Expo with configuration", {
+      // Keep the full spawn configuration in dev-only logs so production output isn't flooded with args.
+      this.log2.consoleLogDevOnly("info", "Starting Expo with configuration", {
         args: ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
         workingDirectory: projectDir,
         tunnelSubdomain,
@@ -430,7 +431,8 @@ export class ExpoDevServerService {
 
       const processOutput = (data: Buffer, source: string): void => {
         const output = data.toString();
-        this.log2.debug("startExpoProcess expo output", {
+        // Only surface raw Expo output when debugging locally so production logs stay readable.
+        this.log2.consoleLogDevOnly("debug", "startExpoProcess expo output", {
           source,
           output: output.trim(),
         });
@@ -445,7 +447,8 @@ export class ExpoDevServerService {
           output.includes("Metro") ||
           output.includes("Bundler ready")
         ) {
-          this.log2.info("File watching detected", {
+          // File watching chatter is noisy in prod, so confine it to dev consoles.
+          this.log2.consoleLogDevOnly("info", "File watching detected", {
             output: output.trim(),
           });
         }
@@ -453,7 +456,8 @@ export class ExpoDevServerService {
         // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
         if (urlMatch && !resolved) {
-          this.log2.debug("URLs found in output", {
+          // Candidate URLs are primarily useful during local debugging, not in production streams.
+          this.log2.consoleLogDevOnly("debug", "URLs found in output", {
             urls: urlMatch.join(", "),
           });
 
@@ -559,7 +563,8 @@ export class ExpoDevServerService {
   }
 
   private async killExpoProcess(): Promise<void> {
-    this.log2.info("Killing processes on default port");
+    // Port cleanup is expected; keep the noise in dev-only logs.
+    this.log2.consoleLogDevOnly("info", "Killing processes on default port");
 
     try {
       // Kill any process running on port 19006 (Expo's default port)
@@ -569,10 +574,13 @@ export class ExpoDevServerService {
       const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
 
       execSync(killCommand, { stdio: "pipe" });
-      this.log2.info("Successfully killed processes on port", { port });
+      // Report successful kills only for local debugging to keep prod quiet.
+      this.log2.consoleLogDevOnly("info", "Successfully killed processes on port", {
+        port,
+      });
     } catch {
       // It's okay if no processes were found on the port
-      this.log2.debug("No processes found on port", {
+      this.log2.consoleLogDevOnly("debug", "No processes found on port", {
         port: this.state.port || this.defaultPort,
         message: "Normal if nothing was running",
       });
@@ -580,7 +588,8 @@ export class ExpoDevServerService {
 
     // Also kill the specific process if it exists
     if (this.state.process) {
-      this.log2.info("Killing tracked Expo process");
+      // Killing the tracked child is routine; emit it only to dev consoles.
+      this.log2.consoleLogDevOnly("info", "Killing tracked Expo process");
 
       this.state.process.kill("SIGTERM");
 
@@ -602,7 +611,11 @@ export class ExpoDevServerService {
       );
     }
 
-    this.log2.info("Restarting dev server after dependency changes");
+    // Dependency-triggered restarts are routine, so keep them out of prod logs.
+    this.log2.consoleLogDevOnly(
+      "info",
+      "Restarting dev server after dependency changes",
+    );
 
     // Kill the current process
     this.state.currentOperation = OperationStatus.STOPPING;
@@ -623,7 +636,8 @@ export class ExpoDevServerService {
 
     try {
       await this.startExpoProcess(projectDir, port);
-      this.log2.info("Dev server restarted successfully");
+      // Success confirmation is only useful when debugging locally.
+      this.log2.consoleLogDevOnly("info", "Dev server restarted successfully");
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -638,14 +652,12 @@ export class ExpoDevServerService {
     if (this.state.projectDir) {
       try {
         await fs.rm(this.state.projectDir, { recursive: true, force: true });
-        this.log2.info("Cleaned up project directory");
+        // Cleanup success is expected, so limit it to dev-only visibility.
+        this.log2.consoleLogDevOnly("info", "Cleaned up project directory");
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        this.log2.warn("Failed to cleanup project directory", {
-          projectDir: this.state.projectDir,
-          error: errorMessage,
-        });
+        // Keep a single warning so prod logs aren't duplicated on failures.
         this.log2.warn("Failed to cleanup project directory", {
           projectDir: this.state.projectDir,
           error: errorMessage,
@@ -665,7 +677,11 @@ export class ExpoDevServerService {
     // Reset state which sets status to "stopped" and operation to "idle"
     this.state.reset();
 
-    this.log2.info("Dev server service shutdown completed");
+    // Shutdown completion is routine; emit to dev consoles only.
+    this.log2.consoleLogDevOnly(
+      "info",
+      "Dev server service shutdown completed",
+    );
   }
 
   // Builder Service Methods
@@ -975,7 +991,11 @@ export class ExpoDevServerService {
       this.state.currentOperation = OperationStatus.STOPPING;
       await this.killExpoProcess();
       this.state.devServerStatus = DevServerStatus.STOPPED;
-      this.log2.info("Dev server stopped after build and deploy completion");
+      // Normal completion shouldn't spam production logs, so keep it dev-only.
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Dev server stopped after build and deploy completion",
+      );
     }
   }
 
@@ -1037,7 +1057,8 @@ export class ExpoDevServerService {
     // Use the state's project directory as the source of truth
     const actualProjectDir = this.state.projectDir;
 
-    this.log2.info("Updating project files", {
+    // Make update summaries dev-only so prod logs focus on errors.
+    this.log2.consoleLogDevOnly("info", "Updating project files", {
       filesCount: files.length,
       assetsCount: assets.length,
       projectDirectory: actualProjectDir,
@@ -1045,11 +1066,17 @@ export class ExpoDevServerService {
 
     // Log which files are being updated
     const fileNames = files.map((f) => f.name);
-    this.log2.debug("Files being updated", { files: fileNames });
+    // Detailed file lists are only helpful when debugging locally.
+    this.log2.consoleLogDevOnly("debug", "Files being updated", {
+      files: fileNames,
+    });
 
     // Log which files are being deleted
     if (deletedFiles.length > 0) {
-      this.log2.debug("Files being deleted", { files: deletedFiles });
+      // File deletion details belong in dev logs to avoid noisy prod output.
+      this.log2.consoleLogDevOnly("debug", "Files being deleted", {
+        files: deletedFiles,
+      });
     }
 
     // Verify project directory exists and is accessible
@@ -1104,7 +1131,11 @@ export class ExpoDevServerService {
         try {
           const packageJsonPath = path.join(actualProjectDir, "package.json");
           oldPackageJsonContent = await fs.readFile(packageJsonPath, "utf-8");
-          this.log2.info("Found existing package.json for diffing.");
+          // Diff progress chatter is only relevant locally, so mark it dev-only.
+          this.log2.consoleLogDevOnly(
+            "info",
+            "Found existing package.json for diffing.",
+          );
         } catch (error) {
           this.log2.warn(
             "Could not read old package.json, assuming new file.",
@@ -1116,7 +1147,10 @@ export class ExpoDevServerService {
 
       // 2) Delete files that need to be removed
       if (deletedFiles.length > 0) {
-        this.log2.info("Deleting files", { files: deletedFiles });
+          // File deletion summaries live in dev logs to avoid noisy prod output.
+          this.log2.consoleLogDevOnly("info", "Deleting files", {
+            files: deletedFiles,
+          });
         for (const filePath of deletedFiles) {
           try {
             const fullPath = resolvePathWithinProject(
@@ -1124,7 +1158,12 @@ export class ExpoDevServerService {
               filePath,
             );
             await fs.rm(fullPath, { recursive: true, force: true });
-            this.log2.debug("Successfully deleted file", { filePath });
+            // Successful deletions are routine, so confine them to dev consoles.
+            this.log2.consoleLogDevOnly(
+              "debug",
+              "Successfully deleted file",
+              { filePath },
+            );
           } catch (error: unknown) {
             const errorMessage =
               error instanceof Error ? error.message : String(error);
@@ -1143,12 +1182,21 @@ export class ExpoDevServerService {
 
       // 3) Write incoming files to disk
       await writeProjectFiles(files, assets, actualProjectDir);
-      this.log2.info("Successfully wrote files to project directory", {
-        projectDir: actualProjectDir,
-      });
+      // Successful writes are routine, so surface them only in dev logs.
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Successfully wrote files to project directory",
+        {
+          projectDir: actualProjectDir,
+        },
+      );
 
       // 4) Monitor for Metro bundler errors after file updates
-      this.log2.info("Monitoring Metro output for compilation errors");
+      // Limit Metro monitoring chatter to dev to keep prod logs concise.
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Monitoring Metro output for compilation errors",
+      );
       await this.monitorMetroForErrors(buildErrors, buildWarnings, 8000);
 
       // 5) If package.json changed, diff dependencies and conditionally reinstall/restart
@@ -1161,7 +1209,9 @@ export class ExpoDevServerService {
         );
 
         if (dependenciesHaveChanged) {
-          this.log2.info(
+          // Dependency churn is expected; keep the verbose narrative in dev logs.
+          this.log2.consoleLogDevOnly(
+            "info",
             "Dependency changes detected in package.json. Reinstalling dependencies and restarting dev server.",
           );
           try {
@@ -1170,11 +1220,18 @@ export class ExpoDevServerService {
               buildErrors,
               buildWarnings,
             );
-            this.log2.info("Dependencies reinstalled successfully");
+            // Restrict install success noise to dev environments.
+            this.log2.consoleLogDevOnly(
+              "info",
+              "Dependencies reinstalled successfully",
+            );
 
-            this.log2.info("Restarting dev server...");
+            // Keep restart confirmations out of production logs.
+            this.log2.consoleLogDevOnly("info", "Restarting dev server...");
             await this.restartDevServer();
-            this.log2.info(
+            // Restart success is dev-only signal to reduce prod chatter.
+            this.log2.consoleLogDevOnly(
+              "info",
               "Dev server restarted successfully with new dependencies.",
             );
           } catch (error: unknown) {
@@ -1190,12 +1247,16 @@ export class ExpoDevServerService {
             });
           }
         } else {
-          this.log2.info(
+          // Skip-notices are only actionable during debugging, so keep them dev-only.
+          this.log2.consoleLogDevOnly(
+            "info",
             "package.json was updated, but no dependency changes were found. Skipping reinstall and restart.",
           );
         }
       } else {
-        this.log2.debug(
+        // Silence no-op diffs in production while keeping context available in dev.
+        this.log2.consoleLogDevOnly(
+          "debug",
           "No package.json changes detected, skipping dependency diff.",
         );
       }
@@ -1240,7 +1301,11 @@ export class ExpoDevServerService {
     timeoutMs: number = 10000,
   ): Promise<void> {
     if (!this.state.process) {
-      this.log2.debug("No Metro process available for error monitoring");
+      // Avoid noisy prod logs when Metro is unavailable; surface only in dev.
+      this.log2.consoleLogDevOnly(
+        "debug",
+        "No Metro process available for error monitoring",
+      );
       return;
     }
 
@@ -1254,7 +1319,8 @@ export class ExpoDevServerService {
           resolved = true;
           const newErrors = buildErrors.length - originalErrorCount;
           const newWarnings = buildWarnings.length - originalWarningCount;
-          this.log2.info("Metro error monitoring completed", {
+          // Only emit the monitoring summary when debugging locally.
+          this.log2.consoleLogDevOnly("info", "Metro error monitoring completed", {
             newErrors,
             newWarnings,
           });
@@ -1669,7 +1735,8 @@ export class ExpoDevServerService {
 
       const objects = await this.s3.send(listCommand);
       if (objects.Contents && objects.Contents.length > 0) {
-        this.log2.info("Deleting existing S3 objects", {
+        // S3 cleanup is expected noise, so only share it with dev consoles.
+        this.log2.consoleLogDevOnly("info", "Deleting existing S3 objects", {
           count: objects.Contents.length,
           prefix,
         });
@@ -1681,11 +1748,15 @@ export class ExpoDevServerService {
           },
         });
         await this.s3.send(deleteCommand);
-        this.log2.info("Successfully deleted S3 objects", {
+        // Keep deletion summaries out of production to reduce baseline log volume.
+        this.log2.consoleLogDevOnly("info", "Successfully deleted S3 objects", {
           count: objects.Contents.length,
         });
       } else {
-        this.log2.debug("No existing S3 objects found", { prefix });
+        // Avoid emitting expected empty states to production logs.
+        this.log2.consoleLogDevOnly("debug", "No existing S3 objects found", {
+          prefix,
+        });
       }
     } catch (error) {
       const errorMessage =
@@ -1755,24 +1826,14 @@ export class ExpoDevServerService {
 
       // Handle stdout
       childProcess.stdout?.on("data", (data: Buffer) => {
-        const output = data.toString();
-        stdout += output;
-        // Log real-time output
-        this.log2.debug("Command stdout", {
-          command,
-          output: output.trim(),
-        });
+        stdout += data.toString();
+        // Buffer command output and emit a single dev-only summary on completion.
       });
 
       // Handle stderr
       childProcess.stderr?.on("data", (data: Buffer) => {
-        const output = data.toString();
-        stderr += output;
-        // Log real-time output
-        this.log2.debug("Command stderr", {
-          command,
-          output: output.trim(),
-        });
+        stderr += data.toString();
+        // Buffer command errors so production logs avoid per-line spam.
       });
 
       // Handle process exit
@@ -1801,6 +1862,17 @@ export class ExpoDevServerService {
               trimmedStderr = trimmedStderr
                 ? `${trimmedStderr}\n${signalMessage}`
                 : signalMessage;
+            }
+
+            if (trimmedStdout || trimmedStderr) {
+              // Share aggregated command output with dev consoles without polluting prod logs.
+              this.log2.consoleLogDevOnly("debug", "Command output", {
+                command,
+                args,
+                stdout: trimmedStdout,
+                stderr: trimmedStderr,
+                exitCode,
+              });
             }
 
             resolve({
