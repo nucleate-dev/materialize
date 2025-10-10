@@ -174,10 +174,13 @@ export default function DevServerPage() {
       );
 
       if (!response.ok) {
-        // Instance not found or terminated
-        localStorage.removeItem(INSTANCE_STORAGE_KEY);
-        setInstanceStatus("terminated");
-        setEc2Details(null);
+        // Only remove from storage if instance is definitely not found (404)
+        // Don't remove on server errors (500) or other temporary issues
+        if (response.status === 404) {
+          localStorage.removeItem(INSTANCE_STORAGE_KEY);
+          setInstanceStatus("terminated");
+          setEc2Details(null);
+        }
         return;
       }
 
