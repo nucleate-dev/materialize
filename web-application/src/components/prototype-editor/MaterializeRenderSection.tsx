@@ -3,6 +3,7 @@
 import { supabase } from "@/ClientConstants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,11 +28,13 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   Loader2,
   Monitor,
+  Plus,
   Play,
   RefreshCw,
   RotateCcw,
   Settings,
   Smartphone,
+  X,
 } from "lucide-react";
 import {
   forwardRef,
@@ -41,6 +44,65 @@ import {
   useRef,
   useState,
 } from "react";
+
+interface MobileScreenConfig {
+  id: number;
+  path: string;
+}
+
+const normalizePath = (value: string) => {
+  if (!value) {
+    return "/";
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "/";
+  }
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const parsed = new URL(trimmed);
+      const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      return normalized || "/";
+    } catch {
+      return "/";
+    }
+  }
+
+  if (trimmed.startsWith("?") || trimmed.startsWith("#")) {
+    return trimmed;
+  }
+
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+};
+
+const extractInitialPath = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return normalized || "/";
+  } catch {
+    return "/";
+  }
+};
+
+const resolveIframeSrc = (baseUrl: string, path: string) => {
+  if (!baseUrl) {
+    return "";
+  }
+
+  try {
+    return new URL(path, baseUrl).toString();
+  } catch {
+    try {
+      return new URL(baseUrl).toString();
+    } catch {
+      return baseUrl;
+    }
+  }
+};
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
@@ -89,9 +151,64 @@ const MaterializeRenderSection = forwardRef<
     const [iframeError, setIframeError] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [isRunningLint, setIsRunningLint] = useState(false);
+    const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(() =>
+      viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
+    );
+
+    const nextMobileScreenId = useRef(1);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
+
+    useEffect(() => {
+      if (!viewing_url) {
+        setMobileScreens([]);
+        nextMobileScreenId.current = 1;
+        return;
+      }
+
+      setMobileScreens([{ id: 0, path: extractInitialPath(viewing_url) }]);
+      nextMobileScreenId.current = 1;
+    }, [viewing_url]);
+
+    const handleAddMobileScreen = () => {
+      if (!viewing_url) return;
+
+      setMobileScreens((prev) => [
+        ...prev,
+        { id: nextMobileScreenId.current++, path: "/" },
+      ]);
+      setIsIframeLoading(true);
+      setIframeError(false);
+    };
+
+    const handleRemoveMobileScreen = (id: number) => {
+      setMobileScreens((prev) => {
+        if (prev.length <= 1) {
+          return prev;
+        }
+
+        return prev.filter((screen) => screen.id !== id);
+      });
+    };
+
+    const handleScreenPathChange = (id: number, value: string) => {
+      const normalized = normalizePath(value);
+      let didUpdate = false;
+      setMobileScreens((prev) =>
+        prev.map((screen) => {
+          if (screen.id === id && screen.path !== normalized) {
+            didUpdate = true;
+            return { ...screen, path: normalized };
+          }
+          return screen;
+        }),
+      );
+      if (didUpdate) {
+        setIsIframeLoading(true);
+        setIframeError(false);
+      }
+    };
 
     // Force refresh method
     const forceRefresh = useCallback(() => {
@@ -596,6 +713,20 @@ const MaterializeRenderSection = forwardRef<
             </DropdownMenu>
           </div>
 
+          {previewMode === "mobile" && viewing_url && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+              <Button
+                onClick={handleAddMobileScreen}
+                size="sm"
+                variant="secondary"
+                className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add screen
+              </Button>
+            </div>
+          )}
+
           {!viewing_url ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -605,97 +736,140 @@ const MaterializeRenderSection = forwardRef<
               </div>
             </div>
           ) : previewMode === "mobile" ? (
-            /* --- START: iPhone 15 Pro device frame --- */
-            <div
-              id="mobile-frame"
-              className="relative mx-auto select-none"
-              style={{
-                width: mobileSize.width + 16,
-                height: mobileSize.height + 16,
-              }}
-            >
-              {/* iPhone 15 Pro frame with titanium-like appearance */}
-              <div
-                className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
-                style={{
-                  width: mobileSize.width + 16,
-                  height: mobileSize.height + 16,
-                  borderRadius: "2.5rem",
-                  border: "1px solid #1f2937",
-                  boxShadow:
-                    "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                }}
-              >
-                {/* Dynamic Island */}
-                <div
-                  className="absolute bg-black rounded-full"
-                  style={{
-                    width: mobileSize.width * 0.4,
-                    height: "24px",
-                    top: "6px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    borderRadius: "12px",
-                  }}
-                ></div>
+            <div className="w-full h-full overflow-auto">
+              <div className="min-h-full flex items-center justify-center">
+                <div className="flex flex-wrap justify-center gap-8 py-8">
+                  {mobileScreens.map((screen, index) => {
+                    const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
+                    const isPrimaryScreen = index === 0;
 
-                {/* Volume buttons */}
-                <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
-                <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
-                <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
+                    return (
+                      <div
+                        key={`mobile-screen-${screen.id}`}
+                        className="flex flex-col items-center gap-4"
+                      >
+                        <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border px-3 py-2 rounded-full shadow">
+                          <Input
+                            value={screen.path}
+                            onChange={(event) =>
+                              handleScreenPathChange(screen.id, event.target.value)
+                            }
+                            className="h-8 w-32 text-center"
+                            placeholder="/"
+                          />
+                          {mobileScreens.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleRemoveMobileScreen(screen.id)}
+                              aria-label="Remove screen"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
 
-                {/* Power button */}
-                <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
+                        <div
+                          className="relative mx-auto select-none"
+                          style={{
+                            width: mobileSize.width + 16,
+                            height: mobileSize.height + 16,
+                          }}
+                        >
+                          {mobileScreens.length > 1 && (
+                            <Badge className="absolute -top-6 left-1/2 -translate-x-1/2">
+                              {screen.path || "/"}
+                            </Badge>
+                          )}
+                          <div
+                            className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
+                            style={{
+                              width: mobileSize.width + 16,
+                              height: mobileSize.height + 16,
+                              borderRadius: "2.5rem",
+                              border: "1px solid #1f2937",
+                              boxShadow:
+                                "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                            }}
+                          >
+                            <div
+                              className="absolute bg-black rounded-full"
+                              style={{
+                                width: mobileSize.width * 0.4,
+                                height: "24px",
+                                top: "6px",
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                borderRadius: "12px",
+                              }}
+                            ></div>
 
-                {/* Screen area */}
-                <div
-                  className="absolute bg-black overflow-hidden"
-                  style={{
-                    width: mobileSize.width,
-                    height: mobileSize.height,
-                    top: "8px",
-                    left: "8px",
-                    borderRadius: "2.2rem",
-                    boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
-                  }}
-                >
-                  <div className="relative w-full h-full">
-                    <iframe
-                      key={`mobile-${refreshKey}`}
-                      ref={(c) => {
-                        webPreviewRef.current = c?.contentWindow ?? null;
-                      }}
-                      className="w-full h-full"
-                      title="React Native Preview"
-                      src={viewing_url}
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                      onLoad={handleIframeLoad}
-                      onError={handleIframeError}
-                    />
-                    {/* Show loading overlay when iframe is connecting */}
-                    {isIframeLoading && (
-                      <ConnectionLoadingOverlay mode="mobile" />
-                    )}
-                    {/* Show error overlay when iframe fails to load */}
-                    {iframeError && <ConnectionErrorOverlay mode="mobile" />}
-                  </div>
-                </div>
+                            <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
+                            <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
+                            <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
 
-                {/* Resize handle */}
-                <div
-                  className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
-                  onMouseDown={handleMouseDown}
-                >
-                  <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
-                    <svg
-                      width="8"
-                      height="8"
-                      viewBox="0 0 8 8"
-                      fill="currentColor"
-                    >
-                      <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z" />
-                    </svg>
-                  </div>
+                            <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
+
+                            <div
+                              className="absolute bg-black overflow-hidden"
+                              style={{
+                                width: mobileSize.width,
+                                height: mobileSize.height,
+                                top: "8px",
+                                left: "8px",
+                                borderRadius: "2.2rem",
+                                boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
+                              }}
+                            >
+                              <div className="relative w-full h-full">
+                                <iframe
+                                  key={`mobile-${screen.id}-${refreshKey}`}
+                                  ref={
+                                    isPrimaryScreen
+                                      ? (c) => {
+                                          webPreviewRef.current =
+                                            c?.contentWindow ?? null;
+                                        }
+                                      : undefined
+                                  }
+                                  className="w-full h-full"
+                                  title="React Native Preview"
+                                  aria-label={`React Native Preview ${screen.path}`}
+                                  src={iframeSrc}
+                                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                                  onLoad={handleIframeLoad}
+                                  onError={handleIframeError}
+                                />
+                                {isIframeLoading && (
+                                  <ConnectionLoadingOverlay mode="mobile" />
+                                )}
+                                {iframeError && (
+                                  <ConnectionErrorOverlay mode="mobile" />
+                                )}
+                              </div>
+                            </div>
+
+                            <div
+                              className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
+                              onMouseDown={handleMouseDown}
+                            >
+                              <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
+                                <svg
+                                  width="8"
+                                  height="8"
+                                  viewBox="0 0 8 8"
+                                  fill="currentColor"
+                                >
+                                  <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
