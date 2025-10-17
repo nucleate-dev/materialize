@@ -4,6 +4,12 @@ import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/Internal
 import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -12,6 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -29,8 +42,8 @@ import type {
   APIResponse,
 } from "@/lib/types/serverAPITypes";
 import Editor from "@monaco-editor/react";
-import { FileText, Plus, Save, Trash2 } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import { FileText, Plus, Save, Trash2, Upload } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 interface CodeEditorProps {
   fileSystem: UseFileSystemReturn;
@@ -43,6 +56,15 @@ interface CodeEditorProps {
   saveMode?: "single-file" | "all-files"; // Defaults to 'single-file' for better performance
   currentRenderStatus?: RenderStatus;
 }
+
+const ROOT_FOLDER_VALUE = "__ROOT__";
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  "js",
+  "jsx",
+  "ts",
+  "tsx",
+  "json",
+]);
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
   fileSystem,
@@ -137,8 +159,79 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadTargetFolder, setUploadTargetFolder] = useState<string>(
+    ROOT_FOLDER_VALUE,
+  );
+  const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const directoryOptions = useMemo(() => {
+    const directories = new Set<string>([ROOT_FOLDER_VALUE]);
+    availableFiles.forEach((filePath) => {
+      const parts = filePath.split("/");
+      parts.pop();
+      if (parts.length === 0) {
+        return;
+      }
+      let currentPath = "";
+      parts.forEach((part) => {
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
+        directories.add(currentPath);
+      });
+    });
+
+    return Array.from(directories).sort((a, b) => {
+      if (a === ROOT_FOLDER_VALUE) return -1;
+      if (b === ROOT_FOLDER_VALUE) return 1;
+      return a.localeCompare(b);
+    });
+  }, [availableFiles]);
+
+  const defaultUploadFolderValue = useMemo(() => {
+    if (
+      !fileSystem.state.selectedFile ||
+      !fileSystem.state.selectedFile.includes("/")
+    ) {
+      return ROOT_FOLDER_VALUE;
+    }
+
+    const folderPath = fileSystem.state.selectedFile
+      .split("/")
+      .slice(0, -1)
+      .join("/");
+
+    return folderPath || ROOT_FOLDER_VALUE;
+  }, [fileSystem.state.selectedFile]);
+
+  useEffect(() => {
+    if (showUploadModal) {
+      setUploadTargetFolder(defaultUploadFolderValue);
+      setUploadError("");
+    }
+  }, [showUploadModal, defaultUploadFolderValue]);
+
+  const resolvedUploadFolder =
+    uploadTargetFolder === ROOT_FOLDER_VALUE ? "" : uploadTargetFolder;
+
+  const buildUploadPath = useCallback(
+    (fileName: string) =>
+      resolvedUploadFolder ? `${resolvedUploadFolder}/${fileName}` : fileName,
+    [resolvedUploadFolder],
+  );
+
+  const uploadConflicts = useMemo(() => {
+    if (!uploadFiles.length) {
+      return [] as string[];
+    }
+
+    return uploadFiles
+      .map((file) => buildUploadPath(file.name))
+      .filter((path) => Boolean(fileSystem.state.files[path]));
+  }, [uploadFiles, fileSystem.state.files, buildUploadPath]);
 
   // Determine save button state based on render status and subscription
   const saveButtonState = useMemo(() => {
@@ -251,6 +344,96 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const handleModalClose = () => {
     setNewFileName("");
     setNewFileError("");
+  };
+
+  const handleUploadModalClose = () => {
+    setUploadFiles([]);
+    setUploadError("");
+    setIsUploading(false);
+  };
+
+  const handleUploadFolderChange = (value: string) => {
+    setUploadTargetFolder(value);
+    setUploadError("");
+  };
+
+  const handleUploadFileSelection = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const filesList = event.target.files
+      ? Array.from(event.target.files)
+      : [];
+
+    // Allow selecting the same files again later
+    event.target.value = "";
+
+    if (!filesList.length) {
+      setUploadFiles([]);
+      setUploadError("");
+      return;
+    }
+
+    const validFiles: File[] = [];
+    const skippedFiles: string[] = [];
+
+    filesList.forEach((file) => {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      if (ALLOWED_UPLOAD_EXTENSIONS.has(ext)) {
+        validFiles.push(file);
+      } else {
+        skippedFiles.push(file.name);
+      }
+    });
+
+    if (skippedFiles.length) {
+      setUploadError(
+        `Skipped unsupported files: ${skippedFiles.join(", ")}. Supported types are .js, .jsx, .ts, .tsx, .json.`,
+      );
+    } else {
+      setUploadError("");
+    }
+
+    setUploadFiles(validFiles);
+  };
+
+  const handleUploadFiles = async () => {
+    if (userPlan === "free") {
+      setUploadError("Upgrade to Pro to upload files");
+      return;
+    }
+
+    if (!uploadFiles.length) {
+      setUploadError("Select at least one file to upload");
+      return;
+    }
+
+    if (uploadConflicts.length) {
+      setUploadError(
+        `Resolve name conflicts before uploading: ${uploadConflicts.join(", ")}`,
+      );
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      for (const file of uploadFiles) {
+        const fileContents = await file.text();
+        const newFilePath = buildUploadPath(file.name);
+        await fileSystem.createFile(newFilePath, fileContents);
+      }
+
+      setShowUploadModal(false);
+      handleUploadModalClose();
+    } catch (error) {
+      logger.debug("error", "Error uploading files:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      setUploadError("Failed to upload files. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSaveSingleFile = async () => {
@@ -604,24 +787,45 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="inline-flex">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setShowNewFileModal(true)}
-                          disabled={userPlan === "free"}
-                        >
-                          <Plus className={`w-3 h-3 ${userPlan === "free" ? "opacity-50" : ""}`} />
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>{userPlan === "free" ? "Upgrade to Pro to create files" : "Create new file"}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            disabled={userPlan === "free"}
+                          >
+                            <Plus className={`w-3 h-3 ${userPlan === "free" ? "opacity-50" : ""}`} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>
+                          {userPlan === "free"
+                            ? "Upgrade to Pro to manage files"
+                            : "Create or upload files"}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        onSelect={() => setShowNewFileModal(true)}
+                        disabled={userPlan === "free"}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create new file
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setShowUploadModal(true)}
+                        disabled={userPlan === "free"}
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload files
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {canDelete && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -752,6 +956,132 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             )}
           </div>
         </div>
+
+        {/* Upload Files Modal */}
+        <Dialog
+          open={showUploadModal}
+          onOpenChange={(open) => {
+            setShowUploadModal(open);
+            if (!open) {
+              handleUploadModalClose();
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Upload files</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="upload-destination" className="text-sm font-medium">
+                  Destination folder
+                </Label>
+                <Select
+                  value={uploadTargetFolder}
+                  onValueChange={handleUploadFolderChange}
+                >
+                  <SelectTrigger id="upload-destination" className="mt-2">
+                    <SelectValue placeholder="Select destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {directoryOptions.map((directory) => (
+                      <SelectItem key={directory} value={directory}>
+                        {directory === ROOT_FOLDER_VALUE
+                          ? "Repository root (/)"
+                          : directory}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Files will be uploaded to
+                  <span className="mx-1 font-mono text-foreground">
+                    {resolvedUploadFolder ? `/${resolvedUploadFolder}` : "/"}
+                  </span>
+                  in your project.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="fileUpload" className="text-sm font-medium">
+                  Choose files
+                </Label>
+                <Input
+                  id="fileUpload"
+                  type="file"
+                  accept=".js,.jsx,.ts,.tsx,.json"
+                  multiple
+                  onChange={handleUploadFileSelection}
+                  className="mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Supported file types: .js, .jsx, .ts, .tsx, .json
+                </p>
+
+                {uploadFiles.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Upload preview
+                    </p>
+                    <ul className="mt-2 space-y-1 text-sm font-mono">
+                      {uploadFiles.map((file, index) => {
+                        const previewPath = buildUploadPath(file.name);
+                        return (
+                          <li key={`${previewPath}-${index}`} className="text-foreground">
+                            <code className="px-1 py-0.5 rounded bg-muted text-foreground">
+                              {previewPath}
+                            </code>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {uploadConflicts.length > 0 && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertDescription>
+                      The following files already exist in this folder:
+                      <ul className="mt-2 list-disc list-inside space-y-1">
+                        {uploadConflicts.map((conflict) => (
+                          <li key={conflict} className="font-mono text-sm">
+                            <code className="px-1 py-0.5 rounded bg-muted text-foreground">
+                              {conflict}
+                            </code>
+                          </li>
+                        ))}
+                      </ul>
+                      Choose a different folder or rename the files before uploading.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {uploadError && (
+                  <p className="text-destructive text-sm mt-3">{uploadError}</p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowUploadModal(false)}
+                disabled={isUploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUploadFiles}
+                disabled={
+                  isUploading || uploadFiles.length === 0 || uploadConflicts.length > 0
+                }
+              >
+                {isUploading ? "Uploading..." : "Upload files"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* New File Modal */}
         <Dialog
