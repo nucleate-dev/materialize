@@ -207,3 +207,47 @@ export interface PublicAllocateResponse {
   error?: string;
   details?: string;
 }
+
+// Sandbox API Types
+export interface SandboxMakeDirRequest {
+  path: string;
+  recursive?: boolean;
+}
+
+export interface SandboxMakeDirResponse {
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface SandboxReadFileRequest {
+  path: string;
+}
+
+export interface SandboxReadFileResponse {
+  status: "success" | "error";
+  contents?: string;
+  is_binary?: boolean;
+  error?: string;
+}
+
+export interface SandboxWriteFileRequest {
+  path: string;
+  filename: string;
+  contents: string;
+}
+
+export interface SandboxWriteFileResponse {
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface SandboxGitCheckoutRequest {
+  git_url: string;
+  target_path?: string;
+}
+
+export interface SandboxGitCheckoutResponse {
+  status: "success" | "error";
+  output?: string;
+  error?: string;
+}

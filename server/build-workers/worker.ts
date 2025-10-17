@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
 import { PublicApiService } from "./services/PublicApiService.js";
+import { SandboxService } from "./services/SandboxService.js";
 
 // Load environment variables
 dotenv.config();
@@ -28,7 +29,12 @@ const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-builds";
 
 // Initialize Services
 const expoDevServerService = new ExpoDevServerService(WORK_DIR);
-const publicApiService = new PublicApiService(expoDevServerService, WORK_DIR);
+const sandboxService = new SandboxService(WORK_DIR, baseLogger);
+const publicApiService = new PublicApiService(
+  expoDevServerService,
+  sandboxService,
+  WORK_DIR,
+);
 
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
