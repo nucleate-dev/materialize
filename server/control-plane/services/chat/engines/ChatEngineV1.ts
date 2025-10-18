@@ -1,5 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { generateText, stepCountIs, streamText, tool, Tool } from 'ai';
@@ -30,17 +31,31 @@ interface ChatMessage {
 }
 
 // Model Configuration
-const CURRENT_MODEL: 'google' | 'anthropic' = 'google';
 const MODEL_CONFIGS = {
   google: 'gemini-2.5-flash',
   anthropic: 'claude-sonnet-4-20250514',
+  openai: 'gpt-5',
+  'openai-mini': 'gpt-5-nano',
 } as const;
+
+type ModelProvider = keyof typeof MODEL_CONFIGS;
+
+const DEFAULT_MODEL_PROVIDER: ModelProvider = 'google';
+
+const CURRENT_MODEL: ModelProvider = (() => {
+  const envModel = process.env.CHAT_MODEL_PROVIDER;
+  if (envModel && envModel in MODEL_CONFIGS) {
+    return envModel as ModelProvider;
+  }
+  return DEFAULT_MODEL_PROVIDER;
+})();
 
 export interface ChatEngineConfig {
   supabaseUrl: string;
   supabaseServiceKey: string;
   googleAiApiKey: string;
   anthropicApiKey: string;
+  openAiApiKey?: string;
   dispatcherService: DispatcherService;
 }
 
@@ -72,6 +87,7 @@ export interface ChatEngineResult {
 export class ChatEngineV1 {
   private google: ReturnType<typeof createGoogleGenerativeAI>;
   private anthropic: ReturnType<typeof createAnthropic>;
+  private openai?: ReturnType<typeof createOpenAI>;
   private config: ChatEngineConfig;
 
   constructor(config: ChatEngineConfig) {
@@ -84,6 +100,19 @@ export class ChatEngineV1 {
     this.anthropic = createAnthropic({
       apiKey: config.anthropicApiKey,
     });
+
+    if (
+      (CURRENT_MODEL === 'openai' || CURRENT_MODEL === 'openai-mini') &&
+      !config.openAiApiKey
+    ) {
+      throw new Error('OpenAI API key must be configured to use OpenAI models');
+    }
+
+    if (config.openAiApiKey) {
+      this.openai = createOpenAI({
+        apiKey: config.openAiApiKey,
+      });
+    }
   }
 
   private getCurrentModel(): LanguageModelV2 {
@@ -92,6 +121,12 @@ export class ChatEngineV1 {
         return this.google(MODEL_CONFIGS.google);
       case 'anthropic':
         return this.anthropic(MODEL_CONFIGS.anthropic);
+      case 'openai':
+      case 'openai-mini':
+        if (!this.openai) {
+          throw new Error('OpenAI API key is not configured for ChatEngine');
+        }
+        return this.openai(MODEL_CONFIGS[CURRENT_MODEL]);
       default:
         return this.google(MODEL_CONFIGS.google);
     }

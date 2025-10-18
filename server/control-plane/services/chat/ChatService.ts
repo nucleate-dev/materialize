@@ -24,6 +24,7 @@ export class ChatService {
   private supabaseServiceKey: string;
   private googleAiApiKey: string;
   private anthropicApiKey: string;
+  private openAiApiKey: string | undefined;
   private stripeSecretKey: string;
   private jwtSecret: string;
   private serverEndpoint: string;
@@ -42,6 +43,7 @@ export class ChatService {
     this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     this.googleAiApiKey = process.env.GOOGLE_AI_API_KEY!;
     this.anthropicApiKey = process.env.ANTHROPIC_API_KEY!;
+    this.openAiApiKey = process.env.OPENAI_API_KEY;
     this.stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
     this.jwtSecret = process.env.JWT_SECRET!;
     this.serverEndpoint = process.env.SERVER_ENDPOINT!;
@@ -67,6 +69,7 @@ export class ChatService {
       supabaseServiceKey: this.supabaseServiceKey,
       googleAiApiKey: this.googleAiApiKey,
       anthropicApiKey: this.anthropicApiKey,
+      openAiApiKey: this.openAiApiKey,
       dispatcherService: this.dispatcherService,
     };
     this.chatEngine = new ChatEngineV1(chatEngineConfig);
