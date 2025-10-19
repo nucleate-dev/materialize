@@ -167,14 +167,15 @@ ldconfig /usr/local/lib
 echo "==> Hardening npm (root) for flaky networks..."
 # Writable cache used by global installs during user-data
 mkdir -p /tmp/npm-cache
+chown -R ${USER}:${USER} /tmp/npm-cache
 chmod 777 /tmp/npm-cache
 
 # Apply resilient settings for root user (global scope)
 npm config set registry "https://registry.npmjs.org/"
 npm config set fetch-retries 5
 npm config set fetch-retry-mintimeout 20000
-npm config set fetch-retry-maxtimeout 600000
-npm config set network-timeout 600000
+npm config set fetch-retry-maxtimeout 120000
+npm config set fetch-timeout 600000
 npm config set maxsockets 1
 npm config set cache /tmp/npm-cache
 
@@ -185,7 +186,15 @@ unset HTTP_PROXY HTTPS_PROXY NO_PROXY || true
 
 # 4. Install global npm packages for build-workers
 echo "==> Installing @expo/ngrok globally..."
-npm install -g @expo/ngrok@^4.1.0
+# Temporarily increase maxsockets for faster global package installation
+npm config set maxsockets 10
+npm install -g @expo/ngrok@^4.1.0 || {
+  echo "First attempt failed, retrying with more aggressive settings..."
+  npm config set fetch-retries 10
+  npm install -g @expo/ngrok@^4.1.0
+}
+# Reset to conservative settings
+npm config set maxsockets 1
 
 # 5. Create application directories
 echo "==> Creating application directories..."
@@ -193,6 +202,7 @@ mkdir -p ${REMOTE_BASE}
 mkdir -p ${BUILD_WORKERS_BASE}
 mkdir -p /tmp/logs
 mkdir -p /tmp/npm-cache
+chown -R ${USER}:${USER} /tmp/npm-cache
 chmod 777 /tmp/npm-cache
 chown ${USER}:${USER} ${REMOTE_BASE}
 chown ${USER}:${USER} ${BUILD_WORKERS_BASE}
@@ -214,8 +224,8 @@ sudo -u ${USER} -H bash -lc '
   npm config set registry "https://registry.npmjs.org/"
   npm config set fetch-retries 5
   npm config set fetch-retry-mintimeout 20000
-  npm config set fetch-retry-maxtimeout 600000
-  npm config set network-timeout 600000
+  npm config set fetch-retry-maxtimeout 120000
+  npm config set fetch-timeout 600000
   npm config set maxsockets 1
   npm config set cache /tmp/npm-cache
   npm config delete proxy || true
