@@ -495,7 +495,7 @@ export class VirtualFileManager implements FileManagerInterface {
         success: true,
         filePath: normalizedPath,
         operation: 'append_file_content',
-        message: `Successfully appended ${content.length} characters to file`,
+        message: `Edited file: ${normalizedPath}. Successfully appended ${content.length} characters to file`,
       };
     } else {
       // Create new file with the content
@@ -598,7 +598,7 @@ export class VirtualFileManager implements FileManagerInterface {
       success: true,
       filePath: normalizedPath,
       operation: 'replace_file_content',
-      message: `Successfully replaced ${occurrences} occurrence${occurrences === 1 ? '' : 's'}`,
+      message: `Edited file: ${normalizedPath}. Successfully replaced ${occurrences} occurrence${occurrences === 1 ? '' : 's'}`,
       replacementCount: occurrences,
     };
   }
