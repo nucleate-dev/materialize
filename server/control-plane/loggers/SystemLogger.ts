@@ -256,13 +256,7 @@ export class SystemLogger {
       ...this.redactFields(fields),
     };
     // Ensure stable key order for readability (optional)
-    process.stdout.write(
-      JSON.stringify(
-        payload,
-        null,
-        process.env.NODE_ENV === 'development' ? 2 : undefined,
-      ) + '\n',
-    );
+    process.stdout.write(JSON.stringify(payload) + '\n');
   }
 
   private redactFields(obj: Record<string, unknown>): Record<string, unknown> {

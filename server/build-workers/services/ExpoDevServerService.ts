@@ -377,6 +377,53 @@ export class ExpoDevServerService {
     return `mat-${randomId.substring(0, 20)}`;
   }
 
+  private shouldSkipExpoLog(output: string): boolean {
+    const trimmed = output.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      return true;
+    }
+
+    // Skip progress bars (lines with ░ or ▓ characters)
+    if (trimmed.includes("░") || trimmed.includes("▓")) {
+      return true;
+    }
+
+    // Skip percentage progress updates
+    if (/\d+\.\d+%\s*\(\d+\/\d+\)/.test(trimmed)) {
+      return true;
+    }
+
+    // Skip "Bundled Xms" progress updates (we'll only log the final one)
+    if (/node_modules\/.*\s+░/.test(trimmed)) {
+      return true;
+    }
+
+    // Skip deprecation warnings (too noisy)
+    if (trimmed.includes("deprecated") || trimmed.includes("npm warn deprecated")) {
+      return true;
+    }
+
+    // Skip version compatibility warnings (not actionable)
+    if (trimmed.includes("expected version:") ||
+        trimmed.includes("The following packages should be updated")) {
+      return true;
+    }
+
+    // Skip Reanimated plugin warnings (not critical)
+    if (trimmed.includes("[Reanimated]") && trimmed.includes("Babel plugin")) {
+      return true;
+    }
+
+    // Skip shadow/pointerEvents deprecation warnings (too noisy)
+    if (trimmed.includes("shadow*") || trimmed.includes("props.pointerEvents is deprecated")) {
+      return true;
+    }
+
+    return false;
+  }
+
   private async startExpoProcess(
     projectDir: string,
     port: number,
@@ -430,10 +477,23 @@ export class ExpoDevServerService {
 
       const processOutput = (data: Buffer, source: string): void => {
         const output = data.toString();
-        this.log2.debug("startExpoProcess expo output", {
-          source,
-          output: output.trim(),
-        });
+
+        // Filter out noisy/verbose logs
+        const shouldSkipLog = this.shouldSkipExpoLog(output);
+
+        // Log important bundling milestones
+        if (output.includes("Bundled") && /\d+ms/.test(output)) {
+          this.log2.info("Bundle completed", {
+            output: output.trim(),
+          });
+        }
+
+        if (!shouldSkipLog) {
+          this.log2.debug("startExpoProcess expo output", {
+            source,
+            output: output.trim(),
+          });
+        }
 
         // Parse Metro/Expo output for rendering errors
         this.parseMetroErrors(output, buildErrors, buildWarnings);

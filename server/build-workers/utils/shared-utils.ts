@@ -20,6 +20,22 @@ export interface PrototypeAssetInputWithContent {
   contents: string;
 }
 
+function shouldSkipNpmLog(output: string): boolean {
+  const trimmed = output.trim();
+
+  // Skip deprecation warnings
+  if (trimmed.includes("npm warn deprecated")) {
+    return true;
+  }
+
+  // Skip empty lines
+  if (!trimmed) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function installDependencies(
   projectDir: string,
   log2: SystemLogger
@@ -46,13 +62,17 @@ export async function installDependencies(
     npmProcess.stdout.on("data", (data) => {
       const output = data.toString();
       stdout += output;
-      log2.debug("npm stdout", { output: output.trim() });
+      if (!shouldSkipNpmLog(output)) {
+        log2.debug("npm stdout", { output: output.trim() });
+      }
     });
 
     npmProcess.stderr.on("data", (data) => {
       const output = data.toString();
       stderr += output;
-      log2.debug("npm stderr", { output: output.trim() });
+      if (!shouldSkipNpmLog(output)) {
+        log2.debug("npm stderr", { output: output.trim() });
+      }
     });
 
     npmProcess.on("close", (code) => {
