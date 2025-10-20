@@ -773,6 +773,17 @@ export class ChatEngineV1 {
           messages: [{ role: 'user', content: userMessage }],
         });
         userMessageForPrompt = specExpansionResult.text;
+
+        // Track token usage for spec expansion
+        if (specExpansionResult.usage) {
+          log2.metricTokenUsage(
+            MODEL_CONFIGS[CURRENT_MODEL],
+            specExpansionResult.usage.promptTokens,
+            specExpansionResult.usage.completionTokens,
+            specExpansionResult.usage.totalTokens,
+            { intent: 'spec_expansion' },
+          );
+        }
       }
       const selectedSystemPrompt =
         userIntent === 'error_fixing' ? ERROR_FIXING_PROMPT : SYSTEM_PROMPT;
@@ -938,6 +949,20 @@ export class ChatEngineV1 {
 
       // 3. Execute the stream processing and wait for it to complete
       await processStream();
+
+      // Get final result to access usage data
+      const finalResult = await result;
+
+      // Track token usage for main chat
+      if (finalResult.usage) {
+        log2.metricTokenUsage(
+          MODEL_CONFIGS[CURRENT_MODEL],
+          finalResult.usage.promptTokens,
+          finalResult.usage.completionTokens,
+          finalResult.usage.totalTokens,
+          { intent: userIntent },
+        );
+      }
 
       if (finalBuffer.length > 0) {
         controller.enqueue(

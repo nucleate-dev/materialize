@@ -227,6 +227,46 @@ export class SystemLogger {
     }
   }
 
+  /**
+   * Emit LLM token usage metrics to CloudWatch via EMF.
+   * WARNING: Only use low-cardinality dimensions (model, intent) to avoid high costs.
+   * DO NOT add userId or prototypeId as dimensions - they're already in log context for searching.
+   */
+  metricTokenUsage(
+    modelName: string,
+    promptTokens: number,
+    completionTokens: number,
+    totalTokens: number,
+    extraDims: Record<string, string> = {},
+  ): void {
+    // Also log as structured data for CloudWatch Logs Insights queries
+    this.info('LLM token usage', {
+      model: modelName,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      ...extraDims,
+    });
+
+    // Emit EMF metrics for CloudWatch dashboards/alarms
+    this.emitEMF(
+      [
+        { Name: 'LLM_PromptTokens', Unit: 'Count' },
+        { Name: 'LLM_CompletionTokens', Unit: 'Count' },
+        { Name: 'LLM_TotalTokens', Unit: 'Count' },
+      ],
+      {
+        LLM_PromptTokens: promptTokens,
+        LLM_CompletionTokens: completionTokens,
+        LLM_TotalTokens: totalTokens,
+      },
+      {
+        model: modelName,
+        ...extraDims,
+      },
+    );
+  }
+
   /** Create a manual timer; call the returned done() when finished. */
   startTimer(
     name: string,
