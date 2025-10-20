@@ -115,6 +115,7 @@ export class IdleContainerAllocationSystemService {
     prototypeId: string,
     activeBuildKey: string,
     newBuildCacheData: ActiveBuild,
+    userId?: string,
   ): Promise<FargateInstanceInfo> {
     // 1. Try to pop an idle container from the pool
     const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
@@ -141,6 +142,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        userId,
       );
       return info;
     }
@@ -165,6 +167,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        userId,
       );
     }
 
@@ -193,6 +196,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        userId,
       );
     }
     this.log2.info('[ContainerAlloc] Allocating idle container to prototype', {
@@ -202,7 +206,7 @@ export class IdleContainerAllocationSystemService {
     });
     const info = { taskArn, privateIp };
     try {
-      await this.scopeS3PermissionsForContainer(info, prototypeId);
+      await this.scopeS3PermissionsForContainer(info, prototypeId, userId);
     } catch (error) {
       this.log2.error(
         error,
@@ -305,6 +309,7 @@ export class IdleContainerAllocationSystemService {
     log2: SystemLogger,
     activeBuildKey: string,
     newBuildCacheData: ActiveBuild,
+    userId?: string,
   ): Promise<FargateInstanceInfo> {
     try {
       const taskArn = await this.launchFargateInstanceNotReady(log2);
@@ -322,7 +327,7 @@ export class IdleContainerAllocationSystemService {
       }
       const info = { taskArn, privateIp };
       try {
-        await this.scopeS3PermissionsForContainer(info, prototypeId);
+        await this.scopeS3PermissionsForContainer(info, prototypeId, userId);
       } catch (error) {
         this.log2.error(
           error,
@@ -459,6 +464,7 @@ export class IdleContainerAllocationSystemService {
   private async scopeS3PermissionsForContainer(
     info: FargateInstanceInfo,
     prototypeId: string,
+    userId?: string,
   ): Promise<void> {
     const out = await this.stsClient.send(
       new AssumeRoleCommand({
@@ -476,6 +482,7 @@ export class IdleContainerAllocationSystemService {
       secretAccessKey: out.Credentials.SecretAccessKey!,
       sessionToken: out.Credentials.SessionToken!,
       prototypeId,
+      userId: userId || 'unknown',
     };
 
     // Send creds to worker

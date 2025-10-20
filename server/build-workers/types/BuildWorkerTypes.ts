@@ -200,6 +200,7 @@ export interface PublicAllocateRequest {
   sessionToken: string;
   expiration?: string;
   prototypeId: string;
+  userId: string;
 }
 
 export interface PublicAllocateResponse {

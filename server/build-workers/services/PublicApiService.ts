@@ -104,8 +104,14 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicAllocateRequest }>,
     reply: FastifyReply,
   ): Promise<PublicAllocateResponse> {
-    const { accessKeyId, secretAccessKey, sessionToken, prototypeId } =
+    const { accessKeyId, secretAccessKey, sessionToken, prototypeId, userId } =
       request.body;
+
+    // Set logger context with user_id and prototype_id for all subsequent logs
+    request.log2 = request.log2.child({
+      userId,
+      prototypeId,
+    });
 
     try {
       const scopedS3 = new S3Client({
@@ -113,15 +119,12 @@ export class PublicApiService {
         credentials: { accessKeyId, secretAccessKey, sessionToken },
       });
       this.expoDevServerService.setS3Client(scopedS3);
-      request.log2.info("Allocated worker to prototype for S3 access", {
-        prototypeId,
-      });
+      request.log2.info("Allocated worker to prototype for S3 access");
       return reply.status(200).send({ status: "ok" });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       request.log2.error(error, "Failed to allocate worker to prototype", {
-        prototypeId,
         errorMessage,
       });
       return reply.code(500).send({

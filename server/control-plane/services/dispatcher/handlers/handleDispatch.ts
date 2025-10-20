@@ -225,6 +225,7 @@ export async function handleDispatchImpl(
               prototype_id,
               activeBuildKey,
               newBuildCacheData,
+              authResult.user.id,
             );
           },
         );
