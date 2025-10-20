@@ -107,7 +107,13 @@ export class PublicApiService {
     const { accessKeyId, secretAccessKey, sessionToken, prototypeId, userId } =
       request.body;
 
-    // Set logger context with user_id and prototype_id for all subsequent logs
+    // Import the setWorkerContext function dynamically to avoid circular dependency
+    const { setWorkerContext } = await import("../worker.js");
+
+    // Set worker context so all future requests include userId and prototypeId in logs
+    setWorkerContext(userId, prototypeId);
+
+    // Also update current request's logger
     request.log2 = request.log2.child({
       userId,
       prototypeId,

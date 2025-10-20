@@ -27,6 +27,17 @@ export const baseLogger = new SystemLogger({
 const PORT = parseInt(process.env.PORT || "3002", 10);
 const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-builds";
 
+// Store worker context (set by /allocate endpoint)
+let workerContext: { userId?: string; prototypeId?: string } = {};
+
+export function setWorkerContext(userId: string, prototypeId: string): void {
+  workerContext = { userId, prototypeId };
+}
+
+export function getWorkerContext(): { userId?: string; prototypeId?: string } {
+  return workerContext;
+}
+
 // Initialize Services
 const expoDevServerService = new ExpoDevServerService(WORK_DIR);
 const sandboxService = new SandboxService(WORK_DIR, baseLogger);
@@ -47,11 +58,17 @@ app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
     req.headers as Record<string, string | string[] | undefined>
   );
+
+  // Get worker context (userId and prototypeId from /allocate)
+  const context = getWorkerContext();
+
   req.log2 = baseLogger.child({
     requestId,
     traceId,
     route: req.routeOptions?.url,
     method: req.method,
+    ...(context.userId && { userId: context.userId }),
+    ...(context.prototypeId && { prototypeId: context.prototypeId }),
   });
 });
 
