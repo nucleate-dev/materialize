@@ -234,16 +234,16 @@ export class SystemLogger {
    */
   metricTokenUsage(
     modelName: string,
-    promptTokens: number,
-    completionTokens: number,
+    inputTokens: number,
+    outputTokens: number,
     totalTokens: number,
     extraDims: Record<string, string> = {},
   ): void {
     // Also log as structured data for CloudWatch Logs Insights queries
     this.info('LLM token usage', {
       model: modelName,
-      promptTokens,
-      completionTokens,
+      inputTokens,
+      outputTokens,
       totalTokens,
       ...extraDims,
     });
@@ -251,13 +251,13 @@ export class SystemLogger {
     // Emit EMF metrics for CloudWatch dashboards/alarms
     this.emitEMF(
       [
-        { Name: 'LLM_PromptTokens', Unit: 'Count' },
-        { Name: 'LLM_CompletionTokens', Unit: 'Count' },
+        { Name: 'LLM_InputTokens', Unit: 'Count' },
+        { Name: 'LLM_OutputTokens', Unit: 'Count' },
         { Name: 'LLM_TotalTokens', Unit: 'Count' },
       ],
       {
-        LLM_PromptTokens: promptTokens,
-        LLM_CompletionTokens: completionTokens,
+        LLM_PromptTokens: inputTokens,
+        LLM_CompletionTokens: outputTokens,
         LLM_TotalTokens: totalTokens,
       },
       {

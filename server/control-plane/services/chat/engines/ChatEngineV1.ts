@@ -42,7 +42,7 @@ type ModelProvider = keyof typeof MODEL_CONFIGS;
 
 const DEFAULT_MODEL_PROVIDER: ModelProvider = 'google';
 
-const CURRENT_MODEL: ModelProvider = (() => {
+const CURRENT_MODEL: ModelProvider = ((): ModelProvider => {
   const envModel = process.env.CHAT_MODEL_PROVIDER;
   if (envModel && envModel in MODEL_CONFIGS) {
     return envModel as ModelProvider;
@@ -778,9 +778,9 @@ export class ChatEngineV1 {
         if (specExpansionResult.usage) {
           log2.metricTokenUsage(
             MODEL_CONFIGS[CURRENT_MODEL],
-            specExpansionResult.usage.promptTokens,
-            specExpansionResult.usage.completionTokens,
-            specExpansionResult.usage.totalTokens,
+            specExpansionResult.usage.inputTokens ?? 0,
+            specExpansionResult.usage.outputTokens ?? 0,
+            specExpansionResult.usage.totalTokens ?? 0,
             { intent: 'spec_expansion' },
           );
         }
@@ -951,15 +951,15 @@ export class ChatEngineV1 {
       await processStream();
 
       // Get final result to access usage data
-      const finalResult = await result;
+      const finalResultUsage = await result.usage;
 
       // Track token usage for main chat
-      if (finalResult.usage) {
+      if (finalResultUsage) {
         log2.metricTokenUsage(
           MODEL_CONFIGS[CURRENT_MODEL],
-          finalResult.usage.promptTokens,
-          finalResult.usage.completionTokens,
-          finalResult.usage.totalTokens,
+          finalResultUsage.inputTokens ?? 0,
+          finalResultUsage.outputTokens ?? 0,
+          finalResultUsage.totalTokens ?? 0,
           { intent: userIntent },
         );
       }
