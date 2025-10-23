@@ -75,6 +75,44 @@ export type Database = {
           },
         ];
       };
+      design_systems: {
+        Row: {
+          id: number;
+          name: string;
+          description: string | null;
+          owner_id: string;
+          created_at: string;
+          updated_at: string;
+          design_rules: string;
+        };
+        Insert: {
+          id?: never;
+          name: string;
+          description?: string | null;
+          owner_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          design_rules?: string;
+        };
+        Update: {
+          id?: never;
+          name?: string;
+          description?: string | null;
+          owner_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          design_rules?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "design_systems_user_owner_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       canvas_sessions: {
         Row: {
           canvas_id: string;
