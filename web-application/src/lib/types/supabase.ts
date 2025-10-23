@@ -414,6 +414,7 @@ export type Database = {
           updated_at: string | null;
           visibility: Database["public"]["Enums"]["visibility_level"] | null;
           latest_build_key: string | null;
+          design_style: Database["public"]["Enums"]["design_style"];
         };
         Insert: {
           created_at?: string | null;
@@ -427,6 +428,7 @@ export type Database = {
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
           latest_build_key?: string | null;
+          design_style?: Database["public"]["Enums"]["design_style"];
         };
         Update: {
           created_at?: string | null;
@@ -440,6 +442,7 @@ export type Database = {
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
           latest_build_key?: string | null;
+          design_style?: Database["public"]["Enums"]["design_style"];
         };
         Relationships: [
           {
@@ -540,6 +543,7 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
+      design_style: "tamagui" | "stylesheets" | "nativewind" | "custom";
       chat_role: "user" | "assistant";
       file_type: "text" | "asset";
       subscription_plan_type: "free" | "team" | "pro";
