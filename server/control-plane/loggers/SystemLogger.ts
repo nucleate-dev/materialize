@@ -256,8 +256,8 @@ export class SystemLogger {
         { Name: 'LLM_TotalTokens', Unit: 'Count' },
       ],
       {
-        LLM_PromptTokens: inputTokens,
-        LLM_CompletionTokens: outputTokens,
+        LLM_InputTokens: inputTokens,
+        LLM_OutputTokens: outputTokens,
         LLM_TotalTokens: totalTokens,
       },
       {

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import type {
   CodeError,
+  CodeWarning,
   DispatchRequestBody,
   EnhancedChatContext,
   PrototypeAssetInput,
@@ -576,6 +577,25 @@ export class ChatEngineV1 {
         );
         fileManager.clearChangeTracking();
         const newBuildErrors: CodeError[] = dispatchResult.data.build_errors;
+        const newBuildWarnings: CodeWarning[] =
+          dispatchResult.data.build_warnings || [];
+        log2.metricCount('chat_build_errors', newBuildErrors.length);
+        log2.metricCount('chat_build_warnings', newBuildWarnings.length);
+
+        // Log build errors & build_warnings contents as structured log
+        if (newBuildErrors.length > 0) {
+          log2.warn('[ChatEngineV1] Build errors detected', {
+            error_count: newBuildErrors.length,
+            errors: newBuildErrors,
+          });
+        }
+        if (newBuildWarnings.length > 0) {
+          log2.warn('[ChatEngineV1] Build warnings detected', {
+            warning_count: newBuildWarnings.length,
+            warnings: newBuildWarnings,
+          });
+        }
+
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({

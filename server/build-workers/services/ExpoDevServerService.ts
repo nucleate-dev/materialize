@@ -401,13 +401,18 @@ export class ExpoDevServerService {
     }
 
     // Skip deprecation warnings (too noisy)
-    if (trimmed.includes("deprecated") || trimmed.includes("npm warn deprecated")) {
+    if (
+      trimmed.includes("deprecated") ||
+      trimmed.includes("npm warn deprecated")
+    ) {
       return true;
     }
 
     // Skip version compatibility warnings (not actionable)
-    if (trimmed.includes("expected version:") ||
-        trimmed.includes("The following packages should be updated")) {
+    if (
+      trimmed.includes("expected version:") ||
+      trimmed.includes("The following packages should be updated")
+    ) {
       return true;
     }
 
@@ -417,7 +422,10 @@ export class ExpoDevServerService {
     }
 
     // Skip shadow/pointerEvents deprecation warnings (too noisy)
-    if (trimmed.includes("shadow*") || trimmed.includes("props.pointerEvents is deprecated")) {
+    if (
+      trimmed.includes("shadow*") ||
+      trimmed.includes("props.pointerEvents is deprecated")
+    ) {
       return true;
     }
 
@@ -957,8 +965,7 @@ export class ExpoDevServerService {
     );
     const resolvedPrototypeId = prototypeId ?? this.state.prototypeId ?? null;
     if (!resolvedPrototypeId) {
-      const errorMessage =
-        "Cannot build and deploy without a prototype ID";
+      const errorMessage = "Cannot build and deploy without a prototype ID";
       logger.log("Build and deploy failed", false, "", errorMessage);
       this.state.clearOperation();
       return {
@@ -1697,6 +1704,70 @@ export class ExpoDevServerService {
     return { uploadResults, version };
   }
 
+  private async deleteOldVersions(
+    prototypeId: string,
+    currentVersion: string,
+  ): Promise<void> {
+    if (!this.s3) {
+      throw new Error("S3 client not set");
+    }
+
+    try {
+      // List all objects under the prototype's versioned folders
+      const listCommand = new ListObjectsV2Command({
+        Bucket: S3_BUCKET,
+        Prefix: `${prototypeId}/v`,
+      });
+
+      const listResponse = await this.s3.send(listCommand);
+
+      if (!listResponse.Contents || listResponse.Contents.length === 0) {
+        this.log2.debug("No old versions found to delete", { prototypeId });
+        return;
+      }
+
+      // Filter out objects from the current version
+      const currentVersionPrefix = `${prototypeId}/v${currentVersion}/`;
+      const objectsToDelete = listResponse.Contents.filter(
+        (obj) => obj.Key && !obj.Key.startsWith(currentVersionPrefix),
+      );
+
+      if (objectsToDelete.length === 0) {
+        this.log2.debug("No old versions to delete", {
+          prototypeId,
+          currentVersion,
+        });
+        return;
+      }
+
+      // Delete old version objects
+      const deleteCommand = new DeleteObjectsCommand({
+        Bucket: S3_BUCKET,
+        Delete: {
+          Objects: objectsToDelete.map((obj) => ({ Key: obj.Key! })),
+          Quiet: true,
+        },
+      });
+
+      await this.s3.send(deleteCommand);
+
+      this.log2.info("Successfully deleted old versions", {
+        prototypeId,
+        currentVersion,
+        deletedCount: objectsToDelete.length,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.error(
+        error instanceof Error ? error : new Error(errorMessage),
+        "Failed to delete old versions",
+        { prototypeId, currentVersion },
+      );
+      // Don't throw - we don't want cleanup failure to fail the build
+    }
+  }
+
   private async uploadDirectoryToS3(
     localPath: string,
     s3KeyPrefix: string,
@@ -1710,11 +1781,13 @@ export class ExpoDevServerService {
     const version = this.generateVersion();
 
     // Use the dual upload method
-    return await this.uploadToVersionedAndLatest(
+    const uploadResult = await this.uploadToVersionedAndLatest(
       localPath,
       prototypeId,
       version,
     );
+    await this.deleteOldVersions(prototypeId, version);
+    return uploadResult;
   }
 
   private async deleteS3Prefix(prefix: string): Promise<void> {

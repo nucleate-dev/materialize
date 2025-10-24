@@ -176,7 +176,6 @@ npm config set fetch-retries 5
 npm config set fetch-retry-mintimeout 20000
 npm config set fetch-retry-maxtimeout 120000
 npm config set fetch-timeout 600000
-npm config set maxsockets 1
 npm config set cache /tmp/npm-cache
 
 # If you do NOT use a proxy, ensure proxy values are cleared
@@ -186,15 +185,11 @@ unset HTTP_PROXY HTTPS_PROXY NO_PROXY || true
 
 # 4. Install global npm packages for build-workers
 echo "==> Installing @expo/ngrok globally..."
-# Temporarily increase maxsockets for faster global package installation
-npm config set maxsockets 10
 npm install -g @expo/ngrok@^4.1.0 || {
   echo "First attempt failed, retrying with more aggressive settings..."
   npm config set fetch-retries 10
   npm install -g @expo/ngrok@^4.1.0
 }
-# Reset to conservative settings
-npm config set maxsockets 1
 
 # 5. Create application directories
 echo "==> Creating application directories..."
@@ -226,7 +221,6 @@ sudo -u ${USER} -H bash -lc '
   npm config set fetch-retry-mintimeout 20000
   npm config set fetch-retry-maxtimeout 120000
   npm config set fetch-timeout 600000
-  npm config set maxsockets 1
   npm config set cache /tmp/npm-cache
   npm config delete proxy || true
   npm config delete https-proxy || true
