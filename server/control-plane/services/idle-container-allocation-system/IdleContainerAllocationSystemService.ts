@@ -63,6 +63,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
+    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
@@ -117,6 +118,18 @@ export class IdleContainerAllocationSystemService {
     newBuildCacheData: ActiveBuild,
     userId?: string,
   ): Promise<FargateInstanceInfo> {
+    // If we are in development mode, we need to use the development container.
+    // There will never be any idle development containers. Just directly allocate a new container.
+    if (process.env.NODE_ENV === 'development') {
+      return await this.launchFargateInstanceForDispatcherDirectly(
+        prototypeId,
+        this.log2,
+        activeBuildKey,
+        newBuildCacheData,
+        userId,
+      );
+    }
+
     // 1. Try to pop an idle container from the pool
     const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
       | string
@@ -222,6 +235,8 @@ export class IdleContainerAllocationSystemService {
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
+    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+
     let taskArn: string;
     try {
       taskArn = await this.launchFargateInstanceNotReady(this.log2);
@@ -408,7 +423,10 @@ export class IdleContainerAllocationSystemService {
   private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
-      taskDefinition: 'fastify-build-worker',
+      taskDefinition:
+        process.env.NODE_ENV === 'production'
+          ? 'fastify-build-worker'
+          : 'materialize-development-containers',
       launchType: 'FARGATE' as const,
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -420,7 +438,10 @@ export class IdleContainerAllocationSystemService {
       overrides: {
         containerOverrides: [
           {
-            name: 'materialize-fargate-build-worker-container',
+            name:
+              process.env.NODE_ENV === 'production'
+                ? 'materialize-fargate-build-worker-container'
+                : 'materialize-build-worker-container-development',
             environment: [
               {
                 name: 'AWS_REGION',
