@@ -33,6 +33,7 @@ import {
   FolderIcon,
   RocketLaunchIcon,
   SparklesIcon,
+  SwatchIcon,
 } from "@heroicons/react/24/outline";
 import { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -45,6 +46,35 @@ interface NewPrototypeModalProps {
   onCreated: (prototypeId: string) => void;
   projectId?: string;
 }
+
+type DesignStyle = Database["public"]["Enums"]["design_style"];
+type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
+type ProjectOption = {
+  id: string;
+  name: string;
+  project_context: Database["public"]["Tables"]["projects"]["Row"]["project_context"];
+};
+
+const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
+  "tamagui",
+  "nativewind",
+  "stylesheets",
+  "custom",
+];
+
+const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
+  tamagui: "Tamagui",
+  nativewind: "NativeWind + Gluestack",
+  stylesheets: "React Native StyleSheet",
+  custom: "Custom",
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const isDesignStyle = (value: unknown): value is DesignStyle =>
+  typeof value === "string" &&
+  DESIGN_STYLE_OPTIONS.includes(value as DesignStyle);
 
 export default function NewPrototypeModal({
   open,
@@ -59,7 +89,7 @@ export default function NewPrototypeModal({
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const { userPlan } = useSubscriptionAccess();
@@ -69,6 +99,11 @@ export default function NewPrototypeModal({
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
+  const [designStyle, setDesignStyle] = useState<DesignStyle>("tamagui");
+  const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
+  const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
+  const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
+  const [hasManualDesignSelection, setHasManualDesignSelection] = useState(false);
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -79,7 +114,7 @@ export default function NewPrototypeModal({
       try {
         const { data, error } = await supabase
           .from("projects")
-          .select("id, name")
+          .select("id, name, project_context")
           .eq("owner_id", user.id)
           .order("updated_at", { ascending: false });
 
@@ -89,7 +124,13 @@ export default function NewPrototypeModal({
           });
           return;
         }
-        setProjects(data || []);
+        setProjects(
+          (data || []).map((project) => ({
+            id: project.id,
+            name: project.name,
+            project_context: project.project_context,
+          })),
+        );
       } catch (error) {
         logger.debug("error", "Error fetching projects:", {
           error: error instanceof Error ? error.message : String(error),
@@ -127,9 +168,38 @@ export default function NewPrototypeModal({
       }
     }
 
+    async function fetchDesignSystems() {
+      if (!user) return;
+
+      setIsLoadingDesignSystems(true);
+      try {
+        const { data, error } = await supabase
+          .from("design_systems")
+          .select("id, name, description, design_rules, updated_at")
+          .eq("owner_id", user.id)
+          .order("updated_at", { ascending: false });
+
+        if (error) {
+          logger.debug("error", "Error fetching design systems:", {
+            ...error,
+          });
+          return;
+        }
+        setDesignSystems(data || []);
+      } catch (error) {
+        logger.debug("error", "Error fetching design systems:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      } finally {
+        setIsLoadingDesignSystems(false);
+      }
+    }
+
     if (open && user?.id) {
       fetchProjects();
       fetchPrototypeCount();
+      fetchDesignSystems();
     }
   }, [open, user, logger]);
 
@@ -143,6 +213,85 @@ export default function NewPrototypeModal({
     }
   }, [projectId, projects]);
 
+  useEffect(() => {
+    if (open) {
+      setHasManualDesignSelection(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (hasManualDesignSelection) {
+      return;
+    }
+
+    if (selectedProject) {
+      const project = projects.find((p) => p.id === selectedProject);
+      if (project && isRecord(project.project_context)) {
+        const context = project.project_context as Record<string, unknown>;
+        const defaultDesignSystem =
+          (context["defaultDesignSystem"] ?? context["default_design_system"]) as unknown;
+
+        if (isRecord(defaultDesignSystem)) {
+          const styleCandidate = defaultDesignSystem?.["design_style"];
+          const customCandidate = defaultDesignSystem?.["custom_design_system"];
+
+          if (isDesignStyle(styleCandidate)) {
+            setDesignStyle(styleCandidate);
+            if (
+              styleCandidate === "custom" &&
+              (typeof customCandidate === "string" || typeof customCandidate === "number")
+            ) {
+              setCustomDesignSystemId(String(customCandidate));
+            } else {
+              setCustomDesignSystemId(null);
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    setDesignStyle("tamagui");
+    setCustomDesignSystemId(null);
+  }, [open, selectedProject, projects, hasManualDesignSelection]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (designStyle !== "custom") {
+      if (customDesignSystemId !== null) {
+        setCustomDesignSystemId(null);
+      }
+      return;
+    }
+
+    if (designSystems.length > 0) {
+      const selectedExists = designSystems.some(
+        (system) => String(system.id) === customDesignSystemId,
+      );
+      if (!selectedExists) {
+        setCustomDesignSystemId(String(designSystems[0].id));
+      }
+      return;
+    }
+
+    if (!isLoadingDesignSystems) {
+      setCustomDesignSystemId(null);
+    }
+  }, [
+    open,
+    designStyle,
+    designSystems,
+    customDesignSystemId,
+    isLoadingDesignSystems,
+  ]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
@@ -150,6 +299,10 @@ export default function NewPrototypeModal({
 
     // Check prototype limit for FREE users
     if (userPlan !== "pro" && prototypeCount >= 5) {
+      return;
+    }
+
+    if (designStyle === "custom" && (!customDesignSystemId || designSystems.length === 0)) {
       return;
     }
 
@@ -180,6 +333,9 @@ export default function NewPrototypeModal({
           name: name.trim(),
           project_id: selectedProject || undefined,
           visibility,
+          design_style: designStyle,
+          custom_design_system:
+            designStyle === "custom" ? customDesignSystemId ?? undefined : undefined,
         } as CreatePrototypeRequestBody),
       });
 
@@ -193,6 +349,9 @@ export default function NewPrototypeModal({
         setName("");
         setSelectedProject(null);
         setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
+        setDesignStyle("tamagui");
+        setCustomDesignSystemId(null);
+        setHasManualDesignSelection(false);
         setTouched(false);
         onCreated(result.data.prototype_id);
         onClose();
@@ -314,9 +473,11 @@ export default function NewPrototypeModal({
               </Label>
               <Select
                 value={selectedProject || "none"}
-                onValueChange={(value) =>
-                  setSelectedProject(value === "none" ? null : value)
-                }
+                onValueChange={(value) => {
+                  const projectValue = value === "none" ? null : value;
+                  setSelectedProject(projectValue);
+                  setHasManualDesignSelection(false);
+                }}
               >
                 <SelectTrigger className="h-12">
                   <div className="flex items-center gap-2">
@@ -344,6 +505,78 @@ export default function NewPrototypeModal({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="design-style" className="text-sm font-semibold">
+                Design System
+              </Label>
+              <Select
+                value={designStyle}
+                onValueChange={(value) => {
+                  const nextStyle = value as DesignStyle;
+                  setDesignStyle(nextStyle);
+                  setHasManualDesignSelection(true);
+                  if (nextStyle !== "custom") {
+                    setCustomDesignSystemId(null);
+                  }
+                }}
+              >
+                <SelectTrigger id="design-style" className="h-12">
+                  <div className="flex items-center gap-2">
+                    <SwatchIcon className="w-4 h-4 text-primary" />
+                    <SelectValue placeholder="Choose a design system" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {DESIGN_STYLE_OPTIONS.map((style) => (
+                    <SelectItem
+                      key={style}
+                      value={style}
+                      disabled={style === "custom" && designSystems.length === 0}
+                    >
+                      {DESIGN_STYLE_LABELS[style]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {designStyle === "custom" && designSystems.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Create a custom design system in the dashboard to use this option.
+                </p>
+              )}
+            </div>
+            {designStyle === "custom" && designSystems.length > 0 && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="custom-design-system"
+                  className="text-sm font-semibold"
+                >
+                  Custom Design System
+                </Label>
+                <Select
+                  value={customDesignSystemId ?? undefined}
+                  onValueChange={(value) => {
+                    setCustomDesignSystemId(value);
+                    setHasManualDesignSelection(true);
+                  }}
+                >
+                  <SelectTrigger id="custom-design-system" className="h-12">
+                    <SelectValue placeholder="Select a design system" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {designSystems.map((system) => (
+                      <SelectItem key={system.id} value={String(system.id)}>
+                        {system.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isLoadingDesignSystems && (
+                  <p className="text-xs text-muted-foreground">
+                    Loading design systems...
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label
                 htmlFor="prototype-visibility"
@@ -380,7 +613,8 @@ export default function NewPrototypeModal({
               disabled={
                 isCreating ||
                 !name.trim() ||
-                (userPlan !== "pro" && prototypeCount >= 5)
+                (userPlan !== "pro" && prototypeCount >= 5) ||
+                (designStyle === "custom" && (!customDesignSystemId || designSystems.length === 0))
               }
               className="w-full h-12"
             >

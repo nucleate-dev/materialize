@@ -24,6 +24,7 @@ import {
   Settings,
   Sparkles,
   SquareStack,
+  Palette,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -44,6 +45,12 @@ const DashboardSidebar = () => {
       icon: Rocket,
       label: "Prototypes",
       active: pathname?.includes("prototypes"),
+    },
+    {
+      href: "/dashboard/design-systems",
+      icon: Palette,
+      label: "Design Systems",
+      active: pathname?.includes("design-systems"),
     },
     ...(SHOW_WHITEBOARDS
       ? [

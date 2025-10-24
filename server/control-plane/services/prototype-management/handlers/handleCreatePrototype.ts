@@ -32,6 +32,18 @@ import {
   PrototypeFileInsert,
 } from '../../../types/InternalTypes.js';
 
+type DesignStyle = Database['public']['Enums']['design_style'];
+
+const VALID_DESIGN_STYLES: DesignStyle[] = [
+  'tamagui',
+  'stylesheets',
+  'nativewind',
+  'custom',
+];
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
   reply: FastifyReply,
@@ -82,6 +94,8 @@ export async function handleCreatePrototypeImpl(
       project_id,
       prototype_id: forkPrototypeId, // If provided, this is a fork
       visibility,
+      design_style,
+      custom_design_system,
     } = request.body;
 
     if (visibility !== 'PUBLIC' && limitCheck.plan === 'free') {
@@ -107,6 +121,86 @@ export async function handleCreatePrototypeImpl(
         },
       },
     );
+
+    // Resolve design system configuration for the new prototype
+    let resolvedDesignStyle: DesignStyle | null =
+      design_style ?? null;
+    let resolvedCustomDesignSystem: string | null =
+      custom_design_system ?? null;
+
+    if (
+      forkPrototypeId &&
+      (!resolvedDesignStyle ||
+        (resolvedDesignStyle === 'custom' && !resolvedCustomDesignSystem))
+    ) {
+      const { data: sourcePrototype, error: sourcePrototypeError } =
+        await supabase
+          .from('prototypes')
+          .select('design_style, custom_design_system')
+          .eq('id', forkPrototypeId)
+          .single();
+
+      if (sourcePrototypeError) {
+        request.log2.error(
+          sourcePrototypeError,
+          '[handleCreatePrototype] Failed to fetch source prototype design system',
+        );
+      } else if (sourcePrototype) {
+        if (!resolvedDesignStyle) {
+          resolvedDesignStyle = sourcePrototype.design_style;
+        }
+        if (
+          resolvedDesignStyle === 'custom' &&
+          !resolvedCustomDesignSystem &&
+          sourcePrototype.custom_design_system
+        ) {
+          resolvedCustomDesignSystem =
+            sourcePrototype.custom_design_system;
+        }
+      }
+    }
+
+    if (!resolvedDesignStyle && project_id) {
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('project_context')
+        .eq('id', project_id)
+        .single();
+
+      if (projectError) {
+        request.log2.error(
+          projectError,
+          '[handleCreatePrototype] Failed to fetch project for default design system',
+        );
+      } else if (projectData?.project_context && isRecord(projectData.project_context)) {
+        const defaultDesignSystem =
+          (projectData.project_context as Record<string, unknown>)['defaultDesignSystem'];
+
+        if (isRecord(defaultDesignSystem)) {
+          const defaultStyle = defaultDesignSystem['design_style'];
+          if (
+            typeof defaultStyle === 'string' &&
+            VALID_DESIGN_STYLES.includes(defaultStyle as DesignStyle)
+          ) {
+            resolvedDesignStyle = defaultStyle as DesignStyle;
+          }
+
+          const defaultCustom = defaultDesignSystem['custom_design_system'];
+          if (typeof defaultCustom === 'string' || typeof defaultCustom === 'number') {
+            resolvedCustomDesignSystem = String(defaultCustom);
+          }
+        }
+      }
+    }
+
+    if (!resolvedDesignStyle) {
+      resolvedDesignStyle = 'tamagui';
+    }
+
+    if (resolvedDesignStyle !== 'custom') {
+      resolvedCustomDesignSystem = null;
+    }
+
     const { data: newPrototype, error: prototypeInsertError } = await supabase
       .from('prototypes')
       .insert({
@@ -116,6 +210,8 @@ export async function handleCreatePrototypeImpl(
         project_id,
         visibility:
           visibility || (limitCheck.plan === 'pro' ? 'SELF' : 'PUBLIC'),
+        design_style: resolvedDesignStyle,
+        custom_design_system: resolvedCustomDesignSystem,
       })
       .select()
       .single();

@@ -91,6 +91,13 @@ export class PrototypeManagementService {
                 type: 'string',
                 enum: ['PUBLIC', 'SELF'],
               },
+              design_style: {
+                type: 'string',
+                enum: ['tamagui', 'stylesheets', 'nativewind', 'custom'],
+              },
+              custom_design_system: {
+                type: ['string', 'null'],
+              },
             },
           },
         },

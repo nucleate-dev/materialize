@@ -195,6 +195,8 @@ export interface CreatePrototypeRequestBody {
   project_id?: string;
   prototype_id?: string; // For forking an existing prototype
   visibility?: 'PUBLIC' | 'SELF';
+  design_style?: Database['public']['Enums']['design_style'];
+  custom_design_system?: string | null;
 }
 
 export interface CreatePrototypeSuccessResponse {

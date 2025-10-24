@@ -13,11 +13,8 @@ import type {
   PrototypeAssetInput,
   PrototypeFileInput,
 } from '../../../types/PublicAPITypes.js';
-import {
-  ERROR_FIXING_PROMPT,
-  SPEC_EXPANSION_PROMPT,
-  SYSTEM_PROMPT,
-} from '../prompts/PROMPTS.js';
+import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS.js';
+import type { DesignStyleKey, PromptConfig } from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
   VirtualFileManager,
@@ -728,6 +725,82 @@ export class ChatEngineV1 {
     }
   }
 
+  private async resolvePromptConfig(
+    params: ChatEngineParams,
+  ): Promise<{
+    promptConfig: PromptConfig;
+    designStyle: DesignStyleKey;
+    designRules: string | null;
+  }> {
+    const { prototype_id, supabase, log2 } = params;
+    let designStyle: DesignStyleKey = 'tamagui';
+    let designRules: string | null = null;
+
+    try {
+      const { data: prototypeRow, error: prototypeError } = await supabase
+        .from('prototypes')
+        .select('design_style, custom_design_system')
+        .eq('id', prototype_id)
+        .single();
+
+      if (prototypeError) {
+        log2.warn('[ChatEngine] Failed to fetch prototype design style; falling back to tamagui', {
+          prototype_id,
+          error: prototypeError.message,
+        });
+      } else if (prototypeRow) {
+        if (isDesignStyleKey(prototypeRow.design_style)) {
+          designStyle = prototypeRow.design_style;
+        } else {
+          log2.warn('[ChatEngine] Unknown design style on prototype; falling back to tamagui', {
+            prototype_id,
+            design_style: prototypeRow.design_style,
+          });
+        }
+
+        if (designStyle === 'custom' && prototypeRow.custom_design_system) {
+          const designSystemId = Number(prototypeRow.custom_design_system);
+          if (Number.isNaN(designSystemId)) {
+            log2.warn(
+              '[ChatEngine] custom_design_system is not numeric; skipping design rules fetch',
+              { prototype_id, custom_design_system: prototypeRow.custom_design_system },
+            );
+          } else {
+            const { data: designSystemRow, error: designSystemError } = await supabase
+              .from('design_systems')
+              .select('design_rules')
+              .eq('id', designSystemId)
+              .single();
+
+            if (designSystemError) {
+              log2.warn('[ChatEngine] Failed to fetch custom design rules', {
+                prototype_id,
+                design_system_id: designSystemId,
+                error: designSystemError.message,
+              });
+            } else if (designSystemRow) {
+              designRules = designSystemRow.design_rules ?? null;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      log2.error(
+        error,
+        '[ChatEngine] Unexpected error while resolving design system prompts',
+        { prototype_id },
+      );
+    }
+
+    const promptConfig = buildPromptConfig({ designStyle, designRules });
+    log2.debug('[ChatEngine] Using design system prompt configuration', {
+      designStyle,
+      hasCustomRules: Boolean(designRules),
+    });
+
+    return { promptConfig, designStyle, designRules };
+  }
+
   async executeChat(params: ChatEngineParams): Promise<void> {
     const {
       messages,
@@ -738,6 +811,8 @@ export class ChatEngineV1 {
       log2,
       fileManager,
     } = params;
+
+    const { promptConfig } = await this.resolvePromptConfig(params);
 
     // Track execution data for persistence
     let executionPlan: string[] | undefined;
@@ -769,7 +844,7 @@ export class ChatEngineV1 {
       if (shouldDoSpecExpansion(messages, userIntent)) {
         const specExpansionResult = await generateText({
           model: this.getCurrentModel(),
-          system: SPEC_EXPANSION_PROMPT,
+          system: promptConfig.specExpansion,
           messages: [{ role: 'user', content: userMessage }],
         });
         userMessageForPrompt = specExpansionResult.text;
@@ -786,7 +861,9 @@ export class ChatEngineV1 {
         }
       }
       const selectedSystemPrompt =
-        userIntent === 'error_fixing' ? ERROR_FIXING_PROMPT : SYSTEM_PROMPT;
+        userIntent === 'error_fixing'
+          ? promptConfig.errorFixing
+          : promptConfig.system;
 
       // Build the final user message with multimodal support
       const finalUserMessage = {

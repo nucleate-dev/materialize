@@ -9,13 +9,31 @@ import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWind
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
@@ -37,6 +55,7 @@ import {
   CodeBracketIcon,
   DevicePhoneMobileIcon,
   EyeIcon,
+  SwatchIcon,
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
@@ -45,6 +64,22 @@ import { useEffect, useState } from "react";
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
+type DesignStyle = Database["public"]["Enums"]["design_style"];
+type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
+
+const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
+  "tamagui",
+  "nativewind",
+  "stylesheets",
+  "custom",
+];
+
+const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
+  tamagui: "Tamagui",
+  nativewind: "NativeWind + Gluestack",
+  stylesheets: "React Native StyleSheet",
+  custom: "Custom",
+};
 
 export type RenderStatus =
   | "Static build"
@@ -56,7 +91,7 @@ export type RenderStatus =
 
 export default function InternalPrototypePage() {
   const router = useRouter();
-  const { userIsLoading } = useUser();
+  const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
   const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
@@ -74,6 +109,17 @@ export default function InternalPrototypePage() {
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
+  const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
+  const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
+  const [isDesignSystemDialogOpen, setIsDesignSystemDialogOpen] =
+    useState(false);
+  const [dialogDesignStyle, setDialogDesignStyle] =
+    useState<DesignStyle | null>(null);
+  const [dialogCustomDesignSystem, setDialogCustomDesignSystem] = useState<
+    string | null
+  >(null);
+  const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] =
+    useState(false);
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -85,10 +131,62 @@ export default function InternalPrototypePage() {
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
 
+  const canEditDesignSystem = Boolean(
+    prototype && user && prototype.owner_id === user.id,
+  );
+  const currentDesignStyle: DesignStyle =
+    (prototype?.design_style as DesignStyle | undefined) ?? "tamagui";
+  const currentCustomDesignSystemId = prototype?.custom_design_system ?? null;
+  const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
+  const currentCustomDesignSystemName =
+    currentDesignStyle === "custom"
+      ? designSystems.find(
+          (system) => String(system.id) === currentCustomDesignSystemId,
+        )?.name ||
+        (currentCustomDesignSystemId ? "Custom design system" : undefined)
+      : undefined;
+
+  const hasCustomDesignSystems = designSystems.length > 0;
+  const dialogConfirmDisabled =
+    !dialogDesignStyle ||
+    (dialogDesignStyle === "custom" &&
+      (!dialogCustomDesignSystem || !hasCustomDesignSystems)) ||
+    isUpdatingDesignSystem;
+
   // Automatically collapse sidebar when prototype editor loads
   useEffect(() => {
     setSidebarOpen(false);
   }, [setSidebarOpen]);
+
+  useEffect(() => {
+    if (!isDesignSystemDialogOpen) {
+      return;
+    }
+
+    if (dialogDesignStyle !== "custom") {
+      return;
+    }
+
+    if (designSystems.length > 0) {
+      const exists = designSystems.some(
+        (system) => String(system.id) === dialogCustomDesignSystem,
+      );
+      if (!exists) {
+        setDialogCustomDesignSystem(String(designSystems[0].id));
+      }
+      return;
+    }
+
+    if (!isLoadingDesignSystems) {
+      setDialogCustomDesignSystem(null);
+    }
+  }, [
+    isDesignSystemDialogOpen,
+    dialogDesignStyle,
+    dialogCustomDesignSystem,
+    designSystems,
+    isLoadingDesignSystems,
+  ]);
 
   // Mobile detection and resize handling
   useEffect(() => {
@@ -403,6 +501,82 @@ export default function InternalPrototypePage() {
     };
   }, [currentRenderStatus, prototypeId, logger, viewingUrl]);
 
+  const handleDesignSystemDialogOpenChange = (open: boolean) => {
+    setIsDesignSystemDialogOpen(open);
+    if (!open) {
+      setDialogDesignStyle(null);
+      setDialogCustomDesignSystem(null);
+    }
+  };
+
+  const handleOpenDesignSystemDialog = () => {
+    if (!prototype) {
+      return;
+    }
+    setDialogDesignStyle(prototype.design_style);
+    setDialogCustomDesignSystem(
+      prototype.design_style === "custom"
+        ? prototype.custom_design_system
+        : null,
+    );
+    setIsDesignSystemDialogOpen(true);
+  };
+
+  const handleConfirmDesignSystemChange = async () => {
+    if (!prototype || !dialogDesignStyle) {
+      handleDesignSystemDialogOpenChange(false);
+      return;
+    }
+
+    const nextCustomDesignSystem =
+      dialogDesignStyle === "custom" ? dialogCustomDesignSystem : null;
+
+    if (dialogDesignStyle === "custom" && !nextCustomDesignSystem) {
+      return;
+    }
+
+    if (
+      dialogDesignStyle === prototype.design_style &&
+      nextCustomDesignSystem === (prototype.custom_design_system ?? null)
+    ) {
+      handleDesignSystemDialogOpenChange(false);
+      return;
+    }
+
+    try {
+      setIsUpdatingDesignSystem(true);
+      const { error } = await supabase
+        .from("prototypes")
+        .update({
+          design_style: dialogDesignStyle,
+          custom_design_system: nextCustomDesignSystem,
+        })
+        .eq("id", prototype.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setPrototype((prev) =>
+        prev
+          ? {
+              ...prev,
+              design_style: dialogDesignStyle,
+              custom_design_system: nextCustomDesignSystem,
+            }
+          : prev,
+      );
+      handleDesignSystemDialogOpenChange(false);
+    } catch (error) {
+      logger.debug("error", "Failed to update design system:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsUpdatingDesignSystem(false);
+    }
+  };
+
   const handleShare = () => {
     setShowShareModal(true);
   };
@@ -637,6 +811,30 @@ export default function InternalPrototypePage() {
                 </div>
               </div>
 
+              {prototype && (
+                <div className="px-3 py-2 border-b border-border flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+                  <div className="flex items-center gap-2">
+                    <SwatchIcon className="w-4 h-4 text-muted-foreground" />
+                    <Badge variant="secondary">{designSystemBadgeLabel}</Badge>
+                    {currentDesignStyle === "custom" && (
+                      <span className="text-muted-foreground">
+                        {currentCustomDesignSystemName ?? "Custom design system"}
+                      </span>
+                    )}
+                  </div>
+                  {canEditDesignSystem && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={handleOpenDesignSystemDialog}
+                      disabled={isUpdatingDesignSystem}
+                    >
+                      {isUpdatingDesignSystem ? "Updating..." : "Change"}
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Content Area */}
               <div className="flex-1 overflow-hidden h-full">
                 <div className="relative h-full">
@@ -690,6 +888,106 @@ export default function InternalPrototypePage() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog
+        open={isDesignSystemDialogOpen}
+        onOpenChange={handleDesignSystemDialogOpenChange}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change design system</AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing the design system can modify component structures and styling.
+              This may require additional clean up in your prototype.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
+                Design System
+              </p>
+              <Select
+                value={(dialogDesignStyle ?? currentDesignStyle) as DesignStyle}
+                onValueChange={(value) => {
+                  const nextStyle = value as DesignStyle;
+                  setDialogDesignStyle(nextStyle);
+                  if (nextStyle === "custom") {
+                    if (!dialogCustomDesignSystem && hasCustomDesignSystems) {
+                      setDialogCustomDesignSystem(String(designSystems[0].id));
+                    }
+                  } else {
+                    setDialogCustomDesignSystem(null);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Choose a design system" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DESIGN_STYLE_OPTIONS.map((style) => (
+                    <SelectItem
+                      key={style}
+                      value={style}
+                      disabled={style === "custom" && !hasCustomDesignSystems}
+                    >
+                      {DESIGN_STYLE_LABELS[style]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {dialogDesignStyle === "custom" && !hasCustomDesignSystems && (
+                <p className="text-xs text-muted-foreground">
+                  Add a custom design system in the dashboard to enable this option.
+                </p>
+              )}
+            </div>
+            {dialogDesignStyle === "custom" && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
+                  Custom Design System
+                </p>
+                {isLoadingDesignSystems ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    Loading design systems...
+                  </div>
+                ) : hasCustomDesignSystems ? (
+                  <Select
+                    value={dialogCustomDesignSystem ?? undefined}
+                    onValueChange={(value) => setDialogCustomDesignSystem(value)}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select a design system" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {designSystems.map((system) => (
+                        <SelectItem key={system.id} value={String(system.id)}>
+                          {system.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No custom design systems available.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUpdatingDesignSystem}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDesignSystemChange}
+              disabled={dialogConfirmDisabled}
+            >
+              {isUpdatingDesignSystem ? "Updating..." : "Confirm change"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
