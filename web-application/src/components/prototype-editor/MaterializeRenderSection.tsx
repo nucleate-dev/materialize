@@ -118,6 +118,9 @@ interface MaterializeRenderSectionProps {
   // New render status props
   currentRenderStatus?: RenderStatus;
   onRenderStatusChange: (status: RenderStatus) => void;
+  // Design system props
+  designSystemLabel?: string;
+  onDesignSystemClick?: () => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -140,6 +143,8 @@ const MaterializeRenderSection = forwardRef<
       onViewingUrlUpdate,
       currentRenderStatus = "Static build",
       onRenderStatusChange,
+      designSystemLabel,
+      onDesignSystemClick,
     },
     ref,
   ) => {
@@ -617,7 +622,21 @@ const MaterializeRenderSection = forwardRef<
           </div>
 
           {/* Floating Options Button */}
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+            {/* Design System Pill */}
+            {designSystemLabel && onDesignSystemClick && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onDesignSystemClick}
+                className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
+              >
+                <Badge variant="outline" className="border-0 px-0">
+                  {designSystemLabel}
+                </Badge>
+              </Button>
+            )}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

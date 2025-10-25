@@ -9,7 +9,6 @@ import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWind
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +54,6 @@ import {
   CodeBracketIcon,
   DevicePhoneMobileIcon,
   EyeIcon,
-  SwatchIcon,
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
@@ -157,6 +155,42 @@ export default function InternalPrototypePage() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [setSidebarOpen]);
+
+  // Load design systems when dialog opens
+  useEffect(() => {
+    if (!isDesignSystemDialogOpen) {
+      return;
+    }
+
+    async function loadDesignSystems() {
+      if (!user) return;
+
+      setIsLoadingDesignSystems(true);
+      try {
+        const { data, error } = await supabase
+          .from("design_systems")
+          .select("*")
+          .eq("owner_id", user.id);
+
+        if (error) {
+          logger.debug("error", "Failed to load design systems:", { error });
+          return;
+        }
+
+        setDesignSystems(data || []);
+      } catch (error) {
+        logger.debug("error", "Error loading design systems:", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setIsLoadingDesignSystems(false);
+      }
+    }
+
+    if (designSystems.length === 0 && !isLoadingDesignSystems) {
+      loadDesignSystems();
+    }
+  }, [isDesignSystemDialogOpen, user, logger, designSystems.length, isLoadingDesignSystems]);
 
   useEffect(() => {
     if (!isDesignSystemDialogOpen) {
@@ -811,30 +845,6 @@ export default function InternalPrototypePage() {
                 </div>
               </div>
 
-              {prototype && (
-                <div className="px-3 py-2 border-b border-border flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
-                  <div className="flex items-center gap-2">
-                    <SwatchIcon className="w-4 h-4 text-muted-foreground" />
-                    <Badge variant="secondary">{designSystemBadgeLabel}</Badge>
-                    {currentDesignStyle === "custom" && (
-                      <span className="text-muted-foreground">
-                        {currentCustomDesignSystemName ?? "Custom design system"}
-                      </span>
-                    )}
-                  </div>
-                  {canEditDesignSystem && (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      onClick={handleOpenDesignSystemDialog}
-                      disabled={isUpdatingDesignSystem}
-                    >
-                      {isUpdatingDesignSystem ? "Updating..." : "Change"}
-                    </Button>
-                  )}
-                </div>
-              )}
-
               {/* Content Area */}
               <div className="flex-1 overflow-hidden h-full">
                 <div className="relative h-full">
@@ -848,6 +858,16 @@ export default function InternalPrototypePage() {
                         onViewingUrlUpdate={setViewingUrl}
                         currentRenderStatus={currentRenderStatus}
                         onRenderStatusChange={setCurrentRenderStatus}
+                        designSystemLabel={
+                          canEditDesignSystem
+                            ? currentDesignStyle === "custom"
+                              ? currentCustomDesignSystemName || designSystemBadgeLabel
+                              : designSystemBadgeLabel
+                            : undefined
+                        }
+                        onDesignSystemClick={
+                          canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
+                        }
                       />
                     </div>
                   ) : (
