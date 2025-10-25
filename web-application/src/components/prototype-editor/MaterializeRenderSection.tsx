@@ -151,7 +151,7 @@ const MaterializeRenderSection = forwardRef<
     const logger = useProductLogger();
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
-    const [mobileSize, setMobileSize] = useState({ width: 375, height: 750 });
+    const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
@@ -765,26 +765,26 @@ const MaterializeRenderSection = forwardRef<
                     return (
                       <div
                         key={`mobile-screen-${screen.id}`}
-                        className="flex flex-col items-center gap-4"
+                        className="flex flex-col items-center gap-2"
                       >
-                        <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border px-3 py-2 rounded-full shadow">
+                        <div className="flex items-center gap-1 bg-background/70 backdrop-blur-sm border border-border/50 px-2 py-0.5 rounded-md shadow-sm">
                           <Input
                             value={screen.path}
                             onChange={(event) =>
                               handleScreenPathChange(screen.id, event.target.value)
                             }
-                            className="h-8 w-32 text-center"
+                            className="h-6 w-28 text-xs text-center border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
                             placeholder="/"
                           />
                           {mobileScreens.length > 1 && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-5 w-5 hover:bg-destructive/10"
                               onClick={() => handleRemoveMobileScreen(screen.id)}
                               aria-label="Remove screen"
                             >
-                              <X className="w-4 h-4" />
+                              <X className="w-3 h-3" />
                             </Button>
                           )}
                         </div>
