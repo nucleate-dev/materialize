@@ -3,7 +3,6 @@
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -136,6 +135,8 @@ export default function PrototypeChatWindow({
   // Use ref to avoid stale closure issues in streaming
   const prototypeChatSessionRef = useRef<PrototypeChatSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // File autocomplete functionality
   const {
@@ -154,6 +155,25 @@ export default function PrototypeChatWindow({
   useEffect(() => {
     prototypeChatSessionRef.current = prototypeChatSession;
   }, [prototypeChatSession]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        // For user messages or first message, scroll to bottom to show the message
+        // For AI messages, scroll to show the top of the message
+        messagesEndRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: lastMessage.role === "user" ? "end" : "start"
+        });
+      }
+    });
+  }, [messages]);
 
   // Convert image file to base64 data URI
   const convertImageToBase64 = useCallback(
@@ -961,12 +981,7 @@ export default function PrototypeChatWindow({
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <h2 className="text-lg font-semibold">Chat Assistant</h2>
-            {isConnected && (
-              <Badge variant="outline" className="text-xs">
-                Streaming...
-              </Badge>
-            )}
+            <h2 className="text-lg font-semibold">Chat</h2>
           </div>
           <div className="flex items-center gap-2">
             {buildErrors.length > 0 && (
@@ -1016,7 +1031,7 @@ export default function PrototypeChatWindow({
         )}
 
         {/* Chat Messages */}
-        <ScrollArea className="flex-1 p-4">
+        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
           <div className="space-y-4">
             {messages.map((message, index) => (
               <div
@@ -1030,10 +1045,9 @@ export default function PrototypeChatWindow({
                     : "bg-muted text-foreground"
                     }`}
                 >
-                  {message.role === "user" && (
-                    <div className="text-sm font-medium mb-1">You</div>
-                  )}
-                  <div className="text-sm prose prose-sm max-w-none prose-slate dark:prose-invert [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current">
+                  <div className={`text-sm prose prose-sm max-w-none ${message.role === "user"
+                    ? "prose-invert [&>*]:text-primary-foreground"
+                    : "prose-slate dark:prose-invert"} [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current`}>
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 </div>
@@ -1048,6 +1062,8 @@ export default function PrototypeChatWindow({
                 </div>
               </div>
             )}
+            {/* Invisible element at the end for scrolling */}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
