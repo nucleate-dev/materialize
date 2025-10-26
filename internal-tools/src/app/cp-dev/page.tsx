@@ -849,7 +849,7 @@ export default function DevServerPage() {
                 <div className="flex items-center gap-2">
                   {ec2Details && (
                     <Button
-                      onClick={handleAutoConfigureFiles}
+                      onClick={() => handleAutoConfigureFiles()}
                       disabled={configuringFiles}
                       size="sm"
                       className="bg-black text-white hover:bg-black/90 disabled:bg-black/50"
