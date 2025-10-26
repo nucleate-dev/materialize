@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { supabase } from "@/ClientConstants";
 import {
@@ -48,17 +49,16 @@ function formatRelativeTime(dateString: string | null | undefined): string {
 
 export default function DesignSystemsPage(): JSX.Element {
   const { user } = useUser();
+  const router = useRouter();
   const logger = useProductLogger();
 
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeSystem, setActiveSystem] = useState<DesignSystemRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DesignSystemRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -74,7 +74,6 @@ export default function DesignSystemsPage(): JSX.Element {
   const resetForm = () => {
     setFormValues({ name: "", description: "", design_rules: "" });
     setFormError(null);
-    setActiveSystem(null);
   };
 
   const fetchDesignSystems = useCallback(async () => {
@@ -143,21 +142,7 @@ export default function DesignSystemsPage(): JSX.Element {
   const handleOpenCreateDialog = () => {
     resetForm();
     setIsSaving(false);
-    setIsEditDialogOpen(false);
     setIsCreateDialogOpen(true);
-  };
-
-  const handleOpenEditDialog = (system: DesignSystemRow) => {
-    setActiveSystem(system);
-    setIsSaving(false);
-    setIsCreateDialogOpen(false);
-    setFormValues({
-      name: system.name ?? "",
-      description: system.description ?? "",
-      design_rules: system.design_rules ?? "",
-    });
-    setFormError(null);
-    setIsEditDialogOpen(true);
   };
 
   const handleOpenDeleteDialog = (system: DesignSystemRow) => {
@@ -169,7 +154,6 @@ export default function DesignSystemsPage(): JSX.Element {
 
   const handleCloseDialogs = () => {
     setIsCreateDialogOpen(false);
-    setIsEditDialogOpen(false);
     setIsSaving(false);
     resetForm();
   };
@@ -219,45 +203,6 @@ export default function DesignSystemsPage(): JSX.Element {
     }
   };
 
-  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!activeSystem) {
-      setFormError("Unable to determine design system to update.");
-      return;
-    }
-
-    const trimmedName = formValues.name.trim();
-    if (!trimmedName) {
-      setFormError("Name is required.");
-      return;
-    }
-
-    setIsSaving(true);
-    setFormError(null);
-    try {
-      const { error } = await supabase
-        .from("design_systems")
-        .update({
-          name: trimmedName,
-          description: formValues.description.trim() || null,
-          design_rules: formValues.design_rules.trim(),
-        })
-        .eq("id", activeSystem.id);
-
-      if (error) {
-        throw error;
-      }
-
-      await fetchDesignSystems();
-      handleCloseDialogs();
-    } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : "Failed to update design system.",
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleDeleteDesignSystem = async () => {
     if (!deleteTarget) {
@@ -367,10 +312,14 @@ export default function DesignSystemsPage(): JSX.Element {
               const hasRules = Boolean(system.design_rules?.trim());
 
               return (
-                <Card key={system.id} className="flex flex-col border-border/60 bg-background/80 backdrop-blur">
+                <Card
+                  key={system.id}
+                  className="flex flex-col border-border/60 bg-background/80 backdrop-blur cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => router.push(`/dashboard/design-systems/${system.id}`)}
+                >
                   <CardHeader className="space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1 flex-1">
                         <CardTitle className="text-xl font-semibold text-foreground">
                           {system.name}
                         </CardTitle>
@@ -381,25 +330,18 @@ export default function DesignSystemsPage(): JSX.Element {
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">{updatedLabel || ""}</Badge>
                         {canMutate && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEditDialog(system)}
-                              disabled={isSaving || isDeleting}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleOpenDeleteDialog(system)}
-                              disabled={isDeleting || isSaving}
-                              className="flex items-center gap-1"
-                            >
-                              <Trash className="h-4 w-4" /> Delete
-                            </Button>
-                          </>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDeleteDialog(system);
+                            }}
+                            disabled={isDeleting || isSaving}
+                            className="flex items-center gap-1"
+                          >
+                            <Trash className="h-4 w-4" /> Delete
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -517,65 +459,6 @@ export default function DesignSystemsPage(): JSX.Element {
               </Button>
               <Button type="submit" disabled={isSaving}>
                 {isSaving ? "Saving..." : "Create"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={isEditDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleCloseDialogs();
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <form onSubmit={handleEditSubmit} className="space-y-6">
-            <DialogHeader>
-              <DialogTitle>Edit design system</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-design-system-name">Name</Label>
-                <Input
-                  id="edit-design-system-name"
-                  value={formValues.name}
-                  onChange={handleFieldChange("name")}
-                  disabled={isSaving}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-design-system-description">Description (optional)</Label>
-                <Input
-                  id="edit-design-system-description"
-                  value={formValues.description}
-                  onChange={handleFieldChange("description")}
-                  disabled={isSaving}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-design-system-rules">Design rules</Label>
-                <Textarea
-                  id="edit-design-system-rules"
-                  value={formValues.design_rules}
-                  onChange={handleFieldChange("design_rules")}
-                  placeholder="Instructions, tokens, component choices, or prompts Materialize should follow"
-                  rows={8}
-                  disabled={isSaving}
-                />
-              </div>
-            </div>
-            {formError && (
-              <p className="text-sm text-destructive">{formError}</p>
-            )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialogs} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSaving || !activeSystem}>
-                {isSaving ? "Saving..." : "Save changes"}
               </Button>
             </DialogFooter>
           </form>
