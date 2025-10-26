@@ -1095,7 +1095,7 @@ export default function DevServerPage() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={handleDeployAll}
-                      disabled={isDeploying || instanceStatus !== "ready"}
+                      disabled={isDeploying}
                       className="flex items-center gap-2"
                     >
                       {deployingAll ? (
@@ -1113,9 +1113,7 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
-                      {instanceStatus !== "ready"
-                        ? "Wait for the EC2 instance to be ready before deploying."
-                        : "Run the full dev control plane deploy script."}
+                      Run the full dev control plane deploy script.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1125,7 +1123,7 @@ export default function DevServerPage() {
                     <Button
                       variant="secondary"
                       onClick={handleDeployChanged}
-                      disabled={isDeploying || !hasChangedFiles || instanceStatus !== "ready"}
+                      disabled={isDeploying || !hasChangedFiles}
                       className="flex items-center gap-2"
                     >
                       {deployingChanged ? (
@@ -1143,9 +1141,7 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
-                      {instanceStatus !== "ready"
-                        ? "Wait for the EC2 instance to be ready before deploying."
-                        : "Deploy only files detected as git changes."}
+                      Deploy only files detected as git changes.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1155,7 +1151,7 @@ export default function DevServerPage() {
                     <Button
                       variant="outline"
                       onClick={handleDeploySelected}
-                      disabled={isDeploying || !hasSelection || instanceStatus !== "ready"}
+                      disabled={isDeploying || !hasSelection}
                       className="flex items-center gap-2"
                     >
                       {deployingSelected ? (
@@ -1173,9 +1169,7 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
-                      {instanceStatus !== "ready"
-                        ? "Wait for the EC2 instance to be ready before deploying."
-                        : "Deploy only the paths you have checked in the explorer."}
+                      Deploy only the paths you have checked in the explorer.
                     </p>
                   </TooltipContent>
                 </Tooltip>
