@@ -20,21 +20,22 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { ArrowLeft, Loader2, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
 interface DesignSystemDetailPageProps {
-  params: {
+  params: Promise<{
     "design-system-id": string;
-  };
+  }>;
 }
 
 export default function DesignSystemDetailPage({ params }: DesignSystemDetailPageProps): JSX.Element {
   const { user } = useUser();
   const router = useRouter();
   const logger = useProductLogger();
-  const designSystemId = params["design-system-id"];
+  const unwrappedParams = use(params);
+  const designSystemId = unwrappedParams["design-system-id"];
 
   const [designSystem, setDesignSystem] = useState<DesignSystemRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
