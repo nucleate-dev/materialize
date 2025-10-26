@@ -1,6 +1,7 @@
 "use client";
 
 import ErrorModal from "@/components/ErrorModal";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,17 +13,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useUser } from "@/hooks/useUser";
+import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { Provider } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChangeEvent,
   FormEvent,
   useCallback,
-  useState,
   useEffect,
+  useState,
 } from "react";
 import { OAuthSignInButton } from "../AuthComponents";
 import RegistrationAccountCreatedEmailVerificationPending from "../register/RegistrationAccountCreatedEmailVerificationPending";
@@ -98,10 +99,10 @@ export default function LoginForm() {
   );
 
   const handleOAuthSignIn = useCallback(
-    async (provider: string) => {
+    async (provider: Provider) => {
       // Store the OAuth provider as the last login method
       localStorage.setItem(LAST_LOGIN_METHOD_KEY, provider);
-      await signInWithOAuth(provider as any, "/login/callback");
+      await signInWithOAuth(provider, "/login/callback");
     },
     [],
   );
