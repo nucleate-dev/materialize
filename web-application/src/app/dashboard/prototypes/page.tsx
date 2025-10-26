@@ -87,6 +87,14 @@ export default function PrototypesPage() {
     setActivePrototype(null);
   };
 
+  const handlePrototypeUpdated = (updatedPrototype: Prototype) => {
+    // Optimistic update - update local state immediately without refetching
+    setPrototypes((prev) =>
+      prev.map((p) => (p.id === updatedPrototype.id ? updatedPrototype : p))
+    );
+    handleCloseSettings();
+  };
+
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
       {/* Page Header */}
@@ -163,8 +171,12 @@ export default function PrototypesPage() {
         open={settingsOpen}
         onClose={handleCloseSettings}
         prototype={activePrototype}
-        onUpdated={() => {
-          fetchPrototypes();
+        onUpdated={handlePrototypeUpdated}
+        onDeleted={() => {
+          // Remove from local state immediately
+          setPrototypes((prev) =>
+            prev.filter((p) => p.id !== activePrototype?.id)
+          );
           handleCloseSettings();
         }}
       />

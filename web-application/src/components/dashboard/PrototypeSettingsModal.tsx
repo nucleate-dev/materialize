@@ -33,7 +33,10 @@ interface PrototypeSettingsModalProps {
   open: boolean;
   onClose: () => void;
   prototype: Database["public"]["Tables"]["prototypes"]["Row"] | null;
-  onUpdated: () => void;
+  onUpdated: (
+    updatedPrototype: Database["public"]["Tables"]["prototypes"]["Row"]
+  ) => void;
+  onDeleted?: () => void;
 }
 
 export default function PrototypeSettingsModal({
@@ -41,6 +44,7 @@ export default function PrototypeSettingsModal({
   onClose,
   prototype,
   onUpdated,
+  onDeleted,
 }: PrototypeSettingsModalProps) {
   const logger = useProductLogger();
   const [name, setName] = useState("");
@@ -66,16 +70,23 @@ export default function PrototypeSettingsModal({
     if (!prototype) return;
     setIsSubmitting(true);
     try {
-      await supabase
+      const { data, error } = await supabase
         .from("prototypes")
         .update({
           name,
           description: description || null,
           visibility,
         })
-        .eq("id", prototype.id);
-      onUpdated();
-      onClose();
+        .eq("id", prototype.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Pass the updated prototype data back to parent for optimistic update
+      if (data) {
+        onUpdated(data);
+      }
     } catch (error) {
       logger.debug("error", "Error updating prototype:", {
         error: error instanceof Error ? error.message : String(error),
@@ -123,9 +134,10 @@ export default function PrototypeSettingsModal({
         throw new Error(errorMessage);
       }
 
-      // Success - refresh the parent component and close modal
-      onUpdated();
-      onClose();
+      // Success - notify parent to remove from list and close modal
+      if (onDeleted) {
+        onDeleted();
+      }
     } catch (error) {
       logger.debug("error", "Error deleting prototype:", {
         error: error instanceof Error ? error.message : String(error),
