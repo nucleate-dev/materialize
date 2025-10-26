@@ -20,11 +20,11 @@ import {
   FlaskConical,
   Folder,
   LogOut,
+  Palette,
   Rocket,
   Settings,
   Sparkles,
   SquareStack,
-  Palette,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -68,7 +68,7 @@ const DashboardSidebar = () => {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center justify-between gap-3 px-2 py-2">
-          <Link href="/" className="group">
+          <Link href="/dashboard" className="group">
             <div className="relative flex items-center gap-3 px-3 py-2">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110" />
