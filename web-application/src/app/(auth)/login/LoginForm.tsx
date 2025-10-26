@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
@@ -26,6 +27,8 @@ import {
 import { OAuthSignInButton } from "../AuthComponents";
 import RegistrationAccountCreatedEmailVerificationPending from "../register/RegistrationAccountCreatedEmailVerificationPending";
 
+const LAST_LOGIN_METHOD_KEY = "lastLoginMethod";
+
 export default function LoginForm() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
@@ -38,8 +41,15 @@ export default function LoginForm() {
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [lastLoginMethod, setLastLoginMethod] = useState<string | null>(null);
 
   const { email, password } = formData;
+
+  // Load last login method from localStorage on mount
+  useEffect(() => {
+    const storedMethod = localStorage.getItem(LAST_LOGIN_METHOD_KEY);
+    setLastLoginMethod(storedMethod);
+  }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -70,6 +80,8 @@ export default function LoginForm() {
         loginResponse.data.user != null &&
         loginResponse.data.session != null
       ) {
+        // Store that email/password was used for login
+        localStorage.setItem(LAST_LOGIN_METHOD_KEY, "email");
         router.push("/auth/callback");
       } else if (loginResponse.data.session == null) {
         setShowVerifyEmailState(true);
@@ -83,6 +95,15 @@ export default function LoginForm() {
       email,
       password,
     ],
+  );
+
+  const handleOAuthSignIn = useCallback(
+    async (provider: string) => {
+      // Store the OAuth provider as the last login method
+      localStorage.setItem(LAST_LOGIN_METHOD_KEY, provider);
+      await signInWithOAuth(provider as any, "/login/callback");
+    },
+    [],
   );
 
   // Redirect to dashboard if user is already logged in
@@ -132,7 +153,14 @@ export default function LoginForm() {
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email">Email</Label>
+                {lastLoginMethod === "email" && (
+                  <Badge variant="secondary" className="text-xs">
+                    Last used
+                  </Badge>
+                )}
+              </div>
               <Input
                 id="email"
                 name="email"
@@ -176,13 +204,23 @@ export default function LoginForm() {
           </div>
 
           <div className="grid grid-cols-1 gap-2">
-            <OAuthSignInButton
-              onClick={async () => {
-                await signInWithOAuth("google", "/login/callback");
-              }}
-              provider="google"
-              showOnlyLogo={false}
-            />
+            <div className="relative">
+              <OAuthSignInButton
+                onClick={async () => {
+                  await handleOAuthSignIn("google");
+                }}
+                provider="google"
+                showOnlyLogo={false}
+              />
+              {lastLoginMethod === "google" && (
+                <Badge
+                  variant="secondary"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-xs"
+                >
+                  Last used
+                </Badge>
+              )}
+            </div>
           </div>
 
           <div className="text-center text-sm">
