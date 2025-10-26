@@ -3,7 +3,6 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/ClientConstants";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +13,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -23,14 +25,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { RefreshCw, Copy, Check, Trash } from "lucide-react";
+import { Check, Copy, Plus, Trash } from "lucide-react";
 
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
@@ -314,169 +314,151 @@ export default function DesignSystemsPage(): JSX.Element {
         <p className="text-muted-foreground max-w-md">
           Create a design system to capture your preferred components, tokens, and prompts. Once saved, it will appear here and can be reused across prototypes.
         </p>
-        <div className="mt-6 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-          <span>Need a hand?</span>
-          <a
-            href="https://docs.materialize.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary hover:underline"
-          >
-            Visit the docs
-          </a>
-        </div>
       </div>
     </div>
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary"></div>
-      </div>
-    );
-  }
-
-  if (shouldShowEmptyState) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Design Systems</h1>
-          <p className="text-muted-foreground mt-2">
-            Centralize the design rules you want Materialize to follow when generating UI.
-          </p>
-        </div>
-        <div className="flex justify-end mb-6 gap-2">
-          <Button onClick={handleOpenCreateDialog} disabled={!canMutate || isSaving || isLoading}>
-            Create Design System
-          </Button>
-          <Button variant="outline" onClick={fetchDesignSystems} disabled={isLoading}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-          </Button>
-        </div>
-        {emptyStateContent}
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Design Systems</h1>
-            <p className="text-muted-foreground mt-2">
-              Review the custom design systems available to your prototypes.
-            </p>
+      <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
+        {/* Page Header */}
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
+                  Design Systems
+                </CardTitle>
+                <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
+                  {shouldShowEmptyState
+                    ? "Centralize the design rules you want Materialize to follow when generating UI."
+                    : "Review the custom design systems available to your prototypes."}
+                </CardDescription>
+              </div>
+
+              {/* Create Design System Button */}
+              <div className="flex-shrink-0">
+                <Button
+                  onClick={handleOpenCreateDialog}
+                  size="lg"
+                  className="w-full sm:w-auto gap-2"
+                  disabled={!canMutate || isSaving || isLoading}
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">New Design System</span>
+                  <span className="sm:hidden">New</span>
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary"></div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleOpenCreateDialog} disabled={!canMutate || isSaving || isLoading}>
-              Create Design System
-            </Button>
-            <Button variant="outline" onClick={fetchDesignSystems} disabled={isLoading}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-            </Button>
-          </div>
-        </div>
+        ) : shouldShowEmptyState ? (
+          emptyStateContent
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {designSystems.map((system) => {
+              const updatedLabel = formatRelativeTime(system.updated_at);
+              const createdLabel = formatRelativeTime(system.created_at);
+              const hasRules = Boolean(system.design_rules?.trim());
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {designSystems.map((system) => {
-            const updatedLabel = formatRelativeTime(system.updated_at);
-            const createdLabel = formatRelativeTime(system.created_at);
-            const hasRules = Boolean(system.design_rules?.trim());
-
-            return (
-              <Card key={system.id} className="flex flex-col border-border/60 bg-background/80 backdrop-blur">
-                <CardHeader className="space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <CardTitle className="text-xl font-semibold text-foreground">
-                        {system.name}
-                      </CardTitle>
-                      {system.description && (
-                        <p className="text-sm text-muted-foreground">{system.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{updatedLabel || ""}</Badge>
-                      {canMutate && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEditDialog(system)}
-                            disabled={isSaving || isDeleting}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleOpenDeleteDialog(system)}
-                            disabled={isDeleting || isSaving}
-                            className="flex items-center gap-1"
-                          >
-                            <Trash className="h-4 w-4" /> Delete
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col gap-4">
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    {createdLabel && (
-                      <span>
-                        Created <strong className="text-foreground font-medium">{createdLabel}</strong>
-                      </span>
-                    )}
-                    {updatedLabel && (
-                      <span>
-                        Updated <strong className="text-foreground font-medium">{updatedLabel}</strong>
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className="mb-2 text-sm font-semibold text-foreground">Design Rules</h3>
-                    {hasRules ? (
-                      <ScrollArea className="max-h-56 rounded-md border border-border/60 bg-muted/40 p-3">
-                        <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
-                          {system.design_rules}
-                        </pre>
-                      </ScrollArea>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No custom rules provided.
-                      </p>
-                    )}
-                  </div>
-
-                  {hasRules && (
-                    <div className="flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopyRules(system)}
-                        className="gap-2"
-                      >
-                        {copiedId === system.id ? (
+              return (
+                <Card key={system.id} className="flex flex-col border-border/60 bg-background/80 backdrop-blur">
+                  <CardHeader className="space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <CardTitle className="text-xl font-semibold text-foreground">
+                          {system.name}
+                        </CardTitle>
+                        {system.description && (
+                          <p className="text-sm text-muted-foreground">{system.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{updatedLabel || ""}</Badge>
+                        {canMutate && (
                           <>
-                            <Check className="h-4 w-4" /> Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4" /> Copy rules
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(system)}
+                              disabled={isSaving || isDeleting}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleOpenDeleteDialog(system)}
+                              disabled={isDeleting || isSaving}
+                              className="flex items-center gap-1"
+                            >
+                              <Trash className="h-4 w-4" /> Delete
+                            </Button>
                           </>
                         )}
-                      </Button>
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-1 flex-col gap-4">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      {createdLabel && (
+                        <span>
+                          Created <strong className="text-foreground font-medium">{createdLabel}</strong>
+                        </span>
+                      )}
+                      {updatedLabel && (
+                        <span>
+                          Updated <strong className="text-foreground font-medium">{updatedLabel}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="mb-2 text-sm font-semibold text-foreground">Design Rules</h3>
+                      {hasRules ? (
+                        <ScrollArea className="max-h-56 rounded-md border border-border/60 bg-muted/40 p-3">
+                          <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
+                            {system.design_rules}
+                          </pre>
+                        </ScrollArea>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No custom rules provided.
+                        </p>
+                      )}
+                    </div>
+
+                    {hasRules && (
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyRules(system)}
+                          className="gap-2"
+                        >
+                          {copiedId === system.id ? (
+                            <>
+                              <Check className="h-4 w-4" /> Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" /> Copy rules
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <Dialog
