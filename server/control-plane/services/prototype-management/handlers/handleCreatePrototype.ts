@@ -1,4 +1,12 @@
+import { S3Client } from '@aws-sdk/client-s3';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import {
+  DesignStyle,
+  PrototypeAssetInsert,
+  PrototypeFileInsert,
+} from '../../../types/InternalTypes.js';
 import {
   APIResponse,
   CreatePrototypeErrorResponse,
@@ -6,33 +14,24 @@ import {
   CreatePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
+import { Database } from '../../../types/supabase.js';
 import {
   checkUserHasPrototypeViewingAccess,
   validateJWTToken,
 } from '../../../utils/prototypeAuth.js';
 import { hasExceededPrototypeCreationLimit } from '../../../utils/subscriptionChecks.js';
-import { Database } from '../../../types/supabase.js';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
-  deletePrototypeS3Builds,
   copyAllAssetsInSupabaseStorage,
   copyDefaultAppToVersionedPrototype,
   copyPrototypeThumbnailInSupabaseStorage,
   copyS3BucketContentsVersioned,
   deletePrototypeAssetsFromStorage,
+  deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
   getDefaultAppFilesFromS3,
   getPrototypeViewingUrl,
   uploadDefaultAssetsToSupabaseStorage,
 } from '../storageOperations.js';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { S3Client } from '@aws-sdk/client-s3';
-import {
-  PrototypeAssetInsert,
-  PrototypeFileInsert,
-} from '../../../types/InternalTypes.js';
-
-type DesignStyle = Database['public']['Enums']['design_style'];
 
 const VALID_DESIGN_STYLES: DesignStyle[] = [
   'tamagui',
@@ -123,8 +122,7 @@ export async function handleCreatePrototypeImpl(
     );
 
     // Resolve design system configuration for the new prototype
-    let resolvedDesignStyle: DesignStyle | null =
-      design_style ?? null;
+    let resolvedDesignStyle: DesignStyle | null = design_style ?? null;
     let resolvedCustomDesignSystem: string | null =
       custom_design_system ?? null;
 
@@ -154,8 +152,7 @@ export async function handleCreatePrototypeImpl(
           !resolvedCustomDesignSystem &&
           sourcePrototype.custom_design_system
         ) {
-          resolvedCustomDesignSystem =
-            sourcePrototype.custom_design_system;
+          resolvedCustomDesignSystem = sourcePrototype.custom_design_system;
         }
       }
     }
@@ -172,9 +169,13 @@ export async function handleCreatePrototypeImpl(
           projectError,
           '[handleCreatePrototype] Failed to fetch project for default design system',
         );
-      } else if (projectData?.project_context && isRecord(projectData.project_context)) {
-        const defaultDesignSystem =
-          (projectData.project_context as Record<string, unknown>)['defaultDesignSystem'];
+      } else if (
+        projectData?.project_context &&
+        isRecord(projectData.project_context)
+      ) {
+        const defaultDesignSystem = (
+          projectData.project_context as Record<string, unknown>
+        )['defaultDesignSystem'];
 
         if (isRecord(defaultDesignSystem)) {
           const defaultStyle = defaultDesignSystem['design_style'];
@@ -186,7 +187,10 @@ export async function handleCreatePrototypeImpl(
           }
 
           const defaultCustom = defaultDesignSystem['custom_design_system'];
-          if (typeof defaultCustom === 'string' || typeof defaultCustom === 'number') {
+          if (
+            typeof defaultCustom === 'string' ||
+            typeof defaultCustom === 'number'
+          ) {
             resolvedCustomDesignSystem = String(defaultCustom);
           }
         }
@@ -250,6 +254,7 @@ export async function handleCreatePrototypeImpl(
           supabase,
           s3Client,
           newPrototypeId,
+          resolvedDesignStyle,
           request.log2,
         );
       }
@@ -343,10 +348,13 @@ async function forkPrototype(
     log2,
   );
   if (!accessResult?.prototype) {
-    log2.warn('[forkPrototype] User attempted to fork prototype without access', {
-      sourcePrototypeId,
-      newPrototypeId,
-    });
+    log2.warn(
+      '[forkPrototype] User attempted to fork prototype without access',
+      {
+        sourcePrototypeId,
+        newPrototypeId,
+      },
+    );
     throw new Error('Access denied for source prototype');
   }
 
@@ -448,12 +456,23 @@ export async function copyAllDefaultsForNewPrototype(
   supabase: SupabaseClient<Database>,
   s3Client: S3Client,
   newPrototypeId: string,
+  newPrototypeDesignStyle: DesignStyle,
   log2: SystemLogger,
 ): Promise<string | undefined> {
   // Get default app files from S3 raw files
   const [defaultFilesResult, s3CopyResult] = await Promise.all([
-    getDefaultAppFilesFromS3(s3Client, newPrototypeId, log2),
-    copyDefaultAppToVersionedPrototype(s3Client, newPrototypeId, log2),
+    getDefaultAppFilesFromS3(
+      s3Client,
+      newPrototypeId,
+      newPrototypeDesignStyle,
+      log2,
+    ),
+    copyDefaultAppToVersionedPrototype(
+      s3Client,
+      newPrototypeId,
+      newPrototypeDesignStyle,
+      log2,
+    ),
     // TODO @sourish: create a default app thumbnail to copy to new prototype
   ]);
   if (!defaultFilesResult.success || !s3CopyResult.success) {

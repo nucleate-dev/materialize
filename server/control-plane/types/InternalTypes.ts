@@ -22,6 +22,8 @@ export type BuildResultStatus = 'success' | 'error';
 
 export type CodeErrorType = 'build' | 'runtime' | 'dependency' | 'syntax';
 
+export type DesignStyle = Database['public']['Enums']['design_style'];
+
 export type CodeWarningType =
   | 'build'
   | 'deprecation'

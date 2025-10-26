@@ -10,6 +10,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
 import type {
   DefaultFilesResult,
+  DesignStyle,
   PrototypeAssetRow,
   PrototypeFileInsert,
   S3CopyResult,
@@ -196,9 +197,11 @@ async function copyS3BucketContents(
 export async function copyDefaultAppToVersionedPrototype(
   s3Client: S3Client,
   prototypeId: string,
+  designStyle: DesignStyle,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const sourcePrefix = 'default-app/';
+  const { distFilesPrefix: sourcePrefix } =
+    getDefaultAppFilesSourcePrefixes(designStyle);
   const version = Date.now().toString();
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
@@ -262,15 +265,42 @@ export function getPrototypeViewingUrl(prototypeId: string): string {
   return `https://${prototypeId}.render.materializeui.com/`;
 }
 
+export function getDefaultAppFilesSourcePrefixes(
+  designStyle: DesignStyle,
+): Record<string, string> {
+  let rawFilesPrefix = '';
+  let distFilesPrefix = '';
+  switch (designStyle) {
+    case 'tamagui':
+      rawFilesPrefix = 'starter-app-tamagui-raw-files/';
+      distFilesPrefix = 'starter-app-tamagui/';
+      break;
+    case 'stylesheets':
+      rawFilesPrefix = 'starter-app-stylesheets-raw-files/';
+      distFilesPrefix = 'starter-app-stylesheets/';
+      break;
+    case 'nativewind':
+      rawFilesPrefix = 'starter-app-nativewind-raw-files/';
+      distFilesPrefix = 'starter-app-nativewind/';
+      break;
+    case 'custom':
+      rawFilesPrefix = 'starter-app-stylesheets-raw-files/';
+      distFilesPrefix = 'starter-app-stylesheets/';
+      break;
+  }
+  return { rawFilesPrefix, distFilesPrefix };
+}
 /**
  * Get default app files from S3 raw files and format for Supabase insertion
  */
 export async function getDefaultAppFilesFromS3(
   s3Client: S3Client,
   prototypeId: string,
+  designStyle: DesignStyle,
   log2: SystemLogger,
 ): Promise<DefaultFilesResult> {
-  const sourcePrefix = 'default-app-raw-files/';
+  const { rawFilesPrefix: sourcePrefix } =
+    getDefaultAppFilesSourcePrefixes(designStyle);
   try {
     const listResult = await s3Client.send(
       new ListObjectsV2Command({

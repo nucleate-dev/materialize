@@ -1,17 +1,17 @@
+import { S3Client } from '@aws-sdk/client-s3';
+import { createClient } from '@supabase/supabase-js';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../../../types/PublicAPITypes.js';
-import { S3Client } from '@aws-sdk/client-s3';
-import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
-import { createClient } from '@supabase/supabase-js';
 import { Database } from '../../../types/supabase.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 import {
-  deletePrototypeS3Builds,
   deletePrototypeAssetsFromStorage,
+  deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
 } from '../storageOperations.js';
-import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { copyAllDefaultsForNewPrototype } from './handleCreatePrototype.js';
-import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 export default async function handleResetPrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
@@ -119,6 +119,7 @@ export default async function handleResetPrototypeImpl(
         supabase,
         s3Client,
         prototype_id,
+        authResponse.prototype.design_style,
         request.log2,
       );
     } catch (error) {

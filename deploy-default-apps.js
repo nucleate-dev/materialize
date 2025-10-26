@@ -39,7 +39,7 @@ const STARTERS_DIR = path.join(__dirname, 'starters');
 // List of starter apps to deploy
 const STARTER_APPS = [
   'starter-app-nativewind',
-  'starter-app-raw',
+  'starter-app-stylesheets',
   'starter-app-tamagui'
 ];
 
