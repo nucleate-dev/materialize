@@ -472,8 +472,11 @@ export default function DevServerPage() {
     return () => clearInterval(interval);
   }, [ec2Details]);
 
-  const handleAutoConfigureFiles = async () => {
-    if (!ec2Details?.publicDns || !ec2Details?.publicIpv4) {
+  const handleAutoConfigureFiles = async (publicDns?: string, publicIpv4?: string) => {
+    const dns = publicDns || ec2Details?.publicDns;
+    const ipv4 = publicIpv4 || ec2Details?.publicIpv4;
+
+    if (!dns || !ipv4) {
       setError("Missing instance details for auto-configuration");
       return;
     }
@@ -489,8 +492,8 @@ export default function DevServerPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          publicDns: ec2Details.publicDns,
-          publicIpv4: ec2Details.publicIpv4,
+          publicDns: dns,
+          publicIpv4: ipv4,
         }),
       });
 
@@ -656,7 +659,7 @@ export default function DevServerPage() {
               // Auto-configure files if checkbox is selected
               if (autoConfigureFiles && instanceDetails.publicDns && instanceDetails.publicIpv4) {
                 console.log("[EC2 Acquire] Auto-configuring files...");
-                handleAutoConfigureFiles();
+                handleAutoConfigureFiles(instanceDetails.publicDns, instanceDetails.publicIpv4);
               }
             } else if (message.type === "instance-ready") {
               // Second step: instance is ready
