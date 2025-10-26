@@ -26,6 +26,7 @@ import { Database } from "@/lib/types/supabase";
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
+  Check,
   Loader2,
   Monitor,
   Plus,
@@ -36,7 +37,7 @@ import {
   Smartphone,
   X,
 } from "lucide-react";
-import {
+import React, {
   forwardRef,
   useCallback,
   useEffect,
@@ -48,6 +49,7 @@ import {
 interface MobileScreenConfig {
   id: number;
   path: string;
+  isEditing?: boolean; // Track if the badge is in edit mode
 }
 
 const normalizePath = (value: string) => {
@@ -159,11 +161,17 @@ const MaterializeRenderSection = forwardRef<
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(() =>
       viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
     );
+    const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
+    const [tempPath, setTempPath] = useState<string>("");
+    const [routeSuggestions, setRouteSuggestions] = useState<string[]>([]);
 
     const nextMobileScreenId = useRef(1);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
+
+    // Track iframe refs for each mobile screen to monitor navigation
+    const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
 
     useEffect(() => {
       if (!viewing_url) {
@@ -175,6 +183,77 @@ const MaterializeRenderSection = forwardRef<
       setMobileScreens([{ id: 0, path: extractInitialPath(viewing_url) }]);
       nextMobileScreenId.current = 1;
     }, [viewing_url]);
+
+    // Monitor iframe navigation to sync the path display
+    useEffect(() => {
+      const checkIframeNavigation = () => {
+        iframeRefs.current.forEach((iframe, screenId) => {
+          try {
+            // Try to access the iframe's current location
+            const iframeWindow = iframe.contentWindow;
+            if (!iframeWindow) return;
+
+            const iframeUrl = iframeWindow.location.href;
+            if (iframeUrl && viewing_url) {
+              const currentPath = extractInitialPath(iframeUrl);
+
+              // Update the screen's path if it has changed (but not if currently editing)
+              setMobileScreens((prev) =>
+                prev.map((screen) => {
+                  if (screen.id === screenId && screen.path !== currentPath && editingScreenId !== screenId) {
+                    return { ...screen, path: currentPath };
+                  }
+                  return screen;
+                }),
+              );
+            }
+          } catch (e) {
+            // Cross-origin restrictions will throw errors, which is expected
+            // We can't track navigation for cross-origin iframes
+            // For same-origin but client-side routed apps, this will still work
+          }
+        });
+      };
+
+      // Check periodically for navigation changes
+      const interval = setInterval(checkIframeNavigation, 200);
+      return () => clearInterval(interval);
+    }, [viewing_url, editingScreenId]);
+
+    // Listen for messages from iframe for client-side navigation tracking
+    useEffect(() => {
+      const handleMessage = (event: MessageEvent) => {
+        // Validate message origin matches viewing_url origin
+        try {
+          const viewingOrigin = new URL(viewing_url).origin;
+          if (event.origin !== viewingOrigin) return;
+        } catch {
+          return;
+        }
+
+        // Check if this is a navigation message
+        if (event.data?.type === "navigation" && event.data?.path) {
+          const newPath = event.data.path;
+
+          // Find which screen this iframe belongs to by matching the source
+          iframeRefs.current.forEach((iframe, screenId) => {
+            if (iframe.contentWindow === event.source) {
+              setMobileScreens((prev) =>
+                prev.map((screen) => {
+                  if (screen.id === screenId && screen.path !== newPath && editingScreenId !== screenId) {
+                    return { ...screen, path: newPath };
+                  }
+                  return screen;
+                }),
+              );
+            }
+          });
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+      return () => window.removeEventListener("message", handleMessage);
+    }, [viewing_url, editingScreenId]);
 
     const handleAddMobileScreen = () => {
       if (!viewing_url) return;
@@ -197,22 +276,100 @@ const MaterializeRenderSection = forwardRef<
       });
     };
 
-    const handleScreenPathChange = (id: number, value: string) => {
-      const normalized = normalizePath(value);
-      let didUpdate = false;
+    // Extract available routes from files
+    const availableRoutes = React.useMemo(() => {
+      if (!files) return [];
+
+      const routes: string[] = [];
+      Object.keys(files).forEach((filePath) => {
+        // Look for files in app/ directory that could be routes
+        if (filePath.startsWith("app/")) {
+          // Extract route from file path
+          // app/about/page.tsx -> /about
+          // app/(tabs)/index.tsx -> /
+          // app/(tabs)/profile.tsx -> /profile
+          const pathWithoutApp = filePath.replace(/^app\//, "");
+
+          // Handle page.tsx files
+          if (pathWithoutApp.includes("/page.")) {
+            const route = "/" + pathWithoutApp.split("/page.")[0].replace(/\(.*?\)\//g, "");
+            routes.push(route === "/" ? "/" : route);
+          }
+          // Handle index files
+          else if (pathWithoutApp.includes("/index.")) {
+            const route = "/" + pathWithoutApp.split("/index.")[0].replace(/\(.*?\)\//g, "");
+            routes.push(route === "/" ? "/" : route);
+          }
+          // Handle direct route files (e.g., app/profile.tsx)
+          else if (!pathWithoutApp.includes("/") && pathWithoutApp.match(/\.(tsx?|jsx?)$/)) {
+            const routeName = pathWithoutApp.split(".")[0];
+            if (routeName !== "page" && routeName !== "layout" && routeName !== "_layout") {
+              routes.push("/" + routeName);
+            }
+          }
+        }
+      });
+
+      return Array.from(new Set(routes)).sort();
+    }, [files]);
+
+    const handleBadgeClick = (id: number, currentPath: string) => {
+      setEditingScreenId(id);
+      setTempPath(currentPath);
+      // Filter suggestions based on current path
+      updateRouteSuggestions(currentPath);
+    };
+
+    const updateRouteSuggestions = (input: string) => {
+      if (!input || input === "/") {
+        setRouteSuggestions(availableRoutes.slice(0, 5));
+      } else {
+        const filtered = availableRoutes.filter((route) =>
+          route.toLowerCase().includes(input.toLowerCase())
+        );
+        setRouteSuggestions(filtered.slice(0, 5));
+      }
+    };
+
+    const handlePathInputChange = (value: string) => {
+      setTempPath(value);
+      updateRouteSuggestions(value);
+    };
+
+    const handleConfirmPathChange = (id: number) => {
+      const normalized = normalizePath(tempPath);
       setMobileScreens((prev) =>
         prev.map((screen) => {
-          if (screen.id === id && screen.path !== normalized) {
-            didUpdate = true;
+          if (screen.id === id && normalized !== screen.path) {
+            setIsIframeLoading(true);
+            setIframeError(false);
             return { ...screen, path: normalized };
           }
           return screen;
         }),
       );
-      if (didUpdate) {
-        setIsIframeLoading(true);
-        setIframeError(false);
+      setEditingScreenId(null);
+      setTempPath("");
+      setRouteSuggestions([]);
+    };
+
+    const handleCancelEdit = () => {
+      setEditingScreenId(null);
+      setTempPath("");
+      setRouteSuggestions([]);
+    };
+
+    const handlePathKeyDown = (id: number, e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleConfirmPathChange(id);
+      } else if (e.key === "Escape") {
+        handleCancelEdit();
       }
+    };
+
+    const handleSuggestionClick = (id: number, route: string) => {
+      setTempPath(route);
+      handleConfirmPathChange(id);
     };
 
     // Force refresh method
@@ -767,28 +924,6 @@ const MaterializeRenderSection = forwardRef<
                         key={`mobile-screen-${screen.id}`}
                         className="flex flex-col items-center gap-2"
                       >
-                        <div className="flex items-center gap-1 bg-background/70 backdrop-blur-sm border border-border/50 px-2 py-0.5 rounded-md shadow-sm">
-                          <Input
-                            value={screen.path}
-                            onChange={(event) =>
-                              handleScreenPathChange(screen.id, event.target.value)
-                            }
-                            className="h-6 w-28 text-xs text-center border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
-                            placeholder="/"
-                          />
-                          {mobileScreens.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 hover:bg-destructive/10"
-                              onClick={() => handleRemoveMobileScreen(screen.id)}
-                              aria-label="Remove screen"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
-
                         <div
                           className="relative mx-auto select-none"
                           style={{
@@ -797,9 +932,71 @@ const MaterializeRenderSection = forwardRef<
                           }}
                         >
                           {mobileScreens.length > 1 && (
-                            <Badge className="absolute -top-6 left-1/2 -translate-x-1/2">
-                              {screen.path || "/"}
-                            </Badge>
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-20">
+                              {editingScreenId === screen.id ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border px-2 py-1 rounded-md shadow-lg">
+                                    <Input
+                                      value={tempPath}
+                                      onChange={(e) => handlePathInputChange(e.target.value)}
+                                      onKeyDown={(e) => handlePathKeyDown(screen.id, e)}
+                                      className="h-6 w-32 text-xs text-center border-0 bg-transparent focus-visible:ring-1 focus-visible:ring-primary px-1"
+                                      placeholder="/"
+                                      autoFocus
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 hover:bg-green-500/10"
+                                      onClick={() => handleConfirmPathChange(screen.id)}
+                                      aria-label="Confirm path change"
+                                    >
+                                      <Check className="w-3 h-3 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 hover:bg-destructive/10"
+                                      onClick={handleCancelEdit}
+                                      aria-label="Cancel edit"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                  {routeSuggestions.length > 0 && (
+                                    <div className="bg-background/95 backdrop-blur-sm border border-border rounded-md shadow-lg overflow-hidden">
+                                      {routeSuggestions.map((route) => (
+                                        <button
+                                          key={route}
+                                          onClick={() => handleSuggestionClick(screen.id, route)}
+                                          className="block w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                                        >
+                                          {route}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    className="cursor-pointer hover:bg-primary/90 transition-colors"
+                                    onClick={() => handleBadgeClick(screen.id, screen.path)}
+                                  >
+                                    {screen.path || "/"}
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 hover:bg-destructive/10"
+                                    onClick={() => handleRemoveMobileScreen(screen.id)}
+                                    aria-label="Remove screen"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           )}
                           <div
                             className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
@@ -844,14 +1041,16 @@ const MaterializeRenderSection = forwardRef<
                               <div className="relative w-full h-full">
                                 <iframe
                                   key={`mobile-${screen.id}-${refreshKey}`}
-                                  ref={
-                                    isPrimaryScreen
-                                      ? (c) => {
-                                          webPreviewRef.current =
-                                            c?.contentWindow ?? null;
-                                        }
-                                      : undefined
-                                  }
+                                  ref={(c) => {
+                                    if (c) {
+                                      iframeRefs.current.set(screen.id, c);
+                                      if (isPrimaryScreen) {
+                                        webPreviewRef.current = c.contentWindow ?? null;
+                                      }
+                                    } else {
+                                      iframeRefs.current.delete(screen.id);
+                                    }
+                                  }}
                                   className="w-full h-full"
                                   title="React Native Preview"
                                   aria-label={`React Native Preview ${screen.path}`}
