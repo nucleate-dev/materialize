@@ -194,7 +194,8 @@ const MaterializeRenderSection = forwardRef<
             if (!iframeWindow) return;
 
             const iframeUrl = iframeWindow.location.href;
-            if (iframeUrl && viewing_url) {
+            // Ignore about:blank URLs (used during refresh operations)
+            if (iframeUrl && viewing_url && !iframeUrl.startsWith("about:")) {
               const currentPath = extractInitialPath(iframeUrl);
 
               // Update the screen's path if it has changed (but not if currently editing)
