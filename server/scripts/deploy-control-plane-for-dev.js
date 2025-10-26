@@ -5,8 +5,9 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-3-143-211-149.us-east-2.compute.amazonaws.com";
-const SSH_OPTS = "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts";
+const HOST = "ec2-3-14-148-160.us-east-2.compute.amazonaws.com";
+const SSH_OPTS =
+  "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts";
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
@@ -57,7 +58,9 @@ function fullDeploy() {
   );
 
   console.log("==> Copying zip to EC2...");
-  run(`scp ${SSH_OPTS} -i "${KEY_PATH}" ${localZip} ${USER}@${HOST}:${remoteZip}`);
+  run(
+    `scp ${SSH_OPTS} -i "${KEY_PATH}" ${localZip} ${USER}@${HOST}:${remoteZip}`,
+  );
 
   console.log("==> Unzipping remotely & installing dependencies...");
   const script = `
@@ -68,7 +71,7 @@ function fullDeploy() {
     cd ${remoteBase}
     if [ -f package.json ]; then
       unset NODE_ENV
-      npm_config_production=false npm install --no-audit --no-fund || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund)
+      npm_config_production=false npm install --no-audit --no-fund -d || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund -d)
       if ! npx --yes tsx --version >/dev/null 2>&1; then npm install -D tsx; fi
       if ! npx --yes nodemon --version >/dev/null 2>&1; then npm install -D nodemon ts-node; fi
     fi
@@ -141,9 +144,9 @@ function selectiveDeploy(paths) {
     if [ -f package.json ]; then
       unset NODE_ENV
       if [ -f package-lock.json ]; then
-        npm_config_production=false npm install --no-audit --no-fund || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund)
+        npm_config_production=false npm install --no-audit --no-fund -d || (unset NODE_ENV; npm_config_production=false npm install --no-audit --no-fund -d)
       else
-        npm_config_production=false npm install --no-audit --no-fund
+        npm_config_production=false npm install --no-audit --no-fund -d
       fi
       if ! npx --yes tsx --version >/dev/null 2>&1; then npm install -D tsx; fi
       if ! npx --yes nodemon --version >/dev/null 2>&1; then npm install -D nodemon ts-node; fi
