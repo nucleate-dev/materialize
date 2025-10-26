@@ -655,25 +655,33 @@ export class ChatEngineV1 {
       );
 
       // 1. Insert simple messages into prototype_chat_messages table
-      const messagesToInsert = [
-        {
-          chat_session_id: chatSessionId,
-          role: 'assistant' as const,
-          content: assistantResponse,
-        },
-        {
+      // Insert sequentially to ensure correct ordering by created_at timestamp
+
+      // Insert user message first
+      const { error: userMessageError } = await supabaseServiceRoleClient
+        .from('prototype_chat_messages')
+        .insert({
           chat_session_id: chatSessionId,
           role: 'user' as const,
           content: userMessage,
-        },
-      ];
+        });
 
-      const { error: messagesError } = await supabaseServiceRoleClient
+      if (userMessageError) {
+        log2.error('Failed to insert user message:', userMessageError.message);
+        return;
+      }
+
+      // Insert assistant message second
+      const { error: assistantMessageError } = await supabaseServiceRoleClient
         .from('prototype_chat_messages')
-        .insert(messagesToInsert);
+        .insert({
+          chat_session_id: chatSessionId,
+          role: 'assistant' as const,
+          content: assistantResponse,
+        });
 
-      if (messagesError) {
-        log2.error('Failed to insert chat messages:', messagesError.message);
+      if (assistantMessageError) {
+        log2.error('Failed to insert assistant message:', assistantMessageError.message);
         return;
       }
 
