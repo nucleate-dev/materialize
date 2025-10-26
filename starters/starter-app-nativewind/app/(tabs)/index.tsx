@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
   return (
@@ -19,9 +19,9 @@ export default function HomeScreen() {
 
       <TouchableOpacity
         className="mt-4 rounded-lg bg-blue-500 px-6 py-3 dark:bg-blue-600"
-        onPress={() => console.log('Button pressed!')}
+        onPress={() => Alert.alert('Button pressed!')}
       >
-        <Text className="text-base font-semibold text-white">Get Started</Text>
+        <Text className="text-base font-semibold text-white">Press Me!</Text>
       </TouchableOpacity>
     </View>
   );

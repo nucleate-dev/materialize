@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { Button, H1, Paragraph, Separator, Text, YStack } from 'tamagui';
 
 export default function HomeScreen() {
@@ -27,10 +28,10 @@ export default function HomeScreen() {
       <Button
         size="$4"
         theme="active"
-        onPress={() => console.log('Button pressed!')}
+        onPress={() => Alert.alert('Button pressed!')}
         marginTop="$4"
       >
-        Get Started
+        Press Me!
       </Button>
     </YStack>
   );
