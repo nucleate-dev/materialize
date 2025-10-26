@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -67,7 +68,7 @@ type InstanceStatus = "not-ready" | "ready" | "checking" | "terminated";
 
 export default function DevServerPage() {
   const [ec2ServerName, setEc2ServerName] = useState("");
-  const [instanceType, setInstanceType] = useState("t3.medium");
+  const [instanceType, setInstanceType] = useState("t3.micro");
   const [lifespanHours, setLifespanHours] = useState("3");
   const [ec2Loading, setEc2Loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export default function DevServerPage() {
   const [configuringFiles, setConfiguringFiles] = useState(false);
   const [configureSuccess, setConfigureSuccess] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
+  const [autoConfigureFiles, setAutoConfigureFiles] = useState(false);
 
   // Load instance from localStorage on mount
   useEffect(() => {
@@ -650,6 +652,12 @@ export default function DevServerPage() {
                 lifespanHours: parseInt(lifespanHours, 10),
                 instanceType,
               });
+
+              // Auto-configure files if checkbox is selected
+              if (autoConfigureFiles && instanceDetails.publicDns && instanceDetails.publicIpv4) {
+                console.log("[EC2 Acquire] Auto-configuring files...");
+                handleAutoConfigureFiles();
+              }
             } else if (message.type === "instance-ready") {
               // Second step: instance is ready
               const instanceDetails = {
@@ -770,6 +778,21 @@ export default function DevServerPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Checkbox
+                    id="auto-configure"
+                    checked={autoConfigureFiles}
+                    onCheckedChange={(checked) => setAutoConfigureFiles(checked as boolean)}
+                    disabled={ec2Loading}
+                  />
+                  <Label
+                    htmlFor="auto-configure"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Auto-configure files after instance creation
+                  </Label>
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -824,7 +847,7 @@ export default function DevServerPage() {
                   {ec2Details && (
                     <Button
                       onClick={handleAutoConfigureFiles}
-                      disabled={configuringFiles || instanceStatus !== "ready"}
+                      disabled={configuringFiles}
                       size="sm"
                       className="bg-black text-white hover:bg-black/90 disabled:bg-black/50"
                     >
@@ -1069,7 +1092,7 @@ export default function DevServerPage() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={handleDeployAll}
-                      disabled={isDeploying}
+                      disabled={isDeploying || instanceStatus !== "ready"}
                       className="flex items-center gap-2"
                     >
                       {deployingAll ? (
@@ -1087,7 +1110,9 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
-                      Run the full dev control plane deploy script.
+                      {instanceStatus !== "ready"
+                        ? "Wait for the EC2 instance to be ready before deploying."
+                        : "Run the full dev control plane deploy script."}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1097,7 +1122,7 @@ export default function DevServerPage() {
                     <Button
                       variant="secondary"
                       onClick={handleDeployChanged}
-                      disabled={isDeploying || !hasChangedFiles}
+                      disabled={isDeploying || !hasChangedFiles || instanceStatus !== "ready"}
                       className="flex items-center gap-2"
                     >
                       {deployingChanged ? (
@@ -1115,7 +1140,9 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
-                      Deploy only files detected as git changes.
+                      {instanceStatus !== "ready"
+                        ? "Wait for the EC2 instance to be ready before deploying."
+                        : "Deploy only files detected as git changes."}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1125,7 +1152,7 @@ export default function DevServerPage() {
                     <Button
                       variant="outline"
                       onClick={handleDeploySelected}
-                      disabled={isDeploying || !hasSelection}
+                      disabled={isDeploying || !hasSelection || instanceStatus !== "ready"}
                       className="flex items-center gap-2"
                     >
                       {deployingSelected ? (
@@ -1143,7 +1170,9 @@ export default function DevServerPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
-                      Deploy only the paths you have checked in the explorer.
+                      {instanceStatus !== "ready"
+                        ? "Wait for the EC2 instance to be ready before deploying."
+                        : "Deploy only the paths you have checked in the explorer."}
                     </p>
                   </TooltipContent>
                 </Tooltip>
