@@ -5,6 +5,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import NewPrototypeModal from "@/components/dashboard/NewPrototypeModal";
 import PrototypeSettingsModal from "@/components/dashboard/PrototypeSettingsModal";
 import PrototypeThumbnail from "@/components/dashboard/PrototypeThumbnail";
+import PrototypeThumbnailSkeleton from "@/components/dashboard/PrototypeThumbnailSkeleton";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,7 +16,7 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -136,36 +137,35 @@ export default function PrototypesPage() {
       />
 
       {/* Prototypes Grid */}
-      {isLoading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {prototypes.length > 0 ? (
-            prototypes.map((prototype) => (
-              <PrototypeThumbnail
-                key={prototype.id}
-                prototypeName={prototype.name}
-                prototypeId={prototype.id}
-                thumbnailUrl={prototype.thumbnail_url}
-                lastModified={
-                  prototype.updated_at
-                    ? new Date(prototype.updated_at).toLocaleDateString()
-                    : new Date(prototype.created_at!).toLocaleDateString()
-                }
-                onView={() => router.push(`/prototype/${prototype.id}`)}
-                onEdit={() =>
-                  router.push(`/dashboard/prototypes/${prototype.id}`)
-                }
-                onSettings={() => handleOpenSettings(prototype)}
-              />
-            ))
-          ) : (
-            <EmptyState type="prototypes" onButtonClick={handleOpenModal} />
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {isLoading ? (
+          // Show 8 skeleton cards while loading
+          Array.from({ length: 8 }).map((_, index) => (
+            <PrototypeThumbnailSkeleton key={index} />
+          ))
+        ) : prototypes.length > 0 ? (
+          prototypes.map((prototype) => (
+            <PrototypeThumbnail
+              key={prototype.id}
+              prototypeName={prototype.name}
+              prototypeId={prototype.id}
+              thumbnailUrl={prototype.thumbnail_url}
+              lastModified={
+                prototype.updated_at
+                  ? new Date(prototype.updated_at).toLocaleDateString()
+                  : new Date(prototype.created_at!).toLocaleDateString()
+              }
+              onView={() => router.push(`/prototype/${prototype.id}`)}
+              onEdit={() =>
+                router.push(`/dashboard/prototypes/${prototype.id}`)
+              }
+              onSettings={() => handleOpenSettings(prototype)}
+            />
+          ))
+        ) : (
+          <EmptyState type="prototypes" onButtonClick={handleOpenModal} />
+        )}
+      </div>
 
       <PrototypeSettingsModal
         open={settingsOpen}

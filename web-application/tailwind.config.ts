@@ -305,6 +305,14 @@ const config: Config = {
             transform: "translate(-20px, 20px) rotate(240deg)",
           },
         },
+        shimmer: {
+          "0%": {
+            backgroundPosition: "200% 0",
+          },
+          "100%": {
+            backgroundPosition: "-200% 0",
+          },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -328,6 +336,7 @@ const config: Config = {
         "spin-1.5": "spin 1.5s linear infinite",
         "spin-2": "spin 2s linear infinite",
         "spin-3": "spin 3s linear infinite",
+        shimmer: "shimmer 2s linear infinite",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
