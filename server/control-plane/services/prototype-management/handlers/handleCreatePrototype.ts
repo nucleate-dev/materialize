@@ -40,9 +40,6 @@ const VALID_DESIGN_STYLES: DesignStyle[] = [
   'custom',
 ];
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value);
-
 export async function handleCreatePrototypeImpl(
   request: FastifyRequest<{ Body: CreatePrototypeRequestBody }>,
   reply: FastifyReply,
@@ -160,7 +157,7 @@ export async function handleCreatePrototypeImpl(
     if (!resolvedDesignStyle && project_id) {
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
-        .select('project_context')
+        .select('default_design_style, custom_design_system')
         .eq('id', project_id)
         .single();
 
@@ -169,30 +166,24 @@ export async function handleCreatePrototypeImpl(
           projectError,
           '[handleCreatePrototype] Failed to fetch project for default design system',
         );
-      } else if (
-        projectData?.project_context &&
-        isRecord(projectData.project_context)
-      ) {
-        const defaultDesignSystem = (
-          projectData.project_context as Record<string, unknown>
-        )['defaultDesignSystem'];
+      } else if (projectData) {
+        // 1. Use the project's default_design_style if it's valid
+        const projectStyle = projectData.default_design_style;
+        if (
+          typeof projectStyle === 'string' &&
+          VALID_DESIGN_STYLES.includes(projectStyle as DesignStyle)
+        ) {
+          resolvedDesignStyle = projectStyle as DesignStyle;
+        }
 
-        if (isRecord(defaultDesignSystem)) {
-          const defaultStyle = defaultDesignSystem['design_style'];
-          if (
-            typeof defaultStyle === 'string' &&
-            VALID_DESIGN_STYLES.includes(defaultStyle as DesignStyle)
-          ) {
-            resolvedDesignStyle = defaultStyle as DesignStyle;
-          }
-
-          const defaultCustom = defaultDesignSystem['custom_design_system'];
-          if (
-            typeof defaultCustom === 'string' ||
-            typeof defaultCustom === 'number'
-          ) {
-            resolvedCustomDesignSystem = String(defaultCustom);
-          }
+        // 2. If that style is "custom", inherit the project's custom_design_system UUID
+        //    (only if we don't already have one)
+        if (
+          resolvedDesignStyle === 'custom' &&
+          !resolvedCustomDesignSystem &&
+          projectData.custom_design_system
+        ) {
+          resolvedCustomDesignSystem = String(projectData.custom_design_system);
         }
       }
     }

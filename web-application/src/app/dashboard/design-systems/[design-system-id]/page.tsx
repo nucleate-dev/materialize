@@ -1,7 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/ClientConstants";
 import {
   AlertDialog,
@@ -16,12 +14,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { ArrowLeft, Loader2, Trash } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
@@ -178,7 +177,7 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
     editedDesignRules !== (designSystem.design_rules ?? "")
   );
 
-  if (isLoading) {
+  if (isLoading || !designSystem) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <div className="flex justify-center py-20">
@@ -186,10 +185,6 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
         </div>
       </div>
     );
-  }
-
-  if (!designSystem) {
-    return null;
   }
 
   return (

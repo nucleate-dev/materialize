@@ -23,9 +23,9 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
+  CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
-  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -185,7 +185,7 @@ export default function NewPrototypeModal({
           });
           return;
         }
-        setDesignSystems(data || []);
+        setDesignSystems(data as DesignSystemRow[] || []);
       } catch (error) {
         logger.debug("error", "Error fetching design systems:", {
           error: error instanceof Error ? error.message : String(error),
@@ -451,11 +451,10 @@ export default function NewPrototypeModal({
                 placeholder="e.g. E-commerce Mobile App ✨"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className={`h-12 text-lg ${
-                  touched && !name.trim()
+                className={`h-12 text-lg ${touched && !name.trim()
                     ? "border-destructive focus-visible:ring-destructive"
                     : "focus-visible:ring-primary"
-                }`}
+                  }`}
                 autoFocus
                 maxLength={64}
               />
