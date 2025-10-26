@@ -113,6 +113,27 @@ export type Database = {
           },
         ];
       };
+      design_system_files: {
+        Row: {
+          id: number;
+          created_at: string;
+          file_name: string;
+          file_contents: Json;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          file_name: string;
+          file_contents: Json;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          file_name?: string;
+          file_contents?: Json;
+        };
+        Relationships: [];
+      };
       canvas_sessions: {
         Row: {
           canvas_id: string;
