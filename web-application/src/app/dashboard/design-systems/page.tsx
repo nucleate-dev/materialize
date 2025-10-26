@@ -1,7 +1,7 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/ClientConstants";
 import {
@@ -87,7 +87,7 @@ export default function DesignSystemsPage(): JSX.Element {
     try {
       const { data, error } = await supabase
         .from("design_systems")
-        .select("id, name, description, design_rules, updated_at, created_at")
+        .select("id, name, description, design_rules, updated_at, created_at, owner_id")
         .eq("owner_id", userId)
         .order("updated_at", { ascending: false });
 
@@ -99,7 +99,7 @@ export default function DesignSystemsPage(): JSX.Element {
         return;
       }
 
-      setDesignSystems(data ?? []);
+      setDesignSystems(data as DesignSystemRow[] ?? []);
     } catch (error) {
       logger.debug("error", "Unexpected error fetching design systems:", {
         error: error instanceof Error ? error.message : String(error),
