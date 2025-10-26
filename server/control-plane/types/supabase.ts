@@ -590,7 +590,7 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
-      design_style: 'tamagui' | 'stylesheets' | 'nativewind' | 'custom';
+      design_style: 'tamagui' | 'stylesheets' | 'nativewind';
       chat_role: 'user' | 'assistant';
       file_type: 'text' | 'asset';
       subscription_plan_type: 'free' | 'team' | 'pro';

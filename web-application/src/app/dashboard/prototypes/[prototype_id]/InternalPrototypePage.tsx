@@ -69,14 +69,12 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
   "tamagui",
   "nativewind",
   "stylesheets",
-  "custom",
 ];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
   nativewind: "NativeWind + Gluestack",
   stylesheets: "React Native StyleSheet",
-  custom: "Custom",
 };
 
 export type RenderStatus =
@@ -136,20 +134,14 @@ export default function InternalPrototypePage() {
     (prototype?.design_style as DesignStyle | undefined) ?? "tamagui";
   const currentCustomDesignSystemId = prototype?.custom_design_system ?? null;
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
-  const currentCustomDesignSystemName =
-    currentDesignStyle === "custom"
-      ? designSystems.find(
-          (system) => String(system.id) === currentCustomDesignSystemId,
-        )?.name ||
-        (currentCustomDesignSystemId ? "Custom design system" : undefined)
-      : undefined;
+  const currentCustomDesignSystemName = currentCustomDesignSystemId
+    ? designSystems.find(
+        (system) => String(system.id) === currentCustomDesignSystemId,
+      )?.name || "Custom design system"
+    : undefined;
 
   const hasCustomDesignSystems = designSystems.length > 0;
-  const dialogConfirmDisabled =
-    !dialogDesignStyle ||
-    (dialogDesignStyle === "custom" &&
-      (!dialogCustomDesignSystem || !hasCustomDesignSystems)) ||
-    isUpdatingDesignSystem;
+  const dialogConfirmDisabled = !dialogDesignStyle || isUpdatingDesignSystem;
 
   // Automatically collapse sidebar when prototype editor loads
   useEffect(() => {
@@ -197,29 +189,19 @@ export default function InternalPrototypePage() {
       return;
     }
 
-    if (dialogDesignStyle !== "custom") {
-      return;
-    }
-
-    if (designSystems.length > 0) {
+    // Validate that the selected custom design system still exists
+    if (dialogCustomDesignSystem && designSystems.length > 0) {
       const exists = designSystems.some(
         (system) => String(system.id) === dialogCustomDesignSystem,
       );
       if (!exists) {
-        setDialogCustomDesignSystem(String(designSystems[0].id));
+        setDialogCustomDesignSystem(null);
       }
-      return;
-    }
-
-    if (!isLoadingDesignSystems) {
-      setDialogCustomDesignSystem(null);
     }
   }, [
     isDesignSystemDialogOpen,
-    dialogDesignStyle,
     dialogCustomDesignSystem,
     designSystems,
-    isLoadingDesignSystems,
   ]);
 
   // Mobile detection and resize handling
@@ -548,11 +530,7 @@ export default function InternalPrototypePage() {
       return;
     }
     setDialogDesignStyle(prototype.design_style);
-    setDialogCustomDesignSystem(
-      prototype.design_style === "custom"
-        ? prototype.custom_design_system
-        : null,
-    );
+    setDialogCustomDesignSystem(prototype.custom_design_system);
     setIsDesignSystemDialogOpen(true);
   };
 
@@ -562,12 +540,7 @@ export default function InternalPrototypePage() {
       return;
     }
 
-    const nextCustomDesignSystem =
-      dialogDesignStyle === "custom" ? dialogCustomDesignSystem : null;
-
-    if (dialogDesignStyle === "custom" && !nextCustomDesignSystem) {
-      return;
-    }
+    const nextCustomDesignSystem = dialogCustomDesignSystem;
 
     if (
       dialogDesignStyle === prototype.design_style &&
@@ -860,8 +833,8 @@ export default function InternalPrototypePage() {
                         onRenderStatusChange={setCurrentRenderStatus}
                         designSystemLabel={
                           canEditDesignSystem
-                            ? currentDesignStyle === "custom"
-                              ? currentCustomDesignSystemName || designSystemBadgeLabel
+                            ? currentCustomDesignSystemName
+                              ? `${designSystemBadgeLabel} + ${currentCustomDesignSystemName}`
                               : designSystemBadgeLabel
                             : undefined
                         }
@@ -924,73 +897,59 @@ export default function InternalPrototypePage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
-                Design System
+                Design Style
               </p>
               <Select
                 value={(dialogDesignStyle ?? currentDesignStyle) as DesignStyle}
                 onValueChange={(value) => {
                   const nextStyle = value as DesignStyle;
                   setDialogDesignStyle(nextStyle);
-                  if (nextStyle === "custom") {
-                    if (!dialogCustomDesignSystem && hasCustomDesignSystems) {
-                      setDialogCustomDesignSystem(String(designSystems[0].id));
-                    }
-                  } else {
-                    setDialogCustomDesignSystem(null);
-                  }
                 }}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Choose a design system" />
+                  <SelectValue placeholder="Choose a design style" />
                 </SelectTrigger>
                 <SelectContent>
                   {DESIGN_STYLE_OPTIONS.map((style) => (
-                    <SelectItem
-                      key={style}
-                      value={style}
-                      disabled={style === "custom" && !hasCustomDesignSystems}
-                    >
+                    <SelectItem key={style} value={style}>
                       {DESIGN_STYLE_LABELS[style]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {dialogDesignStyle === "custom" && !hasCustomDesignSystems && (
-                <p className="text-xs text-muted-foreground">
-                  Add a custom design system in the dashboard to enable this option.
-                </p>
-              )}
             </div>
-            {dialogDesignStyle === "custom" && (
+            {hasCustomDesignSystems && (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
-                  Custom Design System
+                  Custom Design System <span className="text-muted-foreground font-normal lowercase">(Optional)</span>
                 </p>
                 {isLoadingDesignSystems ? (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                     Loading design systems...
                   </div>
-                ) : hasCustomDesignSystems ? (
-                  <Select
-                    value={dialogCustomDesignSystem ?? undefined}
-                    onValueChange={(value) => setDialogCustomDesignSystem(value)}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select a design system" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {designSystems.map((system) => (
-                        <SelectItem key={system.id} value={String(system.id)}>
-                          {system.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No custom design systems available.
-                  </p>
+                  <>
+                    <Select
+                      value={dialogCustomDesignSystem ?? "none"}
+                      onValueChange={(value) => setDialogCustomDesignSystem(value === "none" ? null : value)}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="No custom design system" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No custom design system</SelectItem>
+                        {designSystems.map((system) => (
+                          <SelectItem key={system.id} value={String(system.id)}>
+                            {system.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Apply custom design rules on top of the selected design style
+                    </p>
+                  </>
                 )}
               </div>
             )}

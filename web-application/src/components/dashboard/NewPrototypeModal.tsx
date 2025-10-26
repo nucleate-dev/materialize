@@ -59,14 +59,12 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
   "tamagui",
   "nativewind",
   "stylesheets",
-  "custom",
 ];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
   nativewind: "NativeWind + Gluestack",
   stylesheets: "React Native StyleSheet",
-  custom: "Custom",
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -241,16 +239,14 @@ export default function NewPrototypeModal({
 
           if (isDesignStyle(styleCandidate)) {
             setDesignStyle(styleCandidate);
-            if (
-              styleCandidate === "custom" &&
-              (typeof customCandidate === "string" || typeof customCandidate === "number")
-            ) {
-              setCustomDesignSystemId(String(customCandidate));
-            } else {
-              setCustomDesignSystemId(null);
-            }
-            return;
           }
+
+          if (typeof customCandidate === "string" || typeof customCandidate === "number") {
+            setCustomDesignSystemId(String(customCandidate));
+          } else {
+            setCustomDesignSystemId(null);
+          }
+          return;
         }
       }
     }
@@ -264,32 +260,19 @@ export default function NewPrototypeModal({
       return;
     }
 
-    if (designStyle !== "custom") {
-      if (customDesignSystemId !== null) {
-        setCustomDesignSystemId(null);
-      }
-      return;
-    }
-
-    if (designSystems.length > 0) {
+    // Validate that the selected custom design system still exists
+    if (customDesignSystemId && designSystems.length > 0) {
       const selectedExists = designSystems.some(
         (system) => String(system.id) === customDesignSystemId,
       );
       if (!selectedExists) {
-        setCustomDesignSystemId(String(designSystems[0].id));
+        setCustomDesignSystemId(null);
       }
-      return;
-    }
-
-    if (!isLoadingDesignSystems) {
-      setCustomDesignSystemId(null);
     }
   }, [
     open,
-    designStyle,
     designSystems,
     customDesignSystemId,
-    isLoadingDesignSystems,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -299,10 +282,6 @@ export default function NewPrototypeModal({
 
     // Check prototype limit for FREE users
     if (userPlan !== "pro" && prototypeCount >= 5) {
-      return;
-    }
-
-    if (designStyle === "custom" && (!customDesignSystemId || designSystems.length === 0)) {
       return;
     }
 
@@ -334,8 +313,7 @@ export default function NewPrototypeModal({
           project_id: selectedProject || undefined,
           visibility,
           design_style: designStyle,
-          custom_design_system:
-            designStyle === "custom" ? customDesignSystemId ?? undefined : undefined,
+          custom_design_system: customDesignSystemId ?? undefined,
         } as CreatePrototypeRequestBody),
       });
 
@@ -506,7 +484,7 @@ export default function NewPrototypeModal({
             </div>
             <div className="space-y-2">
               <Label htmlFor="design-style" className="text-sm font-semibold">
-                Design System
+                Design Style
               </Label>
               <Select
                 value={designStyle}
@@ -514,54 +492,44 @@ export default function NewPrototypeModal({
                   const nextStyle = value as DesignStyle;
                   setDesignStyle(nextStyle);
                   setHasManualDesignSelection(true);
-                  if (nextStyle !== "custom") {
-                    setCustomDesignSystemId(null);
-                  }
                 }}
               >
                 <SelectTrigger id="design-style" className="h-12">
                   <div className="flex items-center gap-2">
                     <SwatchIcon className="w-4 h-4 text-primary" />
-                    <SelectValue placeholder="Choose a design system" />
+                    <SelectValue placeholder="Choose a design style" />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
                   {DESIGN_STYLE_OPTIONS.map((style) => (
-                    <SelectItem
-                      key={style}
-                      value={style}
-                      disabled={style === "custom" && designSystems.length === 0}
-                    >
+                    <SelectItem key={style} value={style}>
                       {DESIGN_STYLE_LABELS[style]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {designStyle === "custom" && designSystems.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Create a custom design system in the dashboard to use this option.
-                </p>
-              )}
             </div>
-            {designStyle === "custom" && designSystems.length > 0 && (
+            {designSystems.length > 0 && (
               <div className="space-y-2">
                 <Label
                   htmlFor="custom-design-system"
                   className="text-sm font-semibold"
                 >
-                  Custom Design System
+                  Custom Design System <span className="text-muted-foreground font-normal">(Optional)</span>
                 </Label>
                 <Select
-                  value={customDesignSystemId ?? undefined}
+                  value={customDesignSystemId ?? "none"}
                   onValueChange={(value) => {
-                    setCustomDesignSystemId(value);
+                    const systemValue = value === "none" ? null : value;
+                    setCustomDesignSystemId(systemValue);
                     setHasManualDesignSelection(true);
                   }}
                 >
                   <SelectTrigger id="custom-design-system" className="h-12">
-                    <SelectValue placeholder="Select a design system" />
+                    <SelectValue placeholder="No custom design system" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">No custom design system</SelectItem>
                     {designSystems.map((system) => (
                       <SelectItem key={system.id} value={String(system.id)}>
                         {system.name}
@@ -574,6 +542,9 @@ export default function NewPrototypeModal({
                     Loading design systems...
                   </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Apply custom design rules on top of the selected design style
+                </p>
               </div>
             )}
             <div className="space-y-2">
@@ -612,8 +583,7 @@ export default function NewPrototypeModal({
               disabled={
                 isCreating ||
                 !name.trim() ||
-                (userPlan !== "pro" && prototypeCount >= 5) ||
-                (designStyle === "custom" && (!customDesignSystemId || designSystems.length === 0))
+                (userPlan !== "pro" && prototypeCount >= 5)
               }
               className="w-full h-12"
             >

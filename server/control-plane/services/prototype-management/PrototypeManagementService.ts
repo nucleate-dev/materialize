@@ -1,22 +1,22 @@
 import { S3Client } from '@aws-sdk/client-s3';
+import { GlideClient } from '@valkey/valkey-glide';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type {
   APIResponse,
+  CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
-  CreatePrototypeErrorResponse,
-  DeletePrototypeSuccessResponse,
   DeletePrototypeErrorResponse,
+  DeletePrototypeSuccessResponse,
   FetchViewingUrlRequestBody,
   FetchViewingUrlSuccessResponse,
   StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
-import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
-import handleResetPrototypeImpl from './handlers/handleResetPrototype.js';
-import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
-import { GlideClient } from '@valkey/valkey-glide';
-import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
+import { handleCreatePrototypeImpl } from './handlers/handleCreatePrototype.js';
+import handleDeletePrototypeImpl from './handlers/handleDeletePrototype.js';
+import handleFetchViewingUrlImpl from './handlers/handleFetchViewingUrl.js';
+import handleResetPrototypeImpl from './handlers/handleResetPrototype.js';
 
 export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
@@ -93,7 +93,7 @@ export class PrototypeManagementService {
               },
               design_style: {
                 type: 'string',
-                enum: ['tamagui', 'stylesheets', 'nativewind', 'custom'],
+                enum: ['tamagui', 'stylesheets', 'nativewind'],
               },
               custom_design_system: {
                 type: ['string', 'null'],

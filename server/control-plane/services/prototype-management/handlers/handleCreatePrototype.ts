@@ -37,7 +37,6 @@ const VALID_DESIGN_STYLES: DesignStyle[] = [
   'tamagui',
   'stylesheets',
   'nativewind',
-  'custom',
 ];
 
 export async function handleCreatePrototypeImpl(
@@ -123,11 +122,7 @@ export async function handleCreatePrototypeImpl(
     let resolvedCustomDesignSystem: string | null =
       custom_design_system ?? null;
 
-    if (
-      forkPrototypeId &&
-      (!resolvedDesignStyle ||
-        (resolvedDesignStyle === 'custom' && !resolvedCustomDesignSystem))
-    ) {
+    if (forkPrototypeId) {
       const { data: sourcePrototype, error: sourcePrototypeError } =
         await supabase
           .from('prototypes')
@@ -145,7 +140,6 @@ export async function handleCreatePrototypeImpl(
           resolvedDesignStyle = sourcePrototype.design_style;
         }
         if (
-          resolvedDesignStyle === 'custom' &&
           !resolvedCustomDesignSystem &&
           sourcePrototype.custom_design_system
         ) {
@@ -176,10 +170,8 @@ export async function handleCreatePrototypeImpl(
           resolvedDesignStyle = projectStyle as DesignStyle;
         }
 
-        // 2. If that style is "custom", inherit the project's custom_design_system UUID
-        //    (only if we don't already have one)
+        // 2. Inherit the project's custom_design_system UUID if we don't already have one
         if (
-          resolvedDesignStyle === 'custom' &&
           !resolvedCustomDesignSystem &&
           projectData.custom_design_system
         ) {
@@ -190,10 +182,6 @@ export async function handleCreatePrototypeImpl(
 
     if (!resolvedDesignStyle) {
       resolvedDesignStyle = 'tamagui';
-    }
-
-    if (resolvedDesignStyle !== 'custom') {
-      resolvedCustomDesignSystem = null;
     }
 
     const { data: newPrototype, error: prototypeInsertError } = await supabase

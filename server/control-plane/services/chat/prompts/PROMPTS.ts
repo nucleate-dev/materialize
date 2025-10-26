@@ -1,6 +1,10 @@
-export const DESIGN_STYLE_KEYS = ['tamagui', 'stylesheets', 'nativewind', 'custom'] as const;
+export const DESIGN_STYLE_KEYS = [
+  'tamagui',
+  'stylesheets',
+  'nativewind',
+] as const;
 
-export type DesignStyleKey = typeof DESIGN_STYLE_KEYS[number];
+export type DesignStyleKey = (typeof DESIGN_STYLE_KEYS)[number];
 
 export interface PromptConfig {
   system: string;
@@ -60,19 +64,6 @@ const STYLE_DETAILS: Record<DesignStyleKey, StyleDetail> = {
     visualGuidance:
       '- Define styling in `StyleSheet.create` objects and reference them via style props.',
   },
-  custom: {
-    systemIntro:
-      'Follow the project\'s custom design system rules exactly. Apply the component libraries, tokens, or layout patterns described in those rules; when a rule is silent, choose tasteful, accessible defaults.',
-    designSystemBullet:
-      'Adhere to the custom design rules for component choices, spacing, color, and interaction patterns.',
-    errorFixingNote:
-      'Validate every change against the custom design rules before finalizing fixes.',
-    specAcceptance: '- Output matches the custom design rules listed below.',
-    commonFix:
-      '**Custom Rules:** Cross-check styling and component decisions with the provided custom design rules to avoid regressions.',
-    visualGuidance:
-      '- Follow the custom design rules for layout, components, and styling decisions.',
-  },
 };
 
 const PLANNING_WORKFLOW = `
@@ -126,7 +117,10 @@ const normalizeDesignRules = (designRules?: string | null): string | null => {
   return trimmed.length === 0 ? null : trimmed;
 };
 
-const appendDesignRules = (prompt: string, designRules?: string | null): string => {
+const appendDesignRules = (
+  prompt: string,
+  designRules?: string | null,
+): string => {
   const normalized = normalizeDesignRules(designRules);
   if (!normalized) {
     return prompt;
@@ -146,7 +140,7 @@ const buildImportantGuidelines = (style: StyleDetail): string => {
   const bullets = [
     '* Plan First: Do not use any file system tools until `create_execution_plan` has been successfully called.',
     '* Handle Errors: If a tool returns an error (e.g., file not found), explain the problem to the user and stop execution.',
-    '* Confirm After Every Step: The `confirm_step_completion` tool call is mandatory after each step\'s actions are finished.',
+    "* Confirm After Every Step: The `confirm_step_completion` tool call is mandatory after each step's actions are finished.",
     `* Design System Expertise: ${style.designSystemBullet}`,
     '* Routing: Use Expo Router for navigation; this project already uses Expo Router.',
     '* Responsive First: Always consider how the UI will look on different screen sizes; leverage flex layouts, responsive props, or utility classes from the chosen design system.',
@@ -157,7 +151,10 @@ const buildImportantGuidelines = (style: StyleDetail): string => {
   return bullets.join('\n');
 };
 
-const buildSystemPrompt = (style: StyleDetail, designRules?: string | null): string => {
+const buildSystemPrompt = (
+  style: StyleDetail,
+  designRules?: string | null,
+): string => {
   const sections = [
     'You are an expert AI assistant specializing in building beautiful, well-designed React Native applications using Expo React Native.',
     style.systemIntro,
@@ -175,10 +172,13 @@ const buildSystemPrompt = (style: StyleDetail, designRules?: string | null): str
   return appendDesignRules(sections.join('\n\n'), designRules);
 };
 
-const buildErrorFixingPrompt = (style: StyleDetail, designRules?: string | null): string => {
+const buildErrorFixingPrompt = (
+  style: StyleDetail,
+  designRules?: string | null,
+): string => {
   const sections = [
     'You are an expert AI assistant specializing in building beautiful React Native applications using Expo React Native.',
-    'Your primary goal is to diagnose and fix errors in the provided code while honoring the project\'s design system.',
+    "Your primary goal is to diagnose and fix errors in the provided code while honoring the project's design system.",
     style.errorFixingNote,
     PLANNING_WORKFLOW,
     FILE_CONTEXT_BLOCK,
@@ -189,7 +189,10 @@ const buildErrorFixingPrompt = (style: StyleDetail, designRules?: string | null)
   return appendDesignRules(sections.join('\n\n'), designRules);
 };
 
-const buildSpecExpansionPrompt = (style: StyleDetail, designRules?: string | null): string => {
+const buildSpecExpansionPrompt = (
+  style: StyleDetail,
+  designRules?: string | null,
+): string => {
   const prompt = `
 **Spec Expansion:**
 
@@ -224,7 +227,8 @@ ${style.specAcceptance}
 };
 
 export const isDesignStyleKey = (value: unknown): value is DesignStyleKey =>
-  typeof value === 'string' && (DESIGN_STYLE_KEYS as readonly string[]).includes(value);
+  typeof value === 'string' &&
+  (DESIGN_STYLE_KEYS as readonly string[]).includes(value);
 
 export const buildPromptConfig = ({
   designStyle,

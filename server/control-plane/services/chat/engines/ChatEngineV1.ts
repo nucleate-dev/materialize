@@ -14,14 +14,14 @@ import type {
   PrototypeAssetInput,
   PrototypeFileInput,
 } from '../../../types/PublicAPITypes.js';
-import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 import type { DesignStyleKey, PromptConfig } from '../prompts/PROMPTS.js';
+import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS.js';
 import {
   FileManagerInterface,
   VirtualFileManager,
 } from '../utils/file-manager.js';
 import { detectUserIntent } from '../utils/intent-classifier.js';
-import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -681,7 +681,10 @@ export class ChatEngineV1 {
         });
 
       if (assistantMessageError) {
-        log2.error('Failed to insert assistant message:', assistantMessageError.message);
+        log2.error(
+          'Failed to insert assistant message:',
+          assistantMessageError.message,
+        );
         return;
       }
 
@@ -753,9 +756,7 @@ export class ChatEngineV1 {
     }
   }
 
-  private async resolvePromptConfig(
-    params: ChatEngineParams,
-  ): Promise<{
+  private async resolvePromptConfig(params: ChatEngineParams): Promise<{
     promptConfig: PromptConfig;
     designStyle: DesignStyleKey;
     designRules: string | null;
@@ -772,33 +773,43 @@ export class ChatEngineV1 {
         .single();
 
       if (prototypeError) {
-        log2.warn('[ChatEngine] Failed to fetch prototype design style; falling back to tamagui', {
-          prototype_id,
-          error: prototypeError.message,
-        });
+        log2.warn(
+          '[ChatEngine] Failed to fetch prototype design style; falling back to tamagui',
+          {
+            prototype_id,
+            error: prototypeError.message,
+          },
+        );
       } else if (prototypeRow) {
         if (isDesignStyleKey(prototypeRow.design_style)) {
           designStyle = prototypeRow.design_style;
         } else {
-          log2.warn('[ChatEngine] Unknown design style on prototype; falling back to tamagui', {
-            prototype_id,
-            design_style: prototypeRow.design_style,
-          });
+          log2.warn(
+            '[ChatEngine] Unknown design style on prototype; falling back to tamagui',
+            {
+              prototype_id,
+              design_style: prototypeRow.design_style,
+            },
+          );
         }
 
-        if (designStyle === 'custom' && prototypeRow.custom_design_system) {
+        if (prototypeRow.custom_design_system) {
           const designSystemId = Number(prototypeRow.custom_design_system);
           if (Number.isNaN(designSystemId)) {
             log2.warn(
               '[ChatEngine] custom_design_system is not numeric; skipping design rules fetch',
-              { prototype_id, custom_design_system: prototypeRow.custom_design_system },
+              {
+                prototype_id,
+                custom_design_system: prototypeRow.custom_design_system,
+              },
             );
           } else {
-            const { data: designSystemRow, error: designSystemError } = await supabase
-              .from('design_systems')
-              .select('design_rules')
-              .eq('id', designSystemId)
-              .single();
+            const { data: designSystemRow, error: designSystemError } =
+              await supabase
+                .from('design_systems')
+                .select('design_rules')
+                .eq('id', designSystemId)
+                .single();
 
             if (designSystemError) {
               log2.warn('[ChatEngine] Failed to fetch custom design rules', {

@@ -216,7 +216,6 @@ export default function DesignSystemsPage(): JSX.Element {
       const { count, error } = await supabase
         .from("prototypes")
         .select("id", { count: "exact", head: true })
-        .eq("design_style", "custom")
         .eq("custom_design_system", targetId);
 
       if (error) {
