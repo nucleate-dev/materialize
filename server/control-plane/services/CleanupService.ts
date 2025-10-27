@@ -391,6 +391,11 @@ export class CleanupService {
                 prototypeId,
               },
             );
+          } else {
+            this.log2.info('Successfully updated prototype latest_build_key', {
+              prototypeId,
+              version: responseData.version,
+            });
           }
         }
         // We should still return success because the fargate task should be cleaned up.
@@ -529,9 +534,13 @@ export class CleanupService {
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AWS SDK version mismatch requires any cast
-      const signedUrl = await getSignedUrl(this.s3Client as any, command as any, {
-        expiresIn: 300, // 5 min expiration
-      });
+      const signedUrl = await getSignedUrl(
+        this.s3Client as any,
+        command as any,
+        {
+          expiresIn: 300, // 5 min expiration
+        },
+      );
 
       return signedUrl;
     } catch (error) {
