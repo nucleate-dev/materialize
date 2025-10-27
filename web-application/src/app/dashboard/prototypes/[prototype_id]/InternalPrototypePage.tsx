@@ -126,6 +126,10 @@ export default function InternalPrototypePage() {
   // Current viewing path tracking
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
+  // Resizable divider state
+  const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
+  const [isDragging, setIsDragging] = useState(false);
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -245,6 +249,37 @@ export default function InternalPrototypePage() {
       setActivePanel("chat");
     }
   };
+
+  // Divider drag handlers
+  const handleDividerMouseDown = () => {
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+
+    const newLeftWidth = (e.clientX / window.innerWidth) * 100;
+    // Constrain between 20% and 80%
+    if (newLeftWidth >= 20 && newLeftWidth <= 80) {
+      setLeftPanelWidth(newLeftWidth);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [isDragging]);
 
   // USE EFFECT PURPOSE: to fetch prototype and start dev server
   // DO NOT SPLIT THIS USEEFFECT HOOK. Race conditions will fuck up the badge status.
@@ -700,7 +735,7 @@ export default function InternalPrototypePage() {
 
       {/* Main content area */}
       <div
-        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : ""}`}
+        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : ""} ${isDragging ? "select-none" : ""}`}
         style={isMobile ? { height: "calc(100dvh - 120px)" } : {}}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
@@ -710,9 +745,9 @@ export default function InternalPrototypePage() {
         <div
           className={`${isMobile
               ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "w-2/5 min-w-[420px] flex"
+              : "flex"
             } flex-col relative z-10`}
-          style={isMobile ? { height: "100%" } : {}}
+          style={isMobile ? { height: "100%" } : { width: `${leftPanelWidth}%`, minWidth: "320px" }}
         >
           {/* Card Container */}
           <Card
@@ -762,12 +797,25 @@ export default function InternalPrototypePage() {
           </Card>
         </div>
 
+        {/* Draggable Divider - Only show on desktop */}
+        {!isMobile && (
+          <div
+            className="relative w-1 cursor-col-resize hover:bg-primary/50 transition-colors group flex-shrink-0"
+            onMouseDown={handleDividerMouseDown}
+            style={{ zIndex: 20 }}
+          >
+            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-primary/20" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-12 bg-border group-hover:bg-primary rounded-full transition-colors" />
+          </div>
+        )}
+
         {/* Right Panel - Preview/Code Toggle */}
         <div
           className={`${isMobile
               ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "w-3/5 min-w-[500px] flex"
+              : "flex"
             } flex-col relative z-10`}
+          style={isMobile ? {} : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }}
         >
           {/* Card Container */}
           <Card
