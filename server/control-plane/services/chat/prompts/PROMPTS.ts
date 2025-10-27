@@ -77,7 +77,8 @@ const PLANNING_WORKFLOW = `
 
 6.  **Concluding the Task:** After you have called \`confirm_step_completion\` for the **final** step in your plan, your next and ONLY action MUST be to generate a user-facing text response.
     *   **DO NOT CALL ANY MORE TOOLS.**
-    *   Your final response should summarize the work you did, mention any new files created, and, if appropriate, include snippets of the most important code you wrote.
+    *   Your final response should summarize the work you did and mention any new or modified files.
+    *   **DO NOT include code snippets or entire file contents in your final response.** The user can view the changes directly in their editor.
 `;
 
 const buildFileContextBlock = (currentViewingPath?: string | null): string => {
