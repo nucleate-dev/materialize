@@ -148,7 +148,9 @@ export class ChatEngineV1 {
             ),
         }),
         execute: async ({ steps }: { steps: string[] }) => {
-          log2.info(`[ChatEngine] Execution Plan Created`, { steps });
+          log2.consoleLogDevOnly(`[ChatEngine] Execution Plan Created`, {
+            steps,
+          });
           return {
             success: true,
             plan: steps,
@@ -170,9 +172,11 @@ export class ChatEngineV1 {
             ),
         }),
         execute: async ({ step_number, summary }) => {
-          log2.info(`[ChatEngine] Step ${step_number} confirmed as complete.`, {
-            summary,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Step ${step_number} confirmed as complete.`,
+            { summary },
+          );
           return {
             success: true,
             step: step_number,
@@ -226,7 +230,7 @@ export class ChatEngineV1 {
           filePath: string;
           contents: string;
         }) => {
-          log2.info(`[ChatEngine] Tool call: write_file`, {
+          log2.consoleLogDevOnly('info', `[ChatEngine] Tool call: write_file`, {
             filePath,
             contentLength: contents.length,
           });
@@ -263,10 +267,14 @@ export class ChatEngineV1 {
           filePath: string;
           contents?: string;
         }) => {
-          log2.info(`[ChatEngine] Tool call: create_file`, {
-            filePath,
-            contentLength: contents.length,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: create_file`,
+            {
+              filePath,
+              contentLength: contents.length,
+            },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'create_file',
@@ -289,7 +297,11 @@ export class ChatEngineV1 {
           filePath: z.string().describe('The path to the file to delete'),
         }),
         execute: async ({ filePath }: { filePath: string }) => {
-          log2.info(`[ChatEngine] Tool call: delete_file`, { filePath });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: delete_file`,
+            { filePath },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'delete_file',
@@ -316,7 +328,9 @@ export class ChatEngineV1 {
             .describe('The directory to list files from (default: root)'),
         }),
         execute: async ({ directory = '/' }: { directory?: string }) => {
-          log2.info(`[ChatEngine] Tool call: list_files`, { directory });
+          log2.consoleLogDevOnly('info', `[ChatEngine] Tool call: list_files`, {
+            directory,
+          });
           const result = fileManager.handleToolCall({
             function: {
               name: 'list_files',
@@ -339,7 +353,11 @@ export class ChatEngineV1 {
           filePath: z.string().describe('The path to check for existence'),
         }),
         execute: async ({ filePath }: { filePath: string }) => {
-          log2.info(`[ChatEngine] Tool call: file_exists`, { filePath });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: file_exists`,
+            { filePath },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'file_exists',
@@ -374,10 +392,11 @@ export class ChatEngineV1 {
           query: string;
           directory?: string;
         }) => {
-          log2.info(`[ChatEngine] Tool call: search_files`, {
-            query,
-            directory,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: search_files`,
+            { query, directory },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'search_files',
@@ -400,7 +419,11 @@ export class ChatEngineV1 {
           filePath: z.string().describe('The path to the package.json file'),
         }),
         execute: async ({ filePath }: { filePath: string }) => {
-          log2.info(`[ChatEngine] Tool call: get_dependencies`, { filePath });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: get_dependencies`,
+            { filePath },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'get_dependencies',
@@ -434,10 +457,14 @@ export class ChatEngineV1 {
           filePath: string;
           content: string;
         }) => {
-          log2.info(`[ChatEngine] Tool call: append_file_content`, {
-            filePath,
-            contentLength: content.length,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: append_file_content`,
+            {
+              filePath,
+              contentLength: content.length,
+            },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'append_file_content',
@@ -479,12 +506,16 @@ export class ChatEngineV1 {
           replaceWith: string;
           expectOneMatch?: boolean;
         }) => {
-          log2.info(`[ChatEngine] Tool call: replace_file_content`, {
-            filePath,
-            searchTextLength: searchText.length,
-            replaceWithLength: replaceWith.length,
-            expectOneMatch,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Tool call: replace_file_content`,
+            {
+              filePath,
+              searchTextLength: searchText.length,
+              replaceWithLength: replaceWith.length,
+              expectOneMatch,
+            },
+          );
           const result = fileManager.handleToolCall({
             function: {
               name: 'replace_file_content',
@@ -521,7 +552,10 @@ export class ChatEngineV1 {
 
     try {
       if (!fileManager.hasChanges()) {
-        log2.info('[ChatEngine] No file changes to persist and dispatch');
+        log2.consoleLogDevOnly(
+          'info',
+          '[ChatEngine] No file changes to persist and dispatch',
+        );
         return {
           updatedFiles: [],
           updatedFilesObject: {},
@@ -529,7 +563,10 @@ export class ChatEngineV1 {
         };
       }
 
-      log2.info('[ChatEngine] Starting file persistence and dispatch...');
+      log2.consoleLogDevOnly(
+        'info',
+        '[ChatEngine] Starting file persistence and dispatch...',
+      );
       // Get all files for dispatch (complete file set needed for dispatch)
       // TODO @priyam: stream the updated files back to the client
       // TODO: if there is already an active dev-server (from precheck), then we should only send updated files
@@ -746,7 +783,8 @@ export class ChatEngineV1 {
         return;
       }
 
-      log2.info(
+      log2.consoleLogDevOnly(
+        'info',
         '[ChatService] Successfully persisted chat messages and context',
       );
     } catch (error) {
@@ -1101,9 +1139,13 @@ export class ChatEngineV1 {
         fileManager instanceof VirtualFileManager &&
         fileManager.hasChanges()
       ) {
-        params.log2.info('Sending the files back to the client first: ', {
-          updatedFiles: Object.keys(fileManager.getChangedFiles()),
-        });
+        params.log2.consoleLogDevOnly(
+          'info',
+          'Sending the files back to the client first: ',
+          {
+            updatedFiles: Object.keys(fileManager.getChangedFiles()),
+          },
+        );
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
