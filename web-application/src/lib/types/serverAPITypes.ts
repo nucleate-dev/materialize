@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-10-26T19:23:26.804Z
+// Last synced: 2025-10-27T12:59:39.753Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -150,7 +150,6 @@ export interface CheckoutErrorResponse {
 // /payments/manage-billing ENDPOINT
 // ============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ManageBillingRequestBody {
   // No body parameters - user ID comes from JWT
 }
