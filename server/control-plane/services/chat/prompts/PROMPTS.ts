@@ -38,17 +38,17 @@ const STYLE_DETAILS: Record<DesignStyleKey, StyleDetail> = {
   },
   nativewind: {
     systemIntro:
-      'Use Gluestack UI primitives for structure and style them with NativeWind `className` strings. Combine utility classes with the configured theme tokens and avoid direct StyleSheet usage except for edge cases.',
+      'Use pre-built Gluestack UI components from `@/components/ui/` (imported via @ alias) such as Button, Card, Input, VStack, HStack, Box, Text, Icon, etc. These components are already styled with NativeWind and support variants through props (size, variant, action). Always import from `@/components/ui/[component-name]` (e.g., `import { Button, ButtonText } from "@/components/ui/button"`). For custom layouts, use VStack/HStack/Box with NativeWind `className` utilities (e.g., `className="flex-1 bg-background-0 p-4"`). Theme tokens are available for colors (primary-*, background-*, typography-*, success-*, error-*), spacing (p-4, m-2, gap-3), and sizing. Never use raw hex colors or StyleSheet.create - always use className with theme tokens.',
     designSystemBullet:
-      'Use Gluestack UI components with NativeWind `className` utilities tied to theme tokens; avoid inline StyleSheet definitions.',
+      'Import pre-built components from `@/components/ui/` using @ alias (Button, Card, Input, VStack, HStack, Box, Text, Icon, etc.). Style with NativeWind className utilities and theme tokens (primary-*, background-*, typography-*). Never use StyleSheet.create or inline styles.',
     errorFixingNote:
-      'Ensure NativeWind class names and Gluestack props remain consistent; update class strings instead of adding inline styles.',
+      'Verify all components are imported from `@/components/ui/` using @ alias. Check that className strings use valid theme tokens (primary-500, background-0, typography-900, etc.). For icons, use the Icon component from `@/components/ui/icon` with proper icon set imports. Never fall back to StyleSheet - fix className utilities instead. Common mistakes: forgetting to import ButtonText/ButtonIcon alongside Button, using invalid color tokens, missing tva variant props.',
     specAcceptance:
-      '- Styling relies on Gluestack UI components with NativeWind `className` utilities (no StyleSheet/Tamagui helpers).',
+      '- All UI components imported from `@/components/ui/` using @ alias (e.g., `import { Button } from "@/components/ui/button"`)\n- Styling uses NativeWind className with theme tokens (primary-*, background-*, typography-*, etc.)\n- No StyleSheet.create, no inline styles, no raw hex colors\n- Composite components use proper sub-components (Button + ButtonText + ButtonIcon, Card with proper structure, etc.)',
     commonFix:
-      '**NativeWind Classes:** Confirm classnames map to the configured theme tokens and remove inline styles in favor of `className` utilities.',
+      '**NativeWind Best Practices:** \n  1. Import from `@/components/ui/` using @ alias (e.g., `import { Button, ButtonText } from "@/components/ui/button"`)\n  2. Use theme tokens in className (primary-500, background-0, typography-900, gap-4, p-6)\n  3. For Button, always include ButtonText child; use ButtonIcon for icons\n  4. For layout, use VStack (vertical), HStack (horizontal), Box (generic container)\n  5. Icons: Import Icon from `@/components/ui/icon` and use as={IconSet} prop with proper icon imports\n  6. Never use StyleSheet.create - convert to className utilities',
     visualGuidance:
-      '- Combine Gluestack UI components with NativeWind `className` strings for styling.',
+      '- Import components from `@/components/ui/` using @ alias: Button, Card, Input, VStack, HStack, Box, Text, Icon, Avatar, Badge, etc.\n- Example: `<Button size="lg" variant="solid" action="primary"><ButtonText>Submit</ButtonText></Button>`\n- Layout: `<VStack className="flex-1 bg-background-0 p-6 gap-4">` for vertical stacks\n- Theme tokens: primary-500 (brand), background-0 (surface), typography-900 (text), success-500, error-500\n- Responsive spacing: p-4, px-6, gap-3, rounded-lg',
   },
   stylesheets: {
     systemIntro:
