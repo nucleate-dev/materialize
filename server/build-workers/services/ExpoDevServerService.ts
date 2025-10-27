@@ -949,7 +949,7 @@ export class ExpoDevServerService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.log("Deploy failed", false, "", errorMessage);
+      logger.log("S3 Deploy failed", false, "", errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -965,7 +965,9 @@ export class ExpoDevServerService {
     const logger = this.createLogger(actualJobId);
 
     // Set operation state only if not already set (to preserve operation start time)
-    if (this.state.currentOperation !== OperationStatus.BUILDING_AND_DEPLOYING) {
+    if (
+      this.state.currentOperation !== OperationStatus.BUILDING_AND_DEPLOYING
+    ) {
       this.state.setOperation(
         OperationStatus.BUILDING_AND_DEPLOYING,
         actualJobId,
