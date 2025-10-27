@@ -50,7 +50,7 @@ export async function validateChatAuth(
     request.log2,
   );
 
-  if (authResult === null) {
+  if (authResult === null || authResult.user === null) {
     return {
       success: false,
       error: {

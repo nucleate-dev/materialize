@@ -49,7 +49,7 @@ export async function handleCreatePrototypeImpl(
   try {
     // 1. JWT Token validation and user authentication
     const token = request.headers.authorization?.split(' ')[1] ?? '';
-    const user = await validateJWTToken(token, request.log2);
+    const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
@@ -171,10 +171,7 @@ export async function handleCreatePrototypeImpl(
         }
 
         // 2. Inherit the project's custom_design_system UUID if we don't already have one
-        if (
-          !resolvedCustomDesignSystem &&
-          projectData.custom_design_system
-        ) {
+        if (!resolvedCustomDesignSystem && projectData.custom_design_system) {
           resolvedCustomDesignSystem = String(projectData.custom_design_system);
         }
       }

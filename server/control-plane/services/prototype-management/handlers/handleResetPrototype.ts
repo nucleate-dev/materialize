@@ -28,7 +28,11 @@ export default async function handleResetPrototypeImpl(
       token,
       request.log2,
     );
-    if (authResponse === null || !authResponse.canEdit) {
+    if (
+      authResponse === null ||
+      authResponse.user === null ||
+      !authResponse.canEdit
+    ) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         success: false,
         error: 'UNAUTHORIZED',

@@ -30,7 +30,7 @@ export default async function handleFetchViewingUrlImpl(
     );
     if (
       authResult === null ||
-      authResult.user === null ||
+      (authResult.user === null && !authResult.isServiceRole) ||
       authResult.prototype === null
     ) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -85,7 +85,11 @@ export default async function handleFetchViewingUrlImpl(
 
     // Return static build URL
     let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
-    if (token && authResult.prototype.visibility !== 'PUBLIC') {
+    if (
+      token &&
+      authResult.prototype.visibility !== 'PUBLIC' &&
+      !authResult.isServiceRole
+    ) {
       staticViewingUrl += `?token=${encodeURIComponent(token)}`;
     }
     request.log2.consoleLogDevOnly(

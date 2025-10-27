@@ -396,7 +396,11 @@ export class DevelopmentServerService {
         token,
         request.log2,
       );
-      if (authResponse === null || !authResponse.canEdit) {
+      if (
+        authResponse === null ||
+        authResponse.user === null ||
+        !authResponse.canEdit
+      ) {
         reply.status(HTTP_STATUS.UNAUTHORIZED);
         return {
           data: null,

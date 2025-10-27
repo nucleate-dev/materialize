@@ -92,7 +92,7 @@ export async function handleRunCommandImpl(
   }
 
   log2 = log2.child({
-    userId: authResult.user.id,
+    userId: authResult.user?.id || 'service-role',
     prototypeId: prototype_id,
   });
 
