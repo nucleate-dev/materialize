@@ -7,14 +7,6 @@ import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
 import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +17,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -57,7 +57,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -143,8 +143,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-        (system) => String(system.id) === currentCustomDesignSystemId,
-      )?.name || "Custom design system"
+      (system) => String(system.id) === currentCustomDesignSystemId,
+    )?.name || "Custom design system"
     : undefined;
 
   const hasCustomDesignSystems = designSystems.length > 0;
@@ -255,19 +255,22 @@ export default function InternalPrototypePage() {
     setIsDragging(true);
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
 
-    const newLeftWidth = (e.clientX / window.innerWidth) * 100;
-    // Constrain between 20% and 80%
-    if (newLeftWidth >= 20 && newLeftWidth <= 80) {
-      setLeftPanelWidth(newLeftWidth);
-    }
-  };
+      const newLeftWidth = (e.clientX / window.innerWidth) * 100;
+      // Constrain between 20% and 80%
+      if (newLeftWidth >= 20 && newLeftWidth <= 80) {
+        setLeftPanelWidth(newLeftWidth);
+      }
+    },
+    [isDragging]
+  );
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  };
+  }, []);
 
   // Add mouse event listeners for dragging
   useEffect(() => {
@@ -279,7 +282,7 @@ export default function InternalPrototypePage() {
         document.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [isDragging]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // USE EFFECT PURPOSE: to fetch prototype and start dev server
   // DO NOT SPLIT THIS USEEFFECT HOOK. Race conditions will fuck up the badge status.
@@ -605,10 +608,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              design_style: dialogDesignStyle,
-              custom_design_system: nextCustomDesignSystem,
-            }
+            ...prev,
+            design_style: dialogDesignStyle,
+            custom_design_system: nextCustomDesignSystem,
+          }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -744,8 +747,8 @@ export default function InternalPrototypePage() {
         {/* Left Panel - AI Assistant Chat */}
         <div
           className={`${isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
             } flex-col relative z-10`}
           style={isMobile ? { height: "100%" } : { width: `${leftPanelWidth}%`, minWidth: "320px" }}
         >
@@ -812,8 +815,8 @@ export default function InternalPrototypePage() {
         {/* Right Panel - Preview/Code Toggle */}
         <div
           className={`${isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
             } flex-col relative z-10`}
           style={isMobile ? {} : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }}
         >
@@ -904,8 +907,8 @@ export default function InternalPrototypePage() {
                       {/* File Explorer */}
                       <div
                         className={`${isMobile
-                            ? "w-full max-h-[200px] border-b"
-                            : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                          ? "w-full max-h-[200px] border-b"
+                          : "w-1/4 min-w-[200px] max-w-[280px] border-r"
                           } border-border`}
                       >
                         <div className="h-full overflow-auto">
@@ -1046,8 +1049,8 @@ export default function InternalPrototypePage() {
               </div>
               <label
                 className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
                   }`}
               >
                 <input
