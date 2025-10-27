@@ -123,6 +123,9 @@ export default function InternalPrototypePage() {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
+  // Current viewing path tracking
+  const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -751,6 +754,8 @@ export default function InternalPrototypePage() {
                   // Render status for disabling input
                   currentRenderStatus={currentRenderStatus}
                   onCurrentRenderStatusChange={setCurrentRenderStatus}
+                  // Current viewing path for LLM context
+                  currentViewingPath={currentViewingPath}
                 />
               </div>
             </CardContent>
@@ -841,6 +846,7 @@ export default function InternalPrototypePage() {
                         onDesignSystemClick={
                           canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
                         }
+                        onCurrentPathChange={setCurrentViewingPath}
                       />
                     </div>
                   ) : (

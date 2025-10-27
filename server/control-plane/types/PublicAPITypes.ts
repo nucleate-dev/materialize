@@ -339,6 +339,7 @@ export interface ChatRequestBody {
   chat_session_id: string;
   prototype_id: string;
   image?: string | null;
+  currentViewingPath?: string | null;
 }
 
 // Streaming response types for different event types

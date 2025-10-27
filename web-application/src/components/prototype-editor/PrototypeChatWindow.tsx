@@ -80,6 +80,9 @@ export interface PrototypeChatWindowProps {
   // Render status for disabling input
   currentRenderStatus: RenderStatus;
   onCurrentRenderStatusChange: (status: RenderStatus) => void;
+
+  // Current viewing path for LLM context
+  currentViewingPath: string;
 }
 
 export default function PrototypeChatWindow({
@@ -93,6 +96,7 @@ export default function PrototypeChatWindow({
   onViewingUrlUpdate,
   currentRenderStatus,
   onCurrentRenderStatusChange,
+  currentViewingPath,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
   const { user } = useUser();
@@ -762,6 +766,7 @@ export default function PrototypeChatWindow({
         chat_session_id: prototypeChatSession.id,
         prototype_id: prototypeId || "",
         image: imagePreview,
+        currentViewingPath: currentViewingPath,
       };
       setMessages(newMessages);
       setCurrentMessage("");

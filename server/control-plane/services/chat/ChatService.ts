@@ -166,6 +166,7 @@ export class ChatService {
         chat_session_id,
         prototype_id,
         image,
+        currentViewingPath,
       } = request.body;
 
       // ------------------------------------------------------------------------------------------------
@@ -283,6 +284,7 @@ export class ChatService {
               supabase,
               log2: request.log2,
               image: image ?? null,
+              currentViewingPath: currentViewingPath ?? null,
             });
 
             // ------------------------------------------------------------------------------------------------

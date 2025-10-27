@@ -123,6 +123,8 @@ interface MaterializeRenderSectionProps {
   // Design system props
   designSystemLabel?: string;
   onDesignSystemClick?: () => void;
+  // Current viewing path callback
+  onCurrentPathChange?: (path: string) => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -147,6 +149,7 @@ const MaterializeRenderSection = forwardRef<
       onRenderStatusChange,
       designSystemLabel,
       onDesignSystemClick,
+      onCurrentPathChange,
     },
     ref,
   ) => {
@@ -180,9 +183,15 @@ const MaterializeRenderSection = forwardRef<
         return;
       }
 
-      setMobileScreens([{ id: 0, path: extractInitialPath(viewing_url) }]);
+      const initialPath = extractInitialPath(viewing_url);
+      setMobileScreens([{ id: 0, path: initialPath }]);
       nextMobileScreenId.current = 1;
-    }, [viewing_url]);
+
+      // Notify parent of initial path
+      if (onCurrentPathChange) {
+        onCurrentPathChange(initialPath);
+      }
+    }, [viewing_url, onCurrentPathChange]);
 
     // Monitor iframe navigation to sync the path display
     useEffect(() => {
@@ -202,6 +211,10 @@ const MaterializeRenderSection = forwardRef<
               setMobileScreens((prev) =>
                 prev.map((screen) => {
                   if (screen.id === screenId && screen.path !== currentPath && editingScreenId !== screenId) {
+                    // Notify parent if this is the primary screen (id: 0)
+                    if (screenId === 0 && onCurrentPathChange) {
+                      onCurrentPathChange(currentPath);
+                    }
                     return { ...screen, path: currentPath };
                   }
                   return screen;
@@ -242,6 +255,10 @@ const MaterializeRenderSection = forwardRef<
               setMobileScreens((prev) =>
                 prev.map((screen) => {
                   if (screen.id === screenId && screen.path !== newPath && editingScreenId !== screenId) {
+                    // Notify parent if this is the primary screen (id: 0)
+                    if (screenId === 0 && onCurrentPathChange) {
+                      onCurrentPathChange(newPath);
+                    }
                     return { ...screen, path: newPath };
                   }
                   return screen;

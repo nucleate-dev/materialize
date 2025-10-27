@@ -72,6 +72,7 @@ export interface ChatEngineParams {
   encoder: TextEncoder;
   log2: SystemLogger;
   supabase: SupabaseClient;
+  currentViewingPath: string | null;
 }
 
 export interface ChatEngineResult {
@@ -761,7 +762,7 @@ export class ChatEngineV1 {
     designStyle: DesignStyleKey;
     designRules: string | null;
   }> {
-    const { prototype_id, supabase, log2 } = params;
+    const { prototype_id, supabase, log2, currentViewingPath } = params;
     let designStyle: DesignStyleKey = 'tamagui';
     let designRules: string | null = null;
 
@@ -831,10 +832,15 @@ export class ChatEngineV1 {
       );
     }
 
-    const promptConfig = buildPromptConfig({ designStyle, designRules });
+    const promptConfig = buildPromptConfig({
+      designStyle,
+      designRules,
+      currentViewingPath,
+    });
     log2.debug('[ChatEngine] Using design system prompt configuration', {
       designStyle,
       hasCustomRules: Boolean(designRules),
+      currentViewingPath,
     });
 
     return { promptConfig, designStyle, designRules };

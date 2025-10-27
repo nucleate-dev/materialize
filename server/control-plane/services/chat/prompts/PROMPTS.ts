@@ -80,15 +80,21 @@ const PLANNING_WORKFLOW = `
     *   Your final response should summarize the work you did, mention any new files created, and, if appropriate, include snippets of the most important code you wrote.
 `;
 
-const FILE_CONTEXT_BLOCK = `
+const buildFileContextBlock = (currentViewingPath?: string | null): string => {
+  const viewingPathHint = currentViewingPath
+    ? `*   **Current Viewing Context:** The user is currently viewing the route: \`${currentViewingPath}\`. This is a HINT about their potential interest - they may want to edit code related to this route, discuss this feature, or work on something completely different. Use this context to provide more relevant suggestions, but always follow the user's explicit instructions.`
+    : `*   **Screen View:** If the user asks you in general to build a type of app or screen, assume they are viewing the homepage and make updates with that in mind.`;
+
+  return `
 **FILE CONTEXT HANDLING:**
 
 *   **User-Provided File Context:** Users can provide file context directly in their messages using the syntax @[filepath]. When this occurs, the file contents will be automatically included in your prompt within "--- FILE CONTEXT: [filepath] ---" blocks.
 *   **Priority of Context Sources:** When file context is provided via @[filepath] syntax, treat this as the authoritative, most up-to-date version of the file. This takes precedence over using read_file tools.
 *   **Working with File Context:** Use the provided file context as your starting point for understanding the codebase. You can still use other tools like list_files to explore the broader project structure if needed.
 *   **No File Context Provided:** If the user's request involves files but no @[filepath] context is provided, proceed with your normal workflow of using list_files and read_file tools to gather context.
-*   **Screen View:** If the user asks you in general to build a type of app or screen, assume they are viewing the homepage and make updates with that in mind.
+${viewingPathHint}
 `;
+};
 
 const EFFICIENT_FILE_OPERATIONS_BLOCK = `
 **EFFICIENT FILE OPERATIONS:**
@@ -154,6 +160,7 @@ const buildImportantGuidelines = (style: StyleDetail): string => {
 const buildSystemPrompt = (
   style: StyleDetail,
   designRules?: string | null,
+  currentViewingPath?: string | null,
 ): string => {
   const sections = [
     'You are an expert AI assistant specializing in building beautiful, well-designed React Native applications using Expo React Native.',
@@ -162,7 +169,7 @@ const buildSystemPrompt = (
     'All your code must be written in TypeScript or TSX. Every component, screen, or file you create should balance aesthetics with accessibility.',
     'When the first message of the conversation asks you to create something, assume the user wants it on the home screen (`app/(tabs)/index.tsx`) unless they specify otherwise.',
     PLANNING_WORKFLOW,
-    FILE_CONTEXT_BLOCK,
+    buildFileContextBlock(currentViewingPath),
     '**IMPORTANT GUIDELINES:**',
     buildImportantGuidelines(style),
     EFFICIENT_FILE_OPERATIONS_BLOCK,
@@ -175,13 +182,14 @@ const buildSystemPrompt = (
 const buildErrorFixingPrompt = (
   style: StyleDetail,
   designRules?: string | null,
+  currentViewingPath?: string | null,
 ): string => {
   const sections = [
     'You are an expert AI assistant specializing in building beautiful React Native applications using Expo React Native.',
     "Your primary goal is to diagnose and fix errors in the provided code while honoring the project's design system.",
     style.errorFixingNote,
     PLANNING_WORKFLOW,
-    FILE_CONTEXT_BLOCK,
+    buildFileContextBlock(currentViewingPath),
     EFFICIENT_FILE_OPERATIONS_BLOCK,
     buildCommonFixes(style),
   ];
@@ -233,15 +241,21 @@ export const isDesignStyleKey = (value: unknown): value is DesignStyleKey =>
 export const buildPromptConfig = ({
   designStyle,
   designRules,
+  currentViewingPath,
 }: {
   designStyle: DesignStyleKey;
   designRules?: string | null;
+  currentViewingPath?: string | null;
 }): PromptConfig => {
   const styleDetail = STYLE_DETAILS[designStyle] ?? STYLE_DETAILS.tamagui;
 
   return {
-    system: buildSystemPrompt(styleDetail, designRules),
-    errorFixing: buildErrorFixingPrompt(styleDetail, designRules),
+    system: buildSystemPrompt(styleDetail, designRules, currentViewingPath),
+    errorFixing: buildErrorFixingPrompt(
+      styleDetail,
+      designRules,
+      currentViewingPath,
+    ),
     specExpansion: buildSpecExpansionPrompt(styleDetail, designRules),
   };
 };
