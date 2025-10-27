@@ -30,7 +30,7 @@ export default async function handleFetchViewingUrlImpl(
     );
     if (
       authResult === null ||
-      authResult.user === null ||
+      (authResult.user === null && !authResult.isServiceRole) ||
       authResult.prototype === null
     ) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({

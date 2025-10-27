@@ -86,7 +86,7 @@ export class StripeManagementService {
   ): Promise<APIResponse<CheckoutSuccessResponse, CheckoutErrorResponse>> {
     // Extract JWT token from Authorization header and validate it
     const token = request.headers.authorization?.split(' ')[1] ?? '';
-    const user = await validateJWTToken(token, request.log2);
+    const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
       request.log2.warn('Unauthorized user');
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
@@ -197,7 +197,7 @@ export class StripeManagementService {
   > {
     // Extract JWT token from Authorization header
     const token = request.headers.authorization?.split(' ')[1] ?? '';
-    const user = await validateJWTToken(token, request.log2);
+    const { user } = await validateJWTToken(token, request.log2);
     if (!user) {
       request.log2.warn('Unauthorized user');
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({

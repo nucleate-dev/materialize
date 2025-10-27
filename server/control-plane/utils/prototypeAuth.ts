@@ -15,10 +15,14 @@ interface JWTPayload {
 export async function validateJWTToken(
   token: string | undefined,
   log2: SystemLogger,
-): Promise<User | null> {
+): Promise<{ user: User | null; isServiceRole: boolean }> {
+  if (token === process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { user: null, isServiceRole: true };
+  }
+
   try {
     if (!token) {
-      return null;
+      return { user: null, isServiceRole: false };
     }
 
     jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
@@ -26,7 +30,7 @@ export async function validateJWTToken(
     log2.error(error, 'JWT validation error:', {
       functionName: 'validateJWTToken',
     });
-    return null;
+    return { user: null, isServiceRole: false };
   }
 
   const supabaseClient = createClient<Database>(
@@ -47,10 +51,10 @@ export async function validateJWTToken(
   } = await supabaseClient.auth.getUser(token);
 
   if (authError || !user) {
-    return null;
+    return { user: null, isServiceRole: false };
   }
 
-  return user;
+  return { user, isServiceRole: false };
 }
 
 /**
@@ -63,6 +67,7 @@ export async function checkUserHasPrototypeViewingAccess(
 ): Promise<{
   user: User | null;
   prototype: Database['public']['Tables']['prototypes']['Row'];
+  isServiceRole: boolean;
 } | null> {
   try {
     // Create Supabase client with or without JWT
@@ -87,8 +92,8 @@ export async function checkUserHasPrototypeViewingAccess(
     if (error || !prototype) {
       return null;
     }
-    const user = await validateJWTToken(jwtToken, log2);
-    return { user, prototype };
+    const { user, isServiceRole } = await validateJWTToken(jwtToken, log2);
+    return { user, prototype, isServiceRole };
   } catch (error) {
     log2.error(error, 'Error checking prototype viewing access:', {
       functionName: 'checkUserHasPrototypeViewingAccess',
@@ -105,18 +110,20 @@ export async function checkUserHasPrototypeEditAccess(
   jwtToken: string | undefined,
   log2: SystemLogger,
 ): Promise<{
-  user: User;
+  user: User | null;
   prototype: Database['public']['Tables']['prototypes']['Row'];
   canEdit: boolean;
+  isServiceRole: boolean;
 } | null> {
   try {
     // Get prototype to check ownership && validate JWT
-    const { user, prototype } = (await checkUserHasPrototypeViewingAccess(
-      prototypeId,
-      jwtToken,
-      log2,
-    )) || { user: null, prototype: null };
-    if (prototype === null || user === null) {
+    const { user, prototype, isServiceRole } =
+      (await checkUserHasPrototypeViewingAccess(
+        prototypeId,
+        jwtToken,
+        log2,
+      )) || { user: null, prototype: null };
+    if (prototype === null || (user === null && !isServiceRole)) {
       return null;
     }
 
@@ -124,7 +131,8 @@ export async function checkUserHasPrototypeEditAccess(
     return {
       user,
       prototype,
-      canEdit: prototype.owner_id === user.id,
+      canEdit: isServiceRole || prototype.owner_id === user?.id,
+      isServiceRole,
     };
   } catch (error) {
     log2.error(error, 'Error checking prototype edit access:', {
