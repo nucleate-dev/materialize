@@ -637,7 +637,13 @@ export class ExpoDevServerService {
       const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
 
       execSync(killCommand, { stdio: "pipe" });
-      this.log2.info("Successfully killed processes on port", { port });
+      this.log2.consoleLogDevOnly(
+        "info",
+        "Successfully killed processes on port",
+        {
+          port,
+        },
+      );
     } catch {
       // It's okay if no processes were found on the port
       this.log2.debug("No processes found on port", {
