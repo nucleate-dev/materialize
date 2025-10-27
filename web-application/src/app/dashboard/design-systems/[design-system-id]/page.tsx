@@ -30,7 +30,7 @@ interface DesignSystemDetailPageProps {
   }>;
 }
 
-export default function DesignSystemDetailPage({ params }: DesignSystemDetailPageProps): JSX.Element {
+export default function DesignSystemDetailPage({ params }: DesignSystemDetailPageProps) {
   const { user } = useUser();
   const router = useRouter();
   const logger = useProductLogger();
