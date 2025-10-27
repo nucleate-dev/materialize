@@ -964,11 +964,13 @@ export class ExpoDevServerService {
     const actualJobId = jobId || uuidv4();
     const logger = this.createLogger(actualJobId);
 
-    // Set operation state
-    this.state.setOperation(
-      OperationStatus.BUILDING_AND_DEPLOYING,
-      actualJobId,
-    );
+    // Set operation state only if not already set (to preserve operation start time)
+    if (this.state.currentOperation !== OperationStatus.BUILDING_AND_DEPLOYING) {
+      this.state.setOperation(
+        OperationStatus.BUILDING_AND_DEPLOYING,
+        actualJobId,
+      );
+    }
     const resolvedPrototypeId = prototypeId ?? this.state.prototypeId ?? null;
     if (!resolvedPrototypeId) {
       const errorMessage = "Cannot build and deploy without a prototype ID";

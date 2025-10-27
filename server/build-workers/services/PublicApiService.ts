@@ -250,6 +250,24 @@ export class PublicApiService {
     }
 
     try {
+      // Double-check operation status to catch any edge cases
+      if (this.expoDevServerService.getState().isOperationInProgress()) {
+        return {
+          status: "error",
+          build_errors: [],
+          build_warnings: [],
+          server_operation_status: this.expoDevServerService.getState()
+            .currentOperation,
+          server_status: this.expoDevServerService.getState().devServerStatus,
+        };
+      }
+
+      // Set operation status IMMEDIATELY to prevent race condition
+      // This must happen synchronously before any async work begins
+      this.expoDevServerService
+        .getState()
+        .setOperation(OperationStatus.BUILDING_AND_DEPLOYING);
+
       // Start build/deploy asynchronously - don't await
       this.startBackgroundBuildAndDeploy();
 
@@ -258,8 +276,9 @@ export class PublicApiService {
         status: "error",
         build_errors: [],
         build_warnings: [],
-        // Get new operation statuses
-        server_operation_status: devServerState.currentOperation,
+        // Get new operation statuses (should now be BUILDING_AND_DEPLOYING)
+        server_operation_status: this.expoDevServerService.getState()
+          .currentOperation,
         server_status: this.expoDevServerService.getState().devServerStatus,
       };
     } catch (error: unknown) {
