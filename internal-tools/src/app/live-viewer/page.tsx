@@ -223,11 +223,10 @@ export default function LiveViewerPage() {
             <Card key={cell.id} className="flex flex-col">
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor={`prototype-${cell.id}`}>Prototype ID</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       id={`prototype-${cell.id}`}
-                      placeholder="e.g. demo-prototype"
+                      placeholder="Enter prototype ID"
                       value={cell.prototypeId}
                       onChange={(event) =>
                         handlePrototypeIdChange(cell.id, event.target.value)
@@ -251,7 +250,7 @@ export default function LiveViewerPage() {
                           Loading
                         </>
                       ) : (
-                        "Fetch Viewer"
+                        "Fetch URL"
                       )}
                     </Button>
                     <Button
