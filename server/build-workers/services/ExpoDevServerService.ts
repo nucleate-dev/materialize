@@ -636,7 +636,7 @@ export class ExpoDevServerService {
       // Find and kill processes using the port on Alpine Linux
       const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
 
-      execSync(killCommand, { stdio: "pipe" });
+      execSync(killCommand, { stdio: "pipe", timeout: 5000 }); // 5 second timeout
       this.log2.consoleLogDevOnly(
         "info",
         "Successfully killed processes on port",
@@ -644,11 +644,14 @@ export class ExpoDevServerService {
           port,
         },
       );
-    } catch {
+    } catch (error: unknown) {
       // It's okay if no processes were found on the port
-      this.log2.debug("No processes found on port", {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.debug("No processes found on port or kill timed out", {
         port: this.state.port || this.defaultPort,
         message: "Normal if nothing was running",
+        error: errorMessage,
       });
     }
 
@@ -1014,10 +1017,26 @@ export class ExpoDevServerService {
       // when the dev server was started
       const outputPath = await this.buildExpoProject(buildDir, logger);
 
+      // Log memory after expo build (likely peak memory usage)
+      const memUsageAfterBuild = process.memoryUsage();
+      logger.log(
+        "Memory after expo build",
+        true,
+        `Heap: ${Math.round(memUsageAfterBuild.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsageAfterBuild.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsageAfterBuild.rss / 1024 / 1024)}MB`,
+      );
+
       const s3KeyPrefix = `${resolvedPrototypeId}`;
       const uploadResult = await this.uploadDirectoryToS3(
         outputPath,
         s3KeyPrefix,
+      );
+
+      // Log memory after S3 upload
+      const memUsageAfterUpload = process.memoryUsage();
+      logger.log(
+        "Memory after S3 upload",
+        true,
+        `Heap: ${Math.round(memUsageAfterUpload.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsageAfterUpload.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsageAfterUpload.rss / 1024 / 1024)}MB`,
       );
 
       const buildUrl = `https://${resolvedPrototypeId}.render.materializeui.com`;

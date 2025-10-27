@@ -219,6 +219,15 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStopResponse> {
+    // Log memory usage for monitoring
+    const memUsage = process.memoryUsage();
+    request.log2.info("Memory usage at stopDevServer", {
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+    });
+
     const devServerState = this.expoDevServerService.getState();
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
       return {
@@ -537,6 +546,15 @@ export class PublicApiService {
   // Start background build and deploy process
   private async startBackgroundBuildAndDeploy(): Promise<void> {
     try {
+      // Log memory at start of background build
+      const memUsage = process.memoryUsage();
+      baseLogger.info("Memory usage at background build start", {
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+      });
+
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
       const projectDir = path.join(this.workDir, "project");
@@ -640,6 +658,15 @@ export class PublicApiService {
         );
       }
 
+      // Log memory after shutdown
+      const memUsageAfterShutdown = process.memoryUsage();
+      baseLogger.info("Memory usage after shutdown", {
+        heapUsed: `${Math.round(memUsageAfterShutdown.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsageAfterShutdown.heapTotal / 1024 / 1024)}MB`,
+        rss: `${Math.round(memUsageAfterShutdown.rss / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsageAfterShutdown.external / 1024 / 1024)}MB`,
+      });
+
       // Restore the built version after shutdown
       if (builtVersion) {
         this.expoDevServerService.getState().builtVersion = builtVersion;
@@ -647,6 +674,15 @@ export class PublicApiService {
 
       // Clear operation state on success
       this.expoDevServerService.getState().clearOperation();
+
+      // Log memory at end of background build
+      const memUsageEnd = process.memoryUsage();
+      baseLogger.info("Memory usage at end of background build", {
+        heapUsed: `${Math.round(memUsageEnd.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsageEnd.heapTotal / 1024 / 1024)}MB`,
+        rss: `${Math.round(memUsageEnd.rss / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsageEnd.external / 1024 / 1024)}MB`,
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
