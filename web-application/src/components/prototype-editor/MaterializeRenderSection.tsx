@@ -166,7 +166,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
-    const [routeSuggestions, setRouteSuggestions] = useState<string[]>([]);
+    const [routeSuggestions, setRouteSuggestions] = useState<Array<{ route: string; group?: string }>>([]);
 
     const nextMobileScreenId = useRef(1);
 
@@ -298,37 +298,63 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: string[] = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
           // Extract route from file path
           // app/about/page.tsx -> /about
-          // app/(tabs)/index.tsx -> /
-          // app/(tabs)/profile.tsx -> /profile
+          // app/(tabs)/index.tsx -> / with group "tabs"
+          // app/(tabs)/profile.tsx -> /profile with group "tabs"
+          // app/(tabs)/settings/index.tsx -> /settings with group "tabs"
           const pathWithoutApp = filePath.replace(/^app\//, "");
+
+          // Extract route group if present (e.g., "(tabs)" -> "tabs")
+          const routeGroupMatch = pathWithoutApp.match(/^\(([^)]+)\)\//);
+          const routeGroup = routeGroupMatch ? routeGroupMatch[1] : undefined;
 
           // Handle page.tsx files
           if (pathWithoutApp.includes("/page.")) {
-            const route = "/" + pathWithoutApp.split("/page.")[0].replace(/\(.*?\)\//g, "");
-            routes.push(route === "/" ? "/" : route);
+            const pathBeforePage = pathWithoutApp.split("/page.")[0];
+            // Remove route groups like (tabs), (auth), etc.
+            const cleanPath = pathBeforePage.replace(/\(.*?\)\//g, "");
+            const route = cleanPath ? "/" + cleanPath : "/";
+            routes.push({ route, group: routeGroup });
           }
           // Handle index files
           else if (pathWithoutApp.includes("/index.")) {
-            const route = "/" + pathWithoutApp.split("/index.")[0].replace(/\(.*?\)\//g, "");
-            routes.push(route === "/" ? "/" : route);
+            const pathBeforeIndex = pathWithoutApp.split("/index.")[0];
+            // Remove route groups like (tabs), (auth), etc.
+            const cleanPath = pathBeforeIndex.replace(/\(.*?\)\//g, "");
+            const route = cleanPath ? "/" + cleanPath : "/";
+            routes.push({ route, group: routeGroup });
           }
-          // Handle direct route files (e.g., app/profile.tsx)
-          else if (!pathWithoutApp.includes("/") && pathWithoutApp.match(/\.(tsx?|jsx?)$/)) {
-            const routeName = pathWithoutApp.split(".")[0];
-            if (routeName !== "page" && routeName !== "layout" && routeName !== "_layout") {
-              routes.push("/" + routeName);
+          // Handle direct route files (e.g., app/profile.tsx, app/(tabs)/settings.tsx)
+          else if (pathWithoutApp.match(/\.(tsx?|jsx?)$/)) {
+            const pathBeforeExt = pathWithoutApp.split(".")[0];
+            // Remove route groups
+            const cleanPath = pathBeforeExt.replace(/\(.*?\)\//g, "");
+            // Get the filename
+            const parts = cleanPath.split("/");
+            const routeName = parts[parts.length - 1];
+
+            if (routeName && routeName !== "page" && routeName !== "layout" && routeName !== "_layout") {
+              // If there are parent directories, use the full path
+              const route = cleanPath.includes("/") ? "/" + cleanPath : "/" + routeName;
+              routes.push({ route, group: routeGroup });
             }
           }
         }
       });
 
-      return Array.from(new Set(routes)).sort();
+      // Remove duplicates (based on route path), filter out +html routes, and sort
+      const uniqueRoutes = Array.from(
+        new Map(routes.map((item) => [item.route, item])).values()
+      )
+        .filter((item) => !item.route.includes("+html"))
+        .sort((a, b) => a.route.localeCompare(b.route));
+
+      return uniqueRoutes;
     }, [files]);
 
     const handleBadgeClick = (id: number, currentPath: string) => {
@@ -342,8 +368,8 @@ const MaterializeRenderSection = forwardRef<
       if (!input || input === "/") {
         setRouteSuggestions(availableRoutes.slice(0, 5));
       } else {
-        const filtered = availableRoutes.filter((route) =>
-          route.toLowerCase().includes(input.toLowerCase())
+        const filtered = availableRoutes.filter((item) =>
+          item.route.toLowerCase().includes(input.toLowerCase())
         );
         setRouteSuggestions(filtered.slice(0, 5));
       }
@@ -983,13 +1009,21 @@ const MaterializeRenderSection = forwardRef<
                                   </div>
                                   {routeSuggestions.length > 0 && (
                                     <div className="bg-background/95 backdrop-blur-sm border border-border rounded-md shadow-lg overflow-hidden">
-                                      {routeSuggestions.map((route) => (
+                                      {routeSuggestions.map((item) => (
                                         <button
-                                          key={route}
-                                          onClick={() => handleSuggestionClick(screen.id, route)}
-                                          className="block w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                                          key={item.route}
+                                          onClick={() => handleSuggestionClick(screen.id, item.route)}
+                                          className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
                                         >
-                                          {route}
+                                          <span>{item.route}</span>
+                                          {item.group && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[10px] px-1.5 py-0 h-4 opacity-50 border-muted-foreground/30"
+                                            >
+                                              {item.group}
+                                            </Badge>
+                                          )}
                                         </button>
                                       ))}
                                     </div>
