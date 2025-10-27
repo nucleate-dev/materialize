@@ -244,7 +244,7 @@ export default function ChatMessagesUI({
         key={message.id}
         className={`mb-6 flex ${isUser ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-2 fade-in duration-500`}
       >
-        <div className={`max-w-[85%] group ${isUser ? "mr-2" : "ml-2"}`}>
+        <div className={`max-w-[90%] group ${isUser ? "mr-2" : "ml-2"}`}>
           {/* Message Bubble */}
           <div
             className={`p-4 rounded-lg ${isUser
@@ -413,7 +413,7 @@ export default function ChatMessagesUI({
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] ml-2">
+            <div className="max-w-[90%] ml-2">
               <div className="p-5 rounded-lg bg-card border border-border">
                 <div className="flex items-center gap-3">
                   <div className="flex space-x-2">

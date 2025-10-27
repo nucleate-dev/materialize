@@ -1046,7 +1046,7 @@ export default function PrototypeChatWindow({
                   }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${message.role === "user"
+                  className={`max-w-[90%] rounded-lg p-3 ${message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
                     }`}
@@ -1061,7 +1061,7 @@ export default function PrototypeChatWindow({
             ))}
             {isChatLoading && isConnected && !currentThought && (
               <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+                <div className="max-w-[90%] rounded-lg p-3 bg-muted">
                   <div className="text-sm text-muted-foreground">
                     Thinking...
                   </div>
