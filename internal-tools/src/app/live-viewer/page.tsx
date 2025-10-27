@@ -54,15 +54,11 @@ export default function LiveViewerPage() {
   ]);
 
   const serverEndpoint = useMemo(() => {
-    return (
-      process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT ?? ""
-    );
+    return process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT ?? "";
   }, []);
 
   const serviceRoleKey = useMemo(() => {
-    return (
-      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ?? ""
-    );
+    return process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ?? "";
   }, []);
 
   const handlePrototypeIdChange = (id: string, value: string) => {
@@ -156,7 +152,7 @@ export default function LiveViewerPage() {
           },
           body: JSON.stringify({
             prototype_id: prototypeId,
-            current_page: "view",
+            current_page: "edit",
           }),
         },
       );
@@ -214,10 +210,7 @@ export default function LiveViewerPage() {
 
   return (
     <>
-      <PageHeader
-        title="Live Viewer"
-        breadcrumbs={[{ title: "Live Viewer" }]}
-      >
+      <PageHeader title="Live Viewer" breadcrumbs={[{ title: "Live Viewer" }]}>
         <Button variant="outline" size="sm" onClick={handleAddCell}>
           <Plus className="mr-2 h-4 w-4" />
           Add Viewer
@@ -284,7 +277,10 @@ export default function LiveViewerPage() {
                   <p className="text-sm text-destructive">{cell.error}</p>
                 )}
 
-                <IPhoneFrame viewingUrl={cell.viewingUrl} loading={cell.loading} />
+                <IPhoneFrame
+                  viewingUrl={cell.viewingUrl}
+                  loading={cell.loading}
+                />
               </CardContent>
               <CardFooter>
                 <p className="text-xs text-muted-foreground">
