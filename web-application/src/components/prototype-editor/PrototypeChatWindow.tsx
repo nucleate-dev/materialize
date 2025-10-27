@@ -858,6 +858,7 @@ export default function PrototypeChatWindow({
       setIsChatLoading,
       imagePreview,
       handleRemoveImage,
+      currentViewingPath,
     ],
   );
 

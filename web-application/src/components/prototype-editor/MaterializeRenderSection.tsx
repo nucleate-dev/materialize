@@ -232,7 +232,7 @@ const MaterializeRenderSection = forwardRef<
       // Check periodically for navigation changes
       const interval = setInterval(checkIframeNavigation, 200);
       return () => clearInterval(interval);
-    }, [viewing_url, editingScreenId]);
+    }, [viewing_url, editingScreenId, onCurrentPathChange]);
 
     // Listen for messages from iframe for client-side navigation tracking
     useEffect(() => {
@@ -271,7 +271,7 @@ const MaterializeRenderSection = forwardRef<
 
       window.addEventListener("message", handleMessage);
       return () => window.removeEventListener("message", handleMessage);
-    }, [viewing_url, editingScreenId]);
+    }, [viewing_url, editingScreenId, onCurrentPathChange]);
 
     const handleAddMobileScreen = () => {
       if (!viewing_url) return;
