@@ -85,7 +85,11 @@ export default async function handleFetchViewingUrlImpl(
 
     // Return static build URL
     let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
-    if (token && authResult.prototype.visibility !== 'PUBLIC') {
+    if (
+      token &&
+      authResult.prototype.visibility !== 'PUBLIC' &&
+      !authResult.isServiceRole
+    ) {
       staticViewingUrl += `?token=${encodeURIComponent(token)}`;
     }
     request.log2.consoleLogDevOnly(
