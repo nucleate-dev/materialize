@@ -89,13 +89,13 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "^15.4.5",
+    "@next/eslint-plugin-next": "^15.5.3",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@typescript-eslint/eslint-plugin": "^8.45.0",
-    "@typescript-eslint/parser": "^8.45.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
     "autoprefixer": "^10.0.1",
     "dotenv": "^16.4.5",
     "eslint": "^9.37.0",
