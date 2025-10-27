@@ -15,9 +15,7 @@ import type {
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   BoltIcon,
-  CheckBadgeIcon,
-  ShareIcon,
-  Squares2X2Icon,
+  CheckBadgeIcon, Squares2X2Icon
 } from "@heroicons/react/24/solid";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -263,9 +261,8 @@ function UseCasesSection() {
             return (
               <div
                 key={index}
-                className={`flex flex-col ${
-                  isReversed ? "lg:flex-row-reverse" : "lg:flex-row"
-                } items-center gap-12 lg:gap-16`}
+                className={`flex flex-col ${isReversed ? "lg:flex-row-reverse" : "lg:flex-row"
+                  } items-center gap-12 lg:gap-16`}
               >
                 {/* Text Content */}
                 <div className="flex-1 space-y-6">
