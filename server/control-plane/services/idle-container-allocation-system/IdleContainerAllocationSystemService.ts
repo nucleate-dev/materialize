@@ -22,7 +22,7 @@ import {
   PublicAllocateResponse,
 } from '../../types/BuildWorkerTypes.js';
 
-const MAX_IDLE_FARGATE_BUILDS: number = 1;
+const MAX_IDLE_FARGATE_BUILDS: number = 0;
 
 export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;

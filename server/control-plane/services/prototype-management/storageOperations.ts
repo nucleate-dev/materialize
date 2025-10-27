@@ -283,10 +283,6 @@ export function getDefaultAppFilesSourcePrefixes(
       rawFilesPrefix = 'starter-app-nativewind-raw-files/';
       distFilesPrefix = 'starter-app-nativewind/';
       break;
-    case 'custom':
-      rawFilesPrefix = 'starter-app-stylesheets-raw-files/';
-      distFilesPrefix = 'starter-app-stylesheets/';
-      break;
   }
   return { rawFilesPrefix, distFilesPrefix };
 }
