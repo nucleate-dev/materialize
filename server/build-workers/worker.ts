@@ -1,3 +1,4 @@
+import { S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
@@ -38,8 +39,17 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
   return workerContext;
 }
 
+// Initialize default S3 client (uses EC2 IAM role credentials)
+// This will be replaced with scoped credentials when /allocate is called
+const defaultS3Client = new S3Client({
+  region: process.env.AWS_REGION || "us-east-1",
+});
+
 // Initialize Services
-const expoDevServerService = new ExpoDevServerService(WORK_DIR);
+const expoDevServerService = new ExpoDevServerService(
+  WORK_DIR,
+  defaultS3Client,
+);
 const sandboxService = new SandboxService(WORK_DIR, baseLogger);
 const publicApiService = new PublicApiService(
   expoDevServerService,
