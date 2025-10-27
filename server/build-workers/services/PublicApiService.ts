@@ -624,6 +624,9 @@ export class PublicApiService {
       }
 
       // Always stop the dev server after build completes (success or failure)
+      // Preserve the built version before shutdown (shutdown resets it to null)
+      const builtVersion = this.expoDevServerService.getState().builtVersion;
+
       try {
         await this.expoDevServerService.shutdown();
       } catch (error: unknown) {
@@ -636,6 +639,12 @@ export class PublicApiService {
           { stack: errorStack },
         );
       }
+
+      // Restore the built version after shutdown
+      if (builtVersion) {
+        this.expoDevServerService.getState().builtVersion = builtVersion;
+      }
+
       // Clear operation state on success
       this.expoDevServerService.getState().clearOperation();
     } catch (error: unknown) {
@@ -649,6 +658,9 @@ export class PublicApiService {
       );
 
       // Ensure dev server is stopped even on critical failures
+      // Preserve the built version before shutdown (shutdown resets it to null)
+      const builtVersion = this.expoDevServerService.getState().builtVersion;
+
       try {
         await this.expoDevServerService.shutdown();
       } catch (shutdownError: unknown) {
@@ -660,6 +672,11 @@ export class PublicApiService {
           new Error(errorMessage),
           "Failed to shutdown dev server after critical error",
         );
+      }
+
+      // Restore the built version after shutdown
+      if (builtVersion) {
+        this.expoDevServerService.getState().builtVersion = builtVersion;
       }
     }
   }
