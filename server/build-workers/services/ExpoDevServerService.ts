@@ -1426,8 +1426,8 @@ export class ExpoDevServerService {
 
       // Parse Metro compilation errors (format: "ERROR Error: /path/file.tsx: Unexpected token...")
       else if (
-        trimmedLine.includes("ERROR Error:") ||
-        (trimmedLine.includes("ERROR ") &&
+        trimmedLine.includes("error") ||
+        (trimmedLine.includes("ERROR") &&
           trimmedLine.includes("Unexpected token"))
       ) {
         buildErrors.push({

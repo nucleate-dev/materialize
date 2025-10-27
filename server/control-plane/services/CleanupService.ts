@@ -397,6 +397,27 @@ export class CleanupService {
               version: responseData.version,
             });
           }
+        } else {
+          // Clear latest_build_key when version doesn't exist
+          const { error: clearBuildVersionError } = await this.supabase
+            .from('prototypes')
+            .update({
+              latest_build_key: null,
+            })
+            .eq('id', prototypeId);
+          if (clearBuildVersionError) {
+            this.log2.error(
+              clearBuildVersionError,
+              'Failed to clear prototype latest_build_key',
+              {
+                prototypeId,
+              },
+            );
+          } else {
+            this.log2.info('Successfully cleared prototype latest_build_key', {
+              prototypeId,
+            });
+          }
         }
         // We should still return success because the fargate task should be cleaned up.
         // Maybe we need to figure out something better here.
