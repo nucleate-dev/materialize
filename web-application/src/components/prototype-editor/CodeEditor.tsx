@@ -880,6 +880,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             {isAssetImage && imageUrl ? (
               <div className="h-full flex items-center justify-center bg-muted/20 p-4">
                 <div className="max-w-full max-h-full flex flex-col items-center space-y-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imageUrl}
                     alt={fileSystem.state.selectedFile}

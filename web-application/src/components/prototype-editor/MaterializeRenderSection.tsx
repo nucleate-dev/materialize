@@ -221,7 +221,7 @@ const MaterializeRenderSection = forwardRef<
                 }),
               );
             }
-          } catch (e) {
+          } catch {
             // Cross-origin restrictions will throw errors, which is expected
             // We can't track navigation for cross-origin iframes
             // For same-origin but client-side routed apps, this will still work

@@ -106,6 +106,7 @@ const MDXComponents = {
 
   // Images
   img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}

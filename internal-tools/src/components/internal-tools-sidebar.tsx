@@ -9,6 +9,7 @@ import {
   Rocket,
   Trash2,
   Container,
+  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -58,6 +59,11 @@ const items = [
     title: "Cleanup Service",
     url: "/cleanup-service",
     icon: Trash2,
+  },
+  {
+    title: "Live Viewer",
+    url: "/live-viewer",
+    icon: Smartphone,
   },
 ];
 

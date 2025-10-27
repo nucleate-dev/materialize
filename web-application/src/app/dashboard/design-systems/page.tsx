@@ -47,7 +47,7 @@ function formatRelativeTime(dateString: string | null | undefined): string {
   return date.toLocaleDateString();
 }
 
-export default function DesignSystemsPage(): JSX.Element {
+export default function DesignSystemsPage() {
   const { user } = useUser();
   const router = useRouter();
   const logger = useProductLogger();

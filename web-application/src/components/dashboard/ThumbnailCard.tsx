@@ -91,6 +91,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
             </div>
           ) : thumbnailUrl ? (
             <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={thumbnailUrl}
                 alt={name}
