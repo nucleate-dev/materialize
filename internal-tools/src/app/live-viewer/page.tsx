@@ -3,18 +3,12 @@
 import { useMemo, useState } from "react";
 import { Plus, Loader2, RefreshCcw } from "lucide-react";
 
-import { PageHeader } from "@/components/page-header";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 interface ViewingCellState {
   id: string;
@@ -210,67 +204,65 @@ export default function LiveViewerPage() {
 
   return (
     <>
-      <PageHeader title="Live Viewer" breadcrumbs={[{ title: "Live Viewer" }]}>
-        <Button variant="outline" size="sm" onClick={handleAddCell}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Viewer
-        </Button>
-      </PageHeader>
+      <header className="border-b bg-background">
+        <div className="flex h-12 items-center gap-4 px-6">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="h-4" />
+          <h1 className="text-lg font-semibold">Live Viewer</h1>
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" onClick={handleAddCell}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Viewer
+          </Button>
+        </div>
+      </header>
 
       <div className="flex-1 space-y-6 p-6">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {cells.map((cell) => (
             <Card key={cell.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle>Viewing Cell</CardTitle>
-                <CardDescription>
-                  Enter a prototype ID to load its live viewer.
-                </CardDescription>
-              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor={`prototype-${cell.id}`}>Prototype ID</Label>
-                  <Input
-                    id={`prototype-${cell.id}`}
-                    placeholder="e.g. demo-prototype"
-                    value={cell.prototypeId}
-                    onChange={(event) =>
-                      handlePrototypeIdChange(cell.id, event.target.value)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleFetchViewingUrl(cell.id);
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`prototype-${cell.id}`}
+                      placeholder="Enter prototype ID"
+                      value={cell.prototypeId}
+                      onChange={(event) =>
+                        handlePrototypeIdChange(cell.id, event.target.value)
                       }
-                    }}
-                    disabled={cell.loading}
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    onClick={() => handleFetchViewingUrl(cell.id)}
-                    disabled={cell.loading}
-                  >
-                    {cell.loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading
-                      </>
-                    ) : (
-                      "Fetch Viewer"
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleResetViewingCell(cell.id)}
-                    disabled={cell.loading}
-                  >
-                    <RefreshCcw className="h-4 w-4" />
-                  </Button>
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          handleFetchViewingUrl(cell.id);
+                        }
+                      }}
+                      disabled={cell.loading}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => handleFetchViewingUrl(cell.id)}
+                      disabled={cell.loading}
+                    >
+                      {cell.loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading
+                        </>
+                      ) : (
+                        "Fetch URL"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleResetViewingCell(cell.id)}
+                      disabled={cell.loading}
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {cell.error && (
@@ -282,12 +274,6 @@ export default function LiveViewerPage() {
                   loading={cell.loading}
                 />
               </CardContent>
-              <CardFooter>
-                <p className="text-xs text-muted-foreground">
-                  Viewing cells use the Supabase service key to load the current
-                  viewing URL directly from the server endpoint.
-                </p>
-              </CardFooter>
             </Card>
           ))}
         </div>
@@ -303,7 +289,7 @@ interface IPhoneFrameProps {
 
 function IPhoneFrame({ viewingUrl, loading }: IPhoneFrameProps) {
   return (
-    <div className="relative mx-auto flex w-full max-w-[260px] justify-center">
+    <div className="relative mx-auto flex w-full max-w-[320px] justify-center">
       <div className="relative aspect-[9/19.5] w-full">
         <div className="absolute inset-0 rounded-[2.75rem] border border-border/60 bg-background shadow-lg">
           <div className="absolute left-1/2 top-2 h-4 w-24 -translate-x-1/2 rounded-full bg-muted" />
