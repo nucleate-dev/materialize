@@ -3,6 +3,7 @@
     "name": "materialize-nativewind",
     "slug": "materialize-nativewind",
     "version": "1.0.0",
+    "scheme": "materialize-nativewind",
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -21,13 +22,15 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.materialize.nativewind"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.materialize.nativewind"
     }
   }
 }

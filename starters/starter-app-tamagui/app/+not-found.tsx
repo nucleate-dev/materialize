@@ -24,7 +24,7 @@ export default function NotFoundScreen() {
           color="$color"
           marginBottom="$4"
         >
-          This screen doesn't exist.
+          This screen doesn&apos;t exist.
         </Text>
 
         <Link href="/">
