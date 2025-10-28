@@ -3,7 +3,6 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
-import type WebSocket from "ws";
 import {
   CodeError,
   CodeWarning,
@@ -142,7 +141,7 @@ export class PublicApiService {
       "/terminal/:sessionId/ws",
       { websocket: true },
       (connection: any, request: FastifyRequest) => {
-        this.terminalWebSocket(connection, request as FastifyRequest<{ Params: { sessionId: string } }>);
+        this.terminalWebSocket(connection);
       },
     );
   }
@@ -1188,7 +1187,7 @@ export class PublicApiService {
       });
 
       if (response.status === "success") {
-        request.log2.info("Created terminal session", {
+        request.log2.info("Created terminal session in PublicApiService", {
           sessionId: response.session_id,
           sessionType: response.session_type,
         });
@@ -1377,14 +1376,9 @@ export class PublicApiService {
     }
   }
 
-  private async terminalWebSocket(
-    connection: any,
-    request: FastifyRequest<{ Params: { sessionId: string } }>,
-  ): Promise<void> {
-    // Extract sessionId from URL path since params may not be populated in websocket routes
-    const sessionId = ((request as any).params?.sessionId) ||
-                      request.url.split('/')[2]; // /terminal/:sessionId/ws
-
+  private async terminalWebSocket(connection: any): Promise<void> {
+    // Extract sessionId from URL path.
+    const sessionId = connection?.url?.split("/")[2]; // /terminal/:sessionId/ws
     if (!sessionId) {
       connection.socket.close(1008, "Missing session ID");
       return;
@@ -1393,7 +1387,7 @@ export class PublicApiService {
     const socket = connection.socket;
 
     // Use baseLogger if request.log2 is not available (during WebSocket upgrade)
-    const logger = (request as any).log2 || baseLogger;
+    const logger = connection?.request?.log2 || baseLogger;
 
     logger.info("Terminal WebSocket connection established", {
       sessionId,

@@ -130,7 +130,7 @@ export class TerminalService {
         rows,
       });
 
-      this.logger.info("Created terminal session", {
+      this.logger.info("Created terminal session in TerminalService", {
         sessionId,
         sessionType,
         command,
