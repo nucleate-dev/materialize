@@ -74,32 +74,35 @@ export class TerminalService {
     // POST /terminal/create - Create a new terminal session
     this.fastifyApp.post<{ Body: TerminalCreateRequest }>(
       "/terminal/create",
-      this.handleTerminalCreate.bind(this),
+      this.handleTerminalCreateRoute.bind(this),
     );
 
     // GET /terminal/:sessionId - Get terminal session info
     this.fastifyApp.get<{ Params: { sessionId: string } }>(
       "/terminal/:sessionId",
-      this.handleTerminalInfo.bind(this),
+      this.handleTerminalInfoRoute.bind(this),
     );
 
     // DELETE /terminal/:sessionId - Close a terminal session
     this.fastifyApp.delete<{ Params: { sessionId: string } }>(
       "/terminal/:sessionId",
-      this.handleTerminalClose.bind(this),
+      this.handleTerminalCloseRoute.bind(this),
     );
 
     // POST /terminal/:sessionId/input - Send input to terminal
     this.fastifyApp.post<{
       Params: { sessionId: string };
       Body: TerminalInputRequest;
-    }>("/terminal/:sessionId/input", this.handleTerminalInput.bind(this));
+    }>("/terminal/:sessionId/input", this.handleTerminalInputRoute.bind(this));
 
     // POST /terminal/:sessionId/resize - Resize terminal
     this.fastifyApp.post<{
       Params: { sessionId: string };
       Body: TerminalResizeRequest;
-    }>("/terminal/:sessionId/resize", this.handleTerminalResize.bind(this));
+    }>(
+      "/terminal/:sessionId/resize",
+      this.handleTerminalResizeRoute.bind(this),
+    );
 
     // WebSocket /terminal/:sessionId/ws - WebSocket connection
     this.fastifyApp.get(
@@ -660,7 +663,7 @@ export class TerminalService {
     });
   }
 
-  private async handleTerminalCreate(
+  private async handleTerminalCreateRoute(
     request: FastifyRequest<{ Body: TerminalCreateRequest }>,
     reply: FastifyReply,
   ): Promise<TerminalCreateResponse> {
@@ -698,7 +701,7 @@ export class TerminalService {
     }
   }
 
-  private async handleTerminalInfo(
+  private async handleTerminalInfoRoute(
     request: FastifyRequest<{ Params: { sessionId: string } }>,
     reply: FastifyReply,
   ): Promise<TerminalInfoResponse> {
@@ -729,7 +732,7 @@ export class TerminalService {
     }
   }
 
-  private async handleTerminalClose(
+  private async handleTerminalCloseRoute(
     request: FastifyRequest<{ Params: { sessionId: string } }>,
     reply: FastifyReply,
   ): Promise<TerminalCloseResponse> {
@@ -761,7 +764,7 @@ export class TerminalService {
     }
   }
 
-  private async handleTerminalInput(
+  private async handleTerminalInputRoute(
     request: FastifyRequest<{
       Params: { sessionId: string };
       Body: TerminalInputRequest;
@@ -810,7 +813,7 @@ export class TerminalService {
     }
   }
 
-  private async handleTerminalResize(
+  private async handleTerminalResizeRoute(
     request: FastifyRequest<{
       Params: { sessionId: string };
       Body: TerminalResizeRequest;
