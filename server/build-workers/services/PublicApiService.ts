@@ -28,24 +28,36 @@ import {
   SandboxReadFileResponse,
   SandboxWriteFileRequest,
   SandboxWriteFileResponse,
+  TerminalCloseResponse,
+  TerminalCreateRequest,
+  TerminalCreateResponse,
+  TerminalInfoResponse,
+  TerminalInputRequest,
+  TerminalInputResponse,
+  TerminalResizeRequest,
+  TerminalResizeResponse,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
+import { TerminalService } from "./TerminalService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
+  private readonly terminalService: TerminalService;
   private readonly workDir: string;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
     workDir: string,
+    terminalService: TerminalService,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
+    this.terminalService = terminalService;
     this.workDir = workDir;
   }
 
@@ -97,6 +109,38 @@ export class PublicApiService {
     app.post<{ Body: SandboxGitCheckoutRequest }>(
       "/sandbox/git-checkout",
       this.sandboxGitCheckout.bind(this),
+    );
+
+    // Terminal API routes
+    app.post<{ Body: TerminalCreateRequest }>(
+      "/terminal",
+      this.terminalCreate.bind(this),
+    );
+
+    app.get<{ Params: { sessionId: string } }>(
+      "/terminal/:sessionId",
+      this.terminalInfo.bind(this),
+    );
+
+    app.delete<{ Params: { sessionId: string } }>(
+      "/terminal/:sessionId",
+      this.terminalClose.bind(this),
+    );
+
+    app.post<{ Params: { sessionId: string }; Body: TerminalInputRequest }>(
+      "/terminal/:sessionId/input",
+      this.terminalInput.bind(this),
+    );
+
+    app.post<{ Params: { sessionId: string }; Body: TerminalResizeRequest }>(
+      "/terminal/:sessionId/resize",
+      this.terminalResize.bind(this),
+    );
+
+    app.get<{ Params: { sessionId: string } }>(
+      "/terminal/:sessionId/ws",
+      { websocket: true },
+      this.terminalWebSocket.bind(this),
     );
   }
 
@@ -1127,6 +1171,258 @@ export class PublicApiService {
         status: "error",
         error: errorMessage,
       };
+    }
+  }
+
+  // ========== Terminal API Handlers ==========
+
+  private async terminalCreate(
+    request: FastifyRequest<{ Body: TerminalCreateRequest }>,
+    reply: FastifyReply,
+  ): Promise<TerminalCreateResponse> {
+    try {
+      const response = this.terminalService.createSession(request.body, {
+        defaultCwd: this.workDir,
+      });
+
+      if (response.status === "success") {
+        request.log2.info("Created terminal session", {
+          sessionId: response.session_id,
+          sessionType: response.session_type,
+        });
+        return reply.code(200).send(response);
+      } else {
+        request.log2.error(
+          new Error(response.error),
+          "Failed to create terminal session",
+        );
+        reply.code(500);
+        return response;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in terminalCreate",
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async terminalInfo(
+    request: FastifyRequest<{ Params: { sessionId: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalInfoResponse> {
+    const { sessionId } = request.params;
+
+    try {
+      const response = this.terminalService.getSessionInfo(sessionId);
+
+      if (response.status === "success") {
+        return reply.code(200).send(response);
+      } else {
+        reply.code(404);
+        return response;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in terminalInfo",
+        { sessionId },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async terminalClose(
+    request: FastifyRequest<{ Params: { sessionId: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalCloseResponse> {
+    const { sessionId } = request.params;
+
+    try {
+      const response = this.terminalService.closeSession(sessionId);
+
+      if (response.status === "success") {
+        request.log2.info("Closed terminal session", { sessionId });
+        return reply.code(200).send(response);
+      } else {
+        reply.code(404);
+        return response;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in terminalClose",
+        { sessionId },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async terminalInput(
+    request: FastifyRequest<{
+      Params: { sessionId: string };
+      Body: TerminalInputRequest;
+    }>,
+    reply: FastifyReply,
+  ): Promise<TerminalInputResponse> {
+    const { sessionId } = request.params;
+    const { input } = request.body;
+
+    if (input === undefined) {
+      request.log2.error(
+        new Error("Missing required parameter: input"),
+        "Missing required parameter: input",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "input is required",
+      };
+    }
+
+    try {
+      this.terminalService.sendInput(sessionId, input);
+      return reply.code(200).send({ status: "success" });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isNotFound = errorMessage.includes("not found");
+
+      if (isNotFound) {
+        request.log2.warn("Terminal session not found", { sessionId });
+        reply.code(404);
+      } else {
+        request.log2.error(
+          new Error(errorMessage),
+          "Failed to send input to terminal",
+          { sessionId },
+        );
+        reply.code(500);
+      }
+
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async terminalResize(
+    request: FastifyRequest<{
+      Params: { sessionId: string };
+      Body: TerminalResizeRequest;
+    }>,
+    reply: FastifyReply,
+  ): Promise<TerminalResizeResponse> {
+    const { sessionId } = request.params;
+    const { cols, rows } = request.body;
+
+    if (!cols || !rows) {
+      request.log2.error(
+        new Error("Missing required parameters: cols and rows"),
+        "Missing required parameters: cols and rows",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "cols and rows are required",
+      };
+    }
+
+    try {
+      this.terminalService.resizeSession(sessionId, cols, rows);
+      return reply.code(200).send({ status: "success" });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isNotFound = errorMessage.includes("not found");
+
+      if (isNotFound) {
+        request.log2.warn("Terminal session not found", { sessionId });
+        reply.code(404);
+      } else {
+        request.log2.error(
+          new Error(errorMessage),
+          "Failed to resize terminal",
+          { sessionId },
+        );
+        reply.code(500);
+      }
+
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async terminalWebSocket(
+    connection: any,
+    request: FastifyRequest<{ Params: { sessionId: string } }>,
+  ): Promise<void> {
+    const { sessionId } = request.params;
+    const socket = connection.socket;
+
+    request.log2.info("Terminal WebSocket connection established", {
+      sessionId,
+    });
+
+    try {
+      this.terminalService.attachWebSocket(sessionId, socket, {
+        allowCreate: false,
+      });
+
+      // Handle incoming messages for input
+      socket.on("message", (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString());
+
+          if (message.event === "input" && message.data?.input !== undefined) {
+            this.terminalService.sendInput(sessionId, message.data.input);
+          } else if (message.event === "resize" && message.data?.cols && message.data?.rows) {
+            this.terminalService.resizeSession(
+              sessionId,
+              message.data.cols,
+              message.data.rows,
+            );
+          }
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          request.log2.debug("Failed to process WebSocket message", {
+            sessionId,
+            error: errorMessage,
+          });
+        }
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to attach WebSocket to terminal",
+        { sessionId },
+      );
+      socket.close(1011, "Failed to attach to terminal session");
     }
   }
 }

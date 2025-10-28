@@ -1,4 +1,6 @@
 import { S3Client } from "@aws-sdk/client-s3";
+import corsPlugin from "@fastify/cors";
+import websocketPlugin from "@fastify/websocket";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
@@ -6,6 +8,7 @@ import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
 import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
+import { TerminalService } from "./services/TerminalService.js";
 
 // Load environment variables
 dotenv.config();
@@ -51,10 +54,12 @@ const expoDevServerService = new ExpoDevServerService(
   defaultS3Client,
 );
 const sandboxService = new SandboxService(WORK_DIR, baseLogger);
+const terminalService = new TerminalService(WORK_DIR, baseLogger);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
   WORK_DIR,
+  terminalService,
 );
 
 // --- Fastify Setup ---
@@ -63,6 +68,14 @@ const app: FastifyInstance = fastify({
   disableRequestLogging: true,
   bodyLimit: 50 * 1024 * 1024, // 50MB limit for large file uploads
 });
+
+// Register CORS plugin
+app.register(corsPlugin, {
+  origin: true, // Allow all origins in development (restrict in production)
+  credentials: true,
+});
+
+app.register(websocketPlugin);
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
@@ -116,6 +129,7 @@ const close = async (): Promise<void> => {
   baseLogger.info("Shutting down build worker...");
   try {
     await expoDevServerService.shutdown();
+    terminalService.shutdownAllSessions();
     await app.close();
   } finally {
     process.exit(0);

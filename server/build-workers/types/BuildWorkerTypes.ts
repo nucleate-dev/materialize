@@ -252,3 +252,55 @@ export interface SandboxGitCheckoutResponse {
   output?: string;
   error?: string;
 }
+
+// Terminal API Types
+export type TerminalSessionType = "generic" | "dev-server" | "build" | "test";
+
+export interface TerminalCreateRequest {
+  session_type?: TerminalSessionType;
+  command?: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  cols?: number;
+  rows?: number;
+}
+
+export interface TerminalCreateResponse {
+  status: "success" | "error";
+  session_id?: string;
+  session_type?: TerminalSessionType;
+  error?: string;
+}
+
+export interface TerminalInfoResponse {
+  status: "success" | "error";
+  session_id?: string;
+  session_type?: TerminalSessionType;
+  state?: string;
+  error?: string;
+}
+
+export interface TerminalCloseResponse {
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface TerminalInputRequest {
+  input: string;
+}
+
+export interface TerminalInputResponse {
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface TerminalResizeRequest {
+  cols: number;
+  rows: number;
+}
+
+export interface TerminalResizeResponse {
+  status: "success" | "error";
+  error?: string;
+}
