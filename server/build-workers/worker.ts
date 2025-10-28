@@ -73,6 +73,7 @@ const app: FastifyInstance = fastify({
 app.register(corsPlugin, {
   origin: true, // Allow all origins in development (restrict in production)
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 });
 
 app.register(websocketPlugin);
