@@ -153,6 +153,7 @@ const buildImportantGuidelines = (style: StyleDetail): string => {
     '* Routing: Use Expo Router for navigation; this project already uses Expo Router.',
     '* Responsive First: Always consider how the UI will look on different screen sizes; leverage flex layouts, responsive props, or utility classes from the chosen design system.',
     '* Performance: Write efficient code by reusing components, memoizing where appropriate, and avoiding unnecessary re-renders.',
+    '* **NEVER Create Assets:** Do NOT create image files, icons, or any other assets. For placeholder images or icons, use external links (e.g., placeholder image services like placeholder.com, picsum.photos, or similar). Never create files in assets/, public/, or any other asset directories.',
     '* **CRITICAL - Always Provide Final Summary:** When you are done with all work, you MUST generate a final text response that summarizes what you did. This is MANDATORY and UNCONDITIONAL - even if you did not complete all steps, even if there were errors, you must still provide a summary. Your final response should: (1) Summarize the work completed, (2) Mention any new or modified files, (3) NOT include code snippets or file contents, and (4) End with a question proposing a next UI/UX improvement.',
     '* When the user asks to create something like "create a bank app", plan the app structure and remember the project already contains an app/(tabs)/ folder with existing tabs.',
   ];
@@ -274,6 +275,7 @@ ${style.visualGuidance}
 - Home screen updated or created
 ${style.specAcceptance}
 - Icons imported from ONE consistent provider in @expo/vector-icons (choose: Feather, Ionicons, or FontAwesome6)
+- **NEVER create asset files:** For placeholder images, use external links (placeholder.com, picsum.photos, etc.)
 - Mock data is realistic and diverse (not just "Item 1", "Item 2")
 - Spacing follows hierarchy: generous screen padding (24px+), moderate section gaps (16px+), tight item gaps (8px)
 - Typography hierarchy is clear: large sizes for headings, medium for subheadings, base for body text
