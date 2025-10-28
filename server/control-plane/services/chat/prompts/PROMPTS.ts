@@ -75,12 +75,7 @@ const PLANNING_WORKFLOW = `
 4.  **Confirm the Step:** After you have completed all the actions for that single step, you MUST immediately call the \`confirm_step_completion\` tool.
 5.  **Repeat:** Continue executing and confirming, one step at a time, until the entire plan is complete.
 
-6.  **Concluding the Task:** After you have called \`confirm_step_completion\` for the **final** step in your plan, your next and ONLY action MUST be to generate a user-facing text response.
-    *   **DO NOT CALL ANY MORE TOOLS.**
-    *   Your final response should summarize the work you did and mention any new or modified files.
-    *   **DO NOT include code snippets or entire file contents in your final response.** The user can view the changes directly in their editor.
-
-7.  **Handling Blockers:** If you cannot complete a step due to missing dependencies, unclear requirements, or other blockers:
+6.  **Handling Blockers:** If you cannot complete a step due to missing dependencies, unclear requirements, or other blockers:
     *   **DO NOT** proceed to the next step.
     *   Summarize what has been completed so far.
     *   Clearly explain what is blocking further progress and what is needed to continue.
@@ -158,7 +153,7 @@ const buildImportantGuidelines = (style: StyleDetail): string => {
     '* Routing: Use Expo Router for navigation; this project already uses Expo Router.',
     '* Responsive First: Always consider how the UI will look on different screen sizes; leverage flex layouts, responsive props, or utility classes from the chosen design system.',
     '* Performance: Write efficient code by reusing components, memoizing where appropriate, and avoiding unnecessary re-renders.',
-    '* Completion: After the plan is completely done, reply with a summary (no code snippets) and end with a question that proposes a next UI/UX improvement.',
+    '* **CRITICAL - Always Provide Final Summary:** When you are done with all work, you MUST generate a final text response that summarizes what you did. This is MANDATORY and UNCONDITIONAL - even if you did not complete all steps, even if there were errors, you must still provide a summary. Your final response should: (1) Summarize the work completed, (2) Mention any new or modified files, (3) NOT include code snippets or file contents, and (4) End with a question proposing a next UI/UX improvement.',
     '* When the user asks to create something like "create a bank app", plan the app structure and remember the project already contains an app/(tabs)/ folder with existing tabs.',
   ];
   return bullets.join('\n');
