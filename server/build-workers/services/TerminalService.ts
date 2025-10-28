@@ -68,6 +68,12 @@ export class TerminalService {
     this.workDir = workDir;
     this.fastifyApp = fastifyApp;
     this.logger = logger;
+
+    // Every build worker is instantiated with three pre-configured terminals.
+    // These terminals live throughout the entire lifecycle of the container.
+    this.getOrCreateTerminalSession("dev-server", "dev-server");
+    this.getOrCreateTerminalSession("build", "build");
+    this.getOrCreateTerminalSession("test", "test");
   }
 
   public registerRoutes(): void {
