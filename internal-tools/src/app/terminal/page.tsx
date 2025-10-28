@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import { Loader2, Terminal as TerminalIcon, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const API_BASE_URL = "http://localhost:3002";
 
@@ -87,7 +87,7 @@ export default function TerminalPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/terminal`, {
+      const response = await fetch(`${API_BASE_URL}/terminal/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -98,6 +98,7 @@ export default function TerminalPage() {
       });
 
       const data = await response.json();
+      console.log("Got response from Create Session", data);
 
       if (data.status === "success" && data.session_id) {
         setSessionId(data.session_id);
@@ -236,13 +237,12 @@ export default function TerminalPage() {
               </span>
             )}
             <span
-              className={`ml-auto text-xs px-2 py-1 rounded-full ${
-                status === "connected"
-                  ? "bg-green-100 text-green-700"
-                  : status === "connecting"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-gray-100 text-gray-700"
-              }`}
+              className={`ml-auto text-xs px-2 py-1 rounded-full ${status === "connected"
+                ? "bg-green-100 text-green-700"
+                : status === "connecting"
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-gray-100 text-gray-700"
+                }`}
             >
               {status}
             </span>

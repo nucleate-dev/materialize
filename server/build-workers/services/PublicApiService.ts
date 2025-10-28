@@ -114,7 +114,7 @@ export class PublicApiService {
 
     // Terminal API routes
     app.post<{ Body: TerminalCreateRequest }>(
-      "/terminal",
+      "/terminal/create",
       this.terminalCreate.bind(this),
     );
 
