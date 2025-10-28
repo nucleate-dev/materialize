@@ -1,0 +1,5 @@
+# Ignore all nested directories inside components/ui/
+components/ui/*/
+
+# Ignore dist folder
+dist/

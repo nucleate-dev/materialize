@@ -7,7 +7,9 @@ function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome6>['name'];
   color: string;
 }) {
-  return <FontAwesome6 name={props.name} color={props.color} size={28} style={{ marginBottom: -3 }} />;
+  return (
+    <FontAwesome6 name={props.name} color={props.color} size={28} style={{ marginBottom: -3 }} />
+  );
 }
 
 export default function TabLayout() {

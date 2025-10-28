@@ -4,13 +4,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*",
-        "./*"
-      ],
-      "tailwind.config": [
-        "./tailwind.config.js"
-      ]
+      "@/*": ["src/*", "./*"],
+      "tailwind.config": ["./tailwind.config.js"]
     }
   }
 }
