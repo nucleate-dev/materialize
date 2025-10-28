@@ -9,6 +9,8 @@ import {
   TerminalInfoResponse,
   TerminalSessionType,
 } from "../types/BuildWorkerTypes.js";
+import { FastifyInstance, FastifyRequest } from "fastify";
+// import type { fastifyWebsocket } from "@fastify/websocket";
 
 const TERMINAL_BUFFER_LIMIT = 200;
 const HEARTBEAT_INTERVAL_MS = 15000;
@@ -51,10 +53,16 @@ export interface TerminalSession {
 export class TerminalService {
   private readonly workDir: string;
   private logger: SystemLogger;
+  private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
 
-  constructor(workDir: string, logger: SystemLogger) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    workDir: string,
+    logger: SystemLogger,
+  ) {
     this.workDir = workDir;
+    this.fastifyApp = fastifyApp;
     this.logger = logger;
   }
 
@@ -567,5 +575,68 @@ export class TerminalService {
     );
 
     return session;
+  }
+
+  public registerRoutes(): void {
+    this.fastifyApp.get(
+      "/terminal/:sessionId/ws",
+      { websocket: true },
+      this.handleWebSocketConnection.bind(this),
+    );
+
+    this.logger.info("Terminal WebSocket routes registered");
+  }
+
+  private handleWebSocketConnection(
+    socket: WebSocket,
+    req: FastifyRequest,
+  ): void {
+    const { sessionId } = req.params as { sessionId: string };
+
+    this.logger.info("WebSocket connection requested", { sessionId });
+
+    // Attach the WebSocket to the session
+    // This handles sending existing buffer, status, and setting up event listeners
+    this.attachWebSocket(sessionId, socket, {
+      allowCreate: false,
+    });
+
+    // Handle incoming messages from the client
+    socket.on("message", (raw: Buffer | string) => {
+      try {
+        const message = JSON.parse(raw.toString());
+
+        // Handle different message types
+        if (message.type === "input" && typeof message.data === "string") {
+          // User input to terminal
+          this.sendInput(sessionId, message.data);
+        } else if (message.type === "resize") {
+          // Terminal resize request
+          const cols = Number(message.cols);
+          const rows = Number(message.rows);
+          if (Number.isFinite(cols) && Number.isFinite(rows)) {
+            this.resizeSession(sessionId, cols, rows);
+          }
+        } else if (message.type === "signal" && message.name === "SIGINT") {
+          // Ctrl+C signal
+          this.sendInput(sessionId, "\x03");
+        }
+      } catch {
+        // If not valid JSON, treat as raw input
+        if (typeof raw === "string" || Buffer.isBuffer(raw)) {
+          try {
+            this.sendInput(sessionId, raw.toString());
+          } catch (inputError) {
+            this.logger.debug("Failed to send input", {
+              sessionId,
+              error:
+                inputError instanceof Error
+                  ? inputError.message
+                  : String(inputError),
+            });
+          }
+        }
+      }
+    });
   }
 }

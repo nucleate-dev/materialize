@@ -1,6 +1,6 @@
 import { S3Client } from "@aws-sdk/client-s3";
 import corsPlugin from "@fastify/cors";
-import websocketPlugin from "@fastify/websocket";
+import websocket from "@fastify/websocket";
 import dotenv from "dotenv";
 import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
@@ -48,20 +48,6 @@ const defaultS3Client = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
 });
 
-// Initialize Services
-const expoDevServerService = new ExpoDevServerService(
-  WORK_DIR,
-  defaultS3Client,
-);
-const sandboxService = new SandboxService(WORK_DIR, baseLogger);
-const terminalService = new TerminalService(WORK_DIR, baseLogger);
-const publicApiService = new PublicApiService(
-  expoDevServerService,
-  sandboxService,
-  WORK_DIR,
-  terminalService,
-);
-
 // --- Fastify Setup ---
 const app: FastifyInstance = fastify({
   logger: true,
@@ -76,11 +62,31 @@ app.register(corsPlugin, {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 });
 
-app.register(websocketPlugin);
+await app.register(websocket, {
+  options: {
+    perMessageDeflate: true,
+    // raise if you plan to paste big chunks into the terminal
+    maxPayload: 1024 * 1024, // 1MB
+  },
+});
+
+// ---- Initialize Services ----
+const expoDevServerService = new ExpoDevServerService(
+  WORK_DIR,
+  defaultS3Client,
+);
+const sandboxService = new SandboxService(WORK_DIR, baseLogger);
+const terminalService = new TerminalService(app, WORK_DIR, baseLogger);
+const publicApiService = new PublicApiService(
+  expoDevServerService,
+  sandboxService,
+  WORK_DIR,
+  terminalService,
+);
 
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
-    req.headers as Record<string, string | string[] | undefined>
+    req.headers as Record<string, string | string[] | undefined>,
   );
 
   // Get worker context (userId and prototypeId from /allocate)
@@ -124,6 +130,9 @@ app.get("/health", async () => {
 
 // Register public API endpoints
 publicApiService.registerRoutes(app);
+
+// Setup terminal WebSocket routes
+terminalService.registerRoutes();
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {

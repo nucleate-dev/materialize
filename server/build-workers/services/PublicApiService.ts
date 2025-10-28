@@ -136,14 +136,6 @@ export class PublicApiService {
       "/terminal/:sessionId/resize",
       this.terminalResize.bind(this),
     );
-
-    app.get(
-      "/terminal/:sessionId/ws",
-      { websocket: true },
-      (connection: any, request: FastifyRequest) => {
-        this.terminalWebSocket(connection);
-      },
-    );
   }
 
   private async allocate(
@@ -1373,68 +1365,6 @@ export class PublicApiService {
         status: "error",
         error: errorMessage,
       };
-    }
-  }
-
-  private async terminalWebSocket(connection: any): Promise<void> {
-    // Extract sessionId from URL path.
-    const sessionId = connection?.url?.split("/")[2]; // /terminal/:sessionId/ws
-    if (!sessionId) {
-      connection.socket.close(1008, "Missing session ID");
-      return;
-    }
-
-    const socket = connection.socket;
-
-    // Use baseLogger if request.log2 is not available (during WebSocket upgrade)
-    const logger = connection?.request?.log2 || baseLogger;
-
-    logger.info("Terminal WebSocket connection established", {
-      sessionId,
-    });
-
-    try {
-      this.terminalService.attachWebSocket(sessionId, socket, {
-        allowCreate: false,
-      });
-
-      // Handle incoming messages for input
-      socket.on("message", (data: Buffer) => {
-        try {
-          const message = JSON.parse(data.toString());
-
-          if (message.event === "input" && message.data?.input !== undefined) {
-            this.terminalService.sendInput(sessionId, message.data.input);
-          } else if (
-            message.event === "resize" &&
-            message.data?.cols &&
-            message.data?.rows
-          ) {
-            this.terminalService.resizeSession(
-              sessionId,
-              message.data.cols,
-              message.data.rows,
-            );
-          }
-        } catch (error: unknown) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          logger.debug("Failed to process WebSocket message", {
-            sessionId,
-            error: errorMessage,
-          });
-        }
-      });
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      logger.error(
-        new Error(errorMessage),
-        "Failed to attach WebSocket to terminal",
-        { sessionId, stack: errorStack },
-      );
-      socket.close(1011, "Failed to attach to terminal session");
     }
   }
 }
