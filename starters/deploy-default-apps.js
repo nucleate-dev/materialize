@@ -118,7 +118,10 @@ function shouldExcludeFile(filePath, basePath) {
     return EXCLUDED_PATTERNS.some(pattern => {
         if (pattern.includes('*')) {
             // Handle wildcard patterns
-            const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+            // Escape special regex characters except *, then replace * with proper glob pattern
+            const escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+            const regexPattern = '^' + escapedPattern.replace(/\*/g, '[^/]*') + '$';
+            const regex = new RegExp(regexPattern);
             return regex.test(relativePath) || regex.test(path.basename(filePath));
         } else {
             // Handle exact matches and directory names
