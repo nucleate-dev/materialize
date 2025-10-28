@@ -157,8 +157,8 @@ export class TerminalService {
       while (this.sessions.has(sessionId)) {
         sessionId = uuidv4();
       }
-
       const session = this.ensureSession(sessionId, sessionType);
+
       const cwd = request.cwd || options.defaultCwd || this.workDir;
       const command = request.command || process.env.SHELL || "/bin/bash";
       const args = request.args ?? [];
