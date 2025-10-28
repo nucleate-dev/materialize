@@ -10,6 +10,7 @@ import {
   Trash2,
   Container,
   Smartphone,
+  Terminal,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,6 +40,11 @@ const items = [
     title: "Build Workers Development",
     url: "/bw-dev",
     icon: Container,
+  },
+  {
+    title: "Terminal",
+    url: "/terminal",
+    icon: Terminal,
   },
   {
     title: "Cache Management",
