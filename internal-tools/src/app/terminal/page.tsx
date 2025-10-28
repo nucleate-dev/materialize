@@ -59,14 +59,13 @@ export default function TerminalPage() {
         try {
           fitAddonRef.current.fit();
           if (sessionId && wsRef.current?.readyState === WebSocket.OPEN) {
-            fetch(`${API_BASE_URL}/terminal/${sessionId}/resize`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+            wsRef.current.send(
+              JSON.stringify({
+                type: "resize",
                 cols: xtermRef.current.cols,
                 rows: xtermRef.current.rows,
-              }),
-            }).catch(console.error);
+              })
+            );
           }
         } catch (err) {
           console.error("Failed to fit terminal on resize:", err);
@@ -129,8 +128,8 @@ export default function TerminalPage() {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(
               JSON.stringify({
-                event: "input",
-                data: { input: data },
+                type: "input",
+                data: data,
               })
             );
           }
