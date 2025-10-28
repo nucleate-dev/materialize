@@ -27,7 +27,6 @@ export default function HomeScreen() {
 
       <Button
         size="$4"
-        theme="active"
         onPress={() => Alert.alert('Button pressed!')}
         marginTop="$4"
       >
