@@ -22,7 +22,6 @@ export class PrototypeManagementService {
   private fastifyApp: FastifyInstance;
   private supabaseUrl: string;
   private supabaseAnonKey: string;
-  private supabaseServiceKey: string;
   private s3Client: S3Client;
   private cache: GlideClient;
   private dispatcherService: DispatcherService;
@@ -41,13 +40,8 @@ export class PrototypeManagementService {
     // Environment validation
     this.supabaseUrl = process.env.SUPABASE_URL!;
     this.supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
-    this.supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    if (
-      !this.supabaseUrl ||
-      !this.supabaseAnonKey ||
-      !this.supabaseServiceKey
-    ) {
+    if (!this.supabaseUrl || !this.supabaseAnonKey) {
       throw new Error(
         'Missing required Supabase environment variables for PrototypeManagementService',
       );
