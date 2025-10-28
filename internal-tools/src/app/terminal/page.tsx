@@ -6,116 +6,123 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { Loader2, Terminal as TerminalIcon, Trash2 } from "lucide-react";
+import { Loader2, Terminal as TerminalIcon, Trash2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE_URL = "http://localhost:3002";
+const API_BASE_URL = process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT || "http://localhost:3002";
+
+type TerminalSessionId = "dev-server" | "build" | "test";
+
+interface TerminalState {
+  ref: React.RefObject<HTMLDivElement>;
+  xtermRef: React.MutableRefObject<Terminal | null>;
+  fitAddonRef: React.MutableRefObject<FitAddon | null>;
+  wsRef: React.MutableRefObject<WebSocket | null>;
+  status: "disconnected" | "connecting" | "connected";
+}
 
 export default function TerminalPage() {
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // Create refs for each terminal
+  const devServerTerminal = useRef<HTMLDivElement>(null);
+  const devServerXterm = useRef<Terminal | null>(null);
+  const devServerFitAddon = useRef<FitAddon | null>(null);
+  const devServerWs = useRef<WebSocket | null>(null);
+
+  const buildTerminal = useRef<HTMLDivElement>(null);
+  const buildXterm = useRef<Terminal | null>(null);
+  const buildFitAddon = useRef<FitAddon | null>(null);
+  const buildWs = useRef<WebSocket | null>(null);
+
+  const testTerminal = useRef<HTMLDivElement>(null);
+  const testXterm = useRef<Terminal | null>(null);
+  const testFitAddon = useRef<FitAddon | null>(null);
+  const testWs = useRef<WebSocket | null>(null);
+
+  const [devServerStatus, setDevServerStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  const [buildStatus, setBuildStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  const [testStatus, setTestStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
 
-  // Initialize terminal
+  // Initialize terminals on mount
   useEffect(() => {
-    if (!terminalRef.current) return;
+    const initTerminal = (
+      terminalRef: React.RefObject<HTMLDivElement>,
+      xtermRef: React.MutableRefObject<Terminal | null>,
+      fitAddonRef: React.MutableRefObject<FitAddon | null>
+    ) => {
+      if (!terminalRef.current) return null;
 
-    const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      theme: {
-        background: "#1e1e1e",
-        foreground: "#d4d4d4",
-      },
-      cols: 80,
-      rows: 24,
-    });
+      const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 12,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: {
+          background: "#1e1e1e",
+          foreground: "#d4d4d4",
+        },
+        cols: 80,
+        rows: 15,
+      });
 
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(terminalRef.current);
 
-    // Use setTimeout to allow the terminal to fully render before fitting
-    setTimeout(() => {
-      try {
-        fitAddon.fit();
-      } catch (err) {
-        console.error("Failed to fit terminal:", err);
-      }
-    }, 0);
+      // Use setTimeout to allow the terminal to fully render before fitting
+      setTimeout(() => {
+        try {
+          fitAddon.fit();
+        } catch (err) {
+          console.error("Failed to fit terminal:", err);
+        }
+      }, 0);
 
-    xtermRef.current = term;
-    fitAddonRef.current = fitAddon;
+      xtermRef.current = term;
+      fitAddonRef.current = fitAddon;
+
+      return term;
+    };
+
+    // Initialize all three terminals
+    const devTerm = initTerminal(devServerTerminal, devServerXterm, devServerFitAddon);
+    const buildTerm = initTerminal(buildTerminal, buildXterm, buildFitAddon);
+    const testTerm = initTerminal(testTerminal, testXterm, testFitAddon);
 
     // Handle window resize
     const handleResize = () => {
-      if (fitAddonRef.current && xtermRef.current) {
-        try {
-          fitAddonRef.current.fit();
-          if (sessionId && wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(
-              JSON.stringify({
-                type: "resize",
-                cols: xtermRef.current.cols,
-                rows: xtermRef.current.rows,
-              })
-            );
+      [devServerFitAddon, buildFitAddon, testFitAddon].forEach((fitAddonRef) => {
+        if (fitAddonRef.current) {
+          try {
+            fitAddonRef.current.fit();
+          } catch (err) {
+            console.error("Failed to fit terminal on resize:", err);
           }
-        } catch (err) {
-          console.error("Failed to fit terminal on resize:", err);
         }
-      }
+      });
     };
 
     window.addEventListener("resize", handleResize);
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      term.dispose();
+      devTerm?.dispose();
+      buildTerm?.dispose();
+      testTerm?.dispose();
     };
-  }, [sessionId]);
+  }, []);
 
-  const createSession = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/terminal/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_type: "generic",
-          cols: xtermRef.current?.cols || 80,
-          rows: xtermRef.current?.rows || 24,
-        }),
-      });
-
-      const data = await response.json();
-      console.log("Got response from Create Session", data);
-
-      if (data.status === "success" && data.session_id) {
-        setSessionId(data.session_id);
-        connectWebSocket(data.session_id);
-      } else {
-        setError(data.error || "Failed to create terminal session");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create session");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const connectWebSocket = (sid: string) => {
+  const connectWebSocket = (
+    sessionId: TerminalSessionId,
+    xtermRef: React.MutableRefObject<Terminal | null>,
+    wsRef: React.MutableRefObject<WebSocket | null>,
+    setStatus: (status: "disconnected" | "connecting" | "connected") => void
+  ) => {
     setStatus("connecting");
 
-    const ws = new WebSocket(`ws://localhost:3002/terminal/${sid}/ws`);
+    const wsUrl = API_BASE_URL.replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsUrl}/terminal/${sessionId}/ws`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -157,7 +164,7 @@ export default function TerminalPage() {
 
     ws.onerror = (err) => {
       console.error("WebSocket error:", err);
-      setError("WebSocket connection error");
+      setError(`WebSocket connection error for ${sessionId}`);
       setStatus("disconnected");
     };
 
@@ -167,53 +174,126 @@ export default function TerminalPage() {
     };
   };
 
-  const closeSession = async () => {
-    if (!sessionId) return;
+  const initializeDefaultTerminals = async () => {
+    setLoading(true);
+    setError(null);
 
     try {
-      wsRef.current?.close();
-      wsRef.current = null;
+      // Connect to dev-server terminal
+      connectWebSocket("dev-server", devServerXterm, devServerWs, setDevServerStatus);
 
-      await fetch(`${API_BASE_URL}/terminal/${sessionId}`, {
-        method: "DELETE",
-      });
+      // Connect to build terminal
+      connectWebSocket("build", buildXterm, buildWs, setBuildStatus);
 
-      setSessionId(null);
-      setStatus("disconnected");
-      xtermRef.current?.clear();
+      // Connect to test terminal
+      connectWebSocket("test", testXterm, testWs, setTestStatus);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to close session");
+      setError(err instanceof Error ? err.message : "Failed to initialize terminals");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const createNewSession = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/terminal/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_type: "generic",
+          cols: testXterm.current?.cols || 80,
+          rows: testXterm.current?.rows || 15,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("Got response from Create Session", data);
+
+      if (data.status === "success" && data.session_id) {
+        // Connect the new session to the test terminal
+        connectWebSocket(data.session_id as TerminalSessionId, testXterm, testWs, setTestStatus);
+      } else {
+        setError(data.error || "Failed to create terminal session");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create session");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const disconnectAllTerminals = () => {
+    devServerWs.current?.close();
+    buildWs.current?.close();
+    testWs.current?.close();
+
+    devServerWs.current = null;
+    buildWs.current = null;
+    testWs.current = null;
+
+    setDevServerStatus("disconnected");
+    setBuildStatus("disconnected");
+    setTestStatus("disconnected");
+
+    devServerXterm.current?.clear();
+    buildXterm.current?.clear();
+    testXterm.current?.clear();
+  };
+
+  const allConnected = devServerStatus === "connected" && buildStatus === "connected" && testStatus === "connected";
+  const anyConnected = devServerStatus === "connected" || buildStatus === "connected" || testStatus === "connected";
 
   return (
     <div className="flex-1 p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Terminal</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Build Worker Terminals</h1>
           <p className="text-muted-foreground">
-            Interactive terminal connected to build worker
+            Interactive terminals connected to build worker (dev-server, build, test)
           </p>
         </div>
         <div className="flex gap-2">
-          {!sessionId ? (
-            <Button onClick={createSession} disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <TerminalIcon className="mr-2 h-4 w-4" />
-                  New Session
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={closeSession} variant="destructive">
+          <Button
+            onClick={initializeDefaultTerminals}
+            disabled={loading || allConnected}
+            variant="default"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Initialize Default Terminals
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={createNewSession}
+            disabled={loading}
+            variant="outline"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <TerminalIcon className="mr-2 h-4 w-4" />
+                New Session
+              </>
+            )}
+          </Button>
+          {anyConnected && (
+            <Button onClick={disconnectAllTerminals} variant="destructive">
               <Trash2 className="mr-2 h-4 w-4" />
-              Close Session
+              Disconnect All
             </Button>
           )}
         </div>
@@ -225,46 +305,97 @@ export default function TerminalPage() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TerminalIcon className="h-5 w-5" />
-            Terminal Session
-            {sessionId && (
+      <div className="grid grid-cols-1 gap-4">
+        {/* Dev Server Terminal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TerminalIcon className="h-5 w-5" />
+              Dev Server Terminal
               <span className="text-sm font-mono text-muted-foreground">
-                ({sessionId.substring(0, 8)}...)
+                (dev-server)
               </span>
-            )}
-            <span
-              className={`ml-auto text-xs px-2 py-1 rounded-full ${status === "connected"
-                ? "bg-green-100 text-green-700"
-                : status === "connecting"
-                  ? "bg-yellow-100 text-yellow-700"
-                  : "bg-gray-100 text-gray-700"
+              <span
+                className={`ml-auto text-xs px-2 py-1 rounded-full ${
+                  devServerStatus === "connected"
+                    ? "bg-green-100 text-green-700"
+                    : devServerStatus === "connecting"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-gray-100 text-gray-700"
                 }`}
-            >
-              {status}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative">
-          <div
-            ref={terminalRef}
-            className="w-full h-[600px] bg-[#1e1e1e] rounded-md overflow-hidden"
-          />
-          {!sessionId && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-md">
-              <div className="text-center text-white">
-                <TerminalIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg">No active terminal session</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Click "New Session" to start
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              >
+                {devServerStatus}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              ref={devServerTerminal}
+              className="w-full h-[250px] bg-[#1e1e1e] rounded-md overflow-hidden"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Build Terminal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TerminalIcon className="h-5 w-5" />
+              Build Terminal
+              <span className="text-sm font-mono text-muted-foreground">
+                (build)
+              </span>
+              <span
+                className={`ml-auto text-xs px-2 py-1 rounded-full ${
+                  buildStatus === "connected"
+                    ? "bg-green-100 text-green-700"
+                    : buildStatus === "connecting"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {buildStatus}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              ref={buildTerminal}
+              className="w-full h-[250px] bg-[#1e1e1e] rounded-md overflow-hidden"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Test Terminal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TerminalIcon className="h-5 w-5" />
+              Test Terminal
+              <span className="text-sm font-mono text-muted-foreground">
+                (test)
+              </span>
+              <span
+                className={`ml-auto text-xs px-2 py-1 rounded-full ${
+                  testStatus === "connected"
+                    ? "bg-green-100 text-green-700"
+                    : testStatus === "connecting"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {testStatus}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              ref={testTerminal}
+              className="w-full h-[250px] bg-[#1e1e1e] rounded-md overflow-hidden"
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
