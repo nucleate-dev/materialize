@@ -4,7 +4,7 @@ export { Alert, AlertIcon, AlertText } from './alert';
 export { AlertDialog, AlertDialogBackdrop, AlertDialogContent, AlertDialogHeader, AlertDialogCloseButton, AlertDialogFooter, AlertDialogBody } from './alert-dialog';
 export { Avatar, AvatarGroup, AvatarBadge, AvatarFallbackText, AvatarImage } from './avatar';
 export { Badge, BadgeText, BadgeIcon } from './badge';
-export { Bottomsheet, BottomsheetBackdrop, BottomsheetContent, BottomsheetDragIndicator, BottomsheetDragIndicatorWrapper, BottomsheetItem, BottomsheetItemText, BottomsheetIcon, BottomsheetScrollView, BottomsheetVirtualizedList, BottomsheetFlatList, BottomsheetSectionList, BottomsheetSectionHeaderText } from './bottomsheet';
+export { BottomSheet, BottomSheetPortal, BottomSheetTrigger, BottomSheetBackdrop, BottomSheetContent, BottomSheetDragIndicator, BottomSheetItem, BottomSheetItemText, BottomSheetScrollView, BottomSheetFlatList, BottomSheetSectionList, BottomSheetTextInput } from './bottomsheet';
 export { Box } from './box';
 export { Button, ButtonText, ButtonSpinner, ButtonIcon, ButtonGroup } from './button';
 export { Card } from './card';
