@@ -126,7 +126,24 @@ export class TerminalService {
       }
       return existing;
     }
-    return this.createEmptySession(sessionId, type);
+    const session: TerminalSession = {
+      id: sessionId,
+      type,
+      pty: null,
+      command: "",
+      args: [],
+      cwd: this.workDir,
+      env: { ...process.env },
+      cols: 80,
+      rows: 24,
+      state: "idle",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      buffer: [],
+      clients: new Map(),
+    };
+    this.sessions.set(sessionId, session);
+    return session;
   }
 
   public startProcess(
@@ -367,30 +384,6 @@ export class TerminalService {
     if (!session) {
       throw new Error(`Terminal session ${sessionId} not found`);
     }
-    return session;
-  }
-
-  private createEmptySession(
-    sessionId: string,
-    type: TerminalSessionType,
-  ): TerminalSession {
-    const session: TerminalSession = {
-      id: sessionId,
-      type,
-      pty: null,
-      command: "",
-      args: [],
-      cwd: this.workDir,
-      env: { ...process.env },
-      cols: 80,
-      rows: 24,
-      state: "idle",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      buffer: [],
-      clients: new Map(),
-    };
-    this.sessions.set(sessionId, session);
     return session;
   }
 
