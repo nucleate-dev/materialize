@@ -81,7 +81,6 @@ const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
   WORK_DIR,
-  terminalService,
 );
 
 app.addHook("onRequest", async (req) => {

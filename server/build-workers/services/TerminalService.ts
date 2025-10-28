@@ -7,9 +7,13 @@ import {
   TerminalCreateRequest,
   TerminalCreateResponse,
   TerminalInfoResponse,
+  TerminalInputRequest,
+  TerminalInputResponse,
+  TerminalResizeRequest,
+  TerminalResizeResponse,
   TerminalSessionType,
 } from "../types/BuildWorkerTypes.js";
-import { FastifyInstance, FastifyRequest } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 // import type { fastifyWebsocket } from "@fastify/websocket";
 
 const TERMINAL_BUFFER_LIMIT = 200;
@@ -66,16 +70,49 @@ export class TerminalService {
     this.logger = logger;
   }
 
+  public registerRoutes(): void {
+    // POST /terminal/create - Create a new terminal session
+    this.fastifyApp.post<{ Body: TerminalCreateRequest }>(
+      "/terminal/create",
+      this.handleTerminalCreate.bind(this),
+    );
+
+    // GET /terminal/:sessionId - Get terminal session info
+    this.fastifyApp.get<{ Params: { sessionId: string } }>(
+      "/terminal/:sessionId",
+      this.handleTerminalInfo.bind(this),
+    );
+
+    // DELETE /terminal/:sessionId - Close a terminal session
+    this.fastifyApp.delete<{ Params: { sessionId: string } }>(
+      "/terminal/:sessionId",
+      this.handleTerminalClose.bind(this),
+    );
+
+    // POST /terminal/:sessionId/input - Send input to terminal
+    this.fastifyApp.post<{
+      Params: { sessionId: string };
+      Body: TerminalInputRequest;
+    }>("/terminal/:sessionId/input", this.handleTerminalInput.bind(this));
+
+    // POST /terminal/:sessionId/resize - Resize terminal
+    this.fastifyApp.post<{
+      Params: { sessionId: string };
+      Body: TerminalResizeRequest;
+    }>("/terminal/:sessionId/resize", this.handleTerminalResize.bind(this));
+
+    // WebSocket /terminal/:sessionId/ws - WebSocket connection
+    this.fastifyApp.get(
+      "/terminal/:sessionId/ws",
+      { websocket: true },
+      this.handleWebSocketConnection.bind(this),
+    );
+
+    this.logger.info("Terminal routes registered");
+  }
+
   public setLogger(logger: SystemLogger): void {
     this.logger = logger;
-  }
-
-  public getSession(sessionId: string): TerminalSession | undefined {
-    return this.sessions.get(sessionId);
-  }
-
-  public getSessionIds(): string[] {
-    return Array.from(this.sessions.keys());
   }
 
   public ensureSession(
@@ -320,7 +357,7 @@ export class TerminalService {
   }
 
   public shutdownAllSessions(): void {
-    for (const sessionId of this.getSessionIds()) {
+    for (const sessionId of this.sessions.keys()) {
       this.closeSession(sessionId);
     }
   }
@@ -577,16 +614,6 @@ export class TerminalService {
     return session;
   }
 
-  public registerRoutes(): void {
-    this.fastifyApp.get(
-      "/terminal/:sessionId/ws",
-      { websocket: true },
-      this.handleWebSocketConnection.bind(this),
-    );
-
-    this.logger.info("Terminal WebSocket routes registered");
-  }
-
   private handleWebSocketConnection(
     socket: WebSocket,
     req: FastifyRequest,
@@ -638,5 +665,204 @@ export class TerminalService {
         }
       }
     });
+  }
+
+  private async handleTerminalCreate(
+    request: FastifyRequest<{ Body: TerminalCreateRequest }>,
+    reply: FastifyReply,
+  ): Promise<TerminalCreateResponse> {
+    try {
+      const response = this.createSession(request.body, {
+        defaultCwd: this.workDir,
+      });
+
+      if (response.status === "success") {
+        this.logger.info("Created terminal session", {
+          sessionId: response.session_id,
+          sessionType: response.session_type,
+        });
+        return reply.code(200).send(response);
+      } else {
+        this.logger.error(
+          new Error(response.error),
+          "Failed to create terminal session",
+        );
+        reply.code(500);
+        return response;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        new Error(errorMessage),
+        "Unexpected error in handleTerminalCreate",
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleTerminalInfo(
+    request: FastifyRequest<{ Params: { sessionId: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalInfoResponse> {
+    const { sessionId } = request.params;
+
+    try {
+      const response = this.getSessionInfo(sessionId);
+
+      if (response.status === "success") {
+        return reply.code(200).send(response);
+      } else {
+        reply.code(404);
+        return response;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        new Error(errorMessage),
+        "Unexpected error in handleTerminalInfo",
+        { sessionId },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleTerminalClose(
+    request: FastifyRequest<{ Params: { sessionId: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalCloseResponse> {
+    const { sessionId } = request.params;
+
+    try {
+      const response = this.closeSession(sessionId);
+
+      if (response.status === "success") {
+        this.logger.info("Closed terminal session", { sessionId });
+        return reply.code(200).send(response);
+      } else {
+        reply.code(404);
+        return response;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        new Error(errorMessage),
+        "Unexpected error in handleTerminalClose",
+        { sessionId },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleTerminalInput(
+    request: FastifyRequest<{
+      Params: { sessionId: string };
+      Body: TerminalInputRequest;
+    }>,
+    reply: FastifyReply,
+  ): Promise<TerminalInputResponse> {
+    const { sessionId } = request.params;
+    const { input } = request.body;
+
+    if (input === undefined) {
+      this.logger.error(
+        new Error("Missing required parameter: input"),
+        "Missing required parameter: input",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "input is required",
+      };
+    }
+
+    try {
+      this.sendInput(sessionId, input);
+      return reply.code(200).send({ status: "success" });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isNotFound = errorMessage.includes("not found");
+
+      if (isNotFound) {
+        this.logger.warn("Terminal session not found", { sessionId });
+        reply.code(404);
+      } else {
+        this.logger.error(
+          new Error(errorMessage),
+          "Failed to send input to terminal",
+          { sessionId },
+        );
+        reply.code(500);
+      }
+
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleTerminalResize(
+    request: FastifyRequest<{
+      Params: { sessionId: string };
+      Body: TerminalResizeRequest;
+    }>,
+    reply: FastifyReply,
+  ): Promise<TerminalResizeResponse> {
+    const { sessionId } = request.params;
+    const { cols, rows } = request.body;
+
+    if (!cols || !rows) {
+      this.logger.error(
+        new Error("Missing required parameters: cols and rows"),
+        "Missing required parameters: cols and rows",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "cols and rows are required",
+      };
+    }
+
+    try {
+      this.resizeSession(sessionId, cols, rows);
+      return reply.code(200).send({ status: "success" });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isNotFound = errorMessage.includes("not found");
+
+      if (isNotFound) {
+        this.logger.warn("Terminal session not found", { sessionId });
+        reply.code(404);
+      } else {
+        this.logger.error(
+          new Error(errorMessage),
+          "Failed to resize terminal",
+          { sessionId },
+        );
+        reply.code(500);
+      }
+
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
   }
 }
