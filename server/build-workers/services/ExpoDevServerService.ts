@@ -273,7 +273,12 @@ export class ExpoDevServerService {
 
       // Start Expo dev server and wait for tunnel URL
       try {
-        await this.startExpoProcess(this.state.projectDir, this.state.port);
+        await this.startExpoProcess(
+          this.state.projectDir,
+          this.state.port,
+          buildErrors,
+          buildWarnings,
+        );
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
