@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-10-27T16:00:26.740Z
+// Last synced: 2025-10-28T17:39:39.477Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -246,6 +246,7 @@ export interface UpdateFilesRequestBody {
   files: PrototypeFileInput[];
   assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
+  deleted_files?: string[];
 }
 
 export interface UpdateFilesSuccessResponse {

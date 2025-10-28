@@ -73,6 +73,10 @@ export class DevelopmentServerService {
                 },
               },
               prototype_id: { type: 'string' },
+              deleted_files: {
+                type: 'array',
+                items: { type: 'string' },
+              },
             },
           },
         },
@@ -235,7 +239,7 @@ export class DevelopmentServerService {
       '[handleUpdateFiles] Starting update files',
     );
     try {
-      const { files, prototype_id } = request.body;
+      const { files, prototype_id, deleted_files } = request.body;
 
       // 1. Get JWT
       const token = request.headers.authorization?.split(' ')[1];
@@ -307,6 +311,7 @@ export class DevelopmentServerService {
           files: files,
           assets: [], // update-files only deals with text files, so assets array is empty
           file_scope: 'updates', // This is the key difference - only update files, don't rebuild
+          deleted_files: deleted_files,
         },
         token,
         request.log2,

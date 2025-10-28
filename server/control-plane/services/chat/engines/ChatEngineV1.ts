@@ -148,9 +148,13 @@ export class ChatEngineV1 {
             ),
         }),
         execute: async ({ steps }: { steps: string[] }) => {
-          log2.consoleLogDevOnly(`[ChatEngine] Execution Plan Created`, {
-            steps,
-          });
+          log2.consoleLogDevOnly(
+            'info',
+            `[ChatEngine] Execution Plan Created`,
+            {
+              steps,
+            },
+          );
           return {
             success: true,
             plan: steps,

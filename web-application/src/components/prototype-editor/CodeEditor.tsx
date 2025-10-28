@@ -168,6 +168,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const directoryOptions = useMemo(() => {
     const directories = new Set<string>([ROOT_FOLDER_VALUE]);
@@ -611,6 +612,85 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       });
     } finally {
       setIsSaving(false);
+      if (onBuildingStateChange) {
+        onBuildingStateChange(false);
+      }
+    }
+  };
+
+  const handleDeleteFileWithAPI = async (fileName: string) => {
+    if (!prototypeId) {
+      logger.debug("error", "Cannot delete: missing prototype ID");
+      return;
+    }
+
+    setIsDeleting(true);
+    if (onBuildingStateChange) {
+      onBuildingStateChange(true);
+    }
+
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        logger.debug("error", "No authentication token available");
+        return;
+      }
+
+      const requestBody: UpdateFilesRequestBody = {
+        files: [],
+        assets: [],
+        prototype_id: prototypeId,
+        deleted_files: [fileName],
+      };
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT}/files/update-files`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestBody),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        logger.debug("error", "Delete file request failed:", {
+          ...errorData,
+        });
+        throw new Error(
+          `Delete failed: ${errorData.message || "Unknown error"}`,
+        );
+      }
+
+      const result: APIResponse<UpdateFilesSuccessResponse, UpdateFilesErrorResponse> = await response.json();
+
+      // Handle successful response
+      if (result.data) {
+        // Update viewing URL if provided
+        if (result.data.viewing_url && onViewingUrlUpdate) {
+          onViewingUrlUpdate(result.data.viewing_url);
+        }
+
+        // Delete the file from local state after successful API call
+        fileSystem.deleteFile(fileName);
+      } else if (result.error) {
+        // Handle error response
+        logger.debug("error", "Failed to delete file:", {
+          ...result.error,
+        });
+      }
+    } catch (error) {
+      logger.debug("error", "Error deleting file:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsDeleting(false);
       if (onBuildingStateChange) {
         onBuildingStateChange(false);
       }
@@ -1168,19 +1248,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Button
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => {
+                onClick={async () => {
                   if (fileSystem.state.selectedFile) {
-                    fileSystem.deleteFile(fileSystem.state.selectedFile);
+                    await handleDeleteFileWithAPI(fileSystem.state.selectedFile);
                   }
                   setShowDeleteConfirm(false);
                 }}
+                disabled={isDeleting}
               >
-                Delete File
+                {isDeleting ? "Deleting..." : "Delete File"}
               </Button>
             </DialogFooter>
           </DialogContent>

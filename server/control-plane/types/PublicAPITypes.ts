@@ -237,6 +237,7 @@ export interface UpdateFilesRequestBody {
   files: PrototypeFileInput[];
   assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
+  deleted_files?: string[];
 }
 
 export interface UpdateFilesSuccessResponse {

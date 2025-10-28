@@ -554,11 +554,13 @@ export class CleanupService {
         Key: `${prototypeId}/latest/index.html`,
       });
 
+      /* eslint-disable @typescript-eslint/no-explicit-any */
       const signedUrl = await getSignedUrl(
-        this.s3Client,
-        command,
+        this.s3Client as any, // Type assertion to resolve @smithy/types version conflict
+        command as any, // Type assertion to resolve @smithy/types version conflict
         { expiresIn: 300 }, // 5 min expiration
       );
+      /* eslint-enable @typescript-eslint/no-explicit-any */
 
       return signedUrl;
     } catch (error) {
