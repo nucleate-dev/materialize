@@ -830,8 +830,14 @@ export class ExpoDevServerService {
       await writeProjectFiles(files, assets, buildDir);
       logger.log("Project files written", true, `Build directory: ${buildDir}`);
 
+      // Get the build terminal session for installing dependencies
+      const buildSession = this.terminalService.getSession("build");
+      if (!buildSession) {
+        throw new Error("build terminal session not found");
+      }
+
       const installStartTime = Date.now();
-      await installDependencies(buildDir, this.log2);
+      await installDependencies(buildDir, this.log2, buildSession);
       const installDuration = Date.now() - installStartTime;
       logger.log(
         "Dependency installation completed",
@@ -1044,9 +1050,14 @@ export class ExpoDevServerService {
     buildErrors: CodeError[],
     buildWarnings: CodeWarning[],
   ): Promise<void> {
+    const session = this.terminalService.getSession("dev-server");
+    if (!session) {
+      throw new Error("dev-server terminal session not found");
+    }
+
     try {
-      // Use shared installDependencies function with SystemLogger
-      await installDependencies(projectDir, this.log2);
+      // Use shared installDependencies function with SystemLogger and terminal session
+      await installDependencies(projectDir, this.log2, session);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

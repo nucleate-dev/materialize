@@ -1,7 +1,7 @@
-import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import { TerminalSession } from "../services/TerminalService.js";
 
 export class InvalidProjectPathError extends Error {
   constructor(message: string) {
@@ -38,69 +38,93 @@ function shouldSkipNpmLog(output: string): boolean {
 
 export async function installDependencies(
   projectDir: string,
-  log2: SystemLogger
+  log2: SystemLogger,
+  terminalSession: TerminalSession,
 ): Promise<void> {
-  log2.info("Installing dependencies");
+  log2.info("Installing dependencies using terminal session");
 
   return new Promise((resolve, reject) => {
-    const npmProcess = spawn(
-      "npm",
-      ["install", "--prefer-offline", "--no-audit", "--no-fund"],
-      {
-        cwd: projectDir,
-        env: {
-          ...process.env,
-          NODE_OPTIONS: "--max-old-space-size=2048",
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
-
     let stdout = "";
-    let stderr = "";
+    let installComplete = false;
 
-    npmProcess.stdout.on("data", (data) => {
-      const output = data.toString();
-      stdout += output;
-      if (!shouldSkipNpmLog(output)) {
-        log2.debug("npm stdout", { output: output.trim() });
-      }
-    });
-
-    npmProcess.stderr.on("data", (data) => {
-      const output = data.toString();
-      stderr += output;
-      if (!shouldSkipNpmLog(output)) {
-        log2.debug("npm stderr", { output: output.trim() });
-      }
-    });
-
-    npmProcess.on("close", (code) => {
-      if (code === 0) {
-        log2.info("Dependencies installed successfully");
-        resolve();
-      } else {
-        const error = `npm install failed with exit code ${code}: ${stderr}`;
-        log2.error(new Error(error), "Install dependencies failed", {
-          code,
-          stdout,
-          stderr,
-        });
+    const timeout = setTimeout(() => {
+      if (!installComplete) {
+        installComplete = true;
+        const error = "npm install timed out after 5 minutes";
+        log2.error(new Error(error), "Install dependencies timeout");
         reject(new Error(error));
       }
+    }, 300000); // 5 minute timeout
+
+    const processOutput = (chunk: string): void => {
+      const output = chunk.toString();
+      stdout += output;
+
+      if (!shouldSkipNpmLog(output)) {
+        log2.debug("npm output", { output: output.trim() });
+      }
+
+      // Check for successful completion
+      if (
+        output.includes("added") &&
+        output.includes("packages") &&
+        !installComplete
+      ) {
+        installComplete = true;
+        clearTimeout(timeout);
+        log2.info("Dependencies installed successfully");
+        cleanup();
+        resolve();
+      }
+
+      // Check for errors
+      if (
+        (output.includes("npm ERR!") || output.includes("ERESOLVE")) &&
+        !installComplete
+      ) {
+        installComplete = true;
+        clearTimeout(timeout);
+        const error = `npm install failed: ${output}`;
+        log2.error(new Error(error), "Install dependencies failed", {
+          stdout,
+        });
+        cleanup();
+        reject(new Error(error));
+      }
+    };
+
+    // Set up listener on the PTY output
+    const disposable = terminalSession.pty.onData(processOutput);
+
+    const cleanup = (): void => {
+      disposable.dispose();
+    };
+
+    // Build the command to run in the terminal
+    const command = `cd ${projectDir} && NODE_OPTIONS="--max-old-space-size=2048" npm install --prefer-offline --no-audit --no-fund\n`;
+
+    log2.info("Sending npm install command to terminal", {
+      command: command.trim(),
+      projectDir,
     });
 
-    npmProcess.on("error", (error) => {
-      log2.error(error, "npm install process error");
-      reject(error);
-    });
+    // Send the command to the terminal
+    terminalSession.pty.write(command);
+
+    // Wait a bit for command to execute and check for immediate errors
+    setTimeout(() => {
+      if (!installComplete) {
+        // Give it more time, npm install can take a while
+        log2.debug("npm install in progress...");
+      }
+    }, 5000);
   });
 }
 
 export async function writeProjectFiles(
   files: PrototypeFileInput[],
   assets: PrototypeAssetInputWithContent[],
-  projectDir: string
+  projectDir: string,
 ): Promise<void> {
   // Handle text files
   for (const file of files) {
