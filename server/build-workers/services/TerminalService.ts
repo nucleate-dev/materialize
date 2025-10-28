@@ -110,12 +110,6 @@ export class TerminalService {
       { websocket: true },
       this.handleWebSocketConnection.bind(this),
     );
-
-    this.logger.info("Terminal routes registered");
-  }
-
-  public setLogger(logger: SystemLogger): void {
-    this.logger = logger;
   }
 
   public getOrCreateTerminalSession(
@@ -194,101 +188,6 @@ export class TerminalService {
     );
 
     return session;
-  }
-
-  public startProcess(
-    sessionId: string,
-    type: TerminalSessionType,
-    options: {
-      command: string;
-      args: string[];
-      cwd: string;
-      env?: Record<string, string>;
-      cols?: number;
-      rows?: number;
-    },
-  ): TerminalSession {
-    return this.getOrCreateTerminalSession(sessionId, type, options);
-  }
-
-  public attachWebSocket(
-    sessionId: string,
-    socket: WebSocket,
-    options: {
-      allowCreate?: boolean;
-      defaultType?: TerminalSessionType;
-    } = {},
-  ): void {
-    const session =
-      this.sessions.get(sessionId) ||
-      (options.allowCreate
-        ? this.getOrCreateTerminalSession(
-            sessionId,
-            options.defaultType ?? "generic",
-          )
-        : undefined);
-
-    if (!session) {
-      const message = JSON.stringify({
-        event: "error",
-        data: { error: "Terminal session not found", sessionId },
-      });
-      try {
-        socket.send(message);
-      } catch {
-        // ignore send errors on closing socket
-      } finally {
-        socket.close(1008, "Terminal session not found");
-      }
-      return;
-    }
-
-    const clientId = uuidv4();
-    const client: TerminalClient = {
-      id: clientId,
-      socket,
-    };
-
-    session.clients.set(clientId, client);
-
-    const cleanup = (): void => {
-      this.removeClient(session, clientId);
-    };
-
-    socket.on("close", cleanup);
-    socket.on("error", cleanup);
-
-    client.heartbeat = setInterval(() => {
-      if (socket.readyState === WebSocket.OPEN) {
-        this.sendWebSocketMessage(
-          client,
-          "heartbeat",
-          session,
-          { timestamp: Date.now() },
-          Date.now(),
-        );
-      } else {
-        cleanup();
-      }
-    }, HEARTBEAT_INTERVAL_MS);
-
-    this.sendWebSocketMessage(
-      client,
-      "status",
-      session,
-      this.buildSessionSnapshot(session),
-      Date.now(),
-    );
-
-    for (const event of session.buffer) {
-      this.sendWebSocketMessage(
-        client,
-        event.type,
-        session,
-        { ...event.payload },
-        event.timestamp,
-      );
-    }
   }
 
   public sendInput(sessionId: string, input: string): void {
@@ -400,39 +299,6 @@ export class TerminalService {
     };
   }
 
-  private sendWebSocketMessage(
-    client: TerminalClient,
-    eventType: TerminalEvent["type"] | "heartbeat",
-    session: TerminalSession,
-    payload: TerminalEventPayload,
-    timestamp: number,
-  ): void {
-    try {
-      const data = {
-        ...payload,
-        sessionId: session.id,
-        state: session.state,
-        timestamp,
-      };
-      const message = JSON.stringify({
-        event: eventType,
-        data,
-      });
-      if (client.socket.readyState === WebSocket.OPEN) {
-        client.socket.send(message);
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : JSON.stringify(error);
-      this.logger.debug("Failed to send WebSocket message", {
-        sessionId: session.id,
-        eventType,
-        error: message,
-      });
-      this.removeClient(session, client.id);
-    }
-  }
-
   private emitTerminalEvent(
     session: TerminalSession,
     eventType: TerminalEvent["type"],
@@ -490,7 +356,6 @@ export class TerminalService {
     exitCode: number | null,
     signal: number | null,
   ): void {
-    session.pty = null;
     session.state = "exited";
     session.updatedAt = Date.now();
 
@@ -504,7 +369,7 @@ export class TerminalService {
       this.buildSessionSnapshot(session),
     );
 
-    if (session.type !== "dev-server" && session.clients.size === 0) {
+    if (session.clients.size === 0) {
       this.sessions.delete(session.id);
     }
   }
@@ -539,59 +404,6 @@ export class TerminalService {
         error: message,
       });
     }
-  }
-
-  private handleWebSocketConnection(
-    socket: WebSocket,
-    req: FastifyRequest,
-  ): void {
-    const { sessionId } = req.params as { sessionId: string };
-
-    this.logger.info("WebSocket connection requested", { sessionId });
-
-    // Attach the WebSocket to the session
-    // This handles sending existing buffer, status, and setting up event listeners
-    this.attachWebSocket(sessionId, socket, {
-      allowCreate: false,
-    });
-
-    // Handle incoming messages from the client
-    socket.on("message", (raw: Buffer | string) => {
-      try {
-        const message = JSON.parse(raw.toString());
-
-        // Handle different message types
-        if (message.type === "input" && typeof message.data === "string") {
-          // User input to terminal
-          this.sendInput(sessionId, message.data);
-        } else if (message.type === "resize") {
-          // Terminal resize request
-          const cols = Number(message.cols);
-          const rows = Number(message.rows);
-          if (Number.isFinite(cols) && Number.isFinite(rows)) {
-            this.resizeSession(sessionId, cols, rows);
-          }
-        } else if (message.type === "signal" && message.name === "SIGINT") {
-          // Ctrl+C signal
-          this.sendInput(sessionId, "\x03");
-        }
-      } catch {
-        // If not valid JSON, treat as raw input
-        if (typeof raw === "string" || Buffer.isBuffer(raw)) {
-          try {
-            this.sendInput(sessionId, raw.toString());
-          } catch (inputError) {
-            this.logger.debug("Failed to send input", {
-              sessionId,
-              error:
-                inputError instanceof Error
-                  ? inputError.message
-                  : String(inputError),
-            });
-          }
-        }
-      }
-    });
   }
 
   private async handleTerminalCreateRoute(
@@ -803,6 +615,172 @@ export class TerminalService {
         status: "error",
         error: errorMessage,
       };
+    }
+  }
+
+  private handleWebSocketConnection(
+    socket: WebSocket,
+    req: FastifyRequest,
+  ): void {
+    const { sessionId } = req.params as { sessionId: string };
+
+    this.logger.info("WebSocket connection requested", { sessionId });
+
+    // Attach the WebSocket to the session
+    // This handles sending existing buffer, status, and setting up event listeners
+    this.attachWebSocket(sessionId, socket, {
+      allowCreate: false,
+    });
+
+    // Handle incoming messages from the client
+    socket.on("message", (raw: Buffer | string) => {
+      try {
+        const message = JSON.parse(raw.toString());
+
+        // Handle different message types
+        if (message.type === "input" && typeof message.data === "string") {
+          // User input to terminal
+          this.sendInput(sessionId, message.data);
+        } else if (message.type === "resize") {
+          // Terminal resize request
+          const cols = Number(message.cols);
+          const rows = Number(message.rows);
+          if (Number.isFinite(cols) && Number.isFinite(rows)) {
+            this.resizeSession(sessionId, cols, rows);
+          }
+        } else if (message.type === "signal" && message.name === "SIGINT") {
+          // Ctrl+C signal
+          this.sendInput(sessionId, "\x03");
+        }
+      } catch {
+        // If not valid JSON, treat as raw input
+        if (typeof raw === "string" || Buffer.isBuffer(raw)) {
+          try {
+            this.sendInput(sessionId, raw.toString());
+          } catch (inputError) {
+            this.logger.debug("Failed to send input", {
+              sessionId,
+              error:
+                inputError instanceof Error
+                  ? inputError.message
+                  : String(inputError),
+            });
+          }
+        }
+      }
+    });
+  }
+
+  public attachWebSocket(
+    sessionId: string,
+    socket: WebSocket,
+    options: {
+      allowCreate?: boolean;
+      defaultType?: TerminalSessionType;
+    } = {},
+  ): void {
+    const session =
+      this.sessions.get(sessionId) ||
+      (options.allowCreate
+        ? this.getOrCreateTerminalSession(
+            sessionId,
+            options.defaultType ?? "generic",
+          )
+        : undefined);
+
+    if (!session) {
+      const message = JSON.stringify({
+        event: "error",
+        data: { error: "Terminal session not found", sessionId },
+      });
+      try {
+        socket.send(message);
+      } catch {
+        // ignore send errors on closing socket
+      } finally {
+        socket.close(1008, "Terminal session not found");
+      }
+      return;
+    }
+
+    const clientId = uuidv4();
+    const client: TerminalClient = {
+      id: clientId,
+      socket,
+    };
+
+    session.clients.set(clientId, client);
+
+    const cleanup = (): void => {
+      this.removeClient(session, clientId);
+    };
+
+    socket.on("close", cleanup);
+    socket.on("error", cleanup);
+
+    client.heartbeat = setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        this.sendWebSocketMessage(
+          client,
+          "heartbeat",
+          session,
+          { timestamp: Date.now() },
+          Date.now(),
+        );
+      } else {
+        cleanup();
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+
+    this.sendWebSocketMessage(
+      client,
+      "status",
+      session,
+      this.buildSessionSnapshot(session),
+      Date.now(),
+    );
+
+    for (const event of session.buffer) {
+      this.sendWebSocketMessage(
+        client,
+        event.type,
+        session,
+        { ...event.payload },
+        event.timestamp,
+      );
+    }
+  }
+
+  private sendWebSocketMessage(
+    client: TerminalClient,
+    eventType: TerminalEvent["type"] | "heartbeat",
+    session: TerminalSession,
+    payload: TerminalEventPayload,
+    timestamp: number,
+  ): void {
+    try {
+      const data = {
+        ...payload,
+        sessionId: session.id,
+        state: session.state,
+        timestamp,
+      };
+      const message = JSON.stringify({
+        event: eventType,
+        data,
+      });
+      if (client.socket.readyState === WebSocket.OPEN) {
+        client.socket.send(message);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : JSON.stringify(error);
+      this.logger.debug("Failed to send WebSocket message", {
+        sessionId: session.id,
+        eventType,
+        error: message,
+      });
+      this.removeClient(session, client.id);
     }
   }
 }
