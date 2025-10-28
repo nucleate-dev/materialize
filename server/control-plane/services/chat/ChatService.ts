@@ -27,7 +27,6 @@ export class ChatService {
   private openAiApiKey: string | undefined;
   private stripeSecretKey: string;
   private jwtSecret: string;
-  private serverEndpoint: string;
 
   private stripe: Stripe;
   private chatEngine: ChatEngineV1;
@@ -46,7 +45,6 @@ export class ChatService {
     this.openAiApiKey = process.env.OPENAI_API_KEY;
     this.stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
     this.jwtSecret = process.env.JWT_SECRET!;
-    this.serverEndpoint = process.env.SERVER_ENDPOINT!;
 
     if (
       !this.supabaseUrl ||
@@ -54,8 +52,7 @@ export class ChatService {
       !this.googleAiApiKey ||
       !this.anthropicApiKey ||
       !this.stripeSecretKey ||
-      !this.jwtSecret ||
-      !this.serverEndpoint
+      !this.jwtSecret
     ) {
       throw new Error('Missing required environment variables for ChatService');
     }
