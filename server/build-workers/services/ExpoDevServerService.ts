@@ -4,7 +4,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { ChildProcess, execSync, spawn, SpawnOptions } from "child_process";
+import { ChildProcess, execSync } from "child_process";
 import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
@@ -1841,121 +1841,127 @@ export class ExpoDevServerService {
     cwd: string,
     env?: Record<string, string>,
     timeoutMs: number = 300000, // 5 minutes default
+    sessionId: string = "test",
   ): Promise<{ stdout: string; stderr: string; code: number }> {
     return new Promise((resolve, reject) => {
       let stdout = "";
-      let stderr = "";
-      let processExited = false;
-      let timeoutHandle: NodeJS.Timeout | null = null;
+      let commandComplete = false;
+      let exitCode = 0;
 
-      const spawnOptions: SpawnOptions = {
-        cwd,
-        env: { ...process.env, ...env },
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: false,
-      };
+      // Get the terminal session
+      const session = this.terminalService.getSession(sessionId);
+      if (!session) {
+        reject(new Error(`Terminal session ${sessionId} not found`));
+        return;
+      }
 
-      const childProcess = spawn(command, args, spawnOptions);
-
-      const onProcessExit = (): void => {
-        if (!processExited) {
-          processExited = true;
-          childProcess.kill("SIGKILL");
-        }
-      };
-
-      const cleanup = (): void => {
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
-        }
-        process.removeListener("exit", onProcessExit);
-      };
-
-      // Set up timeout
-      timeoutHandle = setTimeout(() => {
-        if (!processExited) {
-          processExited = true;
+      const timeoutHandle = setTimeout(() => {
+        if (!commandComplete) {
+          commandComplete = true;
+          const error = `Command timed out after ${timeoutMs}ms: ${command} ${args.join(" ")}`;
+          this.log2.error(new Error(error), "Command timeout");
           cleanup();
-          childProcess.kill("SIGKILL");
-          reject(
-            new Error(
-              `Command timed out after ${timeoutMs}ms: ${command} ${args.join(
-                " ",
-              )}`,
-            ),
-          );
+          reject(new Error(error));
         }
       }, timeoutMs);
 
-      process.once("exit", onProcessExit);
-
-      // Handle stdout
-      childProcess.stdout?.on("data", (data: Buffer) => {
-        const output = data.toString();
+      const processOutput = (chunk: string): void => {
+        const output = chunk.toString();
         stdout += output;
-        // Log real-time output
-        this.log2.debug("Command stdout", {
+
+        this.log2.debug("Command output", {
           command,
+          sessionId,
           output: output.trim(),
         });
+
+        // Try to detect command completion by looking for shell prompt patterns
+        // This is heuristic-based since we're running in a shell
+        const lines = output.split("\n");
+        for (const line of lines) {
+          // Look for common error patterns
+          if (
+            line.includes("command not found") ||
+            line.includes("No such file or directory") ||
+            line.includes("permission denied")
+          ) {
+            if (!commandComplete) {
+              commandComplete = true;
+              exitCode = 1;
+              clearTimeout(timeoutHandle);
+              cleanup();
+              resolve({
+                stdout: stdout.trim(),
+                stderr: line,
+                code: exitCode,
+              });
+            }
+          }
+        }
+      };
+
+      // Set up listener on the PTY output
+      const disposable = session.pty.onData(processOutput);
+
+      const cleanup = (): void => {
+        disposable.dispose();
+      };
+
+      // Build environment variables string
+      let envString = "";
+      if (env) {
+        envString = Object.entries(env)
+          .map(([key, value]) => `${key}="${value}"`)
+          .join(" ");
+      }
+
+      // Build the full command with env vars, cd, and command with args
+      const fullCommand = `${envString ? envString + " " : ""}cd ${cwd} && ${command} ${args.join(" ")}; echo "EXIT_CODE=$?"\n`;
+
+      this.log2.info("Sending command to terminal", {
+        command: fullCommand.trim(),
+        sessionId,
+        cwd,
       });
 
-      // Handle stderr
-      childProcess.stderr?.on("data", (data: Buffer) => {
-        const output = data.toString();
-        stderr += output;
-        // Log real-time output
-        this.log2.debug("Command stderr", {
-          command,
-          output: output.trim(),
-        });
-      });
+      // Send the command to the terminal
+      session.pty.write(fullCommand);
 
-      // Handle process exit
-      childProcess.on(
-        "close",
-        (code: number | null, signal: NodeJS.Signals | null) => {
-          if (!processExited) {
-            processExited = true;
+      // Set up a detection for the EXIT_CODE marker
+      const exitCodeCheckInterval = setInterval(() => {
+        if (stdout.includes("EXIT_CODE=")) {
+          const match = stdout.match(/EXIT_CODE=(\d+)/);
+          if (match && !commandComplete) {
+            commandComplete = true;
+            exitCode = parseInt(match[1], 10);
+            clearTimeout(timeoutHandle);
+            clearInterval(exitCodeCheckInterval);
             cleanup();
 
-            const trimmedStdout = stdout.trim();
-            let trimmedStderr = stderr.trim();
-            let exitCode: number;
+            // Remove the EXIT_CODE marker from stdout
+            const cleanStdout = stdout.replace(/EXIT_CODE=\d+/, "").trim();
 
-            if (typeof code === "number") {
-              exitCode = code;
-            } else if (signal) {
-              exitCode = 128;
-            } else {
-              exitCode = 1;
-            }
-
-            if (signal) {
-              const signalMessage = `Process terminated by signal ${signal}`;
-              this.log2.warn(signalMessage, { command, signal });
-              trimmedStderr = trimmedStderr
-                ? `${trimmedStderr}\n${signalMessage}`
-                : signalMessage;
-            }
+            this.log2.debug("Command completed", {
+              command,
+              exitCode,
+              sessionId,
+            });
 
             resolve({
-              stdout: trimmedStdout,
-              stderr: trimmedStderr,
+              stdout: cleanStdout,
+              stderr: exitCode !== 0 ? cleanStdout : "",
               code: exitCode,
             });
           }
-        },
-      );
-
-      childProcess.on("error", (error: Error) => {
-        if (!processExited) {
-          processExited = true;
-          cleanup();
-          reject(new Error(`Failed to start command: ${error.message}`));
         }
-      });
+      }, 100);
+
+      // Clean up interval if timeout occurs
+      setTimeout(() => {
+        if (commandComplete) {
+          clearInterval(exitCodeCheckInterval);
+        }
+      }, timeoutMs + 1000);
     });
   }
 
@@ -1965,6 +1971,7 @@ export class ExpoDevServerService {
     cwd?: string,
     env?: Record<string, string>,
     timeoutMs: number = 120000,
+    sessionId: string = "test",
   ): Promise<{ stdout: string; stderr: string; code: number }> {
     const workingDirectory = cwd || this.state.projectDir || this.workDir;
 
@@ -1973,6 +1980,7 @@ export class ExpoDevServerService {
       args,
       workingDirectory,
       timeout: timeoutMs,
+      sessionId,
     });
 
     return this.runCommandInternal(
@@ -1981,6 +1989,7 @@ export class ExpoDevServerService {
       workingDirectory,
       env,
       timeoutMs,
+      sessionId,
     );
   }
 
@@ -2042,6 +2051,7 @@ export class ExpoDevServerService {
         NODE_OPTIONS: "--max-old-space-size=2048",
       },
       900000,
+      "build", // Use the build terminal session
     );
 
     if (result.code !== 0) {
