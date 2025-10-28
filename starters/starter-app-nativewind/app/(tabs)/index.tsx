@@ -13,14 +13,13 @@ export default function HomeScreen() {
         This is your main screen. You can start building your app here with beautiful components.
       </Text>
 
-      <Text className="text-center text-sm opacity-80 text-gray-600 dark:text-gray-400">
+      <Text className="text-center text-sm text-gray-600 opacity-80 dark:text-gray-400">
         The app automatically supports dark and light mode with theme support.
       </Text>
 
       <TouchableOpacity
         className="mt-4 rounded-lg bg-blue-500 px-6 py-3 dark:bg-blue-600"
-        onPress={() => Alert.alert('Button pressed!')}
-      >
+        onPress={() => Alert.alert('Button pressed!')}>
         <Text className="text-base font-semibold text-white">Press Me!</Text>
       </TouchableOpacity>
     </View>
