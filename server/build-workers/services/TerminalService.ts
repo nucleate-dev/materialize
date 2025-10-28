@@ -40,7 +40,7 @@ interface TerminalClient {
 export interface TerminalSession {
   id: string;
   type: TerminalSessionType;
-  pty: IPty | null;
+  pty: IPty;
   command: string;
   args: string[];
   cwd: string;
@@ -118,7 +118,7 @@ export class TerminalService {
     this.logger = logger;
   }
 
-  public ensureSession(
+  public getOrCreateTerminalSession(
     sessionId: string,
     type: TerminalSessionType,
     options: {
@@ -145,11 +145,18 @@ export class TerminalService {
     const command = options.command ?? process.env.SHELL ?? "/bin/bash";
     const args = options.args ?? [];
     const env = this.normalizeEnv(options.env);
+    const pty = spawnPty(command, args, {
+      name: "xterm-color",
+      cols,
+      rows,
+      cwd,
+      env,
+    });
 
     const session: TerminalSession = {
       id: sessionId,
       type,
-      pty: null, // Temporarily null, will be set immediately
+      pty, // Temporarily null, will be set immediately
       command,
       args,
       cwd,
@@ -163,17 +170,6 @@ export class TerminalService {
       clients: new Map(),
     };
     this.sessions.set(sessionId, session);
-
-    // Spawn PTY immediately
-    const pty = spawnPty(command, args, {
-      name: "xterm-color",
-      cols,
-      rows,
-      cwd,
-      env,
-    });
-
-    session.pty = pty;
 
     pty.onData((chunk) => {
       session.updatedAt = Date.now();
@@ -212,7 +208,7 @@ export class TerminalService {
       rows?: number;
     },
   ): TerminalSession {
-    return this.ensureSession(sessionId, type, options);
+    return this.getOrCreateTerminalSession(sessionId, type, options);
   }
 
   public attachWebSocket(
@@ -226,7 +222,10 @@ export class TerminalService {
     const session =
       this.sessions.get(sessionId) ||
       (options.allowCreate
-        ? this.ensureSession(sessionId, options.defaultType ?? "generic")
+        ? this.getOrCreateTerminalSession(
+            sessionId,
+            options.defaultType ?? "generic",
+          )
         : undefined);
 
     if (!session) {
@@ -610,7 +609,7 @@ export class TerminalService {
       }
 
       // Create session with PTY
-      const session = this.ensureSession(sessionId, sessionType, {
+      const session = this.getOrCreateTerminalSession(sessionId, sessionType, {
         command: request.body.command,
         args: request.body.args,
         cwd: request.body.cwd ?? this.workDir,
