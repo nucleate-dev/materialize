@@ -3,6 +3,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
+import type { WebSocket } from "ws";
 import {
   CodeError,
   CodeWarning,
@@ -309,8 +310,8 @@ export class PublicApiService {
           status: "error",
           build_errors: [],
           build_warnings: [],
-          server_operation_status: this.expoDevServerService.getState()
-            .currentOperation,
+          server_operation_status:
+            this.expoDevServerService.getState().currentOperation,
           server_status: this.expoDevServerService.getState().devServerStatus,
         };
       }
@@ -330,8 +331,8 @@ export class PublicApiService {
         build_errors: [],
         build_warnings: [],
         // Get new operation statuses (should now be BUILDING_AND_DEPLOYING)
-        server_operation_status: this.expoDevServerService.getState()
-          .currentOperation,
+        server_operation_status:
+          this.expoDevServerService.getState().currentOperation,
         server_status: this.expoDevServerService.getState().devServerStatus,
       };
     } catch (error: unknown) {
@@ -1144,11 +1145,10 @@ export class PublicApiService {
           });
           reply.code(400);
         } else {
-          request.log2.error(
-            new Error(result.error),
-            "Git checkout failed",
-            { git_url, target_path },
-          );
+          request.log2.error(new Error(result.error), "Git checkout failed", {
+            git_url,
+            target_path,
+          });
           reply.code(500);
         }
 
@@ -1376,11 +1376,10 @@ export class PublicApiService {
   }
 
   private async terminalWebSocket(
-    connection: any,
+    socket: WebSocket,
     request: FastifyRequest<{ Params: { sessionId: string } }>,
   ): Promise<void> {
     const { sessionId } = request.params;
-    const socket = connection.socket;
 
     request.log2.info("Terminal WebSocket connection established", {
       sessionId,
@@ -1398,7 +1397,11 @@ export class PublicApiService {
 
           if (message.event === "input" && message.data?.input !== undefined) {
             this.terminalService.sendInput(sessionId, message.data.input);
-          } else if (message.event === "resize" && message.data?.cols && message.data?.rows) {
+          } else if (
+            message.event === "resize" &&
+            message.data?.cols &&
+            message.data?.rows
+          ) {
             this.terminalService.resizeSession(
               sessionId,
               message.data.cols,
