@@ -28,24 +28,35 @@ import {
   SandboxReadFileResponse,
   SandboxWriteFileRequest,
   SandboxWriteFileResponse,
+  TerminalSessionDetailResponse,
+  TerminalSessionInputRequest,
+  TerminalSessionListResponse,
+  TerminalSessionLogsResponse,
+  TerminalSessionResizeRequest,
+  TerminalSessionStartRequest,
+  TerminalSessionStartResponse,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
+import { TerminalSessionService } from "./TerminalSessionService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
   private readonly workDir: string;
+  private readonly terminalSessionService: TerminalSessionService;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
+    terminalSessionService: TerminalSessionService,
     workDir: string,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
+    this.terminalSessionService = terminalSessionService;
     this.workDir = workDir;
   }
 
@@ -77,6 +88,39 @@ export class PublicApiService {
     );
 
     app.post("/allocate", this.allocate.bind(this));
+
+    // Terminal session routes
+    app.post<{ Body: TerminalSessionStartRequest }>(
+      "/terminal/sessions",
+      this.createTerminalSession.bind(this),
+    );
+
+    app.get("/terminal/sessions", this.listTerminalSessions.bind(this));
+
+    app.get<{ Params: { id: string } }>(
+      "/terminal/sessions/:id",
+      this.getTerminalSession.bind(this),
+    );
+
+    app.get<{ Params: { id: string }; Querystring: { offset?: string; limit?: string } }>(
+      "/terminal/sessions/:id/logs",
+      this.getTerminalSessionLogs.bind(this),
+    );
+
+    app.post<{ Params: { id: string }; Body: TerminalSessionInputRequest }>(
+      "/terminal/sessions/:id/input",
+      this.sendTerminalSessionInput.bind(this),
+    );
+
+    app.post<{ Params: { id: string }; Body: TerminalSessionResizeRequest }>(
+      "/terminal/sessions/:id/resize",
+      this.resizeTerminalSession.bind(this),
+    );
+
+    app.delete<{ Params: { id: string } }>(
+      "/terminal/sessions/:id",
+      this.terminateTerminalSession.bind(this),
+    );
 
     // Sandbox API routes
     app.post<{ Body: SandboxMakeDirRequest }>(
@@ -158,6 +202,7 @@ export class PublicApiService {
           tunnel_url: startResponse.tunnelUrl,
           build_errors: startResponse.build_errors || [],
           build_warnings: startResponse.build_warnings || [],
+          terminal_session_id: startResponse.terminalSessionId,
         };
       } else if (request.body.file_scope === "updates") {
         const startResponse =
@@ -171,6 +216,7 @@ export class PublicApiService {
           tunnel_url: startResponse.tunnelUrl,
           build_errors: startResponse.build_errors || [],
           build_warnings: startResponse.build_warnings || [],
+          terminal_session_id: startResponse.terminalSessionId,
         };
       }
       // Direct call to ExpoDevServerService with the same request
@@ -525,6 +571,7 @@ export class PublicApiService {
         stdout: result.stdout,
         stderr: result.stderr,
         exit_code: result.code,
+        session_id: result.sessionId,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -536,6 +583,300 @@ export class PublicApiService {
         args,
       });
       reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private resolveWorkDir(subPath?: string): string {
+    if (!subPath) {
+      return this.workDir;
+    }
+    const candidate = path.isAbsolute(subPath)
+      ? path.resolve(subPath)
+      : path.resolve(this.workDir, subPath);
+    const relative = path.relative(this.workDir, candidate);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new Error("Requested path is outside of the worker directory");
+    }
+    return candidate;
+  }
+
+  private async createTerminalSession(
+    request: FastifyRequest<{ Body: TerminalSessionStartRequest }>,
+    reply: FastifyReply,
+  ): Promise<TerminalSessionStartResponse> {
+    const { command, args, cwd, env, cols, rows, timeout_ms } = request.body;
+
+    if (!command) {
+      reply.code(400);
+      return {
+        status: "error",
+        error: "command is required",
+      };
+    }
+
+    let resolvedCwd: string;
+    try {
+      resolvedCwd = this.resolveWorkDir(cwd);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      reply.code(400);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+
+    try {
+      const handle = await this.terminalSessionService.createSession({
+        command,
+        args,
+        cwd: resolvedCwd,
+        env,
+        cols,
+        rows,
+        timeoutMs: timeout_ms,
+      });
+
+      reply.code(201);
+      return {
+        status: "success",
+        session: handle.metadata,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to create terminal session",
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async listTerminalSessions(
+    request: FastifyRequest,
+  ): Promise<TerminalSessionListResponse> {
+    try {
+      const sessions = await this.terminalSessionService.listSessions();
+      return {
+        status: "success",
+        sessions,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to list terminal sessions",
+      );
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async getTerminalSession(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalSessionDetailResponse> {
+    try {
+      const session = await this.terminalSessionService.getSessionMetadata(
+        request.params.id,
+      );
+      if (!session) {
+        reply.code(404);
+        return {
+          status: "error",
+          error: "Session not found",
+        };
+      }
+      return {
+        status: "success",
+        session,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to read terminal session metadata",
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async getTerminalSessionLogs(
+    request: FastifyRequest<{ Params: { id: string }; Querystring: { offset?: string; limit?: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalSessionLogsResponse> {
+    const { id } = request.params;
+    const { offset, limit } = request.query;
+
+    const parsedOffset = offset ? Number(offset) : 0;
+    const parsedLimit = limit ? Number(limit) : undefined;
+
+    if (Number.isNaN(parsedOffset) || parsedOffset < 0) {
+      reply.code(400);
+      return {
+        status: "error",
+        error: "offset must be a non-negative number",
+      };
+    }
+
+    if (parsedLimit !== undefined && (Number.isNaN(parsedLimit) || parsedLimit <= 0)) {
+      reply.code(400);
+      return {
+        status: "error",
+        error: "limit must be a positive number",
+      };
+    }
+
+    const metadata = await this.terminalSessionService.getSessionMetadata(id);
+    if (!metadata) {
+      reply.code(404);
+      return {
+        status: "error",
+        error: "Session not found",
+      };
+    }
+
+    const logChunk = await this.terminalSessionService.readLogs(
+      id,
+      parsedOffset,
+      parsedLimit,
+    );
+
+    return {
+      status: "success",
+      logs: logChunk.chunk,
+      next_offset: logChunk.nextOffset,
+      has_more: logChunk.hasMore,
+      size: logChunk.size,
+    };
+  }
+
+  private async sendTerminalSessionInput(
+    request: FastifyRequest<{ Params: { id: string }; Body: TerminalSessionInputRequest }>,
+    reply: FastifyReply,
+  ): Promise<TerminalSessionDetailResponse> {
+    const { id } = request.params;
+    const { input } = request.body;
+
+    if (input === undefined || input === null) {
+      reply.code(400);
+      return {
+        status: "error",
+        error: "input is required",
+      };
+    }
+
+    try {
+      await this.terminalSessionService.writeInput(id, input);
+      const session = await this.terminalSessionService.getSessionMetadata(id);
+      return {
+        status: "success",
+        session: session || undefined,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to send input to terminal session",
+      );
+      if (errorMessage.includes("not found")) {
+        reply.code(404);
+      } else {
+        reply.code(500);
+      }
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async resizeTerminalSession(
+    request: FastifyRequest<{ Params: { id: string }; Body: TerminalSessionResizeRequest }>,
+    reply: FastifyReply,
+  ): Promise<TerminalSessionDetailResponse> {
+    const { id } = request.params;
+    const { cols, rows } = request.body;
+
+    if (!cols || !rows) {
+      reply.code(400);
+      return {
+        status: "error",
+        error: "cols and rows are required",
+      };
+    }
+
+    try {
+      await this.terminalSessionService.resizeSession(id, cols, rows);
+      const session = await this.terminalSessionService.getSessionMetadata(id);
+      return {
+        status: "success",
+        session: session || undefined,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to resize terminal session",
+      );
+      if (errorMessage.includes("not found")) {
+        reply.code(404);
+      } else {
+        reply.code(500);
+      }
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async terminateTerminalSession(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ): Promise<TerminalSessionDetailResponse> {
+    const { id } = request.params;
+
+    try {
+      await this.terminalSessionService.terminateSession(id);
+      const session = await this.terminalSessionService.getSessionMetadata(id);
+      reply.code(202);
+      return {
+        status: "success",
+        session: session || undefined,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      request.log2.error(
+        new Error(errorMessage),
+        "Failed to terminate terminal session",
+      );
+      if (errorMessage.includes("not found")) {
+        reply.code(404);
+      } else {
+        reply.code(500);
+      }
       return {
         status: "error",
         error: errorMessage,

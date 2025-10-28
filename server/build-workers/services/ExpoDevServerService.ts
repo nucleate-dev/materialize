@@ -4,11 +4,12 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { ChildProcess, execSync, spawn, SpawnOptions } from "child_process";
+import { execSync } from "child_process";
 import { FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { IDisposable, IPty } from "node-pty";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
   BuildAndDeployResponse,
@@ -32,13 +33,14 @@ import {
   writeProjectFiles,
 } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
+import { TerminalSessionService } from "./TerminalSessionService.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
 // --- Dev Server State ---
 class DevServerState {
   public prototypeId: string | null = null;
-  public process: ChildProcess | null = null;
+  public process: IPty | null = null;
   public projectDir: string | null = null;
   public tunnelUrl: string | null = null;
   public tunnelSubdomain: string | null = null;
@@ -50,6 +52,7 @@ class DevServerState {
   public operationStartTime: Date | null = null;
   public operationId: string | null = null;
   public builtVersion: string | null = null;
+  public terminalSessionId: string | null = null;
 
   public getUptime(): number | null {
     if (!this.startTime) return null;
@@ -70,6 +73,7 @@ class DevServerState {
     this.operationStartTime = null;
     this.operationId = null;
     this.builtVersion = null;
+    this.terminalSessionId = null;
   }
 
   public setOperation(operation: OperationStatus, operationId?: string): void {
@@ -113,14 +117,24 @@ export class ExpoDevServerService {
   private readonly defaultPort: number = 19006;
   private s3: S3Client | undefined;
   private log2: SystemLogger;
+  private readonly terminalSessions: TerminalSessionService;
+  private devServerDataSubscription: IDisposable | null = null;
 
-  constructor(workDir: string = "/tmp/expo-dev", s3Instance?: S3Client) {
+  constructor(
+    workDir: string = "/tmp/expo-dev",
+    s3Instance?: S3Client,
+    terminalSessionService?: TerminalSessionService,
+  ) {
     this.workDir = workDir;
     this.s3 = s3Instance;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
     this.log2 = baseLogger.child({
       route: "ExpoDevServerService",
     });
+    if (!terminalSessionService) {
+      throw new Error("TerminalSessionService instance is required");
+    }
+    this.terminalSessions = terminalSessionService;
   }
 
   public getState(): DevServerState {
@@ -180,6 +194,7 @@ export class ExpoDevServerService {
           status: this.state.devServerStatus,
           build_errors: [],
           build_warnings: [],
+          terminalSessionId: this.state.terminalSessionId || undefined,
         };
       } else {
         this.log2.warn("Dev server already running for different prototype", {
@@ -309,6 +324,7 @@ export class ExpoDevServerService {
             : this.state.devServerStatus,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
+        terminalSessionId: this.state.terminalSessionId || undefined,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -360,6 +376,7 @@ export class ExpoDevServerService {
       currentOperation: this.state.currentOperation,
       operationDuration: this.state.getOperationDuration() || undefined,
       operationId: this.state.operationId || undefined,
+      terminalSessionId: this.state.terminalSessionId || undefined,
     };
   }
 
@@ -440,7 +457,7 @@ export class ExpoDevServerService {
   ): Promise<void> {
     this.log2.info("Starting Expo dev server", { port });
 
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const tunnelSubdomain = this.state.tunnelSubdomain!;
 
       this.log2.info("Starting Expo with configuration", {
@@ -449,27 +466,37 @@ export class ExpoDevServerService {
         tunnelSubdomain,
       });
 
-      this.state.process = spawn(
-        "npx",
-        [
-          "expo",
-          "start",
-          "--web",
-          "--tunnel",
-          "--port",
-          port.toString(),
-          "--clear",
-        ],
-        {
+      let sessionHandle;
+      try {
+        sessionHandle = await this.terminalSessions.createSession({
+          command: "npx",
+          args: [
+            "expo",
+            "start",
+            "--web",
+            "--tunnel",
+            "--port",
+            port.toString(),
+            "--clear",
+          ],
           cwd: projectDir,
           env: {
-            ...process.env,
             EXPO_NO_TELEMETRY: "1",
             EXPO_TUNNEL_SUBDOMAIN: tunnelSubdomain,
           },
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
+          timeoutMs: 0,
+        });
+      } catch (error) {
+        reject(error);
+        return;
+      }
+
+      this.state.process = sessionHandle.pty;
+      this.state.terminalSessionId = sessionHandle.id;
+
+      if (this.devServerDataSubscription) {
+        this.devServerDataSubscription.dispose();
+      }
 
       let resolved = false;
       const timeout = setTimeout(() => {
@@ -483,7 +510,7 @@ export class ExpoDevServerService {
         }
       }, 60000); // 60 second timeout
 
-      const processOutput = (data: Buffer, source: string): void => {
+      const processOutput = (data: string, source: string): void => {
         const output = data.toString();
 
         // Filter out noisy/verbose logs
@@ -587,42 +614,29 @@ export class ExpoDevServerService {
         }
       };
 
-      if (this.state.process) {
-        this.state.process.stdout?.on("data", (data: Buffer) =>
-          processOutput(data, "stdout"),
-        );
-        this.state.process.stderr?.on("data", (data: Buffer) =>
-          processOutput(data, "stderr"),
-        );
+      this.devServerDataSubscription = sessionHandle.pty.onData((data) =>
+        processOutput(data, "pty"),
+      );
 
-        this.state.process.on("close", (code) => {
-          this.log2.info("Expo process exited", { code });
-          if (!resolved) {
-            this.log2.error(
-              new Error("Expo process exited before tunnel URL found"),
-              "Expo process exited before tunnel URL found",
-              { code },
-            );
-            this.state.devServerStatus = DevServerStatus.ERROR;
-            clearTimeout(timeout);
-            resolved = true;
-            reject(new Error(`Expo dev server exited with code ${code}`));
-          } else if (code !== 0) {
-            this.log2.warn("Expo process exited with non-zero code", { code });
-            this.state.devServerStatus = DevServerStatus.ERROR;
-          }
-        });
-
-        this.state.process.on("error", (error) => {
-          this.log2.error(error, "Expo process error");
-          if (!resolved) {
-            this.state.devServerStatus = DevServerStatus.ERROR;
-            clearTimeout(timeout);
-            resolved = true;
-            reject(error);
-          }
-        });
-      }
+      sessionHandle.pty.onExit(({ exitCode }) => {
+        this.log2.info("Expo process exited", { code: exitCode });
+        if (!resolved) {
+          this.log2.error(
+            new Error("Expo process exited before tunnel URL found"),
+            "Expo process exited before tunnel URL found",
+            { code: exitCode },
+          );
+          this.state.devServerStatus = DevServerStatus.ERROR;
+          clearTimeout(timeout);
+          resolved = true;
+          reject(new Error(`Expo dev server exited with code ${exitCode}`));
+        } else if (exitCode !== 0) {
+          this.log2.warn("Expo process exited with non-zero code", {
+            code: exitCode,
+          });
+          this.state.devServerStatus = DevServerStatus.ERROR;
+        }
+      });
     });
   }
 
@@ -656,20 +670,35 @@ export class ExpoDevServerService {
     }
 
     // Also kill the specific process if it exists
+    if (this.devServerDataSubscription) {
+      this.devServerDataSubscription.dispose();
+      this.devServerDataSubscription = null;
+    }
+
+    if (this.state.terminalSessionId) {
+      try {
+        await this.terminalSessions.terminateSession(
+          this.state.terminalSessionId,
+          "SIGTERM",
+        );
+      } catch (error) {
+        this.log2.warn(error, "Failed to terminate terminal session", {
+          sessionId: this.state.terminalSessionId,
+        });
+      }
+    }
+
     if (this.state.process) {
       this.log2.info("Killing tracked Expo process");
-
-      this.state.process.kill("SIGTERM");
-
-      // Force kill after 5 seconds
-      setTimeout(() => {
-        if (this.state.process && !this.state.process.killed) {
-          this.state.process.kill("SIGKILL");
-        }
-      }, 5000);
-
+      try {
+        this.state.process.kill("SIGTERM");
+      } catch (error) {
+        this.log2.warn(error, "Failed to send SIGTERM to Expo process");
+      }
       this.state.process = null;
     }
+
+    this.state.terminalSessionId = null;
   }
 
   async restartDevServer(): Promise<void> {
@@ -1121,6 +1150,7 @@ export class ExpoDevServerService {
         tunnelUrl: this.state.tunnelUrl || undefined,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
+        terminalSessionId: this.state.terminalSessionId || undefined,
       };
     }
 
@@ -1163,6 +1193,7 @@ export class ExpoDevServerService {
           tunnelUrl: this.state.tunnelUrl || undefined,
           build_errors: buildErrors,
           build_warnings: buildWarnings,
+          terminalSessionId: this.state.terminalSessionId || undefined,
         };
       }
     } catch (error: unknown) {
@@ -1187,6 +1218,7 @@ export class ExpoDevServerService {
         tunnelUrl: this.state.tunnelUrl || undefined,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
+        terminalSessionId: this.state.terminalSessionId || undefined,
       };
     }
 
@@ -1304,6 +1336,7 @@ export class ExpoDevServerService {
         tunnelUrl: this.state.tunnelUrl || undefined,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
+        terminalSessionId: this.state.terminalSessionId || undefined,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -1326,6 +1359,7 @@ export class ExpoDevServerService {
         tunnelUrl: this.state.tunnelUrl || undefined,
         build_errors: buildErrors,
         build_warnings: buildWarnings,
+        terminalSessionId: this.state.terminalSessionId || undefined,
       };
     }
   }
@@ -1359,7 +1393,7 @@ export class ExpoDevServerService {
       }, timeoutMs);
 
       // Create a temporary data handler to monitor for errors
-      const errorMonitor = (data: Buffer): void => {
+      const errorMonitor = (data: string): void => {
         const output = data.toString();
         const beforeErrors = buildErrors.length;
         this.parseMetroErrors(output, buildErrors, buildWarnings);
@@ -1378,17 +1412,15 @@ export class ExpoDevServerService {
         }
       };
 
-      // Add temporary listeners that will parse errors into our arrays
+      const disposables: IDisposable[] = [];
       if (this.state.process) {
-        this.state.process.stdout?.on("data", errorMonitor);
-        this.state.process.stderr?.on("data", errorMonitor);
+        disposables.push(this.state.process.onData(errorMonitor));
       }
 
-      // Clean up the monitors after timeout or early resolution
       const cleanup = (): void => {
-        if (this.state.process) {
-          this.state.process.stdout?.removeListener("data", errorMonitor);
-          this.state.process.stderr?.removeListener("data", errorMonitor);
+        while (disposables.length > 0) {
+          const disposable = disposables.pop();
+          disposable?.dispose();
         }
       };
 
@@ -1866,122 +1898,28 @@ export class ExpoDevServerService {
     cwd: string,
     env?: Record<string, string>,
     timeoutMs: number = 300000, // 5 minutes default
-  ): Promise<{ stdout: string; stderr: string; code: number }> {
-    return new Promise((resolve, reject) => {
-      let stdout = "";
-      let stderr = "";
-      let processExited = false;
-      let timeoutHandle: NodeJS.Timeout | null = null;
-
-      const spawnOptions: SpawnOptions = {
-        cwd,
-        env: { ...process.env, ...env },
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: false,
-      };
-
-      const childProcess = spawn(command, args, spawnOptions);
-
-      const onProcessExit = (): void => {
-        if (!processExited) {
-          processExited = true;
-          childProcess.kill("SIGKILL");
-        }
-      };
-
-      const cleanup = (): void => {
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
-        }
-        process.removeListener("exit", onProcessExit);
-      };
-
-      // Set up timeout
-      timeoutHandle = setTimeout(() => {
-        if (!processExited) {
-          processExited = true;
-          cleanup();
-          childProcess.kill("SIGKILL");
-          reject(
-            new Error(
-              `Command timed out after ${timeoutMs}ms: ${command} ${args.join(
-                " ",
-              )}`,
-            ),
-          );
-        }
-      }, timeoutMs);
-
-      process.once("exit", onProcessExit);
-
-      // Handle stdout
-      childProcess.stdout?.on("data", (data: Buffer) => {
-        const output = data.toString();
-        stdout += output;
-        // Log real-time output
-        this.log2.debug("Command stdout", {
-          command,
-          output: output.trim(),
-        });
-      });
-
-      // Handle stderr
-      childProcess.stderr?.on("data", (data: Buffer) => {
-        const output = data.toString();
-        stderr += output;
-        // Log real-time output
-        this.log2.debug("Command stderr", {
-          command,
-          output: output.trim(),
-        });
-      });
-
-      // Handle process exit
-      childProcess.on(
-        "close",
-        (code: number | null, signal: NodeJS.Signals | null) => {
-          if (!processExited) {
-            processExited = true;
-            cleanup();
-
-            const trimmedStdout = stdout.trim();
-            let trimmedStderr = stderr.trim();
-            let exitCode: number;
-
-            if (typeof code === "number") {
-              exitCode = code;
-            } else if (signal) {
-              exitCode = 128;
-            } else {
-              exitCode = 1;
-            }
-
-            if (signal) {
-              const signalMessage = `Process terminated by signal ${signal}`;
-              this.log2.warn(signalMessage, { command, signal });
-              trimmedStderr = trimmedStderr
-                ? `${trimmedStderr}\n${signalMessage}`
-                : signalMessage;
-            }
-
-            resolve({
-              stdout: trimmedStdout,
-              stderr: trimmedStderr,
-              code: exitCode,
-            });
-          }
-        },
-      );
-
-      childProcess.on("error", (error: Error) => {
-        if (!processExited) {
-          processExited = true;
-          cleanup();
-          reject(new Error(`Failed to start command: ${error.message}`));
-        }
-      });
+  ): Promise<{ stdout: string; stderr: string; code: number; sessionId: string }> {
+    this.log2.debug("Creating terminal session for command", {
+      command,
+      args,
+      cwd,
+      timeoutMs,
     });
+
+    return this.terminalSessions
+      .runCommand({
+        command,
+        args,
+        cwd,
+        env,
+        timeoutMs,
+      })
+      .then((result) => ({
+        stdout: result.stdout.trimEnd(),
+        stderr: result.stderr.trimEnd(),
+        code: result.exitCode,
+        sessionId: result.sessionId,
+      }));
   }
 
   public async runCommand(
@@ -1990,7 +1928,7 @@ export class ExpoDevServerService {
     cwd?: string,
     env?: Record<string, string>,
     timeoutMs: number = 120000,
-  ): Promise<{ stdout: string; stderr: string; code: number }> {
+  ): Promise<{ stdout: string; stderr: string; code: number; sessionId: string }> {
     const workingDirectory = cwd || this.state.projectDir || this.workDir;
 
     this.log2.info("Running command", {

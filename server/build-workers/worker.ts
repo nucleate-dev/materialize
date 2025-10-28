@@ -6,6 +6,7 @@ import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
 import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
+import { TerminalSessionService } from "./services/TerminalSessionService.js";
 
 // Load environment variables
 dotenv.config();
@@ -46,14 +47,17 @@ const defaultS3Client = new S3Client({
 });
 
 // Initialize Services
+const terminalSessionService = new TerminalSessionService(WORK_DIR, baseLogger);
 const expoDevServerService = new ExpoDevServerService(
   WORK_DIR,
   defaultS3Client,
+  terminalSessionService,
 );
 const sandboxService = new SandboxService(WORK_DIR, baseLogger);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
+  terminalSessionService,
   WORK_DIR,
 );
 
@@ -130,6 +134,7 @@ const start = async (): Promise<void> => {
   try {
     // Ensure work directory exists
     await fs.mkdir(WORK_DIR, { recursive: true });
+    await terminalSessionService.initialize();
 
     await app.listen({ port: PORT, host: "0.0.0.0" });
     baseLogger.info("Build worker started successfully", {

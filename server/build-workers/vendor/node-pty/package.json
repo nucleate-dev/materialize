@@ -1,0 +1,10 @@
+{
+  "name": "node-pty",
+  "version": "0.0.0-materialize",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "types": "./index.d.ts"
+}

@@ -106,6 +106,7 @@ export interface PublicDevServerStartResponse {
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
   version?: string;
+  terminal_session_id?: string;
 }
 
 export interface PublicDevServerStopRequest {
@@ -151,6 +152,7 @@ export interface DevServerStartResponse {
   error?: string;
   build_errors?: CodeError[];
   build_warnings?: CodeWarning[];
+  terminalSessionId?: string;
 }
 
 export interface DevServerStatusResponse {
@@ -165,6 +167,7 @@ export interface DevServerStatusResponse {
   screenshotBase64?: string;
   screenshotTimestamp?: string;
   screenshotError?: string;
+  terminalSessionId?: string;
 }
 
 export interface DevServerStopResponse {
@@ -192,6 +195,77 @@ export interface PublicRunCommandResponse {
   stderr?: string;
   exit_code?: number;
   error?: string;
+  session_id?: string;
+}
+
+export type TerminalSessionStatus =
+  | "running"
+  | "exited"
+  | "error"
+  | "killed"
+  | "timeout";
+
+export interface TerminalSessionMetadata {
+  id: string;
+  command: string;
+  args: string[];
+  cwd: string;
+  env?: Record<string, string>;
+  cols?: number;
+  rows?: number;
+  status: TerminalSessionStatus;
+  created_at: string;
+  updated_at: string;
+  exit_code?: number;
+  signal?: string;
+  reason?: TerminalSessionStatus;
+  log_path: string;
+}
+
+export interface TerminalSessionStartRequest {
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  cols?: number;
+  rows?: number;
+  timeout_ms?: number;
+}
+
+export interface TerminalSessionStartResponse {
+  status: "success" | "error";
+  session?: TerminalSessionMetadata;
+  error?: string;
+}
+
+export interface TerminalSessionListResponse {
+  status: "success" | "error";
+  sessions?: TerminalSessionMetadata[];
+  error?: string;
+}
+
+export interface TerminalSessionDetailResponse {
+  status: "success" | "error";
+  session?: TerminalSessionMetadata;
+  error?: string;
+}
+
+export interface TerminalSessionLogsResponse {
+  status: "success" | "error";
+  logs?: string;
+  next_offset?: number;
+  has_more?: boolean;
+  size?: number;
+  error?: string;
+}
+
+export interface TerminalSessionInputRequest {
+  input: string;
+}
+
+export interface TerminalSessionResizeRequest {
+  cols: number;
+  rows: number;
 }
 
 export interface PublicAllocateRequest {
