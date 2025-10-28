@@ -19,7 +19,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 const TERMINAL_BUFFER_LIMIT = 200;
 const HEARTBEAT_INTERVAL_MS = 15000;
 
-export type TerminalRuntimeState = "idle" | "running" | "exited" | "closed";
+export type TerminalRuntimeState = "running" | "exited" | "closed";
 
 export interface TerminalEventPayload {
   [key: string]: unknown;
@@ -121,6 +121,14 @@ export class TerminalService {
   public ensureSession(
     sessionId: string,
     type: TerminalSessionType,
+    options: {
+      command?: string;
+      args?: string[];
+      cwd?: string;
+      env?: Record<string, string>;
+      cols?: number;
+      rows?: number;
+    } = {},
   ): TerminalSession {
     const existing = this.sessions.get(sessionId);
     if (existing) {
@@ -129,23 +137,66 @@ export class TerminalService {
       }
       return existing;
     }
+
+    // Create new session and immediately spawn PTY
+    const cols = options.cols ?? 80;
+    const rows = options.rows ?? 24;
+    const cwd = options.cwd ?? this.workDir;
+    const command = options.command ?? process.env.SHELL ?? "/bin/bash";
+    const args = options.args ?? [];
+    const env = this.normalizeEnv(options.env);
+
     const session: TerminalSession = {
       id: sessionId,
       type,
-      pty: null,
-      command: "",
-      args: [],
-      cwd: this.workDir,
-      env: { ...process.env },
-      cols: 80,
-      rows: 24,
-      state: "idle",
+      pty: null, // Temporarily null, will be set immediately
+      command,
+      args,
+      cwd,
+      env,
+      cols,
+      rows,
+      state: "running",
       createdAt: Date.now(),
       updatedAt: Date.now(),
       buffer: [],
       clients: new Map(),
     };
     this.sessions.set(sessionId, session);
+
+    // Spawn PTY immediately
+    const pty = spawnPty(command, args, {
+      name: "xterm-color",
+      cols,
+      rows,
+      cwd,
+      env,
+    });
+
+    session.pty = pty;
+
+    pty.onData((chunk) => {
+      session.updatedAt = Date.now();
+      this.emitTerminalEvent(session, "output", { chunk });
+    });
+
+    pty.onExit(({ exitCode, signal }) => {
+      this.handlePtyExit(session, exitCode ?? null, signal ?? null);
+    });
+
+    this.emitTerminalEvent(session, "start", {
+      command: session.command,
+      args: session.args,
+      cwd: session.cwd,
+      cols,
+      rows,
+    });
+    this.emitTerminalEvent(
+      session,
+      "status",
+      this.buildSessionSnapshot(session),
+    );
+
     return session;
   }
 
@@ -161,63 +212,7 @@ export class TerminalService {
       rows?: number;
     },
   ): TerminalSession {
-    const session = this.ensureSession(sessionId, type);
-    return this.spawnPtyForSession(session, options);
-  }
-
-  public createSession(
-    request: TerminalCreateRequest,
-    options: { defaultCwd?: string } = {},
-  ): TerminalCreateResponse {
-    try {
-      const sessionType: TerminalSessionType =
-        request.session_type ?? "generic";
-
-      let sessionId = uuidv4();
-      while (this.sessions.has(sessionId)) {
-        sessionId = uuidv4();
-      }
-      const session = this.ensureSession(sessionId, sessionType);
-
-      const cwd = request.cwd || options.defaultCwd || this.workDir;
-      const command = request.command || process.env.SHELL || "/bin/bash";
-      const args = request.args ?? [];
-      const env = request.env;
-      const cols = request.cols;
-      const rows = request.rows;
-
-      this.spawnPtyForSession(session, {
-        command,
-        args,
-        cwd,
-        env,
-        cols,
-        rows,
-      });
-
-      this.logger.info("Created terminal session in TerminalService", {
-        sessionId,
-        sessionType,
-        command,
-        cwd,
-      });
-
-      return {
-        status: "success",
-        session_id: session.id,
-        session_type: session.type,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        new Error(message),
-        "Failed to create terminal session",
-      );
-      return {
-        status: "error",
-        error: message,
-      };
-    }
+    return this.ensureSession(sessionId, type, options);
   }
 
   public attachWebSocket(
@@ -547,69 +542,6 @@ export class TerminalService {
     }
   }
 
-  private spawnPtyForSession(
-    session: TerminalSession,
-    options: {
-      command: string;
-      args: string[];
-      cwd: string;
-      env?: Record<string, string>;
-      cols?: number;
-      rows?: number;
-    },
-  ): TerminalSession {
-    if (session.pty) {
-      this.killSessionProcess(session);
-    }
-
-    const cols = options.cols ?? session.cols ?? 80;
-    const rows = options.rows ?? session.rows ?? 24;
-    const env = this.normalizeEnv(options.env);
-
-    session.command = options.command;
-    session.args = options.args;
-    session.cwd = options.cwd;
-    session.env = env;
-    session.cols = cols;
-    session.rows = rows;
-    session.state = "running";
-    session.updatedAt = Date.now();
-
-    const pty = spawnPty(options.command, options.args, {
-      name: "xterm-color",
-      cols,
-      rows,
-      cwd: options.cwd,
-      env,
-    });
-
-    session.pty = pty;
-
-    pty.onData((chunk) => {
-      session.updatedAt = Date.now();
-      this.emitTerminalEvent(session, "output", { chunk });
-    });
-
-    pty.onExit(({ exitCode, signal }) => {
-      this.handlePtyExit(session, exitCode ?? null, signal ?? null);
-    });
-
-    this.emitTerminalEvent(session, "start", {
-      command: session.command,
-      args: session.args,
-      cwd: session.cwd,
-      cols,
-      rows,
-    });
-    this.emitTerminalEvent(
-      session,
-      "status",
-      this.buildSessionSnapshot(session),
-    );
-
-    return session;
-  }
-
   private handleWebSocketConnection(
     socket: WebSocket,
     req: FastifyRequest,
@@ -668,30 +600,43 @@ export class TerminalService {
     reply: FastifyReply,
   ): Promise<TerminalCreateResponse> {
     try {
-      const response = this.createSession(request.body, {
-        defaultCwd: this.workDir,
+      const sessionType: TerminalSessionType =
+        request.body.session_type ?? "generic";
+
+      // Generate unique session ID
+      let sessionId = uuidv4();
+      while (this.sessions.has(sessionId)) {
+        sessionId = uuidv4();
+      }
+
+      // Create session with PTY
+      const session = this.ensureSession(sessionId, sessionType, {
+        command: request.body.command,
+        args: request.body.args,
+        cwd: request.body.cwd ?? this.workDir,
+        env: request.body.env,
+        cols: request.body.cols,
+        rows: request.body.rows,
       });
 
-      if (response.status === "success") {
-        this.logger.info("Created terminal session", {
-          sessionId: response.session_id,
-          sessionType: response.session_type,
-        });
-        return reply.code(200).send(response);
-      } else {
-        this.logger.error(
-          new Error(response.error),
-          "Failed to create terminal session",
-        );
-        reply.code(500);
-        return response;
-      }
+      this.logger.info("Created terminal session", {
+        sessionId: session.id,
+        sessionType: session.type,
+        command: session.command,
+        cwd: session.cwd,
+      });
+
+      return reply.code(200).send({
+        status: "success",
+        session_id: session.id,
+        session_type: session.type,
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.error(
         new Error(errorMessage),
-        "Unexpected error in handleTerminalCreate",
+        "Unexpected error in handleTerminalCreateRoute",
       );
       reply.code(500);
       return {
