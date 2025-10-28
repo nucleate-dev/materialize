@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     if (!publicDns || !publicIpv4) {
       return NextResponse.json(
         { error: "Missing publicDns or publicIpv4" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
     try {
       const cpDeployPath = path.join(
         projectRoot,
-        "server/scripts/deploy-control-plane-for-dev.js"
+        "server/scripts/deploy-control-plane-for-dev.js",
       );
       let cpDeployContent = fs.readFileSync(cpDeployPath, "utf-8");
 
       // Replace the HOST line
       cpDeployContent = cpDeployContent.replace(
         /const HOST = ".*";/,
-        `const HOST = "${publicDns}";`
+        `const HOST = "${publicDns}";`,
       );
 
       fs.writeFileSync(cpDeployPath, cpDeployContent, "utf-8");
@@ -47,14 +47,14 @@ export async function POST(request: NextRequest) {
     try {
       const bwDeployPath = path.join(
         projectRoot,
-        "server/scripts/deploy-build-workers-for-dev.js"
+        "server/scripts/deploy-build-workers-for-dev.js",
       );
       let bwDeployContent = fs.readFileSync(bwDeployPath, "utf-8");
 
       // Replace the HOST line
       bwDeployContent = bwDeployContent.replace(
         /const HOST = ".*";/,
-        `const HOST = "${publicDns}";`
+        `const HOST = "${publicDns}";`,
       );
 
       fs.writeFileSync(bwDeployPath, bwDeployContent, "utf-8");
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       // Replace NEXT_PUBLIC_SERVER_ENDPOINT
       webEnvContent = webEnvContent.replace(
         /NEXT_PUBLIC_SERVER_ENDPOINT=.*/,
-        `NEXT_PUBLIC_SERVER_ENDPOINT=http://${publicIpv4}:3000`
+        `NEXT_PUBLIC_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
       );
 
       fs.writeFileSync(webEnvPath, webEnvContent, "utf-8");
@@ -102,7 +102,13 @@ export async function POST(request: NextRequest) {
       // Replace NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT
       internalEnvContent = internalEnvContent.replace(
         /NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT=.*/,
-        `NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT=http://${publicIpv4}:3000`
+        `NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
+      );
+
+      // Replace NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT
+      internalEnvContent = internalEnvContent.replace(
+        /NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=.*/,
+        `NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=http://${publicIpv4}:3002`,
       );
 
       fs.writeFileSync(internalEnvPath, internalEnvContent, "utf-8");
@@ -128,7 +134,7 @@ export async function POST(request: NextRequest) {
           ? "All files updated successfully"
           : "Some files failed to update",
       },
-      { status: allSuccess ? 200 : 207 }
+      { status: allSuccess ? 200 : 207 },
     );
   } catch (error) {
     return NextResponse.json(
@@ -136,7 +142,7 @@ export async function POST(request: NextRequest) {
         error: "Failed to update files",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
