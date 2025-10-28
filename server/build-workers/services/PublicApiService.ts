@@ -3,7 +3,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
-import type { WebSocket } from "ws";
+import type WebSocket from "ws";
 import {
   CodeError,
   CodeWarning,
@@ -138,10 +138,12 @@ export class PublicApiService {
       this.terminalResize.bind(this),
     );
 
-    app.get<{ Params: { sessionId: string } }>(
+    app.get(
       "/terminal/:sessionId/ws",
       { websocket: true },
-      this.terminalWebSocket.bind(this),
+      (connection: any, request: FastifyRequest) => {
+        this.terminalWebSocket(connection, request as FastifyRequest<{ Params: { sessionId: string } }>);
+      },
     );
   }
 
@@ -1376,12 +1378,24 @@ export class PublicApiService {
   }
 
   private async terminalWebSocket(
-    socket: WebSocket,
+    connection: any,
     request: FastifyRequest<{ Params: { sessionId: string } }>,
   ): Promise<void> {
-    const { sessionId } = request.params;
+    // Extract sessionId from URL path since params may not be populated in websocket routes
+    const sessionId = ((request as any).params?.sessionId) ||
+                      request.url.split('/')[2]; // /terminal/:sessionId/ws
 
-    request.log2.info("Terminal WebSocket connection established", {
+    if (!sessionId) {
+      connection.socket.close(1008, "Missing session ID");
+      return;
+    }
+
+    const socket = connection.socket;
+
+    // Use baseLogger if request.log2 is not available (during WebSocket upgrade)
+    const logger = (request as any).log2 || baseLogger;
+
+    logger.info("Terminal WebSocket connection established", {
       sessionId,
     });
 
@@ -1411,7 +1425,7 @@ export class PublicApiService {
         } catch (error: unknown) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
-          request.log2.debug("Failed to process WebSocket message", {
+          logger.debug("Failed to process WebSocket message", {
             sessionId,
             error: errorMessage,
           });
@@ -1420,10 +1434,11 @@ export class PublicApiService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      request.log2.error(
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      logger.error(
         new Error(errorMessage),
         "Failed to attach WebSocket to terminal",
-        { sessionId },
+        { sessionId, stack: errorStack },
       );
       socket.close(1011, "Failed to attach to terminal session");
     }

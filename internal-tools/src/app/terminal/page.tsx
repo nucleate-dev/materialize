@@ -102,7 +102,7 @@ export default function TerminalPage() {
 
       if (data.status === "success" && data.session_id) {
         setSessionId(data.session_id);
-        connectWebSocket(data.session_id);
+        // connectWebSocket(data.session_id);
       } else {
         setError(data.error || "Failed to create terminal session");
       }
