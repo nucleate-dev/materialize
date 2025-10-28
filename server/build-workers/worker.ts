@@ -71,12 +71,13 @@ await app.register(websocket, {
 });
 
 // ---- Initialize Services ----
+const terminalService = new TerminalService(app, WORK_DIR, baseLogger);
 const expoDevServerService = new ExpoDevServerService(
   WORK_DIR,
   defaultS3Client,
+  terminalService,
 );
 const sandboxService = new SandboxService(WORK_DIR, baseLogger);
-const terminalService = new TerminalService(app, WORK_DIR, baseLogger);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,

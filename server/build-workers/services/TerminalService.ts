@@ -267,6 +267,10 @@ export class TerminalService {
     };
   }
 
+  public getSession(sessionId: string): TerminalSession | undefined {
+    return this.sessions.get(sessionId);
+  }
+
   public killProcess(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) {

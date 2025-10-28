@@ -10,6 +10,7 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import { TerminalService } from "./TerminalService.js";
 import {
   BuildAndDeployResponse,
   BuildLogEntry,
@@ -113,10 +114,16 @@ export class ExpoDevServerService {
   private readonly defaultPort: number = 19006;
   private s3: S3Client | undefined;
   private log2: SystemLogger;
+  private readonly terminalService: TerminalService;
 
-  constructor(workDir: string = "/tmp/expo-dev", s3Instance?: S3Client) {
+  constructor(
+    workDir: string = "/tmp/expo-dev",
+    s3Instance: S3Client | undefined,
+    terminalService: TerminalService,
+  ) {
     this.workDir = workDir;
     this.s3 = s3Instance;
+    this.terminalService = terminalService;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
     this.log2 = baseLogger.child({
       route: "ExpoDevServerService",
@@ -443,39 +450,19 @@ export class ExpoDevServerService {
     buildErrors: CodeError[] = [],
     buildWarnings: CodeWarning[] = [],
   ): Promise<void> {
-    this.log2.info("Starting Expo dev server", { port });
+    this.log2.info("Starting Expo dev server using terminal session", { port });
 
     return new Promise((resolve, reject) => {
       const tunnelSubdomain = this.state.tunnelSubdomain!;
 
-      this.log2.info("Starting Expo with configuration", {
-        args: ["expo", "start", "--web", "--tunnel", "--port", port.toString()],
-        workingDirectory: projectDir,
-        tunnelSubdomain,
-      });
+      // Get the dev-server terminal session
+      const session = this.terminalService.getSession("dev-server");
+      if (!session) {
+        reject(new Error("dev-server terminal session not found"));
+        return;
+      }
 
-      this.state.process = spawn(
-        "npx",
-        [
-          "expo",
-          "start",
-          "--web",
-          "--tunnel",
-          "--port",
-          port.toString(),
-          "--clear",
-        ],
-        {
-          cwd: projectDir,
-          env: {
-            ...process.env,
-            EXPO_NO_TELEMETRY: "1",
-            EXPO_TUNNEL_SUBDOMAIN: tunnelSubdomain,
-          },
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
-
+      this.state.process = null; // Not using ChildProcess anymore
       let resolved = false;
       const timeout = setTimeout(() => {
         if (!resolved) {
@@ -488,25 +475,8 @@ export class ExpoDevServerService {
         }
       }, 60000); // 60 second timeout
 
-      const processOutput = (data: Buffer, source: string): void => {
-        const output = data.toString();
-
-        // Filter out noisy/verbose logs
-        const shouldSkipLog = this.shouldSkipExpoLog(output);
-
-        // Log important bundling milestones
-        if (output.includes("Bundled") && /\d+ms/.test(output)) {
-          this.log2.info("Bundle completed", {
-            output: output.trim(),
-          });
-        }
-
-        if (!shouldSkipLog) {
-          this.log2.debug("startExpoProcess expo output", {
-            source,
-            output: output.trim(),
-          });
-        }
+      const processOutput = (chunk: string): void => {
+        const output = chunk.toString();
 
         // Parse Metro/Expo output for rendering errors
         this.parseMetroErrors(output, buildErrors, buildWarnings);
@@ -526,7 +496,7 @@ export class ExpoDevServerService {
         // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
         if (urlMatch && !resolved) {
-          this.log2.debug("URLs found in output", {
+          this.log2.consoleLogDevOnly("debug", "URLs found in output", {
             urls: urlMatch.join(", "),
           });
 
@@ -592,88 +562,77 @@ export class ExpoDevServerService {
         }
       };
 
-      if (this.state.process) {
-        this.state.process.stdout?.on("data", (data: Buffer) =>
-          processOutput(data, "stdout"),
-        );
-        this.state.process.stderr?.on("data", (data: Buffer) =>
-          processOutput(data, "stderr"),
-        );
+      // Set up temporary listener on the PTY output
+      const disposable = session.pty.onData(processOutput);
 
-        this.state.process.on("close", (code) => {
-          this.log2.info("Expo process exited", { code });
-          if (!resolved) {
-            this.log2.error(
-              new Error("Expo process exited before tunnel URL found"),
-              "Expo process exited before tunnel URL found",
-              { code },
-            );
-            this.state.devServerStatus = DevServerStatus.ERROR;
-            clearTimeout(timeout);
-            resolved = true;
-            reject(new Error(`Expo dev server exited with code ${code}`));
-          } else if (code !== 0) {
-            this.log2.warn("Expo process exited with non-zero code", { code });
-            this.state.devServerStatus = DevServerStatus.ERROR;
-          }
-        });
+      // Clean up listener after timeout or resolution
+      const cleanup = (): void => {
+        disposable.dispose();
+      };
 
-        this.state.process.on("error", (error) => {
-          this.log2.error(error, "Expo process error");
-          if (!resolved) {
-            this.state.devServerStatus = DevServerStatus.ERROR;
-            clearTimeout(timeout);
-            resolved = true;
-            reject(error);
-          }
-        });
-      }
+      setTimeout(() => {
+        if (resolved) {
+          cleanup();
+        }
+      }, 100);
+
+      // Build the command to run in the terminal
+      const command = `cd ${projectDir} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${tunnelSubdomain} npx expo start --web --tunnel --port ${port} --clear\n`;
+
+      this.log2.info("Sending Expo start command to terminal", {
+        command: command.trim(),
+        projectDir,
+        tunnelSubdomain,
+      });
+
+      // Send the command to the terminal
+      session.pty.write(command);
     });
   }
 
   private async killExpoProcess(): Promise<void> {
-    this.log2.info("Killing processes on default port");
+    this.log2.info("Stopping Expo dev server in terminal session");
 
     try {
-      // Kill any process running on port 19006 (Expo's default port)
+      // Get the dev-server terminal session
+      const session = this.terminalService.getSession("dev-server");
+      if (!session) {
+        this.log2.warn("dev-server terminal session not found");
+        return;
+      }
+
+      // Send Ctrl+C to interrupt the running process
+      this.log2.info("Sending Ctrl+C to stop Expo process");
+      session.pty.write("\x03"); // Ctrl+C
+
+      // Wait a moment for graceful shutdown
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // If process is still running on the port, force kill it
       const port = this.state.port || this.defaultPort;
-
-      // Find and kill processes using the port on Alpine Linux
-      const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
-
-      execSync(killCommand, { stdio: "pipe", timeout: 5000 }); // 5 second timeout
-      this.log2.consoleLogDevOnly(
-        "info",
-        "Successfully killed processes on port",
-        {
+      try {
+        const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
+        execSync(killCommand, { stdio: "pipe", timeout: 5000 });
+        this.log2.info("Force killed any remaining processes on port", {
           port,
-        },
-      );
-    } catch (error: unknown) {
-      // It's okay if no processes were found on the port
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.log2.debug("No processes found on port or kill timed out", {
-        port: this.state.port || this.defaultPort,
-        message: "Normal if nothing was running",
-        error: errorMessage,
-      });
-    }
-
-    // Also kill the specific process if it exists
-    if (this.state.process) {
-      this.log2.info("Killing tracked Expo process");
-
-      this.state.process.kill("SIGTERM");
-
-      // Force kill after 5 seconds
-      setTimeout(() => {
-        if (this.state.process && !this.state.process.killed) {
-          this.state.process.kill("SIGKILL");
-        }
-      }, 5000);
+        });
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.log2.debug("No processes found on port", {
+          port,
+          error: errorMessage,
+        });
+      }
 
       this.state.process = null;
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.error(
+        new Error(errorMessage),
+        "Failed to kill Expo process in terminal",
+      );
     }
   }
 
