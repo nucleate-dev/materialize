@@ -402,6 +402,13 @@ export class TerminalService {
     session.state = "exited";
     session.updatedAt = Date.now();
 
+    this.logger.warn("PTY process exited", {
+      sessionId: session.id,
+      exitCode,
+      signal,
+      hasClients: session.clients.size > 0,
+    });
+
     this.emitTerminalEvent(session, "exit", {
       exitCode: exitCode ?? undefined,
       signal: signal ?? undefined,
