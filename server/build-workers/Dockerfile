@@ -4,7 +4,11 @@ FROM --platform=linux/amd64 node:22-slim
 WORKDIR /app
 
 # Install required system packages
-RUN apt-get update && apt-get install -y \
+# Force refresh of package lists and install dependencies
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* && \
+    apt-get update -o Acquire::Check-Valid-Until=false && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
     python3-dev \
@@ -13,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     git \
     procps \
     watchman \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Environment setup for Node + Watchman + PTY
 ENV TERM=xterm-256color
