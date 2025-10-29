@@ -102,7 +102,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/fastify-build-worker
 ### Environment Variables
 9. **Environment variables** (add each one):
    - `PORT` = `3002`
-   - `WORK_DIR` = `/tmp/materialize-builds`
+   - `WORK_DIR` = `/tmp/materialize-dev-server`
    - `AWS_REGION` = `us-east-2`
    - `S3_BUCKET` = `materialize-sites`
 

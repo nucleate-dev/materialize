@@ -29,7 +29,7 @@ export const baseLogger = new SystemLogger({
 
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3002", 10);
-const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-builds";
+const WORK_DIR = process.env.WORK_DIR || "/tmp/materialize-dev-server";
 
 // Store worker context (set by /allocate endpoint)
 let workerContext: { userId?: string; prototypeId?: string } = {};

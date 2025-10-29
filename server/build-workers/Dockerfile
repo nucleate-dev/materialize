@@ -46,7 +46,7 @@ COPY . .
 RUN npm run build
 
 # Create log directory and build workspace
-RUN mkdir -p /tmp/logs /tmp/materialize-builds
+RUN mkdir -p /tmp/logs /tmp/materialize-dev-server
 
 # Keep a minimal bashrc to prevent PTY exit
 RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \
