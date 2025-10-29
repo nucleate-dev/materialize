@@ -121,12 +121,23 @@ export class ExpoDevServerService {
     s3Instance: S3Client | undefined,
     terminalService: TerminalService,
   ) {
+    this.log2 = baseLogger.child({
+      route: "ExpoDevServerService",
+    });
+
+    this.log2.info("Initializing ExpoDevServerService", {
+      workDir,
+      hasS3Instance: !!s3Instance,
+      hasTerminalService: !!terminalService,
+    });
+
     this.workDir = workDir;
     this.s3 = s3Instance;
     this.terminalService = terminalService;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
-    this.log2 = baseLogger.child({
-      route: "ExpoDevServerService",
+
+    this.log2.info("ExpoDevServerService initialized successfully", {
+      tunnelSubdomain: this.state.tunnelSubdomain,
     });
   }
 
@@ -568,7 +579,9 @@ export class ExpoDevServerService {
 
       if (!listenerDisposer) {
         clearTimeout(timeout);
-        reject(new Error("dev-server terminal session not found or not running"));
+        reject(
+          new Error("dev-server terminal session not found or not running"),
+        );
         return;
       }
 
@@ -588,8 +601,7 @@ export class ExpoDevServerService {
       } catch (error) {
         clearTimeout(timeout);
         cleanup?.();
-        const message =
-          error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
         this.log2.error(
           new Error(message),
           "Failed to send Expo start command to terminal",
@@ -618,9 +630,7 @@ export class ExpoDevServerService {
         this.terminalService.sendInput("dev-server", "\x03"); // Ctrl+C
       } catch (inputError) {
         const message =
-          inputError instanceof Error
-            ? inputError.message
-            : String(inputError);
+          inputError instanceof Error ? inputError.message : String(inputError);
         this.log2.error(
           new Error(message),
           "Failed to send Ctrl+C to terminal session",
@@ -1073,6 +1083,9 @@ export class ExpoDevServerService {
     buildWarnings: CodeWarning[],
   ): Promise<void> {
     const session = this.terminalService.getSession("dev-server");
+    this.log2.info("[TerminalService] all sessions:", {
+      sessions: this.terminalService.getAllSessions(),
+    });
     if (!session) {
       throw new Error("dev-server terminal session not found");
     }
@@ -1940,9 +1953,7 @@ export class ExpoDevServerService {
       if (!listenerDisposer) {
         clearTimeout(timeoutHandle);
         reject(
-          new Error(
-            `Terminal session ${sessionId} not found or not running`,
-          ),
+          new Error(`Terminal session ${sessionId} not found or not running`),
         );
         return;
       }
@@ -1975,8 +1986,7 @@ export class ExpoDevServerService {
       try {
         this.terminalService.sendInput(sessionId, fullCommand);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
         clearTimeout(timeoutHandle);
         if (exitCodeCheckInterval) {
           clearInterval(exitCodeCheckInterval);
@@ -2189,8 +2199,7 @@ export class ExpoDevServerService {
       try {
         this.terminalService.sendInput("build", commandString);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
         clearTimeout(timeoutHandle);
         cleanup?.();
         cleanup = null;

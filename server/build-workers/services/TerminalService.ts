@@ -287,6 +287,10 @@ export class TerminalService {
     return this.sessions.get(sessionId);
   }
 
+  public getAllSessions(): [string, TerminalSession][] {
+    return Array.from(this.sessions.entries());
+  }
+
   public addOutputListener(
     sessionId: string,
     callback: (output: string) => void,
