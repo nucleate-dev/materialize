@@ -464,6 +464,8 @@ export class ExpoDevServerService {
 
       this.state.process = null; // Not using ChildProcess anymore
       let resolved = false;
+      let cleanup: (() => void) | null = null;
+
       const timeout = setTimeout(() => {
         if (!resolved) {
           this.log2.error(
@@ -471,6 +473,7 @@ export class ExpoDevServerService {
             "Timeout waiting for tunnel URL after 60 seconds",
           );
           resolved = true;
+          if (cleanup) cleanup();
           reject(new Error("Timeout waiting for tunnel URL"));
         }
       }, 60000); // 60 second timeout
@@ -521,6 +524,7 @@ export class ExpoDevServerService {
             });
             clearTimeout(timeout);
             resolved = true;
+            cleanup();
             resolve();
           }
         }
@@ -558,6 +562,7 @@ export class ExpoDevServerService {
           });
           clearTimeout(timeout);
           resolved = true;
+          cleanup();
           resolve();
         }
       };
@@ -565,16 +570,10 @@ export class ExpoDevServerService {
       // Set up temporary listener on the PTY output
       const disposable = session.pty.onData(processOutput);
 
-      // Clean up listener after timeout or resolution
-      const cleanup = (): void => {
+      // Clean up listener - disposes the onData listener
+      cleanup = (): void => {
         disposable.dispose();
       };
-
-      setTimeout(() => {
-        if (resolved) {
-          cleanup();
-        }
-      }, 100);
 
       // Build the command to run in the terminal
       const command = `cd ${projectDir} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${tunnelSubdomain} npx expo start --web --tunnel --port ${port} --clear\n`;
