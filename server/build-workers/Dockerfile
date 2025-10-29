@@ -45,8 +45,8 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Create log directory
-RUN mkdir -p /tmp/logs
+# Create log directory and build workspace
+RUN mkdir -p /tmp/logs /tmp/materialize-builds
 
 # Keep a minimal bashrc to prevent PTY exit
 RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \

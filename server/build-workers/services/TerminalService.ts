@@ -1,3 +1,4 @@
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { IPty, spawn as spawnPty } from "node-pty";
 import { v4 as uuidv4 } from "uuid";
 import WebSocket from "ws";
@@ -13,7 +14,6 @@ import {
   TerminalResizeResponse,
   TerminalSessionType,
 } from "../types/BuildWorkerTypes.js";
-import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 // import type { fastifyWebsocket } from "@fastify/websocket";
 
 const TERMINAL_BUFFER_LIMIT = 200;
@@ -69,11 +69,58 @@ export class TerminalService {
     this.fastifyApp = fastifyApp;
     this.logger = logger;
 
+    this.logger.info("TerminalService initializing", {
+      workDir,
+      shell: process.env.SHELL,
+      platform: process.platform,
+      nodeVersion: process.version,
+    });
+
     // Every build worker is instantiated with three pre-configured terminals.
     // These terminals live throughout the entire lifecycle of the container.
-    this.getOrCreateTerminalSession("dev-server", "dev-server");
-    this.getOrCreateTerminalSession("build", "build");
-    this.getOrCreateTerminalSession("test", "test");
+    this.logger.info("Creating pre-configured terminal sessions");
+
+    try {
+      // Use -i for interactive mode to keep bash alive
+      this.getOrCreateTerminalSession("dev-server", "dev-server", {
+        args: ["-i"],
+      });
+      this.logger.info("Pre-configured terminal created: dev-server");
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to create dev-server terminal",
+      );
+    }
+
+    try {
+      this.getOrCreateTerminalSession("build", "build", {
+        args: ["-i"],
+      });
+      this.logger.info("Pre-configured terminal created: build");
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to create build terminal",
+      );
+    }
+
+    try {
+      this.getOrCreateTerminalSession("test", "test", {
+        args: ["-i"],
+      });
+      this.logger.info("Pre-configured terminal created: test");
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to create test terminal",
+      );
+    }
+
+    this.logger.info("TerminalService initialization complete", {
+      sessionsCreated: this.sessions.size,
+      sessionIds: Array.from(this.sessions.keys()),
+    });
   }
 
   public registerRoutes(): void {
@@ -154,24 +201,61 @@ export class TerminalService {
     // Default to interactive mode for bash to prevent immediate exit
     const args = options.args ?? [];
     const env = this.normalizeEnv(options.env);
-    const pty = spawnPty(command, args, {
-      name: "xterm-color",
-      cols,
-      rows,
-      cwd,
-      env,
-    });
 
-    this.logger.info("terminal session created: ", {
+    this.logger.info("About to spawn PTY process", {
       sessionId,
       type,
-      pty,
+      command,
+      args,
+      cwd,
+      cols,
+      rows,
+      shell: process.env.SHELL,
+      envKeys: Object.keys(env),
+    });
+
+    let pty: IPty;
+    try {
+      pty = spawnPty(command, args, {
+        name: "xterm-color",
+        cols,
+        rows,
+        cwd,
+        env,
+      });
+
+      this.logger.info("PTY spawned successfully", {
+        sessionId,
+        type,
+        ptyPid: pty.pid,
+        command,
+        args,
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to spawn PTY process",
+        {
+          sessionId,
+          type,
+          command,
+          args,
+          cwd,
+        },
+      );
+      throw error;
+    }
+
+    this.logger.info("Creating session object and registering event handlers", {
+      sessionId,
+      type,
+      ptyPid: pty.pid,
     });
 
     const session: TerminalSession = {
       id: sessionId,
       type,
-      pty, // Temporarily null, will be set immediately
+      pty,
       command,
       args,
       cwd,
@@ -186,13 +270,45 @@ export class TerminalService {
     };
     this.sessions.set(sessionId, session);
 
+    this.logger.info("Session registered, attaching PTY event handlers", {
+      sessionId,
+      ptyPid: pty.pid,
+    });
+
     pty.onData((chunk) => {
       session.updatedAt = Date.now();
+      this.logger.debug("Received PTY output data", {
+        sessionId,
+        chunkLength: chunk.length,
+        chunkPreview: chunk.substring(0, 100),
+        state: session.state,
+        ptyPid: pty.pid,
+      });
       this.emitTerminalEvent(session, "output", { chunk });
     });
 
     pty.onExit(({ exitCode, signal }) => {
+      const timeSinceCreation = Date.now() - session.createdAt;
+      this.logger.warn("PTY process exit event triggered", {
+        sessionId,
+        exitCode,
+        signal,
+        ptyPid: pty.pid,
+        command,
+        args,
+        cwd,
+        timeSinceCreationMs: timeSinceCreation,
+        timeSinceCreationSeconds: (timeSinceCreation / 1000).toFixed(2),
+        immediateExit: timeSinceCreation < 1000,
+        state: session.state,
+        clientsCount: session.clients.size,
+      });
       this.handlePtyExit(session, exitCode ?? null, signal ?? null);
+    });
+
+    this.logger.info("PTY event handlers attached successfully", {
+      sessionId,
+      ptyPid: pty.pid,
     });
 
     this.emitTerminalEvent(session, "start", {
@@ -216,11 +332,46 @@ export class TerminalService {
   public sendInput(sessionId: string, input: string): void {
     const session = this.requireSession(sessionId);
     if (!session.pty) {
+      this.logger.error(
+        new Error(`Terminal session ${sessionId} has no PTY`),
+        "Cannot send input - PTY is null",
+        {
+          sessionId,
+          state: session.state,
+          terminalType: session.type,
+        },
+      );
       throw new Error(`Terminal session ${sessionId} is not running`);
     }
 
+    this.logger.info("Sending input to terminal", {
+      sessionId,
+      inputLength: input.length,
+      inputPreview: input.substring(0, 100), // Log first 100 chars
+      terminalType: session.type,
+      state: session.state,
+      ptyPid: session.pty.pid,
+    });
+
     session.updatedAt = Date.now();
-    session.pty.write(input);
+    try {
+      session.pty.write(input);
+      this.logger.debug("Input written to PTY successfully", {
+        sessionId,
+        ptyPid: session.pty.pid,
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to write input to PTY",
+        {
+          sessionId,
+          ptyPid: session.pty.pid,
+          state: session.state,
+        },
+      );
+      throw error;
+    }
   }
 
   public resizeSession(sessionId: string, cols: number, rows: number): void {
@@ -228,6 +379,15 @@ export class TerminalService {
     if (!session.pty) {
       throw new Error(`Terminal session ${sessionId} is not running`);
     }
+
+    this.logger.info("Resizing terminal", {
+      sessionId,
+      oldCols: session.cols,
+      oldRows: session.rows,
+      newCols: cols,
+      newRows: rows,
+      terminalType: session.type,
+    });
 
     session.pty.resize(cols, rows);
     session.cols = cols;
@@ -243,15 +403,40 @@ export class TerminalService {
   public closeSession(sessionId: string): TerminalCloseResponse {
     const session = this.sessions.get(sessionId);
     if (!session) {
+      this.logger.debug("Close session requested for non-existent session", {
+        sessionId,
+        availableSessions: Array.from(this.sessions.keys()),
+      });
       return {
         status: "error",
         error: "Terminal session not found",
       };
     }
 
+    const previousState = session.state;
+    const uptime = Date.now() - session.createdAt;
+
+    this.logger.info("Closing terminal session", {
+      sessionId,
+      terminalType: session.type,
+      previousState,
+      clientsCount: session.clients.size,
+      uptimeMs: uptime,
+      uptimeSeconds: (uptime / 1000).toFixed(2),
+      ptyPid: session.pty?.pid,
+      hasPty: Boolean(session.pty),
+    });
+
     this.killSessionProcess(session);
     session.state = "closed";
     session.updatedAt = Date.now();
+
+    this.logger.debug("Session state updated to closed", {
+      sessionId,
+      previousState,
+      newState: session.state,
+    });
+
     this.emitTerminalEvent(
       session,
       "status",
@@ -261,6 +446,13 @@ export class TerminalService {
     this.closeAllClients(session);
 
     this.sessions.delete(sessionId);
+
+    this.logger.info("Terminal session closed and removed from registry", {
+      sessionId,
+      terminalType: session.type,
+      finalState: session.state,
+      remainingSessions: this.sessions.size,
+    });
 
     return {
       status: "success",
@@ -355,19 +547,40 @@ export class TerminalService {
       timestamp,
     };
 
+    this.logger.debug("Emitting terminal event", {
+      sessionId: session.id,
+      eventType,
+      state: session.state,
+      clientsCount: session.clients.size,
+      bufferSize: session.buffer.length,
+      payloadKeys: Object.keys(payload),
+    });
+
     session.buffer.push(event);
     if (session.buffer.length > TERMINAL_BUFFER_LIMIT) {
-      session.buffer.shift();
+      const removed = session.buffer.shift();
+      this.logger.debug("Buffer limit reached, removed oldest event", {
+        sessionId: session.id,
+        removedEventType: removed?.type,
+        newBufferSize: session.buffer.length,
+      });
     }
 
-    for (const client of session.clients.values()) {
-      this.sendWebSocketMessage(
-        client,
-        event.type,
-        session,
-        { ...event.payload },
-        event.timestamp,
-      );
+    if (session.clients.size > 0) {
+      for (const client of session.clients.values()) {
+        this.sendWebSocketMessage(
+          client,
+          event.type,
+          session,
+          { ...event.payload },
+          event.timestamp,
+        );
+      }
+    } else {
+      this.logger.debug("Event emitted but no clients connected", {
+        sessionId: session.id,
+        eventType,
+      });
     }
   }
 
@@ -376,6 +589,15 @@ export class TerminalService {
     if (!client) {
       return;
     }
+
+    this.logger.info("Removing client from terminal session", {
+      sessionId: session.id,
+      clientId,
+      terminalType: session.type,
+      remainingClients: session.clients.size - 1,
+      socketState: client.socket.readyState,
+    });
+
     if (client.heartbeat) {
       clearInterval(client.heartbeat);
     }
@@ -400,15 +622,45 @@ export class TerminalService {
     exitCode: number | null,
     signal: number | null,
   ): void {
+    const timeSinceCreation = Date.now() - session.createdAt;
+    const previousState = session.state;
     session.state = "exited";
     session.updatedAt = Date.now();
 
-    this.logger.warn("PTY process exited", {
+    this.logger.warn("PTY process exited - handling cleanup", {
       sessionId: session.id,
+      terminalType: session.type,
       exitCode,
       signal,
+      previousState,
+      newState: session.state,
       hasClients: session.clients.size > 0,
+      clientsCount: session.clients.size,
+      uptimeMs: timeSinceCreation,
+      uptimeSeconds: (timeSinceCreation / 1000).toFixed(2),
+      immediateExit: timeSinceCreation < 1000,
+      command: session.command,
+      args: session.args,
+      cwd: session.cwd,
+      ptyPid: session.pty?.pid,
     });
+
+    // Check if this is an abnormal exit
+    if (timeSinceCreation < 1000) {
+      this.logger.error(
+        new Error(`PTY exited immediately after spawn (${timeSinceCreation}ms)`),
+        "Abnormal PTY exit detected - process died within 1 second",
+        {
+          sessionId: session.id,
+          exitCode,
+          signal,
+          command: session.command,
+          args: session.args,
+          cwd: session.cwd,
+          shell: process.env.SHELL,
+        },
+      );
+    }
 
     this.emitTerminalEvent(session, "exit", {
       exitCode: exitCode ?? undefined,
@@ -421,7 +673,21 @@ export class TerminalService {
     );
 
     if (session.clients.size === 0) {
+      this.logger.info("Terminal session removed (no clients after exit)", {
+        sessionId: session.id,
+        terminalType: session.type,
+        exitCode,
+        signal,
+      });
       this.sessions.delete(session.id);
+    } else {
+      this.logger.info("Terminal session kept alive (has clients after exit)", {
+        sessionId: session.id,
+        terminalType: session.type,
+        clientsCount: session.clients.size,
+        exitCode,
+        signal,
+      });
     }
   }
 
@@ -437,14 +703,59 @@ export class TerminalService {
 
   private killSessionProcess(session: TerminalSession): void {
     if (!session.pty) {
+      this.logger.debug("No PTY process to kill", {
+        sessionId: session.id,
+        terminalType: session.type,
+        state: session.state,
+      });
       return;
     }
 
+    const ptyPid = session.pty.pid;
+
+    this.logger.info("Killing terminal process with SIGTERM", {
+      sessionId: session.id,
+      terminalType: session.type,
+      command: session.command,
+      state: session.state,
+      ptyPid,
+    });
+
     try {
       session.pty.kill("SIGTERM");
+      this.logger.debug("SIGTERM sent to PTY process", {
+        sessionId: session.id,
+        ptyPid,
+      });
+
       setTimeout(() => {
         if (session.pty) {
-          session.pty.kill("SIGKILL");
+          this.logger.warn("Process did not terminate after SIGTERM, sending SIGKILL", {
+            sessionId: session.id,
+            terminalType: session.type,
+            ptyPid: session.pty.pid,
+          });
+          try {
+            session.pty.kill("SIGKILL");
+            this.logger.debug("SIGKILL sent to PTY process", {
+              sessionId: session.id,
+              ptyPid: session.pty.pid,
+            });
+          } catch (killError) {
+            this.logger.error(
+              killError instanceof Error ? killError : new Error(String(killError)),
+              "Failed to send SIGKILL to PTY process",
+              {
+                sessionId: session.id,
+                ptyPid: session.pty.pid,
+              },
+            );
+          }
+        } else {
+          this.logger.debug("PTY already cleaned up before SIGKILL timeout", {
+            sessionId: session.id,
+            ptyPid,
+          });
         }
       }, 5000);
     } catch (error) {
@@ -452,6 +763,8 @@ export class TerminalService {
         error instanceof Error ? error.message : JSON.stringify(error);
       this.logger.warn("Failed to kill terminal process cleanly", {
         sessionId: session.id,
+        terminalType: session.type,
+        ptyPid,
         error: message,
       });
     }
@@ -585,6 +898,7 @@ export class TerminalService {
       this.logger.error(
         new Error("Missing required parameter: input"),
         "Missing required parameter: input",
+        { sessionId },
       );
       reply.code(400);
       return {
@@ -592,6 +906,12 @@ export class TerminalService {
         error: "input is required",
       };
     }
+
+    this.logger.info("Received terminal input via API", {
+      sessionId,
+      inputLength: input.length,
+      inputPreview: input.substring(0, 100),
+    });
 
     try {
       this.sendInput(sessionId, input);
@@ -688,25 +1008,45 @@ export class TerminalService {
       try {
         const message = JSON.parse(raw.toString());
 
+        this.logger.debug("Received WebSocket message", {
+          sessionId,
+          messageType: message.type,
+        });
+
         // Handle different message types
         if (message.type === "input" && typeof message.data === "string") {
           // User input to terminal
+          this.logger.info("Received input via WebSocket", {
+            sessionId,
+            inputLength: message.data.length,
+            inputPreview: message.data.substring(0, 100),
+          });
           this.sendInput(sessionId, message.data);
         } else if (message.type === "resize") {
           // Terminal resize request
           const cols = Number(message.cols);
           const rows = Number(message.rows);
           if (Number.isFinite(cols) && Number.isFinite(rows)) {
+            this.logger.info("Received resize request via WebSocket", {
+              sessionId,
+              cols,
+              rows,
+            });
             this.resizeSession(sessionId, cols, rows);
           }
         } else if (message.type === "signal" && message.name === "SIGINT") {
           // Ctrl+C signal
+          this.logger.info("Received SIGINT via WebSocket", { sessionId });
           this.sendInput(sessionId, "\x03");
         }
       } catch {
         // If not valid JSON, treat as raw input
         if (typeof raw === "string" || Buffer.isBuffer(raw)) {
           try {
+            this.logger.debug("Treating WebSocket message as raw input", {
+              sessionId,
+              rawLength: raw.length,
+            });
             this.sendInput(sessionId, raw.toString());
           } catch (inputError) {
             this.logger.debug("Failed to send input", {
@@ -730,9 +1070,14 @@ export class TerminalService {
       defaultType?: TerminalSessionType;
     } = {},
   ): void {
-    this.logger.consoleLogDevOnly("info", "sessionIdRequested", {
+    this.logger.info("WebSocket attachment requested", {
       sessionId,
+      allowCreate: options.allowCreate,
+      defaultType: options.defaultType,
+      socketReadyState: socket.readyState,
+      existingSession: this.sessions.has(sessionId),
     });
+
     const session =
       this.sessions.get(sessionId) ||
       (options.allowCreate
@@ -743,19 +1088,31 @@ export class TerminalService {
         : undefined);
 
     if (!session) {
-      this.logger.consoleLogDevOnly("error", "Terminal session not found", {
-        sessionId,
-      });
+      this.logger.warn(
+        "Client connection rejected - terminal session not found",
+        {
+          sessionId,
+          allowCreate: options.allowCreate,
+          availableSessions: Array.from(this.sessions.keys()),
+        },
+      );
       const message = JSON.stringify({
         event: "error",
         data: { error: "Terminal session not found", sessionId },
       });
       try {
         socket.send(message);
-      } catch {
-        // ignore send errors on closing socket
+        this.logger.debug("Error message sent to client", { sessionId });
+      } catch (error) {
+        this.logger.debug("Failed to send error message to client", {
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
       } finally {
         socket.close(1008, "Terminal session not found");
+        this.logger.debug("Socket closed due to session not found", {
+          sessionId,
+        });
       }
       return;
     }
@@ -768,12 +1125,51 @@ export class TerminalService {
 
     session.clients.set(clientId, client);
 
+    this.logger.info("New client connected to terminal session", {
+      sessionId,
+      clientId,
+      terminalType: session.type,
+      state: session.state,
+      clientsCount: session.clients.size,
+      ptyPid: session.pty?.pid,
+      hasPty: Boolean(session.pty),
+      bufferSize: session.buffer.length,
+    });
+
     const cleanup = (): void => {
+      this.logger.debug("WebSocket cleanup triggered", {
+        sessionId,
+        clientId,
+        socketReadyState: socket.readyState,
+      });
       this.removeClient(session, clientId);
     };
 
-    socket.on("close", cleanup);
-    socket.on("error", cleanup);
+    socket.on("close", (code: number, reason: Buffer) => {
+      this.logger.info("WebSocket closed", {
+        sessionId,
+        clientId,
+        code,
+        reason: reason.toString(),
+      });
+      cleanup();
+    });
+
+    socket.on("error", (error: Error) => {
+      this.logger.warn("WebSocket error", {
+        sessionId,
+        clientId,
+        error: error.message,
+        stack: error.stack,
+      });
+      cleanup();
+    });
+
+    this.logger.debug("Starting heartbeat for client", {
+      sessionId,
+      clientId,
+      intervalMs: HEARTBEAT_INTERVAL_MS,
+    });
 
     client.heartbeat = setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) {
@@ -785,9 +1181,20 @@ export class TerminalService {
           Date.now(),
         );
       } else {
+        this.logger.debug("Heartbeat found closed socket, cleaning up", {
+          sessionId,
+          clientId,
+          socketReadyState: socket.readyState,
+        });
         cleanup();
       }
     }, HEARTBEAT_INTERVAL_MS);
+
+    this.logger.debug("Sending initial status to client", {
+      sessionId,
+      clientId,
+      state: session.state,
+    });
 
     this.sendWebSocketMessage(
       client,
@@ -796,6 +1203,12 @@ export class TerminalService {
       this.buildSessionSnapshot(session),
       Date.now(),
     );
+
+    this.logger.debug("Sending buffered events to client", {
+      sessionId,
+      clientId,
+      bufferSize: session.buffer.length,
+    });
 
     for (const event of session.buffer) {
       this.sendWebSocketMessage(
@@ -806,6 +1219,13 @@ export class TerminalService {
         event.timestamp,
       );
     }
+
+    this.logger.info("Client setup complete - terminal buffer sent", {
+      sessionId,
+      clientId,
+      bufferSize: session.buffer.length,
+      state: session.state,
+    });
   }
 
   private sendWebSocketMessage(
