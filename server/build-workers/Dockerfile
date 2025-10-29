@@ -56,6 +56,20 @@ ENV CHOKIDAR_USEPOLLING=1
 ENV CHOKIDAR_INTERVAL=100
 ENV WATCHPACK_POLLING=true
 
+# Set SHELL environment variable for PTY sessions
+ENV SHELL=/bin/bash
+
+# Configure bash to run in interactive mode by default for PTY sessions
+# This prevents bash from exiting immediately when spawned in a PTY
+RUN echo '#!/bin/bash' > /usr/local/bin/bash-interactive && \
+    echo 'exec /bin/bash -i "$@"' >> /usr/local/bin/bash-interactive && \
+    chmod +x /usr/local/bin/bash-interactive
+
+# Create a minimal bashrc to keep interactive shells alive
+RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \
+    echo 'export PS1="$ "' >> /etc/bash.bashrc && \
+    echo '# Keep shell alive' >> /etc/bash.bashrc
+
 # Expose port and start
 EXPOSE 3002
 CMD ["sh", "-c", "watchman --foreground --logfile=/tmp/logs/watchman.log & npm start"]

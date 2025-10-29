@@ -151,7 +151,8 @@ export class TerminalService {
     const rows = options.rows ?? 24;
     const cwd = options.cwd ?? this.workDir;
     const command = options.command ?? process.env.SHELL ?? "/bin/bash";
-    const args = options.args ?? [];
+    // Default to interactive mode for bash to prevent immediate exit
+    const args = options.args ?? (command.includes("bash") ? ["-i"] : []);
     const env = this.normalizeEnv(options.env);
     const pty = spawnPty(command, args, {
       name: "xterm-color",
