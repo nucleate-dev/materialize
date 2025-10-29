@@ -8,6 +8,7 @@ RUN apk add --no-cache \
     autoconf \
     automake \
     libtool \
+    bash \
     python3 \
     python3-dev \
     openssl-dev \
