@@ -271,6 +271,19 @@ export class TerminalService {
     return this.sessions.get(sessionId);
   }
 
+  public addOutputListener(
+    sessionId: string,
+    callback: (output: string) => void,
+  ): (() => void) | null {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.pty) {
+      return null;
+    }
+
+    const disposable = session.pty.onData(callback);
+    return () => disposable.dispose();
+  }
+
   public killProcess(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -689,6 +702,9 @@ export class TerminalService {
       defaultType?: TerminalSessionType;
     } = {},
   ): void {
+    this.logger.consoleLogDevOnly("info", "sessionIdRequested", {
+      sessionId,
+    });
     const session =
       this.sessions.get(sessionId) ||
       (options.allowCreate
@@ -699,6 +715,9 @@ export class TerminalService {
         : undefined);
 
     if (!session) {
+      this.logger.consoleLogDevOnly("error", "Terminal session not found", {
+        sessionId,
+      });
       const message = JSON.stringify({
         event: "error",
         data: { error: "Terminal session not found", sessionId },

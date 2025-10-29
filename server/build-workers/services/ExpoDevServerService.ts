@@ -456,12 +456,6 @@ export class ExpoDevServerService {
       const tunnelSubdomain = this.state.tunnelSubdomain!;
 
       // Get the dev-server terminal session
-      const session = this.terminalService.getSession("dev-server");
-      if (!session) {
-        reject(new Error("dev-server terminal session not found"));
-        return;
-      }
-
       this.state.process = null; // Not using ChildProcess anymore
       let resolved = false;
       let cleanup: (() => void) | null = null;
@@ -473,7 +467,7 @@ export class ExpoDevServerService {
             "Timeout waiting for tunnel URL after 60 seconds",
           );
           resolved = true;
-          if (cleanup) cleanup();
+          cleanup?.();
           reject(new Error("Timeout waiting for tunnel URL"));
         }
       }, 60000); // 60 second timeout
@@ -524,7 +518,7 @@ export class ExpoDevServerService {
             });
             clearTimeout(timeout);
             resolved = true;
-            cleanup();
+            cleanup?.();
             resolve();
           }
         }
@@ -562,18 +556,23 @@ export class ExpoDevServerService {
           });
           clearTimeout(timeout);
           resolved = true;
-          cleanup();
+          cleanup?.();
           resolve();
         }
       };
 
-      // Set up temporary listener on the PTY output
-      const disposable = session.pty.onData(processOutput);
+      const listenerDisposer = this.terminalService.addOutputListener(
+        "dev-server",
+        processOutput,
+      );
 
-      // Clean up listener - disposes the onData listener
-      cleanup = (): void => {
-        disposable.dispose();
-      };
+      if (!listenerDisposer) {
+        clearTimeout(timeout);
+        reject(new Error("dev-server terminal session not found or not running"));
+        return;
+      }
+
+      cleanup = listenerDisposer;
 
       // Build the command to run in the terminal
       const command = `cd ${projectDir} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${tunnelSubdomain} npx expo start --web --tunnel --port ${port} --clear\n`;
@@ -584,8 +583,21 @@ export class ExpoDevServerService {
         tunnelSubdomain,
       });
 
-      // Send the command to the terminal
-      session.pty.write(command);
+      try {
+        this.terminalService.sendInput("dev-server", command);
+      } catch (error) {
+        clearTimeout(timeout);
+        cleanup?.();
+        const message =
+          error instanceof Error ? error.message : String(error);
+        this.log2.error(
+          new Error(message),
+          "Failed to send Expo start command to terminal",
+        );
+        reject(
+          new Error("Failed to send Expo start command to terminal session"),
+        );
+      }
     });
   }
 
@@ -602,7 +614,18 @@ export class ExpoDevServerService {
 
       // Send Ctrl+C to interrupt the running process
       this.log2.info("Sending Ctrl+C to stop Expo process");
-      session.pty.write("\x03"); // Ctrl+C
+      try {
+        this.terminalService.sendInput("dev-server", "\x03"); // Ctrl+C
+      } catch (inputError) {
+        const message =
+          inputError instanceof Error
+            ? inputError.message
+            : String(inputError);
+        this.log2.error(
+          new Error(message),
+          "Failed to send Ctrl+C to terminal session",
+        );
+      }
 
       // Wait a moment for graceful shutdown
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -1846,20 +1869,21 @@ export class ExpoDevServerService {
       let stdout = "";
       let commandComplete = false;
       let exitCode = 0;
-
-      // Get the terminal session
-      const session = this.terminalService.getSession(sessionId);
-      if (!session) {
-        reject(new Error(`Terminal session ${sessionId} not found`));
-        return;
-      }
+      let cleanup: (() => void) | null = null;
+      let exitCodeCheckInterval: NodeJS.Timeout | null = null;
+      let exitIntervalCleanupTimeout: NodeJS.Timeout | null = null;
 
       const timeoutHandle = setTimeout(() => {
         if (!commandComplete) {
           commandComplete = true;
           const error = `Command timed out after ${timeoutMs}ms: ${command} ${args.join(" ")}`;
           this.log2.error(new Error(error), "Command timeout");
-          cleanup();
+          if (exitCodeCheckInterval) {
+            clearInterval(exitCodeCheckInterval);
+            exitCodeCheckInterval = null;
+          }
+          cleanup?.();
+          cleanup = null;
           reject(new Error(error));
         }
       }, timeoutMs);
@@ -1888,7 +1912,16 @@ export class ExpoDevServerService {
               commandComplete = true;
               exitCode = 1;
               clearTimeout(timeoutHandle);
-              cleanup();
+              if (exitCodeCheckInterval) {
+                clearInterval(exitCodeCheckInterval);
+                exitCodeCheckInterval = null;
+              }
+              if (exitIntervalCleanupTimeout) {
+                clearTimeout(exitIntervalCleanupTimeout);
+                exitIntervalCleanupTimeout = null;
+              }
+              cleanup?.();
+              cleanup = null;
               resolve({
                 stdout: stdout.trim(),
                 stderr: line,
@@ -1899,11 +1932,27 @@ export class ExpoDevServerService {
         }
       };
 
-      // Set up listener on the PTY output
-      const disposable = session.pty.onData(processOutput);
+      const listenerDisposer = this.terminalService.addOutputListener(
+        sessionId,
+        processOutput,
+      );
 
-      const cleanup = (): void => {
-        disposable.dispose();
+      if (!listenerDisposer) {
+        clearTimeout(timeoutHandle);
+        reject(
+          new Error(
+            `Terminal session ${sessionId} not found or not running`,
+          ),
+        );
+        return;
+      }
+
+      cleanup = (): void => {
+        listenerDisposer();
+        if (exitIntervalCleanupTimeout) {
+          clearTimeout(exitIntervalCleanupTimeout);
+          exitIntervalCleanupTimeout = null;
+        }
       };
 
       // Build environment variables string
@@ -1923,19 +1972,54 @@ export class ExpoDevServerService {
         cwd,
       });
 
-      // Send the command to the terminal
-      session.pty.write(fullCommand);
+      try {
+        this.terminalService.sendInput(sessionId, fullCommand);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        clearTimeout(timeoutHandle);
+        if (exitCodeCheckInterval) {
+          clearInterval(exitCodeCheckInterval);
+          exitCodeCheckInterval = null;
+        }
+        if (exitIntervalCleanupTimeout) {
+          clearTimeout(exitIntervalCleanupTimeout);
+          exitIntervalCleanupTimeout = null;
+        }
+        cleanup?.();
+        cleanup = null;
+        commandComplete = true;
+        this.log2.error(
+          new Error(message),
+          "Failed to send command to terminal session",
+          { sessionId, cwd },
+        );
+        reject(
+          new Error(
+            `Failed to send command to terminal session ${sessionId}: ${message}`,
+          ),
+        );
+        return;
+      }
 
       // Set up a detection for the EXIT_CODE marker
-      const exitCodeCheckInterval = setInterval(() => {
+      exitCodeCheckInterval = setInterval(() => {
         if (stdout.includes("EXIT_CODE=")) {
           const match = stdout.match(/EXIT_CODE=(\d+)/);
           if (match && !commandComplete) {
             commandComplete = true;
             exitCode = parseInt(match[1], 10);
             clearTimeout(timeoutHandle);
-            clearInterval(exitCodeCheckInterval);
-            cleanup();
+            if (exitCodeCheckInterval) {
+              clearInterval(exitCodeCheckInterval);
+              exitCodeCheckInterval = null;
+            }
+            if (exitIntervalCleanupTimeout) {
+              clearTimeout(exitIntervalCleanupTimeout);
+              exitIntervalCleanupTimeout = null;
+            }
+            cleanup?.();
+            cleanup = null;
 
             // Remove the EXIT_CODE marker from stdout
             const cleanStdout = stdout.replace(/EXIT_CODE=\d+/, "").trim();
@@ -1956,9 +2040,10 @@ export class ExpoDevServerService {
       }, 100);
 
       // Clean up interval if timeout occurs
-      setTimeout(() => {
-        if (commandComplete) {
+      exitIntervalCleanupTimeout = setTimeout(() => {
+        if (commandComplete && exitCodeCheckInterval) {
           clearInterval(exitCodeCheckInterval);
+          exitCodeCheckInterval = null;
         }
       }, timeoutMs + 1000);
     });
@@ -2041,17 +2126,122 @@ export class ExpoDevServerService {
       command: "npx expo export --platform web",
       projectDir,
     });
-    const result = await this.runCommandInternal(
-      "npx",
-      ["expo", "export", "--platform", "web"],
-      projectDir,
-      {
-        EXPO_NO_TELEMETRY: "1",
-        NODE_OPTIONS: "--max-old-space-size=2048",
-      },
-      900000,
-      "build", // Use the build terminal session
-    );
+    const result = await new Promise<{
+      stdout: string;
+      stderr: string;
+      code: number;
+    }>((resolve, reject) => {
+      let stdout = "";
+      let commandComplete = false;
+      let cleanup: (() => void) | null = null;
+      let exitCodeCheckInterval: NodeJS.Timeout | null = null;
+      let exitIntervalCleanupTimeout: NodeJS.Timeout | null = null;
+
+      const timeoutHandle = setTimeout(() => {
+        if (!commandComplete) {
+          commandComplete = true;
+          if (exitCodeCheckInterval) {
+            clearInterval(exitCodeCheckInterval);
+            exitCodeCheckInterval = null;
+          }
+          if (exitIntervalCleanupTimeout) {
+            clearTimeout(exitIntervalCleanupTimeout);
+            exitIntervalCleanupTimeout = null;
+          }
+          cleanup?.();
+          cleanup = null;
+          reject(new Error("Expo export command timed out after 900000ms"));
+        }
+      }, 900000);
+
+      const processOutput = (chunk: string): void => {
+        const output = chunk.toString();
+        stdout += output;
+
+        this.log2.debug("Expo export output", {
+          sessionId: "build",
+          output: output.trim(),
+        });
+      };
+
+      const listenerDisposer = this.terminalService.addOutputListener(
+        "build",
+        processOutput,
+      );
+
+      if (!listenerDisposer) {
+        clearTimeout(timeoutHandle);
+        reject(new Error("build terminal session not found or not running"));
+        return;
+      }
+
+      cleanup = (): void => {
+        listenerDisposer();
+        if (exitIntervalCleanupTimeout) {
+          clearTimeout(exitIntervalCleanupTimeout);
+          exitIntervalCleanupTimeout = null;
+        }
+      };
+
+      const envString = `EXPO_NO_TELEMETRY="1" NODE_OPTIONS="--max-old-space-size=2048" `;
+      const commandString = `${envString}cd ${projectDir} && npx expo export --platform web; echo "EXIT_CODE=$?"\n`;
+
+      try {
+        this.terminalService.sendInput("build", commandString);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        clearTimeout(timeoutHandle);
+        cleanup?.();
+        cleanup = null;
+        commandComplete = true;
+        this.log2.error(
+          new Error(message),
+          "Failed to send Expo export command to terminal session",
+          { projectDir },
+        );
+        reject(
+          new Error(
+            `Failed to send Expo export command to terminal session: ${message}`,
+          ),
+        );
+        return;
+      }
+
+      exitCodeCheckInterval = setInterval(() => {
+        const match = stdout.match(/EXIT_CODE=(\d+)/);
+        if (match && !commandComplete) {
+          commandComplete = true;
+          clearTimeout(timeoutHandle);
+          const code = parseInt(match[1], 10);
+
+          if (exitCodeCheckInterval) {
+            clearInterval(exitCodeCheckInterval);
+            exitCodeCheckInterval = null;
+          }
+          if (exitIntervalCleanupTimeout) {
+            clearTimeout(exitIntervalCleanupTimeout);
+            exitIntervalCleanupTimeout = null;
+          }
+          cleanup?.();
+          cleanup = null;
+
+          const cleanStdout = stdout.replace(/EXIT_CODE=\d+/, "").trim();
+          resolve({
+            stdout: cleanStdout,
+            stderr: code !== 0 ? cleanStdout : "",
+            code,
+          });
+        }
+      }, 100);
+
+      exitIntervalCleanupTimeout = setTimeout(() => {
+        if (commandComplete && exitCodeCheckInterval) {
+          clearInterval(exitCodeCheckInterval);
+          exitCodeCheckInterval = null;
+        }
+      }, 901000);
+    });
 
     if (result.code !== 0) {
       logger.log("Build Expo project", false, result.stdout, result.stderr);
