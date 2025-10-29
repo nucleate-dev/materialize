@@ -130,8 +130,16 @@ export class TerminalService {
       rows?: number;
     } = {},
   ): TerminalSession {
+    this.logger.info("creating terminal session initiated: ", {
+      sessionId,
+      type,
+    });
     const existing = this.sessions.get(sessionId);
     if (existing) {
+      this.logger.info("terminal session already exists: ", {
+        sessionId,
+        type,
+      });
       if (existing.type !== type) {
         existing.type = type;
       }
@@ -151,6 +159,12 @@ export class TerminalService {
       rows,
       cwd,
       env,
+    });
+
+    this.logger.info("terminal session created: ", {
+      sessionId,
+      type,
+      pty,
     });
 
     const session: TerminalSession = {
@@ -192,6 +206,8 @@ export class TerminalService {
       "status",
       this.buildSessionSnapshot(session),
     );
+
+    this.logger.info("terminal session started: ", { session });
 
     return session;
   }
