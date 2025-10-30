@@ -49,6 +49,7 @@ import { FileAutocomplete } from "./FileAutocomplete";
 import {
   uploadChatImage,
   deletePrototypeImages,
+  getSignedImageUrl,
 } from "@/lib/utils/chatImageUpload";
 
 type PrototypeChatSession =
@@ -146,6 +147,71 @@ export default function PrototypeChatWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Component for rendering an image with signed URL
+  const ChatImage = useCallback(({ imageUrl }: { imageUrl: string }) => {
+    const [signedUrl, setSignedUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+      let mounted = true;
+
+      const loadSignedUrl = async () => {
+        try {
+          const url = await getSignedImageUrl(imageUrl);
+          if (mounted) {
+            if (url) {
+              setSignedUrl(url);
+            } else {
+              setHasError(true);
+            }
+            setIsLoading(false);
+          }
+        } catch (error) {
+          if (mounted) {
+            setHasError(true);
+            setIsLoading(false);
+          }
+        }
+      };
+
+      loadSignedUrl();
+
+      return () => {
+        mounted = false;
+      };
+    }, [imageUrl]);
+
+    if (isLoading) {
+      return (
+        <div className="mb-2 p-4 border border-primary-foreground/20 rounded flex items-center justify-center">
+          <span className="text-xs text-primary-foreground/70">Loading image...</span>
+        </div>
+      );
+    }
+
+    if (hasError || !signedUrl) {
+      return (
+        <div className="mb-2 p-2 border border-primary-foreground/20 rounded flex items-center gap-2 text-primary-foreground/70">
+          <PhotoIcon className="w-4 h-4" />
+          <span className="text-xs">Image no longer available</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={signedUrl}
+          alt="User uploaded"
+          className="max-w-full max-h-48 rounded border border-primary-foreground/20"
+          onError={() => setHasError(true)}
+        />
+      </div>
+    );
+  }, []);
 
   // File autocomplete functionality
   const {
@@ -770,6 +836,8 @@ export default function PrototypeChatWindow({
           imageUrl = uploadResult.url;
           // Add placeholder text to message content
           messageContent = `📎 [Image attached]\n\n${messageContent}`;
+          // Clear image preview after successful upload
+          setImagePreview(null);
         } else {
           // If upload failed, show error and stop
           logger.debug("error", "Failed to upload image to Supabase Storage", {
@@ -863,9 +931,6 @@ export default function PrototypeChatWindow({
 
         // Process the streaming response
         await processStreamingResponse(streamingResponse);
-
-        // Clear image after successful send
-        handleRemoveImage();
       } catch (error) {
         logger.debug("error", "Error sending message:", {
           error: error instanceof Error ? error.message : String(error),
@@ -897,7 +962,6 @@ export default function PrototypeChatWindow({
       logger,
       setIsChatLoading,
       imagePreview,
-      handleRemoveImage,
       currentViewingPath,
     ],
   );
@@ -1098,29 +1162,7 @@ export default function PrototypeChatWindow({
                 >
                   {/* Display image if available */}
                   {message.role === "user" && message.imageUrl && (
-                    <div className="mb-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={message.imageUrl}
-                        alt="User uploaded"
-                        className="max-w-full max-h-48 rounded border border-primary-foreground/20"
-                        onError={(e) => {
-                          // Hide broken image and show placeholder
-                          e.currentTarget.style.display = "none";
-                          const placeholder = e.currentTarget.nextElementSibling;
-                          if (placeholder) {
-                            placeholder.classList.remove("hidden");
-                          }
-                        }}
-                      />
-                      {/* Placeholder for broken images (hidden by default) */}
-                      <div className="hidden p-2 border border-primary-foreground/20 rounded flex items-center gap-2 text-primary-foreground/70">
-                        <PhotoIcon className="w-4 h-4" />
-                        <span className="text-xs">
-                          Image no longer available
-                        </span>
-                      </div>
-                    </div>
+                    <ChatImage imageUrl={message.imageUrl} />
                   )}
 
                   <div

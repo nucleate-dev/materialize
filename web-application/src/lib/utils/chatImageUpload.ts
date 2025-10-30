@@ -113,14 +113,23 @@ export async function uploadChatImage(
       };
     }
 
-    // Get public URL for the uploaded image
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
+    // For private buckets, we need to create a signed URL that expires
+    // Create a signed URL valid for 1 year (max allowed by Supabase)
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(data.path, 31536000); // 1 year in seconds
+
+    if (signedUrlError || !signedUrlData) {
+      console.error("Failed to create signed URL:", signedUrlError);
+      return {
+        success: false,
+        error: "Failed to generate image URL",
+      };
+    }
 
     return {
       success: true,
-      url: publicUrl,
+      url: signedUrlData.signedUrl,
     };
   } catch (error) {
     console.error("Error uploading chat image:", error);
@@ -132,8 +141,58 @@ export async function uploadChatImage(
 }
 
 /**
+ * Get a fresh signed URL for an image (in case the stored URL expired)
+ * @param imageUrlOrPath Either a signed URL or just the storage path
+ * @returns Promise with fresh signed URL or null if error
+ */
+export async function getSignedImageUrl(
+  imageUrlOrPath: string,
+): Promise<string | null> {
+  try {
+    // Extract the file path from either a signed URL or plain path
+    let filePath: string;
+
+    if (imageUrlOrPath.includes("/object/sign/")) {
+      // It's a signed URL, extract the path
+      const pathMatch = imageUrlOrPath.match(/\/object\/sign\/[^/]+\/(.+)\?/);
+      if (!pathMatch || !pathMatch[1]) {
+        console.error("Could not extract path from signed URL");
+        return null;
+      }
+      filePath = decodeURIComponent(pathMatch[1]);
+    } else if (imageUrlOrPath.includes("/object/public/")) {
+      // It's a public URL format, extract path
+      const urlParts = imageUrlOrPath.split(`/object/public/${BUCKET_NAME}/`);
+      if (urlParts.length !== 2) {
+        console.error("Invalid image URL format");
+        return null;
+      }
+      filePath = urlParts[1];
+    } else {
+      // Assume it's already a path
+      filePath = imageUrlOrPath;
+    }
+
+    // Generate fresh signed URL
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(filePath, 31536000); // 1 year
+
+    if (error || !data) {
+      console.error("Failed to create signed URL:", error);
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error("Error getting signed image URL:", error);
+    return null;
+  }
+}
+
+/**
  * Delete an image from Supabase Storage
- * @param imageUrl The full public URL of the image
+ * @param imageUrl The full signed URL or storage path of the image
  * @returns Promise indicating success or failure
  */
 export async function deleteChatImage(
