@@ -873,8 +873,7 @@ export default function PrototypeChatWindow({
         inputAssets: assets,
         chat_session_id: prototypeChatSession.id,
         prototype_id: prototypeId || "",
-        image: imagePreview,
-        imageUrl: imageUrl, // Send the signed URL
+        imageUrl: imageUrl, // Send the storage URL (will be converted to base64 by server)
         currentViewingPath: currentViewingPath,
       };
       setMessages(newMessages);

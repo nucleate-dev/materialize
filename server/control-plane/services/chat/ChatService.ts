@@ -139,7 +139,8 @@ export class ChatService {
               },
               chat_session_id: { type: 'string' },
               prototype_id: { type: 'string' },
-              image: { type: 'string' },
+              imageUrl: { type: 'string' },
+              currentViewingPath: { type: 'string' },
             },
           },
         },
@@ -162,7 +163,6 @@ export class ChatService {
         inputAssets,
         chat_session_id,
         prototype_id,
-        image,
         imageUrl,
         currentViewingPath,
       } = request.body;
@@ -281,7 +281,6 @@ export class ChatService {
               encoder,
               supabase,
               log2: request.log2,
-              image: image ?? null,
               imageUrl: imageUrl ?? null,
               currentViewingPath: currentViewingPath ?? null,
             });

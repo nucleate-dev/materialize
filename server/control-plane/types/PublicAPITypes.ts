@@ -339,8 +339,7 @@ export interface ChatRequestBody {
   inputAssets: Record<string, PrototypeAssetInput> | null;
   chat_session_id: string;
   prototype_id: string;
-  image?: string | null;
-  imageUrl?: string | null; // Signed URL for the uploaded image
+  imageUrl?: string | null; // Storage path or signed URL for the uploaded image (will be converted to base64 for LLM)
   currentViewingPath?: string | null;
 }
 

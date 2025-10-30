@@ -22,6 +22,7 @@ import {
   VirtualFileManager,
 } from '../utils/file-manager.js';
 import { detectUserIntent } from '../utils/intent-classifier.js';
+import { fetchImageAsBase64 } from '../utils/image-utils.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -65,8 +66,7 @@ export interface ChatEngineParams {
   fileManager: FileManagerInterface;
   inputFiles: Record<string, PrototypeFileInput> | null;
   inputAssets: Record<string, PrototypeAssetInput> | null;
-  image: string | null;
-  imageUrl?: string | null;
+  imageUrl: string | null;
   prototype_id: string;
   token: string;
   chat_session_id: string;
@@ -896,14 +896,31 @@ export class ChatEngineV1 {
     const {
       messages,
       userMessage,
-      image,
+      imageUrl,
       controller,
       encoder,
       log2,
       fileManager,
+      supabase,
     } = params;
 
     const { promptConfig } = await this.resolvePromptConfig(params);
+
+    // Fetch and convert image to base64 if imageUrl is provided
+    let imageBase64: string | null = null;
+    if (imageUrl) {
+      log2.consoleLogDevOnly('info', '[ChatEngine] Fetching image from storage URL', {
+        imageUrl,
+      });
+      imageBase64 = await fetchImageAsBase64(imageUrl, supabase, log2);
+      if (!imageBase64) {
+        log2.warn('[ChatEngine] Failed to fetch image, proceeding without it', {
+          imageUrl,
+        });
+      } else {
+        log2.consoleLogDevOnly('info', '[ChatEngine] Successfully fetched and converted image to base64');
+      }
+    }
 
     // Track execution data for persistence
     let executionPlan: string[] | undefined;
@@ -959,10 +976,10 @@ export class ChatEngineV1 {
       // Build the final user message with multimodal support
       const finalUserMessage = {
         role: 'user' as const,
-        content: image
+        content: imageBase64
           ? [
               { type: 'text' as const, text: userMessageForPrompt },
-              { type: 'image' as const, image },
+              { type: 'image' as const, image: imageBase64 },
             ]
           : userMessageForPrompt,
       };
