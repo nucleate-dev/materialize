@@ -1,23 +1,24 @@
-import { S3Client } from '@aws-sdk/client-s3';
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
+import { S3Client } from '@aws-sdk/client-s3';
+import { createClient } from '@supabase/supabase-js';
+import { GlideClient } from '@valkey/valkey-glide';
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import { CACHE_KEYS } from '../../../types/InternalTypes.js';
 import {
   APIResponse,
-  DeletePrototypeSuccessResponse,
   DeletePrototypeErrorResponse,
+  DeletePrototypeSuccessResponse,
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
-import { createClient } from '@supabase/supabase-js';
 import { Database } from '../../../types/supabase.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import {
-  deletePrototypeS3Builds,
   deletePrototypeAssetsFromStorage,
+  deletePrototypeChatImagesFromStorage,
+  deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
 } from '../storageOperations.js';
-import { GlideClient } from '@valkey/valkey-glide';
-import { CACHE_KEYS } from '../../../types/InternalTypes.js';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 export default async function handleDeletePrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
@@ -64,6 +65,11 @@ export default async function handleDeletePrototypeImpl(
         deletePrototypeS3Builds(s3Client, prototype_id, request.log2),
         deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
         deletePrototypeThumbnailFromSupabaseStorage(
+          supabase,
+          prototype_id,
+          request.log2,
+        ),
+        deletePrototypeChatImagesFromStorage(
           supabase,
           prototype_id,
           request.log2,

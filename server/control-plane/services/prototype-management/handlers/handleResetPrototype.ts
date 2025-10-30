@@ -8,6 +8,7 @@ import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtil
 import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 import {
   deletePrototypeAssetsFromStorage,
+  deletePrototypeChatImagesFromStorage,
   deletePrototypeS3Builds,
   deletePrototypeThumbnailFromSupabaseStorage,
 } from '../storageOperations.js';
@@ -59,6 +60,11 @@ export default async function handleResetPrototypeImpl(
       deletePrototypeS3Builds(s3Client, prototype_id, request.log2),
       deletePrototypeAssetsFromStorage(supabase, prototype_id, request.log2),
       deletePrototypeThumbnailFromSupabaseStorage(
+        supabase,
+        prototype_id,
+        request.log2,
+      ),
+      deletePrototypeChatImagesFromStorage(
         supabase,
         prototype_id,
         request.log2,
