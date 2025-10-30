@@ -240,7 +240,7 @@ export async function handleCreatePrototypeImpl(
         try {
           const { error: updateError } = await supabase
             .from('prototypes')
-            .update({ latest_build_key: `v${version}` })
+            .update({ latest_build_key: version })
             .eq('id', newPrototypeId);
 
           if (updateError) {

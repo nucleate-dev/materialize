@@ -20,22 +20,6 @@ export interface PrototypeAssetInputWithContent {
   contents: string;
 }
 
-function shouldSkipNpmLog(output: string): boolean {
-  const trimmed = output.trim();
-
-  // Skip deprecation warnings
-  if (trimmed.includes("npm warn deprecated")) {
-    return true;
-  }
-
-  // Skip empty lines
-  if (!trimmed) {
-    return true;
-  }
-
-  return false;
-}
-
 export async function installDependencies(
   projectDir: string,
   log2: SystemLogger,
@@ -59,10 +43,6 @@ export async function installDependencies(
     const processOutput = (chunk: string): void => {
       const output = chunk.toString();
       stdout += output;
-
-      if (!shouldSkipNpmLog(output)) {
-        log2.debug("npm output", { output: output.trim() });
-      }
 
       // Check for successful completion
       if (

@@ -19,6 +19,7 @@ import { Database } from '../../types/supabase.js';
 
 const S3_PROTOTYPE_BUCKET = 'materialize-sites';
 const SUPABASE_PROTOTYPE_ASSETS_BUCKET = 'prototype-assets';
+const SUPABASE_CHAT_IMAGES_BUCKET = 'chat_images';
 
 /**
  * Get content type for file based on extension
@@ -93,6 +94,10 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
   };
 }
 
+function getVersion(): string {
+  return 'v' + Date.now().toString();
+}
+
 /**
  * Copy S3 bucket contents with versioned deployment for forking
  */
@@ -102,12 +107,12 @@ export async function copyS3BucketContentsVersioned(
   targetPrototypeId: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const version = Date.now().toString();
+  const version = getVersion();
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
       s3Client,
       `${sourcePrototypeId}/latest/`,
-      `${targetPrototypeId}/v${version}/`,
+      `${targetPrototypeId}/${version}/`,
       log2,
     ),
     copyS3BucketContents(
@@ -202,12 +207,12 @@ export async function copyDefaultAppToVersionedPrototype(
 ): Promise<S3CopyResult> {
   const { distFilesPrefix: sourcePrefix } =
     getDefaultAppFilesSourcePrefixes(designStyle);
-  const version = Date.now().toString();
+  const version = getVersion();
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
       s3Client,
       sourcePrefix,
-      `${prototypeId}/v${version}/`,
+      `${prototypeId}/${version}/`,
       log2,
     ),
     copyS3BucketContents(
@@ -495,6 +500,83 @@ export async function deletePrototypeAssetsFromStorage(
     return true;
   } catch (error) {
     log2.error(error, '[deletePrototypeAssetsFromStorage] Error');
+    return false;
+  }
+}
+
+/**
+ * Delete all chat images for a prototype from Supabase Storage chat_images bucket
+ * Directory structure: {prototype_id}/chat.png (and potentially more files)
+ */
+export async function deletePrototypeChatImagesFromStorage(
+  supabase: SupabaseClient<Database>,
+  prototypeId: string,
+  log2: SystemLogger,
+): Promise<boolean> {
+  try {
+    // Recursively list all files under {prototypeId}/
+    const allFiles: string[] = [];
+    const listFilesRecursively = async (path: string = ''): Promise<void> => {
+      const { data: items, error: listError } = await supabase.storage
+        .from(SUPABASE_CHAT_IMAGES_BUCKET)
+        .list(path);
+      if (listError) {
+        throw listError;
+      }
+      if (!items || items.length === 0) {
+        return;
+      }
+      for (const item of items) {
+        const fullPath = path ? `${path}/${item.name}` : item.name;
+        if (item.metadata) {
+          // file
+          allFiles.push(fullPath);
+        } else {
+          // folder
+          await listFilesRecursively(fullPath);
+        }
+      }
+    };
+    await listFilesRecursively(prototypeId);
+
+    if (allFiles.length === 0) {
+      log2.info('[deletePrototypeChatImagesFromStorage] No files found', {
+        prototypeId,
+      });
+      return true;
+    }
+
+    log2.consoleLogDevOnly(
+      'info',
+      'Deleting chat images from Supabase Storage',
+      {
+        filePaths: allFiles,
+        totalFiles: allFiles.length,
+        prototypeId,
+      },
+    );
+
+    // Delete in batches to respect limits
+    const batchSize = 100;
+    for (let i = 0; i < allFiles.length; i += batchSize) {
+      const batch = allFiles.slice(i, i + batchSize);
+      const { error: deleteError } = await supabase.storage
+        .from(SUPABASE_CHAT_IMAGES_BUCKET)
+        .remove(batch);
+      if (deleteError) {
+        log2.error(
+          deleteError,
+          `[deletePrototypeChatImagesFromStorage] Supabase error deleting batch ${
+            i / batchSize + 1
+          }`,
+        );
+        return false;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    log2.error(error, '[deletePrototypeChatImagesFromStorage] Error');
     return false;
   }
 }

@@ -10,7 +10,6 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { SystemLogger } from "../loggers/SystemLogger.js";
-import { TerminalService } from "./TerminalService.js";
 import {
   BuildAndDeployResponse,
   BuildLogEntry,
@@ -33,6 +32,7 @@ import {
   writeProjectFiles,
 } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
+import { TerminalService } from "./TerminalService.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -1615,7 +1615,7 @@ export class ExpoDevServerService {
   }
 
   private generateVersion(): string {
-    return Date.now().toString();
+    return "v" + Date.now().toString();
   }
 
   private getCacheControlHeader(filename: string): string {
@@ -1736,7 +1736,7 @@ export class ExpoDevServerService {
       }
     };
 
-    const versionedPrefix = `${prototypeId}/v${version}`;
+    const versionedPrefix = `${prototypeId}/${version}`;
     const latestPrefix = `${prototypeId}/latest`;
 
     await uploadDirectory(localPath, versionedPrefix, latestPrefix);
@@ -1766,7 +1766,7 @@ export class ExpoDevServerService {
       }
 
       // Filter out objects from the current version
-      const currentVersionPrefix = `${prototypeId}/v${currentVersion}/`;
+      const currentVersionPrefix = `${prototypeId}/${currentVersion}/`;
       const objectsToDelete = listResponse.Contents.filter(
         (obj) => obj.Key && !obj.Key.startsWith(currentVersionPrefix),
       );
@@ -1827,47 +1827,6 @@ export class ExpoDevServerService {
     );
     await this.deleteOldVersions(prototypeId, version);
     return uploadResult;
-  }
-
-  private async deleteS3Prefix(prefix: string): Promise<void> {
-    if (!this.s3) {
-      throw new Error("S3 client not set");
-    }
-    try {
-      const listCommand = new ListObjectsV2Command({
-        Bucket: S3_BUCKET,
-        Prefix: prefix,
-      });
-
-      const objects = await this.s3.send(listCommand);
-      if (objects.Contents && objects.Contents.length > 0) {
-        this.log2.info("Deleting existing S3 objects", {
-          count: objects.Contents.length,
-          prefix,
-        });
-
-        const deleteCommand = new DeleteObjectsCommand({
-          Bucket: S3_BUCKET,
-          Delete: {
-            Objects: objects.Contents.map((obj) => ({ Key: obj.Key! })),
-          },
-        });
-        await this.s3.send(deleteCommand);
-        this.log2.info("Successfully deleted S3 objects", {
-          count: objects.Contents.length,
-        });
-      } else {
-        this.log2.debug("No existing S3 objects found", { prefix });
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.log2.warn("Failed to delete S3 objects", {
-        prefix,
-        error: errorMessage,
-      });
-      // Don't throw - continue with upload even if delete fails
-    }
   }
 
   private runCommandInternal(
