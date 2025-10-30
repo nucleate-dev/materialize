@@ -60,10 +60,6 @@ export async function installDependencies(
       const output = chunk.toString();
       stdout += output;
 
-      if (!shouldSkipNpmLog(output)) {
-        log2.debug("npm output", { output: output.trim() });
-      }
-
       // Check for successful completion
       if (
         output.includes("added") &&
