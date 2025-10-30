@@ -1,5 +1,7 @@
 "use client";
 
+import "@xterm/xterm/css/xterm.css";
+
 import {
   ControlPlaneFileExplorer,
   ControlPlaneFileNode,
@@ -48,7 +50,7 @@ import {
   Rocket,
   Server,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const INSTANCE_STORAGE_KEY = "dev-ec2-instance";
 
@@ -91,7 +93,9 @@ export default function DevServerPage() {
   const [deployingChanged, setDeployingChanged] = useState(false);
   const [deployingSelected, setDeployingSelected] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
-  const [deployOutput, setDeployOutput] = useState("");
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<any>(null);
+  const fitAddonRef = useRef<any>(null);
   const [configuringFiles, setConfiguringFiles] = useState(false);
   const [configureSuccess, setConfigureSuccess] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
@@ -283,6 +287,52 @@ export default function DevServerPage() {
     fetchFiles();
   }, [fetchFiles]);
 
+  // Initialize xterm.js terminal
+  useEffect(() => {
+    if (!terminalRef.current) return;
+
+    const initTerminal = async () => {
+      const { Terminal } = await import("@xterm/xterm");
+      const { FitAddon } = await import("@xterm/addon-fit");
+
+      const terminal = new Terminal({
+        cursorBlink: false,
+        fontSize: 12,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: {
+          background: "#09090b",
+          foreground: "#fafafa",
+        },
+        convertEol: true,
+        scrollback: 10000,
+      });
+
+      const fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+
+      terminal.open(terminalRef.current!);
+      fitAddon.fit();
+
+      xtermRef.current = terminal;
+      fitAddonRef.current = fitAddon;
+
+      terminal.writeln("Ready to deploy. Click a deploy button to begin...");
+
+      // Handle window resize
+      const handleResize = () => {
+        fitAddon.fit();
+      };
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        terminal.dispose();
+      };
+    };
+
+    initTerminal();
+  }, []);
+
   const toggleSelectedPath = useCallback((path: string) => {
     setSelectedPaths((prev) =>
       prev.includes(path)
@@ -291,89 +341,100 @@ export default function DevServerPage() {
     );
   }, []);
 
-  const callDeploy = useCallback(
-    async (paths: string[], onOutput: (output: string) => void) => {
-      const response = await fetch("/api/control-plane", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(paths.length ? { paths } : {}),
-      });
+  const callDeploy = useCallback(async (paths: string[]) => {
+    const response = await fetch("/api/control-plane", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paths.length ? { paths } : {}),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to start deploy");
+    if (!response.ok) {
+      throw new Error("Failed to start deploy");
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error("No response body");
+    }
+
+    let buffer = "";
+    let finalResult: { success: boolean; error?: string } = {
+      success: false,
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-      if (!reader) {
-        throw new Error("No response body");
-      }
+      for (const line of lines) {
+        if (!line.trim()) continue;
 
-      let buffer = "";
-      let finalResult: { success: boolean; error?: string } = {
-        success: false,
-      };
+        try {
+          const message = JSON.parse(line);
 
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          try {
-            const message = JSON.parse(line);
-
-            if (message.type === "data") {
-              onOutput(message.data);
-            } else if (message.type === "done") {
-              finalResult = { success: message.success };
-            } else if (message.type === "error") {
-              finalResult = { success: false, error: message.error };
+          if (message.type === "data") {
+            // Write to terminal if available
+            if (xtermRef.current) {
+              xtermRef.current.write(message.data);
             }
-          } catch (e) {
-            console.error("Failed to parse message:", line, e);
+          } else if (message.type === "done") {
+            finalResult = { success: message.success };
+          } else if (message.type === "error") {
+            finalResult = { success: false, error: message.error };
           }
+        } catch (e) {
+          console.error("Failed to parse message:", line, e);
         }
       }
+    }
 
-      if (!finalResult.success) {
-        const error = new Error(
-          finalResult.error ||
-            (paths.length
-              ? "Selective deploy failed"
-              : "Control plane deploy failed"),
-        );
-        throw error;
-      }
+    if (!finalResult.success) {
+      const error = new Error(
+        finalResult.error ||
+          (paths.length
+            ? "Selective deploy failed"
+            : "Control plane deploy failed"),
+      );
+      throw error;
+    }
 
-      return finalResult;
-    },
-    [],
-  );
+    return finalResult;
+  }, []);
 
   const handleDeployAll = useCallback(async () => {
     setDeployingAll(true);
     setError(null);
-    setDeployOutput("");
+
+    // Clear terminal and write header
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+      xtermRef.current.writeln("\x1b[1;36m=== Deploying All Files ===\x1b[0m\n");
+    }
+
     try {
-      await callDeploy([], (data) => {
-        setDeployOutput((prev) => prev + data);
-      });
+      await callDeploy([]);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to run full deploy",
-      );
+      const errorMsg = err instanceof Error ? err.message : "Failed to run full deploy";
+      setError(errorMsg);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+      }
     } finally {
       setDeployingAll(false);
     }
@@ -387,15 +448,27 @@ export default function DevServerPage() {
     setSelectedPaths([...changedPaths]);
     setDeployingChanged(true);
     setError(null);
-    setDeployOutput("");
+
+    // Clear terminal and write header
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+      xtermRef.current.writeln("\x1b[1;36m=== Deploying Changed Files ===\x1b[0m");
+      xtermRef.current.writeln(`\x1b[33mFiles: ${changedPaths.length}\x1b[0m\n`);
+    }
+
     try {
-      await callDeploy(changedPaths, (data) => {
-        setDeployOutput((prev) => prev + data);
-      });
+      await callDeploy(changedPaths);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to deploy changed files",
-      );
+      const errorMsg = err instanceof Error ? err.message : "Failed to deploy changed files";
+      setError(errorMsg);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+      }
     } finally {
       setDeployingChanged(false);
     }
@@ -408,15 +481,27 @@ export default function DevServerPage() {
 
     setDeployingSelected(true);
     setError(null);
-    setDeployOutput("");
+
+    // Clear terminal and write header
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+      xtermRef.current.writeln("\x1b[1;36m=== Deploying Selected Files ===\x1b[0m");
+      xtermRef.current.writeln(`\x1b[33mFiles: ${selectedPaths.length}\x1b[0m\n`);
+    }
+
     try {
-      await callDeploy(selectedPaths, (data) => {
-        setDeployOutput((prev) => prev + data);
-      });
+      await callDeploy(selectedPaths);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln("\n\x1b[1;32m✓ Deploy completed successfully!\x1b[0m");
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to run selective deploy",
-      );
+      const errorMsg = err instanceof Error ? err.message : "Failed to run selective deploy";
+      setError(errorMsg);
+
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\n\x1b[1;31m✗ Error: ${errorMsg}\x1b[0m`);
+      }
     } finally {
       setDeployingSelected(false);
     }
@@ -1277,15 +1362,14 @@ export default function DevServerPage() {
                     <Rocket className="h-4 w-4 text-muted-foreground" />
                     Deploy output
                   </div>
-                  <div className="max-h-64 overflow-auto rounded border bg-muted/40 p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed">
-                    {deployOutput ? (
-                      deployOutput
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Deployment output will appear here after running a
-                        deploy.
-                      </span>
-                    )}
+                  <div className="rounded border overflow-hidden">
+                    <div
+                      ref={terminalRef}
+                      className="h-64"
+                      style={{
+                        backgroundColor: "#09090b",
+                      }}
+                    />
                   </div>
                 </div>
               </div>
