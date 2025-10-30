@@ -1766,7 +1766,7 @@ export class ExpoDevServerService {
       }
 
       // Filter out objects from the current version
-      const currentVersionPrefix = `${prototypeId}/v${currentVersion}/`;
+      const currentVersionPrefix = `${prototypeId}/${currentVersion}/`;
       const objectsToDelete = listResponse.Contents.filter(
         (obj) => obj.Key && !obj.Key.startsWith(currentVersionPrefix),
       );
