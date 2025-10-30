@@ -758,12 +758,11 @@ export default function PrototypeChatWindow({
       let imageUrl: string | undefined;
       let messageContent = message.trim();
 
-      if (imagePreview && prototypeId && userId) {
+      if (imagePreview && prototypeId) {
         // Upload image to Supabase Storage
         setIsChatLoading(true); // Show loading while uploading
         const uploadResult = await uploadChatImage(
           imagePreview,
-          userId,
           prototypeId,
         );
 
@@ -905,7 +904,7 @@ export default function PrototypeChatWindow({
 
   // Handle clear chat
   const handleClearChat = useCallback(async () => {
-    if (prototypeChatSession?.id && userId && prototypeId) {
+    if (prototypeChatSession?.id && prototypeId) {
       try {
         // Delete all messages for this chat session
         const { error } = await supabase
@@ -921,7 +920,7 @@ export default function PrototypeChatWindow({
         }
 
         // Delete all images for this prototype from storage
-        await deletePrototypeImages(userId, prototypeId);
+        await deletePrototypeImages(prototypeId);
 
         // Clear the local state
         setMessages([]);
@@ -940,7 +939,7 @@ export default function PrototypeChatWindow({
         });
       }
     }
-  }, [prototypeChatSession, userId, prototypeId, logger]);
+  }, [prototypeChatSession, prototypeId, logger]);
 
   // Handle inserting build errors into text box
   const handleInsertBuildErrors = () => {

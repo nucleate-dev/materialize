@@ -1,6 +1,6 @@
 /**
  * Utility for uploading and managing chat images in Supabase Storage
- * Images are stored in the 'chat-images' bucket with path: {user_id}/{prototype_id}/{timestamp}_{random}.{ext}
+ * Images are stored in the 'chat-images' bucket with path: {prototype_id}/{timestamp}_{random}.{ext}
  */
 
 import { supabase } from "@/ClientConstants";
@@ -57,13 +57,11 @@ function getFileExtension(base64: string): string {
 /**
  * Upload an image to Supabase Storage
  * @param imageData Base64 data URI of the image
- * @param userId User ID for organizing storage
  * @param prototypeId Prototype ID for organizing storage
  * @returns Promise with upload result containing URL or error
  */
 export async function uploadChatImage(
   imageData: string,
-  userId: string,
   prototypeId: string,
 ): Promise<ImageUploadResult> {
   try {
@@ -80,7 +78,7 @@ export async function uploadChatImage(
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const filename = `${timestamp}_${random}.${extension}`;
-    const filePath = `${userId}/${prototypeId}/${filename}`;
+    const filePath = `${prototypeId}/${filename}`;
 
     const file = base64ToFile(imageData, filename);
     if (!file) {
@@ -136,12 +134,10 @@ export async function uploadChatImage(
 /**
  * Delete an image from Supabase Storage
  * @param imageUrl The full public URL of the image
- * @param userId User ID (for permission checking)
  * @returns Promise indicating success or failure
  */
 export async function deleteChatImage(
   imageUrl: string,
-  userId: string,
 ): Promise<boolean> {
   try {
     // Extract file path from URL
@@ -153,12 +149,6 @@ export async function deleteChatImage(
     }
 
     const filePath = urlParts[1];
-
-    // Verify the file belongs to this user (security check)
-    if (!filePath.startsWith(`${userId}/`)) {
-      console.error("Unauthorized: Image does not belong to user");
-      return false;
-    }
 
     // Delete from storage
     const { error } = await supabase.storage
@@ -179,16 +169,14 @@ export async function deleteChatImage(
 
 /**
  * Delete all images for a specific prototype
- * @param userId User ID
  * @param prototypeId Prototype ID
  * @returns Promise indicating success or failure
  */
 export async function deletePrototypeImages(
-  userId: string,
   prototypeId: string,
 ): Promise<boolean> {
   try {
-    const folderPath = `${userId}/${prototypeId}`;
+    const folderPath = prototypeId;
 
     // List all files in the prototype folder
     const { data: files, error: listError } = await supabase.storage
