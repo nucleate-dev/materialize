@@ -66,6 +66,7 @@ export interface ChatEngineParams {
   inputFiles: Record<string, PrototypeFileInput> | null;
   inputAssets: Record<string, PrototypeAssetInput> | null;
   image: string | null;
+  imageUrl?: string | null;
   prototype_id: string;
   token: string;
   chat_session_id: string;
@@ -1177,16 +1178,12 @@ export class ChatEngineV1 {
         ),
       );
 
-      // Extract image URL from the last message if present
-      const lastMessage = messages[messages.length - 1];
-      const imageUrl = lastMessage?.imageUrl || undefined;
-
       await this.persistChatMessages(
         params.chat_session_id,
         userMessage,
         assistantResponse || finalBuffer,
         params.log2,
-        imageUrl,
+        params.imageUrl,
         executionPlan,
         fileManager instanceof VirtualFileManager
           ? fileManager.getChangedFiles()

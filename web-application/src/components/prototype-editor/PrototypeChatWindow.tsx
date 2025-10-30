@@ -874,6 +874,7 @@ export default function PrototypeChatWindow({
         chat_session_id: prototypeChatSession.id,
         prototype_id: prototypeId || "",
         image: imagePreview,
+        imageUrl: imageUrl, // Send the signed URL
         currentViewingPath: currentViewingPath,
       };
       setMessages(newMessages);
