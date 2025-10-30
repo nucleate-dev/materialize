@@ -152,7 +152,7 @@ export default async function handleResetPrototypeImpl(
 
     const { error: updateLatestBuildError } = await supabase
       .from('prototypes')
-      .update({ latest_build_key: `v${version}` })
+      .update({ latest_build_key: version })
       .eq('id', prototype_id);
 
     if (updateLatestBuildError) {

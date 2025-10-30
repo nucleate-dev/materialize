@@ -93,6 +93,10 @@ export async function copyPrototypeThumbnailInSupabaseStorage(
   };
 }
 
+function getVersion(): string {
+  return 'v' + Date.now().toString();
+}
+
 /**
  * Copy S3 bucket contents with versioned deployment for forking
  */
@@ -102,12 +106,12 @@ export async function copyS3BucketContentsVersioned(
   targetPrototypeId: string,
   log2: SystemLogger,
 ): Promise<S3CopyResult> {
-  const version = Date.now().toString();
+  const version = getVersion();
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
       s3Client,
       `${sourcePrototypeId}/latest/`,
-      `${targetPrototypeId}/v${version}/`,
+      `${targetPrototypeId}/${version}/`,
       log2,
     ),
     copyS3BucketContents(
@@ -202,12 +206,12 @@ export async function copyDefaultAppToVersionedPrototype(
 ): Promise<S3CopyResult> {
   const { distFilesPrefix: sourcePrefix } =
     getDefaultAppFilesSourcePrefixes(designStyle);
-  const version = Date.now().toString();
+  const version = getVersion();
   const [versionedResult, latestResult] = await Promise.all([
     copyS3BucketContents(
       s3Client,
       sourcePrefix,
-      `${prototypeId}/v${version}/`,
+      `${prototypeId}/${version}/`,
       log2,
     ),
     copyS3BucketContents(
