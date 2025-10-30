@@ -365,6 +365,7 @@ export type Database = {
           id: string;
           phase: string | null;
           role: Database["public"]["Enums"]["chat_role"];
+          image_url: string | null;
         };
         Insert: {
           chat_session_id?: string | null;
@@ -373,6 +374,7 @@ export type Database = {
           id?: string;
           phase?: string | null;
           role: Database["public"]["Enums"]["chat_role"];
+          image_url?: string | null;
         };
         Update: {
           chat_session_id?: string | null;
@@ -381,6 +383,7 @@ export type Database = {
           id?: string;
           phase?: string | null;
           role?: Database["public"]["Enums"]["chat_role"];
+          image_url?: string | null;
         };
         Relationships: [
           {

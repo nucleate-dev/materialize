@@ -46,6 +46,10 @@ import ReactMarkdown from "react-markdown";
 
 import { useFileAutocomplete } from "@/hooks/useFileAutocomplete";
 import { FileAutocomplete } from "./FileAutocomplete";
+import {
+  uploadChatImage,
+  deletePrototypeImages,
+} from "@/lib/utils/chatImageUpload";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -55,6 +59,7 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  imageUrl?: string; // URL to image in Supabase Storage
 }
 
 export interface PrototypeChatWindowProps {
@@ -351,6 +356,7 @@ export default function PrototypeChatWindow({
         (msg) => ({
           role: msg.role as "user" | "assistant",
           content: msg.content,
+          imageUrl: msg.image_url || undefined,
         }),
       );
       setMessages(chatMessages);
@@ -748,10 +754,45 @@ export default function PrototypeChatWindow({
         return;
       }
 
+      // Handle image attachment if present
+      let imageUrl: string | undefined;
+      let messageContent = message.trim();
+
+      if (imagePreview && prototypeId && userId) {
+        // Upload image to Supabase Storage
+        setIsChatLoading(true); // Show loading while uploading
+        const uploadResult = await uploadChatImage(
+          imagePreview,
+          userId,
+          prototypeId,
+        );
+
+        if (uploadResult.success && uploadResult.url) {
+          imageUrl = uploadResult.url;
+          // Add placeholder text to message content
+          messageContent = `📎 [Image attached]\n\n${messageContent}`;
+        } else {
+          // If upload failed, show error and stop
+          logger.debug("error", "Failed to upload image to Supabase Storage", {
+            error: uploadResult.error,
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `❌ **Error:** Failed to upload image. ${uploadResult.error || "Please try again."}`,
+            },
+          ]);
+          setIsChatLoading(false);
+          return;
+        }
+      }
+
       // Convert messages to the expected ServerChatMessage format
       const userMessage: ChatMessage = {
         role: "user",
-        content: message.trim(),
+        content: messageContent,
+        imageUrl,
       };
 
       const newMessages = [...messages, userMessage];
@@ -864,7 +905,7 @@ export default function PrototypeChatWindow({
 
   // Handle clear chat
   const handleClearChat = useCallback(async () => {
-    if (prototypeChatSession?.id) {
+    if (prototypeChatSession?.id && userId && prototypeId) {
       try {
         // Delete all messages for this chat session
         const { error } = await supabase
@@ -878,6 +919,9 @@ export default function PrototypeChatWindow({
           });
           return;
         }
+
+        // Delete all images for this prototype from storage
+        await deletePrototypeImages(userId, prototypeId);
 
         // Clear the local state
         setMessages([]);
@@ -896,7 +940,7 @@ export default function PrototypeChatWindow({
         });
       }
     }
-  }, [prototypeChatSession, logger]);
+  }, [prototypeChatSession, userId, prototypeId, logger]);
 
   // Handle inserting build errors into text box
   const handleInsertBuildErrors = () => {
@@ -1042,18 +1086,51 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
-                  className={`max-w-[90%] rounded-lg p-3 ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                    }`}
+                  className={`max-w-[90%] rounded-lg p-3 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground"
+                  }`}
                 >
-                  <div className={`text-sm prose prose-sm max-w-none ${message.role === "user"
-                    ? "prose-invert [&>*]:text-primary-foreground"
-                    : "prose-slate dark:prose-invert"} [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current`}>
+                  {/* Display image if available */}
+                  {message.role === "user" && message.imageUrl && (
+                    <div className="mb-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={message.imageUrl}
+                        alt="User uploaded"
+                        className="max-w-full max-h-48 rounded border border-primary-foreground/20"
+                        onError={(e) => {
+                          // Hide broken image and show placeholder
+                          e.currentTarget.style.display = "none";
+                          const placeholder = e.currentTarget.nextElementSibling;
+                          if (placeholder) {
+                            placeholder.classList.remove("hidden");
+                          }
+                        }}
+                      />
+                      {/* Placeholder for broken images (hidden by default) */}
+                      <div className="hidden p-2 border border-primary-foreground/20 rounded flex items-center gap-2 text-primary-foreground/70">
+                        <PhotoIcon className="w-4 h-4" />
+                        <span className="text-xs">
+                          Image no longer available
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className={`text-sm prose prose-sm max-w-none ${
+                      message.role === "user"
+                        ? "prose-invert [&>*]:text-primary-foreground"
+                        : "prose-slate dark:prose-invert"
+                    } [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current`}
+                  >
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 </div>

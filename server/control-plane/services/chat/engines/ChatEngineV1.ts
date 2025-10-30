@@ -26,6 +26,7 @@ import { detectUserIntent } from '../utils/intent-classifier.js';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
 }
 
 // Model Configuration
@@ -685,6 +686,7 @@ export class ChatEngineV1 {
     userMessage: string,
     assistantResponse: string,
     log2: SystemLogger,
+    imageUrl?: string,
     executionPlan?: string[],
     fileChanges?: Record<string, PrototypeFileInput>,
     completedSteps?: number[],
@@ -706,6 +708,7 @@ export class ChatEngineV1 {
           chat_session_id: chatSessionId,
           role: 'user' as const,
           content: userMessage,
+          image_url: imageUrl || null,
         });
 
       if (userMessageError) {
@@ -1173,11 +1176,17 @@ export class ChatEngineV1 {
           `data: ${JSON.stringify({ type: 'chat_complete' })}\n\n`,
         ),
       );
+
+      // Extract image URL from the last message if present
+      const lastMessage = messages[messages.length - 1];
+      const imageUrl = lastMessage?.imageUrl || undefined;
+
       await this.persistChatMessages(
         params.chat_session_id,
         userMessage,
         assistantResponse || finalBuffer,
         params.log2,
+        imageUrl,
         executionPlan,
         fileManager instanceof VirtualFileManager
           ? fileManager.getChangedFiles()
