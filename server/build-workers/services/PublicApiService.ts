@@ -33,19 +33,23 @@ import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
+import { TerminalService } from "./TerminalService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
+  private readonly terminalService: TerminalService;
   private readonly workDir: string;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
+    terminalService: TerminalService,
     workDir: string,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
+    this.terminalService = terminalService;
     this.workDir = workDir;
   }
 
@@ -104,8 +108,14 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicAllocateRequest }>,
     reply: FastifyReply,
   ): Promise<PublicAllocateResponse> {
-    const { accessKeyId, secretAccessKey, sessionToken, prototypeId, userId } =
-      request.body;
+    const {
+      accessKeyId,
+      secretAccessKey,
+      sessionToken,
+      prototypeId,
+      userId,
+      cloudflare_tunnel_token,
+    } = request.body;
 
     // Import the setWorkerContext function dynamically to avoid circular dependency
     const { setWorkerContext } = await import("../worker.js");
@@ -126,6 +136,51 @@ export class PublicApiService {
       });
       this.expoDevServerService.setS3Client(scopedS3);
       request.log2.info("Allocated worker to prototype for S3 access");
+
+      // If cloudflare tunnel token is provided, start the tunnel
+      if (cloudflare_tunnel_token) {
+        request.log2.info("Starting Cloudflare tunnel setup");
+        const { v4: uuidv4 } = await import("uuid");
+        const sessionId = `tunnel_creation:${uuidv4()}`;
+
+        try {
+          // Create terminal session for tunnel setup
+          this.terminalService.getOrCreateTerminalSession(
+            sessionId,
+            "generic",
+            {
+              command: "/bin/bash",
+              args: ["-i"],
+              cwd: this.workDir,
+            },
+          );
+
+          // Run cloudflared tunnel command in the background using nohup
+          // This allows the tunnel to continue running after the terminal is closed
+          const tunnelCommand = `nohup cloudflared tunnel --no-autoupdate run > /tmp/logs/cloudflared-${prototypeId}.log 2>&1 &`;
+          this.terminalService.sendInput(sessionId, `${tunnelCommand}\n`);
+
+          request.log2.info("Cloudflare tunnel command sent successfully", {
+            sessionId,
+          });
+
+          // Give the tunnel a moment to start up
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // Kill the terminal session now that the tunnel is running in the background
+          this.terminalService.closeSession(sessionId);
+          request.log2.info("Terminal session closed after tunnel startup", {
+            sessionId,
+          });
+        } catch (tunnelError) {
+          request.log2.error(tunnelError, "Failed to start Cloudflare tunnel", {
+            sessionId,
+          });
+          // Don't fail the allocation if tunnel setup fails
+          // The container can still be used for other purposes
+        }
+      }
+
       return reply.status(200).send({ status: "ok" });
     } catch (error) {
       const errorMessage =

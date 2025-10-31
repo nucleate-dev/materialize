@@ -552,6 +552,7 @@ export class IdleContainerAllocationSystemService {
       sessionToken: out.Credentials.SessionToken!,
       prototypeId,
       userId: userId || 'unknown',
+      cloudflare_tunnel_token: tunnelConfig.token,
     };
 
     // Send creds to worker

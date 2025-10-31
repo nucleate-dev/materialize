@@ -201,6 +201,7 @@ export interface PublicAllocateRequest {
   expiration?: string;
   prototypeId: string;
   userId: string;
+  cloudflare_tunnel_token?: string;
 }
 
 export interface PublicAllocateResponse {
