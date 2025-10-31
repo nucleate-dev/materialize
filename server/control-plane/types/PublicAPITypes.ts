@@ -90,6 +90,7 @@ export interface DispatchSuccessResponse {
   viewing_url: string;
   build_errors: CodeError[];
   build_warnings: CodeWarning[];
+  terminal_url: string | null;
 }
 
 // ============================================================================
@@ -276,6 +277,7 @@ export interface StartDevServerSuccessResponse {
   status: 'success' | 'error';
   viewing_url: string;
   message: string;
+  terminal_url: string | null;
 }
 
 // ============================================================================

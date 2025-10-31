@@ -512,6 +512,7 @@ export class DevelopmentServerService {
             status: 'success',
             viewing_url: dispatchResult.data.viewing_url,
             message: 'Files saved and dev server started successfully',
+            terminal_url: dispatchResult.data.terminal_url,
           },
           error: null,
         };

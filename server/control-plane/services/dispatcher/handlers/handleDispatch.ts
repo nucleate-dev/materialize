@@ -77,10 +77,11 @@ export async function handleDispatchImpl(
     }
 
     // Set initial status, url, and tunnel hostname
+    const devTerminalUrl = `http://${process.env.FARGATE_DEV_IP}:3002`;
     await cache.hset(devKey, {
       status: 'updating' as BuildStatus,
       url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
-      terminal_tunnel_hostname: `http://${process.env.FARGATE_DEV_IP}:3002`,
+      terminal_tunnel_hostname: devTerminalUrl,
     });
 
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
@@ -108,6 +109,7 @@ export async function handleDispatchImpl(
           viewing_url: newUrl,
           build_errors: fargateResponse.build_errors,
           build_warnings: fargateResponse.build_warnings,
+          terminal_url: devTerminalUrl,
         },
         error: null,
       };
@@ -318,6 +320,8 @@ export async function handleDispatchImpl(
             ),
             build_errors: fargateResponse.build_errors,
             build_warnings: fargateResponse.build_warnings,
+            terminal_url:
+              updatedBuildCacheData.terminal_tunnel_hostname || null,
           },
           error: null,
         };
