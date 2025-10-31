@@ -171,24 +171,6 @@ export class CleanupService {
         continue;
       }
 
-      // Delete the Cloudflare tunnel for the build if it exists
-      if (build.terminal_tunnel_id) {
-        try {
-          await deleteCloudflareTunnel(build.terminal_tunnel_id, this.log2);
-          this.log2.info(
-            `Successfully deleted Cloudflare tunnel for build ${buildId}`,
-            { tunnelId: build.terminal_tunnel_id },
-          );
-        } catch (error) {
-          this.log2.error(
-            error,
-            `Failed to delete Cloudflare tunnel for build ${buildId}, continuing with cleanup`,
-            { tunnelId: build.terminal_tunnel_id },
-          );
-          // Continue with cleanup even if tunnel deletion fails
-        }
-      }
-
       // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
       const prototypeId = buildId.split('_')[1];
 
@@ -253,6 +235,29 @@ export class CleanupService {
         );
         if (!setCacheResult) stats.failedCleanups++;
         continue;
+      }
+
+      // 4.5 Delete the cloudflare tunnel for the build if it exists
+      // Delete the Cloudflare tunnel for the build if it exists
+      this.log2.consoleLogDevOnly('info', 'deleting cloudflare tunnel', {
+        tunnelId: build.terminal_tunnel_id,
+        tunnelHostname: build.terminal_tunnel_hostname,
+      });
+      if (build.terminal_tunnel_id) {
+        try {
+          await deleteCloudflareTunnel(build.terminal_tunnel_id, this.log2);
+          this.log2.info(
+            `Successfully deleted Cloudflare tunnel for build ${buildId}`,
+            { tunnelId: build.terminal_tunnel_id },
+          );
+        } catch (error) {
+          this.log2.error(
+            error,
+            `Failed to delete Cloudflare tunnel for build ${buildId}, continuing with cleanup`,
+            { tunnelId: build.terminal_tunnel_id },
+          );
+          // Continue with cleanup even if tunnel deletion fails
+        }
       }
 
       // 5. Kill the fargate task using the task arn (only if safe to do so)
