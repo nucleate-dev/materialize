@@ -507,7 +507,7 @@ export class IdleContainerAllocationSystemService {
           DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
         }),
       ),
-      this.createCloudflareTunnelForContainer(prototypeId),
+      this.createCloudflareTunnelForContainer(prototypeId, info.taskArn),
     ]);
 
     if (!out.Credentials) throw new Error('Failed to assume role');
@@ -554,6 +554,7 @@ export class IdleContainerAllocationSystemService {
 
   private async createCloudflareTunnelForContainer(
     prototypeId: string,
+    taskArn: string,
   ): Promise<{
     tunnelId: string;
     token: string; // use in /allocate flow
@@ -570,7 +571,7 @@ export class IdleContainerAllocationSystemService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: prototypeId,
+          name: prototypeId + '-' + taskArn.substring(0, 8),
           config_src: 'cloudflare', // remote-config managed via API
         }),
       },
