@@ -14,17 +14,22 @@ export interface CloudflareTunnelResult {
   message?: string;
 }
 
+export interface CreateTunnelOptions {
+  onOutput?: (output: string) => void;
+  timeoutMs?: number;
+}
+
 const DEFAULT_TIMEOUT_MS = 15000;
-const TERMINAL_COLS = 80;
-const TERMINAL_ROWS = 24;
+const CHECK_INTERVAL_MS = 500;
+const MAX_OUTPUT_CHARS = 16_384;
 
 export class CloudflareTunnelManagementService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
   private pty: IPty | null = null;
   private readonly dataListeners = new Set<(chunk: string) => void>();
+  private createInProgress = false;
   private tunnelRunning = false;
-  private tunnelStarting = false;
 
   constructor(workDir: string, logger: SystemLogger) {
     this.workDir = workDir;
@@ -34,7 +39,7 @@ export class CloudflareTunnelManagementService {
 
   public async createTunnel(
     tunnelToken: string,
-    timeoutMs: number = DEFAULT_TIMEOUT_MS,
+    options: CreateTunnelOptions = {},
   ): Promise<CloudflareTunnelResult> {
     if (!tunnelToken) {
       return {
@@ -43,18 +48,7 @@ export class CloudflareTunnelManagementService {
       };
     }
 
-    if (!this.pty) {
-      // Attempt to recover the PTY if it unexpectedly exited.
-      this.initializePty();
-      if (!this.pty) {
-        return {
-          status: "error",
-          message: "Cloudflare tunnel terminal is unavailable",
-        };
-      }
-    }
-
-    if (this.tunnelStarting) {
+    if (this.createInProgress) {
       return {
         status: "error",
         message: "Cloudflare tunnel startup already in progress",
@@ -65,113 +59,154 @@ export class CloudflareTunnelManagementService {
       await this.killTunnel();
     }
 
-    this.tunnelStarting = true;
+    if (!this.ensurePty()) {
+      return {
+        status: "error",
+        message: "Cloudflare tunnel terminal is unavailable",
+      };
+    }
 
-    const sanitizedBuffer: string[] = [];
+    this.createInProgress = true;
+
+    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    let outputBuffer = "";
+    let tunnelStatus: CloudflareTunnelStatus = "not_started";
+    let tunnelMessage: string | undefined;
+
     const maskSensitive = (input: string): string =>
       tunnelToken ? input.split(tunnelToken).join("[REDACTED]") : input;
 
-    let resolved = false;
+    const listener = (chunk: string): void => {
+      const sanitized = maskSensitive(chunk);
+      outputBuffer += sanitized;
+      if (outputBuffer.length > MAX_OUTPUT_CHARS) {
+        outputBuffer = outputBuffer.slice(-MAX_OUTPUT_CHARS);
+      }
+      options.onOutput?.(sanitized);
+    };
 
-    const result = await new Promise<CloudflareTunnelResult>((resolve) => {
-      const cleanup = (result: CloudflareTunnelResult): void => {
-        if (resolved) {
-          return;
-        }
-        resolved = true;
-        this.dataListeners.delete(onData);
-        clearInterval(intervalId);
-        clearTimeout(timeoutId);
+    this.dataListeners.add(listener);
 
-        this.tunnelRunning = result.status === "connected";
-        this.tunnelStarting = false;
+    try {
+      await this.prepareShellForCommand();
+      const tunnelCommand = `nohup cloudflared tunnel --no-autoupdate run --token ${tunnelToken} &`;
+      this.writeToPty(`${tunnelCommand}\n`);
+      this.logger.info("Cloudflare tunnel command dispatched");
 
-        resolve(result);
-      };
-
-      const onData = (chunk: string): void => {
-        const sanitized = maskSensitive(chunk);
-        sanitizedBuffer.push(sanitized);
-        evaluateBuffer();
-      };
-
-      const evaluateBuffer = (): void => {
-        const buffer = sanitizedBuffer.join("");
-        const normalized = buffer.toLowerCase();
+      const startTime = Date.now();
+      while (Date.now() - startTime < timeoutMs) {
+        const lowerOutput = outputBuffer.toLowerCase();
 
         if (
-          normalized.includes("registered tunnel connection") ||
-          normalized.includes("connection established") ||
-          normalized.includes("registered connection")
+          lowerOutput.includes("registered tunnel connection") ||
+          lowerOutput.includes("connection established") ||
+          lowerOutput.includes("registered connection")
         ) {
-          cleanup({
-            status: "connected",
-            message: "Cloudflare tunnel connected successfully",
-          });
-          return;
+          tunnelStatus = "connected";
+          tunnelMessage = "Cloudflare tunnel connected successfully";
+          this.tunnelRunning = true;
+          break;
         }
 
-        const errorMessage = this.extractErrorMessage(buffer);
-        if (errorMessage) {
-          cleanup({
-            status: "error",
-            message: errorMessage,
-          });
+        if (
+          lowerOutput.includes("error") ||
+          lowerOutput.includes("failed") ||
+          lowerOutput.includes("err:")
+        ) {
+          tunnelStatus = "error";
+          const errorLines = outputBuffer
+            .split("\n")
+            .filter((line) => {
+              const normalized = line.toLowerCase();
+              return (
+                normalized.includes("error") ||
+                normalized.includes("failed") ||
+                normalized.includes("err:")
+              );
+            });
+          tunnelMessage =
+            errorLines[0]?.trim() || "Cloudflare tunnel failed to connect";
+          break;
         }
-      };
 
-      const intervalId = setInterval(evaluateBuffer, 200);
-      const timeoutId = setTimeout(() => {
-        cleanup({
-          status: "timeout",
-          message: "Cloudflare tunnel connection timed out",
-        });
-      }, timeoutMs);
+        await this.delay(CHECK_INTERVAL_MS);
+      }
 
-      this.dataListeners.add(onData);
-
-      // Clear any pending input and start the tunnel.
-      this.writeToPty("\u0003");
-      this.writeToPty(
-        `cloudflared tunnel --no-autoupdate run --token ${tunnelToken}\n`,
+      if (tunnelStatus === "not_started") {
+        tunnelStatus = "timeout";
+        tunnelMessage = "Cloudflare tunnel connection timed out";
+      }
+    } catch (error) {
+      tunnelStatus = "error";
+      tunnelMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to start Cloudflare tunnel";
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to start Cloudflare tunnel",
       );
-    });
-
-    if (result.status !== "connected") {
-      await this.killTunnel();
+    } finally {
+      this.dataListeners.delete(listener);
+      this.createInProgress = false;
     }
 
-    return result;
+    if (tunnelStatus !== "connected") {
+      this.tunnelRunning = false;
+      await this.killTunnel().catch(() => {
+        // best-effort cleanup
+      });
+    }
+
+    return {
+      status: tunnelStatus,
+      message: tunnelMessage,
+    };
   }
 
   public async killTunnel(): Promise<void> {
-    this.tunnelRunning = false;
-    this.tunnelStarting = false;
-
-    if (!this.pty) {
-      this.initializePty();
+    if (!this.ensurePty()) {
+      await this.killCloudflaredProcessesDirectly();
+      return;
     }
 
-    if (this.pty) {
+    this.tunnelRunning = false;
+
+    try {
       this.writeToPty("\u0003");
       await this.delay(250);
       this.writeToPty(
         "if pgrep -x cloudflared >/dev/null; then pkill -x cloudflared; fi\n",
       );
       await this.delay(250);
-    } else {
-      await this.killCloudflaredProcessesDirectly();
+      this.writeToPty("sleep 0.1\n");
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to kill Cloudflare tunnel",
+      );
     }
   }
 
+  private ensurePty(): boolean {
+    if (!this.pty) {
+      this.initializePty();
+    }
+    return Boolean(this.pty);
+  }
+
   private initializePty(): void {
+    if (this.pty) {
+      return;
+    }
+
     const shell = process.env.SHELL ?? "/bin/bash";
 
     try {
       const pty = spawnPty(shell, ["-i"], {
         name: "xterm-color",
-        cols: TERMINAL_COLS,
-        rows: TERMINAL_ROWS,
+        cols: 80,
+        rows: 24,
         cwd: this.workDir,
         env: process.env,
       });
@@ -196,10 +231,8 @@ export class CloudflareTunnelManagementService {
           exitCode,
           signal,
         });
-        this.tunnelRunning = false;
-        this.tunnelStarting = false;
         this.pty = null;
-        // Recreate PTY to ensure future tunnel operations still work.
+        // Attempt to recreate so future requests still work
         this.initializePty();
       });
 
@@ -217,53 +250,27 @@ export class CloudflareTunnelManagementService {
     }
   }
 
-  private writeToPty(input: string): void {
-    if (!this.pty) {
-      this.logger.warn("Attempted to write to Cloudflare tunnel PTY before ready");
-      return;
-    }
-
+  private async prepareShellForCommand(): Promise<void> {
     try {
-      this.pty.write(input);
+      this.writeToPty("\u0003");
+      await this.delay(200);
+      this.writeToPty("\u0015");
+      await this.delay(50);
+      this.writeToPty("\n");
+      await this.delay(50);
     } catch (error) {
-      this.logger.error(
+      this.logger.warn(
         error instanceof Error ? error : new Error(String(error)),
-        "Failed to write to Cloudflare tunnel PTY",
+        "Failed to prepare shell for cloudflared command",
       );
     }
   }
 
-  private extractErrorMessage(buffer: string): string | undefined {
-    const errorIndicators = [
-      "error",
-      "failed",
-      "err:",
-      "command not found",
-      "no such file or directory",
-      "authentication failed",
-    ];
-
-    const lines = buffer
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => line.replace(/\u001b\[[0-9;]*m/g, "")); // strip ANSI codes
-
-    for (const line of lines.reverse()) {
-      const lower = line.toLowerCase();
-      if (lower.includes("wrn")) {
-        continue;
-      }
-
-      if (
-        errorIndicators.some((indicator) => lower.includes(indicator)) &&
-        !lower.includes("wrn")
-      ) {
-        return line;
-      }
+  private writeToPty(input: string): void {
+    if (!this.pty) {
+      throw new Error("Cloudflare tunnel PTY is not initialized");
     }
-
-    return undefined;
+    this.pty.write(input);
   }
 
   private async delay(ms: number): Promise<void> {
@@ -282,11 +289,7 @@ export class CloudflareTunnelManagementService {
         resolve();
       });
 
-      killer.on("close", (code, signal) => {
-        this.logger.info("pkill cloudflared completed", {
-          exitCode: code,
-          signal,
-        });
+      killer.on("close", () => {
         resolve();
       });
     });
