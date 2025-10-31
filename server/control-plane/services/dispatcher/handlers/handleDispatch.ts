@@ -209,6 +209,8 @@ export async function handleDispatchImpl(
         url: getS3Url(prototype_id),
         status: 'creating',
         last_touched: currentTime,
+        terminal_tunnel_id: '',
+        terminal_tunnel_hostname: '',
       };
       activeBuildKey = await setNewBuildCacheData(
         cache,

@@ -68,30 +68,23 @@ export async function hgetallAsActiveBuild(
     url: obj.url || '',
     status: obj.status as ActiveBuild['status'],
     last_touched: parseInt(obj.last_touched, 10),
-    terminal_tunnel_id: obj.terminal_tunnel_id,
-    terminal_tunnel_hostname: obj.terminal_tunnel_hostname,
+    terminal_tunnel_id: obj.terminal_tunnel_id || '',
+    terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
   };
 }
 
 export function activeBuildToStringRecord(
   build: ActiveBuild,
 ): Record<string, string> {
-  const record: Record<string, string> = {
+  return {
     fargate_task_arn: build.fargate_task_arn,
     fargate_private_ip: build.fargate_private_ip,
     url: build.url,
     status: build.status,
     last_touched: build.last_touched.toString(),
+    terminal_tunnel_id: build.terminal_tunnel_id,
+    terminal_tunnel_hostname: build.terminal_tunnel_hostname,
   };
-
-  if (build.terminal_tunnel_id) {
-    record.terminal_tunnel_id = build.terminal_tunnel_id;
-  }
-  if (build.terminal_tunnel_hostname) {
-    record.terminal_tunnel_hostname = build.terminal_tunnel_hostname;
-  }
-
-  return record;
 }
 
 export async function updateBuildTunnelInfo(
