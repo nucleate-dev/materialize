@@ -68,6 +68,7 @@ export default async function handleFetchViewingUrlImpl(
             viewing_url: staticViewingUrl,
             source: isEditable ? 'editable_instance' : 'static_build',
             status: precheckResult.data.status,
+            terminal_url: precheckResult.data.terminal_tunnel_hostname,
           };
           return reply.status(HTTP_STATUS.OK).send({
             data: successResponse,
@@ -101,6 +102,7 @@ export default async function handleFetchViewingUrlImpl(
       viewing_url: staticViewingUrl,
       source: 'static_build',
       status: null,
+      terminal_url: null,
     };
     return reply.status(HTTP_STATUS.OK).send({
       data: successResponse,

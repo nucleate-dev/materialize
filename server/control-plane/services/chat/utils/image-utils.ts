@@ -3,7 +3,7 @@
  * Specifically for converting Supabase Storage URLs to base64 for LLM consumption
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 
 const BUCKET_NAME = 'chat-images';
@@ -13,18 +13,25 @@ const BUCKET_NAME = 'chat-images';
  */
 function extractStoragePath(imageUrlOrPath: string): string | null {
   // If it already looks like a path (no https://), return as is
-  if (!imageUrlOrPath.startsWith('http://') && !imageUrlOrPath.startsWith('https://')) {
+  if (
+    !imageUrlOrPath.startsWith('http://') &&
+    !imageUrlOrPath.startsWith('https://')
+  ) {
     return imageUrlOrPath;
   }
 
   // Try to extract from signed URL: /object/sign/{bucket}/{path}?token=...
-  const signedMatch = imageUrlOrPath.match(/\/object\/sign\/[^/]+\/(.+?)(?:\?|$)/);
+  const signedMatch = imageUrlOrPath.match(
+    /\/object\/sign\/[^/]+\/(.+?)(?:\?|$)/,
+  );
   if (signedMatch && signedMatch[1]) {
     return decodeURIComponent(signedMatch[1]);
   }
 
   // Try to extract from public URL: /object/public/{bucket}/{path}
-  const publicMatch = imageUrlOrPath.match(/\/object\/public\/[^/]+\/(.+?)(?:\?|$)/);
+  const publicMatch = imageUrlOrPath.match(
+    /\/object\/public\/[^/]+\/(.+?)(?:\?|$)/,
+  );
   if (publicMatch && publicMatch[1]) {
     return decodeURIComponent(publicMatch[1]);
   }
@@ -54,9 +61,13 @@ export async function fetchImageAsBase64(
       return null;
     }
 
-    log2.consoleLogDevOnly('info', '[image-utils] Fetching image from storage', {
-      storagePath,
-    });
+    log2.consoleLogDevOnly(
+      'info',
+      '[image-utils] Fetching image from storage',
+      {
+        storagePath,
+      },
+    );
 
     // Download the file from Supabase Storage
     const { data, error } = await supabase.storage
@@ -94,11 +105,15 @@ export async function fetchImageAsBase64(
     // Create data URI
     const dataUri = `data:${mimeType};base64,${base64}`;
 
-    log2.consoleLogDevOnly('info', '[image-utils] Successfully converted image to base64', {
-      storagePath,
-      mimeType,
-      base64Length: base64.length,
-    });
+    log2.consoleLogDevOnly(
+      'info',
+      '[image-utils] Successfully converted image to base64',
+      {
+        storagePath,
+        mimeType,
+        base64Length: base64.length,
+      },
+    );
 
     return dataUri;
   } catch (error) {
