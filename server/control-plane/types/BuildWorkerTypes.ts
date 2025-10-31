@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-10-31T18:09:32.341Z
+// Last synced: 2025-10-31T18:27:04.342Z
 
 import { Database } from "./supabase.js";
 
@@ -217,6 +217,8 @@ export interface PublicAllocateResponse {
   status: "ok" | "error";
   error?: string;
   details?: string;
+  tunnel_status?: "connected" | "error" | "timeout" | "not_started";
+  tunnel_message?: string;
 }
 
 // Sandbox API Types

@@ -208,6 +208,8 @@ export interface PublicAllocateResponse {
   status: "ok" | "error";
   error?: string;
   details?: string;
+  tunnel_status?: "connected" | "error" | "timeout" | "not_started";
+  tunnel_message?: string;
 }
 
 // Sandbox API Types
