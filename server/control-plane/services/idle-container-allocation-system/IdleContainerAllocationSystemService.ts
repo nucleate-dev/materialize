@@ -561,27 +561,23 @@ export class IdleContainerAllocationSystemService {
     hostname: string; // <rand>.terminals.materializeui.com
     cnameTarget: string; // <tunnelId>.cfargotunnel.com
   }> {
+    // choose a random subdomain for this task
+    const sub = Math.random().toString(36).slice(2, 10);
+    const hostname = `${sub}.terminals.materializeui.com`;
+
     // 1) Create the tunnel (returns id + token)
     const createTunnelResponse = await fetch(
       `${CLOUDFLARE_API_URL}/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN!}`,
+          Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: prototypeId + '-' + taskArn.substring(0, 8),
+          name: prototypeId + '-' + taskArn.substring(22, 31) + sub,
           config_src: 'cloudflare', // remote-config managed via API
         }),
-      },
-    );
-    this.log2.consoleLogDevOnly(
-      'debug',
-      'cloudflare tunnel Create tunnel response',
-      {
-        createTunnelResponse,
-        createTunnelResponseText: await createTunnelResponse.text(),
       },
     );
     if (!createTunnelResponse.ok) {
@@ -602,16 +598,13 @@ export class IdleContainerAllocationSystemService {
         createTunnelResponseJson,
       },
     );
-    if (!createTunnelResponseJson.success)
+    if (!createTunnelResponseJson.success) {
       throw new Error(
         `CF create tunnel not success: ${JSON.stringify(createTunnelResponseJson.errors)}`,
       );
+    }
     const tunnelId = createTunnelResponseJson.result.id;
     const token = createTunnelResponseJson.result.token; // docs return token alongside id
-
-    // choose a random subdomain for this task
-    const sub = Math.random().toString(36).slice(2, 10);
-    const hostname = `${sub}.terminals.materializeui.com`;
 
     // 2) Configure ingress: only /ws/terminals/* → origin, then 404 catch-all
     // NOTE: path filtering is supported in ingress rules; keep 404 as final rule
@@ -620,7 +613,7 @@ export class IdleContainerAllocationSystemService {
       {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN!}`,
+          Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -669,7 +662,7 @@ export class IdleContainerAllocationSystemService {
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN!}`,
+          Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
