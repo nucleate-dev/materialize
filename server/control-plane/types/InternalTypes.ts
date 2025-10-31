@@ -42,6 +42,8 @@ export interface ActiveBuild {
   url: string;
   status: BuildStatus;
   last_touched: number;
+  terminal_tunnel_id?: string;
+  terminal_tunnel_hostname?: string;
 }
 
 export interface IdleBuild {

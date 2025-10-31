@@ -21,6 +21,7 @@ import {
   PublicAllocateRequest,
   PublicAllocateResponse,
 } from '../../types/BuildWorkerTypes.js';
+import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 0;
 const CLOUDFLARE_API_URL = 'https://api.cloudflare.com/client/v4';
@@ -513,14 +514,24 @@ export class IdleContainerAllocationSystemService {
       this.createCloudflareTunnelForContainer(prototypeId, info.taskArn),
     ]);
 
-    // TODO: update the active build cache with the terminal_tunnel_id and the terminal_tunnel_hostname
-
     if (!out.Credentials) throw new Error('Failed to assume role');
+
+    // Store tunnel info in cache
+    await updateBuildTunnelInfo(
+      this.cache,
+      activeBuildKey,
+      tunnelConfig.tunnelId,
+      tunnelConfig.hostname,
+    );
 
     this.log2.consoleLogDevOnly(
       'debug',
       'cloudflare tunnel final Tunnel config',
-      { tunnelConfig },
+      {
+        tunnelId: tunnelConfig.tunnelId,
+        hostname: tunnelConfig.hostname,
+        cnameTarget: tunnelConfig.cnameTarget,
+      },
     );
 
     const creds: PublicAllocateRequest = {

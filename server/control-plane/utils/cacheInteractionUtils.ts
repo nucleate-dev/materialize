@@ -68,22 +68,45 @@ export async function hgetallAsActiveBuild(
     url: obj.url || '',
     status: obj.status as ActiveBuild['status'],
     last_touched: parseInt(obj.last_touched, 10),
+    terminal_tunnel_id: obj.terminal_tunnel_id,
+    terminal_tunnel_hostname: obj.terminal_tunnel_hostname,
   };
 }
 
 export function activeBuildToStringRecord(
   build: ActiveBuild,
 ): Record<string, string> {
-  return {
+  const record: Record<string, string> = {
     fargate_task_arn: build.fargate_task_arn,
     fargate_private_ip: build.fargate_private_ip,
     url: build.url,
     status: build.status,
     last_touched: build.last_touched.toString(),
   };
+
+  if (build.terminal_tunnel_id) {
+    record.terminal_tunnel_id = build.terminal_tunnel_id;
+  }
+  if (build.terminal_tunnel_hostname) {
+    record.terminal_tunnel_hostname = build.terminal_tunnel_hostname;
+  }
+
+  return record;
 }
 
-/* 
+export async function updateBuildTunnelInfo(
+  cache: GlideClient,
+  activeBuildKey: string,
+  tunnelId: string,
+  tunnelHostname: string,
+): Promise<void> {
+  await cache.hset(activeBuildKey, {
+    terminal_tunnel_id: tunnelId,
+    terminal_tunnel_hostname: tunnelHostname,
+  });
+}
+
+/*
 THIS IS ONLY MEANT TO BE USED FOR INTERNAL FARGATE DEV MODE
 */
 export async function hgetallAsDevBuild(
