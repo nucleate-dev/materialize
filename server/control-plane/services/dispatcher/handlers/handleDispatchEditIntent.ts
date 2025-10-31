@@ -44,7 +44,7 @@ export async function handleDispatchEditIntentImpl(
       data: {
         status: (existingDevData?.status as BuildStatus) || null,
         viewing_url: existingDevData?.url || '',
-        terminal_tunnel_hostname: null,
+        terminal_tunnel_hostname: existingDevData?.terminal_tunnel_hostname || null,
       },
       error: null,
     };

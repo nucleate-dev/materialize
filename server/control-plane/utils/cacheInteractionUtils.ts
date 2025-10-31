@@ -105,7 +105,7 @@ THIS IS ONLY MEANT TO BE USED FOR INTERNAL FARGATE DEV MODE
 export async function hgetallAsDevBuild(
   cache: GlideClient,
   key: string,
-): Promise<{ status: string | null; url: string } | null> {
+): Promise<{ status: string | null; url: string; terminal_tunnel_hostname: string } | null> {
   const raw = await cache.hgetall(key);
 
   if (!raw || raw.length === 0) return null;
@@ -122,5 +122,6 @@ export async function hgetallAsDevBuild(
   return {
     status: obj.status || null,
     url: obj.url || '',
+    terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
   };
 }

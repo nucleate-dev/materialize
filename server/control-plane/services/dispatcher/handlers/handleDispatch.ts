@@ -76,10 +76,11 @@ export async function handleDispatchImpl(
       };
     }
 
-    // Set initial status and url
+    // Set initial status, url, and tunnel hostname
     await cache.hset(devKey, {
       status: 'updating' as BuildStatus,
       url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+      terminal_tunnel_hostname: `http://${process.env.FARGATE_DEV_IP}:3002`,
     });
 
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
