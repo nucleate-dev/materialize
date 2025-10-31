@@ -76,6 +76,18 @@ if [ $? -ne 0 ]; then
 fi
 
 echo -e "${GREEN}✅ Image pushed successfully!${NC}"
+
+# Step 5: Clean up local images
+echo -e "${YELLOW}🧹 Cleaning up local Docker images...${NC}"
+docker rmi $ECR_REPOSITORY:$IMAGE_TAG
+docker rmi $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Warning: Failed to remove some local images (this won't affect ECR)${NC}"
+else
+    echo -e "${GREEN}✅ Local images cleaned up${NC}"
+fi
+
 echo -e "${GREEN}🎉 Complete! Image available at:${NC}"
 echo -e "${GREEN}   $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG${NC}"
 
