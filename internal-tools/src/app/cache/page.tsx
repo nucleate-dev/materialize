@@ -534,6 +534,26 @@ export default function CacheManagementPage() {
                               {buildData.activeBuild.fargate_task_arn || "N/A"}
                             </span>
                           </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Link className="h-4 w-4" />
+                              <span className="font-medium text-sm">Terminal Tunnel Hostname</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.terminal_tunnel_hostname || "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Activity className="h-4 w-4" />
+                              <span className="font-medium text-sm">Terminal Tunnel ID</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.terminal_tunnel_id || "N/A"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
