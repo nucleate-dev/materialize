@@ -34,7 +34,13 @@ export class CloudflareTunnelManagementService {
   constructor(workDir: string, logger: SystemLogger) {
     this.workDir = workDir;
     this.logger = logger;
-    this.initializePty();
+    // Initialize PTY asynchronously - it will be ready before first use due to ensurePty()
+    this.initializePty().catch((error) => {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to initialize PTY in constructor",
+      );
+    });
   }
 
   public async createTunnel(
@@ -59,7 +65,7 @@ export class CloudflareTunnelManagementService {
       await this.killTunnel();
     }
 
-    if (!this.ensurePty()) {
+    if (!(await this.ensurePty())) {
       return {
         status: "error",
         message: "Cloudflare tunnel terminal is unavailable",
@@ -88,9 +94,15 @@ export class CloudflareTunnelManagementService {
     this.dataListeners.add(listener);
 
     try {
-      const tunnelCommand = `nohup cloudflared tunnel --no-autoupdate run --token ${tunnelToken} &`;
+      // Run cloudflared in background
+      // Output goes to PTY for connection detection
+      // Process stays alive because PTY is persistent in this service
+      const tunnelCommand = `cloudflared tunnel --no-autoupdate run --token ${tunnelToken} &`;
       this.writeToPty(`${tunnelCommand}\n`);
       this.logger.info("Cloudflare tunnel command dispatched");
+
+      // Give the command a moment to start
+      await this.delay(200);
 
       const startTime = Date.now();
       while (Date.now() - startTime < timeoutMs) {
@@ -162,7 +174,7 @@ export class CloudflareTunnelManagementService {
   }
 
   public async killTunnel(): Promise<void> {
-    if (!this.ensurePty()) {
+    if (!(await this.ensurePty())) {
       await this.killCloudflaredProcessesDirectly();
       return;
     }
@@ -185,14 +197,14 @@ export class CloudflareTunnelManagementService {
     }
   }
 
-  private ensurePty(): boolean {
+  private async ensurePty(): Promise<boolean> {
     if (!this.pty) {
-      this.initializePty();
+      await this.initializePty();
     }
     return Boolean(this.pty);
   }
 
-  private initializePty(): void {
+  private async initializePty(): Promise<void> {
     if (this.pty) {
       return;
     }
@@ -233,10 +245,18 @@ export class CloudflareTunnelManagementService {
         this.initializePty();
       });
 
+      this.pty = pty;
+
+      // Wait for shell to be ready before sending commands
+      await this.delay(250);
+
+      // Disable history to keep output clean
       pty.write("unset HISTFILE\n");
       pty.write("set +o history\n");
 
-      this.pty = pty;
+      // Wait a bit more for commands to execute
+      await this.delay(200);
+
       this.logger.info("Cloudflare tunnel PTY ready");
     } catch (error) {
       this.logger.error(
