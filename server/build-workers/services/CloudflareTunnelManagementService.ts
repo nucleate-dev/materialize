@@ -88,7 +88,6 @@ export class CloudflareTunnelManagementService {
     this.dataListeners.add(listener);
 
     try {
-      await this.prepareShellForCommand();
       const tunnelCommand = `nohup cloudflared tunnel --no-autoupdate run --token ${tunnelToken} &`;
       this.writeToPty(`${tunnelCommand}\n`);
       this.logger.info("Cloudflare tunnel command dispatched");
@@ -114,16 +113,14 @@ export class CloudflareTunnelManagementService {
           lowerOutput.includes("err:")
         ) {
           tunnelStatus = "error";
-          const errorLines = outputBuffer
-            .split("\n")
-            .filter((line) => {
-              const normalized = line.toLowerCase();
-              return (
-                normalized.includes("error") ||
-                normalized.includes("failed") ||
-                normalized.includes("err:")
-              );
-            });
+          const errorLines = outputBuffer.split("\n").filter((line) => {
+            const normalized = line.toLowerCase();
+            return (
+              normalized.includes("error") ||
+              normalized.includes("failed") ||
+              normalized.includes("err:")
+            );
+          });
           tunnelMessage =
             errorLines[0]?.trim() || "Cloudflare tunnel failed to connect";
           break;
@@ -247,22 +244,6 @@ export class CloudflareTunnelManagementService {
         "Failed to initialize Cloudflare tunnel PTY",
       );
       this.pty = null;
-    }
-  }
-
-  private async prepareShellForCommand(): Promise<void> {
-    try {
-      this.writeToPty("\u0003");
-      await this.delay(200);
-      this.writeToPty("\u0015");
-      await this.delay(50);
-      this.writeToPty("\n");
-      await this.delay(50);
-    } catch (error) {
-      this.logger.warn(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to prepare shell for cloudflared command",
-      );
     }
   }
 
