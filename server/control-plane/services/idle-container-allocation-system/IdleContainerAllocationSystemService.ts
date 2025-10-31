@@ -23,6 +23,9 @@ import {
 } from '../../types/BuildWorkerTypes.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 0;
+const CLOUDFLARE_API_URL = 'https://api.cloudflare.com/client/v4';
+
+type CfResp<T> = { success: boolean; result: T; errors?: any; messages?: any };
 
 export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;
@@ -219,7 +222,11 @@ export class IdleContainerAllocationSystemService {
     });
     const info = { taskArn, privateIp };
     try {
-      await this.scopeS3PermissionsForContainer(info, prototypeId, userId);
+      await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
+        info,
+        prototypeId,
+        userId,
+      );
     } catch (error) {
       this.log2.error(
         error,
@@ -342,7 +349,11 @@ export class IdleContainerAllocationSystemService {
       }
       const info = { taskArn, privateIp };
       try {
-        await this.scopeS3PermissionsForContainer(info, prototypeId, userId);
+        await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
+          info,
+          prototypeId,
+          userId,
+        );
       } catch (error) {
         this.log2.error(
           error,
@@ -482,21 +493,30 @@ export class IdleContainerAllocationSystemService {
   }
 
   /** Tell running idle container to switch to a real prototypeId */
-  private async scopeS3PermissionsForContainer(
+  private async scopeS3PermissionsAndTerminalTunnelsForContainer(
     info: FargateInstanceInfo,
     prototypeId: string,
     userId?: string,
   ): Promise<void> {
-    const out = await this.stsClient.send(
-      new AssumeRoleCommand({
-        RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
-        RoleSessionName: `proto-${prototypeId}`,
-        Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
-        DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
-      }),
-    );
+    const [out, tunnelConfig] = await Promise.all([
+      this.stsClient.send(
+        new AssumeRoleCommand({
+          RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
+          RoleSessionName: `proto-${prototypeId}`,
+          Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
+          DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
+        }),
+      ),
+      this.createCloudflareTunnelForContainer(prototypeId),
+    ]);
 
     if (!out.Credentials) throw new Error('Failed to assume role');
+
+    this.log2.consoleLogDevOnly(
+      'debug',
+      'cloudflare tunnel final Tunnel config',
+      { tunnelConfig },
+    );
 
     const creds: PublicAllocateRequest = {
       accessKeyId: out.Credentials.AccessKeyId!,
@@ -530,5 +550,154 @@ export class IdleContainerAllocationSystemService {
       this.log2.error(error, 'Failed to make allocation request to worker');
       throw error;
     }
+  }
+
+  private async createCloudflareTunnelForContainer(
+    prototypeId: string,
+  ): Promise<{
+    tunnelId: string;
+    token: string; // use in /allocate flow
+    hostname: string; // <rand>.terminals.materializeui.com
+    cnameTarget: string; // <tunnelId>.cfargotunnel.com
+  }> {
+    // 1) Create the tunnel (returns id + token)
+    const createTunnelResponse = await fetch(
+      `${CLOUDFLARE_API_URL}/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN!}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: prototypeId,
+          config_src: 'cloudflare', // remote-config managed via API
+        }),
+      },
+    );
+    this.log2.consoleLogDevOnly(
+      'debug',
+      'cloudflare tunnel Create tunnel response',
+      {
+        createTunnelResponse,
+        createTunnelResponseText: await createTunnelResponse.text(),
+      },
+    );
+    if (!createTunnelResponse.ok) {
+      const text = await createTunnelResponse.text();
+      throw new Error(
+        `CF create tunnel failed: ${createTunnelResponse.status} ${text}`,
+      );
+    }
+    const createTunnelResponseJson =
+      (await createTunnelResponse.json()) as CfResp<{
+        id: string;
+        token: string; // present in response per docs
+      }>;
+    this.log2.consoleLogDevOnly(
+      'debug',
+      'cloudflare tunnel Create tunnel response JSON',
+      {
+        createTunnelResponseJson,
+      },
+    );
+    if (!createTunnelResponseJson.success)
+      throw new Error(
+        `CF create tunnel not success: ${JSON.stringify(createTunnelResponseJson.errors)}`,
+      );
+    const tunnelId = createTunnelResponseJson.result.id;
+    const token = createTunnelResponseJson.result.token; // docs return token alongside id
+
+    // choose a random subdomain for this task
+    const sub = Math.random().toString(36).slice(2, 10);
+    const hostname = `${sub}.terminals.materializeui.com`;
+
+    // 2) Configure ingress: only /ws/terminals/* → origin, then 404 catch-all
+    // NOTE: path filtering is supported in ingress rules; keep 404 as final rule
+    const putCfg = await fetch(
+      `${CLOUDFLARE_API_URL}/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel/${tunnelId}/configurations`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN!}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          config: {
+            ingress: [
+              {
+                hostname,
+                path: '/ws/terminals/*',
+                service: 'http://localhost:3002',
+                originRequest: {}, // optional; can add timeouts, headers, etc.
+              },
+              { service: 'http_status:404' },
+            ],
+          },
+        }),
+      },
+    );
+    this.log2.consoleLogDevOnly(
+      'debug',
+      'cloudflare tunnel Put tunnel config response',
+      {
+        putCfg,
+      },
+    );
+    if (!putCfg.ok) {
+      const text = await putCfg.text();
+      throw new Error(`CF put tunnel config failed: ${putCfg.status} ${text}`);
+    }
+    const putJson = await putCfg.json();
+    if (!putJson.success)
+      throw new Error(
+        `CF put tunnel config not success: ${JSON.stringify(putJson.errors)}`,
+      );
+    this.log2.consoleLogDevOnly(
+      'debug',
+      'cloudflare tunnel Put tunnel config response JSON',
+      {
+        putJson,
+      },
+    );
+
+    // 3) Create the DNS CNAME: <host> → <tunnelId>.cfargotunnel.com (proxied)
+    const cnameTarget = `${tunnelId}.cfargotunnel.com`;
+    const dnsRes = await fetch(
+      `${CLOUDFLARE_API_URL}/zones/${process.env.CLOUDFLARE_ZONE_ID!}/dns_records`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN!}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'CNAME',
+          name: hostname,
+          content: cnameTarget,
+          proxied: true,
+        }),
+      },
+    );
+    this.log2.consoleLogDevOnly('debug', 'cloudflare tunnel DNS response', {
+      dnsRes,
+    });
+    if (!dnsRes.ok) {
+      const text = await dnsRes.text();
+      throw new Error(`CF create DNS failed: ${dnsRes.status} ${text}`);
+    }
+    const dnsJson = await dnsRes.json();
+    if (!dnsJson.success) {
+      throw new Error(
+        `CF create DNS not success: ${JSON.stringify(dnsJson.errors)}`,
+      );
+    }
+    this.log2.consoleLogDevOnly(
+      'debug',
+      'cloudflare tunnel DNS response JSON',
+      { dnsJson },
+    );
+
+    return { tunnelId, token, hostname, cnameTarget };
   }
 }
