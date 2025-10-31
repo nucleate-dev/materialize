@@ -49,8 +49,7 @@ export class PublicApiService {
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
-    this.cloudflareTunnelManagementService =
-      cloudflareTunnelManagementService;
+    this.cloudflareTunnelManagementService = cloudflareTunnelManagementService;
     this.workDir = workDir;
   }
 
@@ -307,6 +306,18 @@ export class PublicApiService {
         server_status: devServerState.devServerStatus,
         prototypeId: devServerState.prototypeId,
       } as PublicDevServerStopResponse;
+    }
+
+    try {
+      await this.cloudflareTunnelManagementService.killTunnel();
+      request.log2.info("Requested Cloudflare tunnel shutdown");
+    } catch (tunnelError) {
+      request.log2.error(
+        tunnelError instanceof Error
+          ? tunnelError
+          : new Error(String(tunnelError)),
+        "Failed to stop Cloudflare tunnel during stopDevServer",
+      );
     }
 
     try {
