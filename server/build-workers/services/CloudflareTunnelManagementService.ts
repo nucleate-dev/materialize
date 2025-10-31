@@ -119,30 +119,54 @@ export class CloudflareTunnelManagementService {
           break;
         }
 
-        // Check for actual error indicators (not warnings)
-        // Look for ERR or FATAL level messages, or connection failure messages
-        // Ignore WRN (warning) messages even if they contain the word "error"
+        // Check for actual fatal errors only
+        // Be very specific - only catch messages that mean the tunnel definitely failed
+        // Ignore warnings about buffers, ping permissions, etc.
         if (
           lowerOutput.includes(" err ") ||
           lowerOutput.includes("fatal") ||
-          lowerOutput.includes("failed to") ||
-          lowerOutput.includes("connection failed") ||
-          lowerOutput.includes("tunnel failed")
+          lowerOutput.includes("unable to connect") ||
+          lowerOutput.includes("connection refused") ||
+          lowerOutput.includes("authentication failed") ||
+          lowerOutput.includes("invalid token") ||
+          lowerOutput.includes("tunnel registration failed")
         ) {
-          tunnelStatus = "error";
-          const errorLines = outputBuffer.split("\n").filter((line) => {
+          // Additional check: make sure it's not just a buffer/permission warning
+          const hasRealError = outputBuffer.split("\n").some((line) => {
             const normalized = line.toLowerCase();
+            // Skip buffer and permission warnings
+            if (
+              normalized.includes("buffer size") ||
+              normalized.includes("ping_group_range") ||
+              normalized.includes(" wrn ")
+            ) {
+              return false;
+            }
+            // Look for actual errors
             return (
-              (normalized.includes(" err ") ||
-                normalized.includes("fatal") ||
-                normalized.includes("failed")) &&
-              !normalized.includes(" wrn ") &&
-              !normalized.includes("warning")
+              normalized.includes(" err ") ||
+              normalized.includes("fatal") ||
+              normalized.includes("unable to connect") ||
+              normalized.includes("connection refused") ||
+              normalized.includes("authentication failed")
             );
           });
-          tunnelMessage =
-            errorLines[0]?.trim() || "Cloudflare tunnel failed to connect";
-          break;
+
+          if (hasRealError) {
+            tunnelStatus = "error";
+            const errorLines = outputBuffer.split("\n").filter((line) => {
+              const normalized = line.toLowerCase();
+              return (
+                (normalized.includes(" err ") || normalized.includes("fatal")) &&
+                !normalized.includes("buffer size") &&
+                !normalized.includes("ping_group_range") &&
+                !normalized.includes(" wrn ")
+              );
+            });
+            tunnelMessage =
+              errorLines[0]?.trim() || "Cloudflare tunnel failed to connect";
+            break;
+          }
         }
 
         await this.delay(CHECK_INTERVAL_MS);
