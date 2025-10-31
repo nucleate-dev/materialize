@@ -119,18 +119,25 @@ export class CloudflareTunnelManagementService {
           break;
         }
 
+        // Check for actual error indicators (not warnings)
+        // Look for ERR or FATAL level messages, or connection failure messages
+        // Ignore WRN (warning) messages even if they contain the word "error"
         if (
-          lowerOutput.includes("error") ||
-          lowerOutput.includes("failed") ||
-          lowerOutput.includes("err:")
+          lowerOutput.includes(" err ") ||
+          lowerOutput.includes("fatal") ||
+          lowerOutput.includes("failed to") ||
+          lowerOutput.includes("connection failed") ||
+          lowerOutput.includes("tunnel failed")
         ) {
           tunnelStatus = "error";
           const errorLines = outputBuffer.split("\n").filter((line) => {
             const normalized = line.toLowerCase();
             return (
-              normalized.includes("error") ||
-              normalized.includes("failed") ||
-              normalized.includes("err:")
+              (normalized.includes(" err ") ||
+                normalized.includes("fatal") ||
+                normalized.includes("failed")) &&
+              !normalized.includes(" wrn ") &&
+              !normalized.includes("warning")
             );
           });
           tunnelMessage =
