@@ -33,23 +33,24 @@ import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
-import { TerminalService } from "./TerminalService.js";
+import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
-  private readonly terminalService: TerminalService;
+  private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
   private readonly workDir: string;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
-    terminalService: TerminalService,
+    cloudflareTunnelManagementService: CloudflareTunnelManagementService,
     workDir: string,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
-    this.terminalService = terminalService;
+    this.cloudflareTunnelManagementService =
+      cloudflareTunnelManagementService;
     this.workDir = workDir;
   }
 
@@ -144,142 +145,31 @@ export class PublicApiService {
 
       if (cloudflare_tunnel_token) {
         request.log2.info("Starting Cloudflare tunnel setup");
-        const { v4: uuidv4 } = await import("uuid");
-        const sessionId = `tunnel_creation:${uuidv4()}`;
-
         try {
-          // Create terminal session for tunnel setup
-          this.terminalService.getOrCreateTerminalSession(
-            sessionId,
-            "generic",
-            {
-              command: "/bin/bash",
-              args: ["-i"],
-              cwd: this.workDir,
-            },
-          );
+          const result =
+            await this.cloudflareTunnelManagementService.createTunnel(
+              cloudflare_tunnel_token,
+            );
+          tunnelStatus = result.status;
+          tunnelMessage = result.message;
 
-          // Set up output listener to capture cloudflared output
-          let outputBuffer = "";
-          const outputDisposer = this.terminalService.addOutputListener(
-            sessionId,
-            (output: string) => {
-              outputBuffer += output;
-              request.log2.consoleLogDevOnly(
-                "debug",
-                "Cloudflared output",
-                {
-                  output,
-                },
-              );
-            },
-          );
-
-          if (!outputDisposer) {
-            throw new Error("Failed to attach output listener to terminal");
+          if (tunnelStatus === "connected") {
+            request.log2.info("Cloudflare tunnel connected successfully");
+          } else if (tunnelStatus === "timeout") {
+            request.log2.warn("Cloudflare tunnel connection timed out");
+          } else if (tunnelStatus === "error") {
+            request.log2.error(
+              new Error(tunnelMessage ?? "Cloudflare tunnel failed to connect"),
+              "Cloudflare tunnel connection error",
+            );
           }
-
-          // Run cloudflared tunnel command in the background with nohup
-          // nohup ensures the process continues running after the terminal session closes
-          const tunnelCommand = `nohup cloudflared tunnel --no-autoupdate run --token ${cloudflare_tunnel_token} &`;
-          this.terminalService.sendInput(sessionId, `${tunnelCommand}\n`);
-
-          request.log2.info(
-            "Cloudflare tunnel command sent, monitoring output for connection status",
-            {
-              sessionId,
-            },
-          );
-
-          // Monitor the terminal output for connection status
-          const connectionTimeout = 15000; // 15 seconds
-          const checkInterval = 500; // Check every 500ms
-          const startTime = Date.now();
-
-          while (Date.now() - startTime < connectionTimeout) {
-            // Check for successful connection indicators
-            if (
-              outputBuffer
-                .toLowerCase()
-                .includes("registered tunnel connection") ||
-              outputBuffer.toLowerCase().includes("connection established") ||
-              outputBuffer.toLowerCase().includes("registered connection")
-            ) {
-              tunnelStatus = "connected";
-              tunnelMessage = "Cloudflare tunnel connected successfully";
-              request.log2.info("Cloudflare tunnel connected successfully", {
-                sessionId,
-              });
-              break;
-            }
-
-            // Check for error indicators
-            if (
-              outputBuffer.toLowerCase().includes("error") ||
-              outputBuffer.toLowerCase().includes("failed") ||
-              outputBuffer.toLowerCase().includes("err:")
-            ) {
-              tunnelStatus = "error";
-              // Extract a meaningful error message from the output
-              const errorLines = outputBuffer
-                .split("\n")
-                .filter(
-                  (line) =>
-                    line.toLowerCase().includes("error") ||
-                    line.toLowerCase().includes("failed") ||
-                    line.toLowerCase().includes("err:"),
-                );
-              tunnelMessage =
-                errorLines[0]?.trim() || "Cloudflare tunnel failed to connect";
-              request.log2.error(
-                new Error(tunnelMessage),
-                "Cloudflare tunnel connection error",
-                { sessionId },
-              );
-              break;
-            }
-
-            // Wait before checking again
-            await new Promise((resolve) => setTimeout(resolve, checkInterval));
-          }
-
-          // If we exited the loop without a status change, it's a timeout
-          if (tunnelStatus === "not_started") {
-            tunnelStatus = "timeout";
-            tunnelMessage = "Cloudflare tunnel connection timed out";
-            request.log2.warn("Cloudflare tunnel connection timed out", {
-              sessionId,
-              outputBuffer,
-            });
-          }
-
-          // Cleanup: dispose the output listener
-          outputDisposer();
-
-          // Close the terminal session - the tunnel is running in the background
-          this.terminalService.closeSession(sessionId);
-          request.log2.info(
-            "Terminal session closed after tunnel startup, tunnel running in background",
-            {
-              sessionId,
-              tunnelStatus,
-            },
-          );
         } catch (tunnelError) {
           tunnelStatus = "error";
           tunnelMessage =
             tunnelError instanceof Error
               ? tunnelError.message
               : "Failed to start Cloudflare tunnel";
-          request.log2.error(tunnelError, "Failed to start Cloudflare tunnel", {
-            sessionId,
-          });
-          // Try to close the terminal session even if there was an error
-          try {
-            this.terminalService.closeSession(sessionId);
-          } catch {
-            // Ignore errors closing the session
-          }
+          request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
         }
       }
 

@@ -6,6 +6,7 @@ import fastify, { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import { SystemLogger, genRequestIds } from "./loggers/SystemLogger.js";
 import { ExpoDevServerService } from "./services/ExpoDevServerService.js";
+import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelManagementService.js";
 import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { TerminalService } from "./services/TerminalService.js";
@@ -78,10 +79,14 @@ const expoDevServerService = new ExpoDevServerService(
   terminalService,
 );
 const sandboxService = new SandboxService(WORK_DIR, baseLogger);
+const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
+  WORK_DIR,
+  baseLogger,
+);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
-  terminalService,
+  cloudflareTunnelManagementService,
   WORK_DIR,
 );
 
