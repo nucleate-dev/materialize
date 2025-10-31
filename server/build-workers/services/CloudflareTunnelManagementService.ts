@@ -134,10 +134,12 @@ export class CloudflareTunnelManagementService {
           // Additional check: make sure it's not just a buffer/permission warning
           const hasRealError = outputBuffer.split("\n").some((line) => {
             const normalized = line.toLowerCase();
-            // Skip buffer and permission warnings
+            // Skip known non-fatal warnings and errors
             if (
               normalized.includes("buffer size") ||
               normalized.includes("ping_group_range") ||
+              normalized.includes("origincert") ||
+              normalized.includes("origin certificate") ||
               normalized.includes(" wrn ")
             ) {
               return false;
@@ -160,6 +162,8 @@ export class CloudflareTunnelManagementService {
                 (normalized.includes(" err ") || normalized.includes("fatal")) &&
                 !normalized.includes("buffer size") &&
                 !normalized.includes("ping_group_range") &&
+                !normalized.includes("origincert") &&
+                !normalized.includes("origin certificate") &&
                 !normalized.includes(" wrn ")
               );
             });
