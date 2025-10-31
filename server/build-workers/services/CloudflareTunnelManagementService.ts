@@ -251,7 +251,14 @@ export class CloudflareTunnelManagementService {
 
     for (const line of lines.reverse()) {
       const lower = line.toLowerCase();
-      if (errorIndicators.some((indicator) => lower.includes(indicator))) {
+      if (lower.includes("wrn")) {
+        continue;
+      }
+
+      if (
+        errorIndicators.some((indicator) => lower.includes(indicator)) &&
+        !lower.includes("wrn")
+      ) {
         return line;
       }
     }
