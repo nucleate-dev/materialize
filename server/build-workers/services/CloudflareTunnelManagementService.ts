@@ -1,4 +1,5 @@
 import { spawn as spawnPty, IPty } from "node-pty";
+import { spawn } from "child_process";
 import process from "process";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 
@@ -144,20 +145,23 @@ export class CloudflareTunnelManagementService {
   }
 
   public async killTunnel(): Promise<void> {
-    if (!this.pty) {
-      this.initializePty();
-      return;
-    }
-
     this.tunnelRunning = false;
     this.tunnelStarting = false;
 
-    this.writeToPty("\u0003");
-    await this.delay(250);
-    this.writeToPty(
-      "if pgrep -x cloudflared >/dev/null; then pkill -x cloudflared; fi\n",
-    );
-    await this.delay(250);
+    if (!this.pty) {
+      this.initializePty();
+    }
+
+    if (this.pty) {
+      this.writeToPty("\u0003");
+      await this.delay(250);
+      this.writeToPty(
+        "if pgrep -x cloudflared >/dev/null; then pkill -x cloudflared; fi\n",
+      );
+      await this.delay(250);
+    } else {
+      await this.killCloudflaredProcessesDirectly();
+    }
   }
 
   private initializePty(): void {
@@ -257,5 +261,27 @@ export class CloudflareTunnelManagementService {
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async killCloudflaredProcessesDirectly(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      const killer = spawn("pkill", ["-x", "cloudflared"]);
+
+      killer.on("error", (error) => {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to launch pkill for cloudflared",
+        );
+        resolve();
+      });
+
+      killer.on("close", (code, signal) => {
+        this.logger.info("pkill cloudflared completed", {
+          exitCode: code,
+          signal,
+        });
+        resolve();
+      });
+    });
   }
 }
