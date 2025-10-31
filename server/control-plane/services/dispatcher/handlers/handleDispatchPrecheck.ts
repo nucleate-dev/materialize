@@ -44,6 +44,7 @@ export async function handleDispatchPrecheckImpl(
       data: {
         status: (existingDevData?.status as BuildStatus) || null,
         viewing_url: existingDevData?.url || '',
+        terminal_tunnel_hostname: null,
       },
       error: null,
     };
@@ -101,6 +102,7 @@ export async function handleDispatchPrecheckImpl(
                 ? existingBuild.url
                 : getS3Url(prototype_id),
             ),
+            terminal_tunnel_hostname: existingBuild.terminal_tunnel_hostname || null,
           },
           error: null,
         };
@@ -112,6 +114,7 @@ export async function handleDispatchPrecheckImpl(
       data: {
         status: null,
         viewing_url: normalizeUrl(getS3Url(prototype_id)),
+        terminal_tunnel_hostname: null,
       },
       error: null,
     };

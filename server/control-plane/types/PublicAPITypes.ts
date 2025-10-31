@@ -103,6 +103,7 @@ export interface DispatchPrecheckRequestBody {
 export interface DispatchPrecheckSuccessResponse {
   status: BuildStatus | null;
   viewing_url: string;
+  terminal_tunnel_hostname: string | null;
 }
 
 // ============================================================================
