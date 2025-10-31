@@ -219,14 +219,21 @@ export class IdleContainerAllocationSystemService {
       taskArn,
       privateIp,
     });
-    const info = { taskArn, privateIp };
+    const info: FargateInstanceInfo = {
+      taskArn,
+      privateIp,
+      terminalTunnelId: '',
+      terminalTunnelHostname: '',
+    };
     try {
-      await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
-        info,
-        activeBuildKey,
-        prototypeId,
-        userId,
-      );
+      const tunnelInfo =
+        await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
+          info,
+          activeBuildKey,
+          prototypeId,
+          userId,
+        );
+      return { ...info, ...tunnelInfo };
     } catch (error) {
       this.log2.error(
         error,
@@ -237,7 +244,6 @@ export class IdleContainerAllocationSystemService {
         'Could not allocate a container: failed to scope S3 permissions for container',
       );
     }
-    return info;
   }
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
@@ -347,14 +353,21 @@ export class IdleContainerAllocationSystemService {
       if (!privateIp) {
         throw new Error('Failed to get private IP for idle container');
       }
-      const info = { taskArn, privateIp };
+      const info: FargateInstanceInfo = {
+        taskArn,
+        privateIp,
+        terminalTunnelId: '',
+        terminalTunnelHostname: '',
+      };
       try {
-        await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
-          info,
-          activeBuildKey,
-          prototypeId,
-          userId,
-        );
+        const tunnelInfo =
+          await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
+            info,
+            activeBuildKey,
+            prototypeId,
+            userId,
+          );
+        return { ...info, ...tunnelInfo };
       } catch (error) {
         this.log2.error(
           error,
@@ -365,7 +378,6 @@ export class IdleContainerAllocationSystemService {
           'Could not allocate a container: failed to scope S3 permissions for container',
         );
       }
-      return info;
     } catch (error) {
       log2.error(error, 'Failed to launch Fargate task:');
       throw new Error(
@@ -499,7 +511,9 @@ export class IdleContainerAllocationSystemService {
     activeBuildKey: string,
     prototypeId: string,
     userId?: string,
-  ): Promise<void> {
+  ): Promise<
+    Pick<FargateInstanceInfo, 'terminalTunnelId' | 'terminalTunnelHostname'>
+  > {
     const [out, tunnelConfig] = await Promise.all([
       this.stsClient.send(
         new AssumeRoleCommand({
@@ -515,21 +529,21 @@ export class IdleContainerAllocationSystemService {
     if (!out.Credentials) throw new Error('Failed to assume role');
 
     // Store tunnel info in cache with https:// prefix
-    await updateBuildTunnelInfo(
-      this.cache,
-      activeBuildKey,
-      tunnelConfig.tunnelId,
-      `https://${tunnelConfig.hostname}`,
-    );
-
     this.log2.consoleLogDevOnly(
       'debug',
-      'cloudflare tunnel final Tunnel config',
+      'updating cache with cloudflare tunnel final Tunnel config',
       {
         tunnelId: tunnelConfig.tunnelId,
         hostname: tunnelConfig.hostname,
         cnameTarget: tunnelConfig.cnameTarget,
       },
+    );
+    const tunnelHostnameWithProtocol = `https://${tunnelConfig.hostname}`;
+    await updateBuildTunnelInfo(
+      this.cache,
+      activeBuildKey,
+      tunnelConfig.tunnelId,
+      tunnelHostnameWithProtocol,
     );
 
     const creds: PublicAllocateRequest = {
@@ -564,5 +578,9 @@ export class IdleContainerAllocationSystemService {
       this.log2.error(error, 'Failed to make allocation request to worker');
       throw error;
     }
+    return {
+      terminalTunnelId: tunnelConfig.tunnelId,
+      terminalTunnelHostname: tunnelHostnameWithProtocol,
+    };
   }
 }

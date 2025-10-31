@@ -56,6 +56,8 @@ export type IdleContainerStatus = 'ready' | 'creating';
 export interface FargateInstanceInfo {
   taskArn: string;
   privateIp: string;
+  terminalTunnelId: string;
+  terminalTunnelHostname: string;
 }
 
 // ============================================================================
