@@ -18,6 +18,7 @@ import {
   isActiveBuildType,
 } from '../types/InternalTypes.js';
 import { removeBuildDataFromCache } from '../utils/cacheInteractionUtils.js';
+import { deleteCloudflareTunnel } from '../utils/cloudflareTunnelManagementUtils.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -168,6 +169,24 @@ export class CleanupService {
       if (!cacheUpdateResult) {
         stats.failedCleanups++;
         continue;
+      }
+
+      // Delete the Cloudflare tunnel for the build if it exists
+      if (build.terminal_tunnel_id) {
+        try {
+          await deleteCloudflareTunnel(build.terminal_tunnel_id, this.log2);
+          this.log2.info(
+            `Successfully deleted Cloudflare tunnel for build ${buildId}`,
+            { tunnelId: build.terminal_tunnel_id },
+          );
+        } catch (error) {
+          this.log2.error(
+            error,
+            `Failed to delete Cloudflare tunnel for build ${buildId}, continuing with cleanup`,
+            { tunnelId: build.terminal_tunnel_id },
+          );
+          // Continue with cleanup even if tunnel deletion fails
+        }
       }
 
       // 2. Extract prototype ID from build ID (assuming format: build_{prototypeId}_{timestamp}_{random})
