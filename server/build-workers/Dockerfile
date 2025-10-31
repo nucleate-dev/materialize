@@ -13,10 +13,13 @@ RUN apt-get clean && \
     python3 \
     python3-dev \
     curl \
+    ca-certificates \
     unzip \
     git \
     procps \
     watchman \
+    && curl -L --fail https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Environment setup for Node + Watchman + PTY
