@@ -224,6 +224,7 @@ export class IdleContainerAllocationSystemService {
     try {
       await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
         info,
+        activeBuildKey,
         prototypeId,
         userId,
       );
@@ -351,6 +352,7 @@ export class IdleContainerAllocationSystemService {
       try {
         await this.scopeS3PermissionsAndTerminalTunnelsForContainer(
           info,
+          activeBuildKey,
           prototypeId,
           userId,
         );
@@ -495,6 +497,7 @@ export class IdleContainerAllocationSystemService {
   /** Tell running idle container to switch to a real prototypeId */
   private async scopeS3PermissionsAndTerminalTunnelsForContainer(
     info: FargateInstanceInfo,
+    activeBuildKey: string,
     prototypeId: string,
     userId?: string,
   ): Promise<void> {
@@ -509,6 +512,8 @@ export class IdleContainerAllocationSystemService {
       ),
       this.createCloudflareTunnelForContainer(prototypeId, info.taskArn),
     ]);
+
+    // TODO: update the active build cache with the terminal_tunnel_id and the terminal_tunnel_hostname
 
     if (!out.Credentials) throw new Error('Failed to assume role');
 
@@ -594,13 +599,6 @@ export class IdleContainerAllocationSystemService {
           id: string;
           token: string; // present in response per docs
         }>;
-      this.log2.consoleLogDevOnly(
-        'debug',
-        'cloudflare tunnel Create tunnel response JSON',
-        {
-          createTunnelResponseJson,
-        },
-      );
       if (!createTunnelResponseJson.success) {
         throw new Error(
           `CF create tunnel not success: ${JSON.stringify(createTunnelResponseJson.errors)}`,
@@ -634,13 +632,6 @@ export class IdleContainerAllocationSystemService {
           }),
         },
       );
-      this.log2.consoleLogDevOnly(
-        'debug',
-        'cloudflare tunnel Put tunnel config response',
-        {
-          putCfg,
-        },
-      );
       if (!putCfg.ok) {
         const text = await putCfg.text();
         throw new Error(
@@ -652,13 +643,6 @@ export class IdleContainerAllocationSystemService {
         throw new Error(
           `CF put tunnel config not success: ${JSON.stringify(putJson.errors)}`,
         );
-      this.log2.consoleLogDevOnly(
-        'debug',
-        'cloudflare tunnel Put tunnel config response JSON',
-        {
-          putJson,
-        },
-      );
 
       // 3) Create the DNS CNAME: <host> → <tunnelId>.cfargotunnel.com (proxied)
       const cnameTarget = `${tunnelId}.cfargotunnel.com`;
@@ -678,9 +662,6 @@ export class IdleContainerAllocationSystemService {
           }),
         },
       );
-      this.log2.consoleLogDevOnly('debug', 'cloudflare tunnel DNS response', {
-        dnsRes,
-      });
       if (!dnsRes.ok) {
         const text = await dnsRes.text();
         throw new Error(`CF create DNS failed: ${dnsRes.status} ${text}`);
@@ -691,11 +672,6 @@ export class IdleContainerAllocationSystemService {
           `CF create DNS not success: ${JSON.stringify(dnsJson.errors)}`,
         );
       }
-      this.log2.consoleLogDevOnly(
-        'debug',
-        'cloudflare tunnel DNS response JSON',
-        { dnsJson },
-      );
 
       return { tunnelId, token, hostname, cnameTarget };
     } catch (error) {
