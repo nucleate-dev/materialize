@@ -26,7 +26,7 @@ import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
 const MAX_IDLE_FARGATE_BUILDS: number = 0;
 const CLOUDFLARE_API_URL = 'https://api.cloudflare.com/client/v4';
 
-type CfResp<T> = { success: boolean; result: T; errors?: any; messages?: any };
+type CfResp<T> = { success: boolean; result: T; errors?: unknown; messages?: unknown };
 
 export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;
@@ -516,12 +516,12 @@ export class IdleContainerAllocationSystemService {
 
     if (!out.Credentials) throw new Error('Failed to assume role');
 
-    // Store tunnel info in cache
+    // Store tunnel info in cache with https:// prefix
     await updateBuildTunnelInfo(
       this.cache,
       activeBuildKey,
       tunnelConfig.tunnelId,
-      tunnelConfig.hostname,
+      `https://${tunnelConfig.hostname}`,
     );
 
     this.log2.consoleLogDevOnly(

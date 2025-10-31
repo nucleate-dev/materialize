@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-10-28T17:39:39.477Z
+// Last synced: 2025-10-31T05:35:45.422Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -112,6 +112,7 @@ export interface DispatchPrecheckRequestBody {
 export interface DispatchPrecheckSuccessResponse {
   status: BuildStatus | null;
   viewing_url: string;
+  terminal_tunnel_hostname: string | null;
 }
 
 // ============================================================================
@@ -192,6 +193,7 @@ export interface FetchViewingUrlSuccessResponse {
   viewing_url: string;
   source: 'editable_instance' | 'static_build';
   status: BuildStatus | null;
+  terminal_url: string | null;
 }
 
 // ============================================================================
@@ -348,8 +350,7 @@ export interface ChatRequestBody {
   inputAssets: Record<string, PrototypeAssetInput> | null;
   chat_session_id: string;
   prototype_id: string;
-  image?: string | null;
-  imageUrl?: string | null; // Signed URL for the uploaded image
+  imageUrl?: string | null; // Storage path or signed URL for the uploaded image (will be converted to base64 for LLM)
   currentViewingPath?: string | null;
 }
 

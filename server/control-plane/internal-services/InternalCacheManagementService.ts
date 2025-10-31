@@ -763,6 +763,8 @@ export class InternalCacheManagementService {
       url: obj.url || '',
       status: obj.status as ActiveBuild['status'],
       last_touched: parseInt(obj.last_touched, 10),
+      terminal_tunnel_id: obj.terminal_tunnel_id || '',
+      terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
     };
   }
 }

@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-10-28T17:39:39.506Z
+// Last synced: 2025-10-31T05:35:45.459Z
 
 import { Database } from "./supabase.js";
 
@@ -259,5 +259,57 @@ export interface SandboxGitCheckoutRequest {
 export interface SandboxGitCheckoutResponse {
   status: "success" | "error";
   output?: string;
+  error?: string;
+}
+
+// Terminal API Types
+export type TerminalSessionType = "generic" | "dev-server" | "build" | "test";
+
+export interface TerminalCreateRequest {
+  session_type?: TerminalSessionType;
+  command?: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  cols?: number;
+  rows?: number;
+}
+
+export interface TerminalCreateResponse {
+  status: "success" | "error";
+  session_id?: string;
+  session_type?: TerminalSessionType;
+  error?: string;
+}
+
+export interface TerminalInfoResponse {
+  status: "success" | "error";
+  session_id?: string;
+  session_type?: TerminalSessionType;
+  state?: string;
+  error?: string;
+}
+
+export interface TerminalCloseResponse {
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface TerminalInputRequest {
+  input: string;
+}
+
+export interface TerminalInputResponse {
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface TerminalResizeRequest {
+  cols: number;
+  rows: number;
+}
+
+export interface TerminalResizeResponse {
+  status: "success" | "error";
   error?: string;
 }

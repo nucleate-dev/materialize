@@ -1200,7 +1200,7 @@ export class ChatEngineV1 {
         userMessage,
         assistantResponse || finalBuffer,
         params.log2,
-        params.imageUrl,
+        params.imageUrl ?? undefined,
         executionPlan,
         fileManager instanceof VirtualFileManager
           ? fileManager.getChangedFiles()
