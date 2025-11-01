@@ -1,9 +1,9 @@
 "use client";
 
-import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { useEffect, useRef, useState } from "react";
+import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { useEffect, useRef, useState } from "react";
 
 interface TerminalProps {
   className?: string;
@@ -11,6 +11,8 @@ interface TerminalProps {
   onResize?: (cols: number, rows: number) => void;
   onConnectionChange?: (connected: boolean) => void;
 }
+
+const POSSIBLE_TERMINAL_SESSIONS = ["build", "run", "test"];
 
 export default function Terminal({
   className = "",
@@ -64,17 +66,25 @@ export default function Terminal({
     // Open terminal in container
     terminal.open(terminalRef.current);
 
-    // Fit terminal to container
-    fitAddon.fit();
-
-    // Notify parent of terminal size
-    if (onResize) {
-      onResize(terminal.cols, terminal.rows);
-    }
-
-    // Store references
+    // Store references before using them
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
+
+    // Fit terminal to container after a brief delay to ensure DOM is ready
+    setTimeout(() => {
+      try {
+        if (fitAddonRef.current && xtermRef.current) {
+          fitAddonRef.current.fit();
+
+          // Notify parent of terminal size
+          if (onResize) {
+            onResize(xtermRef.current.cols, xtermRef.current.rows);
+          }
+        }
+      } catch (error) {
+        console.error("[Terminal] Error during initial fit:", error);
+      }
+    }, 0);
 
     // Welcome message
     terminal.writeln("\x1b[1;32m┌─────────────────────────────────────────┐\x1b[0m");
@@ -89,13 +99,22 @@ export default function Terminal({
     }
     terminal.writeln("");
 
+    // Track if component is mounted
+    let isMounted = true;
+
     // Handle resize events
     const handleResize = () => {
-      if (fitAddonRef.current && xtermRef.current) {
-        fitAddonRef.current.fit();
-        if (onResize) {
-          onResize(xtermRef.current.cols, xtermRef.current.rows);
+      if (!isMounted) return;
+
+      try {
+        if (fitAddonRef.current && xtermRef.current) {
+          fitAddonRef.current.fit();
+          if (onResize) {
+            onResize(xtermRef.current.cols, xtermRef.current.rows);
+          }
         }
+      } catch (error) {
+        console.error("[Terminal] Error during resize:", error);
       }
     };
 
@@ -110,26 +129,46 @@ export default function Terminal({
 
     // Cleanup
     return () => {
+      isMounted = false;
       resizeObserver.disconnect();
-      terminal.dispose();
+
+      // Clear refs before disposing to prevent race conditions
+      const termToDispose = xtermRef.current;
       xtermRef.current = null;
       fitAddonRef.current = null;
+
+      if (termToDispose) {
+        termToDispose.dispose();
+      }
     };
   }, [onResize, terminalUrl]);
 
   // WebSocket connection management
   useEffect(() => {
     if (!terminalUrl || !xtermRef.current) {
+      console.log("[Terminal] WebSocket connection skipped:", {
+        terminalUrl,
+        hasXterm: !!xtermRef.current,
+      });
       return;
     }
 
+    // Construct the full WebSocket URL with the terminal path
+    // The backend provides a base URL like "wss://aww8wavh.terminals.materializeui.com"
+    // We need to append "/terminal/ws/run" to connect to the actual WebSocket endpoint
+    const fullTerminalUrl = terminalUrl.endsWith('/')
+      ? `${terminalUrl}terminal/ws/run`
+      : `${terminalUrl}/terminal/ws/run`;
+
+    console.log("[Terminal] Attempting WebSocket connection to:", fullTerminalUrl);
     const terminal = xtermRef.current;
 
     // Create WebSocket connection
-    const ws = new WebSocket(terminalUrl);
+    const ws = new WebSocket(fullTerminalUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log("[Terminal] WebSocket connection opened successfully");
       setIsConnected(true);
       if (onConnectionChange) {
         onConnectionChange(true);
@@ -139,16 +178,41 @@ export default function Terminal({
     };
 
     ws.onmessage = (event) => {
-      // Write incoming terminal data to xterm
-      terminal.write(event.data);
+      try {
+        const message = JSON.parse(event.data);
+        console.log("[Terminal] Received message:", message);
+
+        if (message.event === "output" && message.data?.chunk) {
+          terminal.write(message.data.chunk);
+        } else if (message.event === "exit") {
+          console.log("[Terminal] Process exited with code:", message.data?.exitCode);
+          terminal.writeln(
+            `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
+          );
+        } else if (message.event === "error") {
+          console.error("[Terminal] Terminal error:", message.data?.error);
+          terminal.writeln(
+            `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"}\x1b[0m`
+          );
+        }
+      } catch (err) {
+        console.error("[Terminal] Failed to parse WebSocket message:", err, "Raw data:", event.data);
+        // Fallback: treat as raw data
+        terminal.write(event.data);
+      }
     };
 
     ws.onerror = (error) => {
+      console.error("[Terminal] WebSocket error occurred:", error);
       terminal.writeln("\x1b[1;31m✗ WebSocket error occurred\x1b[0m");
-      console.error("Terminal WebSocket error:", error);
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log("[Terminal] WebSocket connection closed:", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
       setIsConnected(false);
       if (onConnectionChange) {
         onConnectionChange(false);
@@ -160,7 +224,14 @@ export default function Terminal({
     // Handle terminal input (send to WebSocket)
     const disposable = terminal.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
+        const message = {
+          type: "input",
+          data: data,
+        };
+        console.log("[Terminal] Sending input:", message);
+        ws.send(JSON.stringify(message));
+      } else {
+        console.warn("[Terminal] Cannot send input - WebSocket not open. State:", ws.readyState);
       }
     });
 
