@@ -693,7 +693,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      allocate_idle_tunnel: {
+        Args: { p_prototype_id: string }
+        Returns: {
+          cname_target: string | null
+          created_at: string
+          hostname: string | null
+          id: string
+          prototype_id: string | null
+          status: Database["public"]["Enums"]["tunnel_status"]
+          token: string | null
+          tunnel_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cloudflare_tunnels"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       chat_role: "user" | "assistant"
