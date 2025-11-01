@@ -174,10 +174,23 @@ export async function deleteCloudflareTunnel(
 
   // Delete the DNS record if hostname is provided
   if (hostname) {
+    // Strip protocol prefixes if present
+    let cleanHostname = hostname;
+    if (hostname.startsWith('wss://')) {
+      cleanHostname = hostname.substring(6);
+    } else if (hostname.startsWith('https://')) {
+      cleanHostname = hostname.substring(8);
+    } else if (hostname.startsWith('http://')) {
+      cleanHostname = hostname.substring(7);
+    }
+
+    log2.consoleLogDevOnly('info', 'deleting DNS record', {
+      hostname: cleanHostname,
+    });
     try {
       // Find the DNS record ID for this hostname
       const listDnsResponse = await fetch(
-        `${CLOUDFLARE_API_URL}/zones/${process.env.CLOUDFLARE_ZONE_ID!}/dns_records?name=${hostname}`,
+        `${CLOUDFLARE_API_URL}/zones/${process.env.CLOUDFLARE_ZONE_ID!}/dns_records?name=${cleanHostname}`,
         {
           method: 'GET',
           headers: {
@@ -210,26 +223,27 @@ export async function deleteCloudflareTunnel(
           if (!deleteDnsResponse.ok) {
             const text = await deleteDnsResponse.text();
             log2.warn(
-              `Failed to delete DNS record for ${hostname}: ${deleteDnsResponse.status} ${text}`,
+              `Failed to delete DNS record for ${cleanHostname}: ${deleteDnsResponse.status} ${text}`,
             );
           } else {
-            log2.info(`Successfully deleted DNS record for ${hostname}`);
+            log2.info(`Successfully deleted DNS record for ${cleanHostname}`);
           }
         }
       } else {
         const text = await listDnsResponse.text();
         log2.warn(
-          `Failed to list DNS records for ${hostname}: ${listDnsResponse.status} ${text}`,
+          `Failed to list DNS records for ${cleanHostname}: ${listDnsResponse.status} ${text}`,
         );
       }
     } catch (error) {
-      log2.error(error, `Error while deleting DNS record for ${hostname}`);
+      log2.error(error, `Error while deleting DNS record for ${cleanHostname}`);
       // Don't throw - tunnel is already deleted, DNS cleanup is best-effort
     }
   }
 
   // Delete from Supabase if supabase client is provided
   if (supabase) {
+    log2.consoleLogDevOnly('info', 'deleting Supabase', { hostname });
     try {
       const { error: deleteError } = await supabase
         .from('cloudflare_tunnels')

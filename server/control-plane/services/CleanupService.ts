@@ -243,7 +243,7 @@ export class CleanupService {
 
       // 4.5 Delete the cloudflare tunnel for the build if it exists
       // Delete the Cloudflare tunnel for the build if it exists
-      this.log2.consoleLogDevOnly('info', 'deleting cloudflare tunnel', {
+      this.log2.info('deleting cloudflare tunnel', {
         tunnelId: build.terminal_tunnel_id,
         tunnelHostname: build.terminal_tunnel_hostname,
       });
@@ -253,6 +253,7 @@ export class CleanupService {
             build.terminal_tunnel_id,
             this.log2,
             build.terminal_tunnel_hostname,
+            this.supabase,
           );
           this.log2.info(
             `Successfully deleted Cloudflare tunnel for build ${buildId}`,
@@ -752,5 +753,4 @@ export class CleanupService {
     }
     return true;
   }
-
 }
