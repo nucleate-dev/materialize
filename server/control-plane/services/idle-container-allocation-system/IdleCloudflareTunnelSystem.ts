@@ -6,7 +6,7 @@ import {
 } from '../../utils/cloudflareTunnelManagementUtils.js';
 import { v4 as uuidv4 } from 'uuid';
 
-const MAX_IDLE_TUNNELS: number = 1;
+const MAX_IDLE_TUNNELS: number = 3;
 
 export class IdleContainerAllocationSystemService {
   private readonly log2: SystemLogger;
@@ -37,8 +37,6 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleTunnelCapacity(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
-
     const { count } = await this.supabase
       .from('cloudflare_tunnels')
       .select('*', { count: 'exact', head: true })
