@@ -45,12 +45,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { useFileAutocomplete } from "@/hooks/useFileAutocomplete";
-import { FileAutocomplete } from "./FileAutocomplete";
 import {
-  uploadChatImage,
   deletePrototypeImages,
   getSignedImageUrl,
+  uploadChatImage,
 } from "@/lib/utils/chatImageUpload";
+import { FileAutocomplete } from "./FileAutocomplete";
 
 type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
@@ -61,6 +61,71 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   imageUrl?: string; // URL to image in Supabase Storage
+}
+
+// Component for rendering an image with signed URL
+function ChatImage({ imageUrl }: { imageUrl: string; }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSignedUrl = async () => {
+      try {
+        const url = await getSignedImageUrl(imageUrl);
+        if (mounted) {
+          if (url) {
+            setSignedUrl(url);
+          } else {
+            setHasError(true);
+          }
+          setIsLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          setHasError(true);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadSignedUrl();
+
+    return () => {
+      mounted = false;
+    };
+  }, [imageUrl]);
+
+  if (isLoading) {
+    return (
+      <div className="mb-2 p-4 border border-primary-foreground/20 rounded flex items-center justify-center">
+        <span className="text-xs text-primary-foreground/70">Loading image...</span>
+      </div>
+    );
+  }
+
+  if (hasError || !signedUrl) {
+    return (
+      <div className="mb-2 p-2 border border-primary-foreground/20 rounded flex items-center gap-2 text-primary-foreground/70">
+        <PhotoIcon className="w-4 h-4" />
+        <span className="text-xs">Image no longer available</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={signedUrl}
+        alt="User uploaded"
+        className="max-w-full max-h-48 rounded border border-primary-foreground/20"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  );
 }
 
 export interface PrototypeChatWindowProps {
@@ -148,70 +213,6 @@ export default function PrototypeChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Component for rendering an image with signed URL
-  const ChatImage = useCallback(({ imageUrl }: { imageUrl: string }) => {
-    const [signedUrl, setSignedUrl] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [hasError, setHasError] = useState(false);
-
-    useEffect(() => {
-      let mounted = true;
-
-      const loadSignedUrl = async () => {
-        try {
-          const url = await getSignedImageUrl(imageUrl);
-          if (mounted) {
-            if (url) {
-              setSignedUrl(url);
-            } else {
-              setHasError(true);
-            }
-            setIsLoading(false);
-          }
-        } catch (error) {
-          if (mounted) {
-            setHasError(true);
-            setIsLoading(false);
-          }
-        }
-      };
-
-      loadSignedUrl();
-
-      return () => {
-        mounted = false;
-      };
-    }, [imageUrl]);
-
-    if (isLoading) {
-      return (
-        <div className="mb-2 p-4 border border-primary-foreground/20 rounded flex items-center justify-center">
-          <span className="text-xs text-primary-foreground/70">Loading image...</span>
-        </div>
-      );
-    }
-
-    if (hasError || !signedUrl) {
-      return (
-        <div className="mb-2 p-2 border border-primary-foreground/20 rounded flex items-center gap-2 text-primary-foreground/70">
-          <PhotoIcon className="w-4 h-4" />
-          <span className="text-xs">Image no longer available</span>
-        </div>
-      );
-    }
-
-    return (
-      <div className="mb-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={signedUrl}
-          alt="User uploaded"
-          className="max-w-full max-h-48 rounded border border-primary-foreground/20"
-          onError={() => setHasError(true)}
-        />
-      </div>
-    );
-  }, []);
 
   // File autocomplete functionality
   const {
@@ -1149,16 +1150,14 @@ export default function PrototypeChatWindow({
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 <div
-                  className={`max-w-[90%] rounded-lg p-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
+                  className={`max-w-[90%] rounded-lg p-3 ${message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
+                    }`}
                 >
                   {/* Display image if available */}
                   {message.role === "user" && message.imageUrl && (
@@ -1166,11 +1165,10 @@ export default function PrototypeChatWindow({
                   )}
 
                   <div
-                    className={`text-sm prose prose-sm max-w-none ${
-                      message.role === "user"
-                        ? "prose-invert [&>*]:text-primary-foreground"
-                        : "prose-slate dark:prose-invert"
-                    } [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current`}
+                    className={`text-sm prose prose-sm max-w-none ${message.role === "user"
+                      ? "prose-invert [&>*]:text-primary-foreground"
+                      : "prose-slate dark:prose-invert"
+                      } [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current`}
                   >
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>

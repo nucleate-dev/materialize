@@ -28,10 +28,9 @@ import type {
   // ChatImagePayload,
   ChatMessage,
   ChatRequestBody,
-  ChatStreamEvent,
-  CreatePrototypeRequestBody,
-  CreatePrototypeSuccessResponse,
   CreatePrototypeErrorResponse,
+  CreatePrototypeRequestBody,
+  CreatePrototypeSuccessResponse
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -260,7 +259,7 @@ export default function ChatTestPage() {
         inputAssets: fileSystem.state.assets,
         chat_session_id: chatSession,
         prototype_id: prototype.id,
-        image: null,
+        imageUrl: undefined,
       };
 
       addRequestLog("request", {
@@ -774,11 +773,10 @@ export default function ChatTestPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-2 h-2 rounded-full ${
-                          fileSystem.state.files
-                            ? "bg-green-500"
-                            : "bg-yellow-500"
-                        }`}
+                        className={`w-2 h-2 rounded-full ${fileSystem.state.files
+                          ? "bg-green-500"
+                          : "bg-yellow-500"
+                          }`}
                       />
                       <span className="text-sm">
                         Files:{" "}
@@ -789,11 +787,10 @@ export default function ChatTestPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-2 h-2 rounded-full ${
-                          fileSystem.state.assets
-                            ? "bg-green-500"
-                            : "bg-yellow-500"
-                        }`}
+                        className={`w-2 h-2 rounded-full ${fileSystem.state.assets
+                          ? "bg-green-500"
+                          : "bg-yellow-500"
+                          }`}
                       />
                       <span className="text-sm">
                         Assets:{" "}
@@ -807,18 +804,17 @@ export default function ChatTestPage() {
                     <div className="p-2 bg-muted rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <div
-                          className={`w-2 h-2 rounded-full ${
-                            fileSystem.state.files &&
+                          className={`w-2 h-2 rounded-full ${fileSystem.state.files &&
                             fileSystem.state.assets &&
                             Object.keys(fileSystem.state.files).length > 0
-                              ? "bg-green-500"
-                              : "bg-red-500"
-                          }`}
+                            ? "bg-green-500"
+                            : "bg-red-500"
+                            }`}
                         />
                         <span className="text-sm font-medium">
                           {fileSystem.state.files &&
-                          fileSystem.state.assets &&
-                          Object.keys(fileSystem.state.files).length > 0
+                            fileSystem.state.assets &&
+                            Object.keys(fileSystem.state.files).length > 0
                             ? "Ready for Chat"
                             : "Not Ready"}
                         </span>
@@ -943,11 +939,10 @@ export default function ChatTestPage() {
                     {messages.map((message, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg ${
-                          message.role === "user"
-                            ? "bg-primary text-primary-foreground ml-4"
-                            : "bg-muted mr-4"
-                        }`}
+                        className={`p-3 rounded-lg ${message.role === "user"
+                          ? "bg-primary text-primary-foreground ml-4"
+                          : "bg-muted mr-4"
+                          }`}
                       >
                         <div className="text-sm font-medium mb-1">
                           {message.role === "user" ? "You" : "Assistant"}

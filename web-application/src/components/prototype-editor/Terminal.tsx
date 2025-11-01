@@ -45,9 +45,12 @@ export default function Terminal({
 
   // Initialize terminal instances for each session
   useEffect(() => {
+    const instancesToCleanup: Array<{ session: TerminalSession; instance: TerminalInstanceState; }> = [];
+    const instancesMap = terminalInstancesMap.current;
+
     TERMINAL_SESSIONS.forEach((session) => {
       const container = terminalRefsMap.current.get(session);
-      if (!container || terminalInstancesMap.current.has(session)) return;
+      if (!container || instancesMap.has(session)) return;
 
       // Initialize xterm
       const terminal = new XTerm({
@@ -87,12 +90,14 @@ export default function Terminal({
       terminal.open(container);
 
       // Store instance
-      terminalInstancesMap.current.set(session, {
+      const instance: TerminalInstanceState = {
         xterm: terminal,
         fitAddon,
         ws: null,
         isConnected: false,
-      });
+      };
+      instancesMap.set(session, instance);
+      instancesToCleanup.push({ session, instance });
 
       // Fit terminal to container
       setTimeout(() => {
@@ -116,14 +121,13 @@ export default function Terminal({
 
     // Cleanup function
     return () => {
-      const instances = terminalInstancesMap.current;
-      instances.forEach((instance) => {
+      instancesToCleanup.forEach(({ session, instance }) => {
         if (instance.ws) {
           instance.ws.close();
         }
         instance.xterm.dispose();
+        instancesMap.delete(session);
       });
-      instances.clear();
     };
   }, [onResize, terminalUrl]);
 
