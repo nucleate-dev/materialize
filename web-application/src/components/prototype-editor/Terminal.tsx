@@ -12,19 +12,19 @@ interface TerminalProps {
   onConnectionChange?: (connected: boolean) => void;
 }
 
-type TerminalSession = "build" | "run" | "test";
+type TerminalSession = "build" | "dev-server" | "test";
 
-const TERMINAL_SESSIONS: TerminalSession[] = ["build", "run", "test"];
+const TERMINAL_SESSIONS: TerminalSession[] = ["dev-server", "build", "test"];
 
 const TERMINAL_SESSION_PATHS: Record<TerminalSession, string> = {
   build: "/terminal/ws/build",
-  run: "/terminal/ws/run",
+  "dev-server": "/terminal/ws/dev-server",
   test: "/terminal/ws/test",
 };
 
 const TERMINAL_SESSION_LABELS: Record<TerminalSession, string> = {
   build: "Build",
-  run: "Run",
+  "dev-server": "Dev Server",
   test: "Test",
 };
 
@@ -41,7 +41,7 @@ export default function Terminal({
   onResize,
   onConnectionChange
 }: TerminalProps) {
-  const [activeSession, setActiveSession] = useState<TerminalSession>("run");
+  const [activeSession, setActiveSession] = useState<TerminalSession>("dev-server");
   const terminalRefsMap = useRef<Map<TerminalSession, HTMLDivElement>>(new Map());
   const terminalInstancesMap = useRef<Map<TerminalSession, TerminalInstanceState>>(new Map());
 

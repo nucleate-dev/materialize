@@ -347,7 +347,8 @@ export default function InternalPrototypePage() {
           return;
         }
         setViewingUrl(fetchViewData.data.viewing_url);
-        if (fetchViewData.data.terminal_url == null || (terminalUrl && terminalUrl !== fetchViewData.data.terminal_url)) {
+        // TODO(priyam): Think through the different possible states here.
+        if (fetchViewData.data.terminal_url && fetchViewData.data.terminal_url !== terminalUrl) {
           setTerminalUrl(fetchViewData.data.terminal_url);
         }
         if (
