@@ -190,41 +190,44 @@ export class IdleCloudflareTunnelSystem {
   public async retrieveIdleTunnelForAllocation(
     prototypeId: string,
   ): Promise<CloudflareTunnel> {
-    // 1. Try to retrieve the oldest idle tunnel and hostname from the supabase idle pool with status 'idle'
-    const { data, error } = await this.supabase
-      .from('cloudflare_tunnels')
-      .select('*')
-      .eq('status', 'idle')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (error || !data) {
+    // Use atomic RPC function to retrieve and allocate the oldest idle tunnel
+    // This prevents race conditions where two concurrent requests could get the same tunnel
+    const { data, error } = await this.supabase.rpc('allocate_idle_tunnel', {
+      p_prototype_id: prototypeId,
+    });
+
+    if (error) {
+      // Check if this is the "no idle tunnel" error
+      if (error.message?.includes('NO_IDLE_TUNNEL')) {
+        this.log2.error(
+          'No idle tunnels found, falling back to direct launch, which is not yet implemented',
+        );
+        throw new Error(
+          'Direct launch of cloudflare tunnels is not implemented or supported yet',
+        );
+      }
+      // Some other error occurred
       this.log2.error(
         error,
-        '[retrieveIdleTunnelForAllocation] Failed to retrieve idle tunnel and hostname',
+        '[retrieveIdleTunnelForAllocation] Failed to allocate idle tunnel in supabase rpc function',
       );
       throw error;
     }
 
-    // 2. We have an idle tunnel and hostname. Set supabase status to 'allocated' and prototype_id to the given prototypeId
-    const { data: updatedData, error: updateError } = await this.supabase
-      .from('cloudflare_tunnels')
-      .update({ status: 'allocated', prototype_id: prototypeId })
-      .eq('id', data.id)
-      .select('*')
-      .single();
-    if (updateError) {
+    // The RPC function returns a single cloudflare_tunnels record
+    if (!data) {
       this.log2.error(
-        updateError,
-        '[retrieveIdleTunnelForAllocation] Failed to update idle tunnel and hostname',
+        new Error('RPC returned no data'),
+        '[retrieveIdleTunnelForAllocation] Unexpected null response from allocate_idle_tunnel in supabase rpc function and direct launch is not supported yet',
       );
-      throw updateError;
+      throw new Error('Failed to allocate idle tunnel: no data returned');
     }
 
+    // Launch a new idle tunnel in the background to replenish the pool
     this.launchIdleTunnelAndHostname().catch((e) =>
       this.log2.error(e, 'Failed to launch idle tunnel and hostname'),
     );
 
-    return updatedData;
+    return data;
   }
 }
