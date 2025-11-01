@@ -542,7 +542,7 @@ export class IdleContainerAllocationSystemService {
         cnameTarget: tunnelConfig.cname_target,
       },
     );
-    const tunnelHostnameWithProtocol = `https://${tunnelConfig.hostname}`;
+    const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
     await updateBuildTunnelInfo(
       this.cache,
       activeBuildKey,
