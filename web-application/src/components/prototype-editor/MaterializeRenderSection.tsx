@@ -1045,7 +1045,7 @@ const MaterializeRenderSection = forwardRef<
                     </Button>
                   </div>
                 )}
-                <div className="flex flex-wrap justify-center gap-8 py-8 pt-16">
+                <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-8 pt-16">
                   {mobileScreens.map((screen, index) => {
                     const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                     const isPrimaryScreen = index === 0;
@@ -1053,7 +1053,7 @@ const MaterializeRenderSection = forwardRef<
                     return (
                       <div
                         key={`mobile-screen-${screen.id}`}
-                        className="flex flex-col items-center gap-2"
+                        className="flex flex-col items-center gap-2 pt-8"
                       >
                         <div
                           className="relative mx-auto select-none"
@@ -1063,7 +1063,7 @@ const MaterializeRenderSection = forwardRef<
                           }}
                         >
                           {mobileScreens.length > 1 && (
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-20">
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20">
                               {editingScreenId === screen.id ? (
                                 <div className="flex flex-col items-center gap-1">
                                   <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border px-2 py-1 rounded-md shadow-lg">
