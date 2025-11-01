@@ -10,7 +10,9 @@ import "@xterm/xterm/css/xterm.css";
 import { Loader2, Terminal as TerminalIcon, Trash2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT || "http://localhost:3002";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT ||
+  "http://localhost:3002";
 
 type TerminalSessionId = "dev-server" | "build" | "test";
 
@@ -39,9 +41,15 @@ export default function TerminalPage() {
   const testFitAddon = useRef<FitAddon | null>(null);
   const testWs = useRef<WebSocket | null>(null);
 
-  const [devServerStatus, setDevServerStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
-  const [buildStatus, setBuildStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
-  const [testStatus, setTestStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  const [devServerStatus, setDevServerStatus] = useState<
+    "disconnected" | "connecting" | "connected"
+  >("disconnected");
+  const [buildStatus, setBuildStatus] = useState<
+    "disconnected" | "connecting" | "connected"
+  >("disconnected");
+  const [testStatus, setTestStatus] = useState<
+    "disconnected" | "connecting" | "connected"
+  >("disconnected");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +60,7 @@ export default function TerminalPage() {
     const initTerminal = (
       terminalRef: React.RefObject<HTMLDivElement>,
       xtermRef: React.MutableRefObject<Terminal | null>,
-      fitAddonRef: React.MutableRefObject<FitAddon | null>
+      fitAddonRef: React.MutableRefObject<FitAddon | null>,
     ) => {
       if (!terminalRef.current) return null;
 
@@ -88,21 +96,35 @@ export default function TerminalPage() {
     };
 
     // Initialize all three terminals
-    const devTerm = initTerminal(devServerTerminal, devServerXterm, devServerFitAddon);
-    const buildTerm = initTerminal(buildTerminal, buildXterm, buildFitAddon);
-    const testTerm = initTerminal(testTerminal, testXterm, testFitAddon);
+    const devTerm = initTerminal(
+      devServerTerminal as React.RefObject<HTMLDivElement>,
+      devServerXterm,
+      devServerFitAddon,
+    );
+    const buildTerm = initTerminal(
+      buildTerminal as React.RefObject<HTMLDivElement>,
+      buildXterm,
+      buildFitAddon,
+    );
+    const testTerm = initTerminal(
+      testTerminal as React.RefObject<HTMLDivElement>,
+      testXterm,
+      testFitAddon,
+    );
 
     // Handle window resize
     const handleResize = () => {
-      [devServerFitAddon, buildFitAddon, testFitAddon].forEach((fitAddonRef) => {
-        if (fitAddonRef.current) {
-          try {
-            fitAddonRef.current.fit();
-          } catch (err) {
-            console.error("Failed to fit terminal on resize:", err);
+      [devServerFitAddon, buildFitAddon, testFitAddon].forEach(
+        (fitAddonRef) => {
+          if (fitAddonRef.current) {
+            try {
+              fitAddonRef.current.fit();
+            } catch (err) {
+              console.error("Failed to fit terminal on resize:", err);
+            }
           }
-        }
-      });
+        },
+      );
     };
 
     window.addEventListener("resize", handleResize);
@@ -120,13 +142,13 @@ export default function TerminalPage() {
     xtermRef: React.MutableRefObject<Terminal | null>,
     wsRef: React.MutableRefObject<WebSocket | null>,
     setStatus: (status: "disconnected" | "connecting" | "connected") => void,
-    baseUrl?: string
+    baseUrl?: string,
   ) => {
     setStatus("connecting");
 
     const effectiveBaseUrl = baseUrl || API_BASE_URL;
     const wsUrl = effectiveBaseUrl.replace(/^http/, "ws");
-    const ws = new WebSocket(`${wsUrl}/terminal/${sessionId}/ws`);
+    const ws = new WebSocket(`${wsUrl}/terminal/ws/${sessionId}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -141,7 +163,7 @@ export default function TerminalPage() {
               JSON.stringify({
                 type: "input",
                 data: data,
-              })
+              }),
             );
           }
         });
@@ -156,7 +178,7 @@ export default function TerminalPage() {
           xtermRef.current?.write(message.data.chunk);
         } else if (message.event === "exit") {
           xtermRef.current?.writeln(
-            `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
+            `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`,
           );
         } else if (message.event === "error") {
           setError(message.data?.error || "Terminal error occurred");
@@ -186,7 +208,13 @@ export default function TerminalPage() {
       const baseUrl = customBaseUrl.trim() || undefined;
 
       // Connect to dev-server terminal
-      connectWebSocket("dev-server", devServerXterm, devServerWs, setDevServerStatus, baseUrl);
+      connectWebSocket(
+        "dev-server",
+        devServerXterm,
+        devServerWs,
+        setDevServerStatus,
+        baseUrl,
+      );
 
       // Connect to build terminal
       connectWebSocket("build", buildXterm, buildWs, setBuildStatus, baseUrl);
@@ -194,7 +222,9 @@ export default function TerminalPage() {
       // Connect to test terminal
       connectWebSocket("test", testXterm, testWs, setTestStatus, baseUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initialize terminals");
+      setError(
+        err instanceof Error ? err.message : "Failed to initialize terminals",
+      );
     } finally {
       setLoading(false);
     }
@@ -222,7 +252,13 @@ export default function TerminalPage() {
 
       if (data.status === "success" && data.session_id) {
         // Connect the new session to the test terminal
-        connectWebSocket(data.session_id as TerminalSessionId, testXterm, testWs, setTestStatus, baseUrl);
+        connectWebSocket(
+          data.session_id as TerminalSessionId,
+          testXterm,
+          testWs,
+          setTestStatus,
+          baseUrl,
+        );
       } else {
         setError(data.error || "Failed to create terminal session");
       }
@@ -251,16 +287,25 @@ export default function TerminalPage() {
     testXterm.current?.clear();
   };
 
-  const allConnected = devServerStatus === "connected" && buildStatus === "connected" && testStatus === "connected";
-  const anyConnected = devServerStatus === "connected" || buildStatus === "connected" || testStatus === "connected";
+  const allConnected =
+    devServerStatus === "connected" &&
+    buildStatus === "connected" &&
+    testStatus === "connected";
+  const anyConnected =
+    devServerStatus === "connected" ||
+    buildStatus === "connected" ||
+    testStatus === "connected";
 
   return (
     <div className="flex-1 p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Build Worker Terminals</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Build Worker Terminals
+          </h1>
           <p className="text-muted-foreground">
-            Interactive terminals connected to build worker (dev-server, build, test)
+            Interactive terminals connected to build worker (dev-server, build,
+            test)
           </p>
         </div>
         <div className="flex gap-2 items-center">

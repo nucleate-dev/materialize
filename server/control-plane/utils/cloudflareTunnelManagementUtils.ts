@@ -77,7 +77,7 @@ export async function createCloudflareTunnelForContainer(
             ingress: [
               {
                 hostname,
-                // path: '/terminal/*/ws',
+                path: '/terminal/ws/*',
                 service: 'http://localhost:3002',
                 originRequest: {}, // optional; can add timeouts, headers, etc.
               },

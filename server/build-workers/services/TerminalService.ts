@@ -167,7 +167,7 @@ export class TerminalService {
 
     // WebSocket /terminal/:sessionId/ws - WebSocket connection
     this.fastifyApp.get(
-      "/terminal/:sessionId/ws",
+      "/terminal/ws/:sessionId",
       { websocket: true },
       this.handleWebSocketConnection.bind(this),
     );
