@@ -170,6 +170,12 @@ export default function Terminal({
       const instance = terminalInstancesMap.current.get(session);
       if (!instance) return;
 
+      // Skip if already connected
+      if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
+        console.log(`[Terminal:${session}] WebSocket already connected, skipping`);
+        return;
+      }
+
       // Construct the full WebSocket URL for this session
       const sessionPath = TERMINAL_SESSION_PATHS[session];
       const fullTerminalUrl = terminalUrl.endsWith('/')
@@ -185,9 +191,6 @@ export default function Terminal({
       ws.onopen = () => {
         console.log(`[Terminal:${session}] WebSocket connection opened successfully`);
         instance.isConnected = true;
-        if (onConnectionChange && session === activeSession) {
-          onConnectionChange(true);
-        }
         instance.xterm.writeln("\x1b[1;32m✓ Connected to dev server\x1b[0m");
         instance.xterm.writeln("");
 
@@ -243,9 +246,6 @@ export default function Terminal({
           wasClean: event.wasClean,
         });
         instance.isConnected = false;
-        if (onConnectionChange && session === activeSession) {
-          onConnectionChange(false);
-        }
         instance.xterm.writeln("\r\n\x1b[31mConnection closed\x1b[0m");
       };
 
@@ -262,7 +262,7 @@ export default function Terminal({
     return () => {
       cleanupFunctions.forEach((cleanup) => cleanup());
     };
-  }, [terminalUrl, activeSession, onConnectionChange]);
+  }, [terminalUrl]);
 
   return (
     <div className={`w-full h-full flex flex-col ${className}`}>
