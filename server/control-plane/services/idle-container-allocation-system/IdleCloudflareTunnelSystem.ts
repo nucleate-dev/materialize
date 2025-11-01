@@ -5,17 +5,21 @@ import {
   deleteCloudflareTunnel,
 } from '../../utils/cloudflareTunnelManagementUtils.js';
 import { v4 as uuidv4 } from 'uuid';
+import type { Database } from '../../types/supabase.js';
 
 const MAX_IDLE_TUNNELS: number = 3;
 
-export class IdleContainerAllocationSystemService {
+export type CloudflareTunnel =
+  Database['public']['Tables']['cloudflare_tunnels']['Row'];
+
+export class IdleCloudflareTunnelSystem {
   private readonly log2: SystemLogger;
   private maintenanceTimer?: NodeJS.Timeout;
-  private supabase: SupabaseClient;
+  private supabase: SupabaseClient<Database>;
 
   constructor(opts: { log2: SystemLogger }) {
     this.log2 = opts.log2.child({
-      route: 'IdleContainerAllocationSystemService',
+      route: 'IdleContainerAllocationSystem',
     });
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -100,7 +104,7 @@ export class IdleContainerAllocationSystemService {
               await deleteCloudflareTunnel(
                 tunnel.tunnel_id,
                 this.log2,
-                tunnel.hostname,
+                tunnel.hostname || undefined,
               );
             }
           } catch (error) {
@@ -116,6 +120,10 @@ export class IdleContainerAllocationSystemService {
   /** Launch one idle tunnel and hostname */
   private async launchIdleTunnelAndHostname(): Promise<void> {
     // 1. Immediately add a placeholder entry in supabase idle pool with status 'creating'
+    this.log2.consoleLogDevOnly(
+      'info',
+      '[launchIdleTunnelAndHostname] Creating placeholder entry for idle tunnel',
+    );
     const { data: placeholderEntry, error: insertError } = await this.supabase
       .from('cloudflare_tunnels')
       .insert({ status: 'creating' })
@@ -131,11 +139,19 @@ export class IdleContainerAllocationSystemService {
     }
 
     try {
+      this.log2.consoleLogDevOnly(
+        'info',
+        '[launchIdleTunnelAndHostname]Creating new tunnel and hostname in cloudflare',
+      );
       // 2. Create a new tunnel and hostname in cloudflare using the cloudflareTunnelManagementUtils.ts
       const { tunnelId, token, hostname, cnameTarget } =
         await createCloudflareTunnelForContainer(uuidv4(), this.log2);
 
       // 3. Update all the tunnel information in the supabase idle pool (tunnel_id, hostname, token, DNS, etc.) and set status to 'idle'
+      this.log2.consoleLogDevOnly(
+        'info',
+        '[launchIdleTunnelAndHostname] supabase idle pool with tunnel information',
+      );
       const { error: updateError } = await this.supabase
         .from('cloudflare_tunnels')
         .update({
@@ -181,7 +197,7 @@ export class IdleContainerAllocationSystemService {
 
   public async retrieveIdleTunnelForAllocation(
     prototypeId: string,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<CloudflareTunnel> {
     // 1. Try to retrieve the oldest idle tunnel and hostname from the supabase idle pool with status 'idle'
     const { data, error } = await this.supabase
       .from('cloudflare_tunnels')
@@ -190,15 +206,12 @@ export class IdleContainerAllocationSystemService {
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (error) {
-      this.log2.error(error, 'Failed to retrieve idle tunnel and hostname');
-      throw error;
-    }
-    if (!data) {
-      this.log2.info('No idle tunnels found, falling back to direct launch');
-      throw new Error(
-        'Direct launch of cloudflare tunnelsis not implemented or supported yet',
+    if (error || !data) {
+      this.log2.error(
+        error,
+        '[retrieveIdleTunnelForAllocation] Failed to retrieve idle tunnel and hostname',
       );
+      throw error;
     }
 
     // 2. We have an idle tunnel and hostname. Set supabase status to 'allocated' and prototype_id to the given prototypeId
@@ -207,9 +220,12 @@ export class IdleContainerAllocationSystemService {
       .update({ status: 'allocated', prototype_id: prototypeId })
       .eq('id', data.id)
       .select('*')
-      .maybeSingle();
+      .single();
     if (updateError) {
-      this.log2.error(updateError, 'Failed to update idle tunnel and hostname');
+      this.log2.error(
+        updateError,
+        '[retrieveIdleTunnelForAllocation] Failed to update idle tunnel and hostname',
+      );
       throw updateError;
     }
 

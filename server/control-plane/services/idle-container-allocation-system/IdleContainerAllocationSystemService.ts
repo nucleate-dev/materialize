@@ -22,7 +22,7 @@ import {
   PublicAllocateResponse,
 } from '../../types/BuildWorkerTypes.js';
 import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
-import { createCloudflareTunnelForContainer } from '../../utils/cloudflareTunnelManagementUtils.js';
+import { IdleCloudflareTunnelSystem } from './IdleCloudflareTunnelSystem.js';
 
 const MAX_IDLE_FARGATE_BUILDS: number = 0;
 
@@ -31,6 +31,7 @@ export class IdleContainerAllocationSystemService {
   private readonly ecsClient: ECSClient;
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
+  private readonly cloudflareTunnelSystem: IdleCloudflareTunnelSystem;
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
@@ -44,6 +45,9 @@ export class IdleContainerAllocationSystemService {
     this.stsClient = opts.stsClient;
     this.log2 = opts.log2.child({
       route: 'IdleContainerAllocationSystemService',
+    });
+    this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
+      log2: this.log2,
     });
     this.init();
   }
@@ -523,13 +527,7 @@ export class IdleContainerAllocationSystemService {
           DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
         }),
       ),
-      createCloudflareTunnelForContainer(
-        prototypeId +
-          '-' +
-          info.taskArn.substring(22, 31) +
-          Math.random().toString(36).slice(2, 10),
-        this.log2,
-      ),
+      this.cloudflareTunnelSystem.retrieveIdleTunnelForAllocation(prototypeId),
     ]);
 
     if (!out.Credentials) throw new Error('Failed to assume role');
@@ -539,16 +537,16 @@ export class IdleContainerAllocationSystemService {
       'debug',
       'updating cache with cloudflare tunnel final Tunnel config',
       {
-        tunnelId: tunnelConfig.tunnelId,
+        tunnelId: tunnelConfig.tunnel_id,
         hostname: tunnelConfig.hostname,
-        cnameTarget: tunnelConfig.cnameTarget,
+        cnameTarget: tunnelConfig.cname_target,
       },
     );
     const tunnelHostnameWithProtocol = `https://${tunnelConfig.hostname}`;
     await updateBuildTunnelInfo(
       this.cache,
       activeBuildKey,
-      tunnelConfig.tunnelId,
+      tunnelConfig.tunnel_id || '',
       tunnelHostnameWithProtocol,
     );
 
@@ -558,7 +556,7 @@ export class IdleContainerAllocationSystemService {
       sessionToken: out.Credentials.SessionToken!,
       prototypeId,
       userId: userId || 'unknown',
-      cloudflare_tunnel_token: tunnelConfig.token,
+      cloudflare_tunnel_token: tunnelConfig.token || '',
     };
 
     // Send creds to worker
@@ -586,7 +584,7 @@ export class IdleContainerAllocationSystemService {
       throw error;
     }
     return {
-      terminalTunnelId: tunnelConfig.tunnelId,
+      terminalTunnelId: tunnelConfig.tunnel_id || '',
       terminalTunnelHostname: tunnelHostnameWithProtocol,
     };
   }

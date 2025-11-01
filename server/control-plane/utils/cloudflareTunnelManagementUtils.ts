@@ -10,8 +10,7 @@ type CfResp<T> = {
 };
 
 export async function createCloudflareTunnelForContainer(
-  prototypeId: string,
-  taskArn: string,
+  tunnelName: string,
   log2: SystemLogger,
 ): Promise<{
   tunnelId: string;
@@ -37,7 +36,7 @@ export async function createCloudflareTunnelForContainer(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: prototypeId + '-' + taskArn.substring(22, 31) + sub,
+          name: tunnelName,
           config_src: 'cloudflare', // remote-config managed via API
         }),
       },
