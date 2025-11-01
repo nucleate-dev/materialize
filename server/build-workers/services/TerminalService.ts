@@ -789,7 +789,9 @@ export class TerminalService {
     req: FastifyRequest,
   ): void {
     const { sessionId } = req.params as { sessionId: string };
-
+    this.logger.info("handleWebSocketConnection", {
+      sessionId,
+    });
     // Attach the WebSocket to the session
     // This handles sending existing buffer, status, and setting up event listeners
     this.attachWebSocket(sessionId, socket, {
