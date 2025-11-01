@@ -220,7 +220,7 @@ export class ExpoDevServerService {
       const buildWarnings: CodeWarning[] = [];
 
       // Handle file scope (fixed path per instance)
-      const projectDir = path.join(this.workDir, "project");
+      const projectDir = this.workDir;
 
       if (file_scope === "complete") {
         // Remove existing directory if it exists
@@ -967,7 +967,7 @@ export class ExpoDevServerService {
       this.state.prototypeId = resolvedPrototypeId;
     }
     // Use the fixed project directory created by the dev server
-    const buildDir = path.join(this.workDir, "project");
+    const buildDir = this.workDir;
 
     try {
       // Check if project directory exists

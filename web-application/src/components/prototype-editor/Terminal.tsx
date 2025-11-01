@@ -12,7 +12,28 @@ interface TerminalProps {
   onConnectionChange?: (connected: boolean) => void;
 }
 
-const POSSIBLE_TERMINAL_SESSIONS = ["build", "run", "test"];
+type TerminalSession = "build" | "run" | "test";
+
+const TERMINAL_SESSIONS: TerminalSession[] = ["build", "run", "test"];
+
+const TERMINAL_SESSION_PATHS: Record<TerminalSession, string> = {
+  build: "/terminal/ws/build",
+  run: "/terminal/ws/run",
+  test: "/terminal/ws/test",
+};
+
+const TERMINAL_SESSION_LABELS: Record<TerminalSession, string> = {
+  build: "Build",
+  run: "Run",
+  test: "Test",
+};
+
+interface TerminalInstanceState {
+  xterm: XTerm;
+  fitAddon: FitAddon;
+  ws: WebSocket | null;
+  isConnected: boolean;
+}
 
 export default function Terminal({
   className = "",
@@ -20,236 +41,277 @@ export default function Terminal({
   onResize,
   onConnectionChange
 }: TerminalProps) {
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<XTerm | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [activeSession, setActiveSession] = useState<TerminalSession>("run");
+  const terminalRefsMap = useRef<Map<TerminalSession, HTMLDivElement>>(new Map());
+  const terminalInstancesMap = useRef<Map<TerminalSession, TerminalInstanceState>>(new Map());
 
+  // Initialize terminal instances for each session
   useEffect(() => {
-    if (!terminalRef.current) return;
+    TERMINAL_SESSIONS.forEach((session) => {
+      const container = terminalRefsMap.current.get(session);
+      if (!container || terminalInstancesMap.current.has(session)) return;
 
-    // Initialize xterm
-    const terminal = new XTerm({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      theme: {
-        background: "#0a0a0a",
-        foreground: "#d4d4d4",
-        cursor: "#d4d4d4",
-        black: "#000000",
-        red: "#cd3131",
-        green: "#0dbc79",
-        yellow: "#e5e510",
-        blue: "#2472c8",
-        magenta: "#bc3fbc",
-        cyan: "#11a8cd",
-        white: "#e5e5e5",
-        brightBlack: "#666666",
-        brightRed: "#f14c4c",
-        brightGreen: "#23d18b",
-        brightYellow: "#f5f543",
-        brightBlue: "#3b8eea",
-        brightMagenta: "#d670d6",
-        brightCyan: "#29b8db",
-        brightWhite: "#e5e5e5",
-      },
-      scrollback: 1000,
-      allowProposedApi: true,
+      // Initialize xterm
+      const terminal = new XTerm({
+        cursorBlink: true,
+        fontSize: 13,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: {
+          background: "#0a0a0a",
+          foreground: "#d4d4d4",
+          cursor: "#d4d4d4",
+          black: "#000000",
+          red: "#cd3131",
+          green: "#0dbc79",
+          yellow: "#e5e510",
+          blue: "#2472c8",
+          magenta: "#bc3fbc",
+          cyan: "#11a8cd",
+          white: "#e5e5e5",
+          brightBlack: "#666666",
+          brightRed: "#f14c4c",
+          brightGreen: "#23d18b",
+          brightYellow: "#f5f543",
+          brightBlue: "#3b8eea",
+          brightMagenta: "#d670d6",
+          brightCyan: "#29b8db",
+          brightWhite: "#e5e5e5",
+        },
+        scrollback: 1000,
+        allowProposedApi: true,
+      });
+
+      // Initialize fit addon
+      const fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+
+      // Open terminal in container
+      terminal.open(container);
+
+      // Store instance
+      terminalInstancesMap.current.set(session, {
+        xterm: terminal,
+        fitAddon,
+        ws: null,
+        isConnected: false,
+      });
+
+      // Fit terminal to container
+      setTimeout(() => {
+        try {
+          fitAddon.fit();
+          if (onResize) {
+            onResize(terminal.cols, terminal.rows);
+          }
+        } catch (error) {
+          console.error(`[Terminal:${session}] Error during initial fit:`, error);
+        }
+      }, 0);
+
+      // Welcome message
+      terminal.writeln("\x1b[1;32m┌─────────────────────────────────────────┐\x1b[0m");
+      terminal.writeln(`\x1b[1;32m│  \x1b[1;37mMaterialize Terminal - ${TERMINAL_SESSION_LABELS[session]}\x1b[1;32m${" ".repeat(Math.max(0, 13 - TERMINAL_SESSION_LABELS[session].length))}│\x1b[0m`);
+      terminal.writeln("\x1b[1;32m└─────────────────────────────────────────┘\x1b[0m");
+      terminal.writeln("");
+      terminal.writeln("");
     });
 
-    // Initialize fit addon
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-
-    // Open terminal in container
-    terminal.open(terminalRef.current);
-
-    // Store references before using them
-    xtermRef.current = terminal;
-    fitAddonRef.current = fitAddon;
-
-    // Fit terminal to container after a brief delay to ensure DOM is ready
-    setTimeout(() => {
-      try {
-        if (fitAddonRef.current && xtermRef.current) {
-          fitAddonRef.current.fit();
-
-          // Notify parent of terminal size
-          if (onResize) {
-            onResize(xtermRef.current.cols, xtermRef.current.rows);
-          }
-        }
-      } catch (error) {
-        console.error("[Terminal] Error during initial fit:", error);
-      }
-    }, 0);
-
-    // Welcome message
-    terminal.writeln("\x1b[1;32m┌─────────────────────────────────────────┐\x1b[0m");
-    terminal.writeln("\x1b[1;32m│  \x1b[1;37mMaterialize Terminal\x1b[1;32m                 │\x1b[0m");
-    terminal.writeln("\x1b[1;32m└─────────────────────────────────────────┘\x1b[0m");
-    terminal.writeln("");
-
-    if (!terminalUrl) {
-      terminal.writeln("\x1b[2mWaiting for dev server connection...\x1b[0m");
-    } else {
-      terminal.writeln("\x1b[2mConnecting to dev server...\x1b[0m");
-    }
-    terminal.writeln("");
-
-    // Track if component is mounted
-    let isMounted = true;
-
-    // Handle resize events
-    const handleResize = () => {
-      if (!isMounted) return;
-
-      try {
-        if (fitAddonRef.current && xtermRef.current) {
-          fitAddonRef.current.fit();
-          if (onResize) {
-            onResize(xtermRef.current.cols, xtermRef.current.rows);
-          }
-        }
-      } catch (error) {
-        console.error("[Terminal] Error during resize:", error);
-      }
-    };
-
-    // Use ResizeObserver for better resize detection
-    const resizeObserver = new ResizeObserver(() => {
-      handleResize();
-    });
-
-    if (terminalRef.current) {
-      resizeObserver.observe(terminalRef.current);
-    }
-
-    // Cleanup
+    // Cleanup function
     return () => {
-      isMounted = false;
-      resizeObserver.disconnect();
-
-      // Clear refs before disposing to prevent race conditions
-      const termToDispose = xtermRef.current;
-      xtermRef.current = null;
-      fitAddonRef.current = null;
-
-      if (termToDispose) {
-        termToDispose.dispose();
-      }
+      terminalInstancesMap.current.forEach((instance, session) => {
+        if (instance.ws) {
+          instance.ws.close();
+        }
+        instance.xterm.dispose();
+      });
+      terminalInstancesMap.current.clear();
     };
   }, [onResize, terminalUrl]);
 
-  // WebSocket connection management
+  // Handle resize for all terminals
   useEffect(() => {
-    if (!terminalUrl || !xtermRef.current) {
-      console.log("[Terminal] WebSocket connection skipped:", {
-        terminalUrl,
-        hasXterm: !!xtermRef.current,
-      });
+    const resizeObservers: ResizeObserver[] = [];
+
+    terminalRefsMap.current.forEach((container, session) => {
+      const instance = terminalInstancesMap.current.get(session);
+      if (!instance) return;
+
+      const handleResize = () => {
+        try {
+          instance.fitAddon.fit();
+          if (onResize) {
+            onResize(instance.xterm.cols, instance.xterm.rows);
+          }
+        } catch (error) {
+          console.error(`[Terminal:${session}] Error during resize:`, error);
+        }
+      };
+
+      const resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(container);
+      resizeObservers.push(resizeObserver);
+    });
+
+    return () => {
+      resizeObservers.forEach((observer) => observer.disconnect());
+    };
+  }, [onResize]);
+
+  // WebSocket connection management for each session
+  useEffect(() => {
+    if (!terminalUrl) {
+      console.log("[Terminal] WebSocket connection skipped - no terminal URL");
       return;
     }
 
-    // Construct the full WebSocket URL with the terminal path
-    // The backend provides a base URL like "wss://aww8wavh.terminals.materializeui.com"
-    // We need to append "/terminal/ws/run" to connect to the actual WebSocket endpoint
-    const fullTerminalUrl = terminalUrl.endsWith('/')
-      ? `${terminalUrl}terminal/ws/run`
-      : `${terminalUrl}/terminal/ws/run`;
+    const cleanupFunctions: (() => void)[] = [];
 
-    console.log("[Terminal] Attempting WebSocket connection to:", fullTerminalUrl);
-    const terminal = xtermRef.current;
+    TERMINAL_SESSIONS.forEach((session) => {
+      const instance = terminalInstancesMap.current.get(session);
+      if (!instance) return;
 
-    // Create WebSocket connection
-    const ws = new WebSocket(fullTerminalUrl);
-    wsRef.current = ws;
+      // Construct the full WebSocket URL for this session
+      const sessionPath = TERMINAL_SESSION_PATHS[session];
+      const fullTerminalUrl = terminalUrl.endsWith('/')
+        ? `${terminalUrl}${sessionPath.slice(1)}`
+        : `${terminalUrl}${sessionPath}`;
 
-    ws.onopen = () => {
-      console.log("[Terminal] WebSocket connection opened successfully");
-      setIsConnected(true);
-      if (onConnectionChange) {
-        onConnectionChange(true);
-      }
-      terminal.writeln("\x1b[1;32m✓ Connected to dev server\x1b[0m");
-      terminal.writeln("");
-    };
+      console.log(`[Terminal:${session}] Attempting WebSocket connection to:`, fullTerminalUrl);
 
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log("[Terminal] Received message:", message);
+      // Create WebSocket connection
+      const ws = new WebSocket(fullTerminalUrl);
+      instance.ws = ws;
 
-        if (message.event === "output" && message.data?.chunk) {
-          terminal.write(message.data.chunk);
-        } else if (message.event === "exit") {
-          console.log("[Terminal] Process exited with code:", message.data?.exitCode);
-          terminal.writeln(
-            `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
-          );
-        } else if (message.event === "error") {
-          console.error("[Terminal] Terminal error:", message.data?.error);
-          terminal.writeln(
-            `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"}\x1b[0m`
-          );
+      ws.onopen = () => {
+        console.log(`[Terminal:${session}] WebSocket connection opened successfully`);
+        instance.isConnected = true;
+        if (onConnectionChange && session === activeSession) {
+          onConnectionChange(true);
         }
-      } catch (err) {
-        console.error("[Terminal] Failed to parse WebSocket message:", err, "Raw data:", event.data);
-        // Fallback: treat as raw data
-        terminal.write(event.data);
-      }
-    };
+        instance.xterm.writeln("\x1b[1;32m✓ Connected to dev server\x1b[0m");
+        instance.xterm.writeln("");
 
-    ws.onerror = (error) => {
-      console.error("[Terminal] WebSocket error occurred:", error);
-      terminal.writeln("\x1b[1;31m✗ WebSocket error occurred\x1b[0m");
-    };
+        // Handle terminal input (send to WebSocket) - set up AFTER connection is open
+        instance.xterm.onData((data) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            const message = {
+              type: "input",
+              data: data,
+            };
+            console.log(`[Terminal:${session}] Sending input:`, message);
+            ws.send(JSON.stringify(message));
+          } else {
+            console.warn(`[Terminal:${session}] Cannot send input - WebSocket not open. State:`, ws.readyState);
+          }
+        });
+      };
 
-    ws.onclose = (event) => {
-      console.log("[Terminal] WebSocket connection closed:", {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log(`[Terminal:${session}] Received message:`, message);
+
+          if (message.event === "output" && message.data?.chunk) {
+            instance.xterm.write(message.data.chunk);
+          } else if (message.event === "exit") {
+            console.log(`[Terminal:${session}] Process exited with code:`, message.data?.exitCode);
+            instance.xterm.writeln(
+              `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
+            );
+          } else if (message.event === "error") {
+            console.error(`[Terminal:${session}] Terminal error:`, message.data?.error);
+            instance.xterm.writeln(
+              `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"}\x1b[0m`
+            );
+          }
+        } catch (err) {
+          console.error(`[Terminal:${session}] Failed to parse WebSocket message:`, err, "Raw data:", event.data);
+          // Fallback: treat as raw data
+          instance.xterm.write(event.data);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error(`[Terminal:${session}] WebSocket error occurred:`, error);
+        instance.xterm.writeln("\x1b[1;31m✗ WebSocket error occurred\x1b[0m");
+      };
+
+      ws.onclose = (event) => {
+        console.log(`[Terminal:${session}] WebSocket connection closed:`, {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+        instance.isConnected = false;
+        if (onConnectionChange && session === activeSession) {
+          onConnectionChange(false);
+        }
+        instance.xterm.writeln("\r\n\x1b[31mConnection closed\x1b[0m");
+      };
+
+      // Store cleanup function
+      cleanupFunctions.push(() => {
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+        instance.ws = null;
       });
-      setIsConnected(false);
-      if (onConnectionChange) {
-        onConnectionChange(false);
-      }
-      terminal.writeln("");
-      terminal.writeln("\x1b[1;33m⚠ Connection closed\x1b[0m");
-    };
-
-    // Handle terminal input (send to WebSocket)
-    const disposable = terminal.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        const message = {
-          type: "input",
-          data: data,
-        };
-        console.log("[Terminal] Sending input:", message);
-        ws.send(JSON.stringify(message));
-      } else {
-        console.warn("[Terminal] Cannot send input - WebSocket not open. State:", ws.readyState);
-      }
     });
 
-    // Cleanup
+    // Cleanup all connections
     return () => {
-      disposable.dispose();
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
-      }
-      wsRef.current = null;
+      cleanupFunctions.forEach((cleanup) => cleanup());
     };
-  }, [terminalUrl, onConnectionChange]);
+  }, [terminalUrl, activeSession, onConnectionChange]);
 
   return (
-    <div
-      ref={terminalRef}
-      className={`w-full h-full bg-[#0a0a0a] rounded-md overflow-hidden ${className}`}
-    />
+    <div className={`w-full h-full flex flex-col ${className}`}>
+      {/* Tab Navigation */}
+      <div className="flex border-b border-border bg-[#1a1a1a]">
+        {TERMINAL_SESSIONS.map((session) => {
+          const instance = terminalInstancesMap.current.get(session);
+          const isConnected = instance?.isConnected || false;
+
+          return (
+            <button
+              key={session}
+              onClick={() => setActiveSession(session)}
+              className={`
+                px-4 py-2 text-sm font-medium transition-colors relative
+                ${activeSession === session
+                  ? "text-foreground bg-[#0a0a0a] border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-[#0a0a0a]/50"
+                }
+              `}
+            >
+              <div className="flex items-center gap-2">
+                {TERMINAL_SESSION_LABELS[session]}
+                {/* Connection indicator */}
+                <div
+                  className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-500"
+                    }`}
+                  title={isConnected ? "Connected" : "Disconnected"}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Terminal Containers */}
+      <div className="flex-1 relative">
+        {TERMINAL_SESSIONS.map((session) => (
+          <div
+            key={session}
+            ref={(el) => {
+              if (el) terminalRefsMap.current.set(session, el);
+            }}
+            className={`w-full h-full bg-[#0a0a0a] overflow-hidden absolute inset-0 ${activeSession === session ? "block" : "hidden"
+              }`}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

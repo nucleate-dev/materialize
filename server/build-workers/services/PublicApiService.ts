@@ -31,9 +31,9 @@ import {
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
+import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
-import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -382,7 +382,7 @@ export class PublicApiService {
    *
    * The handler intentionally:
    *   1. Validates that the caller specified both the prototype id and framework.
-   *   2. Reads the worker's "project" directory to confirm the dev server has hydrated files.
+   *   2. Reads the worker's directory to confirm the dev server has hydrated files.
    *   3. Invokes ExpoDevServerService.buildAndDeployProjectCore with the caller-provided prototype id
    *      (rather than relying on mutable worker state) so the build uploads to the expected S3 prefix.
    *   4. Parses the build log for structured errors/warnings that align with the public API schema.
@@ -419,7 +419,7 @@ export class PublicApiService {
       let version: string | undefined;
 
       // Check if project directory exists and read files from disk (fixed path)
-      const projectDir = path.join(this.workDir, "project");
+      const projectDir = this.workDir;
 
       try {
         await fs.stat(projectDir);
@@ -619,7 +619,7 @@ export class PublicApiService {
 
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
-      const projectDir = path.join(this.workDir, "project");
+      const projectDir = this.workDir;
       try {
         // Read all files from the project directory
         const { files } = await this.readAllFilesFromDirectory(projectDir);
