@@ -855,6 +855,163 @@ const MaterializeRenderSection = forwardRef<
 
     return (
       <div className="flex flex-col h-full bg-background">
+        {/* Compact Responsive Toolbar */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            {/* Left: Connection Status */}
+            <div className="flex-shrink-0">
+              <ConnectionStatusIndicator />
+            </div>
+
+            {/* Right: Action Buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Design System Button - Hidden on very small screens */}
+              {designSystemLabel && onDesignSystemClick && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onDesignSystemClick}
+                  className="hidden sm:flex"
+                >
+                  <Badge variant="outline" className="border-0 px-0">
+                    {designSystemLabel}
+                  </Badge>
+                </Button>
+              )}
+
+              {/* Terminal Toggle Button */}
+              <Button
+                variant={isTerminalOpen ? "default" : "secondary"}
+                size="sm"
+                onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                className="flex-shrink-0"
+                title="Toggle Terminal"
+              >
+                <TerminalIcon className="w-4 h-4" />
+                <span className="ml-1.5 hidden md:inline">Terminal</span>
+              </Button>
+
+              {/* Settings Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-shrink-0"
+                    title="Settings"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="ml-1.5 hidden md:inline">Settings</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() => handleModeChange("mobile")}
+                    className={previewMode === "mobile" ? "bg-accent" : ""}
+                  >
+                    <Smartphone className="w-4 h-4 mr-2" />
+                    Mobile View
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleModeChange("web")}
+                    className={previewMode === "web" ? "bg-accent" : ""}
+                  >
+                    <Monitor className="w-4 h-4 mr-2" />
+                    Web View
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {/* Design System option for small screens */}
+                  {designSystemLabel && onDesignSystemClick && (
+                    <>
+                      <DropdownMenuItem onClick={onDesignSystemClick} className="sm:hidden">
+                        <Badge variant="outline" className="border-0 px-0 mr-2">
+                          {designSystemLabel}
+                        </Badge>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="sm:hidden" />
+                    </>
+                  )}
+                  {prototypeId && files && (
+                    <DropdownMenuItem
+                      onClick={handleStartDevServer}
+                      disabled={
+                        currentRenderStatus === "Connected" ||
+                        currentRenderStatus === "Starting Dev Server.." ||
+                        currentRenderStatus === "Connecting.." ||
+                        !prototypeId ||
+                        !files
+                      }
+                    >
+                      {currentRenderStatus === "Starting Dev Server.." ||
+                      currentRenderStatus === "Connecting.." ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-2" />
+                      )}
+                      {currentRenderStatus === "Starting Dev Server.." ||
+                      currentRenderStatus === "Connecting.."
+                        ? "Starting..."
+                        : "Start Dev Server"}
+                    </DropdownMenuItem>
+                  )}
+                  {prototypeId && (
+                    <DropdownMenuItem
+                      onClick={handleRestartDevServer}
+                      disabled={!prototypeId || isRestartingDevServer}
+                    >
+                      {isRestartingDevServer ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      {isRestartingDevServer ? "Restarting..." : "Restart Server"}
+                    </DropdownMenuItem>
+                  )}
+                  {prototypeId && currentRenderStatus === "Connected" && (
+                    <DropdownMenuItem
+                      onClick={handleRunLint}
+                      disabled={!prototypeId || isRunningLint}
+                    >
+                      {isRunningLint ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Settings className="w-4 h-4 mr-2" />
+                      )}
+                      {isRunningLint ? "Running Lint..." : "Run Lint"}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={handleRefresh}
+                    disabled={!viewing_url}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Preview
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                  >
+                    <TerminalIcon className="w-4 h-4 mr-2" />
+                    {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
+                  </DropdownMenuItem>
+                  {onResetToDefault && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={onResetToDefault}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Reset to Default
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
         {/* Preview */}
         <div
           className="relative flex items-center justify-center bg-background p-8"
@@ -863,142 +1020,7 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? 'none' : 'height 0.2s ease-in-out'
           }}
         >
-          {/* Floating Connection Status Indicator */}
-          <div className="absolute top-4 left-4 z-10">
-            <ConnectionStatusIndicator />
-          </div>
-
-          {/* Floating Options Button */}
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-            {/* Design System Pill */}
-            {designSystemLabel && onDesignSystemClick && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={onDesignSystemClick}
-                className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
-              >
-                <Badge variant="outline" className="border-0 px-0">
-                  {designSystemLabel}
-                </Badge>
-              </Button>
-            )}
-
-            {/* Terminal Toggle Button */}
-            <Button
-              variant={isTerminalOpen ? "default" : "secondary"}
-              size="sm"
-              onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-              className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
-            >
-              <TerminalIcon className="w-4 h-4" />
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={() => handleModeChange("mobile")}
-                  className={previewMode === "mobile" ? "bg-accent" : ""}
-                >
-                  <Smartphone className="w-4 h-4 mr-2" />
-                  Mobile View
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleModeChange("web")}
-                  className={previewMode === "web" ? "bg-accent" : ""}
-                >
-                  <Monitor className="w-4 h-4 mr-2" />
-                  Web View
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {prototypeId && files && (
-                  <DropdownMenuItem
-                    onClick={handleStartDevServer}
-                    disabled={
-                      currentRenderStatus === "Connected" ||
-                      currentRenderStatus === "Starting Dev Server.." ||
-                      currentRenderStatus === "Connecting.." ||
-                      !prototypeId ||
-                      !files
-                    }
-                  >
-                    {currentRenderStatus === "Starting Dev Server.." ||
-                    currentRenderStatus === "Connecting.." ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Play className="w-4 h-4 mr-2" />
-                    )}
-                    {currentRenderStatus === "Starting Dev Server.." ||
-                    currentRenderStatus === "Connecting.."
-                      ? "Starting..."
-                      : "Start Dev Server"}
-                  </DropdownMenuItem>
-                )}
-                {prototypeId && (
-                  <DropdownMenuItem
-                    onClick={handleRestartDevServer}
-                    disabled={!prototypeId || isRestartingDevServer}
-                  >
-                    {isRestartingDevServer ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                    )}
-                    {isRestartingDevServer ? "Restarting..." : "Restart Server"}
-                  </DropdownMenuItem>
-                )}
-                {prototypeId && currentRenderStatus === "Connected" && (
-                  <DropdownMenuItem
-                    onClick={handleRunLint}
-                    disabled={!prototypeId || isRunningLint}
-                  >
-                    {isRunningLint ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Settings className="w-4 h-4 mr-2" />
-                    )}
-                    {isRunningLint ? "Running Lint..." : "Run Lint"}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={handleRefresh}
-                  disabled={!viewing_url}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh Preview
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                >
-                  <TerminalIcon className="w-4 h-4 mr-2" />
-                  {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
-                </DropdownMenuItem>
-                {onResetToDefault && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={onResetToDefault}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Reset to Default
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
+          {/* Add Screen button - positioned relative to mobile preview */}
           {previewMode === "mobile" && viewing_url && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
               <Button
@@ -1007,8 +1029,8 @@ const MaterializeRenderSection = forwardRef<
                 variant="secondary"
                 className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add screen
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add screen</span>
               </Button>
             </div>
           )}
