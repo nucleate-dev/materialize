@@ -3,7 +3,6 @@
 import { supabase } from "@/ClientConstants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
@@ -31,8 +31,9 @@ import {
   ChevronUp,
   Loader2,
   Monitor,
-  Plus,
+  Palette,
   Play,
+  Plus,
   RefreshCw,
   RotateCcw,
   Settings,
@@ -172,7 +173,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
-    const [routeSuggestions, setRouteSuggestions] = useState<Array<{ route: string; group?: string }>>([]);
+    const [routeSuggestions, setRouteSuggestions] = useState<Array<{ route: string; group?: string; }>>([]);
 
     // Terminal state
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -309,7 +310,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -813,7 +814,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -830,7 +831,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
@@ -871,8 +872,9 @@ const MaterializeRenderSection = forwardRef<
                   variant="secondary"
                   size="sm"
                   onClick={onDesignSystemClick}
-                  className="hidden sm:flex"
+                  className="hidden sm:flex items-center gap-2"
                 >
+                  <Palette className="w-4 h-4" />
                   <Badge variant="outline" className="border-0 px-0">
                     {designSystemLabel}
                   </Badge>
@@ -924,7 +926,8 @@ const MaterializeRenderSection = forwardRef<
                   {designSystemLabel && onDesignSystemClick && (
                     <>
                       <DropdownMenuItem onClick={onDesignSystemClick} className="sm:hidden">
-                        <Badge variant="outline" className="border-0 px-0 mr-2">
+                        <Palette className="w-4 h-4 mr-2" />
+                        <Badge variant="outline" className="border-0 px-0">
                           {designSystemLabel}
                         </Badge>
                       </DropdownMenuItem>
@@ -943,13 +946,13 @@ const MaterializeRenderSection = forwardRef<
                       }
                     >
                       {currentRenderStatus === "Starting Dev Server.." ||
-                      currentRenderStatus === "Connecting.." ? (
+                        currentRenderStatus === "Connecting.." ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
                         <Play className="w-4 h-4 mr-2" />
                       )}
                       {currentRenderStatus === "Starting Dev Server.." ||
-                      currentRenderStatus === "Connecting.."
+                        currentRenderStatus === "Connecting.."
                         ? "Starting..."
                         : "Start Dev Server"}
                     </DropdownMenuItem>
@@ -1033,7 +1036,7 @@ const MaterializeRenderSection = forwardRef<
               <div className="min-h-full flex items-center justify-center">
                 {/* Add Screen button - positioned above mobile screens */}
                 {viewing_url && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
                     <Button
                       onClick={handleAddMobileScreen}
                       size="sm"
@@ -1045,7 +1048,7 @@ const MaterializeRenderSection = forwardRef<
                     </Button>
                   </div>
                 )}
-                <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-8 pt-16">
+                <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4">
                   {mobileScreens.map((screen, index) => {
                     const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                     const isPrimaryScreen = index === 0;
@@ -1053,7 +1056,7 @@ const MaterializeRenderSection = forwardRef<
                     return (
                       <div
                         key={`mobile-screen-${screen.id}`}
-                        className="flex flex-col items-center gap-2 pt-8"
+                        className="flex flex-col items-center gap-2 pt-2"
                       >
                         <div
                           className="relative mx-auto select-none"
