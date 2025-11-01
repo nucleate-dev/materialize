@@ -47,17 +47,11 @@ export async function createCloudflareTunnelForContainer(
         `CF create tunnel failed: ${createTunnelResponse.status} ${text}`,
       );
     }
-    const createTunnelResponseJson = (await createTunnelResponse.json()) as CfResp<{
-      id: string;
-      token: string; // present in response per docs
-    }>;
-    log2.consoleLogDevOnly(
-      'debug',
-      'cloudflare tunnel Create tunnel response JSON',
-      {
-        createTunnelResponseJson,
-      },
-    );
+    const createTunnelResponseJson =
+      (await createTunnelResponse.json()) as CfResp<{
+        id: string;
+        token: string; // present in response per docs
+      }>;
     if (!createTunnelResponseJson.success) {
       throw new Error(
         `CF create tunnel not success: ${JSON.stringify(createTunnelResponseJson.errors)}`,
@@ -91,25 +85,11 @@ export async function createCloudflareTunnelForContainer(
         }),
       },
     );
-    log2.consoleLogDevOnly(
-      'debug',
-      'cloudflare tunnel Put tunnel config response',
-      {
-        putCfg,
-      },
-    );
     if (!putCfg.ok) {
       const text = await putCfg.text();
       throw new Error(`CF put tunnel config failed: ${putCfg.status} ${text}`);
     }
     const putJson = await putCfg.json();
-    log2.consoleLogDevOnly(
-      'debug',
-      'cloudflare tunnel Put tunnel config response JSON',
-      {
-        putJson,
-      },
-    );
     if (!putJson.success)
       throw new Error(
         `CF put tunnel config not success: ${JSON.stringify(putJson.errors)}`,
@@ -133,25 +113,16 @@ export async function createCloudflareTunnelForContainer(
         }),
       },
     );
-    log2.consoleLogDevOnly('debug', 'cloudflare tunnel DNS response', {
-      dnsRes,
-    });
     if (!dnsRes.ok) {
       const text = await dnsRes.text();
       throw new Error(`CF create DNS failed: ${dnsRes.status} ${text}`);
     }
     const dnsJson = await dnsRes.json();
-    log2.consoleLogDevOnly(
-      'debug',
-      'cloudflare tunnel DNS response JSON',
-      { dnsJson },
-    );
     if (!dnsJson.success) {
       throw new Error(
         `CF create DNS not success: ${JSON.stringify(dnsJson.errors)}`,
       );
     }
-
     return { tunnelId, token, hostname, cnameTarget };
   } catch (error) {
     // Cleanup: delete the tunnel if it was created

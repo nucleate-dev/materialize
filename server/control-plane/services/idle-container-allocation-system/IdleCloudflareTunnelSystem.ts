@@ -1,5 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
+import {
+  createCloudflareTunnelForContainer,
+  deleteCloudflareTunnel,
+} from '../../utils/cloudflareTunnelManagementUtils.js';
 
 const MAX_IDLE_TUNNELS: number = 1;
 
@@ -58,8 +62,49 @@ export class IdleContainerAllocationSystemService {
       );
 
       // 1. Load #toRemove idle tunnels and hostnames to remove from supabase
+      const { data: tunnelsToRemove, error: fetchError } = await this.supabase
+        .from('cloudflare_tunnels')
+        .select('*')
+        .in('status', ['idle', 'creating'])
+        .order('created_at', { ascending: false })
+        .limit(toRemove);
+
+      if (fetchError) {
+        this.log2.error(fetchError, 'Failed to fetch idle tunnels for cleanup');
+        return;
+      }
+
+      if (!tunnelsToRemove || tunnelsToRemove.length === 0) {
+        this.log2.warn('No idle tunnels found to clean up');
+        return;
+      }
+
       // 2. Concurrently delete the tunnels and hostnames from cloudflare && remove from supabase idle pool
-      await Promise.all([]);
+      await Promise.all(
+        tunnelsToRemove.map(async (tunnel) => {
+          try {
+            // Remove from Supabase
+            const { error: deleteError } = await this.supabase
+              .from('cloudflare_tunnels')
+              .delete()
+              .eq('id', tunnel.id);
+
+            if (deleteError) {
+              this.log2.error(
+                deleteError,
+                `Failed to delete tunnel ${tunnel.id} from database`,
+              );
+              return;
+            }
+            // Delete from Cloudflare if tunnel_id exists
+            if (tunnel.tunnel_id) {
+              await deleteCloudflareTunnel(tunnel.tunnel_id, this.log2);
+            }
+          } catch (error) {
+            this.log2.error(error, `Failed to cleanup tunnel ${tunnel.id}`);
+          }
+        }),
+      );
 
       return;
     }
@@ -68,8 +113,71 @@ export class IdleContainerAllocationSystemService {
   /** Launch one idle tunnel and hostname */
   private async launchIdleTunnelAndHostname(): Promise<void> {
     // 1. Immediately add a placeholder entry in supabase idle pool with status 'creating'
-    // 1. Create a new tunnel and hostname in cloudflare using the cloudflareTunnelManagementUtils.ts
-    // 2. Update all the tunnel information in the supabase idle pool (tunnel_id, hostname, token, DNS, etc.) and set status to 'idle'
+    const { data: placeholderEntry, error: insertError } = await this.supabase
+      .from('cloudflare_tunnels')
+      .insert({ status: 'creating' })
+      .select('*')
+      .single();
+
+    if (insertError) {
+      this.log2.error(
+        insertError,
+        'Failed to create placeholder entry for idle tunnel',
+      );
+      throw insertError || new Error('Failed to create placeholder entry');
+    }
+
+    try {
+      // 2. Create a new tunnel and hostname in cloudflare using the cloudflareTunnelManagementUtils.ts
+      const { tunnelId, token, hostname, cnameTarget } =
+        await createCloudflareTunnelForContainer(
+          'idle-tunnel',
+          `idle-${Date.now()}`,
+          this.log2,
+        );
+
+      // 3. Update all the tunnel information in the supabase idle pool (tunnel_id, hostname, token, DNS, etc.) and set status to 'idle'
+      const { error: updateError } = await this.supabase
+        .from('cloudflare_tunnels')
+        .update({
+          tunnel_id: tunnelId,
+          hostname: hostname,
+          token: token,
+          cname_target: cnameTarget,
+          status: 'idle',
+        })
+        .eq('id', placeholderEntry.id);
+
+      if (updateError) {
+        this.log2.error(
+          updateError,
+          'Failed to update idle tunnel entry with tunnel information',
+        );
+        await deleteCloudflareTunnel(tunnelId, this.log2).catch(
+          (cleanupError) =>
+            this.log2.error(
+              cleanupError,
+              `Failed to cleanup tunnel ${tunnelId} after database update failure`,
+            ),
+        );
+        throw updateError;
+      }
+
+      this.log2.info(
+        'Successfully created replenished idle tunnel and hostname',
+        {
+          tunnelId,
+          hostname,
+        },
+      );
+    } catch (error) {
+      // If anything fails, delete the placeholder entry
+      await this.supabase
+        .from('cloudflare_tunnels')
+        .delete()
+        .eq('id', placeholderEntry.id);
+      throw error;
+    }
   }
 
   public async retrieveIdleTunnelForAllocation(
