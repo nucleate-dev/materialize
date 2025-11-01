@@ -24,7 +24,7 @@ import {
 import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
 import { IdleCloudflareTunnelSystem } from './IdleCloudflareTunnelSystem.js';
 
-const MAX_IDLE_FARGATE_BUILDS: number = 0;
+const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
 export class IdleContainerAllocationSystemService {
   private readonly cache: GlideClient;

@@ -7,7 +7,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import type { Database } from '../../types/supabase.js';
 
-const MAX_IDLE_TUNNELS: number = 3;
+const MAX_IDLE_TUNNELS: number = 20;
 
 export type CloudflareTunnel =
   Database['public']['Tables']['cloudflare_tunnels']['Row'];
