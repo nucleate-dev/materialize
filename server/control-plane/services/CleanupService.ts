@@ -249,7 +249,11 @@ export class CleanupService {
       });
       if (build.terminal_tunnel_id) {
         try {
-          await deleteCloudflareTunnel(build.terminal_tunnel_id, this.log2);
+          await deleteCloudflareTunnel(
+            build.terminal_tunnel_id,
+            this.log2,
+            build.terminal_tunnel_hostname,
+          );
           this.log2.info(
             `Successfully deleted Cloudflare tunnel for build ${buildId}`,
             { tunnelId: build.terminal_tunnel_id },

@@ -98,7 +98,11 @@ export class IdleContainerAllocationSystemService {
             }
             // Delete from Cloudflare if tunnel_id exists
             if (tunnel.tunnel_id) {
-              await deleteCloudflareTunnel(tunnel.tunnel_id, this.log2);
+              await deleteCloudflareTunnel(
+                tunnel.tunnel_id,
+                this.log2,
+                tunnel.hostname,
+              );
             }
           } catch (error) {
             this.log2.error(error, `Failed to cleanup tunnel ${tunnel.id}`);
@@ -153,7 +157,7 @@ export class IdleContainerAllocationSystemService {
           updateError,
           'Failed to update idle tunnel entry with tunnel information',
         );
-        await deleteCloudflareTunnel(tunnelId, this.log2).catch(
+        await deleteCloudflareTunnel(tunnelId, this.log2, hostname).catch(
           (cleanupError) =>
             this.log2.error(
               cleanupError,

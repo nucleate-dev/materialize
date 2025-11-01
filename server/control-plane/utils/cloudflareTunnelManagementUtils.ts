@@ -20,11 +20,12 @@ export async function createCloudflareTunnelForContainer(
   cnameTarget: string; // <tunnelId>.cfargotunnel.com
 }> {
   let tunnelId: string | null = null;
+  let hostname: string | null = null;
 
   try {
     // choose a random subdomain for this task
     const sub = Math.random().toString(36).slice(2, 10);
-    const hostname = `${sub}.terminals.materializeui.com`;
+    hostname = `${sub}.terminals.materializeui.com`;
 
     // 1) Create the tunnel (returns id + token)
     const createTunnelResponse = await fetch(
@@ -130,12 +131,14 @@ export async function createCloudflareTunnelForContainer(
       log2.warn(
         `Cleaning up Cloudflare tunnel ${tunnelId} due to error during setup`,
       );
-      await deleteCloudflareTunnel(tunnelId, log2).catch((cleanupError) => {
-        log2.error(
-          cleanupError,
-          `Failed to cleanup tunnel ${tunnelId} after error`,
-        );
-      });
+      await deleteCloudflareTunnel(tunnelId, log2, hostname ?? undefined).catch(
+        (cleanupError) => {
+          log2.error(
+            cleanupError,
+            `Failed to cleanup tunnel ${tunnelId} after error`,
+          );
+        },
+      );
     }
     throw error;
   }
@@ -144,7 +147,9 @@ export async function createCloudflareTunnelForContainer(
 export async function deleteCloudflareTunnel(
   tunnelId: string,
   log2: SystemLogger,
+  hostname?: string,
 ): Promise<void> {
+  // Delete the tunnel first
   const deleteResponse = await fetch(
     `${CLOUDFLARE_API_URL}/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID!}/cfd_tunnel/${tunnelId}`,
     {
@@ -164,4 +169,60 @@ export async function deleteCloudflareTunnel(
   }
 
   log2.info(`Successfully deleted Cloudflare tunnel ${tunnelId}`);
+
+  // Delete the DNS record if hostname is provided
+  if (hostname) {
+    try {
+      // Find the DNS record ID for this hostname
+      const listDnsResponse = await fetch(
+        `${CLOUDFLARE_API_URL}/zones/${process.env.CLOUDFLARE_ZONE_ID!}/dns_records?name=${hostname}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (listDnsResponse.ok) {
+        const listDnsJson = (await listDnsResponse.json()) as CfResp<
+          Array<{ id: string; name: string }>
+        >;
+
+        if (listDnsJson.success && listDnsJson.result.length > 0) {
+          const recordId = listDnsJson.result[0].id;
+
+          // Delete the DNS record
+          const deleteDnsResponse = await fetch(
+            `${CLOUDFLARE_API_URL}/zones/${process.env.CLOUDFLARE_ZONE_ID!}/dns_records/${recordId}`,
+            {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${process.env.CLOUDFLARE_TUNNELS_API_KEY!}`,
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+
+          if (!deleteDnsResponse.ok) {
+            const text = await deleteDnsResponse.text();
+            log2.warn(
+              `Failed to delete DNS record for ${hostname}: ${deleteDnsResponse.status} ${text}`,
+            );
+          } else {
+            log2.info(`Successfully deleted DNS record for ${hostname}`);
+          }
+        }
+      } else {
+        const text = await listDnsResponse.text();
+        log2.warn(
+          `Failed to list DNS records for ${hostname}: ${listDnsResponse.status} ${text}`,
+        );
+      }
+    } catch (error) {
+      log2.error(error, `Error while deleting DNS record for ${hostname}`);
+      // Don't throw - tunnel is already deleted, DNS cleanup is best-effort
+    }
+  }
 }
