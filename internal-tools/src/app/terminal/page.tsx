@@ -3,6 +3,7 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
@@ -44,6 +45,7 @@ export default function TerminalPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
 
   // Initialize terminals on mount
   useEffect(() => {
@@ -117,11 +119,13 @@ export default function TerminalPage() {
     sessionId: TerminalSessionId,
     xtermRef: React.MutableRefObject<Terminal | null>,
     wsRef: React.MutableRefObject<WebSocket | null>,
-    setStatus: (status: "disconnected" | "connecting" | "connected") => void
+    setStatus: (status: "disconnected" | "connecting" | "connected") => void,
+    baseUrl?: string
   ) => {
     setStatus("connecting");
 
-    const wsUrl = API_BASE_URL.replace(/^http/, "ws");
+    const effectiveBaseUrl = baseUrl || API_BASE_URL;
+    const wsUrl = effectiveBaseUrl.replace(/^http/, "ws");
     const ws = new WebSocket(`${wsUrl}/terminal/${sessionId}/ws`);
     wsRef.current = ws;
 
@@ -179,14 +183,16 @@ export default function TerminalPage() {
     setError(null);
 
     try {
+      const baseUrl = customBaseUrl.trim() || undefined;
+
       // Connect to dev-server terminal
-      connectWebSocket("dev-server", devServerXterm, devServerWs, setDevServerStatus);
+      connectWebSocket("dev-server", devServerXterm, devServerWs, setDevServerStatus, baseUrl);
 
       // Connect to build terminal
-      connectWebSocket("build", buildXterm, buildWs, setBuildStatus);
+      connectWebSocket("build", buildXterm, buildWs, setBuildStatus, baseUrl);
 
       // Connect to test terminal
-      connectWebSocket("test", testXterm, testWs, setTestStatus);
+      connectWebSocket("test", testXterm, testWs, setTestStatus, baseUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to initialize terminals");
     } finally {
@@ -199,7 +205,9 @@ export default function TerminalPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/terminal/create`, {
+      const baseUrl = customBaseUrl.trim() || API_BASE_URL;
+
+      const response = await fetch(`${baseUrl}/terminal/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -214,7 +222,7 @@ export default function TerminalPage() {
 
       if (data.status === "success" && data.session_id) {
         // Connect the new session to the test terminal
-        connectWebSocket(data.session_id as TerminalSessionId, testXterm, testWs, setTestStatus);
+        connectWebSocket(data.session_id as TerminalSessionId, testXterm, testWs, setTestStatus, baseUrl);
       } else {
         setError(data.error || "Failed to create terminal session");
       }
@@ -255,7 +263,14 @@ export default function TerminalPage() {
             Interactive terminals connected to build worker (dev-server, build, test)
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <Input
+            type="text"
+            placeholder={`Base URL (default: ${API_BASE_URL})`}
+            value={customBaseUrl}
+            onChange={(e) => setCustomBaseUrl(e.target.value)}
+            className="w-80"
+          />
           <Button
             onClick={initializeDefaultTerminals}
             disabled={loading || allConnected}
