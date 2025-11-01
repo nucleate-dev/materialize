@@ -4,757 +4,839 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '12.2.3 (519615d)';
-  };
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
       api_usage: {
         Row: {
-          created_at: string | null;
-          id: number;
-          prototype_id: string | null;
-          user_id: string;
-        };
+          created_at: string | null
+          id: number
+          prototype_id: string | null
+          user_id: string
+        }
         Insert: {
-          created_at?: string | null;
-          id?: never;
-          prototype_id?: string | null;
-          user_id: string;
-        };
+          created_at?: string | null
+          id?: never
+          prototype_id?: string | null
+          user_id: string
+        }
         Update: {
-          created_at?: string | null;
-          id?: never;
-          prototype_id?: string | null;
-          user_id?: string;
-        };
+          created_at?: string | null
+          id?: never
+          prototype_id?: string | null
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'api_usage_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "api_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       canvas_documents: {
         Row: {
-          canvas_id: string | null;
-          created_at: string | null;
-          document_data: Json | null;
-          id: string;
-          updated_at: string | null;
-        };
+          canvas_id: string | null
+          created_at: string | null
+          document_data: Json | null
+          id: string
+          updated_at: string | null
+        }
         Insert: {
-          canvas_id?: string | null;
-          created_at?: string | null;
-          document_data?: Json | null;
-          id?: string;
-          updated_at?: string | null;
-        };
+          canvas_id?: string | null
+          created_at?: string | null
+          document_data?: Json | null
+          id?: string
+          updated_at?: string | null
+        }
         Update: {
-          canvas_id?: string | null;
-          created_at?: string | null;
-          document_data?: Json | null;
-          id?: string;
-          updated_at?: string | null;
-        };
+          canvas_id?: string | null
+          created_at?: string | null
+          document_data?: Json | null
+          id?: string
+          updated_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'canvas_documents_canvas_id_fkey';
-            columns: ['canvas_id'];
-            isOneToOne: false;
-            referencedRelation: 'canvases';
-            referencedColumns: ['id'];
+            foreignKeyName: "canvas_documents_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-      design_systems: {
-        Row: {
-          id: number;
-          name: string;
-          description: string | null;
-          owner_id: string;
-          created_at: string;
-          updated_at: string;
-          design_rules: string;
-        };
-        Insert: {
-          id?: never;
-          name: string;
-          description?: string | null;
-          owner_id?: string;
-          created_at?: string;
-          updated_at?: string;
-          design_rules?: string;
-        };
-        Update: {
-          id?: never;
-          name?: string;
-          description?: string | null;
-          owner_id?: string;
-          created_at?: string;
-          updated_at?: string;
-          design_rules?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'design_systems_user_owner_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      design_system_files: {
-        Row: {
-          id: number;
-          created_at: string;
-          file_name: string;
-          file_contents: Json;
-        };
-        Insert: {
-          id?: number;
-          created_at?: string;
-          file_name: string;
-          file_contents: Json;
-        };
-        Update: {
-          id?: number;
-          created_at?: string;
-          file_name?: string;
-          file_contents?: Json;
-        };
-        Relationships: [];
-      };
+        ]
+      }
       canvas_sessions: {
         Row: {
-          canvas_id: string;
-          last_accessed: string;
-          session_data: Json;
-          user_id: string;
-        };
+          canvas_id: string
+          last_accessed: string
+          session_data: Json
+          user_id: string
+        }
         Insert: {
-          canvas_id: string;
-          last_accessed?: string;
-          session_data: Json;
-          user_id: string;
-        };
+          canvas_id: string
+          last_accessed?: string
+          session_data: Json
+          user_id: string
+        }
         Update: {
-          canvas_id?: string;
-          last_accessed?: string;
-          session_data?: Json;
-          user_id?: string;
-        };
+          canvas_id?: string
+          last_accessed?: string
+          session_data?: Json
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: 'canvas_sessions_canvas_id_fkey';
-            columns: ['canvas_id'];
-            isOneToOne: false;
-            referencedRelation: 'canvases';
-            referencedColumns: ['id'];
+            foreignKeyName: "canvas_sessions_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'canvas_sessions_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "canvas_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       canvases: {
         Row: {
-          created_at: string | null;
-          description: string | null;
-          id: string;
-          name: string;
-          owner_id: string;
-          project_id: string | null;
-          thumbnail_url: string | null;
-          updated_at: string | null;
-          visibility: Database['public']['Enums']['visibility_level'] | null;
-        };
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          project_id: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          visibility: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Insert: {
-          created_at?: string | null;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id: string;
-          project_id?: string | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database['public']['Enums']['visibility_level'] | null;
-        };
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id: string
+          project_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Update: {
-          created_at?: string | null;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string;
-          project_id?: string | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database['public']['Enums']['visibility_level'] | null;
-        };
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          project_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'canvases_owner_id_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "canvases_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'canvases_project_id_fkey';
-            columns: ['project_id'];
-            isOneToOne: false;
-            referencedRelation: 'projects';
-            referencedColumns: ['id'];
+            foreignKeyName: "canvases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
+      cloudflare_tunnels: {
+        Row: {
+          cname_target: string | null
+          created_at: string
+          hostname: string | null
+          id: string
+          prototype_id: string | null
+          status: Database["public"]["Enums"]["tunnel_status"]
+          token: string | null
+          tunnel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cname_target?: string | null
+          created_at?: string
+          hostname?: string | null
+          id?: string
+          prototype_id?: string | null
+          status?: Database["public"]["Enums"]["tunnel_status"]
+          token?: string | null
+          tunnel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cname_target?: string | null
+          created_at?: string
+          hostname?: string | null
+          id?: string
+          prototype_id?: string | null
+          status?: Database["public"]["Enums"]["tunnel_status"]
+          token?: string | null
+          tunnel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      design_system_files: {
+        Row: {
+          created_at: string
+          file_contents: Json
+          file_name: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          file_contents: Json
+          file_name: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          file_contents?: Json
+          file_name?: string
+          id?: number
+        }
+        Relationships: []
+      }
+      design_systems: {
+        Row: {
+          created_at: string
+          description: string | null
+          design_rules: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          design_rules: string
+          id?: string
+          name: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          design_rules?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_systems_user_owner_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
-          amount: number | null;
-          created_at: string;
-          currency: string | null;
-          id: number;
-          invoice_id: string;
-          status: string | null;
-          stripe_customer_id: string | null;
-          subscription_id: string | null;
-          user_id: string | null;
-        };
+          amount: number | null
+          created_at: string
+          currency: string | null
+          id: number
+          invoice_id: string
+          status: string | null
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          user_id: string | null
+        }
         Insert: {
-          amount?: number | null;
-          created_at?: string;
-          currency?: string | null;
-          id?: number;
-          invoice_id: string;
-          status?: string | null;
-          stripe_customer_id?: string | null;
-          subscription_id?: string | null;
-          user_id?: string | null;
-        };
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: number
+          invoice_id: string
+          status?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          user_id?: string | null
+        }
         Update: {
-          amount?: number | null;
-          created_at?: string;
-          currency?: string | null;
-          id?: number;
-          invoice_id?: string;
-          status?: string | null;
-          stripe_customer_id?: string | null;
-          subscription_id?: string | null;
-          user_id?: string | null;
-        };
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: number
+          invoice_id?: string
+          status?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          user_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'payments_subscription_id_fkey';
-            columns: ['subscription_id'];
-            isOneToOne: false;
-            referencedRelation: 'subscriptions';
-            referencedColumns: ['id'];
+            foreignKeyName: "payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'payments_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       projects: {
         Row: {
-          created_at: string | null;
-          description: string | null;
-          id: string;
-          name: string;
-          owner_id: string | null;
-          project_context: Json | null;
-          thumbnail_url: string | null;
-          updated_at: string | null;
-          visibility: Database['public']['Enums']['visibility_level'] | null;
-          default_design_style: Database['public']['Enums']['design_style'];
-          custom_design_system: string | null;
-        };
+          created_at: string | null
+          custom_design_system: string | null
+          default_design_style: Database["public"]["Enums"]["design_style"]
+          description: string | null
+          id: string
+          name: string
+          owner_id: string | null
+          project_context: Json | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          visibility: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Insert: {
-          created_at?: string | null;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string | null;
-          project_context?: Json | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database['public']['Enums']['visibility_level'] | null;
-          default_design_style?: Database['public']['Enums']['design_style'];
-          custom_design_system?: string | null;
-        };
+          created_at?: string | null
+          custom_design_system?: string | null
+          default_design_style?: Database["public"]["Enums"]["design_style"]
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          project_context?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Update: {
-          created_at?: string | null;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string | null;
-          project_context?: Json | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database['public']['Enums']['visibility_level'] | null;
-          default_design_style?: Database['public']['Enums']['design_style'];
-          custom_design_system?: string | null;
-        };
+          created_at?: string | null
+          custom_design_system?: string | null
+          default_design_style?: Database["public"]["Enums"]["design_style"]
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          project_context?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'projects_owner_id_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "projects_custom_design_system_fkey"
+            columns: ["custom_design_system"]
+            isOneToOne: false
+            referencedRelation: "design_systems"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+          {
+            foreignKeyName: "projects_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototype_assets: {
         Row: {
-          created_at: string | null;
-          id: string;
-          name: string;
-          prototype_id: string | null;
-          storage_url: string;
-          updated_at: string | null;
-        };
+          created_at: string | null
+          id: string
+          name: string
+          prototype_id: string | null
+          storage_url: string
+          updated_at: string | null
+        }
         Insert: {
-          created_at?: string | null;
-          id?: string;
-          name: string;
-          prototype_id?: string | null;
-          storage_url: string;
-          updated_at?: string | null;
-        };
+          created_at?: string | null
+          id?: string
+          name: string
+          prototype_id?: string | null
+          storage_url: string
+          updated_at?: string | null
+        }
         Update: {
-          created_at?: string | null;
-          id?: string;
-          name?: string;
-          prototype_id?: string | null;
-          storage_url?: string;
-          updated_at?: string | null;
-        };
+          created_at?: string | null
+          id?: string
+          name?: string
+          prototype_id?: string | null
+          storage_url?: string
+          updated_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'prototype_assets_prototype_id_fkey';
-            columns: ['prototype_id'];
-            isOneToOne: false;
-            referencedRelation: 'prototypes';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototype_assets_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       prototype_chat_messages: {
         Row: {
-          chat_session_id: string | null;
-          content: string;
-          created_at: string;
-          id: string;
-          phase: string | null;
-          role: Database['public']['Enums']['chat_role'];
-          image_url: string | null;
-        };
+          chat_session_id: string | null
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          phase: string | null
+          role: Database["public"]["Enums"]["chat_role"]
+        }
         Insert: {
-          chat_session_id?: string | null;
-          content: string;
-          created_at?: string;
-          id?: string;
-          phase?: string | null;
-          role: Database['public']['Enums']['chat_role'];
-          image_url?: string | null;
-        };
+          chat_session_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          phase?: string | null
+          role: Database["public"]["Enums"]["chat_role"]
+        }
         Update: {
-          chat_session_id?: string | null;
-          content?: string;
-          created_at?: string;
-          id?: string;
-          phase?: string | null;
-          role?: Database['public']['Enums']['chat_role'];
-          image_url?: string | null;
-        };
+          chat_session_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          phase?: string | null
+          role?: Database["public"]["Enums"]["chat_role"]
+        }
         Relationships: [
           {
-            foreignKeyName: 'prototype_chat_messages_chat_session_id_fkey';
-            columns: ['chat_session_id'];
-            isOneToOne: false;
-            referencedRelation: 'prototype_chat_sessions';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototype_chat_messages_chat_session_id_fkey"
+            columns: ["chat_session_id"]
+            isOneToOne: false
+            referencedRelation: "prototype_chat_sessions"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       prototype_chat_sessions: {
         Row: {
-          chat_context: Json | null;
-          created_at: string | null;
-          id: string;
-          prototype_id: string | null;
-          user_id: string | null;
-        };
+          chat_context: Json | null
+          created_at: string | null
+          id: string
+          prototype_id: string | null
+          user_id: string | null
+        }
         Insert: {
-          chat_context?: Json | null;
-          created_at?: string | null;
-          id?: string;
-          prototype_id?: string | null;
-          user_id?: string | null;
-        };
+          chat_context?: Json | null
+          created_at?: string | null
+          id?: string
+          prototype_id?: string | null
+          user_id?: string | null
+        }
         Update: {
-          chat_context?: Json | null;
-          created_at?: string | null;
-          id?: string;
-          prototype_id?: string | null;
-          user_id?: string | null;
-        };
+          chat_context?: Json | null
+          created_at?: string | null
+          id?: string
+          prototype_id?: string | null
+          user_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'prototype_chat_sessions_prototype_id_fkey';
-            columns: ['prototype_id'];
-            isOneToOne: false;
-            referencedRelation: 'prototypes';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototype_chat_sessions_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'prototype_chat_sessions_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototype_chat_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       prototype_files: {
         Row: {
-          contents: string;
-          created_at: string | null;
-          id: string;
-          name: string;
-          prototype_id: string | null;
-          updated_at: string | null;
-        };
+          contents: string
+          created_at: string | null
+          id: string
+          name: string
+          prototype_id: string | null
+          updated_at: string | null
+        }
         Insert: {
-          contents: string;
-          created_at?: string | null;
-          id?: string;
-          name: string;
-          prototype_id?: string | null;
-          updated_at?: string | null;
-        };
+          contents: string
+          created_at?: string | null
+          id?: string
+          name: string
+          prototype_id?: string | null
+          updated_at?: string | null
+        }
         Update: {
-          contents?: string;
-          created_at?: string | null;
-          id?: string;
-          name?: string;
-          prototype_id?: string | null;
-          updated_at?: string | null;
-        };
+          contents?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          prototype_id?: string | null
+          updated_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'prototype_files_prototype_id_fkey';
-            columns: ['prototype_id'];
-            isOneToOne: false;
-            referencedRelation: 'prototypes';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototype_files_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       prototypes: {
         Row: {
-          created_at: string | null;
-          description: string | null;
-          id: string;
-          name: string;
-          owner_id: string | null;
-          project_id: string | null;
-          prototype_context: Json | null;
-          thumbnail_url: string | null;
-          updated_at: string | null;
-          visibility: Database['public']['Enums']['visibility_level'] | null;
-          latest_build_key: string | null;
-          design_style: Database['public']['Enums']['design_style'];
-          custom_design_system: string | null;
-        };
+          created_at: string | null
+          custom_design_system: string | null
+          description: string | null
+          design_style: Database["public"]["Enums"]["design_style"]
+          id: string
+          latest_build_key: string | null
+          name: string
+          owner_id: string | null
+          project_id: string | null
+          prototype_context: Json | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          visibility: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Insert: {
-          created_at?: string | null;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string | null;
-          project_id?: string | null;
-          prototype_context?: Json | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database['public']['Enums']['visibility_level'] | null;
-          latest_build_key?: string | null;
-          design_style?: Database['public']['Enums']['design_style'];
-          custom_design_system?: string | null;
-        };
+          created_at?: string | null
+          custom_design_system?: string | null
+          description?: string | null
+          design_style?: Database["public"]["Enums"]["design_style"]
+          id?: string
+          latest_build_key?: string | null
+          name?: string
+          owner_id?: string | null
+          project_id?: string | null
+          prototype_context?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Update: {
-          created_at?: string | null;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string | null;
-          project_id?: string | null;
-          prototype_context?: Json | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database['public']['Enums']['visibility_level'] | null;
-          latest_build_key?: string | null;
-          design_style?: Database['public']['Enums']['design_style'];
-          custom_design_system?: string | null;
-        };
+          created_at?: string | null
+          custom_design_system?: string | null
+          description?: string | null
+          design_style?: Database["public"]["Enums"]["design_style"]
+          id?: string
+          latest_build_key?: string | null
+          name?: string
+          owner_id?: string | null
+          project_id?: string | null
+          prototype_context?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'prototypes_owner_id_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototypes_custom_design_system_fkey"
+            columns: ["custom_design_system"]
+            isOneToOne: false
+            referencedRelation: "design_systems"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'prototypes_project_id_fkey';
-            columns: ['project_id'];
-            isOneToOne: false;
-            referencedRelation: 'projects';
-            referencedColumns: ['id'];
+            foreignKeyName: "prototypes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+          {
+            foreignKeyName: "prototypes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
-          created_at: string;
-          current_period_end: number | null;
-          current_period_start: number | null;
-          id: string;
-          plan_id: Database['public']['Enums']['subscription_plan_type'];
-          price_id: string | null;
-          scheduled_for_cancellation: boolean | null;
-          status: Database['public']['Enums']['subscription_status'] | null;
-          stripe_customer_id: string | null;
-          updated_at: string | null;
-          user_id: string | null;
-        };
+          created_at: string
+          current_period_end: number | null
+          current_period_start: number | null
+          id: string
+          plan_id: Database["public"]["Enums"]["subscription_plan_type"]
+          price_id: string | null
+          scheduled_for_cancellation: boolean | null
+          status: Database["public"]["Enums"]["subscription_status"] | null
+          stripe_customer_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
         Insert: {
-          created_at?: string;
-          current_period_end?: number | null;
-          current_period_start?: number | null;
-          id: string;
-          plan_id?: Database['public']['Enums']['subscription_plan_type'];
-          price_id?: string | null;
-          scheduled_for_cancellation?: boolean | null;
-          status?: Database['public']['Enums']['subscription_status'] | null;
-          stripe_customer_id?: string | null;
-          updated_at?: string | null;
-          user_id?: string | null;
-        };
+          created_at?: string
+          current_period_end?: number | null
+          current_period_start?: number | null
+          id: string
+          plan_id?: Database["public"]["Enums"]["subscription_plan_type"]
+          price_id?: string | null
+          scheduled_for_cancellation?: boolean | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
+          stripe_customer_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
         Update: {
-          created_at?: string;
-          current_period_end?: number | null;
-          current_period_start?: number | null;
-          id?: string;
-          plan_id?: Database['public']['Enums']['subscription_plan_type'];
-          price_id?: string | null;
-          scheduled_for_cancellation?: boolean | null;
-          status?: Database['public']['Enums']['subscription_status'] | null;
-          stripe_customer_id?: string | null;
-          updated_at?: string | null;
-          user_id?: string | null;
-        };
+          created_at?: string
+          current_period_end?: number | null
+          current_period_start?: number | null
+          id?: string
+          plan_id?: Database["public"]["Enums"]["subscription_plan_type"]
+          price_id?: string | null
+          scheduled_for_cancellation?: boolean | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
+          stripe_customer_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: 'subscriptions_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
+      user_internal_metadata: {
+        Row: {
+          created_at: string
+          is_employee: boolean
+          is_test_user: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_employee?: boolean
+          is_test_user?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          is_employee?: boolean
+          is_test_user?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_internal_metadata_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
-          avatar_url: string | null;
-          created_at: string;
-          email: string | null;
-          id: string;
-          name: string | null;
-        };
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+        }
         Insert: {
-          avatar_url?: string | null;
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          name?: string | null;
-        };
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+        }
         Update: {
-          avatar_url?: string | null;
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          name?: string | null;
-        };
-        Relationships: [];
-      };
-    };
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Enums: {
-      design_style: 'tamagui' | 'stylesheets' | 'nativewind';
-      chat_role: 'user' | 'assistant';
-      file_type: 'text' | 'asset';
-      subscription_plan_type: 'free' | 'team' | 'pro';
-      subscription_status: 'active' | 'past_due' | 'canceled';
-      visibility_level: 'SELF' | 'TEAM_SUBSET' | 'TEAM' | 'PUBLIC';
-    };
+      chat_role: "user" | "assistant"
+      design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
+      file_type: "text" | "asset"
+      subscription_plan_type: "free" | "team" | "pro"
+      subscription_status: "active" | "past_due" | "canceled"
+      tunnel_status: "creating" | "idle" | "allocated"
+      visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+  }
+}
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<
-  keyof Database,
-  'public'
->];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
-      Row: infer R;
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] &
-        DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] &
-        DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
       }
       ? R
       : never
-    : never;
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
-      Insert: infer I;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
       }
       ? I
       : never
-    : never;
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
-      Update: infer U;
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
       }
       ? U
       : never
-    : never;
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
-    : never;
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
-    : never;
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {
     Enums: {
-      chat_role: ['user', 'assistant'],
-      file_type: ['text', 'asset'],
-      subscription_plan_type: ['free', 'team', 'pro'],
-      subscription_status: ['active', 'past_due', 'canceled'],
-      visibility_level: ['SELF', 'TEAM_SUBSET', 'TEAM', 'PUBLIC'],
+      chat_role: ["user", "assistant"],
+      design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
+      file_type: ["text", "asset"],
+      subscription_plan_type: ["free", "team", "pro"],
+      subscription_status: ["active", "past_due", "canceled"],
+      tunnel_status: ["creating", "idle", "allocated"],
+      visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },
   },
-} as const;
+} as const

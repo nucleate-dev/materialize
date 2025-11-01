@@ -523,7 +523,13 @@ export class IdleContainerAllocationSystemService {
           DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
         }),
       ),
-      createCloudflareTunnelForContainer(prototypeId, info.taskArn, this.log2),
+      createCloudflareTunnelForContainer(
+        prototypeId +
+          '-' +
+          info.taskArn.substring(22, 31) +
+          Math.random().toString(36).slice(2, 10),
+        this.log2,
+      ),
     ]);
 
     if (!out.Credentials) throw new Error('Failed to assume role');
