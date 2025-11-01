@@ -9,7 +9,6 @@ interface TerminalProps {
   className?: string;
   terminalUrl?: string | null;
   onResize?: (cols: number, rows: number) => void;
-  onConnectionChange?: (connected: boolean) => void;
 }
 
 type TerminalSession = "build" | "dev-server" | "test";
@@ -39,7 +38,6 @@ export default function Terminal({
   className = "",
   terminalUrl,
   onResize,
-  onConnectionChange
 }: TerminalProps) {
   const [activeSession, setActiveSession] = useState<TerminalSession>("dev-server");
   const terminalRefsMap = useRef<Map<TerminalSession, HTMLDivElement>>(new Map());
@@ -103,8 +101,8 @@ export default function Terminal({
           if (onResize) {
             onResize(terminal.cols, terminal.rows);
           }
-        } catch (error) {
-          console.error(`[Terminal:${session}] Error during initial fit:`, error);
+        } catch {
+          // Do nothing
         }
       }, 0);
 
@@ -118,13 +116,14 @@ export default function Terminal({
 
     // Cleanup function
     return () => {
-      terminalInstancesMap.current.forEach((instance, session) => {
+      const instances = terminalInstancesMap.current;
+      instances.forEach((instance) => {
         if (instance.ws) {
           instance.ws.close();
         }
         instance.xterm.dispose();
       });
-      terminalInstancesMap.current.clear();
+      instances.clear();
     };
   }, [onResize, terminalUrl]);
 
@@ -142,8 +141,8 @@ export default function Terminal({
           if (onResize) {
             onResize(instance.xterm.cols, instance.xterm.rows);
           }
-        } catch (error) {
-          console.error(`[Terminal:${session}] Error during resize:`, error);
+        } catch {
+          // Do nothing
         }
       };
 
@@ -212,24 +211,21 @@ export default function Terminal({
               `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
             );
           } else if (message.event === "error") {
-            console.error(`[Terminal:${session}] Terminal error:`, message.data?.error);
             instance.xterm.writeln(
               `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"}\x1b[0m`
             );
           }
-        } catch (err) {
-          console.error(`[Terminal:${session}] Failed to parse WebSocket message:`, err, "Raw data:", event.data);
+        } catch {
           // Fallback: treat as raw data
           instance.xterm.write(event.data);
         }
       };
 
-      ws.onerror = (error) => {
-        console.error(`[Terminal:${session}] WebSocket error occurred:`, error);
+      ws.onerror = () => {
         instance.xterm.writeln("\x1b[1;31m✗ WebSocket error occurred\x1b[0m");
       };
 
-      ws.onclose = (event) => {
+      ws.onclose = () => {
         instance.isConnected = false;
         instance.xterm.writeln("\r\n\x1b[31mConnection closed\x1b[0m");
       };

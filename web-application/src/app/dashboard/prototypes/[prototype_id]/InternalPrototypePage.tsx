@@ -478,6 +478,7 @@ export default function InternalPrototypePage() {
     shouldTriggerInitialFetch,
     viewingUrl,
     logger,
+    terminalUrl,
   ]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes

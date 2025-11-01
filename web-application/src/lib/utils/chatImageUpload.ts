@@ -178,7 +178,7 @@ export async function getSignedImageUrl(
     }
 
     return data.signedUrl;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
