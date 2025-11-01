@@ -127,11 +127,6 @@ export default function InternalPrototypePage() {
   // Current viewing path tracking
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
-  // Debug log when terminal URL changes
-  useEffect(() => {
-    console.log("[InternalPrototypePage] Terminal URL state changed:", terminalUrl);
-  }, [terminalUrl]);
-
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
@@ -444,19 +439,10 @@ export default function InternalPrototypePage() {
         > = await response.json();
         if (!result.data || !result.data.viewing_url) return;
 
-        console.log("[InternalPrototypePage] Start Dev Server Response:", {
-          viewing_url: result.data.viewing_url,
-          terminal_url: result.data.terminal_url,
-          full_response: result.data,
-        });
-
         // Update viewing URL and terminal URL if provided
         setViewingUrl(result.data.viewing_url);
         if (result.data.terminal_url) {
-          console.log("[InternalPrototypePage] Setting terminal URL:", result.data.terminal_url);
           setTerminalUrl(result.data.terminal_url);
-        } else {
-          console.log("[InternalPrototypePage] No terminal URL in response");
         }
         setCurrentRenderStatus("Connected");
       } catch {

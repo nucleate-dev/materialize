@@ -37,8 +37,7 @@ function base64ToFile(base64: string, filename: string): File | null {
 
     // Create File object
     return new File([array], filename, { type: contentType });
-  } catch (error) {
-    console.error("Failed to convert base64 to file:", error);
+  } catch {
     return null;
   }
 }
@@ -106,7 +105,6 @@ export async function uploadChatImage(
       });
 
     if (error) {
-      console.error("Supabase storage upload error:", error);
       return {
         success: false,
         error: error.message || "Failed to upload image",
@@ -115,12 +113,12 @@ export async function uploadChatImage(
 
     // For private buckets, we need to create a signed URL that expires
     // Create a signed URL valid for 1 year (max allowed by Supabase)
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(data.path, 31536000); // 1 year in seconds
+    const { data: signedUrlData, error: signedUrlError } =
+      await supabase.storage
+        .from(BUCKET_NAME)
+        .createSignedUrl(data.path, 31536000); // 1 year in seconds
 
     if (signedUrlError || !signedUrlData) {
-      console.error("Failed to create signed URL:", signedUrlError);
       return {
         success: false,
         error: "Failed to generate image URL",
@@ -132,7 +130,6 @@ export async function uploadChatImage(
       url: signedUrlData.signedUrl,
     };
   } catch (error) {
-    console.error("Error uploading chat image:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -156,7 +153,6 @@ export async function getSignedImageUrl(
       // It's a signed URL, extract the path
       const pathMatch = imageUrlOrPath.match(/\/object\/sign\/[^/]+\/(.+)\?/);
       if (!pathMatch || !pathMatch[1]) {
-        console.error("Could not extract path from signed URL");
         return null;
       }
       filePath = decodeURIComponent(pathMatch[1]);
@@ -164,7 +160,6 @@ export async function getSignedImageUrl(
       // It's a public URL format, extract path
       const urlParts = imageUrlOrPath.split(`/object/public/${BUCKET_NAME}/`);
       if (urlParts.length !== 2) {
-        console.error("Invalid image URL format");
         return null;
       }
       filePath = urlParts[1];
@@ -179,13 +174,11 @@ export async function getSignedImageUrl(
       .createSignedUrl(filePath, 31536000); // 1 year
 
     if (error || !data) {
-      console.error("Failed to create signed URL:", error);
       return null;
     }
 
     return data.signedUrl;
   } catch (error) {
-    console.error("Error getting signed image URL:", error);
     return null;
   }
 }
@@ -195,15 +188,12 @@ export async function getSignedImageUrl(
  * @param imageUrl The full signed URL or storage path of the image
  * @returns Promise indicating success or failure
  */
-export async function deleteChatImage(
-  imageUrl: string,
-): Promise<boolean> {
+export async function deleteChatImage(imageUrl: string): Promise<boolean> {
   try {
     // Extract file path from URL
     // URL format: https://{project}.supabase.co/storage/v1/object/public/chat-images/{path}
     const urlParts = imageUrl.split(`/object/public/${BUCKET_NAME}/`);
     if (urlParts.length !== 2) {
-      console.error("Invalid image URL format:", imageUrl);
       return false;
     }
 
@@ -215,13 +205,11 @@ export async function deleteChatImage(
       .remove([filePath]);
 
     if (error) {
-      console.error("Failed to delete image:", error);
       return false;
     }
 
     return true;
-  } catch (error) {
-    console.error("Error deleting chat image:", error);
+  } catch {
     return false;
   }
 }
@@ -243,7 +231,6 @@ export async function deletePrototypeImages(
       .list(folderPath);
 
     if (listError) {
-      console.error("Failed to list prototype images:", listError);
       return false;
     }
 
@@ -258,13 +245,11 @@ export async function deletePrototypeImages(
       .remove(filePaths);
 
     if (deleteError) {
-      console.error("Failed to delete prototype images:", deleteError);
       return false;
     }
 
     return true;
-  } catch (error) {
-    console.error("Error deleting prototype images:", error);
+  } catch {
     return false;
   }
 }

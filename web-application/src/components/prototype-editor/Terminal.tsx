@@ -160,7 +160,6 @@ export default function Terminal({
   // WebSocket connection management for each session
   useEffect(() => {
     if (!terminalUrl) {
-      console.log("[Terminal] WebSocket connection skipped - no terminal URL");
       return;
     }
 
@@ -172,7 +171,6 @@ export default function Terminal({
 
       // Skip if already connected
       if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
-        console.log(`[Terminal:${session}] WebSocket already connected, skipping`);
         return;
       }
 
@@ -182,14 +180,11 @@ export default function Terminal({
         ? `${terminalUrl}${sessionPath.slice(1)}`
         : `${terminalUrl}${sessionPath}`;
 
-      console.log(`[Terminal:${session}] Attempting WebSocket connection to:`, fullTerminalUrl);
-
       // Create WebSocket connection
       const ws = new WebSocket(fullTerminalUrl);
       instance.ws = ws;
 
       ws.onopen = () => {
-        console.log(`[Terminal:${session}] WebSocket connection opened successfully`);
         instance.isConnected = true;
         instance.xterm.writeln("\x1b[1;32m✓ Connected to dev server\x1b[0m");
         instance.xterm.writeln("");
@@ -201,10 +196,7 @@ export default function Terminal({
               type: "input",
               data: data,
             };
-            console.log(`[Terminal:${session}] Sending input:`, message);
             ws.send(JSON.stringify(message));
-          } else {
-            console.warn(`[Terminal:${session}] Cannot send input - WebSocket not open. State:`, ws.readyState);
           }
         });
       };
@@ -212,12 +204,10 @@ export default function Terminal({
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log(`[Terminal:${session}] Received message:`, message);
 
           if (message.event === "output" && message.data?.chunk) {
             instance.xterm.write(message.data.chunk);
           } else if (message.event === "exit") {
-            console.log(`[Terminal:${session}] Process exited with code:`, message.data?.exitCode);
             instance.xterm.writeln(
               `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
             );
@@ -240,11 +230,6 @@ export default function Terminal({
       };
 
       ws.onclose = (event) => {
-        console.log(`[Terminal:${session}] WebSocket connection closed:`, {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        });
         instance.isConnected = false;
         instance.xterm.writeln("\r\n\x1b[31mConnection closed\x1b[0m");
       };
