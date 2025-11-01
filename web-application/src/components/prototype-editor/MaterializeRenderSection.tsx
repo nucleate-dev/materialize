@@ -115,6 +115,7 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
+  terminal_url?: string | null; // WebSocket URL for terminal connection
   onResetToDefault?: () => void;
   // Props for dev server functionality
   prototypeId?: string;
@@ -144,6 +145,7 @@ const MaterializeRenderSection = forwardRef<
   (
     {
       viewing_url,
+      terminal_url,
       onResetToDefault,
       prototypeId,
       files,
@@ -1282,7 +1284,10 @@ const MaterializeRenderSection = forwardRef<
 
             {/* Terminal Content */}
             <div className="absolute top-8 left-0 right-0 bottom-0 p-2">
-              <Terminal className="w-full h-full" />
+              <Terminal
+                className="w-full h-full"
+                terminalUrl={terminal_url}
+              />
             </div>
           </div>
         )}

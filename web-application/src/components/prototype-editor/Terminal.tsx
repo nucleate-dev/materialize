@@ -7,13 +7,22 @@ import "@xterm/xterm/css/xterm.css";
 
 interface TerminalProps {
   className?: string;
+  terminalUrl?: string | null;
   onResize?: (cols: number, rows: number) => void;
+  onConnectionChange?: (connected: boolean) => void;
 }
 
-export default function Terminal({ className = "", onResize }: TerminalProps) {
+export default function Terminal({
+  className = "",
+  terminalUrl,
+  onResize,
+  onConnectionChange
+}: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -72,7 +81,12 @@ export default function Terminal({ className = "", onResize }: TerminalProps) {
     terminal.writeln("\x1b[1;32m│  \x1b[1;37mMaterialize Terminal\x1b[1;32m                 │\x1b[0m");
     terminal.writeln("\x1b[1;32m└─────────────────────────────────────────┘\x1b[0m");
     terminal.writeln("");
-    terminal.writeln("\x1b[2mConnecting to dev server...\x1b[0m");
+
+    if (!terminalUrl) {
+      terminal.writeln("\x1b[2mWaiting for dev server connection...\x1b[0m");
+    } else {
+      terminal.writeln("\x1b[2mConnecting to dev server...\x1b[0m");
+    }
     terminal.writeln("");
 
     // Handle resize events
@@ -101,7 +115,64 @@ export default function Terminal({ className = "", onResize }: TerminalProps) {
       xtermRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [onResize]);
+  }, [onResize, terminalUrl]);
+
+  // WebSocket connection management
+  useEffect(() => {
+    if (!terminalUrl || !xtermRef.current) {
+      return;
+    }
+
+    const terminal = xtermRef.current;
+
+    // Create WebSocket connection
+    const ws = new WebSocket(terminalUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setIsConnected(true);
+      if (onConnectionChange) {
+        onConnectionChange(true);
+      }
+      terminal.writeln("\x1b[1;32m✓ Connected to dev server\x1b[0m");
+      terminal.writeln("");
+    };
+
+    ws.onmessage = (event) => {
+      // Write incoming terminal data to xterm
+      terminal.write(event.data);
+    };
+
+    ws.onerror = (error) => {
+      terminal.writeln("\x1b[1;31m✗ WebSocket error occurred\x1b[0m");
+      console.error("Terminal WebSocket error:", error);
+    };
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      if (onConnectionChange) {
+        onConnectionChange(false);
+      }
+      terminal.writeln("");
+      terminal.writeln("\x1b[1;33m⚠ Connection closed\x1b[0m");
+    };
+
+    // Handle terminal input (send to WebSocket)
+    const disposable = terminal.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    });
+
+    // Cleanup
+    return () => {
+      disposable.dispose();
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+      wsRef.current = null;
+    };
+  }, [terminalUrl, onConnectionChange]);
 
   return (
     <div

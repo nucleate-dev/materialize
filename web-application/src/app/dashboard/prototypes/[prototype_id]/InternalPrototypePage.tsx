@@ -103,6 +103,7 @@ export default function InternalPrototypePage() {
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
+  const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
@@ -433,8 +434,11 @@ export default function InternalPrototypePage() {
           StandardErrorResponse
         > = await response.json();
         if (!result.data || !result.data.viewing_url) return;
-        // Update viewing URL if provided
+        // Update viewing URL and terminal URL if provided
         setViewingUrl(result.data.viewing_url);
+        if (result.data.terminal_url) {
+          setTerminalUrl(result.data.terminal_url);
+        }
         setCurrentRenderStatus("Connected");
       } catch {
       } finally {
@@ -881,6 +885,7 @@ export default function InternalPrototypePage() {
                     <div className="h-full flex flex-col">
                       <MaterializeRenderSection
                         viewing_url={viewingUrl ?? ""}
+                        terminal_url={terminalUrl}
                         prototypeId={prototypeId}
                         files={fileSystem.state.files}
                         assets={fileSystem.state.assets}
