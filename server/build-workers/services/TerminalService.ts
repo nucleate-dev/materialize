@@ -250,7 +250,6 @@ export class TerminalService {
     });
 
     pty.onExit(({ exitCode, signal }) => {
-      const timeSinceCreation = Date.now() - session.createdAt;
       this.handlePtyExit(session, exitCode ?? null, signal ?? null);
     });
 
@@ -327,9 +326,6 @@ export class TerminalService {
         error: "Terminal session not found",
       };
     }
-
-    const previousState = session.state;
-    const uptime = Date.now() - session.createdAt;
 
     this.killSessionProcess(session);
     session.state = "closed";
@@ -488,7 +484,6 @@ export class TerminalService {
     signal: number | null,
   ): void {
     const timeSinceCreation = Date.now() - session.createdAt;
-    const previousState = session.state;
     session.state = "exited";
     session.updatedAt = Date.now();
 
