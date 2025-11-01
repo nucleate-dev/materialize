@@ -1020,21 +1020,6 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? 'none' : 'height 0.2s ease-in-out'
           }}
         >
-          {/* Add Screen button - positioned relative to mobile preview */}
-          {previewMode === "mobile" && viewing_url && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
-              <Button
-                onClick={handleAddMobileScreen}
-                size="sm"
-                variant="secondary"
-                className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
-              >
-                <Plus className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Add screen</span>
-              </Button>
-            </div>
-          )}
-
           {!viewing_url ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-card p-8 rounded-lg border border-border">
@@ -1046,7 +1031,21 @@ const MaterializeRenderSection = forwardRef<
           ) : previewMode === "mobile" ? (
             <div className="w-full h-full overflow-auto">
               <div className="min-h-full flex items-center justify-center">
-                <div className="flex flex-wrap justify-center gap-8 py-8">
+                {/* Add Screen button - positioned above mobile screens */}
+                {viewing_url && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+                    <Button
+                      onClick={handleAddMobileScreen}
+                      size="sm"
+                      variant="secondary"
+                      className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
+                    >
+                      <Plus className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Add screen</span>
+                    </Button>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-center gap-8 py-8 pt-16">
                   {mobileScreens.map((screen, index) => {
                     const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                     const isPrimaryScreen = index === 0;
