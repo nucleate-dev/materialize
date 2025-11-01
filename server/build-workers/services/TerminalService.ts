@@ -251,20 +251,6 @@ export class TerminalService {
 
     pty.onExit(({ exitCode, signal }) => {
       const timeSinceCreation = Date.now() - session.createdAt;
-      this.logger.warn("PTY process exit event triggered", {
-        sessionId,
-        exitCode,
-        signal,
-        ptyPid: pty.pid,
-        command,
-        args,
-        cwd,
-        timeSinceCreationMs: timeSinceCreation,
-        timeSinceCreationSeconds: (timeSinceCreation / 1000).toFixed(2),
-        immediateExit: timeSinceCreation < 1000,
-        state: session.state,
-        clientsCount: session.clients.size,
-      });
       this.handlePtyExit(session, exitCode ?? null, signal ?? null);
     });
 
@@ -344,17 +330,6 @@ export class TerminalService {
 
     const previousState = session.state;
     const uptime = Date.now() - session.createdAt;
-
-    this.logger.info("Closing terminal session", {
-      sessionId,
-      terminalType: session.type,
-      previousState,
-      clientsCount: session.clients.size,
-      uptimeMs: uptime,
-      uptimeSeconds: (uptime / 1000).toFixed(2),
-      ptyPid: session.pty?.pid,
-      hasPty: Boolean(session.pty),
-    });
 
     this.killSessionProcess(session);
     session.state = "closed";
@@ -516,24 +491,6 @@ export class TerminalService {
     const previousState = session.state;
     session.state = "exited";
     session.updatedAt = Date.now();
-
-    this.logger.warn("PTY process exited - handling cleanup", {
-      sessionId: session.id,
-      terminalType: session.type,
-      exitCode,
-      signal,
-      previousState,
-      newState: session.state,
-      hasClients: session.clients.size > 0,
-      clientsCount: session.clients.size,
-      uptimeMs: timeSinceCreation,
-      uptimeSeconds: (timeSinceCreation / 1000).toFixed(2),
-      immediateExit: timeSinceCreation < 1000,
-      command: session.command,
-      args: session.args,
-      cwd: session.cwd,
-      ptyPid: session.pty?.pid,
-    });
 
     // Check if this is an abnormal exit
     if (timeSinceCreation < 1000) {
