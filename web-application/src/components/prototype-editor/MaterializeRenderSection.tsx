@@ -27,6 +27,8 @@ import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/Internal
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Loader2,
   Monitor,
   Plus,
@@ -35,6 +37,7 @@ import {
   RotateCcw,
   Settings,
   Smartphone,
+  Terminal as TerminalIcon,
   X,
 } from "lucide-react";
 import React, {
@@ -45,6 +48,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import Terminal from "./Terminal";
 
 interface MobileScreenConfig {
   id: number;
@@ -167,6 +171,11 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<Array<{ route: string; group?: string }>>([]);
+
+    // Terminal state
+    const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+    const [terminalHeight, setTerminalHeight] = useState(250); // Default height in pixels
+    const [isResizingTerminal, setIsResizingTerminal] = useState(false);
 
     const nextMobileScreenId = useRef(1);
 
@@ -688,6 +697,35 @@ const MaterializeRenderSection = forwardRef<
       document.body.style.userSelect = "none";
     };
 
+    // Terminal resize handler
+    const handleTerminalResizeStart = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsResizingTerminal(true);
+
+      const startY = e.clientY;
+      const startHeight = terminalHeight;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaY = startY - moveEvent.clientY; // Inverted because terminal grows upward
+        const newHeight = Math.max(150, Math.min(600, startHeight + deltaY));
+        setTerminalHeight(newHeight);
+      };
+
+      const handleMouseUp = () => {
+        setIsResizingTerminal(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "ns-resize";
+      document.body.style.userSelect = "none";
+    };
+
     // Handle iframe loading events
     const handleIframeLoad = useCallback(() => {
       setIsIframeLoading(false);
@@ -816,7 +854,13 @@ const MaterializeRenderSection = forwardRef<
     return (
       <div className="flex flex-col h-full bg-background">
         {/* Preview */}
-        <div className="flex-1 relative flex items-center justify-center bg-background p-8">
+        <div
+          className="relative flex items-center justify-center bg-background p-8"
+          style={{
+            height: isTerminalOpen ? `calc(100% - ${terminalHeight}px)` : '100%',
+            transition: isResizingTerminal ? 'none' : 'height 0.2s ease-in-out'
+          }}
+        >
           {/* Floating Connection Status Indicator */}
           <div className="absolute top-4 left-4 z-10">
             <ConnectionStatusIndicator />
@@ -837,6 +881,16 @@ const MaterializeRenderSection = forwardRef<
                 </Badge>
               </Button>
             )}
+
+            {/* Terminal Toggle Button */}
+            <Button
+              variant={isTerminalOpen ? "default" : "secondary"}
+              size="sm"
+              onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+              className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
+            >
+              <TerminalIcon className="w-4 h-4" />
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -920,14 +974,24 @@ const MaterializeRenderSection = forwardRef<
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh Preview
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                >
+                  <TerminalIcon className="w-4 h-4 mr-2" />
+                  {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
+                </DropdownMenuItem>
                 {onResetToDefault && (
-                  <DropdownMenuItem
-                    onClick={onResetToDefault}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Reset to Default
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={onResetToDefault}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Reset to Default
+                    </DropdownMenuItem>
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1181,6 +1245,47 @@ const MaterializeRenderSection = forwardRef<
             /* --- END: Web preview --- */
           )}
         </div>
+
+        {/* Terminal Panel */}
+        {isTerminalOpen && (
+          <div
+            className="relative border-t border-border bg-background"
+            style={{ height: `${terminalHeight}px` }}
+          >
+            {/* Terminal Header with Resize Handle */}
+            <div
+              className="absolute top-0 left-0 right-0 h-8 bg-muted border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-muted/80 transition-colors group"
+              onMouseDown={handleTerminalResizeStart}
+            >
+              <div className="flex items-center gap-2">
+                <TerminalIcon className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">Terminal</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                  Drag to resize
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setIsTerminalOpen(false)}
+                >
+                  {isTerminalOpen ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Terminal Content */}
+            <div className="absolute top-8 left-0 right-0 bottom-0 p-2">
+              <Terminal className="w-full h-full" />
+            </div>
+          </div>
+        )}
       </div>
     );
   },
