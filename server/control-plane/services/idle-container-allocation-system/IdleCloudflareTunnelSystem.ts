@@ -86,25 +86,13 @@ export class IdleCloudflareTunnelSystem {
       await Promise.all(
         tunnelsToRemove.map(async (tunnel) => {
           try {
-            // Remove from Supabase
-            const { error: deleteError } = await this.supabase
-              .from('cloudflare_tunnels')
-              .delete()
-              .eq('id', tunnel.id);
-
-            if (deleteError) {
-              this.log2.error(
-                deleteError,
-                `Failed to delete tunnel ${tunnel.id} from database`,
-              );
-              return;
-            }
             // Delete from Cloudflare if tunnel_id exists
             if (tunnel.tunnel_id) {
               await deleteCloudflareTunnel(
                 tunnel.tunnel_id,
                 this.log2,
                 tunnel.hostname || undefined,
+                this.supabase,
               );
             }
           } catch (error) {
@@ -168,12 +156,16 @@ export class IdleCloudflareTunnelSystem {
           updateError,
           'Failed to update idle tunnel entry with tunnel information',
         );
-        await deleteCloudflareTunnel(tunnelId, this.log2, hostname).catch(
-          (cleanupError) =>
-            this.log2.error(
-              cleanupError,
-              `Failed to cleanup tunnel ${tunnelId} after database update failure`,
-            ),
+        await deleteCloudflareTunnel(
+          tunnelId,
+          this.log2,
+          hostname,
+          this.supabase,
+        ).catch((cleanupError) =>
+          this.log2.error(
+            cleanupError,
+            `Failed to cleanup tunnel ${tunnelId} after database update failure`,
+          ),
         );
         throw updateError;
       }

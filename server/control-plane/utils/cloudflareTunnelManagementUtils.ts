@@ -1,4 +1,6 @@
 import type { SystemLogger } from '../loggers/SystemLogger.js';
+import { type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/supabase.js';
 
 const CLOUDFLARE_API_URL = 'https://api.cloudflare.com/client/v4';
 
@@ -147,6 +149,7 @@ export async function deleteCloudflareTunnel(
   tunnelId: string,
   log2: SystemLogger,
   hostname?: string,
+  supabase?: SupabaseClient<Database>,
 ): Promise<void> {
   // Delete the tunnel first
   const deleteResponse = await fetch(
@@ -222,6 +225,31 @@ export async function deleteCloudflareTunnel(
     } catch (error) {
       log2.error(error, `Error while deleting DNS record for ${hostname}`);
       // Don't throw - tunnel is already deleted, DNS cleanup is best-effort
+    }
+  }
+
+  // Delete from Supabase if supabase client is provided
+  if (supabase) {
+    try {
+      const { error: deleteError } = await supabase
+        .from('cloudflare_tunnels')
+        .delete()
+        .eq('tunnel_id', tunnelId);
+
+      if (deleteError) {
+        log2.error(
+          deleteError,
+          `Failed to delete tunnel ${tunnelId} from Supabase database`,
+        );
+      } else {
+        log2.info(`Successfully deleted tunnel ${tunnelId} from Supabase`);
+      }
+    } catch (error) {
+      log2.error(
+        error,
+        `Error while deleting tunnel ${tunnelId} from Supabase`,
+      );
+      // Don't throw - Cloudflare resources are already cleaned up
     }
   }
 }
