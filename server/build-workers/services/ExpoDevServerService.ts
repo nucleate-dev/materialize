@@ -135,10 +135,6 @@ export class ExpoDevServerService {
     this.s3 = s3Instance;
     this.terminalService = terminalService;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
-
-    this.log2.info("ExpoDevServerService initialized successfully", {
-      tunnelSubdomain: this.state.tunnelSubdomain,
-    });
   }
 
   public getState(): DevServerState {
@@ -281,13 +277,8 @@ export class ExpoDevServerService {
       }
       this.log2.consoleLogDevOnly(
         "info",
-        `Starting dev server for prototype ${prototype_id}`,
+        `Starting dev server for prototype ${prototype_id} (${files.length} files, ${projectDir})`,
       );
-      this.log2.consoleLogDevOnly(
-        "info",
-        `Wrote ${files.length} files to project directory`,
-      );
-      this.log2.consoleLogDevOnly("info", `Project directory: ${projectDir}`);
 
       // Start Expo dev server and wait for tunnel URL
       try {
@@ -308,10 +299,6 @@ export class ExpoDevServerService {
         );
         this.state.devServerStatus = DevServerStatus.ERROR;
         this.state.error = errorMessage;
-        this.log2.error(
-          new Error(errorMessage),
-          "Failed to start Expo process",
-        );
         buildErrors.push({
           message: `Failed to start dev server: ${errorMessage}`,
           type: "runtime",
@@ -345,10 +332,6 @@ export class ExpoDevServerService {
       );
       this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = errorMessage;
-      this.log2.error(
-        new Error(errorMessage),
-        "Internal server error in startDevServer",
-      );
       this.state.clearOperation();
 
       const statusCode = isPathError ? 400 : 500;
@@ -488,18 +471,6 @@ export class ExpoDevServerService {
 
         // Parse Metro/Expo output for rendering errors
         this.parseMetroErrors(output, buildErrors, buildWarnings);
-
-        // Look for file watching status
-        if (
-          output.includes("watching for file changes") ||
-          output.includes("Fast Refresh") ||
-          output.includes("Metro") ||
-          output.includes("Bundler ready")
-        ) {
-          this.log2.info("File watching detected", {
-            output: output.trim(),
-          });
-        }
 
         // Look for tunnel URL with improved pattern matching
         const urlMatch = output.match(/https?:\/\/[^\s\)]+/g);
@@ -715,10 +686,6 @@ export class ExpoDevServerService {
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        this.log2.warn("Failed to cleanup project directory", {
-          projectDir: this.state.projectDir,
-          error: errorMessage,
-        });
         this.log2.warn("Failed to cleanup project directory", {
           projectDir: this.state.projectDir,
           error: errorMessage,
@@ -1083,9 +1050,6 @@ export class ExpoDevServerService {
     buildWarnings: CodeWarning[],
   ): Promise<void> {
     const session = this.terminalService.getSession("dev-server");
-    this.log2.info("[TerminalService] all sessions:", {
-      sessions: this.terminalService.getAllSessions(),
-    });
     if (!session) {
       throw new Error("dev-server terminal session not found");
     }
@@ -1864,12 +1828,6 @@ export class ExpoDevServerService {
         const output = chunk.toString();
         stdout += output;
 
-        this.log2.debug("Command output", {
-          command,
-          sessionId,
-          output: output.trim(),
-        });
-
         // Try to detect command completion by looking for shell prompt patterns
         // This is heuristic-based since we're running in a shell
         const lines = output.split("\n");
@@ -2028,14 +1986,6 @@ export class ExpoDevServerService {
   ): Promise<{ stdout: string; stderr: string; code: number }> {
     const workingDirectory = cwd || this.state.projectDir || this.workDir;
 
-    this.log2.info("Running command", {
-      command,
-      args,
-      workingDirectory,
-      timeout: timeoutMs,
-      sessionId,
-    });
-
     return this.runCommandInternal(
       command,
       args,
@@ -2126,11 +2076,6 @@ export class ExpoDevServerService {
       const processOutput = (chunk: string): void => {
         const output = chunk.toString();
         stdout += output;
-
-        this.log2.debug("Expo export output", {
-          sessionId: "build",
-          output: output.trim(),
-        });
       };
 
       const listenerDisposer = this.terminalService.addOutputListener(
