@@ -18,11 +18,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type {
-  APIResponse, RunCommandRequestBody,
+  APIResponse,
+  RunCommandRequestBody,
   RunCommandSuccessResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
-  StartDevServerSuccessResponse
+  StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
@@ -58,7 +59,7 @@ import {
   Share2,
   Smartphone,
   Terminal as TerminalIcon,
-  X
+  X,
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -210,12 +211,15 @@ const MaterializeRenderSection = forwardRef<
     const [iframeError, setIframeError] = useState(false);
     const [isRunningLint, setIsRunningLint] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
-    const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(() =>
-      viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
+    const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
+      () =>
+        viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
     );
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
-    const [routeSuggestions, setRouteSuggestions] = useState<Array<{ route: string; group?: string; }>>([]);
+    const [routeSuggestions, setRouteSuggestions] = useState<
+      Array<{ route: string; group?: string }>
+    >([]);
 
     // Terminal state
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -284,7 +288,11 @@ const MaterializeRenderSection = forwardRef<
               // Update the screen's path if it has changed (but not if currently editing)
               setMobileScreens((prev) =>
                 prev.map((screen) => {
-                  if (screen.id === screenId && screen.path !== currentPath && editingScreenId !== screenId) {
+                  if (
+                    screen.id === screenId &&
+                    screen.path !== currentPath &&
+                    editingScreenId !== screenId
+                  ) {
                     // Notify parent if this is the primary screen (id: 0)
                     if (screenId === 0 && onCurrentPathChange) {
                       onCurrentPathChange(currentPath);
@@ -328,7 +336,11 @@ const MaterializeRenderSection = forwardRef<
             if (iframe.contentWindow === event.source) {
               setMobileScreens((prev) =>
                 prev.map((screen) => {
-                  if (screen.id === screenId && screen.path !== newPath && editingScreenId !== screenId) {
+                  if (
+                    screen.id === screenId &&
+                    screen.path !== newPath &&
+                    editingScreenId !== screenId
+                  ) {
                     // Notify parent if this is the primary screen (id: 0)
                     if (screenId === 0 && onCurrentPathChange) {
                       onCurrentPathChange(newPath);
@@ -373,7 +385,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -413,9 +425,16 @@ const MaterializeRenderSection = forwardRef<
             const parts = cleanPath.split("/");
             const routeName = parts[parts.length - 1];
 
-            if (routeName && routeName !== "page" && routeName !== "layout" && routeName !== "_layout") {
+            if (
+              routeName &&
+              routeName !== "page" &&
+              routeName !== "layout" &&
+              routeName !== "_layout"
+            ) {
               // If there are parent directories, use the full path
-              const route = cleanPath.includes("/") ? "/" + cleanPath : "/" + routeName;
+              const route = cleanPath.includes("/")
+                ? "/" + cleanPath
+                : "/" + routeName;
               routes.push({ route, group: routeGroup });
             }
           }
@@ -424,7 +443,7 @@ const MaterializeRenderSection = forwardRef<
 
       // Remove duplicates (based on route path), filter out +html routes, and sort
       const uniqueRoutes = Array.from(
-        new Map(routes.map((item) => [item.route, item])).values()
+        new Map(routes.map((item) => [item.route, item])).values(),
       )
         .filter((item) => !item.route.includes("+html"))
         .sort((a, b) => a.route.localeCompare(b.route));
@@ -444,7 +463,7 @@ const MaterializeRenderSection = forwardRef<
         setRouteSuggestions(availableRoutes.slice(0, 5));
       } else {
         const filtered = availableRoutes.filter((item) =>
-          item.route.toLowerCase().includes(input.toLowerCase())
+          item.route.toLowerCase().includes(input.toLowerCase()),
         );
         setRouteSuggestions(filtered.slice(0, 5));
       }
@@ -618,12 +637,16 @@ const MaterializeRenderSection = forwardRef<
 
     const handleExport = useCallback(async () => {
       if (loadingSubscriptionData) {
-        alert("We're still loading your subscription status. Please try again in a moment.");
+        alert(
+          "We're still loading your subscription status. Please try again in a moment.",
+        );
         return;
       }
 
       if (userPlan !== "pro") {
-        alert("Exporting files is a Pro member feature. Upgrade to Pro to export your project.");
+        alert(
+          "Exporting files is a Pro member feature. Upgrade to Pro to export your project.",
+        );
         return;
       }
 
@@ -659,7 +682,8 @@ const MaterializeRenderSection = forwardRef<
                 } catch (error) {
                   logger.debug("error", "Failed to include asset in export", {
                     asset: asset.name,
-                    error: error instanceof Error ? error.message : String(error),
+                    error:
+                      error instanceof Error ? error.message : String(error),
                   });
                 }
               }),
@@ -801,7 +825,10 @@ const MaterializeRenderSection = forwardRef<
         const deltaY = startY - moveEvent.clientY; // Inverted because terminal grows upward
         // Allow terminal to grow up to 90% of viewport height
         const maxHeight = window.innerHeight * 0.9;
-        const newHeight = Math.max(150, Math.min(maxHeight, startHeight + deltaY));
+        const newHeight = Math.max(
+          150,
+          Math.min(maxHeight, startHeight + deltaY),
+        );
         setTerminalHeight(newHeight);
       };
 
@@ -871,7 +898,8 @@ const MaterializeRenderSection = forwardRef<
             return {
               className:
                 "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse",
+              dotClassName:
+                "w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse",
               dotStyle: { boxShadow: "0 0 8px rgba(245, 158, 11, 0.6)" },
               text: status,
               animate: true,
@@ -901,7 +929,9 @@ const MaterializeRenderSection = forwardRef<
       const isStaticBuild = currentRenderStatus === "Static build";
 
       return (
-        <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ${config.className}`}>
+        <div
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ${config.className}`}
+        >
           <div className={config.dotClassName} style={config.dotStyle}></div>
           {config.text}
           {isStaticBuild && prototypeId && (
@@ -930,7 +960,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -947,7 +977,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
@@ -1011,8 +1041,12 @@ const MaterializeRenderSection = forwardRef<
                                 <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border px-2 py-1 rounded-md shadow-lg">
                                   <Input
                                     value={tempPath}
-                                    onChange={(e) => handlePathInputChange(e.target.value)}
-                                    onKeyDown={(e) => handlePathKeyDown(screen.id, e)}
+                                    onChange={(e) =>
+                                      handlePathInputChange(e.target.value)
+                                    }
+                                    onKeyDown={(e) =>
+                                      handlePathKeyDown(screen.id, e)
+                                    }
                                     className="h-6 w-32 text-xs text-center border-0 bg-transparent focus-visible:ring-1 focus-visible:ring-primary px-1"
                                     placeholder="/"
                                     autoFocus
@@ -1021,7 +1055,9 @@ const MaterializeRenderSection = forwardRef<
                                     variant="ghost"
                                     size="icon"
                                     className="h-5 w-5 hover:bg-green-500/10"
-                                    onClick={() => handleConfirmPathChange(screen.id)}
+                                    onClick={() =>
+                                      handleConfirmPathChange(screen.id)
+                                    }
                                     aria-label="Confirm path change"
                                   >
                                     <Check className="w-3 h-3 text-green-600" />
@@ -1041,7 +1077,12 @@ const MaterializeRenderSection = forwardRef<
                                     {routeSuggestions.map((item) => (
                                       <button
                                         key={item.route}
-                                        onClick={() => handleSuggestionClick(screen.id, item.route)}
+                                        onClick={() =>
+                                          handleSuggestionClick(
+                                            screen.id,
+                                            item.route,
+                                          )
+                                        }
                                         className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
                                       >
                                         <span>{item.route}</span>
@@ -1062,7 +1103,9 @@ const MaterializeRenderSection = forwardRef<
                               <div className="flex items-center gap-1">
                                 <Badge
                                   className="cursor-pointer hover:bg-primary/90 transition-colors"
-                                  onClick={() => handleBadgeClick(screen.id, screen.path)}
+                                  onClick={() =>
+                                    handleBadgeClick(screen.id, screen.path)
+                                  }
                                 >
                                   {screen.path || "/"}
                                 </Badge>
@@ -1070,7 +1113,9 @@ const MaterializeRenderSection = forwardRef<
                                   variant="ghost"
                                   size="icon"
                                   className="h-5 w-5 hover:bg-destructive/10"
-                                  onClick={() => handleRemoveMobileScreen(screen.id)}
+                                  onClick={() =>
+                                    handleRemoveMobileScreen(screen.id)
+                                  }
                                   aria-label="Remove screen"
                                 >
                                   <X className="w-3 h-3" />
@@ -1116,7 +1161,8 @@ const MaterializeRenderSection = forwardRef<
                               top: "8px",
                               left: "8px",
                               borderRadius: "2.2rem",
-                              boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
+                              boxShadow:
+                                "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
                             }}
                           >
                             <div className="relative w-full h-full">
@@ -1126,7 +1172,8 @@ const MaterializeRenderSection = forwardRef<
                                   if (c) {
                                     iframeRefs.current.set(screen.id, c);
                                     if (isPrimaryScreen) {
-                                      webPreviewRef.current = c.contentWindow ?? null;
+                                      webPreviewRef.current =
+                                        c.contentWindow ?? null;
                                     }
                                   } else {
                                     iframeRefs.current.delete(screen.id);
@@ -1225,13 +1272,15 @@ const MaterializeRenderSection = forwardRef<
                             variant={isPreviewView ? "ghost" : "ghost"}
                             size="sm"
                             onClick={() => onPreviewViewChange(true)}
-                            className={`flex items-center gap-2 ${isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
+                            className={`flex items-center gap-2 ${isPreviewView ? "bg-background shadow-sm hover:bg-background/80" : ""}`}
                           >
                             <Eye className="w-4 h-4" />
                             {isPreviewView && !isMobileLayout && "Preview"}
                           </Button>
                         </TooltipTrigger>
-                        {!isPreviewView && <TooltipContent>Preview</TooltipContent>}
+                        {!isPreviewView && (
+                          <TooltipContent>Preview</TooltipContent>
+                        )}
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1239,7 +1288,7 @@ const MaterializeRenderSection = forwardRef<
                             variant={!isPreviewView ? "ghost" : "ghost"}
                             size="sm"
                             onClick={() => onPreviewViewChange(false)}
-                            className={`flex items-center gap-2 ${!isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
+                            className={`flex items-center gap-2 ${!isPreviewView ? "bg-background shadow-sm hover:bg-background/80" : ""}`}
                           >
                             <Code2 className="w-4 h-4" />
                             {!isPreviewView && !isMobileLayout && "Code"}
@@ -1294,7 +1343,9 @@ const MaterializeRenderSection = forwardRef<
                   disabled={!viewing_url}
                 >
                   <QrCode className="w-4 h-4" />
-                  <span className="ml-1.5 hidden md:inline">View on Device</span>
+                  <span className="ml-1.5 hidden md:inline">
+                    View on Device
+                  </span>
                 </Button>
               )}
               {!publicView && (
@@ -1356,7 +1407,10 @@ const MaterializeRenderSection = forwardRef<
                     </DropdownMenuItem>
                   )}
                   {onClone && (
-                    <DropdownMenuItem onClick={onClone} disabled={isCloningPrototype}>
+                    <DropdownMenuItem
+                      onClick={onClone}
+                      disabled={isCloningPrototype}
+                    >
                       {isCloningPrototype ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
@@ -1368,7 +1422,10 @@ const MaterializeRenderSection = forwardRef<
                   {(onShare || onClone) && <DropdownMenuSeparator />}
                   {designSystemLabel && onDesignSystemClick && (
                     <>
-                      <DropdownMenuItem onClick={onDesignSystemClick} className="sm:hidden">
+                      <DropdownMenuItem
+                        onClick={onDesignSystemClick}
+                        className="sm:hidden"
+                      >
                         <Palette className="w-4 h-4 mr-2" />
                         {/* <Badge variant="outline" className="border-0 px-0">
                           {designSystemLabel}
@@ -1417,10 +1474,12 @@ const MaterializeRenderSection = forwardRef<
 
         {/* Preview */}
         <div
-          className={`relative flex items-center justify-center bg-background ${isPreviewView ? 'p-8' : 'p-0'}`}
+          className={`relative flex items-center justify-center bg-background ${isPreviewView ? "p-8" : "p-0"}`}
           style={{
-            height: isTerminalOpen ? `calc(100% - ${terminalHeight}px)` : '100%',
-            transition: isResizingTerminal ? 'none' : 'height 0.2s ease-in-out'
+            height: isTerminalOpen
+              ? `calc(100% - ${terminalHeight}px)`
+              : "100%",
+            transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
           {isPreviewView ? (
@@ -1443,7 +1502,9 @@ const MaterializeRenderSection = forwardRef<
             >
               <div className="flex items-center gap-2">
                 <TerminalIcon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Terminal</span>
+                <span className="text-sm font-medium text-foreground">
+                  Terminal
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1466,10 +1527,7 @@ const MaterializeRenderSection = forwardRef<
 
             {/* Terminal Content */}
             <div className="absolute top-8 left-0 right-0 bottom-0 p-2">
-              <Terminal
-                className="w-full h-full"
-                terminalUrl={terminal_url}
-              />
+              <Terminal className="w-full h-full" terminalUrl={terminal_url} />
             </div>
           </div>
         )}
@@ -1480,7 +1538,8 @@ const MaterializeRenderSection = forwardRef<
             <DialogHeader>
               <DialogTitle>View on Device</DialogTitle>
               <DialogDescription>
-                Scan this QR code with your phone&apos;s camera to open the app in Expo Go
+                Scan this QR code with your phone&apos;s camera to open the app
+                in Expo Go
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center gap-4 py-4">
