@@ -1321,7 +1321,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                         )}
                       </ul>
                       <p className="mt-3 text-sm">
-                        Switch to "Replace" mode to overwrite, or choose a different folder.
+                        Switch to &quot;Replace&quot; mode to overwrite, or choose a different folder.
                       </p>
                     </AlertDescription>
                   </Alert>
