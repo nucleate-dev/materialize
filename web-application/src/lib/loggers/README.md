@@ -1,6 +1,6 @@
 # ProductLogger
 
-A comprehensive logging utility for client-side Next.js applications with PostHog integration and development debugging capabilities.
+A comprehensive logging utility for client-side Next.js applications with PostHog integration and development debugging capabilities
 
 ## Features
 
