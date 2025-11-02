@@ -898,7 +898,30 @@ export default function PrototypeChatWindow({
 
       // Reconstruct timeline from database rows (chat messages + events)
       const reconstructedTimeline: ChatTimelineItem[] = [];
+      // Track tool calls to merge TOOL_CALL and TOOL_RESULT events
+      const toolCallMap = new Map<string, { callRow?: typeof messagesData[0], resultRow?: typeof messagesData[0] }>();
 
+      // First pass: group tool events by toolCallId
+      for (const row of messagesData || []) {
+        if (row.message_type === "event" && row.event_type) {
+          const eventData = row.event_data as Record<string, unknown> | null;
+
+          if (row.event_type === ChatStreamEventType.TOOL_CALL || row.event_type === ChatStreamEventType.TOOL_RESULT) {
+            const toolCallId = String(eventData?.toolCallId || generateTimelineId("toolcall"));
+            const existing = toolCallMap.get(toolCallId) || {};
+
+            if (row.event_type === ChatStreamEventType.TOOL_CALL) {
+              existing.callRow = row;
+            } else {
+              existing.resultRow = row;
+            }
+
+            toolCallMap.set(toolCallId, existing);
+          }
+        }
+      }
+
+      // Second pass: build timeline items
       for (const row of messagesData || []) {
         // Handle chat messages (message_type = 'chat')
         if (row.message_type === "chat") {
@@ -957,34 +980,19 @@ export default function PrototypeChatWindow({
               }
               break;
 
-            case ChatStreamEventType.TOOL_CALL:
-              if (eventData?.tool || eventData.toolName) {
-                const toolName = String(eventData.tool || eventData.toolName || "Unknown tool");
-                // Skip orchestration tools (they're shown as plan/step items)
-                if (
-                  toolName.toLowerCase() !== "create_execution_plan" &&
-                  toolName.toLowerCase() !== "confirm_step_completion"
-                ) {
-                  reconstructedTimeline.push({
-                    id: (row.id as string) || generateTimelineId("tool"),
-                    kind: "tool",
-                    tool: toolName,
-                    toolCallId: String(eventData.toolCallId || generateTimelineId("toolcall")),
-                    status: "running",
-                    args: eventData.args,
-                  });
-                }
-              }
-              break;
-
-            case ChatStreamEventType.TOOL_RESULT:
-              if (eventData?.tool || eventData.toolName) {
+            case ChatStreamEventType.TOOL_RESULT: {
+              // Only create tool items for TOOL_RESULT events (which may or may not have a matching TOOL_CALL)
+              if (eventData?.tool || eventData?.toolName) {
                 const toolName = String(eventData.tool || eventData.toolName || "Unknown tool");
                 // Skip orchestration tools
                 if (
                   toolName.toLowerCase() !== "create_execution_plan" &&
                   toolName.toLowerCase() !== "confirm_step_completion"
                 ) {
+                  const toolCallId = String(eventData.toolCallId || generateTimelineId("toolcall"));
+                  const toolGroup = toolCallMap.get(toolCallId);
+                  const callEventData = toolGroup?.callRow?.event_data as Record<string, unknown> | null;
+
                   const success =
                     typeof eventData.result === "object" &&
                       eventData.result !== null &&
@@ -996,13 +1004,18 @@ export default function PrototypeChatWindow({
                     id: (row.id as string) || generateTimelineId("tool"),
                     kind: "tool",
                     tool: toolName,
-                    toolCallId: String(eventData.toolCallId || generateTimelineId("toolcall")),
+                    toolCallId,
                     status: success ? "success" : "error",
-                    args: eventData.args,
+                    args: callEventData?.args || eventData.args,
                     result: eventData.result,
                   });
                 }
               }
+              break;
+            }
+
+            case ChatStreamEventType.TOOL_CALL:
+              // Skip TOOL_CALL events - they're merged into TOOL_RESULT above
               break;
 
             case ChatStreamEventType.ERROR:
@@ -1375,6 +1388,22 @@ export default function PrototypeChatWindow({
               setCurrentThought("");
               setIsThoughtsExpanded(false);
               setIsChatLoading(false);
+
+              // Mark all remaining steps as completed
+              setTimelineItems((prevTimeline) => {
+                // Find the most recent plan in timeline
+                const planItem = [...prevTimeline].reverse().find((item) => item.kind === "plan") as PlanTimelineItem | undefined;
+                if (planItem) {
+                  setCompletedSteps((prev) => {
+                    const allCompleted = new Set(prev);
+                    for (let i = 0; i < planItem.plan.length; i++) {
+                      allCompleted.add(i);
+                    }
+                    return allCompleted;
+                  });
+                }
+                return prevTimeline;
+              });
               break;
 
             case ChatStreamEventType.USAGE_UPDATE:
@@ -1933,8 +1962,8 @@ export default function PrototypeChatWindow({
                     <div key={index} className="flex items-start gap-2">
                       <div
                         className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5 ${completedSteps.has(index)
-                            ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
-                            : "border-muted-foreground/40"
+                          ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
+                          : "border-muted-foreground/40"
                           }`}
                       >
                         {completedSteps.has(index) && (
@@ -1943,8 +1972,8 @@ export default function PrototypeChatWindow({
                       </div>
                       <span
                         className={`flex-1 ${completedSteps.has(index)
-                            ? "text-muted-foreground/70 line-through"
-                            : "text-muted-foreground"
+                          ? "text-muted-foreground/70 line-through"
+                          : "text-muted-foreground"
                           }`}
                       >
                         {step}
