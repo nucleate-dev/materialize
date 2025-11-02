@@ -855,16 +855,6 @@ export class ChatEngineV1 {
         );
       }
 
-      // Track total token usage across all phases
-      if (totalInputTokens > 0 || totalOutputTokens > 0) {
-        log2.metricTokenUsage(
-          MODEL_CONFIGS[this.modelProvider],
-          totalInputTokens,
-          totalOutputTokens,
-          { intent: 'total_chat_call' },
-        );
-      }
-
       if (finalBuffer.length > 0) {
         controller.enqueue(
           encoder.encode(
@@ -922,6 +912,241 @@ export class ChatEngineV1 {
       //     - Give the LLM all of the same tools that were used in the other two phases
       //     - Log the token usage for the error_fixing user intent phase (input and output tokens), and aggregate the token usage to the overall total. Move the log for the overall total to after these steps
       // 4. If the stdout was empty, then log that no errors were found, and then continue
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: ChatStreamEventType.TYPECHECK_STARTED,
+            command: 'npx tsc',
+          })}\n\n`,
+        ),
+      );
+
+      const typecheckResponse = await this.config.dispatcherService.runCommand(
+        {
+          prototype_id: params.prototype_id,
+          command: 'npx tsc',
+          timeout_ms: 120000,
+          strip_ansi: true,
+        },
+        params.token,
+        log2,
+      );
+
+      if (typecheckResponse.error || !typecheckResponse.data) {
+        const errorMessage =
+          typecheckResponse.error?.message ??
+          'Failed to run type check on build worker';
+        log2.error(
+          new Error(errorMessage),
+          '[ChatEngine] Failed to execute type check',
+        );
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: ChatStreamEventType.TYPECHECK_FAILED,
+              error: errorMessage,
+            })}\n\n`,
+          ),
+        );
+      } else {
+        const typecheckStdout = typecheckResponse.data.stdout?.trim() ?? '';
+        if (typecheckStdout.length > 0) {
+          log2.warn('[ChatEngine] TypeScript errors detected after dispatch', {
+            output: typecheckStdout,
+          });
+
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: ChatStreamEventType.TYPECHECK_ERRORS,
+                output: typecheckStdout,
+              })}\n\n`,
+            ),
+          );
+
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: ChatStreamEventType.PHASE_STARTED,
+                phase: ChatPhase.ERROR_FIXING,
+                description: 'Fixing detected type errors...',
+              })}\n\n`,
+            ),
+          );
+
+          const errorFixMessages = [
+            ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            })),
+            finalUserMessage,
+            {
+              role: 'assistant' as const,
+              content: assistantResponse || finalBuffer,
+            },
+            {
+              role: 'user' as const,
+              content: `The TypeScript compiler reported the following errors:\n\n${typecheckStdout}\n\nPlease fix these errors.`,
+            },
+          ];
+
+          const errorFixResult = streamText({
+            model: this.getCurrentModel(),
+            system: promptConfig.errorFixing,
+            messages: errorFixMessages,
+            tools: {
+              ...createOrchestrationTools(params),
+              ...createFileManagerTools(params),
+            },
+            toolChoice: 'auto',
+            stopWhen: stepCountIs(25),
+          });
+
+          let errorFixBuffer = '';
+
+          for await (const part of errorFixResult.fullStream) {
+            switch (part.type) {
+              case 'text-delta':
+                errorFixBuffer += part.text;
+                assistantResponse += part.text;
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
+                      content: part.text,
+                    })}\n\n`,
+                  ),
+                );
+                break;
+              case 'tool-call':
+                toolCalls.push({
+                  toolName: part.toolName,
+                  input: part.input,
+                  output: null,
+                });
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({
+                      type: ChatStreamEventType.TOOL_CALL,
+                      tool: part.toolName,
+                      toolCallId: part.toolCallId,
+                      args: part.input,
+                    })}\n\n`,
+                  ),
+                );
+                break;
+              case 'tool-result': {
+                const matchingToolCall = toolCalls.find(
+                  (tc) => tc.toolName === part.toolName && tc.output === null,
+                );
+                if (matchingToolCall) {
+                  matchingToolCall.output = part.output;
+                }
+
+                if (part.toolName === 'create_execution_plan') {
+                  if (
+                    part.output &&
+                    typeof part.output === 'object' &&
+                    'plan' in part.output
+                  ) {
+                    executionPlan = (part.output as { plan: string[] }).plan;
+                  }
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({
+                        type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
+                        toolCallId: part.toolCallId,
+                        result: part.output,
+                      })}\n\n`,
+                    ),
+                  );
+                } else if (part.toolName === 'confirm_step_completion') {
+                  if (
+                    part.output &&
+                    typeof part.output === 'object' &&
+                    'step' in part.output
+                  ) {
+                    const stepNum = (part.output as { step: number }).step;
+                    if (typeof stepNum === 'number') {
+                      completedSteps.push(stepNum);
+                    }
+                  }
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({
+                        type: ChatStreamEventType.STEP_COMPLETED,
+                        toolCallId: part.toolCallId,
+                        result: part.output,
+                      })}\n\n`,
+                    ),
+                  );
+                } else {
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({
+                        type: ChatStreamEventType.TOOL_RESULT,
+                        tool: part.toolName,
+                        toolCallId: part.toolCallId,
+                        result: part.output,
+                      })}\n\n`,
+                    ),
+                  );
+                }
+                break;
+              }
+              default:
+                break;
+            }
+          }
+
+          const errorFixUsage = await errorFixResult.usage;
+          if (errorFixUsage) {
+            const errorFixInputTokens = errorFixUsage.inputTokens ?? 0;
+            const errorFixOutputTokens = errorFixUsage.outputTokens ?? 0;
+
+            totalInputTokens += errorFixInputTokens;
+            totalOutputTokens += errorFixOutputTokens;
+
+            log2.metricTokenUsage(
+              MODEL_CONFIGS[this.modelProvider],
+              errorFixInputTokens,
+              errorFixOutputTokens,
+              { intent: 'error_fixing' },
+            );
+          }
+
+          if (errorFixBuffer.length > 0) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: ChatStreamEventType.CHAT_RESPONSE,
+                  content: errorFixBuffer,
+                })}\n\n`,
+              ),
+            );
+          }
+        } else {
+          log2.info('[ChatEngine] TypeScript check passed with no errors');
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: ChatStreamEventType.TYPECHECK_PASSED,
+                message: 'TypeScript check completed successfully.',
+              })}\n\n`,
+            ),
+          );
+        }
+      }
+
+      // Track total token usage across all phases (after error handling)
+      if (totalInputTokens > 0 || totalOutputTokens > 0) {
+        log2.metricTokenUsage(
+          MODEL_CONFIGS[this.modelProvider],
+          totalInputTokens,
+          totalOutputTokens,
+          { intent: 'total_chat_call' },
+        );
+      }
 
       controller.enqueue(
         encoder.encode(

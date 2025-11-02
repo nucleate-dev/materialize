@@ -108,4 +108,12 @@ export class DispatcherService {
     });
     return handleRunCommandImpl(body, jwt, this.cache, localLog);
   }
+
+  public async dispatchRunCommand(
+    body: PublicRunCommandRequest & { prototype_id: string },
+    jwt: string,
+    log2: SystemLogger,
+  ): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
+    return this.runCommand(body, jwt, log2);
+  }
 }
