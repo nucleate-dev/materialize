@@ -1,6 +1,9 @@
 import { Tool, tool } from 'ai';
 import { z } from 'zod';
 import { ChatEngineParams } from '../../../types/InternalTypes.js';
+import { DispatchRequestBody } from '../../../types/PublicAPITypes.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
+import { VirtualFileManager } from './file-manager.js';
 
 // NEW: A dedicated method for orchestration tools
 export function createOrchestrationTools(
@@ -398,6 +401,129 @@ export function createFileManagerTools(
   };
 }
 
-export function createDevServerTools(): Record<string, Tool> {
-  return {};
+export function createDevServerTools(
+  params: ChatEngineParams,
+  dispatcherService: DispatcherService,
+): Record<string, Tool> {
+  const { fileManager, log2, prototype_id, token } = params;
+
+  return {
+    update_dev_server_with_changes: tool({
+      description:
+        'Dispatch any pending file changes to the dev server and reset the virtual file system change tracking.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const toolLog = log2.child({ tool: 'update_dev_server_with_changes' });
+
+        if (!(fileManager instanceof VirtualFileManager)) {
+          toolLog.warn(
+            '[DevServerTools] update_dev_server_with_changes called without a virtual file manager instance.',
+          );
+          return {
+            success: false,
+            dispatched: false,
+            error: 'Virtual file manager is not available to dispatch changes.',
+          };
+        }
+
+        if (!fileManager.hasChanges()) {
+          return {
+            success: true,
+            dispatched: false,
+            message: 'No pending file changes to dispatch to the dev server.',
+          };
+        }
+
+        const changedFiles = fileManager.getChangedFiles();
+        const deletedFiles = Array.from(fileManager.getDeletedFiles());
+        const filesForDispatch = Object.values(changedFiles);
+
+        const requestBody: DispatchRequestBody = {
+          prototype_id,
+          framework: 'expo_react_native',
+          files: filesForDispatch,
+          assets: [],
+          deleted_files: deletedFiles,
+          file_scope: 'updates',
+          hot_reload: true,
+        };
+
+        const dispatchResult = await dispatcherService.dispatch(
+          requestBody,
+          token,
+          toolLog,
+        );
+
+        if (!dispatchResult.data || dispatchResult.error) {
+          const errorMessage =
+            dispatchResult.error?.message ??
+            'Failed to dispatch file changes to the dev server.';
+          toolLog.warn('[DevServerTools] Dispatch failed', {
+            error: errorMessage,
+          });
+
+          return {
+            success: false,
+            dispatched: false,
+            error: errorMessage,
+          };
+        }
+
+        fileManager.clearChangeTracking();
+
+        return {
+          success: true,
+          dispatched: true,
+          viewing_url: dispatchResult.data.viewing_url,
+          build_errors: dispatchResult.data.build_errors,
+          build_warnings: dispatchResult.data.build_warnings,
+          message: 'Changes dispatched to the dev server successfully.',
+        };
+      },
+    }),
+
+    typescript_compile_check: tool({
+      description:
+        'Run `npx tsc` on the dev server and return the compiler output. Empty output indicates no TypeScript errors.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const toolLog = log2.child({ tool: 'typescript_compile_check' });
+
+        const commandResult = await dispatcherService.runCommand(
+          {
+            prototype_id,
+            command: 'npx tsc',
+            timeout_ms: 120000,
+            strip_ansi: true,
+          },
+          token,
+          toolLog,
+        );
+
+        if (!commandResult.data || commandResult.error) {
+          const errorMessage =
+            commandResult.error?.message ??
+            'Failed to run TypeScript compile check.';
+          toolLog.warn('[DevServerTools] TypeScript compile check failed', {
+            error: errorMessage,
+          });
+
+          return {
+            success: false,
+            output: '',
+            error: errorMessage,
+          };
+        }
+
+        const output = commandResult.data.stdout?.trim() ?? '';
+
+        return {
+          success:
+            commandResult.data.status === 'success' && output.length === 0,
+          output,
+          status: commandResult.data.status,
+        };
+      },
+    }),
+  };
 }

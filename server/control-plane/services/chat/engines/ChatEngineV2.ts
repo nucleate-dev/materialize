@@ -18,6 +18,7 @@ import { VirtualFileManager } from '../utils/file-manager.js';
 import { detectUserIntent } from '../utils/intent-classifier.js';
 import { fetchImageAsBase64 } from '../utils/image-utils.js';
 import {
+  createDevServerTools,
   createFileManagerTools,
   createOrchestrationTools,
 } from '../utils/tools.js';
@@ -683,6 +684,7 @@ export class ChatEngineV2 {
         tools: {
           ...createOrchestrationTools(params),
           ...createFileManagerTools(params),
+          ...createDevServerTools(params, this.config.dispatcherService),
         },
         toolChoice: 'auto',
         stopWhen: stepCountIs(25), // Increased step count for complex plans
