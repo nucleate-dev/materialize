@@ -2,14 +2,19 @@ import { supabase } from "@/ClientConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
+import { getBulkAssetSignedUrls } from "@/lib/utils/assetUtils";
 import { useCallback, useEffect, useState } from "react";
 
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
+export interface AssetWithSignedUrl extends PrototypeAsset {
+  storage_url?: string | null;
+}
+
 export interface FileSystemState {
   files: Record<string, PrototypeFile>;
-  assets: Record<string, PrototypeAsset>;
+  assets: Record<string, AssetWithSignedUrl>;
   selectedFile: string;
   isLoading: boolean;
 }
@@ -50,7 +55,7 @@ export const useFileSystem = (
   const logger = useProductLogger();
   const { userPlan } = useSubscriptionAccess();
   const [files, setFiles] = useState<Record<string, PrototypeFile>>({});
-  const [assets, setAssets] = useState<Record<string, PrototypeAsset>>({});
+  const [assets, setAssets] = useState<Record<string, AssetWithSignedUrl>>({});
   const [selectedFile, setSelectedFile] = useState<string>(defaultFile);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -128,13 +133,23 @@ export const useFileSystem = (
           return;
         }
 
-        // Convert array to dictionary mapping name to PrototypeAsset object
+        // Get signed URLs for all assets
+        const assetNames = (data || []).map((asset) => asset.name);
+        const signedUrls = await getBulkAssetSignedUrls(
+          prototypeId,
+          assetNames,
+        );
+
+        // Convert array to dictionary mapping name to AssetWithSignedUrl object
         const assetsDict = (data || []).reduce(
           (acc, asset) => {
-            acc[asset.name] = asset;
+            acc[asset.name] = {
+              ...asset,
+              storage_url: signedUrls[asset.name],
+            };
             return acc;
           },
-          {} as Record<string, PrototypeAsset>,
+          {} as Record<string, AssetWithSignedUrl>,
         );
 
         setAssets(assetsDict);
