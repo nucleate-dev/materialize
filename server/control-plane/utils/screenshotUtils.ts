@@ -114,6 +114,9 @@ async function takeScreenshot(
       height: 667,
       deviceScaleFactor: 2,
     });
+    await page.emulateMediaFeatures([
+      { name: 'prefers-color-scheme', value: 'dark' },
+    ]);
 
     // Set a reasonable timeout for page load
     await page.goto(url, {
