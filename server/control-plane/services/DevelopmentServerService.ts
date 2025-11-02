@@ -11,10 +11,6 @@ import type {
   RestartDevServerRequestBody,
   RestartDevServerSuccessResponse,
 } from '../types/PublicAPITypes.js';
-import {
-  PublicRunCommandRequest,
-  PublicRunCommandResponse,
-} from '../types/BuildWorkerTypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
 import {
@@ -151,55 +147,6 @@ export class DevelopmentServerService {
       },
       this.handleRestartDevServer.bind(this),
     );
-
-    // POST /dev-server/run-command
-    app.post<{
-      Body: PublicRunCommandRequest & { prototype_id: string };
-    }>(
-      '/dev-server/run-command',
-      {
-        schema: {
-          body: {
-            type: 'object',
-            required: ['prototype_id', 'command'],
-            properties: {
-              prototype_id: { type: 'string' },
-              command: { type: 'string' },
-              args: { type: 'array', items: { type: 'string' } },
-              cwd: { type: 'string' },
-              env: { type: 'object' },
-              timeout_ms: { type: 'number' },
-            },
-          },
-        },
-      },
-      this.handleRunCommand.bind(this),
-    );
-  }
-
-  private async handleRunCommand(
-    request: FastifyRequest<{
-      Body: PublicRunCommandRequest & { prototype_id: string };
-    }>,
-    reply: FastifyReply,
-  ): Promise<PublicRunCommandResponse> {
-    const token = request.headers.authorization?.split(' ')[1];
-    if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-      reply.status(HTTP_STATUS.UNAUTHORIZED);
-      return {
-        status: 'timeout',
-        stdout: 'Error: No token provided',
-      };
-    }
-    const result = await this.dispatcherService.runCommand(
-      request.body,
-      token,
-      request.log2,
-    );
-    reply.status(
-      result.status === 'success' ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST,
-    );
-    return result;
   }
 
   private async handleRestartDevServer(
