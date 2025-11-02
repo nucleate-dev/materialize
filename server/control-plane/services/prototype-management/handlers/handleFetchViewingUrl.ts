@@ -9,6 +9,7 @@ import {
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { DispatcherService } from '../../dispatcher/DispatcherService.js';
+import { getCloudfrontScreenshotUrl } from '../../../utils/screenshotUtils.js';
 
 export default async function handleFetchViewingUrlImpl(
   request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
@@ -86,12 +87,10 @@ export default async function handleFetchViewingUrlImpl(
 
     // Return static build URL
     let staticViewingUrl = `https://${prototype_id}.render.materializeui.com/`;
-    if (
-      token &&
-      authResult.prototype.visibility !== 'PUBLIC' &&
+    if (token && authResult.prototype.visibility !== 'PUBLIC') {
       !authResult.isServiceRole
-    ) {
-      staticViewingUrl += `?token=${encodeURIComponent(token)}`;
+        ? (staticViewingUrl += `?token=${encodeURIComponent(token)}`)
+        : (staticViewingUrl = await getCloudfrontScreenshotUrl(prototype_id));
     }
     request.log2.consoleLogDevOnly(
       'info',

@@ -1,25 +1,28 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
-import { CleanupService } from '../services/CleanupService.js';
+import { takeScreenshotsOfKilledBuilds } from '../utils/screenshotUtils.js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../types/supabase.js';
 
 interface TakeScreenshotRequestBody {
   prototype_id: string;
 }
 
 export class InternalCleanupServiceManagement {
-  private cleanupService: CleanupService;
   private fastifyApp: FastifyInstance;
+  private supabaseServiceRole: SupabaseClient<Database>;
 
-  constructor(cleanupService: CleanupService, fastifyApp: FastifyInstance) {
-    this.cleanupService = cleanupService;
+  constructor(fastifyApp: FastifyInstance) {
     this.fastifyApp = fastifyApp;
+    this.supabaseServiceRole = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
   }
 
   // Register routes with Fastify
   public registerRoutes(app: FastifyInstance): void {
-    this.fastifyApp = app;
-
     // POST /internal/cleanup/take-prototype-screenshot - Take screenshot of a specific prototype
     app.post(
       '/internal/cleanup/take-prototype-screenshot',
@@ -115,9 +118,11 @@ export class InternalCleanupServiceManagement {
       });
 
       // Call the public method from CleanupService to take screenshots
-      await this.cleanupService.takeScreenshotsOfKilledBuilds([
-        prototype_id.trim(),
-      ]);
+      await takeScreenshotsOfKilledBuilds(
+        [prototype_id.trim()],
+        request.log2,
+        this.supabaseServiceRole,
+      );
 
       log.info('Screenshot taken successfully for prototype', {
         prototype_id,
