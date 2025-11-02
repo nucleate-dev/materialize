@@ -8,8 +8,6 @@ import {
   type DispatchSuccessResponse,
   type RestartDevServerRequestBody,
   type RestartDevServerSuccessResponse,
-  type RunCommandRequestBody,
-  type RunCommandSuccessResponse,
   type StandardErrorResponse,
 } from '../../types/PublicAPITypes.js';
 import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
@@ -19,7 +17,10 @@ import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js
 import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
 import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
-import { PublicRunCommandRequest, PublicRunCommandResponse } from '../../types/BuildWorkerTypes.js';
+import {
+  PublicRunCommandRequest,
+  PublicRunCommandResponse,
+} from '../../types/BuildWorkerTypes.js';
 
 dotenv.config();
 
@@ -101,7 +102,7 @@ export class DispatcherService {
     body: PublicRunCommandRequest & { prototype_id: string },
     jwt: string,
     log2: SystemLogger,
-  ): Promise<PublicRunCommandResponse> {
+  ): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
     const localLog = log2.child({
       function: 'runCommand',
     });

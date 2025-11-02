@@ -1,4 +1,8 @@
-import { BuildStatus } from '../../../types/PublicAPITypes.js';
+import {
+  BuildStatus,
+  APIResponse,
+  StandardErrorResponse,
+} from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { CACHE_KEYS, isActiveBuildType } from '../../../types/InternalTypes.js';
 import { GlideClient } from '@valkey/valkey-glide';
@@ -20,7 +24,7 @@ export async function handleRunCommandImpl(
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<PublicRunCommandResponse> {
+): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
   const { prototype_id, command, args, cwd, env, timeout_ms } = body;
 
   // ------------------------------------------------------------------------------------------------
@@ -38,15 +42,22 @@ export async function handleRunCommandImpl(
       !isEditableDevServer(existingDevData.status as BuildStatus)
     ) {
       return {
-        status: 'timeout',
-        stdout: 'Error: There is no editable dev server for this prototype',
+        data: null,
+        error: {
+          error: 'Conflict',
+          message: 'There is no editable dev server for this prototype',
+        },
       };
     }
-    return await callFargateRunCommand(
+    const response = await callFargateRunCommand(
       process.env.FARGATE_DEV_IP,
       { command, args, cwd, env, timeout_ms },
       log2,
     );
+    return {
+      data: response,
+      error: null,
+    };
   }
   // ------------------------------------------------------------------------------------------------
 
@@ -58,9 +69,12 @@ export async function handleRunCommandImpl(
   );
   if (!authResult || !authResult.canEdit) {
     return {
-      status: 'timeout',
-      stdout:
-        'Error: Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      data: null,
+      error: {
+        error: 'Unauthorized',
+        message:
+          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
+      },
     };
   }
 
@@ -77,8 +91,11 @@ export async function handleRunCommandImpl(
 
     if (!currentBuildId) {
       return {
-        status: 'timeout',
-        stdout: 'Error: No active dev server found for this prototype',
+        data: null,
+        error: {
+          error: 'Not Found',
+          message: 'No active dev server found for this prototype',
+        },
       };
     }
 
@@ -88,16 +105,22 @@ export async function handleRunCommandImpl(
 
     if (!existingBuild || !isActiveBuildType(existingBuild)) {
       return {
-        status: 'timeout',
-        stdout: 'Error: Invalid or missing build data',
+        data: null,
+        error: {
+          error: 'Not Found',
+          message: 'Invalid or missing build data',
+        },
       };
     }
 
     // 5. Check if dev server is in a runnable state
     if (!isEditableDevServer(existingBuild.status)) {
       return {
-        status: 'timeout',
-        stdout: `Error: Cannot run command on dev server in ${existingBuild.status} state`,
+        data: null,
+        error: {
+          error: 'Conflict',
+          message: `Cannot run command on dev server in ${existingBuild.status} state`,
+        },
       };
     }
 
@@ -119,15 +142,21 @@ export async function handleRunCommandImpl(
       activeBuildToStringRecord(updatedBuildData),
     );
 
-    // Return the command response directly
-    return commandResponse;
+    // Return the command response wrapped in APIResponse format
+    return {
+      data: commandResponse,
+      error: null,
+    };
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     log2.error(error, 'Failed to run command on dev server');
 
     return {
-      status: 'timeout',
-      stdout: `Error: ${e.message}`,
+      data: null,
+      error: {
+        error: 'Internal Server Error',
+        message: e.message,
+      },
     };
   }
 }
