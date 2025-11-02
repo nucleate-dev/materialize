@@ -1,10 +1,8 @@
 import { ECSClient, StopTaskCommand } from '@aws-sdk/client-ecs';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3Client } from '@aws-sdk/client-s3';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios, { AxiosError } from 'axios';
-import puppeteer from 'puppeteer';
 import { CONFIG } from '../config.js';
 import { cryptoRandomId, SystemLogger } from '../loggers/SystemLogger.js';
 import { baseLogger } from '../server.js';
@@ -23,6 +21,7 @@ import {
   removeBuildDataFromCache,
 } from '../utils/cacheInteractionUtils.js';
 import { deleteCloudflareTunnel } from '../utils/cloudflareTunnelManagementUtils.js';
+import { takeScreenshotsOfKilledBuilds } from '../utils/screenshotUtils.js';
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
@@ -108,7 +107,11 @@ export class CleanupService {
       );
     stats = killedBuilds.stats;
 
-    await this.takeScreenshotsOfKilledBuilds(killedBuilds.killedPrototypeIds);
+    await takeScreenshotsOfKilledBuilds(
+      killedBuilds.killedPrototypeIds,
+      this.log2,
+      this.supabase,
+    );
     return stats;
   }
 
@@ -298,60 +301,6 @@ export class CleanupService {
       removedFromCache ? stats.successfulCleanups++ : stats.failedCleanups++;
     }
     return { stats, killedPrototypeIds };
-  }
-
-  public async takeScreenshotsOfKilledBuilds(
-    killedPrototypeIds: string[],
-  ): Promise<void> {
-    for (const prototypeId of killedPrototypeIds) {
-      try {
-        // Generate signed URL for the S3 object
-        const signedUrl = await this.generateS3SignedUrl(prototypeId);
-        if (!signedUrl) {
-          this.log2.warn('Failed to generate signed URL for prototype', {
-            prototypeId,
-          });
-          continue;
-        }
-
-        // Take screenshot using Puppeteer
-        const screenshot = await this.takeScreenshot(signedUrl);
-        if (!screenshot) {
-          this.log2.warn('Failed to take screenshot for prototype', {
-            prototypeId,
-          });
-          continue;
-        }
-
-        // Upload screenshot to Supabase Storage
-        const uploadSuccess = await this.uploadScreenshotToSupabase(
-          prototypeId,
-          screenshot,
-        );
-        if (uploadSuccess) {
-          this.log2.info('Successfully took and uploaded screenshot', {
-            prototypeId,
-          });
-
-          // Update the thumbnail_url in the prototypes table
-          const updateSuccess =
-            await this.updatePrototypeThumbnailUrl(prototypeId);
-          if (!updateSuccess) {
-            this.log2.warn('Failed to update prototype thumbnail_url', {
-              prototypeId,
-            });
-          }
-        } else {
-          this.log2.warn('Failed to upload screenshot to Supabase', {
-            prototypeId,
-          });
-        }
-      } catch (error) {
-        this.log2.error(error, 'Error processing screenshot for prototype', {
-          prototypeId,
-        });
-      }
-    }
   }
 
   private async setCacheActiveBuildData(
@@ -573,184 +522,5 @@ export class CleanupService {
     } while (cursor !== '0');
 
     return keys;
-  }
-
-  private async generateS3SignedUrl(
-    prototypeId: string,
-  ): Promise<string | null> {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: 'materialize-sites',
-        Key: `${prototypeId}/latest/index.html`,
-      });
-
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      const signedUrl = await getSignedUrl(
-        this.s3Client as any, // Type assertion to resolve @smithy/types version conflict
-        command as any, // Type assertion to resolve @smithy/types version conflict
-        { expiresIn: 300 }, // 5 min expiration
-      );
-      /* eslint-enable @typescript-eslint/no-explicit-any */
-
-      return signedUrl;
-    } catch (error) {
-      this.log2.error(error, 'Failed to generate S3 signed URL', {
-        prototypeId,
-      });
-      return null;
-    }
-  }
-
-  private async takeScreenshot(url: string): Promise<Buffer | null> {
-    let browser;
-    try {
-      // Try to launch with minimal Chrome dependencies
-      browser = await puppeteer.launch({
-        headless: true, // Use new headless mode
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu',
-          '--disable-gpu-sandbox',
-          '--disable-software-rasterizer',
-          '--disable-web-security',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-features=TranslateUI,VizDisplayCompositor',
-          '--disable-extensions',
-          '--disable-default-apps',
-          '--no-default-browser-check',
-          '--no-proxy-server',
-          '--disable-sync',
-          '--disable-plugins',
-          '--disable-logging',
-          '--disable-background-media-processing',
-          '--mute-audio',
-          '--disable-audio',
-          '--disable-ipc-flooding-protection',
-          '--disable-hang-monitor',
-          '--disable-prompt-on-repost',
-          '--disable-client-side-phishing-detection',
-          '--disable-component-update',
-          '--disable-domain-reliability',
-          '--disable-background-networking',
-        ],
-        timeout: 30000,
-        ignoreDefaultArgs: ['--disable-extensions'],
-      });
-
-      const page = await browser.newPage();
-
-      // Set mobile phone viewport
-      await page.setViewport({
-        width: 375,
-        height: 667,
-        deviceScaleFactor: 2,
-      });
-
-      // Set a reasonable timeout for page load
-      await page.goto(url, {
-        waitUntil: 'networkidle0',
-        timeout: 30000,
-      });
-
-      // Take screenshot
-      const screenshot = await page.screenshot({
-        type: 'png',
-        fullPage: false,
-      });
-
-      return screenshot as Buffer;
-    } catch (error) {
-      // Check if this is a Chrome dependency error
-      if (error instanceof Error && error.message.includes('libnspr4.so')) {
-        this.log2.error(
-          error,
-          'Chrome dependencies missing. Run install-chrome-dependencies.sh script to fix this issue.',
-          { url, errorType: 'missing_chrome_dependencies' },
-        );
-      } else if (
-        error instanceof Error &&
-        error.message.includes('Failed to launch the browser process')
-      ) {
-        this.log2.error(
-          error,
-          'Browser launch failed. This may be due to missing system dependencies.',
-          { url, errorType: 'browser_launch_failed' },
-        );
-      } else {
-        this.log2.error(error, 'Failed to take screenshot', { url });
-      }
-      return null;
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (closeError) {
-          this.log2.error(closeError, 'Failed to close browser');
-        }
-      }
-    }
-  }
-
-  private async uploadScreenshotToSupabase(
-    prototypeId: string,
-    screenshot: Buffer,
-  ): Promise<boolean> {
-    const fileName = `${prototypeId}.png`;
-    const { error } = await this.supabase.storage
-      .from('prototype-thumbnails')
-      .upload(fileName, screenshot, {
-        contentType: 'image/png',
-        upsert: true, // Overwrite if exists
-        cacheControl: '600', // 10 min
-      });
-    if (error) {
-      this.log2.error(error, 'Supabase storage upload failed', {
-        prototypeId,
-        fileName,
-      });
-      return false;
-    }
-    return true;
-  }
-
-  private async updatePrototypeThumbnailUrl(
-    prototypeId: string,
-  ): Promise<boolean> {
-    // Generate the public URL for the uploaded screenshot
-    const { data } = this.supabase.storage
-      .from('prototype-thumbnails')
-      .getPublicUrl(`${prototypeId}.png`);
-
-    const thumbnailUrl = data.publicUrl;
-
-    // Update the prototypes table with the thumbnail URL
-    const { error } = await this.supabase
-      .from('prototypes')
-      .update({
-        thumbnail_url: thumbnailUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', prototypeId);
-
-    if (error) {
-      this.log2.error(
-        error,
-        'Failed to update prototype thumbnail_url in database',
-        {
-          prototypeId,
-          thumbnailUrl,
-        },
-      );
-      return false;
-    }
-    return true;
   }
 }
