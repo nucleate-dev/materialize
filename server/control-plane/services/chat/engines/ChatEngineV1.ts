@@ -1125,6 +1125,42 @@ export class ChatEngineV1 {
               ),
             );
           }
+
+          // Dispatch error fixes to build worker
+          if (
+            fileManager instanceof VirtualFileManager &&
+            fileManager.hasChanges()
+          ) {
+            log2.info(
+              '[ChatEngine] Dispatching error fixes to build worker',
+              {
+                updatedFiles: Object.keys(fileManager.getChangedFiles()),
+              },
+            );
+
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: ChatStreamEventType.FILES_SYNCED,
+                  updatedFilesObject: fileManager.getChangedFiles(),
+                  deletedFiles: fileManager.getDeletedFiles(),
+                })}\n\n`,
+              ),
+            );
+
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: ChatStreamEventType.PHASE_STARTED,
+                  phase: ChatPhase.FILE_DISPATCH,
+                  description: 'Building and deploying error fixes...',
+                })}\n\n`,
+              ),
+            );
+
+            await this.persistAndDispatchFiles(fileManager, params);
+            fileManager.clearChangeTracking();
+          }
         } else {
           log2.info('[ChatEngine] TypeScript check passed with no errors');
           controller.enqueue(
