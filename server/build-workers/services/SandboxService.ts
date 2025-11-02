@@ -456,7 +456,6 @@ export class SandboxService {
 
   private stripAnsiSequences(output: string): string {
     const ANSI_REGEX =
-      // eslint-disable-next-line no-control-regex
       /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~])/g;
     return output.replace(ANSI_REGEX, "");
   }
