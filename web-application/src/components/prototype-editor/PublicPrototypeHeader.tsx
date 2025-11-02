@@ -451,9 +451,9 @@ export default function PublicPrototypeHeader({
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Share Prototype</DialogTitle>
+            <DialogTitle>Share Project</DialogTitle>
             <DialogDescription>
-              Anyone with this link can view this prototype
+              Anyone with this link can view this project
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

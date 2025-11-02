@@ -1021,7 +1021,7 @@ export default function InternalPrototypePage() {
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Share Prototype</DialogTitle>
+            <DialogTitle>Share Project</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Visibility Toggle */}
@@ -1035,7 +1035,7 @@ export default function InternalPrototypePage() {
                 </p>
                 {userPlan !== "pro" && !isPublic && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    Upgrade to Pro to make prototypes private
+                    Upgrade to Pro to make projects private
                   </p>
                 )}
               </div>
@@ -1062,8 +1062,8 @@ export default function InternalPrototypePage() {
               <div className="flex items-center gap-2">
                 <Input
                   value={window.location.href.replace(
-                    "dashboard/prototypes",
-                    "prototype",
+                    "dashboard/projects",
+                    "project",
                   )}
                   readOnly
                   className="flex-1 bg-gray-50 dark:bg-gray-800"
@@ -1083,7 +1083,7 @@ export default function InternalPrototypePage() {
               </div>
               {!isPublic && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  ⚠️ Copying the link will automatically make this prototype
+                  ⚠️ Copying the link will automatically make this project
                   public
                 </p>
               )}
