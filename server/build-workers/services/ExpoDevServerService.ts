@@ -1232,9 +1232,16 @@ export class ExpoDevServerService {
 
         if (dependenciesHaveChanged) {
           this.log2.info(
-            "Dependency changes detected in package.json. Reinstalling dependencies and restarting dev server.",
+            "Dependency changes detected in package.json. Stopping dev server, reinstalling dependencies, and restarting.",
           );
           try {
+            // Step 1: Stop the dev server
+            this.log2.info("Stopping dev server...");
+            await this.killExpoProcess();
+            this.log2.info("Dev server stopped successfully");
+
+            // Step 2: Install dependencies in dev-server terminal
+            this.log2.info("Installing dependencies...");
             await this.installDependenciesWithErrorParsing(
               actualProjectDir,
               buildErrors,
@@ -1242,8 +1249,12 @@ export class ExpoDevServerService {
             );
             this.log2.info("Dependencies reinstalled successfully");
 
-            this.log2.info("Restarting dev server...");
-            await this.restartDevServer();
+            // Step 3: Restart the dev server
+            this.log2.info("Starting dev server...");
+            const port = this.state.port || this.defaultPort;
+            this.state.devServerStatus = DevServerStatus.STARTING;
+            this.state.startTime = new Date();
+            await this.startExpoProcess(actualProjectDir, port, buildErrors, buildWarnings);
             this.log2.info(
               "Dev server restarted successfully with new dependencies.",
             );
