@@ -1,7 +1,7 @@
 import { User, createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
-import type { Database } from '../types/supabase.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import type { Database } from '../types/supabase.js';
 
 interface JWTPayload {
   sub?: string;
@@ -90,8 +90,17 @@ export async function checkUserHasPrototypeViewingAccess(
       .eq('id', prototypeId)
       .single();
     if (error || !prototype) {
+      log2.consoleLogDevOnly('error', 'Error fetching prototype:', {
+        functionName: 'checkUserHasPrototypeViewingAccess',
+        error: error.message,
+        prototype: prototype,
+      });
       return null;
     }
+    log2.consoleLogDevOnly('info', 'Prototype fetched:', {
+      functionName: 'checkUserHasPrototypeViewingAccess',
+      prototype: prototype,
+    });
     const { user, isServiceRole } = await validateJWTToken(jwtToken, log2);
     return { user, prototype, isServiceRole };
   } catch (error) {
@@ -123,7 +132,7 @@ export async function checkUserHasPrototypeEditAccess(
         jwtToken,
         log2,
       )) || { user: null, prototype: null };
-    if (prototype === null || (user === null && !isServiceRole)) {
+    if (prototype === null) {
       return null;
     }
 

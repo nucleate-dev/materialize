@@ -8,8 +8,8 @@ import {
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
-import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 import { getCloudfrontScreenshotUrl } from '../../../utils/screenshotUtils.js';
+import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 
 export default async function handleFetchViewingUrlImpl(
   request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
@@ -29,11 +29,7 @@ export default async function handleFetchViewingUrlImpl(
       token,
       request.log2,
     );
-    if (
-      authResult === null ||
-      (authResult.user === null && !authResult.isServiceRole) ||
-      authResult.prototype === null
-    ) {
+    if (authResult === null || authResult.prototype === null) {
       return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
         data: null,
         error: {

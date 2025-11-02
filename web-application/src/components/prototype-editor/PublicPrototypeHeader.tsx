@@ -164,6 +164,14 @@ export default function PublicPrototypeHeader({
   const handleClonePrototype = async () => {
     if (!prototype) return;
 
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login page with return URL
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?redirect=${returnUrl}`);
+      return;
+    }
+
     // Show waitlist modal if waitlist mode is enabled
     if (WAITLIST_MODE) {
       setShowWaitlistModal(true);
@@ -180,6 +188,9 @@ export default function PublicPrototypeHeader({
 
       if (!token) {
         logger.debug("error", "No authentication token available");
+        // Redirect to login as fallback
+        const returnUrl = encodeURIComponent(window.location.pathname);
+        router.push(`/login?redirect=${returnUrl}`);
         return;
       }
 
