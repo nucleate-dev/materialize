@@ -143,10 +143,6 @@ export interface CheckoutErrorResponse {
 // /payments/manage-billing ENDPOINT
 // ============================================================================
 
-export interface ManageBillingRequestBody {
-  // No body parameters - user ID comes from JWT
-}
-
 export interface ManageBillingSuccessResponse {
   redirect_url: string;
 }

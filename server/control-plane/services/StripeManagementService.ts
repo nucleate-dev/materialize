@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
-  type ManageBillingRequestBody,
   type ManageBillingSuccessResponse,
   type ManageBillingErrorResponse,
   type CheckoutRequestBody,
@@ -53,7 +52,7 @@ export class StripeManagementService {
     );
 
     // POST /payments/manage-billing
-    app.post<{ Body: ManageBillingRequestBody }>(
+    app.post<{ Body: {} }>(
       '/payments/manage-billing',
       this.handleManageBilling.bind(this),
     );
@@ -190,7 +189,7 @@ export class StripeManagementService {
    *  6. Handles and logs errors appropriately, such as missing user IDs or database/Stripe errors.
    */
   private async handleManageBilling(
-    request: FastifyRequest<{ Body: ManageBillingRequestBody }>,
+    request: FastifyRequest<{ Body: {} }>,
     reply: FastifyReply,
   ): Promise<
     APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse>
