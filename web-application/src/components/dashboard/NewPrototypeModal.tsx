@@ -97,7 +97,7 @@ export default function NewPrototypeModal({
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  const [designStyle, setDesignStyle] = useState<DesignStyle>("tamagui");
+  const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
   const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
@@ -251,7 +251,7 @@ export default function NewPrototypeModal({
       }
     }
 
-    setDesignStyle("tamagui");
+    setDesignStyle("nativewind");
     setCustomDesignSystemId(null);
   }, [open, selectedProject, projects, hasManualDesignSelection]);
 
@@ -327,7 +327,7 @@ export default function NewPrototypeModal({
         setName("");
         setSelectedProject(null);
         setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
-        setDesignStyle("tamagui");
+        setDesignStyle("nativewind");
         setCustomDesignSystemId(null);
         setHasManualDesignSelection(false);
         setTouched(false);
@@ -430,8 +430,8 @@ export default function NewPrototypeModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={`h-12 text-lg ${touched && !name.trim()
-                    ? "border-destructive focus-visible:ring-destructive"
-                    : "focus-visible:ring-primary"
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : "focus-visible:ring-primary"
                   }`}
                 autoFocus
                 maxLength={64}
