@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-02T22:57:26.852Z
+// Last synced: 2025-11-02T23:38:40.397Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -350,7 +350,7 @@ export interface ChatRequestBody {
   prototype_id: string;
   imageUrl?: string | null; // Storage path or signed URL for the uploaded image (will be converted to base64 for LLM)
   currentViewingPath?: string | null;
-  modelProvider?: 'google' | 'google-pro' | 'anthropic' | 'openai' | 'openai-mini';
+  modelProvider?: 'google' | 'anthropic' | 'openai' | 'openai-mini';
 }
 
 // Streaming response types for different event types

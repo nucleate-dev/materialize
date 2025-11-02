@@ -390,7 +390,12 @@ export interface PrototypeChatWindowProps {
   currentViewingPath: string;
 
   // Model provider selection
-  modelProvider: "google" | "google-pro" | "anthropic" | "openai" | "openai-mini";
+  modelProvider:
+    | "google"
+    | "google-pro"
+    | "anthropic"
+    | "openai"
+    | "openai-mini";
   onModelProviderChange: (
     provider: "google" | "google-pro" | "anthropic" | "openai" | "openai-mini",
   ) => void;
