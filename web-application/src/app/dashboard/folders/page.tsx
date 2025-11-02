@@ -13,7 +13,7 @@ import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-type Folder = Database["public"]["Tables"]["projects"]["Row"];
+type Folder = Database["public"]["Tables"]["folders"]["Row"];
 
 export default function FoldersPage() {
   const { user } = useUser();
@@ -32,7 +32,7 @@ export default function FoldersPage() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from("projects")
+        .from("folders")
         .select("*")
         .eq("owner_id", user.id)
         .order("updated_at", { ascending: false });

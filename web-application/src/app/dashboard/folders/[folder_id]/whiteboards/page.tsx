@@ -11,7 +11,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type Canvas = Database["public"]["Tables"]["canvases"]["Row"];
-type Project = Database["public"]["Tables"]["projects"]["Row"];
+type Project = Database["public"]["Tables"]["folders"]["Row"];
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -47,7 +47,7 @@ export default function ProjectWhiteboardsPage() {
     try {
       // Fetch project details and canvases in parallel
       const [projectResult, canvasesResult] = await Promise.all([
-        supabase.from("projects").select("*").eq("id", projectId).single(),
+        supabase.from("folders").select("*").eq("id", projectId).single(),
         supabase
           .from("canvases")
           .select("*")

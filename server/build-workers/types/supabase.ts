@@ -75,65 +75,6 @@ export type Database = {
           },
         ];
       };
-      design_systems: {
-        Row: {
-          id: number;
-          name: string;
-          description: string | null;
-          owner_id: string;
-          created_at: string;
-          updated_at: string;
-          design_rules: string;
-        };
-        Insert: {
-          id?: never;
-          name: string;
-          description?: string | null;
-          owner_id?: string;
-          created_at?: string;
-          updated_at?: string;
-          design_rules?: string;
-        };
-        Update: {
-          id?: never;
-          name?: string;
-          description?: string | null;
-          owner_id?: string;
-          created_at?: string;
-          updated_at?: string;
-          design_rules?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "design_systems_user_owner_fkey";
-            columns: ["owner_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      design_system_files: {
-        Row: {
-          id: number;
-          created_at: string;
-          file_name: string;
-          file_contents: Json;
-        };
-        Insert: {
-          id?: number;
-          created_at?: string;
-          file_name: string;
-          file_contents: Json;
-        };
-        Update: {
-          id?: number;
-          created_at?: string;
-          file_name?: string;
-          file_contents?: Json;
-        };
-        Relationships: [];
-      };
       canvas_sessions: {
         Row: {
           canvas_id: string;
@@ -221,6 +162,101 @@ export type Database = {
           },
         ];
       };
+      cloudflare_tunnels: {
+        Row: {
+          cname_target: string | null;
+          created_at: string;
+          hostname: string | null;
+          id: string;
+          prototype_id: string | null;
+          status: Database["public"]["Enums"]["tunnel_status"];
+          token: string | null;
+          tunnel_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          cname_target?: string | null;
+          created_at?: string;
+          hostname?: string | null;
+          id?: string;
+          prototype_id?: string | null;
+          status?: Database["public"]["Enums"]["tunnel_status"];
+          token?: string | null;
+          tunnel_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          cname_target?: string | null;
+          created_at?: string;
+          hostname?: string | null;
+          id?: string;
+          prototype_id?: string | null;
+          status?: Database["public"]["Enums"]["tunnel_status"];
+          token?: string | null;
+          tunnel_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      design_system_files: {
+        Row: {
+          created_at: string;
+          file_contents: Json;
+          file_name: string;
+          id: number;
+        };
+        Insert: {
+          created_at?: string;
+          file_contents: Json;
+          file_name: string;
+          id?: number;
+        };
+        Update: {
+          created_at?: string;
+          file_contents?: Json;
+          file_name?: string;
+          id?: number;
+        };
+        Relationships: [];
+      };
+      design_systems: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          design_rules: string;
+          id: string;
+          name: string;
+          owner_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          design_rules: string;
+          id?: string;
+          name: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          design_rules?: string;
+          id?: string;
+          name?: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "design_systems_user_owner_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payments: {
         Row: {
           amount: number | null;
@@ -272,49 +308,56 @@ export type Database = {
           },
         ];
       };
-      projects: {
+      folders: {
         Row: {
           created_at: string | null;
+          custom_design_system: string | null;
+          default_design_style: Database["public"]["Enums"]["design_style"];
           description: string | null;
           id: string;
           name: string;
           owner_id: string | null;
-          project_context: Json | null;
+          folder_context: Json | null;
           thumbnail_url: string | null;
           updated_at: string | null;
           visibility: Database["public"]["Enums"]["visibility_level"] | null;
-          default_design_style: Database["public"]["Enums"]["design_style"];
-          custom_design_system: string | null;
         };
         Insert: {
           created_at?: string | null;
+          custom_design_system?: string | null;
+          default_design_style?: Database["public"]["Enums"]["design_style"];
           description?: string | null;
           id?: string;
           name?: string;
           owner_id?: string | null;
-          project_context?: Json | null;
+          folder_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-          default_design_style?: Database["public"]["Enums"]["design_style"];
-          custom_design_system?: string | null;
         };
         Update: {
           created_at?: string | null;
+          custom_design_system?: string | null;
+          default_design_style?: Database["public"]["Enums"]["design_style"];
           description?: string | null;
           id?: string;
           name?: string;
           owner_id?: string | null;
-          project_context?: Json | null;
+          folder_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-          default_design_style?: Database["public"]["Enums"]["design_style"];
-          custom_design_system?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "projects_owner_id_fkey";
+            foreignKeyName: "folders_custom_design_system_fkey";
+            columns: ["custom_design_system"];
+            isOneToOne: false;
+            referencedRelation: "design_systems";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "folders_owner_id_fkey";
             columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "users";
@@ -453,31 +496,25 @@ export type Database = {
         Row: {
           contents: string;
           created_at: string | null;
-          file_type: Database["public"]["Enums"]["file_type"];
           id: string;
           name: string;
           prototype_id: string | null;
-          storage_path: string | null;
           updated_at: string | null;
         };
         Insert: {
           contents: string;
           created_at?: string | null;
-          file_type?: Database["public"]["Enums"]["file_type"];
           id?: string;
           name: string;
           prototype_id?: string | null;
-          storage_path?: string | null;
           updated_at?: string | null;
         };
         Update: {
           contents?: string;
           created_at?: string | null;
-          file_type?: Database["public"]["Enums"]["file_type"];
           id?: string;
           name?: string;
           prototype_id?: string | null;
-          storage_path?: string | null;
           updated_at?: string | null;
         };
         Relationships: [
@@ -493,8 +530,11 @@ export type Database = {
       prototypes: {
         Row: {
           created_at: string | null;
+          custom_design_system: string | null;
           description: string | null;
+          design_style: Database["public"]["Enums"]["design_style"];
           id: string;
+          latest_build_key: string | null;
           name: string;
           owner_id: string | null;
           project_id: string | null;
@@ -502,14 +542,14 @@ export type Database = {
           thumbnail_url: string | null;
           updated_at: string | null;
           visibility: Database["public"]["Enums"]["visibility_level"] | null;
-          latest_build_key: string | null;
-          design_style: Database["public"]["Enums"]["design_style"];
-          custom_design_system: string | null;
         };
         Insert: {
           created_at?: string | null;
+          custom_design_system?: string | null;
           description?: string | null;
+          design_style?: Database["public"]["Enums"]["design_style"];
           id?: string;
+          latest_build_key?: string | null;
           name?: string;
           owner_id?: string | null;
           project_id?: string | null;
@@ -517,14 +557,14 @@ export type Database = {
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-          latest_build_key?: string | null;
-          design_style?: Database["public"]["Enums"]["design_style"];
-          custom_design_system?: string | null;
         };
         Update: {
           created_at?: string | null;
+          custom_design_system?: string | null;
           description?: string | null;
+          design_style?: Database["public"]["Enums"]["design_style"];
           id?: string;
+          latest_build_key?: string | null;
           name?: string;
           owner_id?: string | null;
           project_id?: string | null;
@@ -532,11 +572,15 @@ export type Database = {
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-          latest_build_key?: string | null;
-          design_style?: Database["public"]["Enums"]["design_style"];
-          custom_design_system?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "prototypes_custom_design_system_fkey";
+            columns: ["custom_design_system"];
+            isOneToOne: false;
+            referencedRelation: "design_systems";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "prototypes_owner_id_fkey";
             columns: ["owner_id"];
@@ -603,6 +647,38 @@ export type Database = {
           },
         ];
       };
+      user_internal_metadata: {
+        Row: {
+          created_at: string;
+          is_employee: boolean;
+          is_test_user: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          is_employee?: boolean;
+          is_test_user?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          is_employee?: boolean;
+          is_test_user?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_internal_metadata_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       users: {
         Row: {
           avatar_url: string | null;
@@ -632,14 +708,34 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      allocate_idle_tunnel: {
+        Args: { p_prototype_id: string };
+        Returns: {
+          cname_target: string | null;
+          created_at: string;
+          hostname: string | null;
+          id: string;
+          prototype_id: string | null;
+          status: Database["public"]["Enums"]["tunnel_status"];
+          token: string | null;
+          tunnel_id: string | null;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "cloudflare_tunnels";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
     };
     Enums: {
-      design_style: "tamagui" | "stylesheets" | "nativewind";
       chat_role: "user" | "assistant";
+      design_style: "tamagui" | "stylesheets" | "nativewind" | "custom";
       file_type: "text" | "asset";
       subscription_plan_type: "free" | "team" | "pro";
       subscription_status: "active" | "past_due" | "canceled";
+      tunnel_status: "creating" | "idle" | "allocated";
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC";
     };
     CompositeTypes: {
@@ -772,9 +868,11 @@ export const Constants = {
   public: {
     Enums: {
       chat_role: ["user", "assistant"],
+      design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
       subscription_plan_type: ["free", "team", "pro"],
       subscription_status: ["active", "past_due", "canceled"],
+      tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },
   },

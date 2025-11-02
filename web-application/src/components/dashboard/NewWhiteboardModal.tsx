@@ -43,7 +43,7 @@ export default function NewWhiteboardModal({
   const [description, setDescription] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; }[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
@@ -65,7 +65,7 @@ export default function NewWhiteboardModal({
       setIsLoadingProjects(true);
       try {
         const { data, error } = await supabase
-          .from("projects")
+          .from("folders")
           .select("id, name")
           .eq("owner_id", user.id)
           .order("updated_at", { ascending: false });
@@ -160,11 +160,10 @@ export default function NewWhiteboardModal({
               placeholder="e.g. Marketing Brainstorm ✨"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`h-12 text-lg ${
-                touched && !name.trim()
+              className={`h-12 text-lg ${touched && !name.trim()
                   ? "border-destructive focus-visible:ring-destructive"
                   : "focus-visible:ring-primary"
-              }`}
+                }`}
               autoFocus
               maxLength={64}
             />

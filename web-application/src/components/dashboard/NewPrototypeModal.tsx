@@ -52,7 +52,7 @@ type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type ProjectOption = {
   id: string;
   name: string;
-  project_context: Database["public"]["Tables"]["projects"]["Row"]["project_context"];
+  project_context: Database["public"]["Tables"]["folders"]["Row"]["project_context"];
 };
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
@@ -111,7 +111,7 @@ export default function NewPrototypeModal({
       setIsLoadingProjects(true);
       try {
         const { data, error } = await supabase
-          .from("projects")
+          .from("folders")
           .select("id, name, project_context")
           .eq("owner_id", user.id)
           .order("updated_at", { ascending: false });

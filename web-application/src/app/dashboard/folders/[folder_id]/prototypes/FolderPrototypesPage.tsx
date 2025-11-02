@@ -12,7 +12,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type Folder = Database["public"]["Tables"]["projects"]["Row"];
+type Folder = Database["public"]["Tables"]["folders"]["Row"];
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -52,7 +52,7 @@ export default function FolderPrototypesPage() {
     try {
       // Fetch project details and prototypes in parallel
       const [folderResult, prototypesResult] = await Promise.all([
-        supabase.from("projects").select("*").eq("id", folderId).single(),
+        supabase.from("folders").select("*").eq("id", folderId).single(),
         supabase
           .from("prototypes")
           .select("*")

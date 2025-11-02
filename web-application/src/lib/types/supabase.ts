@@ -272,14 +272,14 @@ export type Database = {
           },
         ];
       };
-      projects: {
+      folders: {
         Row: {
           created_at: string | null;
           description: string | null;
           id: string;
           name: string;
           owner_id: string | null;
-          project_context: Json | null;
+          folder_context: Json | null;
           thumbnail_url: string | null;
           updated_at: string | null;
           visibility: Database["public"]["Enums"]["visibility_level"] | null;
@@ -292,7 +292,7 @@ export type Database = {
           id?: string;
           name?: string;
           owner_id?: string | null;
-          project_context?: Json | null;
+          folder_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
@@ -305,7 +305,7 @@ export type Database = {
           id?: string;
           name?: string;
           owner_id?: string | null;
-          project_context?: Json | null;
+          folder_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
@@ -314,7 +314,7 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "projects_owner_id_fkey";
+            foreignKeyName: "folders_owner_id_fkey";
             columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "users";

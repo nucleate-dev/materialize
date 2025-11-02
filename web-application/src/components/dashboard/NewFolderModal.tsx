@@ -41,7 +41,7 @@ export default function NewFolderModal({
 
     try {
       const { data, error } = await supabase
-        .from("projects")
+        .from("folders")
         .insert({
           name: name.trim(),
           owner_id: user.id,

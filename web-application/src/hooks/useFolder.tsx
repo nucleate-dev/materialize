@@ -4,7 +4,7 @@ import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/supabase";
 import { useCallback, useEffect, useState } from "react";
 
-type Folder = Database["public"]["Tables"]["projects"]["Row"];
+type Folder = Database["public"]["Tables"]["folders"]["Row"];
 
 export function useFolder(folderId: string | undefined) {
   const [folder, setFolder] = useState<Folder | null>(null);
@@ -22,7 +22,7 @@ export function useFolder(folderId: string | undefined) {
 
     try {
       const { data, error } = await supabase
-        .from("projects")
+        .from("folders")
         .select("*")
         .eq("id", folderId)
         .single();
