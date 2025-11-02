@@ -18,6 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -30,6 +35,7 @@ import type {
 import { Database } from "@/lib/types/supabase";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
+  ChevronDownIcon,
   FolderIcon,
   RocketLaunchIcon,
   SparklesIcon,
@@ -102,6 +108,7 @@ export default function NewPrototypeModal({
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
   const [hasManualDesignSelection, setHasManualDesignSelection] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Fetch user's projects and prototype count
   useEffect(() => {
@@ -365,9 +372,6 @@ export default function NewPrototypeModal({
             <DialogTitle className="text-2xl font-bold text-foreground">
               Create New Project
             </DialogTitle>
-            <p className="text-muted-foreground">
-              Build mobile app projects
-            </p>
             {userPlan !== "pro" && (
               <div className="text-sm text-muted-foreground">
                 {isLoadingCount ? (
@@ -444,109 +448,6 @@ export default function NewPrototypeModal({
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="project-select" className="text-sm font-semibold">
-                Folder
-              </Label>
-              <Select
-                value={selectedFolder || "none"}
-                onValueChange={(value) => {
-                  const projectValue = value === "none" ? null : value;
-                  setSelectedFolder(projectValue);
-                  setHasManualDesignSelection(false);
-                }}
-              >
-                <SelectTrigger className="h-12">
-                  <div className="flex items-center gap-2">
-                    <FolderIcon className="w-4 h-4 text-primary" />
-                    <SelectValue placeholder="Select a folder (optional)" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No folder</SelectItem>
-                  {isLoadingFolders ? (
-                    <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
-                      <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                      Loading folders...
-                    </div>
-                  ) : (
-                    folders.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex items-center gap-2">
-                          <FolderIcon className="w-4 h-4 text-primary" />
-                          {project.name}
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="design-style" className="text-sm font-semibold">
-                Design Style
-              </Label>
-              <Select
-                value={designStyle}
-                onValueChange={(value) => {
-                  const nextStyle = value as DesignStyle;
-                  setDesignStyle(nextStyle);
-                  setHasManualDesignSelection(true);
-                }}
-              >
-                <SelectTrigger id="design-style" className="h-12">
-                  <div className="flex items-center gap-2">
-                    <SwatchIcon className="w-4 h-4 text-primary" />
-                    <SelectValue placeholder="Choose a design style" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {DESIGN_STYLE_OPTIONS.map((style) => (
-                    <SelectItem key={style} value={style}>
-                      {DESIGN_STYLE_LABELS[style]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {designSystems.length > 0 && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="custom-design-system"
-                  className="text-sm font-semibold"
-                >
-                  Custom Design System <span className="text-muted-foreground font-normal">(Optional)</span>
-                </Label>
-                <Select
-                  value={customDesignSystemId ?? "none"}
-                  onValueChange={(value) => {
-                    const systemValue = value === "none" ? null : value;
-                    setCustomDesignSystemId(systemValue);
-                    setHasManualDesignSelection(true);
-                  }}
-                >
-                  <SelectTrigger id="custom-design-system" className="h-12">
-                    <SelectValue placeholder="No custom design system" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No custom design system</SelectItem>
-                    {designSystems.map((system) => (
-                      <SelectItem key={system.id} value={String(system.id)}>
-                        {system.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isLoadingDesignSystems && (
-                  <p className="text-xs text-muted-foreground">
-                    Loading design systems...
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Apply custom design rules on top of the selected design style
-                </p>
-              </div>
-            )}
             <div className="space-y-2">
               <Label
                 htmlFor="prototype-visibility"

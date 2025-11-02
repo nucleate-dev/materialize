@@ -460,7 +460,7 @@ export default function PrototypeChatWindow({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mockFlowTimeoutsRef = useRef<number[]>([]);
 
-  const prototypeTitle = prototype?.name?.trim() || "Prototype";
+  const prototypeTitle = prototype?.name?.trim() || "Project";
   const visibility = prototype?.visibility?.toLowerCase();
   const visibilityLabel =
     visibility === "public"

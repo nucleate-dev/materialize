@@ -152,8 +152,16 @@ export default function PrototypesPage() {
               thumbnailUrl={prototype.thumbnail_url}
               lastModified={
                 prototype.updated_at
-                  ? new Date(prototype.updated_at).toLocaleDateString()
-                  : new Date(prototype.created_at!).toLocaleDateString()
+                  ? new Date(prototype.updated_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                  : new Date(prototype.created_at!).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
               }
               onView={() => router.push(`/project/${prototype.id}`)}
               onEdit={() =>

@@ -14,7 +14,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -44,7 +43,7 @@ function formatRelativeTime(dateString: string | null | undefined): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
   if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export default function DesignSystemsPage() {
@@ -276,7 +275,7 @@ export default function DesignSystemsPage() {
                 <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
                   {shouldShowEmptyState
                     ? "Centralize the design rules you want Materialize to follow when generating UI."
-                    : "Review the custom design systems available to your prototypes."}
+                    : "Review the custom design systems available to your projects."}
                 </CardDescription>
               </div>
 
@@ -327,7 +326,6 @@ export default function DesignSystemsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{updatedLabel || ""}</Badge>
                         {canMutate && (
                           <Button
                             variant="destructive"
@@ -346,18 +344,6 @@ export default function DesignSystemsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col gap-4">
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      {createdLabel && (
-                        <span>
-                          Created <strong className="text-foreground font-medium">{createdLabel}</strong>
-                        </span>
-                      )}
-                      {updatedLabel && (
-                        <span>
-                          Updated <strong className="text-foreground font-medium">{updatedLabel}</strong>
-                        </span>
-                      )}
-                    </div>
 
                     <div className="flex-1">
                       <h3 className="mb-2 text-sm font-semibold text-foreground">Design Rules</h3>

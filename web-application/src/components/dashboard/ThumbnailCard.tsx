@@ -44,7 +44,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
       case "folder":
         return "Folder";
       case "prototype":
-        return "Prototype";
+        return "Project";
       case "canvas":
         return "Canvas";
       default:

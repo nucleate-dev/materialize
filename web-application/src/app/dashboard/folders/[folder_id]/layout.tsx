@@ -1,4 +1,4 @@
-import ProjectsHeader from "@/components/dashboard/ProjectsHeader";
+import FolderHeader from "@/components/dashboard/FoldersHeader";
 
 export default function FolderLayout({
   children,
@@ -7,7 +7,7 @@ export default function FolderLayout({
 }) {
   return (
     <div className="h-full flex flex-col">
-      <ProjectsHeader />
+      <FolderHeader />
       <div className="flex-1 overflow-auto p-12">{children}</div>
     </div>
   );
