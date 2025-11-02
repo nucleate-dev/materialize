@@ -86,7 +86,7 @@ export async function handleCreatePrototypeImpl(
     const {
       name,
       description,
-      project_id,
+      folder_id,
       prototype_id: forkPrototypeId, // If provided, this is a fork
       visibility,
       design_style,
@@ -148,11 +148,11 @@ export async function handleCreatePrototypeImpl(
       }
     }
 
-    if (!resolvedDesignStyle && project_id) {
+    if (!resolvedDesignStyle && folder_id) {
       const { data: folderData, error: projectError } = await supabase
         .from('folders')
         .select('default_design_style, custom_design_system')
-        .eq('id', project_id)
+        .eq('id', folder_id)
         .single();
 
       if (projectError) {
@@ -187,7 +187,7 @@ export async function handleCreatePrototypeImpl(
         name,
         description,
         owner_id: user.id,
-        project_id,
+        folder_id,
         visibility:
           visibility || (limitCheck.plan === 'pro' ? 'SELF' : 'PUBLIC'),
         design_style: resolvedDesignStyle,

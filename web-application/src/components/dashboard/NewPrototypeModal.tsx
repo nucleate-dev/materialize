@@ -310,7 +310,7 @@ export default function NewPrototypeModal({
         },
         body: JSON.stringify({
           name: name.trim(),
-          project_id: selectedFolder || undefined,
+          folder_id: selectedFolder || undefined,
           visibility,
           design_style: designStyle,
           custom_design_system: customDesignSystemId ?? undefined,

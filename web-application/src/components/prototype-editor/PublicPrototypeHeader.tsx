@@ -162,7 +162,7 @@ export default function PublicPrototypeHeader({
           body: JSON.stringify({
             name: clonedPrototypeName,
             description: prototype.description,
-            project_id: prototype.project_id || undefined,
+            folder_id: prototype.folder_id || undefined,
             prototype_id: prototype.id,
             visibility: "PUBLIC", // TODO evaluate whether this should ever be private
           } as CreatePrototypeRequestBody),

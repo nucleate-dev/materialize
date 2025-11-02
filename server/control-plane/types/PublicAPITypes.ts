@@ -195,7 +195,7 @@ export interface FetchViewingUrlSuccessResponse {
 export interface CreatePrototypeRequestBody {
   name: string;
   description?: string;
-  project_id?: string;
+  folder_id?: string;
   prototype_id?: string; // For forking an existing prototype
   visibility?: 'PUBLIC' | 'SELF';
   design_style?: Database['public']['Enums']['design_style'];

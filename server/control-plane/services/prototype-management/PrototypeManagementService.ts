@@ -79,7 +79,7 @@ export class PrototypeManagementService {
             properties: {
               name: { type: 'string' },
               description: { type: 'string' },
-              project_id: { type: 'string' },
+              folder_id: { type: 'string' },
               prototype_id: { type: 'string' }, // For forking
               visibility: {
                 type: 'string',

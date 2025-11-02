@@ -44,7 +44,7 @@ export default function NewWhiteboardModal({
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string; }[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
   // Set initial project selection
@@ -52,7 +52,7 @@ export default function NewWhiteboardModal({
     if (projectId && projects.length > 0) {
       const project = projects.find((p) => p.id === projectId);
       if (project) {
-        setSelectedProject(project.id);
+        setSelectedFolder(project.id);
       }
     }
   }, [projectId, projects]);
@@ -101,7 +101,7 @@ export default function NewWhiteboardModal({
     try {
       const { error } = await supabase.from("canvases").insert({
         owner_id: user.id,
-        project_id: selectedProject || null,
+        folder_id: selectedFolder || null,
         name: name.trim(),
         description,
         thumbnail_url:
@@ -118,7 +118,7 @@ export default function NewWhiteboardModal({
       // Reset form
       setName("");
       setDescription("");
-      setSelectedProject(null);
+      setSelectedFolder(null);
       setTouched(false);
       onCreated();
       onClose();
@@ -161,8 +161,8 @@ export default function NewWhiteboardModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={`h-12 text-lg ${touched && !name.trim()
-                  ? "border-destructive focus-visible:ring-destructive"
-                  : "focus-visible:ring-primary"
+                ? "border-destructive focus-visible:ring-destructive"
+                : "focus-visible:ring-primary"
                 }`}
               autoFocus
               maxLength={64}
@@ -194,9 +194,9 @@ export default function NewWhiteboardModal({
               Project
             </Label>
             <Select
-              value={selectedProject || "none"}
+              value={selectedFolder || "none"}
               onValueChange={(value) =>
-                setSelectedProject(value === "none" ? null : value)
+                setSelectedFolder(value === "none" ? null : value)
               }
             >
               <SelectTrigger className="h-12">
