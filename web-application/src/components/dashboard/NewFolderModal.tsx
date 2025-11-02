@@ -19,7 +19,7 @@ interface NewFolderModalProps {
   open: boolean;
   onClose: () => void;
   user: User | null;
-  onCreated: (projectId: string) => void;
+  onCreated: (folderId: string) => void;
 }
 
 export default function NewFolderModal({
@@ -46,7 +46,7 @@ export default function NewFolderModal({
           name: name.trim(),
           owner_id: user.id,
           description: null,
-          project_context: null,
+          folder_context: null,
           thumbnail_url: null,
           visibility: "SELF" as const,
         })
@@ -54,7 +54,7 @@ export default function NewFolderModal({
         .single();
 
       if (error) {
-        logger.debug("error", "Error creating project:", {
+        logger.debug("error", "Error creating folder:", {
           ...error,
         });
         throw error;
@@ -66,7 +66,7 @@ export default function NewFolderModal({
       onCreated(data.id);
       onClose();
     } catch (error) {
-      logger.debug("error", "Error creating project:", {
+      logger.debug("error", "Error creating folder:", {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
@@ -94,11 +94,11 @@ export default function NewFolderModal({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="project-name" className="text-sm font-semibold">
+            <Label htmlFor="folder-name" className="text-sm font-semibold">
               Folder Name <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="project-name"
+              id="folder-name"
               type="text"
               placeholder="e.g. E-commerce Mobile App ✨"
               value={name}

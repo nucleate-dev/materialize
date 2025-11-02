@@ -149,8 +149,8 @@ export async function handleCreatePrototypeImpl(
     }
 
     if (!resolvedDesignStyle && project_id) {
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
+      const { data: folderData, error: projectError } = await supabase
+        .from('folders')
         .select('default_design_style, custom_design_system')
         .eq('id', project_id)
         .single();
@@ -160,19 +160,19 @@ export async function handleCreatePrototypeImpl(
           projectError,
           '[handleCreatePrototype] Failed to fetch project for default design system',
         );
-      } else if (projectData) {
-        // 1. Use the project's default_design_style if it's valid
-        const projectStyle = projectData.default_design_style;
+      } else if (folderData) {
+        // 1. Use the folder's default_design_style if it's valid
+        const folderStyle = folderData.default_design_style;
         if (
-          typeof projectStyle === 'string' &&
-          VALID_DESIGN_STYLES.includes(projectStyle as DesignStyle)
+          typeof folderStyle === 'string' &&
+          VALID_DESIGN_STYLES.includes(folderStyle as DesignStyle)
         ) {
-          resolvedDesignStyle = projectStyle as DesignStyle;
+          resolvedDesignStyle = folderStyle as DesignStyle;
         }
 
-        // 2. Inherit the project's custom_design_system UUID if we don't already have one
-        if (!resolvedCustomDesignSystem && projectData.custom_design_system) {
-          resolvedCustomDesignSystem = String(projectData.custom_design_system);
+        // 2. Inherit the folder's custom_design_system UUID if we don't already have one
+        if (!resolvedCustomDesignSystem && folderData.custom_design_system) {
+          resolvedCustomDesignSystem = String(folderData.custom_design_system);
         }
       }
     }

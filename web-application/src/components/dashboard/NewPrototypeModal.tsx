@@ -49,10 +49,10 @@ interface NewPrototypeModalProps {
 
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
-type ProjectOption = {
+type FolderOption = {
   id: string;
   name: string;
-  project_context: Database["public"]["Tables"]["folders"]["Row"]["project_context"];
+  folder_context: Database["public"]["Tables"]["folders"]["Row"]["folder_context"];
 };
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
@@ -87,9 +87,9 @@ export default function NewPrototypeModal({
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [folders, setFolders] = useState<FolderOption[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const { userPlan } = useSubscriptionAccess();
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
@@ -105,37 +105,37 @@ export default function NewPrototypeModal({
 
   // Fetch user's projects and prototype count
   useEffect(() => {
-    async function fetchProjects() {
+    async function fetchFolders() {
       if (!user) return;
 
-      setIsLoadingProjects(true);
+      setIsLoadingFolders(true);
       try {
         const { data, error } = await supabase
           .from("folders")
-          .select("id, name, project_context")
+          .select("id, name, folder_context")
           .eq("owner_id", user.id)
           .order("updated_at", { ascending: false });
 
         if (error) {
-          logger.debug("error", "Error fetching projects:", {
+          logger.debug("error", "Error fetching folders:", {
             ...error,
           });
           return;
         }
-        setProjects(
-          (data || []).map((project) => ({
-            id: project.id,
-            name: project.name,
-            project_context: project.project_context,
+        setFolders(
+          (data || []).map((folder) => ({
+            id: folder.id,
+            name: folder.name,
+            folder_context: folder.folder_context,
           })),
         );
       } catch (error) {
-        logger.debug("error", "Error fetching projects:", {
+        logger.debug("error", "Error fetching folders:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
       } finally {
-        setIsLoadingProjects(false);
+        setIsLoadingFolders(false);
       }
     }
 
@@ -195,7 +195,7 @@ export default function NewPrototypeModal({
     }
 
     if (open && user?.id) {
-      fetchProjects();
+      fetchFolders();
       fetchPrototypeCount();
       fetchDesignSystems();
     }
@@ -203,13 +203,13 @@ export default function NewPrototypeModal({
 
   // Set initial project selection
   useEffect(() => {
-    if (projectId && projects.length > 0) {
-      const project = projects.find((p) => p.id === projectId);
+    if (projectId && folders.length > 0) {
+      const project = folders.find((p) => p.id === projectId);
       if (project) {
-        setSelectedProject(project.id);
+        setSelectedFolder(project.id);
       }
     }
-  }, [projectId, projects]);
+  }, [projectId, folders]);
 
   useEffect(() => {
     if (open) {
@@ -226,10 +226,10 @@ export default function NewPrototypeModal({
       return;
     }
 
-    if (selectedProject) {
-      const project = projects.find((p) => p.id === selectedProject);
-      if (project && isRecord(project.project_context)) {
-        const context = project.project_context as Record<string, unknown>;
+    if (selectedFolder) {
+      const folder = folders.find((p) => p.id === selectedFolder);
+      if (folder && isRecord(folder.folder_context)) {
+        const context = folder.folder_context as Record<string, unknown>;
         const defaultDesignSystem =
           (context["defaultDesignSystem"] ?? context["default_design_system"]) as unknown;
 
@@ -253,7 +253,7 @@ export default function NewPrototypeModal({
 
     setDesignStyle("nativewind");
     setCustomDesignSystemId(null);
-  }, [open, selectedProject, projects, hasManualDesignSelection]);
+  }, [open, selectedFolder, folders, hasManualDesignSelection]);
 
   useEffect(() => {
     if (!open) {
@@ -310,7 +310,7 @@ export default function NewPrototypeModal({
         },
         body: JSON.stringify({
           name: name.trim(),
-          project_id: selectedProject || undefined,
+          project_id: selectedFolder || undefined,
           visibility,
           design_style: designStyle,
           custom_design_system: customDesignSystemId ?? undefined,
@@ -325,7 +325,7 @@ export default function NewPrototypeModal({
       if (result.data) {
         // Reset form
         setName("");
-        setSelectedProject(null);
+        setSelectedFolder(null);
         setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
         setDesignStyle("nativewind");
         setCustomDesignSystemId(null);
@@ -449,10 +449,10 @@ export default function NewPrototypeModal({
                 Folder
               </Label>
               <Select
-                value={selectedProject || "none"}
+                value={selectedFolder || "none"}
                 onValueChange={(value) => {
                   const projectValue = value === "none" ? null : value;
-                  setSelectedProject(projectValue);
+                  setSelectedFolder(projectValue);
                   setHasManualDesignSelection(false);
                 }}
               >
@@ -464,13 +464,13 @@ export default function NewPrototypeModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No folder</SelectItem>
-                  {isLoadingProjects ? (
+                  {isLoadingFolders ? (
                     <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
                       <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                       Loading folders...
                     </div>
                   ) : (
-                    projects.map((project) => (
+                    folders.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         <div className="flex items-center gap-2">
                           <FolderIcon className="w-4 h-4 text-primary" />

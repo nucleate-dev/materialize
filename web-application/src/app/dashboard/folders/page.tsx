@@ -106,7 +106,7 @@ export default function FoldersPage() {
         onCreated={handleFolderCreated}
       />
 
-      {/* Projects Grid */}
+      {/* Folders Grid */}
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -114,21 +114,21 @@ export default function FoldersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {folders.length > 0 ? (
-            folders.map((project) => (
+            folders.map((folder) => (
               <FolderThumbnail
-                key={project.id}
-                folderName={project.name}
-                thumbnailUrl={project.thumbnail_url}
+                key={folder.id}
+                folderName={folder.name}
+                thumbnailUrl={folder.thumbnail_url}
                 lastModified={
-                  project.updated_at
-                    ? new Date(project.updated_at).toLocaleDateString()
-                    : new Date(project.created_at!).toLocaleDateString()
+                  folder.updated_at
+                    ? new Date(folder.updated_at).toLocaleDateString()
+                    : new Date(folder.created_at!).toLocaleDateString()
                 }
-                onClick={() => router.push(`/dashboard/folders/${project.id}`)}
+                onClick={() => router.push(`/dashboard/folders/${folder.id}`)}
               />
             ))
           ) : (
-            <EmptyState type="projects" onButtonClick={handleOpenModal} />
+            <EmptyState type="folders" onButtonClick={handleOpenModal} />
           )}
         </div>
       )}

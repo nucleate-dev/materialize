@@ -7,7 +7,7 @@ import { FolderOpen, Layers, PenTool, Plus } from "lucide-react";
 import React from "react";
 
 interface EmptyStateProps {
-  type: "projects" | "prototypes" | "whiteboards";
+  type: "folders" | "prototypes" | "whiteboards";
   title?: string;
   description?: string;
   buttonText?: string;
@@ -23,7 +23,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   // Default content based on type
   const defaultContent = {
-    projects: {
+    folders: {
       title: "No folders yet",
       description:
         "Create your first folder to start organizing your work.",
