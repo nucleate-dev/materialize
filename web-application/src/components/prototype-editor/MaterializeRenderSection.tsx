@@ -895,8 +895,8 @@ const MaterializeRenderSection = forwardRef<
                 {/* Dev Server Starting Tooltip */}
                 {currentRenderStatus === "Starting Dev Server.." && (
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
-                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-lg border border-border">
-                      <div className="flex items-center gap-2">
+                    <div className="bg-background/60 backdrop-blur-sm text-foreground px-6 py-2 rounded-md shadow-lg border border-border/50">
+                      <div className="flex items-center gap-2 whitespace-nowrap">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         <span className="text-sm font-medium">
                           Dev Server Starting! This can take about 1 minute

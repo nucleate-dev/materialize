@@ -2136,7 +2136,6 @@ export default function PrototypeChatWindow({
                 <div className="mt-3 space-y-3">
                   {executionPlan.length > 0 && (
                     <div className="space-y-2">
-                      <div className="text-sm font-medium">Execution Plan:</div>
                       <div className="space-y-1">
                         {executionPlan.map((step, index) => (
                           <div
