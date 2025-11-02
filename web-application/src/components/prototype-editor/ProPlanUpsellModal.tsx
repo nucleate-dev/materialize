@@ -11,7 +11,7 @@ import {
 import { ProductKeys } from "@/GlobalConstants";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { Star, Sparkles, Check } from "lucide-react";
+import { Check, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -57,13 +57,13 @@ export default function ProPlanUpsellModal({
         };
       case "prototype_creation_limit_reached":
         return {
-          limitText: "Free limit reached: 5/5 prototypes",
-          title: "Create unlimited prototypes with Pro",
+          limitText: "Free limit reached: 5/5 projects",
+          title: "Create unlimited projects with Pro",
           description:
-            "You can only create 5 prototypes on the free plan. Upgrade to Pro for unlimited prototype creation.",
+            "You can only create 5 projects on the free plan. Upgrade to Pro for unlimited projects creation.",
           features: [
-            "Unlimited prototypes",
-            "Advanced prototype features",
+            "Unlimited projects",
+            "Advanced prototyping features",
             "Priority AI responses",
             "Premium support",
           ],

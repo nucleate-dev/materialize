@@ -151,6 +151,8 @@ interface MaterializeRenderSectionProps {
   onShare?: () => void;
   onClone?: () => void;
   isCloningPrototype?: boolean;
+  // Public view mode - hides preview/code switch, status badge, and terminal
+  publicView?: boolean;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -185,6 +187,7 @@ const MaterializeRenderSection = forwardRef<
       onShare,
       onClone,
       isCloningPrototype = false,
+      publicView = false,
     },
     ref,
   ) => {
@@ -1155,64 +1158,70 @@ const MaterializeRenderSection = forwardRef<
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm px-3 py-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <TooltipProvider delayDuration={200}>
-                <div className="flex items-center bg-muted rounded-lg p-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={isPreviewView ? "ghost" : "ghost"}
-                        size="sm"
-                        onClick={() => onPreviewViewChange(true)}
-                        className={`flex items-center gap-2 ${isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
-                      >
-                        <Eye className="w-4 h-4" />
-                        {isPreviewView && !isMobileLayout && "Preview"}
-                      </Button>
-                    </TooltipTrigger>
-                    {!isPreviewView && <TooltipContent>Preview</TooltipContent>}
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={!isPreviewView ? "ghost" : "ghost"}
-                        size="sm"
-                        onClick={() => onPreviewViewChange(false)}
-                        className={`flex items-center gap-2 ${!isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
-                      >
-                        <Code2 className="w-4 h-4" />
-                        {!isPreviewView && !isMobileLayout && "Code"}
-                      </Button>
-                    </TooltipTrigger>
-                    {isPreviewView && <TooltipContent>Code</TooltipContent>}
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
-              <ConnectionStatusIndicator />
-              {currentRenderStatus === "Starting Dev Server.." && (
-                <div className="flex items-center gap-2 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-md border border-border/50">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                  <span className="text-xs font-medium text-foreground whitespace-nowrap">
-                    This can take about 1 minute
-                  </span>
-                </div>
-              )}
-              {mobileHint && isMobileLayout && (
-                <span className="text-xs text-muted-foreground">
-                  {mobileHint}
-                </span>
+              {!publicView && (
+                <>
+                  <TooltipProvider delayDuration={200}>
+                    <div className="flex items-center bg-muted rounded-lg p-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={isPreviewView ? "ghost" : "ghost"}
+                            size="sm"
+                            onClick={() => onPreviewViewChange(true)}
+                            className={`flex items-center gap-2 ${isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
+                          >
+                            <Eye className="w-4 h-4" />
+                            {isPreviewView && !isMobileLayout && "Preview"}
+                          </Button>
+                        </TooltipTrigger>
+                        {!isPreviewView && <TooltipContent>Preview</TooltipContent>}
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={!isPreviewView ? "ghost" : "ghost"}
+                            size="sm"
+                            onClick={() => onPreviewViewChange(false)}
+                            className={`flex items-center gap-2 ${!isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
+                          >
+                            <Code2 className="w-4 h-4" />
+                            {!isPreviewView && !isMobileLayout && "Code"}
+                          </Button>
+                        </TooltipTrigger>
+                        {isPreviewView && <TooltipContent>Code</TooltipContent>}
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
+                  <ConnectionStatusIndicator />
+                  {currentRenderStatus === "Starting Dev Server.." && (
+                    <div className="flex items-center gap-2 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-md border border-border/50">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                      <span className="text-xs font-medium text-foreground whitespace-nowrap">
+                        This can take about 1 minute
+                      </span>
+                    </div>
+                  )}
+                  {mobileHint && isMobileLayout && (
+                    <span className="text-xs text-muted-foreground">
+                      {mobileHint}
+                    </span>
+                  )}
+                </>
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Button
-                variant={isTerminalOpen ? "default" : "secondary"}
-                size="sm"
-                onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                className="flex-shrink-0"
-                title="Toggle Terminal"
-              >
-                <TerminalIcon className="w-4 h-4" />
-                <span className="ml-1.5 hidden md:inline">Terminal</span>
-              </Button>
+              {!publicView && (
+                <Button
+                  variant={isTerminalOpen ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                  className="flex-shrink-0"
+                  title="Toggle Terminal"
+                >
+                  <TerminalIcon className="w-4 h-4" />
+                  <span className="ml-1.5 hidden md:inline">Terminal</span>
+                </Button>
+              )}
               {designSystemLabel && onDesignSystemClick && (
                 <Button
                   variant="secondary"
@@ -1335,7 +1344,7 @@ const MaterializeRenderSection = forwardRef<
         </div>
 
         {/* Terminal Panel */}
-        {isTerminalOpen && (
+        {!publicView && isTerminalOpen && (
           <div
             className="relative border-t border-border bg-background"
             style={{ height: `${terminalHeight}px` }}

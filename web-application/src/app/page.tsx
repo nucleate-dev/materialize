@@ -321,7 +321,7 @@ function PricingSection() {
       period: "forever",
       description: "Perfect for trying out Materialize",
       features: [
-        "3 prototypes",
+        "3 projects",
         "Unlimited components",
         "Export to React Native",
         "Community support",
@@ -335,8 +335,7 @@ function PricingSection() {
       period: "per month",
       description: "For professionals and teams",
       features: [
-        "Unlimited prototypes",
-        "Unlimited components",
+        "Unlimited projects",
         "Export to React Native",
         "Priority support",
         "Custom design tokens",

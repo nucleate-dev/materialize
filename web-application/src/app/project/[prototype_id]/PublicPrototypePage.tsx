@@ -328,24 +328,21 @@ export default function PrototypePage() {
         </div>
 
         {/* Main Content - ExpoSnackViewer */}
-        <div className="flex-1 p-8">
-          <Card className="h-full overflow-hidden">
-            <CardContent className="h-full p-0">
-              <MaterializeRenderSection
-                viewing_url={viewingUrl ?? ""}
-                prototypeId={prototypeId}
-                currentRenderStatus={renderStatus}
-                onRenderStatusChange={setRenderStatus}
-                isPreviewView={isPreviewView}
-                onPreviewViewChange={setIsPreviewView}
-                codeView={
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    Code view is unavailable in the public prototype viewer.
-                  </div>
-                }
-              />
-            </CardContent>
-          </Card>
+        <div className="flex-1">
+          <MaterializeRenderSection
+            viewing_url={viewingUrl ?? ""}
+            prototypeId={prototypeId}
+            currentRenderStatus={renderStatus}
+            onRenderStatusChange={setRenderStatus}
+            isPreviewView={isPreviewView}
+            onPreviewViewChange={setIsPreviewView}
+            publicView={true}
+            codeView={
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Code view is unavailable in the public prototype viewer.
+              </div>
+            }
+          />
         </div>
       </main>
     </SidebarProvider>

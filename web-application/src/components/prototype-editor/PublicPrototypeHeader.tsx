@@ -5,6 +5,14 @@ import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,6 +34,7 @@ import {
   CheckIcon,
   DocumentDuplicateIcon,
   EllipsisVerticalIcon,
+  InformationCircleIcon,
   PencilIcon,
   ShareIcon,
   XMarkIcon,
@@ -38,13 +47,11 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 interface PublicPrototypeHeaderProps {
   prototype: Prototype;
   onUpdatePrototype: (updatedPrototype: Prototype) => void;
-  onShare?: () => void;
 }
 
 export default function PublicPrototypeHeader({
   prototype,
   onUpdatePrototype,
-  onShare,
 }: PublicPrototypeHeaderProps) {
   const userObj = useUser();
   const user = userObj.user;
@@ -58,6 +65,9 @@ export default function PublicPrototypeHeader({
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [fileCount, setFileCount] = useState(0);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Fetch file count for display
   useEffect(() => {
@@ -119,6 +129,7 @@ export default function PublicPrototypeHeader({
       onUpdatePrototype({ ...prototype, name: editedName.trim() });
       setIsEditing(false);
       setEditedName("");
+      setShowInfoModal(false); // Close modal after saving
     } catch (err) {
       logger.debug("error", "Error updating prototype name:", {
         error: err instanceof Error ? err.message : String(err),
@@ -126,6 +137,27 @@ export default function PublicPrototypeHeader({
       });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleShare = () => {
+    setShowShareModal(true);
+    setLinkCopied(false); // Reset copied state when opening modal
+  };
+
+  const handleCopyLink = async () => {
+    if (!prototype) return;
+
+    const publicUrl = `${window.location.origin}/project/${prototype.id}`;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setLinkCopied(true);
+      // Reset after 2 seconds
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      logger.debug("error", "Failed to copy link:", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   };
 
@@ -200,100 +232,139 @@ export default function PublicPrototypeHeader({
         <div className="px-4 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             {/* Left side - Prototype info */}
-            <div className="flex items-center gap-3 group flex-1 min-w-0 pl-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0 pl-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 sm:gap-3 mb-1">
-                  {isEditing ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <Input
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        className="text-base sm:text-xl font-bold text-foreground bg-background border-2 border-primary/50 focus:border-primary flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleSaveEdit();
-                          } else if (e.key === "Escape") {
-                            handleCancelEdit();
-                          }
-                        }}
-                        autoFocus
-                        disabled={isUpdating}
-                      />
+                  <h1 className="text-base sm:text-xl font-bold text-foreground truncate">
+                    {prototype.name}
+                  </h1>
+                  <Dialog open={showInfoModal} onOpenChange={(open) => {
+                    setShowInfoModal(open);
+                    if (!open) {
+                      // Reset edit state when closing modal
+                      setIsEditing(false);
+                      setEditedName("");
+                    }
+                  }}>
+                    <DialogTrigger asChild>
                       <Button
                         size="sm"
-                        onClick={handleSaveEdit}
-                        disabled={isUpdating || !editedName.trim()}
-                        className="h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
+                        variant="ghost"
+                        className="h-7 w-7 sm:h-8 sm:w-8 p-0 ml-1 flex-shrink-0"
                       >
-                        {isUpdating ? (
-                          <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <CheckIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <InformationCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Prototype Information</DialogTitle>
+                        <DialogDescription>
+                          Details about this prototype
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        {/* Prototype Name - Editable for owner */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Name
+                            </span>
+                            {user && prototype.owner_id === user.id && !isEditing && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleStartEdit}
+                                className="h-7 px-2 text-xs"
+                              >
+                                <PencilIcon className="w-3 h-3 mr-1" />
+                                Edit
+                              </Button>
+                            )}
+                          </div>
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={editedName}
+                                onChange={(e) => setEditedName(e.target.value)}
+                                className="text-sm flex-1"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleSaveEdit();
+                                  } else if (e.key === "Escape") {
+                                    handleCancelEdit();
+                                  }
+                                }}
+                                autoFocus
+                                disabled={isUpdating}
+                              />
+                              <Button
+                                size="sm"
+                                onClick={handleSaveEdit}
+                                disabled={isUpdating || !editedName.trim()}
+                                className="h-8 w-8 p-0 flex-shrink-0"
+                              >
+                                {isUpdating ? (
+                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <CheckIcon className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                                disabled={isUpdating}
+                                className="h-8 w-8 p-0 flex-shrink-0"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-foreground font-medium">
+                              {prototype.name}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Files
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {fileCount} files
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Visibility
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {prototype.visibility?.toLowerCase() || "private"}
+                          </Badge>
+                        </div>
+                        {prototype.created_at && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Created
+                            </span>
+                            <span className="text-sm">
+                              {new Date(prototype.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
                         )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleCancelEdit}
-                        disabled={isUpdating}
-                        className="h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
-                      >
-                        <XMarkIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <h1 className="text-base sm:text-xl font-bold text-foreground truncate">
-                        {prototype.name}
-                      </h1>
-                      {user && prototype.owner_id === user.id && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleStartEdit}
-                          className="h-7 w-7 sm:h-8 sm:w-8 p-0 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity flex-shrink-0"
-                        >
-                          <PencilIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Mobile: Compact metadata */}
-                <div className="flex items-center gap-2 sm:hidden">
-                  <Badge variant="secondary" className="text-xs">
-                    {fileCount} files
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {prototype.visibility?.toLowerCase() || "private"}
-                  </Badge>
-                </div>
-
-                {/* Desktop: Full metadata */}
-                <div className="hidden sm:block">
-                  {prototype.description && (
-                    <p className="text-muted-foreground text-sm leading-relaxed line-clamp-1">
-                      {prototype.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 mt-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                        {fileCount} files
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {prototype.visibility?.toLowerCase() || "private"}
-                      </Badge>
-                    </div>
-                    {prototype.created_at && (
-                      <div className="text-xs text-muted-foreground">
-                        Created{" "}
-                        {new Date(prototype.created_at).toLocaleDateString()}
+                        {prototype.description && (
+                          <div className="pt-2 border-t">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Description
+                            </span>
+                            <p className="text-sm text-foreground mt-2">
+                              {prototype.description}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </div>
@@ -316,12 +387,12 @@ export default function PublicPrototypeHeader({
                   ) : (
                     <>
                       <DocumentDuplicateIcon className="w-4 h-4 mr-2" />
-                      Clone Prototype
+                      Clone Project
                     </>
                   )}
                 </Button>
 
-                <Button variant="outline" size="sm" onClick={onShare}>
+                <Button variant="outline" size="sm" onClick={handleShare}>
                   <ShareIcon className="w-4 h-4" />
                 </Button>
               </div>
@@ -347,12 +418,12 @@ export default function PublicPrototypeHeader({
                     ) : (
                       <>
                         <DocumentDuplicateIcon className="w-4 h-4" />
-                        Clone Prototype
+                        Clone Project
                       </>
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={onShare}
+                    onClick={handleShare}
                     className="flex items-center gap-2"
                   >
                     <ShareIcon className="w-4 h-4" />
@@ -364,6 +435,45 @@ export default function PublicPrototypeHeader({
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Prototype</DialogTitle>
+            <DialogDescription>
+              Anyone with this link can view this prototype
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/project/${prototype.id}`}
+                className="flex-1 text-sm"
+                onClick={(e) => e.currentTarget.select()}
+              />
+              <Button
+                size="sm"
+                onClick={handleCopyLink}
+                className="flex-shrink-0"
+              >
+                {linkCopied ? (
+                  <>
+                    <CheckIcon className="w-4 h-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <DocumentDuplicateIcon className="w-4 h-4 mr-2" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ProPlanUpsellModal
         open={showUpsellModal}
