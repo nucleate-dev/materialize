@@ -32,14 +32,12 @@ import {
   Loader2,
   Monitor,
   Palette,
-  Play,
-  Plus,
-  RefreshCw,
+  Play, RefreshCw,
   RotateCcw,
   Settings,
   Smartphone,
   Terminal as TerminalIcon,
-  X,
+  X
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -1037,7 +1035,7 @@ const MaterializeRenderSection = forwardRef<
             <div className="w-full h-full overflow-auto">
               <div className="min-h-full flex items-center justify-center">
                 {/* Add Screen button - positioned above mobile screens */}
-                {viewing_url && (
+                {/* {viewing_url && (
                   <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
                     <Button
                       onClick={handleAddMobileScreen}
@@ -1049,7 +1047,7 @@ const MaterializeRenderSection = forwardRef<
                       <span className="hidden sm:inline">Add screen</span>
                     </Button>
                   </div>
-                )}
+                )} */}
                 <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4">
                   {mobileScreens.map((screen, index) => {
                     const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
