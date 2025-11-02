@@ -1,11 +1,11 @@
 // Lambda@Edge Viewer-Request handler (Node 18+)
 import crypto from "crypto";
 
-const SUPABASE_URL = "https://hfgjmwidcoszkmvejxhw.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZ2ptd2lkY29zemttdmVqeGh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNDY5MTIsImV4cCI6MjA2ODYyMjkxMn0.wlX6Mc6aRnH2prvcqkYvJ4ccxM6oA3XF5gpX5T13d_w"; // needed for public/project-level access
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY; // needed for public/project-level access
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const MATERIALIZE_SERVICE_ACCESS_TOKEN =
-  "F4DTabLba3IqlUkj2TtCEWnq3Y8qEYCHCvaE/jZ0qsw=";
+  process.env.MATERIALIZE_SCREENSHOT_SECRET;
 const SERVICE_COOKIE_NAME = "materializeServiceAccess";
 const USER_COOKIE_NAME = "authToken";
 
