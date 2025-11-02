@@ -10,13 +10,14 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
-import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
+import { ChatEngineV1 } from './engines/ChatEngineV1.js';
 import { validateChatAuth } from './utils/chat-auth.js';
 import { ChatStreamEventType } from './utils/chat-types.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
 import { trackChatUsage } from './utils/usage-tracking.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
+import { ChatEngineConfig } from '../../types/InternalTypes.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
