@@ -25,7 +25,15 @@ export async function handleRunCommandImpl(
   cache: GlideClient,
   log2: SystemLogger,
 ): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
-  const { prototype_id, command, args, cwd, env, timeout_ms } = body;
+  const {
+    prototype_id,
+    command,
+    args,
+    cwd,
+    env,
+    timeout_ms,
+    strip_ansi,
+  } = body;
 
   // ------------------------------------------------------------------------------------------------
   // FOR DEVELOPMENT PURPOSES: if env is dev, fargate dev mode is enabled, and an ip is provided, skip
@@ -51,7 +59,14 @@ export async function handleRunCommandImpl(
     }
     const response = await callFargateRunCommand(
       process.env.FARGATE_DEV_IP,
-      { command, args, cwd, env, timeout_ms },
+      {
+        command,
+        args,
+        cwd,
+        env,
+        timeout_ms,
+        strip_ansi: strip_ansi ?? true,
+      },
       log2,
     );
     return {
@@ -127,7 +142,14 @@ export async function handleRunCommandImpl(
     // 6. Call run-command endpoint on the fargate instance
     const commandResponse = await callFargateRunCommand(
       existingBuild.fargate_private_ip,
-      { command, args, cwd, env, timeout_ms },
+      {
+        command,
+        args,
+        cwd,
+        env,
+        timeout_ms,
+        strip_ansi: strip_ansi ?? true,
+      },
       log2,
     );
 
@@ -169,6 +191,7 @@ async function callFargateRunCommand(
     cwd?: string;
     env?: Record<string, string>;
     timeout_ms?: number;
+    strip_ansi?: boolean;
   },
   log2: SystemLogger,
 ): Promise<PublicRunCommandResponse> {
@@ -180,6 +203,7 @@ async function callFargateRunCommand(
       cwd: params.cwd,
       env: params.env,
       timeout_ms: params.timeout_ms,
+      strip_ansi: params.strip_ansi ?? true,
       // Do NOT include session_id - let it create a new temp session
     };
 

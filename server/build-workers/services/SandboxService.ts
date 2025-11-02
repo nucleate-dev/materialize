@@ -113,6 +113,7 @@ export class SandboxService {
               env: { type: "object" },
               timeout_ms: { type: "number" },
               session_id: { type: "string" },
+              strip_ansi: { type: "boolean" },
             },
           },
         },
@@ -159,7 +160,15 @@ export class SandboxService {
     request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
     reply: FastifyReply,
   ): Promise<PublicRunCommandResponse> {
-    const { command, args, cwd, env, timeout_ms, session_id } = request.body;
+    const {
+      command,
+      args,
+      cwd,
+      env,
+      timeout_ms,
+      session_id,
+      strip_ansi: stripAnsi,
+    } = request.body;
 
     // Generate unique completion marker (4-digit random number)
     const completionMarker = `${Math.floor(1000 + Math.random() * 9000)}-command-complete`;
@@ -182,6 +191,10 @@ export class SandboxService {
         });
         shouldCleanupSession = true;
         this.log2.info("Created temporary terminal session", { sessionId });
+
+        // Give the PTY time to fully initialize before writing to it
+        // This prevents "PTY exited immediately after spawn" errors
+        await new Promise((resolve) => setTimeout(resolve, 150));
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -318,63 +331,67 @@ export class SandboxService {
 
       // Poll for completion marker
       checkInterval = setInterval(() => {
-        if (output.includes(completionMarker)) {
-          if (!commandComplete) {
-            commandComplete = true;
-            clearTimeout(timeoutHandle);
-            if (checkInterval) {
-              clearInterval(checkInterval);
-              checkInterval = null;
+        if (!commandComplete && output.includes(completionMarker)) {
+          // Extract output: everything after the command input and before the completion marker
+          // Find where the actual command output starts (after the echoed command)
+          const commandEchoPattern = fullCommand.trim().replace(/\n$/, "");
+          let outputStart = 0;
+
+          const commandEchoIndex = output.indexOf(commandEchoPattern);
+          if (commandEchoIndex !== -1) {
+            outputStart = commandEchoIndex + commandEchoPattern.length;
+            while (
+              outputStart < output.length &&
+              (output[outputStart] === "\n" || output[outputStart] === "\r")
+            ) {
+              outputStart++;
             }
-            cleanup?.();
-            cleanup = null;
-
-            // Extract output: everything after the command input and before the completion marker
-            // Find where the actual command output starts (after the echoed command)
-            const commandEchoPattern = fullCommand.trim().replace(/\n$/, "");
-            let outputStart = output.indexOf(commandEchoPattern);
-
-            if (outputStart !== -1) {
-              // Skip past the echoed command and any newline
-              outputStart += commandEchoPattern.length;
-              // Skip any leading newlines/whitespace after command
-              while (
-                outputStart < output.length &&
-                (output[outputStart] === "\n" || output[outputStart] === "\r")
-              ) {
-                outputStart++;
-              }
-            } else {
-              // If we can't find the command echo, start from beginning
-              outputStart = 0;
-            }
-
-            // Find where the completion marker starts
-            const markerIndex = output.indexOf(completionMarker);
-
-            // Extract the output between command and marker
-            let cleanOutput = output.substring(outputStart, markerIndex).trim();
-
-            // Remove any trailing shell prompt or newlines
-            cleanOutput = cleanOutput.replace(/\r\n/g, "\n").trim();
-
-            this.log2.info("Command completed successfully", {
-              command,
-              sessionId,
-              outputLength: cleanOutput.length,
-            });
-
-            // Cleanup temp session if needed
-            if (shouldCleanupSession) {
-              this.terminalService.closeSession(sessionId);
-            }
-
-            reply.code(200);
-            resolve({
-              status: "success",
-              stdout: cleanOutput,
-            });
           }
+
+          // Find where the completion marker starts after the echoed command
+          const markerIndex = output.indexOf(completionMarker, outputStart);
+          if (markerIndex === -1) {
+            return;
+          }
+
+          commandComplete = true;
+          clearTimeout(timeoutHandle);
+          if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
+          }
+          cleanup?.();
+          cleanup = null;
+
+          // Extract the output between command and marker
+          let cleanOutput = output.slice(outputStart, markerIndex).trim();
+
+          // Normalize newlines and remove trailing whitespace
+          cleanOutput = cleanOutput
+            .replace(/\r\n/g, "\n")
+            .replace(/\r/g, "\n")
+            .trim();
+
+          if (stripAnsi) {
+            cleanOutput = this.stripAnsiSequences(cleanOutput);
+          }
+
+          this.log2.info("Command completed successfully", {
+            command,
+            sessionId,
+            outputLength: cleanOutput.length,
+          });
+
+          // Cleanup temp session if needed
+          if (shouldCleanupSession) {
+            this.terminalService.closeSession(sessionId);
+          }
+
+          reply.code(200);
+          resolve({
+            status: "success",
+            stdout: cleanOutput,
+          });
         }
       }, 100);
     });
@@ -435,6 +452,13 @@ export class SandboxService {
       });
       return { success: false, error: errorMessage };
     }
+  }
+
+  private stripAnsiSequences(output: string): string {
+    const ANSI_REGEX =
+      // eslint-disable-next-line no-control-regex
+      /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~])/g;
+    return output.replace(ANSI_REGEX, "");
   }
 
   /**
