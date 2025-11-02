@@ -1204,7 +1204,8 @@ export default function PrototypeChatWindow({
                 setExecutionPlan(plan);
                 setCompletedSteps(new Set());
                 setExplicitlyCompletedSteps(new Set());
-                setIsThoughtsExpanded(true);
+                // Don't auto-expand - let it stay collapsed if user wants
+                // setIsThoughtsExpanded(true);
                 // Clear the "Creating execution plan" thought since plan is now shown
                 setCurrentThought("");
               }
@@ -1778,29 +1779,68 @@ export default function PrototypeChatWindow({
         );
       }
 
-      case "plan":
+      case "plan": {
+        const planId = item.id;
+        const isPlanExpanded = expandedSpecItems.has(planId);
         return (
           <div key={item.id} className="flex justify-start">
-            <div className="max-w-[90%] space-y-3 rounded-lg border border-border/60 bg-muted/30 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <ClipboardDocumentListIcon className="h-4 w-4" />
-                Execution Plan
-              </div>
-              <ol className="space-y-2 text-sm text-foreground">
-                {item.plan.map((step, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <span className="mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                      {index + 1}
-                    </span>
-                    <span className="flex-1 text-muted-foreground/90">
-                      {step}
-                    </span>
-                  </li>
-                ))}
-              </ol>
+            <div className="max-w-[90%] rounded-md border border-border/50 bg-muted/40 text-sm">
+              <button
+                onClick={() => {
+                  setExpandedSpecItems((prev) => {
+                    const next = new Set(prev);
+                    if (isPlanExpanded) {
+                      next.delete(planId);
+                    } else {
+                      next.add(planId);
+                    }
+                    return next;
+                  });
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isPlanExpanded ? (
+                    <ChevronUpIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  )}
+                  <ClipboardDocumentListIcon className="h-4 w-4" />
+                  Execution Plan
+                </div>
+              </button>
+              {isPlanExpanded && (
+                <div className="px-3 pb-3 space-y-2">
+                  {item.plan.map((step, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <div
+                        className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5 ${
+                          completedSteps.has(index)
+                            ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
+                            : "border-muted-foreground/40"
+                        }`}
+                      >
+                        {completedSteps.has(index) && (
+                          <CheckIcon className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                      <span
+                        className={`flex-1 ${
+                          completedSteps.has(index)
+                            ? "text-muted-foreground/70 line-through"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {step}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
+      }
 
       case "step":
         const stepText = item.summary || item.message || "";
@@ -2013,72 +2053,6 @@ export default function PrototypeChatWindow({
           </div>
         </ScrollArea>
 
-        {/* Thoughts and Execution Plan Section */}
-        {executionPlan.length > 0 && (
-          <div className="border-t border-b bg-muted/30 flex-shrink-0">
-            <div className="p-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsThoughtsExpanded(!isThoughtsExpanded)}
-                className="w-full justify-between text-sm font-medium"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                  {!isThoughtsExpanded ? "Executing..." : "Execution Plan"}
-                </span>
-                {isThoughtsExpanded ? (
-                  <ChevronUpIcon className="w-4 h-4" />
-                ) : (
-                  <ChevronDownIcon className="w-4 h-4" />
-                )}
-              </Button>
-
-              {isThoughtsExpanded && (
-                <div className="mt-3 space-y-3">
-                  {executionPlan.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        {executionPlan.map((step, index) => (
-                          <div
-                            key={index}
-                            className="flex items-start gap-2 text-sm"
-                          >
-                            <div
-                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${completedSteps.has(index)
-                                ? "border-green-500 bg-green-500"
-                                : "border-gray-300"
-                                }`}
-                            >
-                              {completedSteps.has(index) && (
-                                <div className="relative">
-                                  <CheckIcon className="w-3 h-3 text-white" />
-                                  {!explicitlyCompletedSteps.has(index) && (
-                                    <span className="absolute -top-1 -right-1 text-white text-xs font-bold">
-                                      *
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <span
-                              className={`${completedSteps.has(index)
-                                ? "text-muted-foreground line-through"
-                                : "text-foreground"
-                                }`}
-                            >
-                              {step}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         {/* Drag overlay */}
         {isDraggingOver && (
           <div className="absolute inset-0 bg-primary/10 border-4 border-dashed border-primary z-50 flex items-center justify-center">
