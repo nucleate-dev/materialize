@@ -82,19 +82,25 @@ export class ChatEngineV2 {
   }
 
   private getCurrentModel(): LanguageModelV2 {
-    switch (this.modelProvider) {
+    return this.getModel(this.modelProvider);
+  }
+
+  private getModel(model: ModelProvider): LanguageModelV2 {
+    switch (model) {
       case 'google':
         return this.google(MODEL_CONFIGS.google);
       case 'anthropic':
         return this.anthropic(MODEL_CONFIGS.anthropic);
       case 'openai':
+        if (!this.openai) {
+          throw new Error('OpenAI API key is not configured for ChatEngine');
+        }
+        return this.openai(MODEL_CONFIGS.openai);
       case 'openai-mini':
         if (!this.openai) {
           throw new Error('OpenAI API key is not configured for ChatEngine');
         }
-        return this.openai(MODEL_CONFIGS[this.modelProvider]);
-      default:
-        return this.google(MODEL_CONFIGS.google);
+        return this.openai(MODEL_CONFIGS['openai-mini']);
     }
   }
 
@@ -617,7 +623,7 @@ export class ChatEngineV2 {
         });
 
         const specExpansionResult = await generateText({
-          model: this.getCurrentModel(),
+          model: this.getModel('google'),
           system: promptConfig.specExpansion,
           messages: [{ role: 'user', content: userMessage }],
         });
