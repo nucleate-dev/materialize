@@ -30,14 +30,8 @@ import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline";
 import {
-  Code,
   Lightbulb,
-  Loader2,
-  Paintbrush,
-  Rocket,
-  Send,
-  Smartphone,
-  Sparkles
+  Loader2, Send, Sparkles
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -66,7 +60,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
-  const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
+  const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
 
   // Fetch design systems
@@ -180,37 +174,6 @@ export default function DashboardPage() {
     e.preventDefault();
     await submitPrompt(prompt);
   };
-
-  const examplePrompts = [
-    {
-      icon: Smartphone,
-      title: "Social Media App",
-      description: "A modern social feed with posts, likes, and comments.",
-      prompt:
-        "Build a social media mobile app with a clean feed interface, post creation, and user interactions.",
-    },
-    {
-      icon: Paintbrush,
-      title: "E-commerce Store",
-      description: "A shopping app with product listings and a cart.",
-      prompt:
-        "Create an e-commerce mobile app with a product catalog, shopping cart, and checkout flow.",
-    },
-    {
-      icon: Code,
-      title: "Productivity Tool",
-      description: "A task management app with to-dos and reminders.",
-      prompt:
-        "Design a productivity app with task lists, reminders, and progress tracking.",
-    },
-    {
-      icon: Rocket,
-      title: "Fitness Tracker",
-      description: "A health app with workout tracking and statistics.",
-      prompt:
-        "Build a fitness tracking app with workout logging, progress charts, and goal setting.",
-    },
-  ];
 
   return (
     <>

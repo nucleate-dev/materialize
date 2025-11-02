@@ -18,14 +18,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type {
-  APIResponse,
-  RestartDevServerRequestBody,
-  RestartDevServerSuccessResponse,
-  RunCommandRequestBody,
+  APIResponse, RunCommandRequestBody,
   RunCommandSuccessResponse,
   StandardErrorResponse,
   StartDevServerRequestBody,
-  StartDevServerSuccessResponse,
+  StartDevServerSuccessResponse
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 
@@ -197,7 +194,6 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
-    const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [isRunningLint, setIsRunningLint] = useState(false);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(() =>
       viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
@@ -316,7 +312,8 @@ const MaterializeRenderSection = forwardRef<
       return () => window.removeEventListener("message", handleMessage);
     }, [viewing_url, editingScreenId, onCurrentPathChange]);
 
-    const handleAddMobileScreen = () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleAddMobileScreen = () => {
       if (!viewing_url) return;
 
       setMobileScreens((prev) => [
@@ -581,56 +578,6 @@ const MaterializeRenderSection = forwardRef<
         setIsIframeLoading(true);
         setIframeError(false);
         webPreviewRef.current.location = viewing_url;
-      }
-    };
-
-    // Function to restart dev server (simple API call with prototype_id)
-    const handleRestartDevServer = async () => {
-      if (!prototypeId) return;
-      setIsRestartingDevServer(true);
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        if (!token) return;
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/restart`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              prototype_id: prototypeId,
-            } as RestartDevServerRequestBody),
-          },
-        );
-
-        // TODO(Sourish): Handle Badge Status
-        // onRenderStatusChange("Restarting..");
-        // If restart fails -> Static Build OR /dispatch to start new dev server
-        // If restart succeeds -> Connected
-
-        const result: APIResponse<
-          RestartDevServerSuccessResponse,
-          StandardErrorResponse
-        > = await response.json();
-
-        if (response.ok && result.data) {
-          logger.debug("log", "Dev server restarted successfully", {
-            message: result.data.message,
-          });
-        } else {
-          logger.debug("error", "Failed to restart dev server", {
-            error: result.error?.message,
-          });
-        }
-
-        // Force a refresh regardless to reconnect iframe to server
-        forceRefresh();
-      } finally {
-        setIsRestartingDevServer(false);
       }
     };
 

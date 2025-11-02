@@ -34,18 +34,6 @@ import { Check, Copy, Plus, Trash } from "lucide-react";
 
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
-function formatRelativeTime(dateString: string | null | undefined): string {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-}
-
 export default function DesignSystemsPage() {
   const { user } = useUser();
   const router = useRouter();
@@ -305,8 +293,6 @@ export default function DesignSystemsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {designSystems.map((system) => {
-              const updatedLabel = formatRelativeTime(system.updated_at);
-              const createdLabel = formatRelativeTime(system.created_at);
               const hasRules = Boolean(system.design_rules?.trim());
 
               return (

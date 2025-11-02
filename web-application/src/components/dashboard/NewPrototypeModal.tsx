@@ -221,6 +221,7 @@ export default function NewPrototypeModal({
   useEffect(() => {
     if (open) {
       setHasManualDesignSelection(false);
+      setShowAdvanced(false);
     }
   }, [open]);
 
@@ -447,6 +448,128 @@ export default function NewPrototypeModal({
                 </div>
               )}
             </div>
+
+            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex items-center justify-between w-full p-0 h-auto font-semibold text-sm hover:bg-transparent"
+                >
+                  <span className="text-muted-foreground">Advanced Options</span>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 text-muted-foreground transition-transform ${
+                      showAdvanced ? "rotate-180" : ""
+                    }`}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="project-select" className="text-sm font-semibold">
+                    Folder
+                  </Label>
+                  <Select
+                    value={selectedFolder || "none"}
+                    onValueChange={(value) => {
+                      const projectValue = value === "none" ? null : value;
+                      setSelectedFolder(projectValue);
+                      setHasManualDesignSelection(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-12">
+                      <div className="flex items-center gap-2">
+                        <FolderIcon className="w-4 h-4 text-primary" />
+                        <SelectValue placeholder="Select a folder (optional)" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No folder</SelectItem>
+                      {isLoadingFolders ? (
+                        <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+                          <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                          Loading folders...
+                        </div>
+                      ) : (
+                        folders.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            <div className="flex items-center gap-2">
+                              <FolderIcon className="w-4 h-4 text-primary" />
+                              {project.name}
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="design-style" className="text-sm font-semibold">
+                    Design Style
+                  </Label>
+                  <Select
+                    value={designStyle}
+                    onValueChange={(value) => {
+                      const nextStyle = value as DesignStyle;
+                      setDesignStyle(nextStyle);
+                      setHasManualDesignSelection(true);
+                    }}
+                  >
+                    <SelectTrigger id="design-style" className="h-12">
+                      <div className="flex items-center gap-2">
+                        <SwatchIcon className="w-4 h-4 text-primary" />
+                        <SelectValue placeholder="Choose a design style" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DESIGN_STYLE_OPTIONS.map((style) => (
+                        <SelectItem key={style} value={style}>
+                          {DESIGN_STYLE_LABELS[style]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {designSystems.length > 0 && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="custom-design-system"
+                      className="text-sm font-semibold"
+                    >
+                      Custom Design System <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </Label>
+                    <Select
+                      value={customDesignSystemId ?? "none"}
+                      onValueChange={(value) => {
+                        const systemValue = value === "none" ? null : value;
+                        setCustomDesignSystemId(systemValue);
+                        setHasManualDesignSelection(true);
+                      }}
+                    >
+                      <SelectTrigger id="custom-design-system" className="h-12">
+                        <SelectValue placeholder="No custom design system" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No custom design system</SelectItem>
+                        {designSystems.map((system) => (
+                          <SelectItem key={system.id} value={String(system.id)}>
+                            {system.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isLoadingDesignSystems && (
+                      <p className="text-xs text-muted-foreground">
+                        Loading design systems...
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Apply custom design rules on top of the selected design style
+                    </p>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="space-y-2">
               <Label

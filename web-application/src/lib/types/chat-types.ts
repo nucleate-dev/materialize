@@ -6,10 +6,7 @@
  */
 
 // Note: These types mirror the server-side types but use frontend-compatible type definitions
-import type {
-  CodeError,
-  PrototypeFileInput,
-} from '@/lib/types/serverAPITypes';
+import type { CodeError, PrototypeFileInput } from "@/lib/types/serverAPITypes";
 
 // ============================================================================
 // Event Type Enum
@@ -20,37 +17,41 @@ import type {
  */
 export enum ChatStreamEventType {
   // Phase & Progress Events
-  INTENT_DETECTED = 'intent_detected',
-  PHASE_STARTED = 'phase_started',
-  IMAGE_PROCESSING = 'image_processing',
-  SPEC_EXPANDED = 'spec_expanded',
+  INTENT_DETECTED = "intent_detected",
+  PHASE_STARTED = "phase_started",
+  IMAGE_PROCESSING = "image_processing",
+  SPEC_EXPANDED = "spec_expanded",
 
   // Execution Events (from orchestration tools)
-  EXECUTION_PLAN_CREATED = 'execution_plan_created',
-  STEP_COMPLETED = 'step_completed',
+  EXECUTION_PLAN_CREATED = "execution_plan_created",
+  STEP_COMPLETED = "step_completed",
 
   // Tool Events
-  TOOL_CALL = 'tool_call',
-  TOOL_RESULT = 'tool_result',
+  TOOL_CALL = "tool_call",
+  TOOL_RESULT = "tool_result",
 
   // Response Events
-  CHAT_RESPONSE_DELTA = 'chat_response_delta',
-  CHAT_RESPONSE = 'chat_response',
+  CHAT_RESPONSE_DELTA = "chat_response_delta",
+  CHAT_RESPONSE = "chat_response",
 
   // File & Build Events
-  FILES_SYNCED = 'files_synced',
-  DISPATCH_START = 'dispatch_start',
-  DISPATCH_ERROR = 'dispatch_error',
-  VIEWING_URL = 'viewing_url',
-  BUILD_ERRORS = 'build_errors',
+  FILES_SYNCED = "files_synced",
+  DISPATCH_START = "dispatch_start",
+  DISPATCH_ERROR = "dispatch_error",
+  VIEWING_URL = "viewing_url",
+  BUILD_ERRORS = "build_errors",
+  TYPECHECK_STARTED = "typecheck_started",
+  TYPECHECK_ERRORS = "typecheck_errors",
+  TYPECHECK_PASSED = "typecheck_passed",
+  TYPECHECK_FAILED = "typecheck_failed",
 
   // Completion Events
-  CHAT_COMPLETE = 'chat_complete',
-  STREAM_COMPLETE = 'stream_complete',
+  CHAT_COMPLETE = "chat_complete",
+  STREAM_COMPLETE = "stream_complete",
 
   // Usage & Error Events
-  USAGE_UPDATE = 'usage_update',
-  ERROR = 'error',
+  USAGE_UPDATE = "usage_update",
+  ERROR = "error",
 }
 
 // ============================================================================
@@ -61,29 +62,29 @@ export enum ChatStreamEventType {
  * Different phases of chat execution
  */
 export enum ChatPhase {
-  SPEC_EXPANSION = 'spec_expansion',
-  MAIN_EXECUTION = 'main_execution',
-  FILE_DISPATCH = 'file_dispatch',
+  SPEC_EXPANSION = "spec_expansion",
+  MAIN_EXECUTION = "main_execution",
+  FILE_DISPATCH = "file_dispatch",
 }
 
 /**
  * Image processing status
  */
 export enum ImageProcessingStatus {
-  FETCHING = 'fetching',
-  COMPLETE = 'complete',
-  FAILED = 'failed',
+  FETCHING = "fetching",
+  COMPLETE = "complete",
+  FAILED = "failed",
 }
 
 /**
  * User intent types (from intent classifier)
  */
 export type UserIntent =
-  | 'error_fixing'
-  | 'feature_request'
-  | 'code_modification'
-  | 'question'
-  | 'clarification';
+  | "error_fixing"
+  | "feature_request"
+  | "code_modification"
+  | "question"
+  | "clarification";
 
 // ============================================================================
 // Event Payload Interfaces
@@ -341,8 +342,6 @@ export function isToolCallEvent(
 /**
  * Type guard for error event
  */
-export function isErrorEvent(
-  event: ChatStreamEvent,
-): event is ErrorEvent {
+export function isErrorEvent(event: ChatStreamEvent): event is ErrorEvent {
   return event.type === ChatStreamEventType.ERROR;
 }

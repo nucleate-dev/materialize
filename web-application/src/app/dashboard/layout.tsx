@@ -4,8 +4,8 @@ import {
   SidebarInset,
   SidebarProvider
 } from "@/components/ui/sidebar";
-import { sidebarOpenAtom, sidebarStateAtom } from "@/lib/atoms/sidebar";
-import { useAtom, useAtomValue } from "jotai";
+import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
+import { useAtom } from "jotai";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import MobileHeader from "../../components/dashboard/MobileHeader";
@@ -15,7 +15,6 @@ import RequireAuth from "./RequireAuth";
 
 function DashboardContent({ children }: { children: React.ReactNode; }) {
   const [, setSidebarOpen] = useAtom(sidebarOpenAtom);
-  const sidebarState = useAtomValue(sidebarStateAtom);
   const pathname = usePathname();
 
   // Set default sidebar state for main dashboard page

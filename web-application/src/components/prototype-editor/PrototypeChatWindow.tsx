@@ -439,13 +439,16 @@ export default function PrototypeChatWindow({
 
   // Thoughts and execution plan state
   const [currentThought, setCurrentThought] = useState<string>("");
-  const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
-  const [executionPlan, setExecutionPlan] = useState<string[]>([]);
+  const [, setIsThoughtsExpanded] = useState(false);
+  const [, setExecutionPlan] = useState<string[]>([]);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [explicitlyCompletedSteps, setExplicitlyCompletedSteps] = useState<
+  const [, setExplicitlyCompletedSteps] = useState<
     Set<number>
   >(new Set());
   const [expandedSpecItems, setExpandedSpecItems] = useState<Set<string>>(
+    new Set(),
+  );
+  const [expandedTypecheckItems, setExpandedTypecheckItems] = useState<Set<string>>(
     new Set(),
   );
 
@@ -812,7 +815,7 @@ export default function PrototypeChatWindow({
       );
       setIsThoughtsExpanded(false);
     });
-  }, [clearMockFlowTimeouts, isChatLoading]);
+  }, [clearMockFlowTimeouts, isChatLoading, setIsChatLoading]);
 
   const handleStartTitleEdit = useCallback(() => {
     if (!canEditName || !prototype) return;
@@ -1669,6 +1672,7 @@ export default function PrototypeChatWindow({
       logger,
       setIsChatLoading,
       onCurrentRenderStatusChange,
+      messageCount,
     ],
   );
 
@@ -1926,7 +1930,8 @@ export default function PrototypeChatWindow({
   }, [prototypeChatSession, prototypeId, logger]);
 
   // Handle inserting build errors into text box
-  const handleInsertBuildErrors = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleInsertBuildErrors = () => {
     if (buildErrors.length === 0) return;
 
     const errorText = buildErrors
@@ -2164,7 +2169,7 @@ export default function PrototypeChatWindow({
         const isPassed = item.status === "passed";
         const hasErrors = item.status === "errors";
         const isFailed = item.status === "failed";
-        const [isExpanded, setIsExpanded] = useState(false);
+        const isExpanded = expandedTypecheckItems.has(item.id);
 
         let containerClasses = "";
         let icon: IconComponent;
@@ -2211,7 +2216,15 @@ export default function PrototypeChatWindow({
                   }`}
                 onClick={() => {
                   if (hasErrors && item.output) {
-                    setIsExpanded(!isExpanded);
+                    setExpandedTypecheckItems((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) {
+                        next.delete(item.id);
+                      } else {
+                        next.add(item.id);
+                      }
+                      return next;
+                    });
                   }
                 }}
               >

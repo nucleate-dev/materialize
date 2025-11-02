@@ -578,7 +578,7 @@ export default function InternalPrototypePage() {
         clearInterval(pollTimer);
       }
     };
-  }, [currentRenderStatus, prototypeId, logger, viewingUrl]);
+  }, [currentRenderStatus, prototypeId, logger, viewingUrl, terminalUrl]);
 
   const handleDesignSystemDialogOpenChange = (open: boolean) => {
     setIsDesignSystemDialogOpen(open);
