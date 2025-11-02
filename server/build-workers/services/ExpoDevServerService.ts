@@ -1057,6 +1057,7 @@ export class ExpoDevServerService {
     try {
       // Use shared installDependencies function with SystemLogger and terminal session
       await installDependencies(projectDir, this.log2, session);
+      this.log2.info("Dependencies installed successfully");
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1254,7 +1255,12 @@ export class ExpoDevServerService {
             const port = this.state.port || this.defaultPort;
             this.state.devServerStatus = DevServerStatus.STARTING;
             this.state.startTime = new Date();
-            await this.startExpoProcess(actualProjectDir, port, buildErrors, buildWarnings);
+            await this.startExpoProcess(
+              actualProjectDir,
+              port,
+              buildErrors,
+              buildWarnings,
+            );
             this.log2.info(
               "Dev server restarted successfully with new dependencies.",
             );
