@@ -3,6 +3,7 @@
 import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -19,14 +21,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DEBUG_MODE } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
+  APIResponse,
   ChatErrorResponse,
   ChatRequestBody,
   CodeError,
+  type CreatePrototypeErrorResponse,
+  type CreatePrototypeRequestBody,
+  type CreatePrototypeSuccessResponse,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
@@ -36,18 +48,19 @@ import {
   setChatIntent,
 } from "@/lib/utils/chatIntentUtils";
 import {
-  ChatBubbleLeftRightIcon,
+  ArrowPathIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ClipboardDocumentIcon,
+  DocumentDuplicateIcon,
   ExclamationTriangleIcon,
+  PencilIcon,
   PhotoIcon,
   PlayIcon,
-  StopIcon,
-  TrashIcon,
+  ShareIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -63,6 +76,7 @@ type PrototypeChatSession =
   Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
+type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -137,6 +151,10 @@ function ChatImage({ imageUrl }: { imageUrl: string; }) {
 
 export interface PrototypeChatWindowProps {
   prototypeId: string | undefined;
+  prototype?: Prototype | null;
+  canEditPrototype?: boolean;
+  onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
+  onShare?: () => void;
 
   // File system integration
   files: Record<string, PrototypeFile>;
@@ -174,6 +192,10 @@ export default function PrototypeChatWindow({
   assets,
   onFilesUpdate,
   prototypeId,
+  prototype,
+  canEditPrototype = false,
+  onPrototypeUpdate,
+  onShare,
   isChatLoading,
   setIsChatLoading,
   currentViewingUrl,
@@ -185,6 +207,7 @@ export default function PrototypeChatWindow({
   onModelProviderChange,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
+  const router = useRouter();
   const { user } = useUser();
   const userId = user?.id;
   const {
@@ -206,6 +229,11 @@ export default function PrototypeChatWindow({
   const [loadingUsageCount, setLoadingCount] = useState<boolean>(true);
   const [showUpsellModal, setShowUpsellModal] = useState<boolean>(false);
   const [buildErrors, setBuildErrors] = useState<CodeError[]>([]);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
+  const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
+  const [isCloningPrototype, setIsCloningPrototype] = useState(false);
+  const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   // UI state
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
 
@@ -227,6 +255,19 @@ export default function PrototypeChatWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const prototypeTitle = prototype?.name?.trim() || "Prototype";
+  const visibility = prototype?.visibility?.toLowerCase();
+  const visibilityLabel =
+    visibility === "public"
+      ? "Public"
+      : visibility === "team"
+        ? "Team"
+        : "Private";
+  const createdAtLabel = prototype?.created_at
+    ? new Date(prototype.created_at).toLocaleDateString()
+    : null;
+  const canEditName = Boolean(canEditPrototype && onPrototypeUpdate);
 
 
   // File autocomplete functionality
@@ -357,6 +398,103 @@ export default function PrototypeChatWindow({
   const handleRemoveImage = useCallback(() => {
     setImagePreview(null);
   }, []);
+
+  const handleStartTitleEdit = useCallback(() => {
+    if (!canEditName || !prototype) return;
+    setEditedTitle(prototype.name);
+    setIsEditingTitle(true);
+  }, [canEditName, prototype]);
+
+  const handleCancelTitleEdit = useCallback(() => {
+    setIsEditingTitle(false);
+    setEditedTitle("");
+  }, []);
+
+  const handleSaveTitle = useCallback(async () => {
+    if (!canEditName || !prototype || !editedTitle.trim() || !onPrototypeUpdate) {
+      return;
+    }
+
+    try {
+      setIsUpdatingTitle(true);
+      const trimmedName = editedTitle.trim();
+      const { error } = await supabase
+        .from("prototypes")
+        .update({ name: trimmedName })
+        .eq("id", prototype.id);
+
+      if (error) {
+        throw error;
+      }
+
+      onPrototypeUpdate({ ...prototype, name: trimmedName });
+      setIsEditingTitle(false);
+      setEditedTitle("");
+    } catch (error) {
+      logger.debug("error", "Error updating prototype name:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsUpdatingTitle(false);
+    }
+  }, [canEditName, editedTitle, logger, onPrototypeUpdate, prototype]);
+
+  const handleClonePrototype = useCallback(async () => {
+    if (!prototype) return;
+
+    try {
+      setIsCloningPrototype(true);
+      const clonedPrototypeName = `${prototype.name} (Copy)`;
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        logger.debug("error", "No authentication token available");
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: clonedPrototypeName,
+            description: prototype.description,
+            project_id: prototype.project_id || undefined,
+            prototype_id: prototype.id,
+            visibility: "PUBLIC",
+          } as CreatePrototypeRequestBody),
+        },
+      );
+
+      const result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      > = await response.json();
+
+      if (result.data) {
+        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
+      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
+        setShowCloneUpsellModal(true);
+      } else if (result.error) {
+        logger.debug("error", "Error cloning prototype:", {
+          ...result.error,
+        });
+      }
+    } catch (error) {
+      logger.debug("error", "Error cloning prototype:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsCloningPrototype(false);
+    }
+  }, [logger, prototype, router]);
 
   // Function to sanitize tool names for display
   const sanitizeToolName = (toolName: string): string => {
@@ -1043,32 +1181,7 @@ export default function PrototypeChatWindow({
     }
   };
 
-  // Export session data
-  const exportSession = () => {
-    const sessionData = {
-      prototype: { id: prototypeId },
-      messages,
-      chatSession: prototypeChatSession?.id,
-      fileSystemState: { files, assets },
-      timestamp: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(sessionData, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chat-session-${prototypeChatSession?.id || "unknown"}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   // Handle disconnection
-  const handleDisconnect = () => {
-    setIsConnected(false);
-  };
-
   // Handle chat intent from localStorage
   useEffect(() => {
     if (
@@ -1109,51 +1222,152 @@ export default function PrototypeChatWindow({
         onDrop={handleDrop}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-3">
-            <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            <h2 className="text-lg font-semibold">Chat</h2>
-            {/* Model Selector */}
-            <Select
-              value={modelProvider}
-              onValueChange={onModelProviderChange}
-            >
-              <SelectTrigger className="w-[180px] h-8">
-                <SelectValue placeholder="Select model" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="google">Gemini 2.5 Flash</SelectItem>
-                <SelectItem value="anthropic">Claude Sonnet 4</SelectItem>
-                <SelectItem value="openai">GPT-5</SelectItem>
-                <SelectItem value="openai-mini">GPT-5 Nano</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            {buildErrors.length > 0 && (
-              <Button
-                onClick={handleInsertBuildErrors}
-                variant="outline"
-                size="sm"
-                className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
-                {buildErrors.length} Error{buildErrors.length > 1 ? "s" : ""}{" "}
-                Found
-              </Button>
-            )}
-            <Button onClick={exportSession} variant="outline" size="sm">
-              <ClipboardDocumentIcon className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Button
-              onClick={() => setShowClearChatDialog(true)}
-              variant="outline"
-              size="sm"
-            >
-              <TrashIcon className="w-4 h-4 mr-2" />
-              Clear
-            </Button>
+        <div className="p-4 border-b">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                {isEditingTitle ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Input
+                      value={editedTitle}
+                      onChange={(event) => setEditedTitle(event.target.value)}
+                      className="h-9 w-56 md:w-64"
+                      autoFocus
+                      disabled={isUpdatingTitle}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          handleSaveTitle();
+                        } else if (event.key === "Escape") {
+                          handleCancelTitleEdit();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="icon"
+                      onClick={handleSaveTitle}
+                      disabled={isUpdatingTitle || !editedTitle.trim()}
+                      className="h-8 w-8"
+                    >
+                      {isUpdatingTitle ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <CheckIcon className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={handleCancelTitleEdit}
+                      disabled={isUpdatingTitle}
+                      className="h-8 w-8"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <h2 className="text-lg font-semibold text-foreground truncate max-w-xs md:max-w-sm">
+                      {prototypeTitle}
+                    </h2>
+                    {canEditName && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleStartTitleEdit}
+                        className="h-8 w-8"
+                        title="Edit prototype name"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Badge variant="outline" className="uppercase tracking-wide">
+                      {visibilityLabel}
+                    </Badge>
+                    {createdAtLabel && (
+                      <span className="text-xs text-muted-foreground">
+                        Created {createdAtLabel}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Select
+                  value={modelProvider}
+                  onValueChange={onModelProviderChange}
+                >
+                  <SelectTrigger className="w-[200px] h-8">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="google">Gemini 2.5 Flash</SelectItem>
+                    <SelectItem value="anthropic">Claude Sonnet 4</SelectItem>
+                    <SelectItem value="openai">GPT-5</SelectItem>
+                    <SelectItem value="openai-mini">GPT-5 Nano</SelectItem>
+                  </SelectContent>
+                </Select>
+                {buildErrors.length > 0 && (
+                  <Button
+                    onClick={handleInsertBuildErrors}
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
+                    {buildErrors.length} Error{buildErrors.length > 1 ? "s" : ""} Found
+                  </Button>
+                )}
+                <TooltipProvider>
+                  <div className="flex items-center gap-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => setShowClearChatDialog(true)}
+                          variant="outline"
+                          size="icon"
+                          aria-label="Clear chat history"
+                        >
+                          <ArrowPathIcon className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Clear chat</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => onShare?.()}
+                          variant="outline"
+                          size="icon"
+                          aria-label="Share prototype"
+                        >
+                          <ShareIcon className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Share prototype</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleClonePrototype}
+                          variant="outline"
+                          size="icon"
+                          disabled={isCloningPrototype}
+                          aria-label="Clone prototype"
+                        >
+                          {isCloningPrototype ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <DocumentDuplicateIcon className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Clone prototype</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1330,7 +1544,7 @@ export default function PrototypeChatWindow({
                   handleTextareaChange(e.target.value, target.selectionStart);
                 }}
                 placeholder="Type your message... Use @filename to reference files"
-                className="min-h-[80px] resize-none"
+                className="min-h-[120px] resize-none text-base"
                 disabled={isInputDisabled}
                 onKeyDown={(e) => {
                   // Handle autocomplete navigation
@@ -1407,13 +1621,6 @@ export default function PrototypeChatWindow({
                 <PlayIcon className="w-4 h-4 mr-2" />
                 Send Message
               </Button>
-              <Button
-                onClick={handleDisconnect}
-                disabled={!isConnected}
-                variant="outline"
-              >
-                <StopIcon className="w-4 h-4" />
-              </Button>
             </div>
             {isAtLimit && (
               <p className="text-sm text-destructive">
@@ -1483,6 +1690,11 @@ export default function PrototypeChatWindow({
         reason="free_message_limit_reached"
         messageCount={messageCount}
         messageLimit={messageLimit}
+      />
+      <ProPlanUpsellModal
+        open={showCloneUpsellModal}
+        onOpenChange={setShowCloneUpsellModal}
+        reason="prototype_creation_limit_reached"
       />
     </>
   );

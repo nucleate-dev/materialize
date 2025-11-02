@@ -6,7 +6,6 @@ import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
-import PublicPrototypeHeader from "@/components/prototype-editor/PublicPrototypeHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,9 +50,7 @@ import { hasChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
-  CodeBracketIcon,
   DevicePhoneMobileIcon,
-  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
@@ -152,6 +149,8 @@ export default function InternalPrototypePage() {
       (system) => String(system.id) === currentCustomDesignSystemId,
     )?.name || "Custom design system"
     : undefined;
+  const canEditPrototype =
+    Boolean(prototype && user && prototype.owner_id === user?.id);
 
   const hasCustomDesignSystems = designSystems.length > 0;
   const dialogConfirmDisabled = !dialogDesignStyle || isUpdatingDesignSystem;
@@ -719,15 +718,6 @@ export default function InternalPrototypePage() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      {/* Header */}
-      {prototype && (
-        <PublicPrototypeHeader
-          prototype={prototype}
-          onUpdatePrototype={setPrototype}
-          onShare={handleShare}
-        />
-      )}
-
       {/* Mobile Panel Toggle */}
       {isMobile && (
         <div className="bg-background border-b border-border p-2">
@@ -797,6 +787,10 @@ export default function InternalPrototypePage() {
               <div className="flex-1 min-h-0 overflow-hidden">
                 <PrototypeChatWindow
                   prototypeId={prototypeId}
+                  prototype={prototype}
+                  canEditPrototype={canEditPrototype}
+                  onPrototypeUpdate={setPrototype}
+                  onShare={handleShare}
                   // File system integration
                   files={fileSystem.state.files}
                   assets={fileSystem.state.assets}
@@ -846,87 +840,31 @@ export default function InternalPrototypePage() {
             className={`h-full ${isMobile ? "m-2" : "m-2 ml-0"} bg-background/80 backdrop-blur-sm border border-border`}
           >
             <CardContent className="h-full flex flex-col p-0">
-              {/* Header with Toggle */}
-              <div className="p-3 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="rounded-lg">
-                      {isPreviewView ? (
-                        <EyeIcon className="w-4 h-4 text-foreground" />
-                      ) : (
-                        <CodeBracketIcon className="w-4 h-4 text-foreground" />
-                      )}
-                    </div>
-                    <div>
-                      <h2
-                        className={`${isMobile ? "text-base" : "text-lg"} font-bold text-foreground`}
-                      >
-                        {isPreviewView ? "Live Preview" : "Code Editor"}
-                      </h2>
-                    </div>
-                    {isMobile && (
-                      <div className="text-xs text-muted-foreground ml-2">
-                        Swipe right for chat
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Enhanced Toggle Buttons */}
-                  <div className="flex items-center bg-muted rounded-lg p-1">
-                    <Button
-                      variant={isPreviewView ? "default" : "ghost"}
-                      size={isMobile ? "sm" : "sm"}
-                      onClick={() => setIsPreviewView(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <EyeIcon className="w-4 h-4" />
-                      {!isMobile && "Preview"}
-                    </Button>
-                    <Button
-                      variant={!isPreviewView ? "default" : "ghost"}
-                      size={isMobile ? "sm" : "sm"}
-                      onClick={() => setIsPreviewView(false)}
-                      className="flex items-center gap-2"
-                    >
-                      <CodeBracketIcon className="w-4 h-4" />
-                      {!isMobile && "Code"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Content Area */}
               <div className="flex-1 overflow-hidden h-full">
-                <div className="relative h-full">
-                  {isPreviewView ? (
-                    <div className="h-full flex flex-col">
-                      <MaterializeRenderSection
-                        viewing_url={viewingUrl ?? ""}
-                        terminal_url={terminalUrl}
-                        prototypeId={prototypeId}
-                        files={fileSystem.state.files}
-                        assets={fileSystem.state.assets}
-                        onViewingUrlUpdate={setViewingUrl}
-                        currentRenderStatus={currentRenderStatus}
-                        onRenderStatusChange={setCurrentRenderStatus}
-                        designSystemLabel={
-                          canEditDesignSystem
-                            ? currentCustomDesignSystemName
-                              ? `${designSystemBadgeLabel} + ${currentCustomDesignSystemName}`
-                              : designSystemBadgeLabel
-                            : undefined
-                        }
-                        onDesignSystemClick={
-                          canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
-                        }
-                        onCurrentPathChange={setCurrentViewingPath}
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className={`flex h-full ${isMobile ? "flex-col" : ""}`}
-                    >
-                      {/* File Explorer */}
+                <MaterializeRenderSection
+                  viewing_url={viewingUrl ?? ""}
+                  terminal_url={terminalUrl}
+                  prototypeId={prototypeId}
+                  files={fileSystem.state.files}
+                  assets={fileSystem.state.assets}
+                  onViewingUrlUpdate={setViewingUrl}
+                  currentRenderStatus={currentRenderStatus}
+                  onRenderStatusChange={setCurrentRenderStatus}
+                  designSystemLabel={
+                    canEditDesignSystem
+                      ? currentCustomDesignSystemName
+                        ? `${designSystemBadgeLabel} + ${currentCustomDesignSystemName}`
+                        : designSystemBadgeLabel
+                      : undefined
+                  }
+                  onDesignSystemClick={
+                    canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
+                  }
+                  onCurrentPathChange={setCurrentViewingPath}
+                  isPreviewView={isPreviewView}
+                  onPreviewViewChange={setIsPreviewView}
+                  codeView={
+                    <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                       <div
                         className={`${isMobile
                           ? "w-full max-h-[200px] border-b"
@@ -942,8 +880,6 @@ export default function InternalPrototypePage() {
                           />
                         </div>
                       </div>
-
-                      {/* Code Editor */}
                       <div className="flex-1 h-full">
                         <CodeEditor
                           fileSystem={fileSystem}
@@ -953,8 +889,10 @@ export default function InternalPrototypePage() {
                         />
                       </div>
                     </div>
-                  )}
-                </div>
+                  }
+                  mobileHint={isMobile ? "Swipe right for chat" : undefined}
+                  isMobileLayout={isMobile}
+                />
               </div>
             </CardContent>
           </Card>

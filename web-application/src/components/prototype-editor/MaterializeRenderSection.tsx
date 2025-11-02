@@ -29,18 +29,21 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Code2,
+  Eye,
   Loader2,
   Monitor,
   Palette,
-  Play, RefreshCw,
+  RefreshCw,
   RotateCcw,
   Settings,
   Smartphone,
   Terminal as TerminalIcon,
-  X
+  X,
 } from "lucide-react";
 import React, {
   forwardRef,
+  type ReactNode,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -129,6 +132,12 @@ interface MaterializeRenderSectionProps {
   onDesignSystemClick?: () => void;
   // Current viewing path callback
   onCurrentPathChange?: (path: string) => void;
+  // View switching props
+  isPreviewView: boolean;
+  onPreviewViewChange: (isPreview: boolean) => void;
+  codeView: ReactNode;
+  mobileHint?: string;
+  isMobileLayout?: boolean;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -155,6 +164,11 @@ const MaterializeRenderSection = forwardRef<
       designSystemLabel,
       onDesignSystemClick,
       onCurrentPathChange,
+      isPreviewView,
+      onPreviewViewChange,
+      codeView,
+      mobileHint,
+      isMobileLayout,
     },
     ref,
   ) => {
@@ -854,19 +868,279 @@ const MaterializeRenderSection = forwardRef<
       </div>
     );
 
+    const renderPreviewContent = (): ReactNode => {
+      if (!viewing_url) {
+        return (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center bg-card p-8 rounded-lg border border-border">
+              <p className="text-foreground text-lg font-medium">
+                No preview URL provided
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      if (previewMode === "mobile") {
+        return (
+          <div className="w-full h-full overflow-auto">
+            <div className="min-h-full flex items-center justify-center">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4">
+                {mobileScreens.map((screen, index) => {
+                  const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
+                  const isPrimaryScreen = index === 0;
+
+                  return (
+                    <div
+                      key={`mobile-screen-${screen.id}`}
+                      className="flex flex-col items-center gap-2 pt-2"
+                    >
+                      <div
+                        className="relative mx-auto select-none"
+                        style={{
+                          width: mobileSize.width + 16,
+                          height: mobileSize.height + 16,
+                        }}
+                      >
+                        {mobileScreens.length > 1 && (
+                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20">
+                            {editingScreenId === screen.id ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border px-2 py-1 rounded-md shadow-lg">
+                                  <Input
+                                    value={tempPath}
+                                    onChange={(e) => handlePathInputChange(e.target.value)}
+                                    onKeyDown={(e) => handlePathKeyDown(screen.id, e)}
+                                    className="h-6 w-32 text-xs text-center border-0 bg-transparent focus-visible:ring-1 focus-visible:ring-primary px-1"
+                                    placeholder="/"
+                                    autoFocus
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 hover:bg-green-500/10"
+                                    onClick={() => handleConfirmPathChange(screen.id)}
+                                    aria-label="Confirm path change"
+                                  >
+                                    <Check className="w-3 h-3 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 hover:bg-destructive/10"
+                                    onClick={handleCancelEdit}
+                                    aria-label="Cancel edit"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                {routeSuggestions.length > 0 && (
+                                  <div className="bg-background/95 backdrop-blur-sm border border-border rounded-md shadow-lg overflow-hidden">
+                                    {routeSuggestions.map((item) => (
+                                      <button
+                                        key={item.route}
+                                        onClick={() => handleSuggestionClick(screen.id, item.route)}
+                                        className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                                      >
+                                        <span>{item.route}</span>
+                                        {item.group && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] px-1.5 py-0 h-4 opacity-50 border-muted-foreground/30"
+                                          >
+                                            {item.group}
+                                          </Badge>
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <Badge
+                                  className="cursor-pointer hover:bg-primary/90 transition-colors"
+                                  onClick={() => handleBadgeClick(screen.id, screen.path)}
+                                >
+                                  {screen.path || "/"}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 hover:bg-destructive/10"
+                                  onClick={() => handleRemoveMobileScreen(screen.id)}
+                                  aria-label="Remove screen"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div
+                          className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
+                          style={{
+                            width: mobileSize.width + 16,
+                            height: mobileSize.height + 16,
+                            borderRadius: "2.5rem",
+                            border: "1px solid #1f2937",
+                            boxShadow:
+                              "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                          }}
+                        >
+                          <div
+                            className="absolute bg-black rounded-full"
+                            style={{
+                              width: mobileSize.width * 0.4,
+                              height: "24px",
+                              top: "6px",
+                              left: "50%",
+                              transform: "translateX(-50%)",
+                              borderRadius: "12px",
+                            }}
+                          ></div>
+
+                          <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
+                          <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
+                          <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
+
+                          <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
+
+                          <div
+                            className="absolute bg-black overflow-hidden"
+                            style={{
+                              width: mobileSize.width,
+                              height: mobileSize.height,
+                              top: "8px",
+                              left: "8px",
+                              borderRadius: "2.2rem",
+                              boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
+                            }}
+                          >
+                            <div className="relative w-full h-full">
+                              <iframe
+                                key={`mobile-${screen.id}-${refreshKey}`}
+                                ref={(c) => {
+                                  if (c) {
+                                    iframeRefs.current.set(screen.id, c);
+                                    if (isPrimaryScreen) {
+                                      webPreviewRef.current = c.contentWindow ?? null;
+                                    }
+                                  } else {
+                                    iframeRefs.current.delete(screen.id);
+                                  }
+                                }}
+                                className="w-full h-full"
+                                title="React Native Preview"
+                                aria-label={`React Native Preview ${screen.path}`}
+                                src={iframeSrc}
+                                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                                onLoad={handleIframeLoad}
+                                onError={handleIframeError}
+                              />
+                              {isIframeLoading && (
+                                <ConnectionLoadingOverlay mode="mobile" />
+                              )}
+                              {iframeError && (
+                                <ConnectionErrorOverlay mode="mobile" />
+                              )}
+                            </div>
+                          </div>
+
+                          <div
+                            className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
+                            onMouseDown={handleMouseDown}
+                          >
+                            <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
+                              <svg
+                                width="8"
+                                height="8"
+                                viewBox="0 0 8 8"
+                                fill="currentColor"
+                              >
+                                <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="w-full h-full max-w-6xl mx-auto">
+          <div className="bg-card rounded-lg border border-border overflow-hidden h-full">
+            <div className="bg-muted px-6 py-4 border-b border-border flex items-center space-x-3">
+              <div className="flex space-x-2">
+                <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              </div>
+              <span className="text-sm text-foreground font-medium ml-3">
+                Web Preview
+              </span>
+            </div>
+            <div className="relative w-full h-full min-h-[500px]">
+              <iframe
+                key={`web-${refreshKey}`}
+                ref={(c) => {
+                  webPreviewRef.current = c?.contentWindow ?? null;
+                }}
+                className="w-full h-full"
+                title="React Native Web Preview"
+                src={viewing_url}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+              />
+              {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
+              {iframeError && <ConnectionErrorOverlay mode="web" />}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     return (
       <div className="flex flex-col h-full bg-background">
         {/* Compact Responsive Toolbar */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            {/* Left: Connection Status */}
-            <div className="flex-shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <ConnectionStatusIndicator />
+              <div className="flex items-center bg-muted rounded-lg p-1">
+                <Button
+                  variant={isPreviewView ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => onPreviewViewChange(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  {!isMobileLayout && "Preview"}
+                </Button>
+                <Button
+                  variant={!isPreviewView ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => onPreviewViewChange(false)}
+                  className="flex items-center gap-2"
+                >
+                  <Code2 className="w-4 h-4" />
+                  {!isMobileLayout && "Code"}
+                </Button>
+              </div>
+              {mobileHint && isMobileLayout && (
+                <span className="text-xs text-muted-foreground">
+                  {mobileHint}
+                </span>
+              )}
             </div>
-
-            {/* Right: Action Buttons */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Design System Button - Hidden on very small screens */}
               {designSystemLabel && onDesignSystemClick && (
                 <Button
                   variant="secondary"
@@ -880,8 +1154,6 @@ const MaterializeRenderSection = forwardRef<
                   </Badge>
                 </Button>
               )}
-
-              {/* Terminal Toggle Button */}
               <Button
                 variant={isTerminalOpen ? "default" : "secondary"}
                 size="sm"
@@ -892,18 +1164,16 @@ const MaterializeRenderSection = forwardRef<
                 <TerminalIcon className="w-4 h-4" />
                 <span className="ml-1.5 hidden md:inline">Terminal</span>
               </Button>
-
-              {/* Settings Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="secondary"
                     size="sm"
                     className="flex-shrink-0"
-                    title="Settings"
+                    title="Actions"
                   >
                     <Settings className="w-4 h-4" />
-                    <span className="ml-1.5 hidden md:inline">Settings</span>
+                    <span className="ml-1.5 hidden md:inline">Actions</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -922,7 +1192,6 @@ const MaterializeRenderSection = forwardRef<
                     Web View
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {/* Design System option for small screens */}
                   {designSystemLabel && onDesignSystemClick && (
                     <>
                       <DropdownMenuItem onClick={onDesignSystemClick} className="sm:hidden">
@@ -933,42 +1202,6 @@ const MaterializeRenderSection = forwardRef<
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="sm:hidden" />
                     </>
-                  )}
-                  {prototypeId && files && (
-                    <DropdownMenuItem
-                      onClick={handleStartDevServer}
-                      disabled={
-                        currentRenderStatus === "Connected" ||
-                        currentRenderStatus === "Starting Dev Server.." ||
-                        currentRenderStatus === "Connecting.." ||
-                        !prototypeId ||
-                        !files
-                      }
-                    >
-                      {currentRenderStatus === "Starting Dev Server.." ||
-                        currentRenderStatus === "Connecting.." ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Play className="w-4 h-4 mr-2" />
-                      )}
-                      {currentRenderStatus === "Starting Dev Server.." ||
-                        currentRenderStatus === "Connecting.."
-                        ? "Starting..."
-                        : "Start Dev Server"}
-                    </DropdownMenuItem>
-                  )}
-                  {prototypeId && (
-                    <DropdownMenuItem
-                      onClick={handleRestartDevServer}
-                      disabled={!prototypeId || isRestartingDevServer}
-                    >
-                      {isRestartingDevServer ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                      )}
-                      {isRestartingDevServer ? "Restarting..." : "Restart Server"}
-                    </DropdownMenuItem>
                   )}
                   {prototypeId && currentRenderStatus === "Connected" && (
                     <DropdownMenuItem
@@ -989,13 +1222,6 @@ const MaterializeRenderSection = forwardRef<
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh Preview
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                  >
-                    <TerminalIcon className="w-4 h-4 mr-2" />
-                    {isTerminalOpen ? "Hide Terminal" : "Show Terminal"}
                   </DropdownMenuItem>
                   {onResetToDefault && (
                     <>
@@ -1023,252 +1249,10 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? 'none' : 'height 0.2s ease-in-out'
           }}
         >
-          {!viewing_url ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center bg-card p-8 rounded-lg border border-border">
-                <p className="text-foreground text-lg font-medium">
-                  No preview URL provided
-                </p>
-              </div>
-            </div>
-          ) : previewMode === "mobile" ? (
-            <div className="w-full h-full overflow-auto">
-              <div className="min-h-full flex items-center justify-center">
-                {/* Add Screen button - positioned above mobile screens */}
-                {/* {viewing_url && (
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
-                    <Button
-                      onClick={handleAddMobileScreen}
-                      size="sm"
-                      variant="secondary"
-                      className="bg-background/90 backdrop-blur-sm shadow-lg border border-border"
-                    >
-                      <Plus className="w-4 h-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Add screen</span>
-                    </Button>
-                  </div>
-                )} */}
-                <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4">
-                  {mobileScreens.map((screen, index) => {
-                    const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
-                    const isPrimaryScreen = index === 0;
-
-                    return (
-                      <div
-                        key={`mobile-screen-${screen.id}`}
-                        className="flex flex-col items-center gap-2 pt-2"
-                      >
-                        <div
-                          className="relative mx-auto select-none"
-                          style={{
-                            width: mobileSize.width + 16,
-                            height: mobileSize.height + 16,
-                          }}
-                        >
-                          {mobileScreens.length > 1 && (
-                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20">
-                              {editingScreenId === screen.id ? (
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border px-2 py-1 rounded-md shadow-lg">
-                                    <Input
-                                      value={tempPath}
-                                      onChange={(e) => handlePathInputChange(e.target.value)}
-                                      onKeyDown={(e) => handlePathKeyDown(screen.id, e)}
-                                      className="h-6 w-32 text-xs text-center border-0 bg-transparent focus-visible:ring-1 focus-visible:ring-primary px-1"
-                                      placeholder="/"
-                                      autoFocus
-                                    />
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-5 hover:bg-green-500/10"
-                                      onClick={() => handleConfirmPathChange(screen.id)}
-                                      aria-label="Confirm path change"
-                                    >
-                                      <Check className="w-3 h-3 text-green-600" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-5 hover:bg-destructive/10"
-                                      onClick={handleCancelEdit}
-                                      aria-label="Cancel edit"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </Button>
-                                  </div>
-                                  {routeSuggestions.length > 0 && (
-                                    <div className="bg-background/95 backdrop-blur-sm border border-border rounded-md shadow-lg overflow-hidden">
-                                      {routeSuggestions.map((item) => (
-                                        <button
-                                          key={item.route}
-                                          onClick={() => handleSuggestionClick(screen.id, item.route)}
-                                          className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
-                                        >
-                                          <span>{item.route}</span>
-                                          {item.group && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-[10px] px-1.5 py-0 h-4 opacity-50 border-muted-foreground/30"
-                                            >
-                                              {item.group}
-                                            </Badge>
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <Badge
-                                    className="cursor-pointer hover:bg-primary/90 transition-colors"
-                                    onClick={() => handleBadgeClick(screen.id, screen.path)}
-                                  >
-                                    {screen.path || "/"}
-                                  </Badge>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 hover:bg-destructive/10"
-                                    onClick={() => handleRemoveMobileScreen(screen.id)}
-                                    aria-label="Remove screen"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          <div
-                            className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
-                            style={{
-                              width: mobileSize.width + 16,
-                              height: mobileSize.height + 16,
-                              borderRadius: "2.5rem",
-                              border: "1px solid #1f2937",
-                              boxShadow:
-                                "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                            }}
-                          >
-                            <div
-                              className="absolute bg-black rounded-full"
-                              style={{
-                                width: mobileSize.width * 0.4,
-                                height: "24px",
-                                top: "6px",
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                borderRadius: "12px",
-                              }}
-                            ></div>
-
-                            <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
-                            <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
-                            <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
-
-                            <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
-
-                            <div
-                              className="absolute bg-black overflow-hidden"
-                              style={{
-                                width: mobileSize.width,
-                                height: mobileSize.height,
-                                top: "8px",
-                                left: "8px",
-                                borderRadius: "2.2rem",
-                                boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
-                              }}
-                            >
-                              <div className="relative w-full h-full">
-                                <iframe
-                                  key={`mobile-${screen.id}-${refreshKey}`}
-                                  ref={(c) => {
-                                    if (c) {
-                                      iframeRefs.current.set(screen.id, c);
-                                      if (isPrimaryScreen) {
-                                        webPreviewRef.current = c.contentWindow ?? null;
-                                      }
-                                    } else {
-                                      iframeRefs.current.delete(screen.id);
-                                    }
-                                  }}
-                                  className="w-full h-full"
-                                  title="React Native Preview"
-                                  aria-label={`React Native Preview ${screen.path}`}
-                                  src={iframeSrc}
-                                  sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                                  onLoad={handleIframeLoad}
-                                  onError={handleIframeError}
-                                />
-                                {isIframeLoading && (
-                                  <ConnectionLoadingOverlay mode="mobile" />
-                                )}
-                                {iframeError && (
-                                  <ConnectionErrorOverlay mode="mobile" />
-                                )}
-                              </div>
-                            </div>
-
-                            <div
-                              className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
-                              onMouseDown={handleMouseDown}
-                            >
-                              <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
-                                <svg
-                                  width="8"
-                                  height="8"
-                                  viewBox="0 0 8 8"
-                                  fill="currentColor"
-                                >
-                                  <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+          {isPreviewView ? (
+            renderPreviewContent()
           ) : (
-            /* --- END: Mobile device frame --- */
-            /* --- START: Web preview --- */
-            <div className="w-full h-full max-w-6xl mx-auto">
-              <div className="bg-card rounded-lg border border-border overflow-hidden h-full">
-                <div className="bg-muted px-6 py-4 border-b border-border flex items-center space-x-3">
-                  <div className="flex space-x-2">
-                    <div className="w-3 h-3 bg-destructive rounded-full"></div>
-                    <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <span className="text-sm text-foreground font-medium ml-3">
-                    Web Preview
-                  </span>
-                </div>
-                <div className="relative w-full h-full min-h-[500px]">
-                  <iframe
-                    key={`web-${refreshKey}`}
-                    ref={(c) => {
-                      webPreviewRef.current = c?.contentWindow ?? null;
-                    }}
-                    className="w-full h-full"
-                    title="React Native Web Preview"
-                    src={viewing_url}
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-presentation"
-                    onLoad={handleIframeLoad}
-                    onError={handleIframeError}
-                  />
-                  {/* Show loading overlay when iframe is connecting */}
-                  {isIframeLoading && <ConnectionLoadingOverlay mode="web" />}
-                  {/* Show error overlay when iframe fails to load */}
-                  {iframeError && <ConnectionErrorOverlay mode="web" />}
-                </div>
-              </div>
-            </div>
-            /* --- END: Web preview --- */
+            <div className="h-full w-full overflow-hidden">{codeView}</div>
           )}
         </div>
 

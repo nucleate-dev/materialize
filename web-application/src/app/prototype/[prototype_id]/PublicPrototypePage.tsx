@@ -165,6 +165,7 @@ export default function PrototypePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [renderStatus, setRenderStatus] = useState<RenderStatus>("Static build");
+  const [isPreviewView, setIsPreviewView] = useState(true);
 
   useEffect(() => {
     async function fetchPrototypeData() {
@@ -335,6 +336,13 @@ export default function PrototypePage() {
                 prototypeId={prototypeId}
                 currentRenderStatus={renderStatus}
                 onRenderStatusChange={setRenderStatus}
+                isPreviewView={isPreviewView}
+                onPreviewViewChange={setIsPreviewView}
+                codeView={
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    Code view is unavailable in the public prototype viewer.
+                  </div>
+                }
               />
             </CardContent>
           </Card>
