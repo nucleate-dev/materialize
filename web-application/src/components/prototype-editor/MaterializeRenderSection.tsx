@@ -711,7 +711,9 @@ const MaterializeRenderSection = forwardRef<
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const deltaY = startY - moveEvent.clientY; // Inverted because terminal grows upward
-        const newHeight = Math.max(150, Math.min(600, startHeight + deltaY));
+        // Allow terminal to grow up to 90% of viewport height
+        const maxHeight = window.innerHeight * 0.9;
+        const newHeight = Math.max(150, Math.min(maxHeight, startHeight + deltaY));
         setTerminalHeight(newHeight);
       };
 

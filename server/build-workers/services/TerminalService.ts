@@ -17,7 +17,7 @@ import {
 } from "../types/BuildWorkerTypes.js";
 // import type { fastifyWebsocket } from "@fastify/websocket";
 
-const TERMINAL_BUFFER_LIMIT = 500;
+const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
