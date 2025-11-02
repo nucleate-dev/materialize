@@ -362,25 +362,43 @@ export type Database = {
           chat_session_id: string | null;
           content: string;
           created_at: string;
+          event_data: Json | null;
+          event_timestamp: string | null;
+          event_type: string | null;
           id: string;
+          image_url: string | null;
+          message_type: string;
           phase: string | null;
           role: Database["public"]["Enums"]["chat_role"];
+          sequence: number | null;
         };
         Insert: {
           chat_session_id?: string | null;
           content: string;
           created_at?: string;
+          event_data?: Json | null;
+          event_timestamp?: string | null;
+          event_type?: string | null;
           id?: string;
+          image_url?: string | null;
+          message_type?: string;
           phase?: string | null;
           role: Database["public"]["Enums"]["chat_role"];
+          sequence?: number | null;
         };
         Update: {
           chat_session_id?: string | null;
           content?: string;
           created_at?: string;
+          event_data?: Json | null;
+          event_timestamp?: string | null;
+          event_type?: string | null;
           id?: string;
+          image_url?: string | null;
+          message_type?: string;
           phase?: string | null;
           role?: Database["public"]["Enums"]["chat_role"];
+          sequence?: number | null;
         };
         Relationships: [
           {
