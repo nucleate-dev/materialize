@@ -746,7 +746,7 @@ export default function InternalPrototypePage() {
 
       {/* Main content area */}
       <div
-        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : ""} ${isDragging ? "select-none" : ""}`}
+        className={`flex-1 flex overflow-hidden min-h-0 ${isMobile ? "flex-col" : "pl-12"} ${isDragging ? "select-none" : ""}`}
         style={isMobile ? { height: "calc(100dvh - 120px)" } : {}}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}

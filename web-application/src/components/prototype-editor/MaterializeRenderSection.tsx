@@ -33,13 +33,13 @@ import {
   Eye,
   Loader2,
   Monitor,
-  Palette,
-  RefreshCw,
+  MoreVertical,
+  Palette, RefreshCw,
   RotateCcw,
   Settings,
   Smartphone,
   Terminal as TerminalIcon,
-  X,
+  X
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -1172,8 +1172,7 @@ const MaterializeRenderSection = forwardRef<
                     className="flex-shrink-0"
                     title="Actions"
                   >
-                    <Settings className="w-4 h-4" />
-                    <span className="ml-1.5 hidden md:inline">Actions</span>
+                    <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -1243,7 +1242,7 @@ const MaterializeRenderSection = forwardRef<
 
         {/* Preview */}
         <div
-          className="relative flex items-center justify-center bg-background p-8"
+          className={`relative flex items-center justify-center bg-background ${isPreviewView ? 'p-8' : 'p-0'}`}
           style={{
             height: isTerminalOpen ? `calc(100% - ${terminalHeight}px)` : '100%',
             transition: isResizingTerminal ? 'none' : 'height 0.2s ease-in-out'
