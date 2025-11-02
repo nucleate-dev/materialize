@@ -30,6 +30,7 @@ import { DEBUG_MODE } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { ChatStreamEventType } from "@/lib/types/chat-types";
 import {
   APIResponse,
   ChatErrorResponse,
@@ -706,7 +707,7 @@ export default function PrototypeChatWindow({
           logger.debug("log", "received event: ", { event });
           // Handle different event types
           switch (event.type) {
-            case "dispatch_start": {
+            case ChatStreamEventType.DISPATCH_START: {
               // Clear chat intent when build dispatch starts to prevent autoStartDevServer race condition
               // DO NOT MOVE THIS LINE TO AN EARLIER STEP. YOU **WILL** CAUSE A SEV.
               logger.debug("log", "received dispatch_start event");
@@ -714,7 +715,7 @@ export default function PrototypeChatWindow({
               clearChatIntent();
               break;
             }
-            case "chat_response_delta":
+            case ChatStreamEventType.CHAT_RESPONSE_DELTA:
               // Handle streaming text deltas
               const delta = String(event.content || "");
               chatResponseBuffer += delta;
@@ -734,7 +735,7 @@ export default function PrototypeChatWindow({
               });
               break;
 
-            case "chat_response":
+            case ChatStreamEventType.CHAT_RESPONSE:
               // Handle final response (use chatResponseBuffer if content is empty)
               const finalContent = String(event.content || chatResponseBuffer);
               if (finalContent) {
@@ -757,7 +758,7 @@ export default function PrototypeChatWindow({
               chatResponseBuffer = ""; // Reset buffer
               break;
 
-            case "tool_call":
+            case ChatStreamEventType.TOOL_CALL:
               // Update current thought instead of showing in chat
               const toolName = String(
                 event.tool || event.toolName || "Unknown tool",
@@ -766,7 +767,7 @@ export default function PrototypeChatWindow({
               setIsThoughtsExpanded(true);
               break;
 
-            case "tool_result":
+            case ChatStreamEventType.TOOL_RESULT:
               // Update files if the tool result contains updated files
               // TODO (Priyam): This breaks because of streaming. Skip for now.
               // if (event.result?.updatedFiles) {
@@ -779,7 +780,7 @@ export default function PrototypeChatWindow({
               setCurrentThought("");
               break;
 
-            case "execution_plan_created":
+            case ChatStreamEventType.EXECUTION_PLAN_CREATED:
               // Set execution plan state instead of showing in chat
               const plan = event.result?.plan;
               if (plan && Array.isArray(plan)) {
@@ -790,7 +791,7 @@ export default function PrototypeChatWindow({
               }
               break;
 
-            case "step_completed":
+            case ChatStreamEventType.STEP_COMPLETED:
               // Mark step as completed instead of showing in chat
               const stepNum = event.result?.step;
               if (typeof stepNum === "number") {
@@ -811,7 +812,7 @@ export default function PrototypeChatWindow({
               }
               break;
 
-            case "chat_complete":
+            case ChatStreamEventType.CHAT_COMPLETE:
               // Chat is finished - clear thoughts and close execution plan
               chatResponseBuffer = ""; // Reset buffer
               setCurrentThought("");
@@ -819,7 +820,7 @@ export default function PrototypeChatWindow({
               setIsChatLoading(false);
               break;
 
-            case "usage_update":
+            case ChatStreamEventType.USAGE_UPDATE:
               // Update the local message count with the value returned from the API
               if (typeof event.messageCount === "number") {
                 if (event.messageCount !== messageCount) {
@@ -827,7 +828,7 @@ export default function PrototypeChatWindow({
                 }
               }
               break;
-            case "stream_complete":
+            case ChatStreamEventType.STREAM_COMPLETE:
               // Stream is finished
               chatResponseBuffer = "";
               setIsChatLoading(false);
@@ -837,7 +838,7 @@ export default function PrototypeChatWindow({
               setExplicitlyCompletedSteps(new Set());
               setCurrentThought("");
               break;
-            case "viewing_url":
+            case ChatStreamEventType.VIEWING_URL:
               // Handle viewing URL update
               logger.debug(
                 "log",
@@ -851,7 +852,7 @@ export default function PrototypeChatWindow({
                 onCurrentRenderStatusChange("Connected");
               }
               break;
-            case "files_synced":
+            case ChatStreamEventType.FILES_SYNCED:
               // Handle final file sync after dispatch
               logger.debug("log", "received files_synced event");
               const updatedFilesObject =
@@ -872,10 +873,10 @@ export default function PrototypeChatWindow({
               });
               setIsChatLoading(false);
               break;
-            case "build_errors":
+            case ChatStreamEventType.BUILD_ERRORS:
               setBuildErrors(event.build_errors || []);
               break;
-            case "dispatch_error":
+            case ChatStreamEventType.DISPATCH_ERROR:
               setMessages((prev) => [
                 ...prev,
                 {
@@ -889,7 +890,7 @@ export default function PrototypeChatWindow({
               setIsChatLoading(false);
               break;
 
-            case "error":
+            case ChatStreamEventType.ERROR:
               setMessages((prev) => [
                 ...prev,
                 {
@@ -897,6 +898,38 @@ export default function PrototypeChatWindow({
                   content: `❌ **Error:** ${String(event.error || "Unknown error")}`,
                 },
               ]);
+              break;
+
+            // New intermediate thought events - received but no UI yet
+            case ChatStreamEventType.INTENT_DETECTED:
+              // TODO: Consider showing intent badge or status
+              logger.debug("log", "Intent detected:", {
+                intent: event.intent,
+              });
+              break;
+
+            case ChatStreamEventType.PHASE_STARTED:
+              // TODO: Consider showing phase progress indicator
+              logger.debug("log", "Phase started:", {
+                phase: event.phase,
+                description: event.description,
+              });
+              break;
+
+            case ChatStreamEventType.IMAGE_PROCESSING:
+              // TODO: Consider showing image processing status
+              logger.debug("log", "Image processing:", {
+                status: event.status,
+                imageUrl: event.imageUrl,
+              });
+              break;
+
+            case ChatStreamEventType.SPEC_EXPANDED:
+              // TODO: Consider showing expanded spec in a collapsible section
+              logger.debug("log", "Spec expanded:", {
+                original_length: event.original_message?.length,
+                expanded_length: event.expanded_message?.length,
+              });
               break;
           }
         }

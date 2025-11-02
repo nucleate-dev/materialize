@@ -26,6 +26,11 @@ import {
   createFileManagerTools,
   createOrchestrationTools,
 } from '../utils/tools.js';
+import {
+  ChatPhase,
+  ChatStreamEventType,
+  ImageProcessingStatus,
+} from '../utils/chat-types.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -194,7 +199,7 @@ export class ChatEngineV1 {
       controller.enqueue(
         encoder.encode(
           `data: ${JSON.stringify({
-            type: 'dispatch_start',
+            type: ChatStreamEventType.DISPATCH_START,
           })}\n\n`,
         ),
       );
@@ -213,7 +218,7 @@ export class ChatEngineV1 {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: 'viewing_url',
+              type: ChatStreamEventType.VIEWING_URL,
               viewing_url: dispatchResult.data.viewing_url,
             })}\n\n`,
           ),
@@ -242,7 +247,7 @@ export class ChatEngineV1 {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: 'build_errors',
+              type: ChatStreamEventType.BUILD_ERRORS,
               build_errors: newBuildErrors,
             })}\n\n`,
           ),
@@ -258,7 +263,7 @@ export class ChatEngineV1 {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: 'dispatch_error',
+              type: ChatStreamEventType.DISPATCH_ERROR,
               error: 'Failed to update the live preview.',
               details: `${dispatchResult.error}`,
             })}\n\n`,
@@ -514,6 +519,17 @@ export class ChatEngineV1 {
     // Fetch and convert image to base64 if imageUrl is provided
     let imageBase64: string | null = null;
     if (imageUrl) {
+      // Stream image processing start event
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: ChatStreamEventType.IMAGE_PROCESSING,
+            status: ImageProcessingStatus.FETCHING,
+            imageUrl,
+          })}\n\n`,
+        ),
+      );
+
       log2.consoleLogDevOnly(
         'info',
         '[ChatEngine] Fetching image from storage URL',
@@ -526,10 +542,28 @@ export class ChatEngineV1 {
         log2.warn('[ChatEngine] Failed to fetch image, proceeding without it', {
           imageUrl,
         });
+        // Stream image processing failure event
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: ChatStreamEventType.IMAGE_PROCESSING,
+              status: ImageProcessingStatus.FAILED,
+            })}\n\n`,
+          ),
+        );
       } else {
         log2.consoleLogDevOnly(
           'info',
           '[ChatEngine] Successfully fetched and converted image to base64',
+        );
+        // Stream image processing success event
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: ChatStreamEventType.IMAGE_PROCESSING,
+              status: ImageProcessingStatus.COMPLETE,
+            })}\n\n`,
+          ),
         );
       }
     }
@@ -555,6 +589,18 @@ export class ChatEngineV1 {
       );
 
       const userIntent = detectUserIntent(userMessage);
+
+      // Stream intent detection event
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: ChatStreamEventType.INTENT_DETECTED,
+            intent: userIntent,
+            timestamp: new Date().toISOString(),
+          })}\n\n`,
+        ),
+      );
+
       let userMessageForPrompt = userMessage;
       const isFirstUserTurn = (msgs: ChatMessage[]): boolean =>
         msgs.filter((m) => m.role === 'user').length === 1 &&
@@ -566,12 +612,35 @@ export class ChatEngineV1 {
       ): boolean => isFirstUserTurn(msgs) && intent !== 'error_fixing';
 
       if (shouldDoSpecExpansion(messages, userIntent)) {
+        // Stream phase start event for spec expansion
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: ChatStreamEventType.PHASE_STARTED,
+              phase: ChatPhase.SPEC_EXPANSION,
+              description: 'Understanding your request in detail...',
+            })}\n\n`,
+          ),
+        );
+
         const specExpansionResult = await generateText({
           model: this.getCurrentModel(),
           system: promptConfig.specExpansion,
           messages: [{ role: 'user', content: userMessage }],
         });
         userMessageForPrompt = specExpansionResult.text;
+
+        // Stream the expanded spec to the client
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: ChatStreamEventType.SPEC_EXPANDED,
+              original_message: userMessage,
+              expanded_message: userMessageForPrompt,
+              timestamp: new Date().toISOString(),
+            })}\n\n`,
+          ),
+        );
 
         // Track token usage for spec expansion
         if (specExpansionResult.usage) {
@@ -604,6 +673,17 @@ export class ChatEngineV1 {
             ]
           : userMessageForPrompt,
       };
+
+      // Stream phase start event for main execution
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: ChatStreamEventType.PHASE_STARTED,
+            phase: ChatPhase.MAIN_EXECUTION,
+            description: 'Executing plan and making changes...',
+          })}\n\n`,
+        ),
+      );
 
       const result = streamText({
         model: this.getCurrentModel(),
@@ -639,7 +719,7 @@ export class ChatEngineV1 {
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
-                    type: 'chat_response_delta',
+                    type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
                     content: part.text,
                   })}\n\n`,
                 ),
@@ -658,7 +738,7 @@ export class ChatEngineV1 {
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
-                    type: 'tool_call',
+                    type: ChatStreamEventType.TOOL_CALL,
                     tool: part.toolName,
                     toolCallId: part.toolCallId,
                     args: part.input, // It's useful to show the client what the tool is doing
@@ -689,7 +769,7 @@ export class ChatEngineV1 {
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({
-                      type: 'execution_plan_created',
+                      type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
                       toolCallId: part.toolCallId,
                       result: part.output,
                     })}\n\n`,
@@ -711,7 +791,7 @@ export class ChatEngineV1 {
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({
-                      type: 'step_completed',
+                      type: ChatStreamEventType.STEP_COMPLETED,
                       toolCallId: part.toolCallId,
                       result: part.output,
                     })}\n\n`,
@@ -720,7 +800,7 @@ export class ChatEngineV1 {
               } else {
                 // Default handling for all other tools (e.g., file manager)
                 let toolResult = {
-                  type: 'tool_result',
+                  type: ChatStreamEventType.TOOL_RESULT,
                   tool: part.toolName,
                   toolCallId: part.toolCallId,
                   result: {},
@@ -789,7 +869,7 @@ export class ChatEngineV1 {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: 'chat_response',
+              type: ChatStreamEventType.CHAT_RESPONSE,
               content: finalBuffer,
             })}\n\n`,
           ),
@@ -810,12 +890,24 @@ export class ChatEngineV1 {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: 'files_synced',
+              type: ChatStreamEventType.FILES_SYNCED,
               updatedFilesObject: fileManager.getChangedFiles(),
               deletedFiles: fileManager.getDeletedFiles(),
             })}\n\n`,
           ),
         );
+
+        // Stream phase start event for file dispatch
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: ChatStreamEventType.PHASE_STARTED,
+              phase: ChatPhase.FILE_DISPATCH,
+              description: 'Building and deploying your changes...',
+            })}\n\n`,
+          ),
+        );
+
         const dispatchResult = await this.persistAndDispatchFiles(
           fileManager,
           params,
@@ -827,7 +919,7 @@ export class ChatEngineV1 {
 
       controller.enqueue(
         encoder.encode(
-          `data: ${JSON.stringify({ type: 'chat_complete' })}\n\n`,
+          `data: ${JSON.stringify({ type: ChatStreamEventType.CHAT_COMPLETE })}\n\n`,
         ),
       );
 
@@ -849,7 +941,7 @@ export class ChatEngineV1 {
       controller.enqueue(
         encoder.encode(
           `data: ${JSON.stringify({
-            type: 'error',
+            type: ChatStreamEventType.ERROR,
             error:
               error instanceof Error ? error.message : 'Internal server error',
           })}\n\n`,

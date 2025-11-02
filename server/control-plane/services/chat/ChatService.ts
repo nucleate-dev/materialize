@@ -12,6 +12,7 @@ import {
 } from '../../utils/prototypeDevServerStatusUtils.js';
 import { ChatEngineV1, type ChatEngineConfig } from './engines/ChatEngineV1.js';
 import { validateChatAuth } from './utils/chat-auth.js';
+import { ChatStreamEventType } from './utils/chat-types.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
 import { trackChatUsage } from './utils/usage-tracking.js';
@@ -312,7 +313,7 @@ export class ChatService {
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({
-                  type: 'usage_update',
+                  type: ChatStreamEventType.USAGE_UPDATE,
                   messageCount: updatedMessageCount,
                 })}\n\n`,
               ),
@@ -335,7 +336,7 @@ export class ChatService {
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
-                    type: 'error',
+                    type: ChatStreamEventType.ERROR,
                     error:
                       error instanceof Error
                         ? error.message
@@ -354,7 +355,7 @@ export class ChatService {
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({
-                  type: 'stream_complete',
+                  type: ChatStreamEventType.STREAM_COMPLETE,
                 })}\n\n`,
               ),
             );
@@ -387,7 +388,7 @@ export class ChatService {
           request.log2.error(err, '[handleChat] Stream error:');
           // Send error event before closing
           const errorEvent = `data: ${JSON.stringify({
-            type: 'error',
+            type: ChatStreamEventType.ERROR,
             error:
               err instanceof Error ? err.message : 'Stream processing error',
           })}\n\n`;
