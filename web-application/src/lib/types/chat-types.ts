@@ -6,7 +6,10 @@
  */
 
 // Note: These types mirror the server-side types but use frontend-compatible type definitions
-import type { CodeError, PrototypeFileInput } from '@/types/PrototypeTypes';
+import type {
+  CodeError,
+  PrototypeFileInput,
+} from '@/lib/types/serverAPITypes';
 
 // ============================================================================
 // Event Type Enum

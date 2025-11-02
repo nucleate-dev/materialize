@@ -49,19 +49,36 @@ import {
 } from "@/lib/utils/chatIntentUtils";
 import {
   ArrowPathIcon,
+  CheckCircleIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  ClipboardDocumentListIcon,
+  CommandLineIcon,
   CpuChipIcon,
-  DocumentDuplicateIcon, InformationCircleIcon,
+  DocumentDuplicateIcon,
+  DocumentPlusIcon,
+  EyeIcon,
+  InformationCircleIcon,
+  ListBulletIcon,
+  MagnifyingGlassIcon,
   PaperAirplaneIcon,
   PencilIcon,
   PhotoIcon,
+  RocketLaunchIcon,
   ShareIcon,
+  TrashIcon, XCircleIcon,
   XMarkIcon
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ComponentType,
+  type SVGProps,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import ReactMarkdown from "react-markdown";
 
 import { useFileAutocomplete } from "@/hooks/useFileAutocomplete";
@@ -83,6 +100,188 @@ interface ChatMessage {
   content: string;
   imageUrl?: string; // URL to image in Supabase Storage
 }
+
+type ConversationTimelineItem = ChatMessage & {
+  id: string;
+  kind: "user" | "assistant";
+};
+
+type ToolTimelineItem = {
+  id: string;
+  kind: "tool";
+  tool: string;
+  toolCallId: string;
+  status: "running" | "success" | "error";
+  args?: unknown;
+  result?: unknown;
+};
+
+type PlanTimelineItem = {
+  id: string;
+  kind: "plan";
+  toolCallId: string;
+  plan: string[];
+};
+
+type StepTimelineItem = {
+  id: string;
+  kind: "step";
+  toolCallId: string;
+  step: number;
+  summary?: string;
+  message?: string;
+};
+
+type SpecExpandedTimelineItem = {
+  id: string;
+  kind: "spec_expanded";
+  original: string;
+  expanded: string;
+};
+
+type SystemTimelineItem = {
+  id: string;
+  kind: "system";
+  severity: "info" | "warning" | "error";
+  content: string;
+};
+
+type ChatTimelineItem =
+  | ConversationTimelineItem
+  | ToolTimelineItem
+  | PlanTimelineItem
+  | StepTimelineItem
+  | SpecExpandedTimelineItem
+  | SystemTimelineItem;
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+const generateTimelineId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const MOCK_FLOW_ENABLED =
+  DEBUG_MODE || process.env.NODE_ENV !== "production";
+
+const isConversationItem = (
+  item: ChatTimelineItem,
+): item is ConversationTimelineItem =>
+  item.kind === "user" || item.kind === "assistant";
+
+const getArgString = (args: unknown, key: string): string | undefined => {
+  if (
+    args &&
+    typeof args === "object" &&
+    !Array.isArray(args) &&
+    key in (args as Record<string, unknown>)
+  ) {
+    const value = (args as Record<string, unknown>)[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+};
+
+const getResultText = (result: unknown): string | undefined => {
+  if (!result || typeof result !== "object") return undefined;
+  const record = result as Record<string, unknown>;
+
+  if (typeof record.summary === "string" && record.summary.trim()) {
+    return record.summary.trim();
+  }
+
+  if (typeof record.message === "string" && record.message.trim()) {
+    return record.message.trim();
+  }
+
+  if (typeof record.error === "string" && record.error.trim()) {
+    return record.error.trim();
+  }
+
+  return undefined;
+};
+
+const getToolIcon = (toolName: string): IconComponent => {
+  const normalized = toolName.toLowerCase();
+  switch (normalized) {
+    case "read_file":
+      return EyeIcon;
+    case "write_file":
+    case "append_file_content":
+    case "replace_file_content":
+      return PencilIcon;
+    case "create_file":
+      return DocumentPlusIcon;
+    case "delete_file":
+      return TrashIcon;
+    case "list_files":
+      return ListBulletIcon;
+    case "search_files":
+      return MagnifyingGlassIcon;
+    case "run_command":
+      return CommandLineIcon;
+    case "deploy_preview":
+      return RocketLaunchIcon;
+    case "create_execution_plan":
+      return ClipboardDocumentListIcon;
+    case "confirm_step_completion":
+      return CheckCircleIcon;
+    default:
+      return CpuChipIcon;
+  }
+};
+
+const getToolLabel = (
+  toolName: string,
+  args?: unknown,
+  result?: unknown,
+): string => {
+  const normalized = toolName.toLowerCase();
+  const filePath = getArgString(args, "filePath");
+  const directory = getArgString(args, "directory");
+  const query = getArgString(args, "query");
+  const command = getArgString(args, "command");
+
+  switch (normalized) {
+    case "read_file":
+      return filePath ? `Read ${filePath}` : "Read file";
+    case "write_file":
+    case "replace_file_content":
+    case "append_file_content":
+      return filePath ? `Edited ${filePath}` : "Edited file";
+    case "create_file":
+      return filePath ? `Created ${filePath}` : "Created file";
+    case "delete_file":
+      return filePath ? `Deleted ${filePath}` : "Deleted file";
+    case "list_files":
+      return directory ? `Listed ${directory}` : "Listed files";
+    case "search_files":
+      return query ? `Searching for "${query}"` : "Searched files";
+    case "run_command":
+      return command ? `Ran ${command}` : "Ran command";
+    case "deploy_preview":
+      return "Deploying preview";
+    case "create_execution_plan":
+      return "Creating execution plan";
+    case "confirm_step_completion":
+      return "Confirming step completion";
+    default: {
+      const detail = getResultText(result);
+      if (detail) return detail;
+      return toolName
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+  }
+};
+
+const getToolDetail = (result?: unknown): string | undefined => {
+  const text = getResultText(result);
+  if (text && !/success|completed/i.test(text)) {
+    return text;
+  }
+  return undefined;
+};
 
 // Component for rendering an image with signed URL
 function ChatImage({ imageUrl }: { imageUrl: string; }) {
@@ -220,7 +419,7 @@ export default function PrototypeChatWindow({
   // Chat state
   const [prototypeChatSession, setPrototypeChatSession] =
     useState<PrototypeChatSession | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [timelineItems, setTimelineItems] = useState<ChatTimelineItem[]>([]);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isConnected, setIsConnected] = useState(false);
 
@@ -246,6 +445,9 @@ export default function PrototypeChatWindow({
   const [explicitlyCompletedSteps, setExplicitlyCompletedSteps] = useState<
     Set<number>
   >(new Set());
+  const [expandedSpecItems, setExpandedSpecItems] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Image upload state
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -256,6 +458,7 @@ export default function PrototypeChatWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const mockFlowTimeoutsRef = useRef<number[]>([]);
 
   const prototypeTitle = prototype?.name?.trim() || "Prototype";
   const visibility = prototype?.visibility?.toLowerCase();
@@ -307,22 +510,31 @@ export default function PrototypeChatWindow({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (timelineItems.length === 0) return;
 
-    const lastMessage = messages[messages.length - 1];
+    const lastItem = timelineItems[timelineItems.length - 1];
 
     // Use requestAnimationFrame to ensure DOM has updated
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
-        // For user messages or first message, scroll to bottom to show the message
-        // For AI messages, scroll to show the top of the message
+        const shouldAlignEnd = lastItem.kind === "user";
         messagesEndRef.current.scrollIntoView({
           behavior: "smooth",
-          block: lastMessage.role === "user" ? "end" : "start"
+          block: shouldAlignEnd ? "end" : "start",
         });
       }
     });
-  }, [messages]);
+  }, [timelineItems]);
+
+  useEffect(
+    () => () => {
+      mockFlowTimeoutsRef.current.forEach((timeoutId) =>
+        window.clearTimeout(timeoutId),
+      );
+      mockFlowTimeoutsRef.current = [];
+    },
+    [],
+  );
 
   // Convert image file to base64 data URI
   const convertImageToBase64 = useCallback(
@@ -415,6 +627,192 @@ export default function PrototypeChatWindow({
   const handleRemoveImage = useCallback(() => {
     setImagePreview(null);
   }, []);
+
+  const clearMockFlowTimeouts = useCallback(() => {
+    mockFlowTimeoutsRef.current.forEach((timeoutId) =>
+      window.clearTimeout(timeoutId),
+    );
+    mockFlowTimeoutsRef.current = [];
+  }, []);
+
+  const runMockChatFlow = useCallback(() => {
+    if (!MOCK_FLOW_ENABLED) return;
+    if (isChatLoading) return;
+
+    clearMockFlowTimeouts();
+
+    const mockAssistantId = generateTimelineId("assistant");
+    const mockToolItemId = generateTimelineId("tool");
+    const mockToolCallId = generateTimelineId("toolcall");
+    const mockUserId = generateTimelineId("user");
+    const mockSpecId = generateTimelineId("spec");
+
+    setTimelineItems([
+      {
+        id: mockUserId,
+        kind: "user",
+        role: "user",
+        content: "Can you redesign the home page hero section?",
+      },
+    ]);
+
+    setCurrentMessage("");
+    setCurrentThought("");
+    setExecutionPlan([]);
+    setCompletedSteps(new Set());
+    setExplicitlyCompletedSteps(new Set());
+    setIsThoughtsExpanded(false);
+    setIsChatLoading(false);
+    setIsConnected(false);
+
+    const schedule = (delay: number, fn: () => void) => {
+      const timeoutId = window.setTimeout(() => {
+        fn();
+        mockFlowTimeoutsRef.current = mockFlowTimeoutsRef.current.filter(
+          (id) => id !== timeoutId,
+        );
+      }, delay);
+      mockFlowTimeoutsRef.current.push(timeoutId);
+    };
+
+    schedule(200, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: mockSpecId,
+          kind: "spec_expanded",
+          original:
+            "User wants the home page hero refreshed with clearer messaging and stronger CTAs.",
+          expanded:
+            "Clarify brand value prop, redesign CTA row with primary/secondary buttons, and introduce a richer visual treatment (image + gradient) while preserving responsive layout.",
+        },
+      ]);
+    });
+
+    schedule(350, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: mockAssistantId,
+          kind: "assistant",
+          role: "assistant",
+          content:
+            "Let me review the current layout and pull in the relevant files.",
+        },
+      ]);
+    });
+
+    schedule(800, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: mockToolItemId,
+          kind: "tool",
+          tool: "read_file",
+          toolCallId: mockToolCallId,
+          status: "running",
+          args: { filePath: "app/(marketing)/page.tsx" },
+        },
+      ]);
+      setCurrentThought("Reading app/(marketing)/page.tsx");
+      setIsThoughtsExpanded(true);
+    });
+
+    schedule(1400, () => {
+      setTimelineItems((prev) =>
+        prev.map((item) =>
+          item.id === mockToolItemId && item.kind === "tool"
+            ? {
+              ...item,
+              status: "success",
+              result: { summary: "Fetched hero section layout" },
+            }
+            : item,
+        ),
+      );
+      setCurrentThought("");
+    });
+
+    const mockPlan = [
+      "Introduce a bold headline with supporting copy",
+      "Add a primary and secondary call-to-action row",
+      "Embed a preview image with gradient background",
+    ];
+
+    schedule(1800, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: generateTimelineId("plan"),
+          kind: "plan",
+          toolCallId: mockToolCallId,
+          plan: mockPlan,
+        },
+      ]);
+      setExecutionPlan(mockPlan);
+      setIsThoughtsExpanded(true);
+    });
+
+    schedule(2200, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: generateTimelineId("step"),
+          kind: "step",
+          toolCallId: mockToolCallId,
+          step: 1,
+          summary: "Updated hero headline and CTA structure",
+        },
+      ]);
+      setCompletedSteps(new Set([0]));
+      setExplicitlyCompletedSteps(new Set([0]));
+    });
+
+    schedule(2700, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: generateTimelineId("step"),
+          kind: "step",
+          toolCallId: mockToolCallId,
+          step: 2,
+          summary: "Structured dual CTA row with responsive spacing",
+        },
+      ]);
+      setCompletedSteps(new Set([0, 1]));
+      setExplicitlyCompletedSteps(new Set([0, 1]));
+    });
+
+    schedule(3200, () => {
+      setTimelineItems((prev) => [
+        ...prev,
+        {
+          id: generateTimelineId("step"),
+          kind: "step",
+          toolCallId: mockToolCallId,
+          step: 3,
+          summary: "Added preview image container with gradient backdrop",
+        },
+      ]);
+      setCompletedSteps(new Set([0, 1, 2]));
+      setExplicitlyCompletedSteps(new Set([0, 1, 2]));
+    });
+
+    schedule(3800, () => {
+      setTimelineItems((prev) =>
+        prev.map((item) =>
+          item.id === mockAssistantId && item.kind === "assistant"
+            ? {
+              ...item,
+              content:
+                "I refreshed the hero section with new copy, CTA buttons, and an image container. Want me to polish the color palette or continue iterating?",
+            }
+            : item,
+        ),
+      );
+      setIsThoughtsExpanded(false);
+    });
+  }, [clearMockFlowTimeouts, isChatLoading]);
 
   const handleStartTitleEdit = useCallback(() => {
     if (!canEditName || !prototype) return;
@@ -513,29 +911,6 @@ export default function PrototypeChatWindow({
     }
   }, [logger, prototype, router]);
 
-  // Function to sanitize tool names for display
-  const sanitizeToolName = (toolName: string): string => {
-    const toolNameMap: Record<string, string> = {
-      create_execution_plan: "Creating execution plan",
-      edit_file: "Editing file",
-      create_file: "Creating file",
-      read_file: "Reading file",
-      search_files: "Searching files",
-      run_command: "Running command",
-      deploy_preview: "Deploying preview",
-      analyze_code: "Analyzing code",
-      install_package: "Installing package",
-      test_code: "Testing code",
-      confirm_step_completion: "Completed step",
-      append_file_content: "Adding content to file",
-      replace_file_content: "Updating file content",
-    };
-
-    return (
-      toolNameMap[toolName] || `Working with ${toolName.replace(/_/g, " ")}`
-    );
-  };
-
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
       if (!prototypeId || !userId) return;
@@ -588,15 +963,17 @@ export default function PrototypeChatWindow({
         return;
       }
 
-      // Convert to ChatMessage format and reverse to get chronological order
-      const chatMessages: ChatMessage[] = (messagesData?.reverse() || []).map(
-        (msg) => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-          imageUrl: msg.image_url || undefined,
-        }),
-      );
-      setMessages(chatMessages);
+      // Convert to timeline format and reverse to get chronological order
+      const chatMessages: ConversationTimelineItem[] = (
+        messagesData?.reverse() || []
+      ).map((msg) => ({
+        id: (msg.id as string) || generateTimelineId("history"),
+        kind: (msg.role as "user" | "assistant") ?? "assistant",
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+        imageUrl: msg.image_url || undefined,
+      }));
+      setTimelineItems(chatMessages);
     }
 
     if (prototypeId && userId) {
@@ -682,10 +1059,14 @@ export default function PrototypeChatWindow({
             content?: string;
             tool?: string;
             toolName?: string;
+            toolCallId?: string;
+            args?: unknown;
             result?: {
               plan?: string[];
               step?: number;
               summary?: string;
+              message?: string;
+              success?: boolean;
               updatedFiles?: Record<string, PrototypeFile>;
             };
             updatedFiles?: string[] | Record<string, PrototypeFile>;
@@ -695,6 +1076,13 @@ export default function PrototypeChatWindow({
             messageCount?: number;
             viewing_url?: string;
             build_errors?: CodeError[];
+            intent?: string;
+            phase?: string;
+            description?: string;
+            status?: string;
+            imageUrl?: string;
+            original_message?: string;
+            expanded_message?: string;
           };
           try {
             event = JSON.parse(dataText);
@@ -721,17 +1109,25 @@ export default function PrototypeChatWindow({
               chatResponseBuffer += delta;
 
               // Render progressively: append to last assistant message or create new one
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  const copy = [...prev];
+              setTimelineItems((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last && last.kind === "assistant") {
                   copy[copy.length - 1] = {
                     ...last,
-                    content: (last.content || "") + delta,
+                    content: `${last.content}${delta}`,
                   };
                   return copy;
                 }
-                return [...prev, { role: "assistant", content: delta }];
+                return [
+                  ...prev,
+                  {
+                    id: generateTimelineId("assistant"),
+                    kind: "assistant",
+                    role: "assistant",
+                    content: delta,
+                  },
+                ];
               });
               break;
 
@@ -739,10 +1135,10 @@ export default function PrototypeChatWindow({
               // Handle final response (use chatResponseBuffer if content is empty)
               const finalContent = String(event.content || chatResponseBuffer);
               if (finalContent) {
-                setMessages((prev) => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === "assistant") {
-                    const copy = [...prev];
+                setTimelineItems((prev) => {
+                  const copy = [...prev];
+                  const last = copy[copy.length - 1];
+                  if (last && last.kind === "assistant") {
                     copy[copy.length - 1] = {
                       ...last,
                       content: finalContent,
@@ -751,7 +1147,12 @@ export default function PrototypeChatWindow({
                   }
                   return [
                     ...prev,
-                    { role: "assistant", content: finalContent },
+                    {
+                      id: generateTimelineId("assistant"),
+                      kind: "assistant",
+                      role: "assistant",
+                      content: finalContent,
+                    },
                   ];
                 });
               }
@@ -759,11 +1160,22 @@ export default function PrototypeChatWindow({
               break;
 
             case ChatStreamEventType.TOOL_CALL:
-              // Update current thought instead of showing in chat
+              // Surface tool calls in the timeline as they happen
               const toolName = String(
                 event.tool || event.toolName || "Unknown tool",
               );
-              setCurrentThought(sanitizeToolName(toolName));
+              const toolItem: ToolTimelineItem = {
+                id: generateTimelineId("tool"),
+                kind: "tool",
+                tool: toolName,
+                toolCallId: String(
+                  event.toolCallId || generateTimelineId("toolcall"),
+                ),
+                status: "running",
+                args: event.args,
+              };
+              setTimelineItems((prev) => [...prev, toolItem]);
+              setCurrentThought(getToolLabel(toolName, event.args));
               setIsThoughtsExpanded(true);
               break;
 
@@ -777,6 +1189,48 @@ export default function PrototypeChatWindow({
               //   });
               // }
               // Clear current thought when tool completes
+              const completedToolName = String(
+                event.tool || event.toolName || "Unknown tool",
+              );
+              setTimelineItems((prev) => {
+                const copy = [...prev];
+                const callId = String(
+                  event.toolCallId || generateTimelineId("toolcall"),
+                );
+                const index = copy.findIndex(
+                  (item) => item.kind === "tool" && item.toolCallId === callId,
+                );
+                const success =
+                  typeof (event.result as Record<string, unknown> | undefined)
+                    ?.success === "boolean"
+                    ? Boolean(
+                      (event.result as Record<string, unknown>).success,
+                    )
+                    : true;
+
+                if (index !== -1) {
+                  const existing = copy[index] as ToolTimelineItem;
+                  copy[index] = {
+                    ...existing,
+                    status: success ? "success" : "error",
+                    result: event.result,
+                  };
+                  return copy;
+                }
+
+                return [
+                  ...copy,
+                  {
+                    id: generateTimelineId("tool"),
+                    kind: "tool",
+                    tool: completedToolName,
+                    toolCallId: callId,
+                    status: success ? "success" : "error",
+                    args: event.args,
+                    result: event.result,
+                  },
+                ];
+              });
               setCurrentThought("");
               break;
 
@@ -784,6 +1238,17 @@ export default function PrototypeChatWindow({
               // Set execution plan state instead of showing in chat
               const plan = event.result?.plan;
               if (plan && Array.isArray(plan)) {
+                setTimelineItems((prev) => [
+                  ...prev,
+                  {
+                    id: generateTimelineId("plan"),
+                    kind: "plan",
+                    toolCallId: String(
+                      event.toolCallId || generateTimelineId("plan"),
+                    ),
+                    plan,
+                  },
+                ]);
                 setExecutionPlan(plan);
                 setCompletedSteps(new Set());
                 setExplicitlyCompletedSteps(new Set());
@@ -795,6 +1260,25 @@ export default function PrototypeChatWindow({
               // Mark step as completed instead of showing in chat
               const stepNum = event.result?.step;
               if (typeof stepNum === "number") {
+                setTimelineItems((prev) => [
+                  ...prev,
+                  {
+                    id: generateTimelineId("step"),
+                    kind: "step",
+                    toolCallId: String(
+                      event.toolCallId || generateTimelineId("step"),
+                    ),
+                    step: stepNum,
+                    summary:
+                      typeof event.result?.summary === "string"
+                        ? event.result.summary
+                        : undefined,
+                    message:
+                      typeof event.result?.message === "string"
+                        ? event.result.message
+                        : undefined,
+                  },
+                ]);
                 setCompletedSteps((prev) => {
                   const newCompleted = new Set(prev);
                   // Mark this step and all previous steps as completed
@@ -877,11 +1361,14 @@ export default function PrototypeChatWindow({
               setBuildErrors(event.build_errors || []);
               break;
             case ChatStreamEventType.DISPATCH_ERROR:
-              setMessages((prev) => [
+              setTimelineItems((prev) => [
                 ...prev,
                 {
-                  role: "assistant",
-                  content: `⚠️ **Preview Update Failed:** There was a problem updating the live preview.`,
+                  id: generateTimelineId("system"),
+                  kind: "system",
+                  severity: "error",
+                  content:
+                    "⚠️ Preview Update Failed: There was a problem updating the live preview.",
                 },
               ]);
               logger.debug("error", "Dispatch error from server:", {
@@ -891,11 +1378,13 @@ export default function PrototypeChatWindow({
               break;
 
             case ChatStreamEventType.ERROR:
-              setMessages((prev) => [
+              setTimelineItems((prev) => [
                 ...prev,
                 {
-                  role: "assistant",
-                  content: `❌ **Error:** ${String(event.error || "Unknown error")}`,
+                  id: generateTimelineId("system"),
+                  kind: "system",
+                  severity: "error",
+                  content: `❌ Error: ${String(event.error || "Unknown error")}`,
                 },
               ]);
               break;
@@ -925,11 +1414,21 @@ export default function PrototypeChatWindow({
               break;
 
             case ChatStreamEventType.SPEC_EXPANDED:
-              // TODO: Consider showing expanded spec in a collapsible section
               logger.debug("log", "Spec expanded:", {
                 original_length: event.original_message?.length,
                 expanded_length: event.expanded_message?.length,
               });
+              if (event.original_message || event.expanded_message) {
+                setTimelineItems((prev) => [
+                  ...prev,
+                  {
+                    id: generateTimelineId("spec"),
+                    kind: "spec_expanded",
+                    original: event.original_message || "",
+                    expanded: event.expanded_message || "",
+                  },
+                ]);
+              }
               break;
           }
         }
@@ -1048,11 +1547,14 @@ export default function PrototypeChatWindow({
           logger.debug("error", "Failed to upload image to Supabase Storage", {
             error: uploadResult.error,
           });
-          setMessages((prev) => [
+          setTimelineItems((prev) => [
             ...prev,
             {
-              role: "assistant",
-              content: `❌ **Error:** Failed to upload image. ${uploadResult.error || "Please try again."}`,
+              id: generateTimelineId("system"),
+              kind: "system",
+              severity: "error",
+              content: `❌ Error: Failed to upload image. ${uploadResult.error || "Please try again."
+                }`,
             },
           ]);
           setIsChatLoading(false);
@@ -1067,11 +1569,20 @@ export default function PrototypeChatWindow({
         imageUrl,
       };
 
-      const newMessages = [...messages, userMessage];
-      const serverMessages: ServerChatMessage[] = newMessages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
+      const userTimelineItem: ConversationTimelineItem = {
+        ...userMessage,
+        id: generateTimelineId("user"),
+        kind: "user",
+      };
+
+      const updatedTimeline = [...timelineItems, userTimelineItem];
+
+      const serverMessages: ServerChatMessage[] = updatedTimeline
+        .filter(isConversationItem)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
       const requestBody: ChatRequestBody = {
         messages: serverMessages,
         inputFiles: files,
@@ -1082,7 +1593,7 @@ export default function PrototypeChatWindow({
         currentViewingPath: currentViewingPath,
         modelProvider: modelProvider,
       };
-      setMessages(newMessages);
+      setTimelineItems(updatedTimeline);
       setCurrentMessage("");
       setIsChatLoading(true);
       setIsConnected(true);
@@ -1143,10 +1654,12 @@ export default function PrototypeChatWindow({
           stack: error instanceof Error ? error.stack : undefined,
         });
 
-        setMessages((prev) => [
+        setTimelineItems((prev) => [
           ...prev,
           {
-            role: "assistant",
+            id: generateTimelineId("system"),
+            kind: "system",
+            severity: "error",
             content: "Sorry, I encountered an error.",
           },
         ]);
@@ -1156,7 +1669,7 @@ export default function PrototypeChatWindow({
       }
     },
     [
-      messages,
+      timelineItems,
       prototypeChatSession,
       files,
       assets,
@@ -1194,7 +1707,7 @@ export default function PrototypeChatWindow({
         await deletePrototypeImages(prototypeId);
 
         // Clear the local state
-        setMessages([]);
+        setTimelineItems([]);
         setShowClearChatDialog(false);
 
         // Clear execution plan and thoughts state
@@ -1229,6 +1742,191 @@ export default function PrototypeChatWindow({
     // Focus the textarea
     if (textareaRef.current) {
       textareaRef.current.focus();
+    }
+  };
+
+  const renderTimelineItem = (item: ChatTimelineItem) => {
+    switch (item.kind) {
+      case "user":
+        return (
+          <div key={item.id} className="flex justify-end">
+            <div className="max-w-[90%] rounded-lg bg-primary p-3 text-primary-foreground shadow-sm">
+              {item.imageUrl && <ChatImage imageUrl={item.imageUrl} />}
+              <div className="whitespace-pre-wrap break-words leading-relaxed">
+                {item.content}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "assistant":
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div className="max-w-[90%] text-sm leading-relaxed text-foreground">
+              <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-3 [&>p:last-child]:mb-0 [&>ul]:mb-3 [&>ol]:mb-3 [&>pre]:mb-3 [&>blockquote]:mb-3">
+                <ReactMarkdown>{item.content}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "tool": {
+        const Icon = getToolIcon(item.tool);
+        const label = getToolLabel(item.tool, item.args, item.result);
+        const detail = getToolDetail(item.result);
+        const isRunning = item.status === "running";
+        const isError = item.status === "error";
+        const statusNode = isRunning ? (
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        ) : isError ? (
+          <XCircleIcon className="h-4 w-4 text-red-500 dark:text-red-400" />
+        ) : (
+          <CheckCircleIcon className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+        );
+
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div className="max-w-[90%] rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <div className="flex items-start gap-3">
+                <Icon
+                  className={`mt-1 h-4 w-4 ${isError
+                    ? "text-red-500 dark:text-red-400"
+                    : "text-muted-foreground"
+                    }`}
+                />
+                <div className="flex-1">
+                  <div
+                    className={`font-medium ${isError
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-muted-foreground"
+                      }`}
+                  >
+                    {label}
+                  </div>
+                  {detail && (
+                    <div className="mt-1 text-xs text-muted-foreground/80">
+                      {detail}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-1 flex-shrink-0">{statusNode}</div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case "plan":
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div className="max-w-[90%] space-y-3 rounded-lg border border-border/60 bg-muted/30 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <ClipboardDocumentListIcon className="h-4 w-4" />
+                Execution Plan
+              </div>
+              <ol className="space-y-2 text-sm text-foreground">
+                {item.plan.map((step, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                      {index + 1}
+                    </span>
+                    <span className="flex-1 text-muted-foreground/90">
+                      {step}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        );
+
+      case "step":
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div className="flex max-w-[90%] items-start gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+              <CheckCircleIcon className="mt-0.5 h-4 w-4" />
+              <div>
+                <div className="font-semibold">
+                  Step {item.step} completed
+                </div>
+                {item.summary && (
+                  <div className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
+                    {item.summary}
+                  </div>
+                )}
+                {item.message && !item.summary && (
+                  <div className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
+                    {item.message}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "spec_expanded": {
+        const isExpanded = expandedSpecItems.has(item.id);
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div className="max-w-[90%] rounded-lg border border-border/40 bg-muted/30 text-sm">
+              <button
+                onClick={() => {
+                  setExpandedSpecItems((prev) => {
+                    const next = new Set(prev);
+                    if (isExpanded) {
+                      next.delete(item.id);
+                    } else {
+                      next.add(item.id);
+                    }
+                    return next;
+                  });
+                }}
+                className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isExpanded ? (
+                    <ChevronUpIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  )}
+                  Thoughts
+                </div>
+              </button>
+              {isExpanded && (
+                <div className="px-4 pb-4 text-muted-foreground">
+                  <p className="whitespace-pre-wrap leading-relaxed">
+                    {item.expanded}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      case "system": {
+        const isError = item.severity === "error";
+        const containerClasses = isError
+          ? "border border-destructive/40 bg-destructive/10 text-destructive"
+          : "border border-border/50 bg-muted/40 text-muted-foreground";
+        const Icon = isError ? XCircleIcon : InformationCircleIcon;
+
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div
+              className={`max-w-[90%] rounded-md px-3 py-2 text-sm leading-relaxed ${containerClasses}`}
+            >
+              <div className="flex items-start gap-2">
+                <Icon className="mt-0.5 h-4 w-4" />
+                <span>{item.content}</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      default:
+        return null;
     }
   };
 
@@ -1283,19 +1981,36 @@ export default function PrototypeChatWindow({
             <div className="flex items-center justify-end">
               <TooltipProvider>
                 <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => setShowClearChatDialog(true)}
-                        variant="outline"
-                        size="icon"
-                        aria-label="Clear chat history"
-                      >
-                        <ArrowPathIcon className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Clear chat</TooltipContent>
-                  </Tooltip>
+                  {timelineItems.length > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => setShowClearChatDialog(true)}
+                          variant="outline"
+                          size="icon"
+                          aria-label="Clear chat history"
+                        >
+                          <ArrowPathIcon className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Clear chat</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {MOCK_FLOW_ENABLED && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={runMockChatFlow}
+                          variant="outline"
+                          size="icon"
+                          aria-label="Run mock chat flow"
+                        >
+                          <CpuChipIcon className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Run mock flow</TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -1349,34 +2064,7 @@ export default function PrototypeChatWindow({
         {/* Chat Messages */}
         <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
           <div className="space-y-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-              >
-                <div
-                  className={`max-w-[90%] rounded-lg p-3 ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                    }`}
-                >
-                  {/* Display image if available */}
-                  {message.role === "user" && message.imageUrl && (
-                    <ChatImage imageUrl={message.imageUrl} />
-                  )}
-
-                  <div
-                    className={`text-sm prose prose-sm max-w-none ${message.role === "user"
-                      ? "prose-invert [&>*]:text-primary-foreground"
-                      : "prose-slate dark:prose-invert"
-                      } [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:mb-2 [&>h2]:mb-2 [&>h3]:mb-2 [&>blockquote]:mb-2 [&>pre]:mb-2 [&>strong]:text-current [&>em]:text-current [&>code]:text-current`}
-                  >
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {timelineItems.map((item) => renderTimelineItem(item))}
             {isChatLoading && isConnected && !currentThought && (
               <div className="flex justify-start">
                 <div className="max-w-[90%] rounded-lg p-3 bg-muted">
