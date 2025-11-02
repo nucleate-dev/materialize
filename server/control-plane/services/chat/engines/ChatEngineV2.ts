@@ -88,6 +88,8 @@ export class ChatEngineV2 {
     switch (model) {
       case 'google':
         return this.google(MODEL_CONFIGS.google);
+      case 'google-pro':
+        return this.google(MODEL_CONFIGS['google-pro']);
       case 'anthropic':
         return this.anthropic(MODEL_CONFIGS.anthropic);
       case 'openai':

@@ -43,6 +43,7 @@ interface ChatMessage {
 // Model Configuration
 const MODEL_CONFIGS = {
   google: 'gemini-2.5-flash',
+  'google-pro': 'gemini-2.5-pro',
   anthropic: 'claude-sonnet-4-20250514',
   openai: 'gpt-5',
   'openai-mini': 'gpt-5-nano',
@@ -96,6 +97,8 @@ export class ChatEngineV1 {
     switch (this.modelProvider) {
       case 'google':
         return this.google(MODEL_CONFIGS.google);
+      case 'google-pro':
+        return this.google(MODEL_CONFIGS['google-pro']);
       case 'anthropic':
         return this.anthropic(MODEL_CONFIGS.anthropic);
       case 'openai':

@@ -146,7 +146,7 @@ export class ChatService {
               currentViewingPath: { type: 'string' },
               modelProvider: {
                 type: 'string',
-                enum: ['google', 'anthropic', 'openai', 'openai-mini'],
+                enum: ['google', 'google-pro', 'anthropic', 'openai', 'openai-mini'],
               },
             },
           },

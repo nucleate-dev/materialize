@@ -385,9 +385,9 @@ export interface PrototypeChatWindowProps {
   currentViewingPath: string;
 
   // Model provider selection
-  modelProvider: "google" | "anthropic" | "openai" | "openai-mini";
+  modelProvider: "google" | "google-pro" | "anthropic" | "openai" | "openai-mini";
   onModelProviderChange: (
-    provider: "google" | "anthropic" | "openai" | "openai-mini",
+    provider: "google" | "google-pro" | "anthropic" | "openai" | "openai-mini",
   ) => void;
 }
 
@@ -488,6 +488,8 @@ export default function PrototypeChatWindow({
         return "GPT-5";
       case "google":
         return "Gemini 2.5 Flash";
+      case "google-pro":
+        return "Gemini 2.5 Pro";
       case "openai-mini":
         return "GPT-5 Nano";
       default:

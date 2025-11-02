@@ -131,7 +131,7 @@ export default function InternalPrototypePage() {
 
   // Model provider selection
   const [modelProvider, setModelProvider] = useState<
-    "google" | "anthropic" | "openai" | "openai-mini"
+    "google" | "google-pro" | "anthropic" | "openai" | "openai-mini"
   >("google");
 
   // Resizable divider state

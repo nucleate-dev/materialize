@@ -230,6 +230,7 @@ export interface ChatMessage {
 // Model Configuration
 export const MODEL_CONFIGS = {
   google: 'gemini-2.5-flash',
+  'google-pro': 'gemini-2.5-pro',
   anthropic: 'claude-sonnet-4-20250514',
   openai: 'gpt-5',
   'openai-mini': 'gpt-5-nano',
