@@ -11,6 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
@@ -783,7 +789,7 @@ const MaterializeRenderSection = forwardRef<
           case "Static build":
             return {
               className:
-                "gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-50 dark:hover:bg-blue-950",
+                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
               dotClassName: "w-2 h-2 bg-blue-500 rounded-full",
               text: "Static Build",
               animate: false,
@@ -793,7 +799,7 @@ const MaterializeRenderSection = forwardRef<
           case "Starting Dev Server..":
             return {
               className:
-                "gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950",
+                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
               dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse",
               text: status,
               animate: true,
@@ -801,7 +807,7 @@ const MaterializeRenderSection = forwardRef<
           case "Disconnected":
             return {
               className:
-                "gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-full hover:bg-red-50 dark:hover:bg-red-950",
+                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
               dotClassName: "w-2 h-2 bg-red-500 rounded-full",
               text: "Disconnected",
               animate: false,
@@ -809,7 +815,7 @@ const MaterializeRenderSection = forwardRef<
           case "Connected":
             return {
               className:
-                "gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-full hover:bg-green-50 dark:hover:bg-green-950",
+                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
               dotClassName: "w-2 h-2 bg-green-500 rounded-full",
               text: "Connected",
               animate: false,
@@ -820,10 +826,10 @@ const MaterializeRenderSection = forwardRef<
       const config = getBadgeConfig(currentRenderStatus);
 
       return (
-        <Badge variant="outline" className={config.className}>
+        <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ${config.className}`}>
           <div className={config.dotClassName}></div>
           {config.text}
-        </Badge>
+        </div>
       );
     };
 
@@ -1110,30 +1116,41 @@ const MaterializeRenderSection = forwardRef<
     return (
       <div className="flex flex-col h-full bg-background">
         {/* Compact Responsive Toolbar */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-3 py-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm px-3 py-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <ConnectionStatusIndicator />
-              <div className="flex items-center bg-muted rounded-lg p-1">
-                <Button
-                  variant={isPreviewView ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => onPreviewViewChange(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  {!isMobileLayout && "Preview"}
-                </Button>
-                <Button
-                  variant={!isPreviewView ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => onPreviewViewChange(false)}
-                  className="flex items-center gap-2"
-                >
-                  <Code2 className="w-4 h-4" />
-                  {!isMobileLayout && "Code"}
-                </Button>
-              </div>
+              <TooltipProvider delayDuration={200}>
+                <div className="flex items-center bg-muted rounded-lg p-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={isPreviewView ? "ghost" : "ghost"}
+                        size="sm"
+                        onClick={() => onPreviewViewChange(true)}
+                        className={`flex items-center gap-2 ${isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
+                      >
+                        <Eye className="w-4 h-4" />
+                        {isPreviewView && !isMobileLayout && "Preview"}
+                      </Button>
+                    </TooltipTrigger>
+                    {!isPreviewView && <TooltipContent>Preview</TooltipContent>}
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={!isPreviewView ? "ghost" : "ghost"}
+                        size="sm"
+                        onClick={() => onPreviewViewChange(false)}
+                        className={`flex items-center gap-2 ${!isPreviewView ? 'bg-background shadow-sm hover:bg-background/80' : ''}`}
+                      >
+                        <Code2 className="w-4 h-4" />
+                        {!isPreviewView && !isMobileLayout && "Code"}
+                      </Button>
+                    </TooltipTrigger>
+                    {isPreviewView && <TooltipContent>Code</TooltipContent>}
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
               {mobileHint && isMobileLayout && (
                 <span className="text-xs text-muted-foreground">
                   {mobileHint}
@@ -1141,6 +1158,17 @@ const MaterializeRenderSection = forwardRef<
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
+              <ConnectionStatusIndicator />
+              <Button
+                variant={isTerminalOpen ? "default" : "secondary"}
+                size="sm"
+                onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                className="flex-shrink-0"
+                title="Toggle Terminal"
+              >
+                <TerminalIcon className="w-4 h-4" />
+                <span className="ml-1.5 hidden md:inline">Terminal</span>
+              </Button>
               {designSystemLabel && onDesignSystemClick && (
                 <Button
                   variant="secondary"
@@ -1154,16 +1182,6 @@ const MaterializeRenderSection = forwardRef<
                   </Badge>
                 </Button>
               )}
-              <Button
-                variant={isTerminalOpen ? "default" : "secondary"}
-                size="sm"
-                onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                className="flex-shrink-0"
-                title="Toggle Terminal"
-              >
-                <TerminalIcon className="w-4 h-4" />
-                <span className="ml-1.5 hidden md:inline">Terminal</span>
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

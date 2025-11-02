@@ -822,7 +822,9 @@ export default function PrototypeChatWindow({
             case "usage_update":
               // Update the local message count with the value returned from the API
               if (typeof event.messageCount === "number") {
-                setMessageCount(event.messageCount);
+                if (event.messageCount !== messageCount) {
+                  setMessageCount(event.messageCount);
+                }
               }
               break;
             case "stream_complete":
@@ -1238,99 +1240,78 @@ export default function PrototypeChatWindow({
         onDrop={handleDrop}
       >
         {/* Header */}
-        <div className="p-4 border-b">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap min-w-0">
-                <h2 className="text-lg font-semibold text-foreground truncate max-w-xs md:max-w-sm">
-                  {prototypeTitle}
-                </h2>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                <TooltipProvider>
-                  <div className="flex items-center gap-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => setShowClearChatDialog(true)}
-                          variant="outline"
-                          size="icon"
-                          aria-label="Clear chat history"
-                        >
-                          <ArrowPathIcon className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Clear chat</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => onShare?.()}
-                          variant="outline"
-                          size="icon"
-                          aria-label="Share prototype"
-                        >
-                          <ShareIcon className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Share prototype</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={handleClonePrototype}
-                          variant="outline"
-                          size="icon"
-                          disabled={isCloningPrototype}
-                          aria-label="Clone prototype"
-                        >
-                          {isCloningPrototype ? (
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <DocumentDuplicateIcon className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Clone prototype</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => setShowSettingsModal(true)}
-                          variant="outline"
-                          size="icon"
-                          aria-label="Prototype settings"
-                        >
-                          <InformationCircleIcon className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Prototype info</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </TooltipProvider>
-              </div>
+        <div className="px-3 pb-2 border-b">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex items-center flex-wrap min-w-0">
+              <h2 className="text-lg font-semibold text-foreground truncate max-w-xs md:max-w-sm">
+                {prototypeTitle}
+              </h2>
+            </div>
+            <div className="flex items-center justify-end">
+              <TooltipProvider>
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => setShowClearChatDialog(true)}
+                        variant="outline"
+                        size="icon"
+                        aria-label="Clear chat history"
+                      >
+                        <ArrowPathIcon className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Clear chat</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => onShare?.()}
+                        variant="outline"
+                        size="icon"
+                        aria-label="Share prototype"
+                      >
+                        <ShareIcon className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Share prototype</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={handleClonePrototype}
+                        variant="outline"
+                        size="icon"
+                        disabled={isCloningPrototype}
+                        aria-label="Clone prototype"
+                      >
+                        {isCloningPrototype ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <DocumentDuplicateIcon className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Clone prototype</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => setShowSettingsModal(true)}
+                        variant="outline"
+                        size="icon"
+                        aria-label="Prototype settings"
+                      >
+                        <InformationCircleIcon className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Prototype info</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             </div>
           </div>
         </div>
-
-        {/* Usage indicator */}
-        {!loadingUsageCount && (
-          <div className="px-4 py-2 text-xs text-muted-foreground border-b">
-            {userPlan === "free" ? (
-              <span
-                className={
-                  messageCount >= messageLimit
-                    ? "text-destructive font-medium"
-                    : ""
-                }
-              >
-                {messageCount}/{messageLimit} messages used this billing period
-              </span>
-            ) : (
-              <span>{messageCount} messages used this billing period</span>
-            )}
-          </div>
-        )}
 
         {/* Chat Messages */}
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
@@ -1601,6 +1582,25 @@ export default function PrototypeChatWindow({
                         </SelectItem>
                       </SelectContent>
                     </Select>
+
+                    {/* Usage Count - hide temporarily */}
+                    {/* {!loadingUsageCount && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={`text-sm cursor-default ${userPlan === "free" && messageCount >= messageLimit
+                              ? "text-destructive font-medium"
+                              : "text-muted-foreground"
+                              }`}
+                          >
+                            {messageCount}/{messageLimit}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {messageCount}/{messageLimit} messages used this billing period
+                        </TooltipContent>
+                      </Tooltip>
+                    )} */}
                   </div>
 
                   {/* Send Button */}
@@ -1713,7 +1713,7 @@ export default function PrototypeChatWindow({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center">
                   <p className="text-sm flex-1">{prototypeTitle}</p>
                   {canEditName && (
                     <Button

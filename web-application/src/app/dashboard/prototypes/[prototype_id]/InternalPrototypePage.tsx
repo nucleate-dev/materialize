@@ -756,7 +756,7 @@ export default function InternalPrototypePage() {
           className={`${isMobile
             ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
             : "flex"
-            } flex-col relative z-10 bg-background`}
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={isMobile ? { height: "100%" } : { width: `${leftPanelWidth}%`, minWidth: "320px" }}
         >
           {/* Mobile Chat Header */}
@@ -777,7 +777,7 @@ export default function InternalPrototypePage() {
           )}
 
           {/* Content Area */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <PrototypeChatWindow
               prototypeId={prototypeId}
               prototype={prototype}
@@ -823,10 +823,10 @@ export default function InternalPrototypePage() {
           className={`${isMobile
             ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
             : "flex"
-            } flex-col relative z-10 bg-background`}
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={isMobile ? {} : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }}
         >
-          <div className="flex-1 overflow-hidden h-full">
+          <div className="flex-1 min-h-0 h-full">
             <MaterializeRenderSection
               viewing_url={viewingUrl ?? ""}
               terminal_url={terminalUrl}
