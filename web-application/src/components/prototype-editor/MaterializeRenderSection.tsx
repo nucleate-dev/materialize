@@ -29,7 +29,7 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   Check,

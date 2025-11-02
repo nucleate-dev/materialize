@@ -94,7 +94,7 @@ export default function FolderPrototypesPage() {
   };
 
   const handlePrototypeEdit = (prototypeId: string) => {
-    router.push(`/dashboard/prototypes/${prototypeId}`);
+    router.push(`/dashboard/projects/${prototypeId}`);
   };
 
   const handleOpenModal = () => setModalOpen(true);
@@ -102,7 +102,7 @@ export default function FolderPrototypesPage() {
 
   const handlePrototypeCreated = (prototypeId: string) => {
     fetchData(); // Refetch data after creation
-    router.push(`/dashboard/prototypes/${prototypeId}`);
+    router.push(`/dashboard/projects/${prototypeId}`);
   };
 
   const handleOpenSettings = (prototype: Prototype) => {

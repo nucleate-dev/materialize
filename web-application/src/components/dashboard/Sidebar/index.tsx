@@ -37,10 +37,10 @@ const DashboardSidebarContent = () => {
 
   const menuItems = [
     {
-      href: "/dashboard/prototypes",
+      href: "/dashboard/projects",
       icon: Rocket,
       label: "Projects",
-      active: pathname?.includes("prototypes"),
+      active: pathname?.includes("projects"),
     },
     {
       href: "/dashboard/folders",

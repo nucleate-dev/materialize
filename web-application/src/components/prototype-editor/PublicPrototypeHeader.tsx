@@ -17,9 +17,9 @@ import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type APIResponse,
+  type CreatePrototypeErrorResponse,
   type CreatePrototypeRequestBody,
   type CreatePrototypeSuccessResponse,
-  type CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import {
@@ -175,7 +175,7 @@ export default function PublicPrototypeHeader({
       > = await response.json();
       if (result.data) {
         // Navigate to the new prototype in dashboard
-        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
+        router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         setShowUpsellModal(true);

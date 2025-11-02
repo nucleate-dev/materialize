@@ -1,6 +1,6 @@
 "use client";
 
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
@@ -59,10 +59,10 @@ function AppSidebar() {
 
   const menuItems = [
     {
-      href: "/dashboard/prototypes",
+      href: "/dashboard/projects",
       icon: Rocket,
       label: "Projects",
-      active: pathname?.includes("prototypes"),
+      active: pathname?.includes("projects"),
     },
     {
       href: "/dashboard/folders",

@@ -1,6 +1,6 @@
 "use client";
 
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Badge } from "@/components/ui/badge";
@@ -2207,9 +2207,8 @@ export default function PrototypeChatWindow({
           <div key={item.id} className="flex justify-start">
             <div className={`max-w-[90%] rounded-md ${containerClasses} text-sm`}>
               <div
-                className={`flex items-start gap-3 px-3 py-2 ${
-                  hasErrors && item.output ? "cursor-pointer hover:bg-muted/20" : ""
-                }`}
+                className={`flex items-start gap-3 px-3 py-2 ${hasErrors && item.output ? "cursor-pointer hover:bg-muted/20" : ""
+                  }`}
                 onClick={() => {
                   if (hasErrors && item.output) {
                     setIsExpanded(!isExpanded);
@@ -2231,9 +2230,8 @@ export default function PrototypeChatWindow({
                   {statusIcon}
                   {hasErrors && item.output && (
                     <ChevronDownIcon
-                      className={`h-4 w-4 transition-transform ${
-                        isExpanded ? "rotate-180" : ""
-                      }`}
+                      className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""
+                        }`}
                     />
                   )}
                 </div>

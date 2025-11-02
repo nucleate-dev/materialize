@@ -157,7 +157,7 @@ export default function DashboardPage() {
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false);
-        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
+        router.push(`/dashboard/projects/${result.data.prototype_id}`);
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         // Show upsell modal
         setShowUpsellModal(true);

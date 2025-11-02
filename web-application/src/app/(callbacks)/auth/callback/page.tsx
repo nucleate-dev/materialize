@@ -1,18 +1,18 @@
 "use client";
 
 import { posthogClient, supabase } from "@/ClientConstants";
-import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
+  CreatePrototypeErrorResponse,
   CreatePrototypeRequestBody,
   CreatePrototypeSuccessResponse,
-  CreatePrototypeErrorResponse,
 } from "@/lib/types/serverAPITypes";
+import { handleRedirectToPaymentsPage } from "@/lib/utils/payments/CheckoutUtils";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import RegistrationAccountCreatedEmailVerificationPending from "../../../(auth)/register/RegistrationAccountCreatedEmailVerificationPending";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 export default function AuthCallback() {
   const [showEmailVerificationRequired, setShowEmailVerificationRequired] =
@@ -22,7 +22,7 @@ export default function AuthCallback() {
   const logger = useProductLogger();
 
   let productId: string | null = null;
-  let chatIntent: { message: string; prototype_id?: string } | null = null;
+  let chatIntent: { message: string; prototype_id?: string; } | null = null;
   if (typeof window !== "undefined") {
     productId = localStorage?.getItem("checkout_intent");
     if (!productId) {
@@ -54,7 +54,7 @@ export default function AuthCallback() {
           "identify" in posthogClient
         ) {
           (
-            posthogClient as { identify: (id: string, props: object) => void }
+            posthogClient as { identify: (id: string, props: object) => void; }
           ).identify(data.session?.user.id, {
             email: data.session.user.email ?? "",
           });
@@ -113,7 +113,7 @@ export default function AuthCallback() {
                 message: chatIntent.message,
               }),
             );
-            router.push(`/dashboard/prototypes/${prototypeId}`);
+            router.push(`/dashboard/projects/${prototypeId}`);
           } else {
             router.push("/dashboard");
           }

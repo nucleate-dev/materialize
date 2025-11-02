@@ -690,7 +690,7 @@ export default function InternalPrototypePage() {
 
       if (result.data) {
         // Navigate to the new prototype
-        window.location.href = `/dashboard/prototypes/${result.data.prototype_id}`;
+        window.location.href = `/dashboard/projects/${result.data.prototype_id}`;
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         setShowCloneUpsellModal(true);
       } else if (result.error) {

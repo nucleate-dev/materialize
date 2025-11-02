@@ -1,14 +1,9 @@
 "use client";
 
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
+import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,15 +32,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
+  APIResponse,
+  UpdateFilesErrorResponse,
   UpdateFilesRequestBody,
   UpdateFilesSuccessResponse,
-  UpdateFilesErrorResponse,
-  APIResponse,
 } from "@/lib/types/serverAPITypes";
 import Editor from "@monaco-editor/react";
 import { FileText, Plus, Save, Trash2, Upload } from "lucide-react";
@@ -139,12 +139,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // TODO: if the sole purpose of this currentFile is to check if the file is an asset, then we should just check if the file is an asset no need to check the files array
   const currentFile =
     fileSystem.state.selectedFile &&
-    fileSystem.state.files &&
-    fileSystem.state.selectedFile in fileSystem.state.files
+      fileSystem.state.files &&
+      fileSystem.state.selectedFile in fileSystem.state.files
       ? fileSystem.state.files[fileSystem.state.selectedFile]
       : fileSystem.state.selectedFile &&
-          fileSystem.state.assets &&
-          fileSystem.state.selectedFile in fileSystem.state.assets
+        fileSystem.state.assets &&
+        fileSystem.state.selectedFile in fileSystem.state.assets
         ? fileSystem.state.assets[fileSystem.state.selectedFile]
         : null;
   const isAssetImage =

@@ -75,7 +75,7 @@ export default function PrototypesPage() {
 
   const handlePrototypeCreated = (prototypeId: string) => {
     fetchPrototypes(); // Refetch prototypes after creation
-    router.push(`/dashboard/prototypes/${prototypeId}`);
+    router.push(`/dashboard/projects/${prototypeId}`);
   };
 
   const handleOpenSettings = (prototype: Prototype) => {
@@ -157,7 +157,7 @@ export default function PrototypesPage() {
               }
               onView={() => router.push(`/prototype/${prototype.id}`)}
               onEdit={() =>
-                router.push(`/dashboard/prototypes/${prototype.id}`)
+                router.push(`/dashboard/projects/${prototype.id}`)
               }
               onSettings={() => handleOpenSettings(prototype)}
             />
