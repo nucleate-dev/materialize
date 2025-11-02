@@ -2,6 +2,7 @@
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
+import { ENABLE_ASSET_UPLOAD } from "@/GlobalConstants";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Tooltip,
   TooltipContent,
@@ -65,6 +67,29 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   "tsx",
   "json",
 ]);
+
+const ALLOWED_ASSET_EXTENSIONS = new Set([
+  // Images
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "svg",
+  "webp",
+  "ico",
+  // Fonts
+  "ttf",
+  "otf",
+  "woff",
+  "woff2",
+  // Other common assets
+  "md",
+  "txt",
+  "env",
+  "gitignore",
+]);
+
+type UploadMode = "merge" | "replace" | "replace-all";
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
   fileSystem,
@@ -165,7 +190,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [uploadTargetFolder, setUploadTargetFolder] = useState<string>(
     ROOT_FOLDER_VALUE,
   );
+  const [uploadMode, setUploadMode] = useState<UploadMode>("merge");
+  const [uploadType, setUploadType] = useState<"files" | "folder">("files");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -351,6 +379,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setUploadFiles([]);
     setUploadError("");
     setIsUploading(false);
+    setUploadProgress({ current: 0, total: 0 });
+    setUploadMode("merge");
+    setUploadType("files");
   };
 
   const handleUploadFolderChange = (value: string) => {
@@ -379,7 +410,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
     filesList.forEach((file) => {
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (ALLOWED_UPLOAD_EXTENSIONS.has(ext)) {
+      const isCodeFile = ALLOWED_UPLOAD_EXTENSIONS.has(ext);
+      const isAssetFile = ENABLE_ASSET_UPLOAD && ALLOWED_ASSET_EXTENSIONS.has(ext);
+
+      if (isCodeFile || isAssetFile) {
         validFiles.push(file);
       } else {
         skippedFiles.push(file.name);
@@ -387,8 +421,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     });
 
     if (skippedFiles.length) {
+      const supportedTypes = ENABLE_ASSET_UPLOAD
+        ? ".js, .jsx, .ts, .tsx, .json, images, fonts, .md, .txt"
+        : ".js, .jsx, .ts, .tsx, .json";
       setUploadError(
-        `Skipped unsupported files: ${skippedFiles.join(", ")}. Supported types are .js, .jsx, .ts, .tsx, .json.`,
+        `Skipped ${skippedFiles.length} unsupported file(s). Supported types: ${supportedTypes}.`,
       );
     } else {
       setUploadError("");
@@ -408,19 +445,52 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       return;
     }
 
-    if (uploadConflicts.length) {
+    if (uploadMode === "merge" && uploadConflicts.length) {
       setUploadError(
-        `Resolve name conflicts before uploading: ${uploadConflicts.join(", ")}`,
+        `${uploadConflicts.length} file(s) already exist. Switch to "Replace" mode or choose a different folder.`,
       );
       return;
     }
 
     setIsUploading(true);
+    setUploadProgress({ current: 0, total: uploadFiles.length });
 
     try {
-      for (const file of uploadFiles) {
+      // Handle replace-all mode: delete all existing files first
+      if (uploadMode === "replace-all") {
+        const filesToDelete = Object.keys(fileSystem.state.files);
+        for (const filePath of filesToDelete) {
+          await fileSystem.deleteFile(filePath);
+        }
+      }
+
+      // Upload files with progress tracking
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        setUploadProgress({ current: i + 1, total: uploadFiles.length });
+
+        // Build file path, preserving folder structure from folder upload
+        let newFilePath: string;
+        if (uploadType === "folder" && file.webkitRelativePath) {
+          // For folder uploads, use the relative path
+          const relativePath = file.webkitRelativePath;
+          newFilePath = resolvedUploadFolder
+            ? `${resolvedUploadFolder}/${relativePath}`
+            : relativePath;
+        } else {
+          // For individual files, use the build path
+          newFilePath = buildUploadPath(file.name);
+        }
+
+        // Handle replace mode: delete existing file if it exists
+        if (
+          uploadMode === "replace" &&
+          fileSystem.state.files[newFilePath]
+        ) {
+          await fileSystem.deleteFile(newFilePath);
+        }
+
         const fileContents = await file.text();
-        const newFilePath = buildUploadPath(file.name);
         await fileSystem.createFile(newFilePath, fileContents);
       }
 
@@ -434,6 +504,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       setUploadError("Failed to upload files. Please try again.");
     } finally {
       setIsUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -1048,92 +1119,224 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             }
           }}
         >
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Upload files</DialogTitle>
+              <DialogTitle>Upload files or folder</DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="upload-destination" className="text-sm font-medium">
-                  Destination folder
-                </Label>
-                <Select
-                  value={uploadTargetFolder}
-                  onValueChange={handleUploadFolderChange}
+            <div className="space-y-6">
+              {/* Upload Type Selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Upload type</Label>
+                <RadioGroup
+                  value={uploadType}
+                  onValueChange={(value: "files" | "folder") => {
+                    setUploadType(value);
+                    setUploadFiles([]);
+                    setUploadError("");
+                  }}
+                  className="flex gap-4"
                 >
-                  <SelectTrigger id="upload-destination" className="mt-2">
-                    <SelectValue placeholder="Select destination" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {directoryOptions.map((directory) => (
-                      <SelectItem key={directory} value={directory}>
-                        {directory === ROOT_FOLDER_VALUE
-                          ? "Repository root (/)"
-                          : directory}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Files will be uploaded to
-                  <span className="mx-1 font-mono text-foreground">
-                    {resolvedUploadFolder ? `/${resolvedUploadFolder}` : "/"}
-                  </span>
-                  in your project.
-                </p>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="files" id="upload-files" />
+                    <Label htmlFor="upload-files" className="font-normal cursor-pointer">
+                      Individual files
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="folder" id="upload-folder" />
+                    <Label htmlFor="upload-folder" className="font-normal cursor-pointer">
+                      Entire folder
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
 
+              {/* Upload Mode Selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Upload mode</Label>
+                <RadioGroup
+                  value={uploadMode}
+                  onValueChange={(value: UploadMode) => setUploadMode(value)}
+                  className="space-y-2"
+                >
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem value="merge" id="mode-merge" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="mode-merge" className="font-normal cursor-pointer">
+                        Merge (add new files, skip conflicts)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Keeps existing files unchanged
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem value="replace" id="mode-replace" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="mode-replace" className="font-normal cursor-pointer">
+                        Replace (overwrite existing files)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Updates files that already exist
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem value="replace-all" id="mode-replace-all" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="mode-replace-all" className="font-normal cursor-pointer text-destructive">
+                        Replace all (delete all files first)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        ⚠️ Deletes all existing files before uploading
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Destination Folder - Only show for individual files */}
+              {uploadType === "files" && (
+                <div>
+                  <Label htmlFor="upload-destination" className="text-sm font-medium">
+                    Destination folder
+                  </Label>
+                  <Select
+                    value={uploadTargetFolder}
+                    onValueChange={handleUploadFolderChange}
+                  >
+                    <SelectTrigger id="upload-destination" className="mt-2">
+                      <SelectValue placeholder="Select destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {directoryOptions.map((directory) => (
+                        <SelectItem key={directory} value={directory}>
+                          {directory === ROOT_FOLDER_VALUE
+                            ? "Repository root (/)"
+                            : directory}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Files will be uploaded to
+                    <span className="mx-1 font-mono text-foreground">
+                      {resolvedUploadFolder ? `/${resolvedUploadFolder}` : "/"}
+                    </span>
+                    in your project.
+                  </p>
+                </div>
+              )}
+
+              {/* File/Folder Selection */}
               <div>
                 <Label htmlFor="fileUpload" className="text-sm font-medium">
-                  Choose files
+                  {uploadType === "folder" ? "Choose folder" : "Choose files"}
                 </Label>
                 <Input
                   id="fileUpload"
                   type="file"
-                  accept=".js,.jsx,.ts,.tsx,.json"
-                  multiple
+                  {...(uploadType === "folder"
+                    ? { webkitdirectory: "", directory: "" }
+                    : { multiple: true })}
                   onChange={handleUploadFileSelection}
                   className="mt-2"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Supported file types: .js, .jsx, .ts, .tsx, .json
+                  {ENABLE_ASSET_UPLOAD
+                    ? "Supported: code files (.js, .jsx, .ts, .tsx, .json), images, fonts, .md, .txt"
+                    : "Supported file types: .js, .jsx, .ts, .tsx, .json"}
                 </p>
 
                 {uploadFiles.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Upload preview
-                    </p>
-                    <ul className="mt-2 space-y-1 text-sm font-mono">
-                      {uploadFiles.map((file, index) => {
-                        const previewPath = buildUploadPath(file.name);
-                        return (
-                          <li key={`${previewPath}-${index}`} className="text-foreground">
-                            <code className="px-1 py-0.5 rounded bg-muted text-foreground">
-                              {previewPath}
-                            </code>
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Upload preview ({uploadFiles.length} file{uploadFiles.length !== 1 ? "s" : ""})
+                      </p>
+                      {isUploading && uploadProgress.total > 0 && (
+                        <p className="text-xs text-primary font-medium">
+                          {uploadProgress.current} / {uploadProgress.total}
+                        </p>
+                      )}
+                    </div>
+
+                    {isUploading && uploadProgress.total > 0 && (
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-primary h-full transition-all duration-300"
+                          style={{
+                            width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div className="max-h-40 overflow-y-auto border border-border rounded-md p-2">
+                      <ul className="space-y-1 text-xs font-mono">
+                        {uploadFiles.slice(0, 50).map((file, index) => {
+                          let previewPath: string;
+                          if (uploadType === "folder" && file.webkitRelativePath) {
+                            previewPath = file.webkitRelativePath;
+                          } else {
+                            previewPath = buildUploadPath(file.name);
+                          }
+                          return (
+                            <li key={`${previewPath}-${index}`} className="text-foreground">
+                              <code className="px-1 py-0.5 rounded bg-muted text-foreground">
+                                {previewPath}
+                              </code>
+                            </li>
+                          );
+                        })}
+                        {uploadFiles.length > 50 && (
+                          <li className="text-muted-foreground italic">
+                            ... and {uploadFiles.length - 50} more files
                           </li>
-                        );
-                      })}
-                    </ul>
+                        )}
+                      </ul>
+                    </div>
                   </div>
                 )}
 
-                {uploadConflicts.length > 0 && (
+                {uploadConflicts.length > 0 && uploadMode === "merge" && (
                   <Alert variant="destructive" className="mt-4">
                     <AlertDescription>
-                      The following files already exist in this folder:
-                      <ul className="mt-2 list-disc list-inside space-y-1">
-                        {uploadConflicts.map((conflict) => (
-                          <li key={conflict} className="font-mono text-sm">
+                      <p className="font-semibold mb-2">
+                        {uploadConflicts.length} file(s) already exist:
+                      </p>
+                      <ul className="mt-2 list-disc list-inside space-y-1 max-h-24 overflow-y-auto">
+                        {uploadConflicts.slice(0, 10).map((conflict) => (
+                          <li key={conflict} className="font-mono text-xs">
                             <code className="px-1 py-0.5 rounded bg-muted text-foreground">
                               {conflict}
                             </code>
                           </li>
                         ))}
+                        {uploadConflicts.length > 10 && (
+                          <li className="italic text-xs">
+                            ... and {uploadConflicts.length - 10} more
+                          </li>
+                        )}
                       </ul>
-                      Choose a different folder or rename the files before uploading.
+                      <p className="mt-3 text-sm">
+                        Switch to "Replace" mode to overwrite, or choose a different folder.
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {uploadMode === "replace-all" && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertDescription className="flex items-start gap-2">
+                      <span className="text-lg">⚠️</span>
+                      <div>
+                        <p className="font-semibold">Warning: Replace All Mode</p>
+                        <p className="text-sm mt-1">
+                          This will delete all {Object.keys(fileSystem.state.files).length} existing files before uploading. This action cannot be undone.
+                        </p>
+                      </div>
                     </AlertDescription>
                   </Alert>
                 )}
@@ -1155,10 +1358,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               <Button
                 onClick={handleUploadFiles}
                 disabled={
-                  isUploading || uploadFiles.length === 0 || uploadConflicts.length > 0
+                  isUploading ||
+                  uploadFiles.length === 0 ||
+                  (uploadMode === "merge" && uploadConflicts.length > 0)
                 }
+                variant={uploadMode === "replace-all" ? "destructive" : "default"}
               >
-                {isUploading ? "Uploading..." : "Upload files"}
+                {isUploading
+                  ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
+                  : uploadMode === "replace-all"
+                    ? "Replace All & Upload"
+                    : `Upload ${uploadFiles.length} file${uploadFiles.length !== 1 ? "s" : ""}`}
               </Button>
             </DialogFooter>
           </DialogContent>
