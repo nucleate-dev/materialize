@@ -3,9 +3,20 @@
 // These are not Expo-specific and can be used for any sandbox environment
 
 import { spawn } from "child_process";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import {
+  SandboxGitCheckoutRequest,
+  SandboxGitCheckoutResponse,
+  SandboxMakeDirRequest,
+  SandboxMakeDirResponse,
+  SandboxReadFileRequest,
+  SandboxReadFileResponse,
+  SandboxWriteFileRequest,
+  SandboxWriteFileResponse,
+} from "../types/BuildWorkerTypes.js";
 import { resolvePathWithinProject } from "../utils/shared-utils.js";
 
 // TODO: Add rate limiting to prevent abuse of sandbox operations
@@ -44,10 +55,42 @@ interface GitCheckoutResult {
 export class SandboxService {
   private readonly workDir: string;
   private readonly log2: SystemLogger;
+  private readonly fastifyApp: FastifyInstance;
 
-  constructor(workDir: string, logger: SystemLogger) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    workDir: string,
+    logger: SystemLogger,
+  ) {
+    this.fastifyApp = fastifyApp;
     this.workDir = workDir;
     this.log2 = logger.child({ service: "SandboxService" });
+  }
+
+  public registerRoutes(): void {
+    // POST /sandbox/make-dir
+    this.fastifyApp.post<{ Body: SandboxMakeDirRequest }>(
+      "/sandbox/make-dir",
+      this.handleSandboxMakeDir.bind(this),
+    );
+
+    // POST /sandbox/read-file
+    this.fastifyApp.post<{ Body: SandboxReadFileRequest }>(
+      "/sandbox/read-file",
+      this.handleSandboxReadFile.bind(this),
+    );
+
+    // POST /sandbox/write-file
+    this.fastifyApp.post<{ Body: SandboxWriteFileRequest }>(
+      "/sandbox/write-file",
+      this.handleSandboxWriteFile.bind(this),
+    );
+
+    // POST /sandbox/git-checkout
+    this.fastifyApp.post<{ Body: SandboxGitCheckoutRequest }>(
+      "/sandbox/git-checkout",
+      this.handleSandboxGitCheckout.bind(this),
+    );
   }
 
   /**
@@ -415,5 +458,245 @@ export class SandboxService {
         reject(error);
       });
     });
+  }
+
+  // ========== Route Handlers ==========
+
+  private async handleSandboxMakeDir(
+    request: FastifyRequest<{ Body: SandboxMakeDirRequest }>,
+    reply: FastifyReply,
+  ): Promise<SandboxMakeDirResponse> {
+    const { path, recursive } = request.body;
+
+    if (!path) {
+      this.log2.error(
+        new Error("Missing required parameter: path"),
+        "Missing required parameter: path",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "path is required",
+      };
+    }
+
+    try {
+      const result = await this.makeDirectory(path, recursive);
+
+      if (result.success) {
+        return reply.code(200).send({ status: "success" });
+      } else {
+        this.log2.error(
+          new Error(result.error),
+          "Failed to create directory",
+          { path, recursive },
+        );
+        reply.code(500);
+        return {
+          status: "error",
+          error: result.error,
+        };
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in handleSandboxMakeDir",
+        { path, recursive },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleSandboxReadFile(
+    request: FastifyRequest<{ Body: SandboxReadFileRequest }>,
+    reply: FastifyReply,
+  ): Promise<SandboxReadFileResponse> {
+    const { path } = request.body;
+
+    if (!path) {
+      this.log2.error(
+        new Error("Missing required parameter: path"),
+        "Missing required parameter: path",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "path is required",
+      };
+    }
+
+    try {
+      const result = await this.readFile(path);
+
+      if (result.success) {
+        return reply.code(200).send({
+          status: "success",
+          contents: result.contents,
+          is_binary: result.isBinary,
+        });
+      } else {
+        // Check if it's a file not found error
+        const isNotFound =
+          result.error?.includes("ENOENT") ||
+          result.error?.includes("no such file");
+
+        if (isNotFound) {
+          this.log2.warn("File not found", { path });
+          reply.code(404);
+        } else {
+          this.log2.error(new Error(result.error), "Failed to read file", {
+            path,
+          });
+          reply.code(500);
+        }
+
+        return {
+          status: "error",
+          error: result.error,
+        };
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in handleSandboxReadFile",
+        { path },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleSandboxWriteFile(
+    request: FastifyRequest<{ Body: SandboxWriteFileRequest }>,
+    reply: FastifyReply,
+  ): Promise<SandboxWriteFileResponse> {
+    const { path, filename, contents } = request.body;
+
+    if (!path || !filename || contents === undefined) {
+      this.log2.error(
+        new Error("Missing required parameters"),
+        "Missing required parameters",
+        {
+          hasPath: !!path,
+          hasFilename: !!filename,
+          hasContents: contents !== undefined,
+        },
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "path, filename, and contents are required",
+      };
+    }
+
+    try {
+      const result = await this.writeFile(path, filename, contents);
+
+      if (result.success) {
+        return reply.code(200).send({ status: "success" });
+      } else {
+        this.log2.error(new Error(result.error), "Failed to write file", {
+          path,
+          filename,
+        });
+        reply.code(500);
+        return {
+          status: "error",
+          error: result.error,
+        };
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in handleSandboxWriteFile",
+        { path, filename },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private async handleSandboxGitCheckout(
+    request: FastifyRequest<{ Body: SandboxGitCheckoutRequest }>,
+    reply: FastifyReply,
+  ): Promise<SandboxGitCheckoutResponse> {
+    const { git_url, target_path } = request.body;
+
+    if (!git_url) {
+      this.log2.error(
+        new Error("Missing required parameter: git_url"),
+        "Missing required parameter: git_url",
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "git_url is required",
+      };
+    }
+
+    try {
+      const result = await this.gitCheckout(git_url, target_path);
+
+      if (result.success) {
+        return reply.code(200).send({
+          status: "success",
+          output: result.output,
+        });
+      } else {
+        // Check if it's a validation error (invalid URL, private IP, etc.)
+        const isValidationError =
+          result.error?.includes("Invalid git URL") ||
+          result.error?.includes("private IP");
+
+        if (isValidationError) {
+          this.log2.warn("Git checkout validation failed", {
+            git_url,
+            error: result.error,
+          });
+          reply.code(400);
+        } else {
+          this.log2.error(new Error(result.error), "Git checkout failed", {
+            git_url,
+            target_path,
+          });
+          reply.code(500);
+        }
+
+        return {
+          status: "error",
+          error: result.error,
+          output: result.output,
+        };
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.log2.error(
+        new Error(errorMessage),
+        "Unexpected error in handleSandboxGitCheckout",
+        { git_url, target_path },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
   }
 }
