@@ -344,7 +344,7 @@ export class SystemLogger {
     }
     return {
       name: 'UnknownError',
-      message: String(err),
+      message: JSON.stringify(err),
     };
   }
 

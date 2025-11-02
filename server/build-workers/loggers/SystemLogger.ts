@@ -113,7 +113,7 @@ export class SystemLogger {
         defaultDimensions: { ...this.dims },
         metricNamespace: this.metricNs,
       },
-      { ...this.base, ...extra }
+      { ...this.base, ...extra },
     );
   }
 
@@ -142,7 +142,7 @@ export class SystemLogger {
   error(
     err: unknown,
     msg = "Unhandled error",
-    fields: Record<string, unknown> = {}
+    fields: Record<string, unknown> = {},
   ): void {
     const e = this.normalizeError(err);
     this.write("error", msg, { ...fields, error: e });
@@ -156,7 +156,7 @@ export class SystemLogger {
   consoleLogDevOnly(
     level: LogLevel,
     message: string,
-    additionalData?: Record<string, unknown>
+    additionalData?: Record<string, unknown>,
   ): void {
     if (process.env.NODE_ENV !== "development") return;
 
@@ -185,7 +185,7 @@ export class SystemLogger {
   metricCount(
     name: string,
     count = 1,
-    extraDims: Record<string, string> = {}
+    extraDims: Record<string, string> = {},
   ): void {
     this.emitEMF([{ Name: name, Unit: "Count" }], { [name]: count }, extraDims);
   }
@@ -194,12 +194,12 @@ export class SystemLogger {
   metricTiming(
     name: string,
     ms: number,
-    extraDims: Record<string, string> = {}
+    extraDims: Record<string, string> = {},
   ): void {
     this.emitEMF(
       [{ Name: name, Unit: "Milliseconds" }],
       { [name]: ms },
-      extraDims
+      extraDims,
     );
   }
 
@@ -211,7 +211,7 @@ export class SystemLogger {
   async time<T>(
     name: LatencyEvent,
     fn: () => Promise<T>,
-    extraDims: Record<string, string> = {}
+    extraDims: Record<string, string> = {},
   ): Promise<T> {
     const start = nowMs();
     try {
@@ -230,7 +230,7 @@ export class SystemLogger {
   /** Create a manual timer; call the returned done() when finished. */
   startTimer(
     name: string,
-    extraDims: Record<string, string> = {}
+    extraDims: Record<string, string> = {},
   ): (moreDims?: Record<string, string>) => number {
     const start = nowMs();
     return (moreDims: Record<string, string> = {}): number => {
@@ -245,7 +245,7 @@ export class SystemLogger {
   private write(
     level: LogLevel,
     msg: string,
-    fields: Record<string, unknown>
+    fields: Record<string, unknown>,
   ): void {
     const now = new Date().toISOString();
     const payload = {
@@ -260,8 +260,8 @@ export class SystemLogger {
       JSON.stringify(
         payload,
         null,
-        process.env.NODE_ENV === "development" ? 2 : undefined
-      ) + "\n"
+        process.env.NODE_ENV === "development" ? 2 : undefined,
+      ) + "\n",
     );
   }
 
@@ -310,7 +310,7 @@ export class SystemLogger {
     }
     return {
       name: "UnknownError",
-      message: String(err),
+      message: JSON.stringify(err),
     };
   }
 
@@ -326,7 +326,7 @@ export class SystemLogger {
   private emitEMF(
     metricDefs: EMFMetric[],
     metricValues: Record<string, number>,
-    extraDims: Record<string, string>
+    extraDims: Record<string, string>,
   ): void {
     const dims = this.buildDimensions(extraDims);
     const emf: EMFStructure = {
@@ -348,7 +348,7 @@ export class SystemLogger {
 
   /** Build dimension object from base context + extras, dropping undefineds and big strings. */
   private buildDimensions(
-    extraDims: Record<string, string>
+    extraDims: Record<string, string>,
   ): Record<string, string> {
     const out: Record<string, string> = {};
 
@@ -366,7 +366,7 @@ export class SystemLogger {
 // ---- Tiny helpers you might use in your server middleware ----
 
 export function genRequestIds(
-  headers: Record<string, string | string[] | undefined>
+  headers: Record<string, string | string[] | undefined>,
 ): { requestId: string; traceId: string } {
   const fromHeader = (name: string): string => {
     const value = headers[name] ?? headers[name.toLowerCase()];
