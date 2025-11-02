@@ -4,6 +4,13 @@ import { supabase } from "@/ClientConstants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -44,6 +51,7 @@ import {
   Settings,
   Share2,
   Smartphone,
+  QrCode,
   Terminal as TerminalIcon,
   X
 } from "lucide-react";
@@ -53,9 +61,11 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
+import QRCode from "react-qr-code";
 import Terminal from "./Terminal";
 
 interface MobileScreenConfig {
@@ -115,6 +125,25 @@ const resolveIframeSrc = (baseUrl: string, path: string) => {
     } catch {
       return baseUrl;
     }
+  }
+};
+
+const toExpoGoDeepLink = (url: string | undefined | null) => {
+  if (!url) {
+    return null;
+  }
+
+  const ensureExpScheme = (value: string) => {
+    const sanitized = value.replace(/^(https?:\/\/)/, "");
+    return sanitized ? `exp://${sanitized}` : null;
+  };
+
+  try {
+    const parsed = new URL(url);
+    const path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return ensureExpScheme(`${parsed.host}${path}`);
+  } catch {
+    return ensureExpScheme(url);
   }
 };
 
@@ -189,6 +218,10 @@ const MaterializeRenderSection = forwardRef<
     ref,
   ) => {
     const logger = useProductLogger();
+    const expoGoDeepLink = useMemo(
+      () => toExpoGoDeepLink(viewing_url),
+      [viewing_url],
+    );
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
@@ -203,6 +236,7 @@ const MaterializeRenderSection = forwardRef<
     const [routeSuggestions, setRouteSuggestions] = useState<Array<{ route: string; group?: string; }>>([]);
 
     // Terminal state
+    const [isViewOnDeviceOpen, setIsViewOnDeviceOpen] = useState(false);
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
     const [terminalHeight, setTerminalHeight] = useState(250); // Default height in pixels
     const [isResizingTerminal, setIsResizingTerminal] = useState(false);
@@ -1101,6 +1135,37 @@ const MaterializeRenderSection = forwardRef<
 
     return (
       <div className="flex flex-col h-full bg-background">
+        <Dialog open={isViewOnDeviceOpen} onOpenChange={setIsViewOnDeviceOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>View on Device</DialogTitle>
+              <DialogDescription>
+                Scan this QR code with Expo Go to open the current preview.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4">
+              {expoGoDeepLink ? (
+                <div className="p-4 bg-white rounded-md shadow-sm">
+                  <QRCode value={expoGoDeepLink} size={180} />
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Viewing URL unavailable. Refresh to try again.
+                </div>
+              )}
+              {expoGoDeepLink && (
+                <p className="text-sm text-muted-foreground break-all text-center">
+                  {expoGoDeepLink}
+                </p>
+              )}
+              {viewing_url && viewing_url !== expoGoDeepLink && (
+                <p className="text-xs text-muted-foreground break-all text-center">
+                  Browser preview: {viewing_url}
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         {/* Compact Responsive Toolbar */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm px-3 py-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1157,6 +1222,18 @@ const MaterializeRenderSection = forwardRef<
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
+              {expoGoDeepLink && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={() => setIsViewOnDeviceOpen(true)}
+                  title="View on Device"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span className="ml-1.5 hidden md:inline">View on Device</span>
+                </Button>
+              )}
               {!publicView && (
                 <Button
                   variant={isTerminalOpen ? "default" : "secondary"}
