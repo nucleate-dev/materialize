@@ -107,7 +107,8 @@ export class ChatEngineV1 {
     });
 
     if (
-      (this.modelProvider === 'openai' || this.modelProvider === 'openai-mini') &&
+      (this.modelProvider === 'openai' ||
+        this.modelProvider === 'openai-mini') &&
       !config.openAiApiKey
     ) {
       throw new Error('OpenAI API key must be configured to use OpenAI models');
@@ -919,16 +920,23 @@ export class ChatEngineV1 {
     // Fetch and convert image to base64 if imageUrl is provided
     let imageBase64: string | null = null;
     if (imageUrl) {
-      log2.consoleLogDevOnly('info', '[ChatEngine] Fetching image from storage URL', {
-        imageUrl,
-      });
+      log2.consoleLogDevOnly(
+        'info',
+        '[ChatEngine] Fetching image from storage URL',
+        {
+          imageUrl,
+        },
+      );
       imageBase64 = await fetchImageAsBase64(imageUrl, supabase, log2);
       if (!imageBase64) {
         log2.warn('[ChatEngine] Failed to fetch image, proceeding without it', {
           imageUrl,
         });
       } else {
-        log2.consoleLogDevOnly('info', '[ChatEngine] Successfully fetched and converted image to base64');
+        log2.consoleLogDevOnly(
+          'info',
+          '[ChatEngine] Successfully fetched and converted image to base64',
+        );
       }
     }
 
@@ -973,7 +981,6 @@ export class ChatEngineV1 {
             MODEL_CONFIGS[this.modelProvider],
             specExpansionResult.usage.inputTokens ?? 0,
             specExpansionResult.usage.outputTokens ?? 0,
-            specExpansionResult.usage.totalTokens ?? 0,
             { intent: 'spec_expansion' },
           );
         }
@@ -1154,7 +1161,6 @@ export class ChatEngineV1 {
           MODEL_CONFIGS[this.modelProvider],
           finalResultUsage.inputTokens ?? 0,
           finalResultUsage.outputTokens ?? 0,
-          finalResultUsage.totalTokens ?? 0,
           { intent: userIntent },
         );
       }

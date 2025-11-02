@@ -236,7 +236,6 @@ export class SystemLogger {
     modelName: string,
     inputTokens: number,
     outputTokens: number,
-    totalTokens: number,
     extraDims: Record<string, string> = {},
   ): void {
     // Also log as structured data for CloudWatch Logs Insights queries
@@ -244,7 +243,6 @@ export class SystemLogger {
       model: modelName,
       inputTokens,
       outputTokens,
-      totalTokens,
       ...extraDims,
     });
 
@@ -253,12 +251,10 @@ export class SystemLogger {
       [
         { Name: 'LLM_InputTokens', Unit: 'Count' },
         { Name: 'LLM_OutputTokens', Unit: 'Count' },
-        { Name: 'LLM_TotalTokens', Unit: 'Count' },
       ],
       {
         LLM_InputTokens: inputTokens,
         LLM_OutputTokens: outputTokens,
-        LLM_TotalTokens: totalTokens,
       },
       {
         model: modelName,
