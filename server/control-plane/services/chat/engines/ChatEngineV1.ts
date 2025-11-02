@@ -87,6 +87,17 @@ export interface ChatEngineParams {
   modelProvider?: ModelProvider;
 }
 
+// Event tracking for persistence
+interface EventTracker {
+  sequence: number;
+  events: Array<{
+    event_type: string;
+    event_data: unknown;
+    event_timestamp: string;
+    sequence: number;
+  }>;
+}
+
 export interface ChatEngineResult {
   assistantResponse: string;
   executionPlan?: string[];
@@ -149,13 +160,14 @@ export class ChatEngineV1 {
   private async persistAndDispatchFiles(
     fileManager: VirtualFileManager,
     params: ChatEngineParams,
+    streamAndPersistEvent: (event: Record<string, unknown>) => void,
   ): Promise<{
     updatedFiles: string[];
     updatedFilesObject: Record<string, PrototypeFileInput>;
     deletedFiles: string[];
     build_errors?: CodeError[];
   }> {
-    const { prototype_id, token, controller, encoder } = params;
+    const { prototype_id, token } = params;
     const log2 = params.log2.child({
       function: 'persistAndDispatchFiles',
     });
@@ -196,13 +208,9 @@ export class ChatEngineV1 {
         file_scope: fileManager.getFileScope(),
         hot_reload: true, // Enable hot reload for live updates
       };
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: ChatStreamEventType.DISPATCH_START,
-          })}\n\n`,
-        ),
-      );
+      streamAndPersistEvent({
+        type: ChatStreamEventType.DISPATCH_START,
+      });
       // Call the dispatch endpoint
       const dispatchResult = await this.config.dispatcherService.dispatch(
         requestBody,
@@ -215,14 +223,10 @@ export class ChatEngineV1 {
           'info',
           '[persistAndDispatchFiles] sending viewing_url event',
         );
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.VIEWING_URL,
-              viewing_url: dispatchResult.data.viewing_url,
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.VIEWING_URL,
+          viewing_url: dispatchResult.data.viewing_url,
+        });
         fileManager.clearChangeTracking();
         const newBuildErrors: CodeError[] = dispatchResult.data.build_errors;
         const newBuildWarnings: CodeWarning[] =
@@ -244,14 +248,10 @@ export class ChatEngineV1 {
           });
         }
 
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.BUILD_ERRORS,
-              build_errors: newBuildErrors,
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.BUILD_ERRORS,
+          build_errors: newBuildErrors,
+        });
         return {
           updatedFiles: filesArray.map((file) => file.name),
           updatedFilesObject: allFiles,
@@ -260,15 +260,11 @@ export class ChatEngineV1 {
         };
       } else {
         // PROPAGATE ERROR TO CLIENT
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.DISPATCH_ERROR,
-              error: 'Failed to update the live preview.',
-              details: `${dispatchResult.error}`,
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.DISPATCH_ERROR,
+          error: 'Failed to update the live preview.',
+          details: `${dispatchResult.error}`,
+        });
         return {
           updatedFiles: [],
           updatedFilesObject: {},
@@ -286,11 +282,54 @@ export class ChatEngineV1 {
     };
   }
 
+  private async persistEvent(
+    chatSessionId: string,
+    eventType: string,
+    eventData: unknown,
+    sequence: number,
+    log2: SystemLogger,
+  ): Promise<void> {
+    try {
+      const supabaseServiceRoleClient = createClient(
+        this.config.supabaseUrl,
+        this.config.supabaseServiceKey,
+      );
+
+      const { error } = await supabaseServiceRoleClient
+        .from('prototype_chat_messages')
+        .insert({
+          chat_session_id: chatSessionId,
+          message_type: 'event',
+          event_type: eventType,
+          event_data: eventData as never,
+          event_timestamp: new Date().toISOString(),
+          sequence: sequence,
+          role: 'assistant', // Events are associated with assistant
+          content: '', // Empty content for events
+        });
+
+      if (error) {
+        log2.warn('[ChatEngine] Failed to persist event', {
+          event_type: eventType,
+          error: error.message,
+        });
+      }
+    } catch (error) {
+      log2.error(
+        error,
+        '[ChatEngine] Error persisting event',
+        { event_type: eventType },
+      );
+    }
+  }
+
   private async persistChatMessages(
     chatSessionId: string,
     userMessage: string,
     assistantResponse: string,
     log2: SystemLogger,
+    userSequence: number,
+    assistantSequence: number,
     imageUrl?: string,
     executionPlan?: string[],
     fileChanges?: Record<string, PrototypeFileInput>,
@@ -304,16 +343,21 @@ export class ChatEngineV1 {
       );
 
       // 1. Insert simple messages into prototype_chat_messages table
-      // Insert sequentially to ensure correct ordering by created_at timestamp
+      // Insert sequentially to ensure correct ordering by sequence number
+
+      const now = new Date().toISOString();
 
       // Insert user message first
       const { error: userMessageError } = await supabaseServiceRoleClient
         .from('prototype_chat_messages')
         .insert({
           chat_session_id: chatSessionId,
+          message_type: 'chat',
           role: 'user' as const,
           content: userMessage,
           image_url: imageUrl || null,
+          event_timestamp: now,
+          sequence: userSequence,
         });
 
       if (userMessageError) {
@@ -326,8 +370,11 @@ export class ChatEngineV1 {
         .from('prototype_chat_messages')
         .insert({
           chat_session_id: chatSessionId,
+          message_type: 'chat',
           role: 'assistant' as const,
           content: assistantResponse,
+          event_timestamp: now,
+          sequence: assistantSequence,
         });
 
       if (assistantMessageError) {
@@ -516,58 +563,6 @@ export class ChatEngineV1 {
 
     const { promptConfig } = await this.resolvePromptConfig(params);
 
-    // Fetch and convert image to base64 if imageUrl is provided
-    let imageBase64: string | null = null;
-    if (imageUrl) {
-      // Stream image processing start event
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: ChatStreamEventType.IMAGE_PROCESSING,
-            status: ImageProcessingStatus.FETCHING,
-            imageUrl,
-          })}\n\n`,
-        ),
-      );
-
-      log2.consoleLogDevOnly(
-        'info',
-        '[ChatEngine] Fetching image from storage URL',
-        {
-          imageUrl,
-        },
-      );
-      imageBase64 = await fetchImageAsBase64(imageUrl, supabase, log2);
-      if (!imageBase64) {
-        log2.warn('[ChatEngine] Failed to fetch image, proceeding without it', {
-          imageUrl,
-        });
-        // Stream image processing failure event
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.IMAGE_PROCESSING,
-              status: ImageProcessingStatus.FAILED,
-            })}\n\n`,
-          ),
-        );
-      } else {
-        log2.consoleLogDevOnly(
-          'info',
-          '[ChatEngine] Successfully fetched and converted image to base64',
-        );
-        // Stream image processing success event
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.IMAGE_PROCESSING,
-              status: ImageProcessingStatus.COMPLETE,
-            })}\n\n`,
-          ),
-        );
-      }
-    }
-
     // Track execution data for persistence
     let executionPlan: string[] | undefined;
     const completedSteps: number[] = [];
@@ -582,6 +577,77 @@ export class ChatEngineV1 {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
+    // Event tracking for persistence
+    const eventTracker: EventTracker = {
+      sequence: 0,
+      events: [],
+    };
+
+    // Reserve sequence 0 for user message
+    const userSequence = eventTracker.sequence++;
+
+    // Helper to stream event to client AND persist to database
+    const streamAndPersistEvent = (
+      event: Record<string, unknown>,
+    ): void => {
+      // Stream to client
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+      );
+
+      // Extract event type and persist asynchronously (don't block stream)
+      const eventType = event.type as string;
+      const currentSequence = eventTracker.sequence++;
+
+      void this.persistEvent(
+        params.chat_session_id,
+        eventType,
+        event, // Store the entire event payload
+        currentSequence,
+        log2,
+      );
+    };
+
+    // Fetch and convert image to base64 if imageUrl is provided
+    let imageBase64: string | null = null;
+    if (imageUrl) {
+      // Stream image processing start event
+      streamAndPersistEvent({
+        type: ChatStreamEventType.IMAGE_PROCESSING,
+        status: ImageProcessingStatus.FETCHING,
+        imageUrl,
+      });
+
+      log2.consoleLogDevOnly(
+        'info',
+        '[ChatEngine] Fetching image from storage URL',
+        {
+          imageUrl,
+        },
+      );
+      imageBase64 = await fetchImageAsBase64(imageUrl, supabase, log2);
+      if (!imageBase64) {
+        log2.warn('[ChatEngine] Failed to fetch image, proceeding without it', {
+          imageUrl,
+        });
+        // Stream image processing failure event
+        streamAndPersistEvent({
+          type: ChatStreamEventType.IMAGE_PROCESSING,
+          status: ImageProcessingStatus.FAILED,
+        });
+      } else {
+        log2.consoleLogDevOnly(
+          'info',
+          '[ChatEngine] Successfully fetched and converted image to base64',
+        );
+        // Stream image processing success event
+        streamAndPersistEvent({
+          type: ChatStreamEventType.IMAGE_PROCESSING,
+          status: ImageProcessingStatus.COMPLETE,
+        });
+      }
+    }
+
     try {
       log2.consoleLogDevOnly(
         'info',
@@ -591,15 +657,11 @@ export class ChatEngineV1 {
       const userIntent = detectUserIntent(userMessage);
 
       // Stream intent detection event
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: ChatStreamEventType.INTENT_DETECTED,
-            intent: userIntent,
-            timestamp: new Date().toISOString(),
-          })}\n\n`,
-        ),
-      );
+      streamAndPersistEvent({
+        type: ChatStreamEventType.INTENT_DETECTED,
+        intent: userIntent,
+        timestamp: new Date().toISOString(),
+      });
 
       let userMessageForPrompt = userMessage;
       const isFirstUserTurn = (msgs: ChatMessage[]): boolean =>
@@ -613,15 +675,11 @@ export class ChatEngineV1 {
 
       if (shouldDoSpecExpansion(messages, userIntent)) {
         // Stream phase start event for spec expansion
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.PHASE_STARTED,
-              phase: ChatPhase.SPEC_EXPANSION,
-              description: 'Understanding your request in detail...',
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.PHASE_STARTED,
+          phase: ChatPhase.SPEC_EXPANSION,
+          description: 'Understanding your request in detail...',
+        });
 
         const specExpansionResult = await generateText({
           model: this.getCurrentModel(),
@@ -631,16 +689,12 @@ export class ChatEngineV1 {
         userMessageForPrompt = specExpansionResult.text;
 
         // Stream the expanded spec to the client
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.SPEC_EXPANDED,
-              original_message: userMessage,
-              expanded_message: userMessageForPrompt,
-              timestamp: new Date().toISOString(),
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.SPEC_EXPANDED,
+          original_message: userMessage,
+          expanded_message: userMessageForPrompt,
+          timestamp: new Date().toISOString(),
+        });
 
         // Track token usage for spec expansion
         if (specExpansionResult.usage) {
@@ -675,15 +729,11 @@ export class ChatEngineV1 {
       };
 
       // Stream phase start event for main execution
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: ChatStreamEventType.PHASE_STARTED,
-            phase: ChatPhase.MAIN_EXECUTION,
-            description: 'Executing plan and making changes...',
-          })}\n\n`,
-        ),
-      );
+      streamAndPersistEvent({
+        type: ChatStreamEventType.PHASE_STARTED,
+        phase: ChatPhase.MAIN_EXECUTION,
+        description: 'Executing plan and making changes...',
+      });
 
       const result = streamText({
         model: this.getCurrentModel(),
@@ -716,14 +766,10 @@ export class ChatEngineV1 {
               // Accumulate and stream the final text response
               finalBuffer += part.text;
               assistantResponse += part.text; // Capture for persistence
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
-                    content: part.text,
-                  })}\n\n`,
-                ),
-              );
+              streamAndPersistEvent({
+                type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
+                content: part.text,
+              });
               break;
 
             case 'tool-call':
@@ -735,16 +781,12 @@ export class ChatEngineV1 {
               });
 
               // Inform the client that a tool is being called
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: ChatStreamEventType.TOOL_CALL,
-                    tool: part.toolName,
-                    toolCallId: part.toolCallId,
-                    args: part.input, // It's useful to show the client what the tool is doing
-                  })}\n\n`,
-                ),
-              );
+              streamAndPersistEvent({
+                type: ChatStreamEventType.TOOL_CALL,
+                tool: part.toolName,
+                toolCallId: part.toolCallId,
+                args: part.input, // It's useful to show the client what the tool is doing
+              });
               break;
 
             case 'tool-result':
@@ -766,15 +808,11 @@ export class ChatEngineV1 {
                 ) {
                   executionPlan = (part.output as { plan: string[] }).plan;
                 }
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
-                      toolCallId: part.toolCallId,
-                      result: part.output,
-                    })}\n\n`,
-                  ),
-                );
+                streamAndPersistEvent({
+                  type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
+                  toolCallId: part.toolCallId,
+                  result: part.output,
+                });
               } else if (part.toolName === 'confirm_step_completion') {
                 // Capture completed step for persistence
                 if (
@@ -788,15 +826,11 @@ export class ChatEngineV1 {
                   }
                 }
 
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: ChatStreamEventType.STEP_COMPLETED,
-                      toolCallId: part.toolCallId,
-                      result: part.output,
-                    })}\n\n`,
-                  ),
-                );
+                streamAndPersistEvent({
+                  type: ChatStreamEventType.STEP_COMPLETED,
+                  toolCallId: part.toolCallId,
+                  result: part.output,
+                });
               } else {
                 // Default handling for all other tools (e.g., file manager)
                 let toolResult = {
@@ -824,9 +858,7 @@ export class ChatEngineV1 {
                   };
                 }
 
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(toolResult)}\n\n`),
-                );
+                streamAndPersistEvent(toolResult);
               }
               break;
           }
@@ -856,14 +888,10 @@ export class ChatEngineV1 {
       }
 
       if (finalBuffer.length > 0) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.CHAT_RESPONSE,
-              content: finalBuffer,
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.CHAT_RESPONSE,
+          content: finalBuffer,
+        });
       }
       // Dispatch files to Fargate before completing chat
       if (
@@ -877,49 +905,33 @@ export class ChatEngineV1 {
             updatedFiles: Object.keys(fileManager.getChangedFiles()),
           },
         );
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.FILES_SYNCED,
-              updatedFilesObject: fileManager.getChangedFiles(),
-              deletedFiles: fileManager.getDeletedFiles(),
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.FILES_SYNCED,
+          updatedFilesObject: fileManager.getChangedFiles(),
+          deletedFiles: fileManager.getDeletedFiles(),
+        });
 
         // Stream phase start event for file dispatch
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.PHASE_STARTED,
-              phase: ChatPhase.FILE_DISPATCH,
-              description: 'Building and deploying your changes...',
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.PHASE_STARTED,
+          phase: ChatPhase.FILE_DISPATCH,
+          description: 'Building and deploying your changes...',
+        });
 
-        await this.persistAndDispatchFiles(fileManager, params);
+        await this.persistAndDispatchFiles(
+          fileManager,
+          params,
+          streamAndPersistEvent,
+        );
         // Clear change tracking after successful dispatch
         fileManager.clearChangeTracking();
       }
 
       // Error checking phase after file dispatch
-      // 1. enqueue a new ChatStreamEventType for starting the error checking phase
-      // 2. Use the this.config.dispatcherService.dispatchRunCommand function to run the "npx tsc" command on the dev server
-      // 3. If the stdout is not empty, then the type checking failed. Log the stdout, and then:
-      //     - Stream a new ChatStreamEventType indicating that errors were found and starting the fixing phase
-      //     - Create a new LLM call (using the Vercel AI SDK) to generate a fix for the errors. Set the user intent type to 'error_fixing', and pass in the output from the npx tsc run as a user message
-      //     - Give the LLM all of the same tools that were used in the other two phases
-      //     - Log the token usage for the error_fixing user intent phase (input and output tokens), and aggregate the token usage to the overall total. Move the log for the overall total to after these steps
-      // 4. If the stdout was empty, then log that no errors were found, and then continue
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: ChatStreamEventType.TYPECHECK_STARTED,
-            command: 'npx tsc',
-          })}\n\n`,
-        ),
-      );
+      streamAndPersistEvent({
+        type: ChatStreamEventType.TYPECHECK_STARTED,
+        command: 'npx tsc',
+      });
 
       const typecheckResponse = await this.config.dispatcherService.runCommand(
         {
@@ -940,14 +952,10 @@ export class ChatEngineV1 {
           new Error(errorMessage),
           '[ChatEngine] Failed to execute type check',
         );
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: ChatStreamEventType.TYPECHECK_FAILED,
-              error: errorMessage,
-            })}\n\n`,
-          ),
-        );
+        streamAndPersistEvent({
+          type: ChatStreamEventType.TYPECHECK_FAILED,
+          error: errorMessage,
+        });
       } else {
         const typecheckStdout = typecheckResponse.data.stdout?.trim() ?? '';
         if (typecheckStdout.length > 0) {
@@ -955,24 +963,16 @@ export class ChatEngineV1 {
             output: typecheckStdout,
           });
 
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: ChatStreamEventType.TYPECHECK_ERRORS,
-                output: typecheckStdout,
-              })}\n\n`,
-            ),
-          );
+          streamAndPersistEvent({
+            type: ChatStreamEventType.TYPECHECK_ERRORS,
+            output: typecheckStdout,
+          });
 
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: ChatStreamEventType.PHASE_STARTED,
-                phase: ChatPhase.ERROR_FIXING,
-                description: 'Fixing detected type errors...',
-              })}\n\n`,
-            ),
-          );
+          streamAndPersistEvent({
+            type: ChatStreamEventType.PHASE_STARTED,
+            phase: ChatPhase.ERROR_FIXING,
+            description: 'Fixing detected type errors...',
+          });
 
           const errorFixMessages = [
             ...messages.slice(0, -1).map((msg: ChatMessage) => ({
@@ -1009,14 +1009,10 @@ export class ChatEngineV1 {
               case 'text-delta':
                 errorFixBuffer += part.text;
                 assistantResponse += part.text;
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
-                      content: part.text,
-                    })}\n\n`,
-                  ),
-                );
+                streamAndPersistEvent({
+                  type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
+                  content: part.text,
+                });
                 break;
               case 'tool-call':
                 toolCalls.push({
@@ -1024,16 +1020,12 @@ export class ChatEngineV1 {
                   input: part.input,
                   output: null,
                 });
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      type: ChatStreamEventType.TOOL_CALL,
-                      tool: part.toolName,
-                      toolCallId: part.toolCallId,
-                      args: part.input,
-                    })}\n\n`,
-                  ),
-                );
+                streamAndPersistEvent({
+                  type: ChatStreamEventType.TOOL_CALL,
+                  tool: part.toolName,
+                  toolCallId: part.toolCallId,
+                  args: part.input,
+                });
                 break;
               case 'tool-result': {
                 const matchingToolCall = toolCalls.find(
@@ -1051,15 +1043,11 @@ export class ChatEngineV1 {
                   ) {
                     executionPlan = (part.output as { plan: string[] }).plan;
                   }
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({
-                        type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
-                        toolCallId: part.toolCallId,
-                        result: part.output,
-                      })}\n\n`,
-                    ),
-                  );
+                  streamAndPersistEvent({
+                    type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
+                    toolCallId: part.toolCallId,
+                    result: part.output,
+                  });
                 } else if (part.toolName === 'confirm_step_completion') {
                   if (
                     part.output &&
@@ -1071,26 +1059,18 @@ export class ChatEngineV1 {
                       completedSteps.push(stepNum);
                     }
                   }
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({
-                        type: ChatStreamEventType.STEP_COMPLETED,
-                        toolCallId: part.toolCallId,
-                        result: part.output,
-                      })}\n\n`,
-                    ),
-                  );
+                  streamAndPersistEvent({
+                    type: ChatStreamEventType.STEP_COMPLETED,
+                    toolCallId: part.toolCallId,
+                    result: part.output,
+                  });
                 } else {
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({
-                        type: ChatStreamEventType.TOOL_RESULT,
-                        tool: part.toolName,
-                        toolCallId: part.toolCallId,
-                        result: part.output,
-                      })}\n\n`,
-                    ),
-                  );
+                  streamAndPersistEvent({
+                    type: ChatStreamEventType.TOOL_RESULT,
+                    tool: part.toolName,
+                    toolCallId: part.toolCallId,
+                    result: part.output,
+                  });
                 }
                 break;
               }
@@ -1116,14 +1096,10 @@ export class ChatEngineV1 {
           }
 
           if (errorFixBuffer.length > 0) {
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: ChatStreamEventType.CHAT_RESPONSE,
-                  content: errorFixBuffer,
-                })}\n\n`,
-              ),
-            );
+            streamAndPersistEvent({
+              type: ChatStreamEventType.CHAT_RESPONSE,
+              content: errorFixBuffer,
+            });
           }
 
           // Dispatch error fixes to build worker
@@ -1138,39 +1114,31 @@ export class ChatEngineV1 {
               },
             );
 
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: ChatStreamEventType.FILES_SYNCED,
-                  updatedFilesObject: fileManager.getChangedFiles(),
-                  deletedFiles: fileManager.getDeletedFiles(),
-                })}\n\n`,
-              ),
-            );
+            streamAndPersistEvent({
+              type: ChatStreamEventType.FILES_SYNCED,
+              updatedFilesObject: fileManager.getChangedFiles(),
+              deletedFiles: fileManager.getDeletedFiles(),
+            });
 
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: ChatStreamEventType.PHASE_STARTED,
-                  phase: ChatPhase.FILE_DISPATCH,
-                  description: 'Building and deploying error fixes...',
-                })}\n\n`,
-              ),
-            );
+            streamAndPersistEvent({
+              type: ChatStreamEventType.PHASE_STARTED,
+              phase: ChatPhase.FILE_DISPATCH,
+              description: 'Building and deploying error fixes...',
+            });
 
-            await this.persistAndDispatchFiles(fileManager, params);
+            await this.persistAndDispatchFiles(
+              fileManager,
+              params,
+              streamAndPersistEvent,
+            );
             fileManager.clearChangeTracking();
           }
         } else {
           log2.info('[ChatEngine] TypeScript check passed with no errors');
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: ChatStreamEventType.TYPECHECK_PASSED,
-                message: 'TypeScript check completed successfully.',
-              })}\n\n`,
-            ),
-          );
+          streamAndPersistEvent({
+            type: ChatStreamEventType.TYPECHECK_PASSED,
+            message: 'TypeScript check completed successfully.',
+          });
         }
       }
 
@@ -1190,11 +1158,17 @@ export class ChatEngineV1 {
         ),
       );
 
+      // Persist chat messages with sequence numbers
+      // User message was assigned sequence 0, assistant message is at the end
+      const assistantSequence = eventTracker.sequence++;
+
       await this.persistChatMessages(
         params.chat_session_id,
         userMessage,
         assistantResponse || finalBuffer,
         params.log2,
+        userSequence,
+        assistantSequence,
         params.imageUrl ?? undefined,
         executionPlan,
         fileManager instanceof VirtualFileManager

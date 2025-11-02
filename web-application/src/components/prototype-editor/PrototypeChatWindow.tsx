@@ -882,13 +882,13 @@ export default function PrototypeChatWindow({
         setPrototypeChatSession(chatSession);
       }
 
-      // Then fetch the messages for this session and convert to ChatMessage format
+      // Fetch ALL messages and events for this session, ordered by sequence
       const { data: messagesData, error: messagesError } = await supabase
         .from("prototype_chat_messages")
         .select("*")
         .eq("chat_session_id", chatSession.id)
-        .order("created_at", { ascending: false })
-        .limit(40);
+        .order("sequence", { ascending: true })
+        .limit(200); // Increased limit to include events
       if (messagesError) {
         logger.debug("error", "Error fetching chat messages:", {
           ...messagesError,
@@ -896,17 +896,135 @@ export default function PrototypeChatWindow({
         return;
       }
 
-      // Convert to timeline format and reverse to get chronological order
-      const chatMessages: ConversationTimelineItem[] = (
-        messagesData?.reverse() || []
-      ).map((msg) => ({
-        id: (msg.id as string) || generateTimelineId("history"),
-        kind: (msg.role as "user" | "assistant") ?? "assistant",
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-        imageUrl: msg.image_url || undefined,
-      }));
-      setTimelineItems(chatMessages);
+      // Reconstruct timeline from database rows (chat messages + events)
+      const reconstructedTimeline: ChatTimelineItem[] = [];
+
+      for (const row of messagesData || []) {
+        // Handle chat messages (message_type = 'chat')
+        if (row.message_type === "chat") {
+          reconstructedTimeline.push({
+            id: (row.id as string) || generateTimelineId("history"),
+            kind: (row.role as "user" | "assistant") ?? "assistant",
+            role: row.role as "user" | "assistant",
+            content: row.content,
+            imageUrl: row.image_url || undefined,
+          });
+        }
+        // Handle events (message_type = 'event')
+        else if (row.message_type === "event" && row.event_type) {
+          const eventData = row.event_data as Record<string, unknown> | null;
+
+          // Reconstruct timeline items based on event type
+          switch (row.event_type) {
+            case ChatStreamEventType.EXECUTION_PLAN_CREATED:
+              if (eventData?.result && typeof eventData.result === "object") {
+                const result = eventData.result as Record<string, unknown>;
+                if (Array.isArray(result.plan)) {
+                  reconstructedTimeline.push({
+                    id: (row.id as string) || generateTimelineId("plan"),
+                    kind: "plan",
+                    toolCallId: String(eventData.toolCallId || generateTimelineId("plan")),
+                    plan: result.plan as string[],
+                  });
+                }
+              }
+              break;
+
+            case ChatStreamEventType.STEP_COMPLETED:
+              if (eventData?.result && typeof eventData.result === "object") {
+                const result = eventData.result as Record<string, unknown>;
+                if (typeof result.step === "number") {
+                  reconstructedTimeline.push({
+                    id: (row.id as string) || generateTimelineId("step"),
+                    kind: "step",
+                    toolCallId: String(eventData.toolCallId || generateTimelineId("step")),
+                    step: result.step as number,
+                    summary: typeof result.summary === "string" ? result.summary : undefined,
+                    message: typeof result.message === "string" ? result.message : undefined,
+                  });
+                }
+              }
+              break;
+
+            case ChatStreamEventType.SPEC_EXPANDED:
+              if (eventData?.original_message || eventData?.expanded_message) {
+                reconstructedTimeline.push({
+                  id: (row.id as string) || generateTimelineId("spec"),
+                  kind: "spec_expanded",
+                  original: String(eventData.original_message || ""),
+                  expanded: String(eventData.expanded_message || ""),
+                });
+              }
+              break;
+
+            case ChatStreamEventType.TOOL_CALL:
+              if (eventData?.tool || eventData.toolName) {
+                const toolName = String(eventData.tool || eventData.toolName || "Unknown tool");
+                // Skip orchestration tools (they're shown as plan/step items)
+                if (
+                  toolName.toLowerCase() !== "create_execution_plan" &&
+                  toolName.toLowerCase() !== "confirm_step_completion"
+                ) {
+                  reconstructedTimeline.push({
+                    id: (row.id as string) || generateTimelineId("tool"),
+                    kind: "tool",
+                    tool: toolName,
+                    toolCallId: String(eventData.toolCallId || generateTimelineId("toolcall")),
+                    status: "running",
+                    args: eventData.args,
+                  });
+                }
+              }
+              break;
+
+            case ChatStreamEventType.TOOL_RESULT:
+              if (eventData?.tool || eventData.toolName) {
+                const toolName = String(eventData.tool || eventData.toolName || "Unknown tool");
+                // Skip orchestration tools
+                if (
+                  toolName.toLowerCase() !== "create_execution_plan" &&
+                  toolName.toLowerCase() !== "confirm_step_completion"
+                ) {
+                  const success =
+                    typeof eventData.result === "object" &&
+                      eventData.result !== null &&
+                      typeof (eventData.result as Record<string, unknown>).success === "boolean"
+                      ? Boolean((eventData.result as Record<string, unknown>).success)
+                      : true;
+
+                  reconstructedTimeline.push({
+                    id: (row.id as string) || generateTimelineId("tool"),
+                    kind: "tool",
+                    tool: toolName,
+                    toolCallId: String(eventData.toolCallId || generateTimelineId("toolcall")),
+                    status: success ? "success" : "error",
+                    args: eventData.args,
+                    result: eventData.result,
+                  });
+                }
+              }
+              break;
+
+            case ChatStreamEventType.ERROR:
+            case ChatStreamEventType.DISPATCH_ERROR:
+              if (eventData?.error) {
+                reconstructedTimeline.push({
+                  id: (row.id as string) || generateTimelineId("system"),
+                  kind: "system",
+                  severity: "error",
+                  content: String(eventData.error),
+                });
+              }
+              break;
+
+            // Skip other event types that don't need timeline representation
+            default:
+              break;
+          }
+        }
+      }
+
+      setTimelineItems(reconstructedTimeline);
     }
 
     if (prototypeId && userId) {
@@ -1814,22 +1932,20 @@ export default function PrototypeChatWindow({
                   {item.plan.map((step, index) => (
                     <div key={index} className="flex items-start gap-2">
                       <div
-                        className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5 ${
-                          completedSteps.has(index)
+                        className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5 ${completedSteps.has(index)
                             ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
                             : "border-muted-foreground/40"
-                        }`}
+                          }`}
                       >
                         {completedSteps.has(index) && (
                           <CheckIcon className="w-3 h-3 text-white" />
                         )}
                       </div>
                       <span
-                        className={`flex-1 ${
-                          completedSteps.has(index)
+                        className={`flex-1 ${completedSteps.has(index)
                             ? "text-muted-foreground/70 line-through"
                             : "text-muted-foreground"
-                        }`}
+                          }`}
                       >
                         {step}
                       </span>
@@ -2264,11 +2380,6 @@ export default function PrototypeChatWindow({
               <p className="text-sm text-destructive">
                 You&apos;ve reached your message limit. Please upgrade to
                 continue.
-              </p>
-            )}
-            {isDevServerNotReady && !isAtLimit && (
-              <p className="text-sm text-muted-foreground">
-                Waiting for dev server to connect... ({currentRenderStatus})
               </p>
             )}
             {DEBUG_MODE && (

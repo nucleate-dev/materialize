@@ -838,11 +838,33 @@ const MaterializeRenderSection = forwardRef<
       };
 
       const config = getBadgeConfig(currentRenderStatus);
+      const isStaticBuild = currentRenderStatus === "Static build";
 
       return (
         <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ${config.className}`}>
           <div className={config.dotClassName} style={config.dotStyle}></div>
           {config.text}
+          {isStaticBuild && prototypeId && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartDevServer();
+                    }}
+                    className="ml-1 p-1 hover:bg-primary/10 rounded transition-colors"
+                    aria-label="Start Dev Server"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Start Dev Server</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       );
     };
