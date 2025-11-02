@@ -10,9 +10,11 @@ import type {
   APIResponse,
   RestartDevServerRequestBody,
   RestartDevServerSuccessResponse,
-  RunCommandRequestBody,
-  RunCommandSuccessResponse,
 } from '../types/PublicAPITypes.js';
+import {
+  PublicRunCommandRequest,
+  PublicRunCommandResponse,
+} from '../types/BuildWorkerTypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
 import {
@@ -152,7 +154,7 @@ export class DevelopmentServerService {
 
     // POST /dev-server/run-command
     app.post<{
-      Body: RunCommandRequestBody;
+      Body: PublicRunCommandRequest & { prototype_id: string };
     }>(
       '/dev-server/run-command',
       {
@@ -176,18 +178,18 @@ export class DevelopmentServerService {
   }
 
   private async handleRunCommand(
-    request: FastifyRequest<{ Body: RunCommandRequestBody }>,
+    request: FastifyRequest<{
+      Body: PublicRunCommandRequest & { prototype_id: string };
+    }>,
     reply: FastifyReply,
-  ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+  ): Promise<PublicRunCommandResponse> {
     const token = request.headers.authorization?.split(' ')[1];
     if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message: 'No token provided',
-        } as StandardErrorResponse,
-      });
+      reply.status(HTTP_STATUS.UNAUTHORIZED);
+      return {
+        status: 'timeout',
+        stdout: 'Error: No token provided',
+      };
     }
     const result = await this.dispatcherService.runCommand(
       request.body,
@@ -195,7 +197,7 @@ export class DevelopmentServerService {
       request.log2,
     );
     reply.status(
-      result.data ? HTTP_STATUS.OK : HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      result.status === 'success' ? HTTP_STATUS.OK : HTTP_STATUS.BAD_REQUEST,
     );
     return result;
   }

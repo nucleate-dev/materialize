@@ -1,10 +1,4 @@
-import {
-  APIResponse,
-  BuildStatus,
-  RunCommandRequestBody,
-  RunCommandSuccessResponse,
-  StandardErrorResponse,
-} from '../../../types/PublicAPITypes.js';
+import { BuildStatus } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { CACHE_KEYS, isActiveBuildType } from '../../../types/InternalTypes.js';
 import { GlideClient } from '@valkey/valkey-glide';
@@ -22,11 +16,11 @@ import {
 } from '../../../types/BuildWorkerTypes.js';
 
 export async function handleRunCommandImpl(
-  body: RunCommandRequestBody,
+  body: PublicRunCommandRequest & { prototype_id: string },
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+): Promise<PublicRunCommandResponse> {
   const { prototype_id, command, args, cwd, env, timeout_ms } = body;
 
   // ------------------------------------------------------------------------------------------------
@@ -44,37 +38,15 @@ export async function handleRunCommandImpl(
       !isEditableDevServer(existingDevData.status as BuildStatus)
     ) {
       return {
-        data: null,
-        error: {
-          error: 'Conflict',
-          message: `There is no editable dev server for this prototype`,
-        },
+        status: 'timeout',
+        stdout: 'Error: There is no editable dev server for this prototype',
       };
     }
-    const runCommandResponse = await callFargateRunCommand(
+    return await callFargateRunCommand(
       process.env.FARGATE_DEV_IP,
       { command, args, cwd, env, timeout_ms },
       log2,
     );
-    if (runCommandResponse.status === 'success') {
-      return {
-        data: {
-          stdout: runCommandResponse.stdout,
-          stderr: '', // BuildWorker no longer returns stderr separately
-          exit_code: 0, // Success means exit code 0
-        } as RunCommandSuccessResponse,
-        error: null,
-      };
-    } else {
-      // Status is 'timeout'
-      return {
-        data: null,
-        error: {
-          error: 'Command Execution Timeout',
-          message: 'Command timed out or failed to execute',
-        },
-      };
-    }
   }
   // ------------------------------------------------------------------------------------------------
 
@@ -86,12 +58,9 @@ export async function handleRunCommandImpl(
   );
   if (!authResult || !authResult.canEdit) {
     return {
-      data: null,
-      error: {
-        error: 'Unauthorized',
-        message:
-          'Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
-      },
+      status: 'timeout',
+      stdout:
+        'Error: Invalid JWT, user not authenticated, or user does not have permissions to edit this prototype',
     };
   }
 
@@ -108,11 +77,8 @@ export async function handleRunCommandImpl(
 
     if (!currentBuildId) {
       return {
-        data: null,
-        error: {
-          error: 'Not Found',
-          message: 'No active dev server found for this prototype',
-        },
+        status: 'timeout',
+        stdout: 'Error: No active dev server found for this prototype',
       };
     }
 
@@ -122,22 +88,16 @@ export async function handleRunCommandImpl(
 
     if (!existingBuild || !isActiveBuildType(existingBuild)) {
       return {
-        data: null,
-        error: {
-          error: 'Not Found',
-          message: 'Invalid or missing build data',
-        },
+        status: 'timeout',
+        stdout: 'Error: Invalid or missing build data',
       };
     }
 
     // 5. Check if dev server is in a runnable state
     if (!isEditableDevServer(existingBuild.status)) {
       return {
-        data: null,
-        error: {
-          error: 'Conflict',
-          message: `Cannot run command on dev server in ${existingBuild.status} state`,
-        },
+        status: 'timeout',
+        stdout: `Error: Cannot run command on dev server in ${existingBuild.status} state`,
       };
     }
 
@@ -148,46 +108,26 @@ export async function handleRunCommandImpl(
       log2,
     );
 
-    if (commandResponse.status === 'success') {
-      // 7. Update last_touched timestamp
-      const updatedBuildData = {
-        ...existingBuild,
-        last_touched: Math.floor(Date.now() / 1000),
-      };
+    // 7. Update last_touched timestamp
+    const updatedBuildData = {
+      ...existingBuild,
+      last_touched: Math.floor(Date.now() / 1000),
+    };
 
-      await cache.hset(
-        activeBuildKey,
-        activeBuildToStringRecord(updatedBuildData),
-      );
+    await cache.hset(
+      activeBuildKey,
+      activeBuildToStringRecord(updatedBuildData),
+    );
 
-      return {
-        data: {
-          stdout: commandResponse.stdout,
-          stderr: '', // BuildWorker no longer returns stderr separately
-          exit_code: 0, // Success means exit code 0
-        } as RunCommandSuccessResponse,
-        error: null,
-      };
-    } else {
-      // Status is 'timeout'
-      return {
-        data: null,
-        error: {
-          error: 'Command Execution Timeout',
-          message: 'Command timed out or failed to execute',
-        },
-      };
-    }
+    // Return the command response directly
+    return commandResponse;
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     log2.error(error, 'Failed to run command on dev server');
 
     return {
-      data: null,
-      error: {
-        error: 'Internal Server Error',
-        message: e.message,
-      },
+      status: 'timeout',
+      stdout: `Error: ${e.message}`,
     };
   }
 }

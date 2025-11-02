@@ -19,6 +19,7 @@ import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js
 import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
 import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
 import { SystemLogger } from '../../loggers/SystemLogger.js';
+import { PublicRunCommandRequest, PublicRunCommandResponse } from '../../types/BuildWorkerTypes.js';
 
 dotenv.config();
 
@@ -97,10 +98,10 @@ export class DispatcherService {
   }
 
   public async runCommand(
-    body: RunCommandRequestBody,
+    body: PublicRunCommandRequest & { prototype_id: string },
     jwt: string,
     log2: SystemLogger,
-  ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+  ): Promise<PublicRunCommandResponse> {
     const localLog = log2.child({
       function: 'runCommand',
     });
