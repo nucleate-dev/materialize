@@ -1,6 +1,6 @@
 import { Tool, tool } from 'ai';
-import { ChatEngineParams } from '../engines/ChatEngineV1.js';
 import { z } from 'zod';
+import { ChatEngineParams } from '../../../types/InternalTypes.js';
 
 // NEW: A dedicated method for orchestration tools
 export function createOrchestrationTools(

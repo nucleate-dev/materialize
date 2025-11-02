@@ -1,11 +1,11 @@
 // Lambda@Edge Viewer-Request handler (Node 18+)
 import crypto from "crypto";
 
-const SUPABASE_URL = "https://hfgjmwidcoszkmvejxhw.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZ2ptd2lkY29zemttdmVqeGh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNDY5MTIsImV4cCI6MjA2ODYyMjkxMn0.wlX6Mc6aRnH2prvcqkYvJ4ccxM6oA3XF5gpX5T13d_w"; // needed for public/project-level access
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY; // needed for public/project-level access
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const MATERIALIZE_SERVICE_ACCESS_TOKEN =
-  "F4DTabLba3IqlUkj2TtCEWnq3Y8qEYCHCvaE/jZ0qsw=";
+  process.env.MATERIALIZE_SCREENSHOT_SECRET;
 const SERVICE_COOKIE_NAME = "materializeServiceAccess";
 const USER_COOKIE_NAME = "authToken";
 
@@ -68,52 +68,59 @@ export const handler = async (event) => {
   // If it's a service token, bypass Supabase/RLS checks and proceed
   let visibility = null;
   let latestBuildKey = null;
+  const supabaseUrl = `${SUPABASE_URL}/rest/v1/prototypes?id=eq.${prototypeId}&select=id,visibility,latest_build_key`;
+  const supabaseHeaders = {
+    apikey: SUPABASE_ANON_KEY,
+  };
+  if (isService) {
+    supabaseHeaders.apikey = SUPABASE_SERVICE_ROLE_KEY;
+    supabaseHeaders.Authorization = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+  } else if (token) {
+    supabaseHeaders.Authorization = `Bearer ${token}`;
+  }
+  try {
+    const response = await fetch(supabaseUrl, {
+      headers: supabaseHeaders,
+    });
 
-  if (!isService) {
-    // Not a service token -> treat token as user JWT (or null) and call Supabase
-    const supabaseUrl = `${SUPABASE_URL}/rest/v1/prototypes?id=eq.${prototypeId}&select=id,visibility,latest_build_key`;
-
-    try {
-      const response = await fetch(supabaseUrl, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+    if (!response.ok) {
+      console.log("Supabase denied access:", response.status, {
+        prototypeId,
+        isService,
       });
-
-      if (!response.ok) {
-        console.log("Supabase denied access:", response.status);
+      if (!isService) {
         return {
           status: "403",
           statusDescription: "Forbidden: Access denied",
         };
       }
-
+    } else {
       const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        console.log("Prototype not found or RLS blocked access");
+      if (Array.isArray(data) && data.length > 0) {
+        visibility = data[0].visibility;
+        latestBuildKey = data[0].latest_build_key;
+      } else if (!isService) {
+        console.log("Prototype not found or RLS blocked access", {
+          prototypeId,
+        });
         return {
           status: "403",
           statusDescription: "Forbidden: Prototype not accessible",
         };
       }
-
-      visibility = data[0].visibility;
-      latestBuildKey = data[0].latest_build_key;
-    } catch (err) {
-      console.log("Error fetching from Supabase:", err?.message || String(err));
+    }
+  } catch (err) {
+    console.log("Error fetching from Supabase:", err?.message || String(err), {
+      prototypeId,
+      isService,
+    });
+    if (!isService) {
       return {
         status: "500",
         statusDescription: "Internal Server Error",
         body: "Error verifying access",
       };
     }
-  } else {
-    // isService == true -> bypass Supabase; latestBuildKey remains null and we use fallback 'latest'
-    console.log(
-      "Service token verified — bypassing Supabase checks for",
-      prototypeId,
-    );
   }
 
   const buildFolder = latestBuildKey || "latest";
@@ -141,7 +148,7 @@ export const handler = async (event) => {
   request.uri = newUri;
 
   // --- Preserve original cookie + redirect logic for user JWT tokens from query param ---
-  if (tokenFromQuery && isService) {
+  if (tokenFromQuery && visibility !== "PUBLIC") {
     const qs = request.querystring || "";
     const newQs = qs
       .split("&")
@@ -157,35 +164,9 @@ export const handler = async (event) => {
         "set-cookie": [
           {
             key: "Set-Cookie",
-            value: `${SERVICE_COOKIE_NAME}=1; Path=/; Secure; HttpOnly; SameSite=None`,
-          },
-        ],
-      },
-    };
-  }
-
-  // If token came from query param and prototype is not PUBLIC, set cookie and redirect back to same URL without token
-  if (tokenFromQuery && !isService && visibility !== "PUBLIC") {
-    console.log(
-      "Prototype is not PUBLIC, setting cookie and redirecting to same URL without token",
-    );
-    // remove only the token param from querystring, keep other params intact
-    const qs = request.querystring || "";
-    const newQs = qs
-      .split("&")
-      .filter((p) => !p.startsWith("token=") && p !== "")
-      .join("&");
-    const location = `https://${host}${uri}${newQs ? "?" + newQs : ""}`;
-
-    return {
-      status: "302",
-      statusDescription: "Found",
-      headers: {
-        location: [{ key: "Location", value: location }],
-        "set-cookie": [
-          {
-            key: "Set-Cookie",
-            value: `authToken=${token}; Path=/; Secure; HttpOnly; SameSite=None`,
+            value: isService
+              ? `${SERVICE_COOKIE_NAME}=1; Path=/; Secure; HttpOnly; SameSite=None`
+              : `authToken=${token}; Path=/; Secure; HttpOnly; SameSite=None`,
           },
         ],
       },

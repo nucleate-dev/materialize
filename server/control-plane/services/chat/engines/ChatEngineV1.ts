@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { generateText, stepCountIs, streamText } from 'ai';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import type {
@@ -10,16 +10,10 @@ import type {
   CodeWarning,
   DispatchRequestBody,
   EnhancedChatContext,
-  PrototypeAssetInput,
   PrototypeFileInput,
 } from '../../../types/PublicAPITypes.js';
-import { DispatcherService } from '../../dispatcher/DispatcherService.js';
-import type { DesignStyleKey, PromptConfig } from '../prompts/PROMPTS.js';
 import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS.js';
-import {
-  FileManagerInterface,
-  VirtualFileManager,
-} from '../utils/file-manager.js';
+import { VirtualFileManager } from '../utils/file-manager.js';
 import { detectUserIntent } from '../utils/intent-classifier.js';
 import { fetchImageAsBase64 } from '../utils/image-utils.js';
 import {
@@ -31,6 +25,14 @@ import {
   ChatStreamEventType,
   ImageProcessingStatus,
 } from '../utils/chat-types.js';
+import {
+  ChatEngineConfig,
+  ChatEngineParams,
+  DesignStyleKey,
+  EventTracker,
+  ModelProvider,
+  PromptConfig,
+} from '../../../types/InternalTypes.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -46,8 +48,6 @@ const MODEL_CONFIGS = {
   'openai-mini': 'gpt-5-nano',
 } as const;
 
-type ModelProvider = keyof typeof MODEL_CONFIGS;
-
 const DEFAULT_MODEL_PROVIDER: ModelProvider = 'google';
 
 const CURRENT_MODEL: ModelProvider = ((): ModelProvider => {
@@ -57,54 +57,6 @@ const CURRENT_MODEL: ModelProvider = ((): ModelProvider => {
   }
   return DEFAULT_MODEL_PROVIDER;
 })();
-
-export interface ChatEngineConfig {
-  supabaseUrl: string;
-  supabaseServiceKey: string;
-  googleAiApiKey: string;
-  anthropicApiKey: string;
-  openAiApiKey?: string;
-  dispatcherService: DispatcherService;
-  modelProvider?: ModelProvider;
-}
-
-export interface ChatEngineParams {
-  messages: ChatMessage[];
-  userMessage: string;
-  originalUserMessage: string;
-  fileManager: FileManagerInterface;
-  inputFiles: Record<string, PrototypeFileInput> | null;
-  inputAssets: Record<string, PrototypeAssetInput> | null;
-  imageUrl: string | null;
-  prototype_id: string;
-  token: string;
-  chat_session_id: string;
-  controller: ReadableStreamDefaultController<Uint8Array>;
-  encoder: TextEncoder;
-  log2: SystemLogger;
-  supabase: SupabaseClient;
-  currentViewingPath: string | null;
-  modelProvider?: ModelProvider;
-}
-
-// Event tracking for persistence
-interface EventTracker {
-  sequence: number;
-  events: Array<{
-    event_type: string;
-    event_data: unknown;
-    event_timestamp: string;
-    sequence: number;
-  }>;
-}
-
-export interface ChatEngineResult {
-  assistantResponse: string;
-  executionPlan?: string[];
-  completedSteps?: number[];
-  fileChanges?: Record<string, PrototypeFileInput>;
-  toolCalls?: Array<{ toolName: string; input: unknown; output: unknown }>;
-}
 
 export class ChatEngineV1 {
   private google: ReturnType<typeof createGoogleGenerativeAI>;
@@ -315,11 +267,9 @@ export class ChatEngineV1 {
         });
       }
     } catch (error) {
-      log2.error(
-        error,
-        '[ChatEngine] Error persisting event',
-        { event_type: eventType },
-      );
+      log2.error(error, '[ChatEngine] Error persisting event', {
+        event_type: eventType,
+      });
     }
   }
 
@@ -587,13 +537,9 @@ export class ChatEngineV1 {
     const userSequence = eventTracker.sequence++;
 
     // Helper to stream event to client AND persist to database
-    const streamAndPersistEvent = (
-      event: Record<string, unknown>,
-    ): void => {
+    const streamAndPersistEvent = (event: Record<string, unknown>): void => {
       // Stream to client
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-      );
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
 
       // Extract event type and persist asynchronously (don't block stream)
       const eventType = event.type as string;
@@ -1107,12 +1053,9 @@ export class ChatEngineV1 {
             fileManager instanceof VirtualFileManager &&
             fileManager.hasChanges()
           ) {
-            log2.info(
-              '[ChatEngine] Dispatching error fixes to build worker',
-              {
-                updatedFiles: Object.keys(fileManager.getChangedFiles()),
-              },
-            );
+            log2.info('[ChatEngine] Dispatching error fixes to build worker', {
+              updatedFiles: Object.keys(fileManager.getChangedFiles()),
+            });
 
             streamAndPersistEvent({
               type: ChatStreamEventType.FILES_SYNCED,

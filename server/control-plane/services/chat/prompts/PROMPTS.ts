@@ -1,25 +1,9 @@
-export const DESIGN_STYLE_KEYS = [
-  'tamagui',
-  'stylesheets',
-  'nativewind',
-] as const;
-
-export type DesignStyleKey = (typeof DESIGN_STYLE_KEYS)[number];
-
-export interface PromptConfig {
-  system: string;
-  errorFixing: string;
-  specExpansion: string;
-}
-
-interface StyleDetail {
-  systemIntro: string;
-  designSystemBullet: string;
-  errorFixingNote: string;
-  specAcceptance: string;
-  commonFix: string;
-  visualGuidance: string;
-}
+import {
+  DESIGN_STYLE_KEYS,
+  DesignStyleKey,
+  PromptConfig,
+  StyleDetail,
+} from '../../../types/InternalTypes.js';
 
 const STYLE_DETAILS: Record<DesignStyleKey, StyleDetail> = {
   tamagui: {

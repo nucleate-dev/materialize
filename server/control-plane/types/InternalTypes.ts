@@ -1,4 +1,14 @@
-import type { BuildStatus, CodeError, CodeWarning } from './PublicAPITypes.js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SystemLogger } from '../loggers/SystemLogger.js';
+import { FileManagerInterface } from '../services/chat/utils/file-manager.js';
+import { DispatcherService } from '../services/dispatcher/DispatcherService.js';
+import type {
+  BuildStatus,
+  CodeError,
+  CodeWarning,
+  PrototypeAssetInput,
+  PrototypeFileInput,
+} from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
 // ============================================================================
@@ -182,6 +192,97 @@ export class DispatcherError extends Error {
     super(message);
     this.name = 'DispatcherError';
   }
+}
+
+// ============================================================================
+// CHAT ENGINE TYPES
+// ============================================================================
+
+export const DESIGN_STYLE_KEYS = [
+  'tamagui',
+  'stylesheets',
+  'nativewind',
+] as const;
+
+export type DesignStyleKey = (typeof DESIGN_STYLE_KEYS)[number];
+
+export interface PromptConfig {
+  system: string;
+  errorFixing: string;
+  specExpansion: string;
+}
+
+export interface StyleDetail {
+  systemIntro: string;
+  designSystemBullet: string;
+  errorFixingNote: string;
+  specAcceptance: string;
+  commonFix: string;
+  visualGuidance: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  imageUrl?: string;
+}
+
+// Model Configuration
+export const MODEL_CONFIGS = {
+  google: 'gemini-2.5-flash',
+  anthropic: 'claude-sonnet-4-20250514',
+  openai: 'gpt-5',
+  'openai-mini': 'gpt-5-nano',
+} as const;
+
+export type ModelProvider = keyof typeof MODEL_CONFIGS;
+
+export interface ChatEngineConfig {
+  supabaseUrl: string;
+  supabaseServiceKey: string;
+  googleAiApiKey: string;
+  anthropicApiKey: string;
+  openAiApiKey?: string;
+  dispatcherService: DispatcherService;
+  modelProvider?: ModelProvider;
+}
+
+export interface ChatEngineParams {
+  messages: ChatMessage[];
+  userMessage: string;
+  originalUserMessage: string;
+  fileManager: FileManagerInterface;
+  inputFiles: Record<string, PrototypeFileInput> | null;
+  inputAssets: Record<string, PrototypeAssetInput> | null;
+  imageUrl: string | null;
+  prototype_id: string;
+  token: string;
+  chat_session_id: string;
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  encoder: TextEncoder;
+  log2: SystemLogger;
+  supabase: SupabaseClient;
+  currentViewingPath: string | null;
+  modelProvider?: ModelProvider;
+}
+
+// Event tracking for persistence
+export interface EventTracker {
+  sequence: number;
+  events: Array<{
+    event_type: string;
+    event_data: unknown;
+    event_timestamp: string;
+    sequence: number;
+  }>;
+}
+
+export interface ChatEngineResult {
+  assistantResponse: string;
+  executionPlan?: string[];
+  completedSteps?: number[];
+  fileChanges?: Record<string, PrototypeFileInput>;
+  toolCalls?: Array<{ toolName: string; input: unknown; output: unknown }>;
 }
 
 // ============================================================================
