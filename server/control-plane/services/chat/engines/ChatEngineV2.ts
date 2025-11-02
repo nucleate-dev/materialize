@@ -657,6 +657,22 @@ export class ChatEngineV2 {
         description: 'Executing plan and making changes...',
       });
 
+      // Create callback for dispatching files with event streaming
+      const dispatchWithEvents = async (
+        fileManager: VirtualFileManager,
+      ): Promise<{
+        updatedFiles: string[];
+        updatedFilesObject: Record<string, PrototypeFileInput>;
+        deletedFiles: string[];
+        build_errors?: CodeError[];
+      }> => {
+        return await this.persistAndDispatchFiles(
+          fileManager,
+          params,
+          streamAndPersistEvent,
+        );
+      };
+
       const result = streamText({
         model: this.getCurrentModel(),
         system: selectedSystemPrompt,
@@ -671,7 +687,11 @@ export class ChatEngineV2 {
         tools: {
           ...createOrchestrationTools(params),
           ...createFileManagerTools(params),
-          ...createDevServerTools(params, this.config.dispatcherService),
+          ...createDevServerTools(
+            params,
+            this.config.dispatcherService,
+            dispatchWithEvents,
+          ),
         },
         toolChoice: 'auto',
         stopWhen: stepCountIs(25), // Increased step count for complex plans

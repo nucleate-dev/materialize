@@ -1,7 +1,10 @@
 import { Tool, tool } from 'ai';
 import { z } from 'zod';
 import { ChatEngineParams } from '../../../types/InternalTypes.js';
-import { DispatchRequestBody } from '../../../types/PublicAPITypes.js';
+import {
+  CodeError,
+  PrototypeFileInput,
+} from '../../../types/PublicAPITypes.js';
 import { DispatcherService } from '../../dispatcher/DispatcherService.js';
 import { VirtualFileManager } from './file-manager.js';
 
@@ -404,8 +407,14 @@ export function createFileManagerTools(
 export function createDevServerTools(
   params: ChatEngineParams,
   dispatcherService: DispatcherService,
+  persistAndDispatchCallback: (fileManager: VirtualFileManager) => Promise<{
+    updatedFiles: string[];
+    updatedFilesObject: Record<string, PrototypeFileInput>;
+    deletedFiles: string[];
+    build_errors?: CodeError[];
+  }>,
 ): Record<string, Tool> {
-  const { fileManager, log2, prototype_id, token } = params;
+  const { fileManager, log2 } = params;
 
   return {
     update_dev_server_with_changes: tool({
@@ -434,33 +443,21 @@ export function createDevServerTools(
           };
         }
 
-        const changedFiles = fileManager.getChangedFiles();
-        const deletedFiles = Array.from(fileManager.getDeletedFiles());
-        const filesForDispatch = Object.values(changedFiles);
+        try {
+          const result = await persistAndDispatchCallback(fileManager);
 
-        const requestBody: DispatchRequestBody = {
-          prototype_id,
-          framework: 'expo_react_native',
-          files: filesForDispatch,
-          assets: [],
-          deleted_files: deletedFiles,
-          file_scope: 'updates',
-          hot_reload: true,
-        };
-
-        const dispatchResult = await dispatcherService.dispatch(
-          requestBody,
-          token,
-          toolLog,
-        );
-
-        if (!dispatchResult.data || dispatchResult.error) {
+          return {
+            success: true,
+            dispatched: true,
+            build_errors: result.build_errors,
+            message: 'Changes dispatched to the dev server successfully.',
+          };
+        } catch (error) {
           const errorMessage =
-            dispatchResult.error?.message ??
-            'Failed to dispatch file changes to the dev server.';
-          toolLog.warn('[DevServerTools] Dispatch failed', {
-            error: errorMessage,
-          });
+            error instanceof Error
+              ? error.message
+              : 'Failed to dispatch file changes.';
+          toolLog.error(error, '[DevServerTools] Dispatch callback failed');
 
           return {
             success: false,
@@ -468,17 +465,6 @@ export function createDevServerTools(
             error: errorMessage,
           };
         }
-
-        fileManager.clearChangeTracking();
-
-        return {
-          success: true,
-          dispatched: true,
-          viewing_url: dispatchResult.data.viewing_url,
-          build_errors: dispatchResult.data.build_errors,
-          build_warnings: dispatchResult.data.build_warnings,
-          message: 'Changes dispatched to the dev server successfully.',
-        };
       },
     }),
 
@@ -491,12 +477,12 @@ export function createDevServerTools(
 
         const commandResult = await dispatcherService.runCommand(
           {
-            prototype_id,
+            prototype_id: params.prototype_id,
             command: 'npx tsc',
             timeout_ms: 120000,
             strip_ansi: true,
           },
-          token,
+          params.token,
           toolLog,
         );
 
