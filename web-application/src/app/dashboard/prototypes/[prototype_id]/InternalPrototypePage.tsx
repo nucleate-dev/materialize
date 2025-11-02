@@ -552,6 +552,9 @@ export default function InternalPrototypePage() {
               pollInterval = newInterval; // Update the local variable
             }
           }
+          if (data.data.terminal_url && data.data.terminal_url !== terminalUrl) {
+            setTerminalUrl(data.data.terminal_url);
+          }
         } catch (error) {
           logger.debug("error", "Polling error:", {
             error: error instanceof Error ? error.message : String(error),
