@@ -3,16 +3,16 @@
 import React from "react";
 import ThumbnailCard from "./ThumbnailCard";
 
-export interface ProjectThumbnailProps {
-  projectName: string;
+export interface FolderThumbnailProps {
+  folderName: string;
   thumbnailUrl: string | null;
   lastModified?: string;
   onClick?: () => void;
   onSettings?: () => void;
 }
 
-const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
-  projectName,
+const FolderThumbnail: React.FC<FolderThumbnailProps> = ({
+  folderName,
   thumbnailUrl,
   lastModified,
   onClick,
@@ -20,14 +20,14 @@ const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({
 }) => {
   return (
     <ThumbnailCard
-      name={projectName}
+      name={folderName}
       thumbnailUrl={thumbnailUrl}
       lastModified={lastModified}
-      type="project"
+      type="folder"
       onClick={onClick}
       onSettings={onSettings}
     />
   );
 };
 
-export default ProjectThumbnail;
+export default FolderThumbnail;

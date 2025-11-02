@@ -17,7 +17,7 @@ export interface ThumbnailCardProps {
   name: string;
   thumbnailUrl: string | null;
   lastModified?: string;
-  type: "project" | "prototype" | "canvas";
+  type: "folder" | "prototype" | "canvas";
   onClick?: () => void; // Keep for backward compatibility (will default to edit)
   onView?: () => void;
   onEdit?: () => void;
@@ -41,8 +41,8 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
 
   const getTypeLabel = () => {
     switch (type) {
-      case "project":
-        return "Project";
+      case "folder":
+        return "Folder";
       case "prototype":
         return "Prototype";
       case "canvas":
@@ -53,11 +53,11 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   };
 
   const getEditIcon = () => {
-    return type === "project" ? ArrowUpRight : Pencil;
+    return type === "folder" ? ArrowUpRight : Pencil;
   };
 
   const getEditLabel = () => {
-    return type === "project" ? "Open" : "Edit";
+    return type === "folder" ? "Open" : "Edit";
   };
 
   const EditIcon = getEditIcon();

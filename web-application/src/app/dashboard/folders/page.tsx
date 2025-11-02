@@ -2,8 +2,8 @@
 
 import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
+import FolderThumbnail from "@/components/dashboard/FolderThumbnail";
 import NewFolderModal from "@/components/dashboard/NewFolderModal";
-import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { useUser } from "@/hooks/useUser";
@@ -115,9 +115,9 @@ export default function FoldersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {folders.length > 0 ? (
             folders.map((project) => (
-              <ProjectThumbnail
+              <FolderThumbnail
                 key={project.id}
-                projectName={project.name}
+                folderName={project.name}
                 thumbnailUrl={project.thumbnail_url}
                 lastModified={
                   project.updated_at
