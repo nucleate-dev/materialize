@@ -10,7 +10,6 @@ import {
   isDispatchInProgress,
   isEditableDevServer,
 } from '../../utils/prototypeDevServerStatusUtils.js';
-import { ChatEngineV1 } from './engines/ChatEngineV1.js';
 import { validateChatAuth } from './utils/chat-auth.js';
 import { ChatStreamEventType } from './utils/chat-types.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
@@ -18,6 +17,7 @@ import { VirtualFileManager } from './utils/file-manager.js';
 import { trackChatUsage } from './utils/usage-tracking.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
 import { ChatEngineConfig } from '../../types/InternalTypes.js';
+import { ChatEngineV2 } from './engines/ChatEngineV2.js';
 
 export class ChatService {
   private fastifyApp: FastifyInstance;
@@ -31,7 +31,7 @@ export class ChatService {
   private jwtSecret: string;
 
   private stripe: Stripe;
-  private chatEngine: ChatEngineV1;
+  private chatEngine: ChatEngineV2;
 
   constructor(
     fastifyApp: FastifyInstance,
@@ -71,7 +71,7 @@ export class ChatService {
       openAiApiKey: this.openAiApiKey,
       dispatcherService: this.dispatcherService,
     };
-    this.chatEngine = new ChatEngineV1(chatEngineConfig);
+    this.chatEngine = new ChatEngineV2(chatEngineConfig);
   }
 
   public registerRoutes(app: FastifyInstance): void {
