@@ -8,6 +8,8 @@ import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
+  PublicRunCommandRequest,
+  PublicRunCommandResponse,
   SandboxGitCheckoutRequest,
   SandboxGitCheckoutResponse,
   SandboxMakeDirRequest,
@@ -18,6 +20,7 @@ import {
   SandboxWriteFileResponse,
 } from "../types/BuildWorkerTypes.js";
 import { resolvePathWithinProject } from "../utils/shared-utils.js";
+import { TerminalService } from "./TerminalService.js";
 
 // TODO: Add rate limiting to prevent abuse of sandbox operations
 // Ideas:
@@ -56,15 +59,18 @@ export class SandboxService {
   private readonly workDir: string;
   private readonly log2: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
+  private readonly terminalService: TerminalService;
 
   constructor(
     fastifyApp: FastifyInstance,
     workDir: string,
     logger: SystemLogger,
+    terminalService: TerminalService,
   ) {
     this.fastifyApp = fastifyApp;
     this.workDir = workDir;
     this.log2 = logger.child({ service: "SandboxService" });
+    this.terminalService = terminalService;
   }
 
   public registerRoutes(): void {
@@ -91,6 +97,12 @@ export class SandboxService {
       "/sandbox/git-checkout",
       this.handleSandboxGitCheckout.bind(this),
     );
+
+    // POST /run-command
+    this.fastifyApp.post<{ Body: PublicRunCommandRequest }>(
+      "/run-command",
+      this.runCommand.bind(this),
+    );
   }
 
   /**
@@ -104,10 +116,7 @@ export class SandboxService {
   ): Promise<MakeDirResult> {
     try {
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(
-        this.workDir,
-        relativePath,
-      );
+      const resolvedPath = resolvePathWithinProject(this.workDir, relativePath);
 
       this.log2.info("Creating directory", {
         path: relativePath,
@@ -130,6 +139,240 @@ export class SandboxService {
     }
   }
 
+  private async runCommand(
+    request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicRunCommandResponse> {
+    const { command, args, cwd, env, timeout_ms } = request.body;
+
+    if (!command) {
+      request.log2.error(
+        new Error("Missing required parameter: command"),
+        "Missing required parameter: command",
+        { command, args },
+      );
+      reply.code(400);
+      return {
+        status: "error",
+        error: "command is required",
+      };
+    }
+
+    try {
+      const result = await this.runCommandInternal(
+        command,
+        args || [],
+        cwd || this.workDir,
+        env,
+        timeout_ms || 120000,
+      );
+
+      return {
+        status: result.code === 0 ? "success" : "error",
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exit_code: result.code,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(new Error(errorMessage), "Command execution failed", {
+        stack: errorStack,
+        command,
+        args,
+      });
+      reply.code(500);
+      return {
+        status: "error",
+        error: errorMessage,
+      };
+    }
+  }
+
+  private runCommandInternal(
+    command: string,
+    args: string[],
+    cwd: string,
+    env?: Record<string, string>,
+    timeoutMs: number = 300000, // 5 minutes default
+    sessionId: string = "test",
+  ): Promise<{ stdout: string; stderr: string; code: number }> {
+    return new Promise((resolve, reject) => {
+      let stdout = "";
+      let commandComplete = false;
+      let exitCode = 0;
+      let cleanup: (() => void) | null = null;
+      let exitCodeCheckInterval: NodeJS.Timeout | null = null;
+      let exitIntervalCleanupTimeout: NodeJS.Timeout | null = null;
+
+      const timeoutHandle = setTimeout(() => {
+        if (!commandComplete) {
+          commandComplete = true;
+          const error = `Command timed out after ${timeoutMs}ms: ${command} ${args.join(" ")}`;
+          this.log2.error(new Error(error), "Command timeout");
+          if (exitCodeCheckInterval) {
+            clearInterval(exitCodeCheckInterval);
+            exitCodeCheckInterval = null;
+          }
+          cleanup?.();
+          cleanup = null;
+          reject(new Error(error));
+        }
+      }, timeoutMs);
+
+      const processOutput = (chunk: string): void => {
+        const output = chunk.toString();
+        stdout += output;
+
+        // Try to detect command completion by looking for shell prompt patterns
+        // This is heuristic-based since we're running in a shell
+        const lines = output.split("\n");
+        for (const line of lines) {
+          // Look for common error patterns
+          if (
+            line.includes("command not found") ||
+            line.includes("No such file or directory") ||
+            line.includes("permission denied")
+          ) {
+            if (!commandComplete) {
+              commandComplete = true;
+              exitCode = 1;
+              clearTimeout(timeoutHandle);
+              if (exitCodeCheckInterval) {
+                clearInterval(exitCodeCheckInterval);
+                exitCodeCheckInterval = null;
+              }
+              if (exitIntervalCleanupTimeout) {
+                clearTimeout(exitIntervalCleanupTimeout);
+                exitIntervalCleanupTimeout = null;
+              }
+              cleanup?.();
+              cleanup = null;
+              resolve({
+                stdout: stdout.trim(),
+                stderr: line,
+                code: exitCode,
+              });
+            }
+          }
+        }
+      };
+
+      const listenerDisposer = this.terminalService.addOutputListener(
+        sessionId,
+        processOutput,
+      );
+
+      if (!listenerDisposer) {
+        clearTimeout(timeoutHandle);
+        reject(
+          new Error(`Terminal session ${sessionId} not found or not running`),
+        );
+        return;
+      }
+
+      cleanup = (): void => {
+        listenerDisposer();
+        if (exitIntervalCleanupTimeout) {
+          clearTimeout(exitIntervalCleanupTimeout);
+          exitIntervalCleanupTimeout = null;
+        }
+      };
+
+      // Build environment variables string
+      let envString = "";
+      if (env) {
+        envString = Object.entries(env)
+          .map(([key, value]) => `${key}="${value}"`)
+          .join(" ");
+      }
+
+      // Build the full command with env vars, cd, and command with args
+      const fullCommand = `${envString ? envString + " " : ""}cd ${cwd} && ${command} ${args.join(" ")}; echo "EXIT_CODE=$?"\n`;
+
+      this.log2.info("Sending command to terminal", {
+        command: fullCommand.trim(),
+        sessionId,
+        cwd,
+      });
+
+      try {
+        this.terminalService.sendInput(sessionId, fullCommand);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        clearTimeout(timeoutHandle);
+        if (exitCodeCheckInterval) {
+          clearInterval(exitCodeCheckInterval);
+          exitCodeCheckInterval = null;
+        }
+        if (exitIntervalCleanupTimeout) {
+          clearTimeout(exitIntervalCleanupTimeout);
+          exitIntervalCleanupTimeout = null;
+        }
+        cleanup?.();
+        cleanup = null;
+        commandComplete = true;
+        this.log2.error(
+          new Error(message),
+          "Failed to send command to terminal session",
+          { sessionId, cwd },
+        );
+        reject(
+          new Error(
+            `Failed to send command to terminal session ${sessionId}: ${message}`,
+          ),
+        );
+        return;
+      }
+
+      // Set up a detection for the EXIT_CODE marker
+      exitCodeCheckInterval = setInterval(() => {
+        if (stdout.includes("EXIT_CODE=")) {
+          const match = stdout.match(/EXIT_CODE=(\d+)/);
+          if (match && !commandComplete) {
+            commandComplete = true;
+            exitCode = parseInt(match[1], 10);
+            clearTimeout(timeoutHandle);
+            if (exitCodeCheckInterval) {
+              clearInterval(exitCodeCheckInterval);
+              exitCodeCheckInterval = null;
+            }
+            if (exitIntervalCleanupTimeout) {
+              clearTimeout(exitIntervalCleanupTimeout);
+              exitIntervalCleanupTimeout = null;
+            }
+            cleanup?.();
+            cleanup = null;
+
+            // Remove the EXIT_CODE marker from stdout
+            const cleanStdout = stdout.replace(/EXIT_CODE=\d+/, "").trim();
+
+            this.log2.debug("Command completed", {
+              command,
+              exitCode,
+              sessionId,
+            });
+
+            resolve({
+              stdout: cleanStdout,
+              stderr: exitCode !== 0 ? cleanStdout : "",
+              code: exitCode,
+            });
+          }
+        }
+      }, 100);
+
+      // Clean up interval if timeout occurs
+      exitIntervalCleanupTimeout = setTimeout(() => {
+        if (commandComplete && exitCodeCheckInterval) {
+          clearInterval(exitCodeCheckInterval);
+          exitCodeCheckInterval = null;
+        }
+      }, timeoutMs + 1000);
+    });
+  }
+
   /**
    * Read a file from the sandbox
    * Binary files are base64 encoded
@@ -138,10 +381,7 @@ export class SandboxService {
   public async readFile(relativePath: string): Promise<ReadFileResult> {
     try {
       // Security: Validate path is within workDir
-      const resolvedPath = resolvePathWithinProject(
-        this.workDir,
-        relativePath,
-      );
+      const resolvedPath = resolvePathWithinProject(this.workDir, relativePath);
 
       this.log2.info("Reading file", { path: relativePath, resolvedPath });
 
@@ -292,11 +532,10 @@ export class SandboxService {
         });
         return { success: true, output: result.stdout };
       } else {
-        this.log2.error(
-          new Error(result.stderr),
-          "Git clone failed",
-          { gitUrl, targetPath: resolvedPath },
-        );
+        this.log2.error(new Error(result.stderr), "Git clone failed", {
+          gitUrl,
+          targetPath: resolvedPath,
+        });
         return { success: false, error: result.stderr, output: result.stdout };
       }
     } catch (error: unknown) {
@@ -486,11 +725,10 @@ export class SandboxService {
       if (result.success) {
         return reply.code(200).send({ status: "success" });
       } else {
-        this.log2.error(
-          new Error(result.error),
-          "Failed to create directory",
-          { path, recursive },
-        );
+        this.log2.error(new Error(result.error), "Failed to create directory", {
+          path,
+          recursive,
+        });
         reply.code(500);
         return {
           status: "error",

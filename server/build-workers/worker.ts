@@ -78,7 +78,12 @@ const expoDevServerService = new ExpoDevServerService(
   defaultS3Client,
   terminalService,
 );
-const sandboxService = new SandboxService(app, WORK_DIR, baseLogger);
+const sandboxService = new SandboxService(
+  app,
+  WORK_DIR,
+  baseLogger,
+  terminalService,
+);
 const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
