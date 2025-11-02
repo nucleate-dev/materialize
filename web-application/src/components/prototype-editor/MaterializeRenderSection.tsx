@@ -25,6 +25,9 @@ import type {
   StartDevServerSuccessResponse
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+
+import JSZip from "jszip";
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -34,6 +37,7 @@ import {
   ChevronUp,
   Code2,
   Copy,
+  Download,
   Eye,
   Loader2,
   Monitor,
@@ -189,12 +193,14 @@ const MaterializeRenderSection = forwardRef<
     ref,
   ) => {
     const logger = useProductLogger();
+    const { userPlan, loadingSubscriptionData } = useSubscriptionAccess();
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
     const [isRunningLint, setIsRunningLint] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(() =>
       viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
     );
@@ -580,6 +586,81 @@ const MaterializeRenderSection = forwardRef<
         webPreviewRef.current.location = viewing_url;
       }
     };
+
+    const handleExport = useCallback(async () => {
+      if (loadingSubscriptionData) {
+        alert("We're still loading your subscription status. Please try again in a moment.");
+        return;
+      }
+
+      if (userPlan !== "pro") {
+        alert("Exporting files is a Pro member feature. Upgrade to Pro to export your project.");
+        return;
+      }
+
+      if (!files || Object.keys(files).length === 0) {
+        alert("No files available to export.");
+        return;
+      }
+
+      setIsExporting(true);
+
+      try {
+        const zip = new JSZip();
+
+        Object.values(files).forEach((file) => {
+          zip.file(file.name, file.contents ?? "");
+        });
+
+        if (assets && Object.keys(assets).length > 0) {
+          const assetsFolder = zip.folder("assets");
+          if (assetsFolder) {
+            await Promise.all(
+              Object.values(assets).map(async (asset) => {
+                const sanitizedName = asset.name.replace(/^assets\//i, "");
+
+                try {
+                  const response = await fetch(asset.storage_url);
+                  if (!response.ok) {
+                    throw new Error(`Failed to fetch asset: ${asset.name}`);
+                  }
+
+                  const blob = await response.blob();
+                  assetsFolder.file(sanitizedName, blob);
+                } catch (error) {
+                  logger.debug("error", "Failed to include asset in export", {
+                    asset: asset.name,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              }),
+            );
+          }
+        }
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        const exportName = prototypeId
+          ? `prototype-${prototypeId}.zip`
+          : "prototype-export.zip";
+
+        link.href = downloadUrl;
+        link.download = exportName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      } catch (error) {
+        logger.debug("error", "Failed to export files", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        alert("Failed to export files. Please try again.");
+      } finally {
+        setIsExporting(false);
+      }
+    }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
 
     const handleRunLint = async () => {
       if (!prototypeId) return;
@@ -1157,6 +1238,23 @@ const MaterializeRenderSection = forwardRef<
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
+              {!publicView && !isPreviewView && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="flex-shrink-0"
+                  title="Export project files"
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span className="ml-1.5 hidden md:inline">Export</span>
+                </Button>
+              )}
               {!publicView && (
                 <Button
                   variant={isTerminalOpen ? "default" : "secondary"}
