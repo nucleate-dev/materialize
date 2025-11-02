@@ -22,7 +22,7 @@ const STYLE_DETAILS: Record<DesignStyleKey, StyleDetail> = {
   },
   nativewind: {
     systemIntro:
-      'Use pre-built Gluestack UI components from `@/components/ui/` (imported via @ alias, e.g., `import { Button, ButtonText } from "@/components/ui"`). Check @/components/ui/index.ts to see the available components, and always only use components that exist. Examples include Button, Card, Input, VStack, HStack, Box, Text, Icon, etc. These components are already styled with NativeWind and support variants through props (size, variant, action). For custom layouts, use VStack/HStack/Box with NativeWind `className` utilities (e.g., `className="flex-1 bg-background-0 p-4"`). Theme tokens are available for colors (primary-*, background-*, typography-*, success-*, error-*), spacing (p-4, m-2, gap-3), and sizing. CRITICAL: Always use theme tokens that work in both light AND dark mode - the tokens automatically adapt. Never use raw hex colors or StyleSheet.create - always use className with theme tokens that support dark mode. The application theme colors are defined in `@/components/ui/gluestack-ui-provider/config.ts`.',
+      'Use pre-built Gluestack UI components from `@/components/ui/` via @ alias (Button, Card, Input, VStack, HStack, Box, Text, Icon, etc.). Check index.ts for available components. Style with NativeWind `className` and theme tokens (primary-*, background-*, typography-*, success-*, error-*) that auto-adapt to light/dark mode. Never use StyleSheet.create or raw hex. Config: `@/components/ui/gluestack-ui-provider/config.ts`.',
     designSystemBullet:
       'Import pre-built components from `@/components/ui/` using @ alias (Button, Card, Input, VStack, HStack, Box, Text, Icon, etc.). Style with NativeWind className utilities and theme tokens (primary-*, background-*, typography-*) that automatically support dark mode. Never use StyleSheet.create or inline styles. The application theme colors are defined in `@/components/ui/gluestack-ui-provider/config.ts`.',
     errorFixingNote:
@@ -218,49 +218,33 @@ Summarize the user's request in 2–3 sentences, rephrased as a product descript
 **Visual & Design System**
 ${style.visualGuidance}
 
-**Design Principles (CRITICAL - Follow these to ensure high-quality output):**
+**Design Principles:**
 
-1. **Spacing & Layout Hierarchy**
-   - Use generous whitespace: ample screen padding (24px+), moderate gaps between major sections (16px+), smaller gaps for related items (8px)
-   - Create clear visual hierarchy: larger gaps between unrelated sections vs grouped content
-   - Never cram content: prefer scrollable layouts with breathing room over dense screens
-   - Use consistent padding: Cards should have adequate internal padding (16-24px)
+1. **Spacing & Layout**
+   - Screen padding 24px+, section gaps 16px+, item gaps 8px
+   - Clear hierarchy via whitespace; prefer scrollable over cramped
+   - Cards: 16-24px internal padding, 8-12px border radius
 
-2. **Typography & Readability**
-   - Establish clear hierarchy: Use large text for titles, medium for headings, base size for body text
-   - Limit line length: Text content should feel comfortable to read (not edge-to-edge)
-   - Use color for hierarchy: dark colors for primary text, medium tones for secondary, light tones for tertiary
-   - Bold text sparingly: Use bold/semibold weights only for emphasis
+2. **Typography**
+   - Hierarchy: large titles, medium headings, base body
+   - Color hierarchy: dark primary, medium secondary, light tertiary
+   - Bold sparingly for emphasis
 
-3. **Color & Contrast**
-   - Stick to semantic colors: brand color for primary actions, green for success, red for errors/destructive actions
-   - Use subtle backgrounds: light background for main surface, slightly darker for cards/sections to create depth
-   - Avoid color overload: Maximum 2-3 accent colors per screen (usually brand + one semantic color)
-   - Text contrast: Ensure sufficient contrast between text and background for readability
+3. **Color**
+   - Semantic only: brand for primary, green/red for success/errors
+   - Max 2-3 accents per screen
+   - Sufficient text contrast
 
-4. **Component Composition & Polish**
-   - Cards should feel substantial: Use generous border radius (8-12px), subtle shadows or borders, adequate padding
-   - Buttons should be prominent: Larger size for primary actions, use solid variants with brand colors
-   - Lists need breathing room: moderate spacing between list items (12-16px), not cramped
-   - Icons should enhance, not clutter: Use sparingly, ensure proper sizing (20-24px typical), match text color
+4. **Components**
+   - Buttons: 44-48px height for primary, solid variants with brand colors
+   - Lists: 12-16px spacing between items
+   - Icons: 20-24px, ONE set per screen (Feather/Ionicons/FontAwesome6)
+   - Cards: subtle shadows/borders for depth
 
-5. **Layout Patterns**
-   - Screen structure: Main containers should fill available space with consistent padding throughout
-   - Section headers: Combine heading + description with tight spacing between related text
-   - Card grids: Use consistent spacing between cards (16px), ensure cards have similar heights when possible
-   - Action buttons: Place at bottom for easy thumb access, or in headers for quick access
-
-6. **Visual Consistency**
-   - Rounded corners: Use consistent values throughout (larger for cards, medium for inputs, full circles for avatars)
-   - Shadow depth: Subtle elevation used sparingly, prefer borders for most UI separation
-   - Icon family: Pick ONE icon set per screen (Feather, Ionicons, or FontAwesome6) and stick to it
-   - Button sizes: Use medium size for secondary actions, large for primary/important actions
-
-7. **Mobile-First Considerations**
-   - Touch targets: Buttons/pressables should be minimum 40px tall (prefer 44-48px for primary actions)
-   - Thumb zones: Important actions should be easy to reach (bottom navigation, floating actions)
-   - Scrolling: Expect users to scroll; don't compress content vertically
-   - Loading states: Include proper loading indicators and empty states
+5. **Mobile-First**
+   - Touch targets 40px+ (44-48px preferred)
+   - Important actions in thumb zones (bottom/headers)
+   - Include loading/empty states
 
 **Acceptance Criteria**
 - Home screen updated or created
