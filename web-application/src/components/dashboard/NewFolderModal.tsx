@@ -1,33 +1,33 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { User } from "@supabase/supabase-js";
-import { useState } from "react";
-import { SparklesIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { RocketLaunchIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { User } from "@supabase/supabase-js";
+import { useState } from "react";
 
-interface NewProjectModalProps {
+interface NewFolderModalProps {
   open: boolean;
   onClose: () => void;
   user: User | null;
   onCreated: (projectId: string) => void;
 }
 
-export default function NewProjectModal({
+export default function NewFolderModal({
   open,
   onClose,
   user,
   onCreated,
-}: NewProjectModalProps) {
+}: NewFolderModalProps) {
   const logger = useProductLogger();
   const [name, setName] = useState("");
   const [touched, setTouched] = useState(false);
@@ -85,17 +85,17 @@ export default function NewProjectModal({
             </div>
           </div>
           <DialogTitle className="text-2xl font-bold text-foreground">
-            Create New Project
+            Create New Folder
           </DialogTitle>
           <p className="text-muted-foreground">
-            Start a new project to organize your work
+            Start a new folder to organize your work
           </p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="project-name" className="text-sm font-semibold">
-              Project Name <span className="text-destructive">*</span>
+              Folder Name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="project-name"
@@ -103,18 +103,17 @@ export default function NewProjectModal({
               placeholder="e.g. E-commerce Mobile App ✨"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`h-12 text-lg ${
-                touched && !name.trim()
-                  ? "border-destructive focus-visible:ring-destructive"
-                  : "focus-visible:ring-primary"
-              }`}
+              className={`h-12 text-lg ${touched && !name.trim()
+                ? "border-destructive focus-visible:ring-destructive"
+                : "focus-visible:ring-primary"
+                }`}
               autoFocus
               maxLength={64}
             />
             {touched && !name.trim() && (
               <div className="flex items-center gap-2 text-destructive text-sm font-medium">
                 <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                <span>Project name is required</span>
+                <span>Folder name is required</span>
               </div>
             )}
           </div>
@@ -132,7 +131,7 @@ export default function NewProjectModal({
             ) : (
               <>
                 <RocketLaunchIcon className="w-5 h-5 mr-2" />
-                Create Project
+                Create Folder
               </>
             )}
           </Button>

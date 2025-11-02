@@ -2,7 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import EmptyState from "@/components/dashboard/EmptyState";
-import NewProjectModal from "@/components/dashboard/NewProjectModal";
+import NewFolderModal from "@/components/dashboard/NewFolderModal";
 import ProjectThumbnail from "@/components/dashboard/ProjectThumbnail";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -75,10 +75,10 @@ export default function ProjectsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <h1 className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
-                All projects
+                All Folders
               </h1>
               <p className="text-sm sm:text-base text-body dark:text-bodydark">
-                Create and manage your projects, which hold your prototypes.
+                Create and manage your folders, which hold your projects.
               </p>
             </div>
 
@@ -90,7 +90,7 @@ export default function ProjectsPage() {
                 className="w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                <span className="hidden sm:inline">New Project</span>
+                <span className="hidden sm:inline">New Folder</span>
                 <span className="sm:hidden">New</span>
               </Button>
             </div>
@@ -99,7 +99,7 @@ export default function ProjectsPage() {
       </Card>
 
       {/* Modal for new project */}
-      <NewProjectModal
+      <NewFolderModal
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}

@@ -8,11 +8,9 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-  SidebarSeparator,
+  SidebarMenuItem, SidebarSeparator,
   SidebarTrigger,
-  useSidebar,
+  useSidebar
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
@@ -39,16 +37,16 @@ const DashboardSidebarContent = () => {
 
   const menuItems = [
     {
-      href: "/dashboard/projects",
-      icon: Folder,
-      label: "Projects",
-      active: pathname?.includes("projects"),
-    },
-    {
       href: "/dashboard/prototypes",
       icon: Rocket,
-      label: "Prototypes",
+      label: "Projects",
       active: pathname?.includes("prototypes"),
+    },
+    {
+      href: "/dashboard/projects",
+      icon: Folder,
+      label: "Folders",
+      active: pathname?.includes("projects"),
     },
     {
       href: "/dashboard/design-systems",

@@ -363,10 +363,10 @@ export default function NewPrototypeModal({
               </div>
             </div>
             <DialogTitle className="text-2xl font-bold text-foreground">
-              Create New Prototype
+              Create New Project
             </DialogTitle>
             <p className="text-muted-foreground">
-              Build interactive prototypes to test your ideas
+              Build mobile app projects
             </p>
             {userPlan !== "pro" && (
               <div className="text-sm text-muted-foreground">
@@ -377,7 +377,7 @@ export default function NewPrototypeModal({
                   </div>
                 ) : (
                   <span>
-                    Prototypes: {prototypeCount}/5{" "}
+                    Projects: {prototypeCount}/5{" "}
                     {prototypeCount >= 5 && "(Limit reached)"}
                   </span>
                 )}
@@ -393,10 +393,10 @@ export default function NewPrototypeModal({
                 </div>
                 <div className="flex-1">
                   <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                    Prototype Limit Reached
+                    Project Limit Reached
                   </h4>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-                    FREE users can create up to 5 prototypes. You&apos;ve
+                    FREE users can create up to 5 projects. You&apos;ve
                     reached your limit.
                   </p>
                   <Button
@@ -421,7 +421,7 @@ export default function NewPrototypeModal({
           >
             <div className="space-y-2">
               <Label htmlFor="prototype-name" className="text-sm font-semibold">
-                Prototype Name <span className="text-destructive">*</span>
+                Project Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="prototype-name"
@@ -439,14 +439,14 @@ export default function NewPrototypeModal({
               {touched && !name.trim() && (
                 <div className="flex items-center gap-2 text-destructive text-sm font-medium">
                   <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                  <span>Prototype name is required</span>
+                  <span>Project name is required</span>
                 </div>
               )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="project-select" className="text-sm font-semibold">
-                Project
+                Folder
               </Label>
               <Select
                 value={selectedProject || "none"}
@@ -459,15 +459,15 @@ export default function NewPrototypeModal({
                 <SelectTrigger className="h-12">
                   <div className="flex items-center gap-2">
                     <FolderIcon className="w-4 h-4 text-primary" />
-                    <SelectValue placeholder="Select a project (optional)" />
+                    <SelectValue placeholder="Select a folder (optional)" />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No project</SelectItem>
+                  <SelectItem value="none">No folder</SelectItem>
                   {isLoadingProjects ? (
                     <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
                       <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                      Loading projects...
+                      Loading folders...
                     </div>
                   ) : (
                     projects.map((project) => (
@@ -573,7 +573,7 @@ export default function NewPrototypeModal({
               </Select>
               {userPlan !== "pro" && (
                 <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to set prototype visibility to Self.
+                  Upgrade to Pro to set project visibility to Self.
                 </p>
               )}
             </div>
@@ -595,7 +595,7 @@ export default function NewPrototypeModal({
               ) : (
                 <>
                   <RocketLaunchIcon className="w-5 h-5 mr-2" />
-                  Create Prototype
+                  Create Project
                 </>
               )}
             </Button>

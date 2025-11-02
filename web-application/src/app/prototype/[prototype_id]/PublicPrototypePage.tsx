@@ -1,5 +1,6 @@
 "use client";
 
+import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
 import { HorizontalModeToggle } from "@/components/prototype-editor/horizontal-mode-toggle";
@@ -50,7 +51,6 @@ import {
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { RenderStatus } from "@/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
@@ -59,26 +59,26 @@ function AppSidebar() {
 
   const menuItems = [
     {
-      href: "/dashboard/projects",
-      icon: Folder,
-      label: "Projects",
-      active: pathname?.includes("projects"),
-    },
-    {
       href: "/dashboard/prototypes",
       icon: Rocket,
-      label: "Prototypes",
+      label: "Projects",
       active: pathname?.includes("prototypes"),
+    },
+    {
+      href: "/dashboard/projects",
+      icon: Folder,
+      label: "Folders",
+      active: pathname?.includes("projects"),
     },
     ...(SHOW_WHITEBOARDS
       ? [
-          {
-            href: "/dashboard/whiteboards",
-            icon: SquareStack,
-            label: "Whiteboards",
-            active: pathname?.includes("whiteboards"),
-          },
-        ]
+        {
+          href: "/dashboard/whiteboards",
+          icon: SquareStack,
+          label: "Whiteboards",
+          active: pathname?.includes("whiteboards"),
+        },
+      ]
       : []),
   ];
 
@@ -156,7 +156,7 @@ function AppSidebar() {
 }
 
 export default function PrototypePage() {
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
 

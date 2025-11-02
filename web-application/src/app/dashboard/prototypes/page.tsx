@@ -104,11 +104,11 @@ export default function PrototypesPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <CardTitle className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
-                All prototypes
+                All Projects
               </CardTitle>
               <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
-                Manage and organize your prototypes from across all your
-                projects
+                Manage and organize your projects from across all your
+                folders
               </CardDescription>
             </div>
 
@@ -120,7 +120,7 @@ export default function PrototypesPage() {
                 className="w-full sm:w-auto gap-2"
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">New Prototype</span>
+                <span className="hidden sm:inline">New Project</span>
                 <span className="sm:hidden">New</span>
               </Button>
             </div>

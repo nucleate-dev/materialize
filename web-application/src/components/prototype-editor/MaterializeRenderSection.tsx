@@ -891,7 +891,20 @@ const MaterializeRenderSection = forwardRef<
         return (
           <div className="w-full h-full overflow-auto">
             <div className="min-h-full flex items-center justify-center">
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4 relative">
+                {/* Dev Server Starting Tooltip */}
+                {currentRenderStatus === "Starting Dev Server.." && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
+                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-lg border border-border">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm font-medium">
+                          Dev Server Starting! This can take about 1 minute
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {mobileScreens.map((screen, index) => {
                   const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                   const isPrimaryScreen = index === 0;

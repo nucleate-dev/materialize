@@ -1164,6 +1164,18 @@ export default function PrototypeChatWindow({
               const toolName = String(
                 event.tool || event.toolName || "Unknown tool",
               );
+              // Skip showing tool items for create_execution_plan and confirm_step_completion
+              if (
+                toolName.toLowerCase() === "create_execution_plan" ||
+                toolName.toLowerCase() === "confirm_step_completion"
+              ) {
+                // Still set the thought for create_execution_plan to show progress
+                if (toolName.toLowerCase() === "create_execution_plan") {
+                  setCurrentThought(getToolLabel(toolName, event.args));
+                  setIsThoughtsExpanded(true);
+                }
+                break;
+              }
               const toolItem: ToolTimelineItem = {
                 id: generateTimelineId("tool"),
                 kind: "tool",
@@ -1192,6 +1204,13 @@ export default function PrototypeChatWindow({
               const completedToolName = String(
                 event.tool || event.toolName || "Unknown tool",
               );
+              // Skip updating tool items for create_execution_plan and confirm_step_completion
+              if (
+                completedToolName.toLowerCase() === "create_execution_plan" ||
+                completedToolName.toLowerCase() === "confirm_step_completion"
+              ) {
+                break;
+              }
               setTimelineItems((prev) => {
                 const copy = [...prev];
                 const callId = String(
@@ -1253,6 +1272,8 @@ export default function PrototypeChatWindow({
                 setCompletedSteps(new Set());
                 setExplicitlyCompletedSteps(new Set());
                 setIsThoughtsExpanded(true);
+                // Clear the "Creating execution plan" thought since plan is now shown
+                setCurrentThought("");
               }
               break;
 
@@ -1771,6 +1792,14 @@ export default function PrototypeChatWindow({
         );
 
       case "tool": {
+        // Don't render create_execution_plan or confirm_step_completion tools
+        const normalizedTool = item.tool.toLowerCase();
+        if (
+          normalizedTool === "create_execution_plan" ||
+          normalizedTool === "confirm_step_completion"
+        ) {
+          return null;
+        }
         const Icon = getToolIcon(item.tool);
         const label = getToolLabel(item.tool, item.args, item.result);
         const detail = getToolDetail(item.result);
@@ -1841,24 +1870,13 @@ export default function PrototypeChatWindow({
         );
 
       case "step":
+        const stepText = item.summary || item.message || "";
+        if (!stepText) return null;
         return (
           <div key={item.id} className="flex justify-start">
-            <div className="flex max-w-[90%] items-start gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
-              <CheckCircleIcon className="mt-0.5 h-4 w-4" />
-              <div>
-                <div className="font-semibold">
-                  Step {item.step} completed
-                </div>
-                {item.summary && (
-                  <div className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
-                    {item.summary}
-                  </div>
-                )}
-                {item.message && !item.summary && (
-                  <div className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
-                    {item.message}
-                  </div>
-                )}
+            <div className="max-w-[90%] text-sm leading-relaxed text-foreground">
+              <div className="text-muted-foreground">
+                {stepText}
               </div>
             </div>
           </div>
@@ -2067,10 +2085,24 @@ export default function PrototypeChatWindow({
             {timelineItems.map((item) => renderTimelineItem(item))}
             {isChatLoading && isConnected && !currentThought && (
               <div className="flex justify-start">
-                <div className="max-w-[90%] rounded-lg p-3 bg-muted">
-                  <div className="text-sm text-muted-foreground">
-                    Thinking...
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <div className="relative flex items-center justify-center">
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-pulse"
+                      style={{
+                        filter: "drop-shadow(0 0 4px hsl(var(--primary) / 0.8)) drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
+                      }}
+                    ></div>
+                    <div
+                      className="absolute inset-0 w-2 h-2 bg-primary rounded-full animate-ping opacity-50"
+                      style={{
+                        filter: "drop-shadow(0 0 6px hsl(var(--primary) / 0.9))",
+                      }}
+                    ></div>
                   </div>
+                  <span className="text-sm font-medium shimmer-text">
+                    Thinking...
+                  </span>
                 </div>
               </div>
             )}
@@ -2190,7 +2222,7 @@ export default function PrototypeChatWindow({
                     handleTextareaChange(e.target.value, target.selectionStart);
                   }}
                   placeholder="Describe the mobile app you want to build..."
-                  className="min-h-[140px] resize-none text-[15px] border-0 px-4 pt-3 pr-12 pb-14 focus-visible:ring-0"
+                  className="min-h-[180px] resize-y text-[15px] border-0 px-4 pt-3 pr-12 pb-20 focus-visible:ring-0"
                   disabled={isInputDisabled}
                   onKeyDown={(e) => {
                     // Handle autocomplete navigation
@@ -2224,7 +2256,7 @@ export default function PrototypeChatWindow({
                 />
 
                 {/* Bottom Controls */}
-                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2 border-t bg-muted/30">
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2 border-t bg-background z-10">
                   <div className="flex items-center gap-2">
                     {/* Hidden file input */}
                     <input

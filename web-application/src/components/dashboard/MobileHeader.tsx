@@ -38,16 +38,16 @@ const MobileHeader = () => {
       active: pathname === "/dashboard",
     },
     {
-      href: "/dashboard/projects",
-      icon: Folder,
-      label: "Projects",
-      active: pathname?.includes("projects"),
-    },
-    {
       href: "/dashboard/prototypes",
       icon: Rocket,
-      label: "Prototypes",
+      label: "Projects",
       active: pathname?.includes("prototypes"),
+    },
+    {
+      href: "/dashboard/projects",
+      icon: Folder,
+      label: "Folders",
+      active: pathname?.includes("projects"),
     },
     {
       href: "/dashboard/whiteboards",

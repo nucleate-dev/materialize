@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/classNames";
-import { Plus, FolderOpen, Layers, PenTool } from "lucide-react";
+import { FolderOpen, Layers, PenTool, Plus } from "lucide-react";
+import React from "react";
 
 interface EmptyStateProps {
   type: "projects" | "prototypes" | "whiteboards";
@@ -24,20 +24,20 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   // Default content based on type
   const defaultContent = {
     projects: {
-      title: "No projects yet",
+      title: "No folders yet",
       description:
-        "Create your first project to start prototyping your ideas at the speed of thought.",
-      buttonText: "Create First Project",
+        "Create your first folder to start organizing your work at the speed of thought.",
+      buttonText: "Create First Folder",
       icon: FolderOpen,
       gradient:
         "from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30",
       iconColor: "text-primary dark:text-primary",
     },
     prototypes: {
-      title: "No prototypes yet",
+      title: "No projects yet",
       description:
-        "Create your first prototype to start prototyping your ideas at the speed of thought.",
-      buttonText: "Create First Prototype",
+        "Create your first project to start prototyping your ideas at the speed of thought.",
+      buttonText: "Create First Project",
       icon: Layers,
       gradient:
         "from-success/20 to-info/20 dark:from-success/30 dark:to-info/30",
