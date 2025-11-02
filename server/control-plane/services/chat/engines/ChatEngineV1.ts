@@ -950,6 +950,10 @@ export class ChatEngineV1 {
       output: unknown;
     }> = [];
 
+    // Track total token usage across all phases
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
     try {
       log2.consoleLogDevOnly(
         'info',
@@ -977,10 +981,16 @@ export class ChatEngineV1 {
 
         // Track token usage for spec expansion
         if (specExpansionResult.usage) {
+          const specInputTokens = specExpansionResult.usage.inputTokens ?? 0;
+          const specOutputTokens = specExpansionResult.usage.outputTokens ?? 0;
+
+          totalInputTokens += specInputTokens;
+          totalOutputTokens += specOutputTokens;
+
           log2.metricTokenUsage(
             MODEL_CONFIGS[this.modelProvider],
-            specExpansionResult.usage.inputTokens ?? 0,
-            specExpansionResult.usage.outputTokens ?? 0,
+            specInputTokens,
+            specOutputTokens,
             { intent: 'spec_expansion' },
           );
         }
@@ -1157,11 +1167,27 @@ export class ChatEngineV1 {
 
       // Track token usage for main chat
       if (finalResultUsage) {
+        const chatInputTokens = finalResultUsage.inputTokens ?? 0;
+        const chatOutputTokens = finalResultUsage.outputTokens ?? 0;
+
+        totalInputTokens += chatInputTokens;
+        totalOutputTokens += chatOutputTokens;
+
         log2.metricTokenUsage(
           MODEL_CONFIGS[this.modelProvider],
-          finalResultUsage.inputTokens ?? 0,
-          finalResultUsage.outputTokens ?? 0,
+          chatInputTokens,
+          chatOutputTokens,
           { intent: userIntent },
+        );
+      }
+
+      // Track total token usage across all phases
+      if (totalInputTokens > 0 || totalOutputTokens > 0) {
+        log2.metricTokenUsage(
+          MODEL_CONFIGS[this.modelProvider],
+          totalInputTokens,
+          totalOutputTokens,
+          { intent: 'total_chat_call' },
         );
       }
 
