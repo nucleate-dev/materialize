@@ -1,7 +1,6 @@
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { supabase } from "@/ClientConstants";
 import type {
-  ManageBillingRequestBody,
   ManageBillingSuccessResponse,
   ManageBillingErrorResponse,
   APIResponse,
@@ -60,7 +59,7 @@ export async function handleRedirectToStripeCustomerPortal(
         "Content-Type": "application/json",
       },
       // Empty body since user ID comes from JWT
-      body: JSON.stringify({} as ManageBillingRequestBody),
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -75,7 +74,10 @@ export async function handleRedirectToStripeCustomerPortal(
       return;
     }
 
-    const result: APIResponse<ManageBillingSuccessResponse, ManageBillingErrorResponse> = await response.json();
+    const result: APIResponse<
+      ManageBillingSuccessResponse,
+      ManageBillingErrorResponse
+    > = await response.json();
 
     // Handle successful response
     if (result.data) {
