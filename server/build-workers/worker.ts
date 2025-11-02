@@ -78,7 +78,12 @@ const expoDevServerService = new ExpoDevServerService(
   defaultS3Client,
   terminalService,
 );
-const sandboxService = new SandboxService(WORK_DIR, baseLogger);
+const sandboxService = new SandboxService(
+  app,
+  WORK_DIR,
+  baseLogger,
+  terminalService,
+);
 const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
@@ -139,6 +144,9 @@ publicApiService.registerRoutes(app);
 
 // Setup terminal WebSocket routes
 terminalService.registerRoutes();
+
+// Setup sandbox API routes
+sandboxService.registerRoutes();
 
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {
