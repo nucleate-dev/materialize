@@ -229,7 +229,21 @@ export class InternalBuildWorkerDevProxyService {
       });
 
       const startedAt = performance.now();
-      const controller = AbortSignal.timeout(30_000);
+      let requestTimeoutMs = 30_000;
+      if (
+        normalizedMethod === 'POST' &&
+        normalizePath(path) === '/run-command' &&
+        payload &&
+        typeof payload === 'object'
+      ) {
+        const candidate = Number((payload as { timeout_ms?: unknown }).timeout_ms);
+        if (Number.isFinite(candidate) && candidate > 0) {
+          // Allow some buffer beyond the sandbox timeout but cap at 10 minutes
+          requestTimeoutMs = Math.min(candidate + 5_000, 600_000);
+        }
+      }
+
+      const controller = AbortSignal.timeout(requestTimeoutMs);
       let response: Response;
       try {
         response = await fetch(targetUrl, {
@@ -240,7 +254,10 @@ export class InternalBuildWorkerDevProxyService {
         });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        log.error(err, 'Failed to reach build worker endpoint', { targetUrl });
+        log.error(err, 'Failed to reach build worker endpoint', {
+          targetUrl,
+          timeoutMs: requestTimeoutMs,
+        });
         const isTimeout = err.name === 'TimeoutError';
         return reply
           .status(

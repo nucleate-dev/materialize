@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +51,8 @@ export default function BuildWorkerDevPage() {
   const [commandArgs, setCommandArgs] = useState("");
   const [commandCwd, setCommandCwd] = useState("");
   const [commandTimeout, setCommandTimeout] = useState("120000");
+  const [commandSessionId, setCommandSessionId] = useState("");
+  const [stripAnsiOutput, setStripAnsiOutput] = useState(true);
   const [runningCommand, setRunningCommand] = useState(false);
   const [commandResponse, setCommandResponse] = useState<string>("");
 
@@ -114,6 +117,7 @@ export default function BuildWorkerDevPage() {
       if (commandTimeout) {
         payload.timeout_ms = parseInt(commandTimeout, 10);
       }
+      payload.strip_ansi = stripAnsiOutput;
 
       const requestPayload = {
         endpoint: endpoint.trim(),
@@ -371,6 +375,36 @@ export default function BuildWorkerDevPage() {
                     disabled={runningCommand}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="commandSessionId">
+                  Session ID (optional)
+                </Label>
+                <Input
+                  id="commandSessionId"
+                  placeholder="Use an existing terminal session"
+                  value={commandSessionId}
+                  onChange={(e) => setCommandSessionId(e.target.value)}
+                  disabled={runningCommand}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to create a temporary session for this command.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="stripAnsi"
+                  checked={stripAnsiOutput}
+                  onCheckedChange={(checked) =>
+                    setStripAnsiOutput(Boolean(checked))
+                  }
+                  disabled={runningCommand}
+                />
+                <Label htmlFor="stripAnsi" className="font-normal">
+                  Strip ANSI color codes and control characters from output
+                </Label>
               </div>
             </div>
 

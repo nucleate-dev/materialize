@@ -185,6 +185,7 @@ export interface PublicRunCommandRequest {
   env?: Record<string, string>;
   timeout_ms?: number;
   session_id?: string;
+  strip_ansi?: boolean;
 }
 
 export interface PublicRunCommandResponse {
