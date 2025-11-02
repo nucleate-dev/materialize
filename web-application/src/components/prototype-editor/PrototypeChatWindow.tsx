@@ -11,6 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DEBUG_MODE } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
@@ -154,6 +161,12 @@ export interface PrototypeChatWindowProps {
 
   // Current viewing path for LLM context
   currentViewingPath: string;
+
+  // Model provider selection
+  modelProvider: "google" | "anthropic" | "openai" | "openai-mini";
+  onModelProviderChange: (
+    provider: "google" | "anthropic" | "openai" | "openai-mini",
+  ) => void;
 }
 
 export default function PrototypeChatWindow({
@@ -168,6 +181,8 @@ export default function PrototypeChatWindow({
   currentRenderStatus,
   onCurrentRenderStatusChange,
   currentViewingPath,
+  modelProvider,
+  onModelProviderChange,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
   const { user } = useUser();
@@ -876,6 +891,7 @@ export default function PrototypeChatWindow({
         prototype_id: prototypeId || "",
         imageUrl: imageUrl, // Send the storage URL (will be converted to base64 by server)
         currentViewingPath: currentViewingPath,
+        modelProvider: modelProvider,
       };
       setMessages(newMessages);
       setCurrentMessage("");
@@ -964,6 +980,7 @@ export default function PrototypeChatWindow({
       setIsChatLoading,
       imagePreview,
       currentViewingPath,
+      modelProvider,
     ],
   );
 
@@ -1093,9 +1110,24 @@ export default function PrototypeChatWindow({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ChatBubbleLeftRightIcon className="w-5 h-5" />
             <h2 className="text-lg font-semibold">Chat</h2>
+            {/* Model Selector */}
+            <Select
+              value={modelProvider}
+              onValueChange={onModelProviderChange}
+            >
+              <SelectTrigger className="w-[180px] h-8">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="google">Gemini 2.5 Flash</SelectItem>
+                <SelectItem value="anthropic">Claude Sonnet 4</SelectItem>
+                <SelectItem value="openai">GPT-5</SelectItem>
+                <SelectItem value="openai-mini">GPT-5 Nano</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-2">
             {buildErrors.length > 0 && (

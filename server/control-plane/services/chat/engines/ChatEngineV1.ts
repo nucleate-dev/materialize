@@ -57,6 +57,7 @@ export interface ChatEngineConfig {
   anthropicApiKey: string;
   openAiApiKey?: string;
   dispatcherService: DispatcherService;
+  modelProvider?: ModelProvider;
 }
 
 export interface ChatEngineParams {
@@ -75,6 +76,7 @@ export interface ChatEngineParams {
   log2: SystemLogger;
   supabase: SupabaseClient;
   currentViewingPath: string | null;
+  modelProvider?: ModelProvider;
 }
 
 export interface ChatEngineResult {
@@ -90,9 +92,11 @@ export class ChatEngineV1 {
   private anthropic: ReturnType<typeof createAnthropic>;
   private openai?: ReturnType<typeof createOpenAI>;
   private config: ChatEngineConfig;
+  private modelProvider: ModelProvider;
 
   constructor(config: ChatEngineConfig) {
     this.config = config;
+    this.modelProvider = config.modelProvider ?? CURRENT_MODEL;
 
     this.google = createGoogleGenerativeAI({
       apiKey: config.googleAiApiKey,
@@ -103,7 +107,7 @@ export class ChatEngineV1 {
     });
 
     if (
-      (CURRENT_MODEL === 'openai' || CURRENT_MODEL === 'openai-mini') &&
+      (this.modelProvider === 'openai' || this.modelProvider === 'openai-mini') &&
       !config.openAiApiKey
     ) {
       throw new Error('OpenAI API key must be configured to use OpenAI models');
@@ -117,7 +121,7 @@ export class ChatEngineV1 {
   }
 
   private getCurrentModel(): LanguageModelV2 {
-    switch (CURRENT_MODEL) {
+    switch (this.modelProvider) {
       case 'google':
         return this.google(MODEL_CONFIGS.google);
       case 'anthropic':
@@ -127,7 +131,7 @@ export class ChatEngineV1 {
         if (!this.openai) {
           throw new Error('OpenAI API key is not configured for ChatEngine');
         }
-        return this.openai(MODEL_CONFIGS[CURRENT_MODEL]);
+        return this.openai(MODEL_CONFIGS[this.modelProvider]);
       default:
         return this.google(MODEL_CONFIGS.google);
     }
@@ -902,7 +906,13 @@ export class ChatEngineV1 {
       log2,
       fileManager,
       supabase,
+      modelProvider,
     } = params;
+
+    // Override instance modelProvider if provided in params
+    const effectiveModelProvider = modelProvider ?? this.modelProvider;
+    const previousModelProvider = this.modelProvider;
+    this.modelProvider = effectiveModelProvider;
 
     const { promptConfig } = await this.resolvePromptConfig(params);
 
@@ -960,7 +970,7 @@ export class ChatEngineV1 {
         // Track token usage for spec expansion
         if (specExpansionResult.usage) {
           log2.metricTokenUsage(
-            MODEL_CONFIGS[CURRENT_MODEL],
+            MODEL_CONFIGS[this.modelProvider],
             specExpansionResult.usage.inputTokens ?? 0,
             specExpansionResult.usage.outputTokens ?? 0,
             specExpansionResult.usage.totalTokens ?? 0,
@@ -1141,7 +1151,7 @@ export class ChatEngineV1 {
       // Track token usage for main chat
       if (finalResultUsage) {
         log2.metricTokenUsage(
-          MODEL_CONFIGS[CURRENT_MODEL],
+          MODEL_CONFIGS[this.modelProvider],
           finalResultUsage.inputTokens ?? 0,
           finalResultUsage.outputTokens ?? 0,
           finalResultUsage.totalTokens ?? 0,
@@ -1219,6 +1229,9 @@ export class ChatEngineV1 {
           })}\n\n`,
         ),
       );
+    } finally {
+      // Restore previous modelProvider
+      this.modelProvider = previousModelProvider;
     }
   }
 }

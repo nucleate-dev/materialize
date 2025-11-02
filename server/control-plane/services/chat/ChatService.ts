@@ -141,6 +141,10 @@ export class ChatService {
               prototype_id: { type: 'string' },
               imageUrl: { type: 'string' },
               currentViewingPath: { type: 'string' },
+              modelProvider: {
+                type: 'string',
+                enum: ['google', 'anthropic', 'openai', 'openai-mini'],
+              },
             },
           },
         },
@@ -165,6 +169,7 @@ export class ChatService {
         prototype_id,
         imageUrl,
         currentViewingPath,
+        modelProvider,
       } = request.body;
 
       // ------------------------------------------------------------------------------------------------
@@ -283,6 +288,7 @@ export class ChatService {
               log2: request.log2,
               imageUrl: imageUrl ?? null,
               currentViewingPath: currentViewingPath ?? null,
+              modelProvider,
             });
 
             // ------------------------------------------------------------------------------------------------

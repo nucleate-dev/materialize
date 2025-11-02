@@ -127,6 +127,11 @@ export default function InternalPrototypePage() {
   // Current viewing path tracking
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
+  // Model provider selection
+  const [modelProvider, setModelProvider] = useState<
+    "google" | "anthropic" | "openai" | "openai-mini"
+  >("google");
+
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
@@ -804,6 +809,9 @@ export default function InternalPrototypePage() {
                   onCurrentRenderStatusChange={setCurrentRenderStatus}
                   // Current viewing path for LLM context
                   currentViewingPath={currentViewingPath}
+                  // Model provider selection
+                  modelProvider={modelProvider}
+                  onModelProviderChange={setModelProvider}
                 />
               </div>
             </CardContent>
