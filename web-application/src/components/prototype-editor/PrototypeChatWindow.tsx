@@ -53,6 +53,7 @@ import {
   CommandLineIcon,
   CpuChipIcon,
   DocumentPlusIcon,
+  ExclamationTriangleIcon,
   EyeIcon,
   InformationCircleIcon,
   ListBulletIcon,
@@ -61,7 +62,9 @@ import {
   PencilIcon,
   PhotoIcon,
   RocketLaunchIcon,
-  TrashIcon, XCircleIcon,
+  TrashIcon,
+  WrenchScrewdriverIcon,
+  XCircleIcon,
   XMarkIcon
 } from "@heroicons/react/24/outline";
 import {
@@ -139,13 +142,22 @@ type SystemTimelineItem = {
   content: string;
 };
 
+type TypecheckTimelineItem = {
+  id: string;
+  kind: "typecheck";
+  status: "running" | "passed" | "failed" | "errors";
+  output?: string;
+  errorMessage?: string;
+};
+
 type ChatTimelineItem =
   | ConversationTimelineItem
   | ToolTimelineItem
   | PlanTimelineItem
   | StepTimelineItem
   | SpecExpandedTimelineItem
-  | SystemTimelineItem;
+  | SystemTimelineItem
+  | TypecheckTimelineItem;
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -899,7 +911,7 @@ export default function PrototypeChatWindow({
       // Reconstruct timeline from database rows (chat messages + events)
       const reconstructedTimeline: ChatTimelineItem[] = [];
       // Track tool calls to merge TOOL_CALL and TOOL_RESULT events
-      const toolCallMap = new Map<string, { callRow?: typeof messagesData[0], resultRow?: typeof messagesData[0] }>();
+      const toolCallMap = new Map<string, { callRow?: typeof messagesData[0], resultRow?: typeof messagesData[0]; }>();
 
       // First pass: group tool events by toolCallId
       for (const row of messagesData || []) {
@@ -1147,6 +1159,7 @@ export default function PrototypeChatWindow({
             imageUrl?: string;
             original_message?: string;
             expanded_message?: string;
+            output?: string;
           };
           try {
             event = JSON.parse(dataText);
@@ -1531,6 +1544,91 @@ export default function PrototypeChatWindow({
                   },
                 ]);
               }
+              break;
+
+            case ChatStreamEventType.TYPECHECK_STARTED:
+              logger.debug("log", "Typecheck started");
+              setTimelineItems((prev) => [
+                ...prev,
+                {
+                  id: generateTimelineId("typecheck"),
+                  kind: "typecheck",
+                  status: "running",
+                },
+              ]);
+              break;
+
+            case ChatStreamEventType.TYPECHECK_PASSED:
+              logger.debug("log", "Typecheck passed");
+              setTimelineItems((prev) => {
+                const copy = [...prev];
+                const typecheckIndex = copy.findIndex(
+                  (item) => item.kind === "typecheck" && item.status === "running",
+                );
+                if (typecheckIndex !== -1) {
+                  copy[typecheckIndex] = {
+                    ...(copy[typecheckIndex] as TypecheckTimelineItem),
+                    status: "passed",
+                  };
+                } else {
+                  copy.push({
+                    id: generateTimelineId("typecheck"),
+                    kind: "typecheck",
+                    status: "passed",
+                  });
+                }
+                return copy;
+              });
+              break;
+
+            case ChatStreamEventType.TYPECHECK_ERRORS:
+              logger.debug("log", "Typecheck errors detected");
+              setTimelineItems((prev) => {
+                const copy = [...prev];
+                const typecheckIndex = copy.findIndex(
+                  (item) => item.kind === "typecheck" && item.status === "running",
+                );
+                if (typecheckIndex !== -1) {
+                  copy[typecheckIndex] = {
+                    ...(copy[typecheckIndex] as TypecheckTimelineItem),
+                    status: "errors",
+                    output: typeof event.output === "string" ? event.output : undefined,
+                  };
+                } else {
+                  copy.push({
+                    id: generateTimelineId("typecheck"),
+                    kind: "typecheck",
+                    status: "errors",
+                    output: typeof event.output === "string" ? event.output : undefined,
+                  });
+                }
+                return copy;
+              });
+              break;
+
+            case ChatStreamEventType.TYPECHECK_FAILED:
+              logger.debug("log", "Typecheck failed");
+              setTimelineItems((prev) => {
+                const copy = [...prev];
+                const typecheckIndex = copy.findIndex(
+                  (item) => item.kind === "typecheck" && item.status === "running",
+                );
+                if (typecheckIndex !== -1) {
+                  copy[typecheckIndex] = {
+                    ...(copy[typecheckIndex] as TypecheckTimelineItem),
+                    status: "failed",
+                    errorMessage: typeof event.error === "string" ? event.error : undefined,
+                  };
+                } else {
+                  copy.push({
+                    id: generateTimelineId("typecheck"),
+                    kind: "typecheck",
+                    status: "failed",
+                    errorMessage: typeof event.error === "string" ? event.error : undefined,
+                  });
+                }
+                return copy;
+              });
               break;
           }
         }
@@ -2056,6 +2154,97 @@ export default function PrototypeChatWindow({
                 <Icon className="mt-0.5 h-4 w-4" />
                 <span>{item.content}</span>
               </div>
+            </div>
+          </div>
+        );
+      }
+
+      case "typecheck": {
+        const isRunning = item.status === "running";
+        const isPassed = item.status === "passed";
+        const hasErrors = item.status === "errors";
+        const isFailed = item.status === "failed";
+        const [isExpanded, setIsExpanded] = useState(false);
+
+        let containerClasses = "";
+        let icon: IconComponent;
+        let statusText = "";
+        let statusIcon: React.ReactNode = null;
+
+        if (isRunning) {
+          containerClasses = "border border-border/50 bg-muted/40";
+          icon = WrenchScrewdriverIcon;
+          statusText = "Running type check...";
+          statusIcon = (
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          );
+        } else if (isPassed) {
+          containerClasses = "border border-emerald-500/40 bg-emerald-500/10";
+          icon = CheckCircleIcon;
+          statusText = "Type check passed";
+          statusIcon = (
+            <CheckCircleIcon className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+          );
+        } else if (hasErrors) {
+          containerClasses = "border border-amber-500/40 bg-amber-500/10";
+          icon = ExclamationTriangleIcon;
+          statusText = "Type errors detected — fixing automatically";
+          statusIcon = (
+            <ExclamationTriangleIcon className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+          );
+        } else if (isFailed) {
+          containerClasses = "border border-destructive/40 bg-destructive/10";
+          icon = XCircleIcon;
+          statusText = "Type check failed";
+          statusIcon = (
+            <XCircleIcon className="h-4 w-4 text-destructive" />
+          );
+        }
+
+        const Icon = icon!;
+
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div className={`max-w-[90%] rounded-md ${containerClasses} text-sm`}>
+              <div
+                className={`flex items-start gap-3 px-3 py-2 ${
+                  hasErrors && item.output ? "cursor-pointer hover:bg-muted/20" : ""
+                }`}
+                onClick={() => {
+                  if (hasErrors && item.output) {
+                    setIsExpanded(!isExpanded);
+                  }
+                }}
+              >
+                <Icon className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div className="flex-1">
+                  <div className="font-medium text-foreground">
+                    {statusText}
+                  </div>
+                  {isFailed && item.errorMessage && (
+                    <div className="mt-1 text-xs text-muted-foreground/80">
+                      {item.errorMessage}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-1 flex-shrink-0 flex items-center gap-2">
+                  {statusIcon}
+                  {hasErrors && item.output && (
+                    <ChevronDownIcon
+                      className={`h-4 w-4 transition-transform ${
+                        isExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
+                </div>
+              </div>
+              {hasErrors && item.output && isExpanded && (
+                <div className="border-t border-border/50 px-3 py-2">
+                  <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
+                    {item.output}
+                  </pre>
+                </div>
+              )}
             </div>
           </div>
         );

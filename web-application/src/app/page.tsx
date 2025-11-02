@@ -14,8 +14,9 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
-  BoltIcon,
-  CheckBadgeIcon, Squares2X2Icon
+  CheckBadgeIcon,
+  PaperAirplaneIcon,
+  Squares2X2Icon
 } from "@heroicons/react/24/solid";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -33,6 +34,7 @@ export default function Home() {
         <HeroSection />
         <UseCasesSection />
         <GallerySection />
+        <PricingSection />
         <MinimalDepthElements />
       </div>
     </main>
@@ -144,57 +146,47 @@ function HeroSection() {
   return (
     <section className="relative flex items-start justify-center pt-32 pb-16 bg-background">
       <div className="container mx-auto px-6 text-center relative z-20">
-        {/* Floating Badge */}
-        <div className="inline-flex items-center px-6 py-3 mt-8 mb-12 bg-gradient-to-r from-white/10 to-white/5 border border-white/20 rounded-full backdrop-blur-xl shadow-2xl hover:scale-105 transition-transform duration-300">
-          <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-emerald-400 rounded-full mr-3 animate-pulse"></div>
-          <span className="text-sm text-foreground font-medium">
-            Prototype at the speed of thought
-          </span>
-        </div>
 
         {/* Main Heading with Gradient */}
-        <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold mb-8 leading-[1.1] tracking-tight">
+        <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-[1.1] tracking-tight">
           <span className="bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent">
             Materialize
           </span>
         </h1>
 
         {/* Animated Subtitle */}
-        <p className="text-xl md:text-2xl text-foreground/80 max-w-4xl mx-auto mb-12 leading-relaxed font-medium">
-          Prototype React Native screens at the speed of thought—on an infinite
-          canvas that turns prompts into production-quality components.
+        <p className="text-lg md:text-xl text-foreground/70 max-w-3xl mx-auto mb-12 leading-relaxed">
+          Build mobile apps with AI.
         </p>
 
         {/* Prompt Input */}
-        <div className="max-w-3xl mx-auto mb-8">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-emerald-500/10 rounded-2xl blur-2xl"></div>
-            <div className="relative">
-              <Textarea
-                placeholder="Describe the React Native screen or flow you want to create..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                disabled={isLoading}
-                className="relative min-h-[140px] text-lg resize-none bg-background border-2 border-foreground/20 hover:border-foreground/30 focus:border-foreground/50 backdrop-blur-sm focus:ring-4 focus:ring-foreground/10 rounded-2xl px-6 py-5 pr-16 font-medium placeholder:text-foreground/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!prompt.trim() || isLoading}
-                className="absolute right-3 bottom-3 h-10 w-10 p-0 rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 hover:from-blue-600 hover:to-emerald-600 disabled:from-gray-400 disabled:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <BoltIcon className="w-5 h-5 text-white" />
-                )}
-              </Button>
-            </div>
+        <div className="max-w-2xl mx-auto mb-8">
+          <div className="relative flex items-end gap-3 bg-foreground/5 border border-foreground/20 rounded-3xl px-5 py-3 hover:border-foreground/30 focus-within:border-foreground/40 transition-all duration-200">
+            <Textarea
+              placeholder="Describe the mobile app you want to build..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              disabled={isLoading}
+              className="flex-1 bg-transparent text-lg text-foreground placeholder:text-foreground/40 outline-none resize-none min-h-[100px] max-h-[200px] disabled:opacity-50 disabled:cursor-not-allowed border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              rows={3}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!prompt.trim() || isLoading}
+              className="h-9 w-9 p-0 rounded-full bg-foreground hover:bg-foreground/90 disabled:bg-foreground/30 disabled:cursor-not-allowed transition-all duration-200 flex-shrink-0"
+            >
+              {isLoading ? (
+                <div className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <PaperAirplaneIcon className="w-4 h-4 text-background" />
+              )}
+            </Button>
           </div>
         </div>
 
@@ -237,17 +229,17 @@ function UseCasesSection() {
   const useCases = [
     {
       title: "Vibe code apps from scratch",
-      description: "Start with a prompt and watch your app come to life. AI generates complete React Native applications with screens, navigation, and functionality—all production-ready code you can export and ship.",
+      description: "Start with a prompt. AI generates complete React Native apps you can export and ship.",
       features: ["AI-powered code generation", "Full app scaffolding", "Export to React Native"],
     },
     {
       title: "Prototype components, screens, and flows seamlessly",
-      description: "Design on an infinite canvas where you can see entire user journeys at once. Prototype individual components, complete screens, or multi-step flows—all in one seamless workspace that adapts to your creative process.",
+      description: "Design on an infinite canvas. Build components, screens, or multi-step flows in one workspace.",
       features: ["Infinite canvas workspace", "Multi-screen flows", "Component library"],
     },
     {
       title: "Bring your own design system",
-      description: "Import your existing design tokens, components, and style guides. Materialize integrates with your team's design system so every prototype stays on-brand and matches your production components perfectly.",
+      description: "Import your design tokens and components. Keep every prototype on-brand.",
       features: ["Custom design tokens", "Component integration", "Brand consistency"],
     },
   ];
@@ -304,6 +296,136 @@ function UseCasesSection() {
   );
 }
 
+function PricingSection() {
+  const router = useRouter();
+  const { user } = useUser();
+
+  const handleGetStarted = (plan: string) => {
+    if (!user?.id) {
+      router.push("/login");
+    } else {
+      // Navigate to dashboard or checkout based on plan
+      if (plan === "free") {
+        router.push("/dashboard");
+      } else {
+        // Handle pro plan checkout
+        router.push("/dashboard");
+      }
+    }
+  };
+
+  const pricingPlans = [
+    {
+      name: "Free",
+      price: "$0",
+      period: "forever",
+      description: "Perfect for trying out Materialize",
+      features: [
+        "3 prototypes",
+        "Unlimited components",
+        "Export to React Native",
+        "Community support",
+      ],
+      cta: "Get Started",
+      highlighted: false,
+    },
+    {
+      name: "Pro",
+      price: "$29",
+      period: "per month",
+      description: "For professionals and teams",
+      features: [
+        "Unlimited prototypes",
+        "Unlimited components",
+        "Export to React Native",
+        "Priority support",
+        "Custom design tokens",
+        "Team collaboration",
+      ],
+      cta: "Start Free Trial",
+      highlighted: true,
+    },
+  ];
+
+  return (
+    <section className="py-24 bg-background">
+      <div className="container mx-auto px-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
+              Simple Pricing
+            </h2>
+            <p className="text-lg md:text-xl text-foreground/70 max-w-3xl mx-auto">
+              Start free, upgrade when ready
+            </p>
+          </div>
+
+          {/* Pricing Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {pricingPlans.map((plan, index) => (
+              <div
+                key={index}
+                className={`relative rounded-2xl p-8 transition-all duration-300 ${plan.highlighted
+                  ? "bg-foreground/5 border-2 border-foreground/30 shadow-2xl hover:shadow-3xl hover:-translate-y-2"
+                  : "bg-background border-2 border-foreground/10 hover:border-foreground/20 hover:-translate-y-1"
+                  }`}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <span className="inline-flex items-center px-4 py-1 rounded-full text-sm font-semibold bg-foreground text-background">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  {/* Plan Name */}
+                  <div>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">
+                      {plan.name}
+                    </h3>
+                    <p className="text-foreground/60">{plan.description}</p>
+                  </div>
+
+                  {/* Price */}
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-extrabold text-foreground">
+                      {plan.price}
+                    </span>
+                    <span className="text-foreground/60">/{plan.period}</span>
+                  </div>
+
+                  {/* Features */}
+                  <ul className="space-y-3 py-6 border-t border-foreground/10">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <CheckBadgeIcon className="w-5 h-5 text-foreground/70 flex-shrink-0" />
+                        <span className="text-foreground/80">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA Button */}
+                  <Button
+                    onClick={() => handleGetStarted(plan.name.toLowerCase())}
+                    className={`w-full py-6 text-lg font-semibold rounded-xl transition-all duration-200 ${plan.highlighted
+                      ? "bg-foreground text-background hover:bg-foreground/90 shadow-lg"
+                      : "bg-foreground/5 hover:bg-foreground/10 text-foreground border-2 border-foreground/20"
+                      }`}
+                  >
+                    {plan.cta}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function GallerySection() {
   const galleryItems = [
     { title: "Onboarding Flow", category: "Multi-screen Flow" },
@@ -326,7 +448,7 @@ function GallerySection() {
               Gallery
             </h2>
             <p className="text-lg md:text-xl text-foreground/70 max-w-3xl mx-auto">
-              Explore sample prototypes, components, and screens created with Materialize
+              Sample components, screens, and apps
             </p>
           </div>
 

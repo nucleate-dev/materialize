@@ -111,9 +111,12 @@ export default function ResetPasswordForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Redirecting you to your dashboard...
-          </p>
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">
+              Redirecting you to your dashboard...
+            </p>
+          </div>
           <div className="space-y-2">
             <Button asChild className="w-full">
               <Link href="/dashboard">Go to Dashboard</Link>
@@ -183,7 +186,7 @@ export default function ResetPasswordForm() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !!passwordError || !!confirmPasswordError}
+              disabled={isLoading || !!passwordError || !!confirmPasswordError || !password || !confirmPassword}
             >
               {isLoading ? "Updating password..." : "Update password"}
             </Button>
