@@ -257,6 +257,23 @@ export class ExpoDevServerService {
             type: "dependency",
           });
         }
+
+        // Initialize git repository (no-op if .git already exists)
+        try {
+          this.log2.info("Initializing git repository", { projectDir });
+          await this.initGitRepository(
+            projectDir,
+            this.terminalService.getSession("dev-server")!,
+          );
+          this.log2.info("Git repository initialized successfully");
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          request.log2.warn("Failed to initialize git repository", {
+            error: errorMessage,
+          });
+          // Don't add to buildErrors - git init failure shouldn't block dev server
+        }
       } else if (file_scope === "updates") {
         await this.updateDevServerFiles(
           files,
@@ -621,6 +638,80 @@ export class ExpoDevServerService {
       this.log2.error(new Error(errorMessage), "Failed to restart dev server");
       throw error;
     }
+  }
+
+  private async initGitRepository(
+    projectDir: string,
+    terminalSession: { id: string },
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let output = "";
+      let resolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          cleanup?.();
+          reject(new Error("git init timed out after 5 seconds"));
+        }
+      }, 5000);
+
+      const processOutput = (chunk: string): void => {
+        output += chunk;
+
+        // Check for completion indicators
+        if (
+          output.includes("Initialized empty Git repository") ||
+          output.includes("Reinitialized existing Git repository") ||
+          output.includes("already exists")
+        ) {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            cleanup?.();
+            resolve();
+          }
+        }
+      };
+
+      const listenerDisposer = this.terminalService.addOutputListener(
+        terminalSession.id,
+        processOutput,
+      );
+
+      if (!listenerDisposer) {
+        clearTimeout(timeout);
+        reject(new Error(`Terminal session ${terminalSession.id} not found`));
+        return;
+      }
+
+      const cleanup = listenerDisposer;
+
+      const command = `cd ${projectDir} && git init; echo "GIT_INIT_DONE"\n`;
+
+      try {
+        this.terminalService.sendInput(terminalSession.id, command);
+
+        // Also resolve when we see our marker
+        const markerCheck = setInterval(() => {
+          if (output.includes("GIT_INIT_DONE") && !resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            clearInterval(markerCheck);
+            cleanup();
+            resolve();
+          }
+        }, 100);
+
+        // Clean up the interval after timeout
+        setTimeout(() => clearInterval(markerCheck), 6000);
+      } catch (error) {
+        clearTimeout(timeout);
+        cleanup();
+        const message = error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to send git init command: ${message}`));
+      }
+    });
   }
 
   private async cleanup(): Promise<void> {
