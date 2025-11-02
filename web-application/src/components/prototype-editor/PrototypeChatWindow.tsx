@@ -18,7 +18,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger
+  SelectTrigger,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -66,7 +66,7 @@ import {
   TrashIcon,
   WrenchScrewdriverIcon,
   XCircleIcon,
-  XMarkIcon
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
   type ComponentType,
@@ -165,8 +165,7 @@ type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 const generateTimelineId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const MOCK_FLOW_ENABLED =
-  DEBUG_MODE;
+const MOCK_FLOW_ENABLED = DEBUG_MODE;
 
 const isConversationItem = (
   item: ChatTimelineItem,
@@ -267,6 +266,10 @@ const getToolLabel = (
       return command ? `Ran ${command}` : "Ran command";
     case "deploy_preview":
       return "Deploying preview";
+    case "update_dev_server_with_changes":
+      return "Updating dev server";
+    case "typescript_compile_check":
+      return "Checking for errors";
     case "create_execution_plan":
       return "Creating execution plan";
     case "confirm_step_completion":
@@ -290,7 +293,7 @@ const getToolDetail = (result?: unknown): string | undefined => {
 };
 
 // Component for rendering an image with signed URL
-function ChatImage({ imageUrl }: { imageUrl: string; }) {
+function ChatImage({ imageUrl }: { imageUrl: string }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -327,7 +330,9 @@ function ChatImage({ imageUrl }: { imageUrl: string; }) {
   if (isLoading) {
     return (
       <div className="mb-2 p-4 border border-primary-foreground/20 rounded flex items-center justify-center">
-        <span className="text-xs text-primary-foreground/70">Loading image...</span>
+        <span className="text-xs text-primary-foreground/70">
+          Loading image...
+        </span>
       </div>
     );
   }
@@ -445,15 +450,13 @@ export default function PrototypeChatWindow({
   const [, setIsThoughtsExpanded] = useState(false);
   const [, setExecutionPlan] = useState<string[]>([]);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [, setExplicitlyCompletedSteps] = useState<
-    Set<number>
-  >(new Set());
+  const [, setExplicitlyCompletedSteps] = useState<Set<number>>(new Set());
   const [expandedSpecItems, setExpandedSpecItems] = useState<Set<string>>(
     new Set(),
   );
-  const [expandedTypecheckItems, setExpandedTypecheckItems] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedTypecheckItems, setExpandedTypecheckItems] = useState<
+    Set<string>
+  >(new Set());
 
   // Image upload state
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -496,7 +499,6 @@ export default function PrototypeChatWindow({
         return "Select model";
     }
   };
-
 
   // File autocomplete functionality
   const {
@@ -545,17 +547,14 @@ export default function PrototypeChatWindow({
   );
 
   // Convert image file to base64 data URI
-  const convertImageToBase64 = useCallback(
-    (file: File): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    },
-    [],
-  );
+  const convertImageToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }, []);
 
   // Handle image selection from file input or drag-and-drop
   const handleImageSelect = useCallback(
@@ -731,10 +730,10 @@ export default function PrototypeChatWindow({
         prev.map((item) =>
           item.id === mockToolItemId && item.kind === "tool"
             ? {
-              ...item,
-              status: "success",
-              result: { summary: "Fetched hero section layout" },
-            }
+                ...item,
+                status: "success",
+                result: { summary: "Fetched hero section layout" },
+              }
             : item,
         ),
       );
@@ -811,10 +810,10 @@ export default function PrototypeChatWindow({
         prev.map((item) =>
           item.id === mockAssistantId && item.kind === "assistant"
             ? {
-              ...item,
-              content:
-                "I refreshed the hero section with new copy, CTA buttons, and an image container. Want me to polish the color palette or continue iterating?",
-            }
+                ...item,
+                content:
+                  "I refreshed the hero section with new copy, CTA buttons, and an image container. Want me to polish the color palette or continue iterating?",
+              }
             : item,
         ),
       );
@@ -834,7 +833,12 @@ export default function PrototypeChatWindow({
   }, []);
 
   const handleSaveTitle = useCallback(async () => {
-    if (!canEditName || !prototype || !editedTitle.trim() || !onPrototypeUpdate) {
+    if (
+      !canEditName ||
+      !prototype ||
+      !editedTitle.trim() ||
+      !onPrototypeUpdate
+    ) {
       return;
     }
 
@@ -903,7 +907,7 @@ export default function PrototypeChatWindow({
         setIsUpdatingVisibility(false);
       }
     },
-    [canEditPrototype, logger, onPrototypeUpdate, prototype, userPlan]
+    [canEditPrototype, logger, onPrototypeUpdate, prototype, userPlan],
   );
 
   useEffect(() => {
@@ -961,15 +965,26 @@ export default function PrototypeChatWindow({
       // Reconstruct timeline from database rows (chat messages + events)
       const reconstructedTimeline: ChatTimelineItem[] = [];
       // Track tool calls to merge TOOL_CALL and TOOL_RESULT events
-      const toolCallMap = new Map<string, { callRow?: typeof messagesData[0], resultRow?: typeof messagesData[0]; }>();
+      const toolCallMap = new Map<
+        string,
+        {
+          callRow?: (typeof messagesData)[0];
+          resultRow?: (typeof messagesData)[0];
+        }
+      >();
 
       // First pass: group tool events by toolCallId
       for (const row of messagesData || []) {
         if (row.message_type === "event" && row.event_type) {
           const eventData = row.event_data as Record<string, unknown> | null;
 
-          if (row.event_type === ChatStreamEventType.TOOL_CALL || row.event_type === ChatStreamEventType.TOOL_RESULT) {
-            const toolCallId = String(eventData?.toolCallId || generateTimelineId("toolcall"));
+          if (
+            row.event_type === ChatStreamEventType.TOOL_CALL ||
+            row.event_type === ChatStreamEventType.TOOL_RESULT
+          ) {
+            const toolCallId = String(
+              eventData?.toolCallId || generateTimelineId("toolcall"),
+            );
             const existing = toolCallMap.get(toolCallId) || {};
 
             if (row.event_type === ChatStreamEventType.TOOL_CALL) {
@@ -1008,7 +1023,9 @@ export default function PrototypeChatWindow({
                   reconstructedTimeline.push({
                     id: (row.id as string) || generateTimelineId("plan"),
                     kind: "plan",
-                    toolCallId: String(eventData.toolCallId || generateTimelineId("plan")),
+                    toolCallId: String(
+                      eventData.toolCallId || generateTimelineId("plan"),
+                    ),
                     plan: result.plan as string[],
                   });
                 }
@@ -1022,10 +1039,18 @@ export default function PrototypeChatWindow({
                   reconstructedTimeline.push({
                     id: (row.id as string) || generateTimelineId("step"),
                     kind: "step",
-                    toolCallId: String(eventData.toolCallId || generateTimelineId("step")),
+                    toolCallId: String(
+                      eventData.toolCallId || generateTimelineId("step"),
+                    ),
                     step: result.step as number,
-                    summary: typeof result.summary === "string" ? result.summary : undefined,
-                    message: typeof result.message === "string" ? result.message : undefined,
+                    summary:
+                      typeof result.summary === "string"
+                        ? result.summary
+                        : undefined,
+                    message:
+                      typeof result.message === "string"
+                        ? result.message
+                        : undefined,
                   });
                 }
               }
@@ -1045,21 +1070,29 @@ export default function PrototypeChatWindow({
             case ChatStreamEventType.TOOL_RESULT: {
               // Only create tool items for TOOL_RESULT events (which may or may not have a matching TOOL_CALL)
               if (eventData?.tool || eventData?.toolName) {
-                const toolName = String(eventData.tool || eventData.toolName || "Unknown tool");
+                const toolName = String(
+                  eventData.tool || eventData.toolName || "Unknown tool",
+                );
                 // Skip orchestration tools
                 if (
                   toolName.toLowerCase() !== "create_execution_plan" &&
                   toolName.toLowerCase() !== "confirm_step_completion"
                 ) {
-                  const toolCallId = String(eventData.toolCallId || generateTimelineId("toolcall"));
+                  const toolCallId = String(
+                    eventData.toolCallId || generateTimelineId("toolcall"),
+                  );
                   const toolGroup = toolCallMap.get(toolCallId);
-                  const callEventData = toolGroup?.callRow?.event_data as Record<string, unknown> | null;
+                  const callEventData = toolGroup?.callRow
+                    ?.event_data as Record<string, unknown> | null;
 
                   const success =
                     typeof eventData.result === "object" &&
-                      eventData.result !== null &&
-                      typeof (eventData.result as Record<string, unknown>).success === "boolean"
-                      ? Boolean((eventData.result as Record<string, unknown>).success)
+                    eventData.result !== null &&
+                    typeof (eventData.result as Record<string, unknown>)
+                      .success === "boolean"
+                      ? Boolean(
+                          (eventData.result as Record<string, unknown>).success,
+                        )
                       : true;
 
                   reconstructedTimeline.push({
@@ -1349,9 +1382,7 @@ export default function PrototypeChatWindow({
                 const success =
                   typeof (event.result as Record<string, unknown> | undefined)
                     ?.success === "boolean"
-                    ? Boolean(
-                      (event.result as Record<string, unknown>).success,
-                    )
+                    ? Boolean((event.result as Record<string, unknown>).success)
                     : true;
 
                 if (index !== -1) {
@@ -1455,7 +1486,11 @@ export default function PrototypeChatWindow({
               // Mark all remaining steps as completed
               setTimelineItems((prevTimeline) => {
                 // Find the most recent plan in timeline
-                const planItem = [...prevTimeline].reverse().find((item) => item.kind === "plan") as PlanTimelineItem | undefined;
+                const planItem = [...prevTimeline]
+                  .reverse()
+                  .find((item) => item.kind === "plan") as
+                  | PlanTimelineItem
+                  | undefined;
                 if (planItem) {
                   setCompletedSteps((prev) => {
                     const allCompleted = new Set(prev);
@@ -1613,7 +1648,8 @@ export default function PrototypeChatWindow({
               setTimelineItems((prev) => {
                 const copy = [...prev];
                 const typecheckIndex = copy.findIndex(
-                  (item) => item.kind === "typecheck" && item.status === "running",
+                  (item) =>
+                    item.kind === "typecheck" && item.status === "running",
                 );
                 if (typecheckIndex !== -1) {
                   copy[typecheckIndex] = {
@@ -1636,20 +1672,27 @@ export default function PrototypeChatWindow({
               setTimelineItems((prev) => {
                 const copy = [...prev];
                 const typecheckIndex = copy.findIndex(
-                  (item) => item.kind === "typecheck" && item.status === "running",
+                  (item) =>
+                    item.kind === "typecheck" && item.status === "running",
                 );
                 if (typecheckIndex !== -1) {
                   copy[typecheckIndex] = {
                     ...(copy[typecheckIndex] as TypecheckTimelineItem),
                     status: "errors",
-                    output: typeof event.output === "string" ? event.output : undefined,
+                    output:
+                      typeof event.output === "string"
+                        ? event.output
+                        : undefined,
                   };
                 } else {
                   copy.push({
                     id: generateTimelineId("typecheck"),
                     kind: "typecheck",
                     status: "errors",
-                    output: typeof event.output === "string" ? event.output : undefined,
+                    output:
+                      typeof event.output === "string"
+                        ? event.output
+                        : undefined,
                   });
                 }
                 return copy;
@@ -1661,20 +1704,23 @@ export default function PrototypeChatWindow({
               setTimelineItems((prev) => {
                 const copy = [...prev];
                 const typecheckIndex = copy.findIndex(
-                  (item) => item.kind === "typecheck" && item.status === "running",
+                  (item) =>
+                    item.kind === "typecheck" && item.status === "running",
                 );
                 if (typecheckIndex !== -1) {
                   copy[typecheckIndex] = {
                     ...(copy[typecheckIndex] as TypecheckTimelineItem),
                     status: "failed",
-                    errorMessage: typeof event.error === "string" ? event.error : undefined,
+                    errorMessage:
+                      typeof event.error === "string" ? event.error : undefined,
                   };
                 } else {
                   copy.push({
                     id: generateTimelineId("typecheck"),
                     kind: "typecheck",
                     status: "failed",
-                    errorMessage: typeof event.error === "string" ? event.error : undefined,
+                    errorMessage:
+                      typeof event.error === "string" ? event.error : undefined,
                   });
                 }
                 return copy;
@@ -1782,10 +1828,7 @@ export default function PrototypeChatWindow({
       if (imagePreview && prototypeId) {
         // Upload image to Supabase Storage
         setIsChatLoading(true); // Show loading while uploading
-        const uploadResult = await uploadChatImage(
-          imagePreview,
-          prototypeId,
-        );
+        const uploadResult = await uploadChatImage(imagePreview, prototypeId);
 
         if (uploadResult.success && uploadResult.url) {
           imageUrl = uploadResult.url;
@@ -1804,8 +1847,9 @@ export default function PrototypeChatWindow({
               id: generateTimelineId("system"),
               kind: "system",
               severity: "error",
-              content: `❌ Error: Failed to upload image. ${uploadResult.error || "Please try again."
-                }`,
+              content: `❌ Error: Failed to upload image. ${
+                uploadResult.error || "Please try again."
+              }`,
             },
           ]);
           setIsChatLoading(false);
@@ -2049,17 +2093,19 @@ export default function PrototypeChatWindow({
             <div className="max-w-[90%] rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
               <div className="flex items-start gap-3">
                 <Icon
-                  className={`mt-1 h-4 w-4 ${isError
-                    ? "text-red-500 dark:text-red-400"
-                    : "text-muted-foreground"
-                    }`}
+                  className={`mt-1 h-4 w-4 ${
+                    isError
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-muted-foreground"
+                  }`}
                 />
                 <div className="flex-1">
                   <div
-                    className={`font-medium ${isError
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-muted-foreground"
-                      }`}
+                    className={`font-medium ${
+                      isError
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-muted-foreground"
+                    }`}
                   >
                     {label}
                   </div>
@@ -2111,20 +2157,22 @@ export default function PrototypeChatWindow({
                   {item.plan.map((step, index) => (
                     <div key={index} className="flex items-start gap-2">
                       <div
-                        className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5 ${completedSteps.has(index)
-                          ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
-                          : "border-muted-foreground/40"
-                          }`}
+                        className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5 ${
+                          completedSteps.has(index)
+                            ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
+                            : "border-muted-foreground/40"
+                        }`}
                       >
                         {completedSteps.has(index) && (
                           <CheckIcon className="w-3 h-3 text-white" />
                         )}
                       </div>
                       <span
-                        className={`flex-1 ${completedSteps.has(index)
-                          ? "text-muted-foreground/70 line-through"
-                          : "text-muted-foreground"
-                          }`}
+                        className={`flex-1 ${
+                          completedSteps.has(index)
+                            ? "text-muted-foreground/70 line-through"
+                            : "text-muted-foreground"
+                        }`}
                       >
                         {step}
                       </span>
@@ -2143,9 +2191,7 @@ export default function PrototypeChatWindow({
         return (
           <div key={item.id} className="flex justify-start">
             <div className="max-w-[90%] text-sm leading-relaxed text-foreground">
-              <div className="text-muted-foreground">
-                {stepText}
-              </div>
+              <div className="text-muted-foreground">{stepText}</div>
             </div>
           </div>
         );
@@ -2248,19 +2294,22 @@ export default function PrototypeChatWindow({
           containerClasses = "border border-destructive/40 bg-destructive/10";
           icon = XCircleIcon;
           statusText = "Type check failed";
-          statusIcon = (
-            <XCircleIcon className="h-4 w-4 text-destructive" />
-          );
+          statusIcon = <XCircleIcon className="h-4 w-4 text-destructive" />;
         }
 
         const Icon = icon!;
 
         return (
           <div key={item.id} className="flex justify-start">
-            <div className={`max-w-[90%] rounded-md ${containerClasses} text-sm`}>
+            <div
+              className={`max-w-[90%] rounded-md ${containerClasses} text-sm`}
+            >
               <div
-                className={`flex items-start gap-3 px-3 py-2 ${hasErrors && item.output ? "cursor-pointer hover:bg-muted/20" : ""
-                  }`}
+                className={`flex items-start gap-3 px-3 py-2 ${
+                  hasErrors && item.output
+                    ? "cursor-pointer hover:bg-muted/20"
+                    : ""
+                }`}
                 onClick={() => {
                   if (hasErrors && item.output) {
                     setExpandedTypecheckItems((prev) => {
@@ -2290,8 +2339,9 @@ export default function PrototypeChatWindow({
                   {statusIcon}
                   {hasErrors && item.output && (
                     <ChevronDownIcon
-                      className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""
-                        }`}
+                      className={`h-4 w-4 transition-transform ${
+                        isExpanded ? "rotate-180" : ""
+                      }`}
                     />
                   )}
                 </div>
@@ -2424,13 +2474,15 @@ export default function PrototypeChatWindow({
                     <div
                       className="w-2 h-2 bg-primary rounded-full animate-pulse"
                       style={{
-                        filter: "drop-shadow(0 0 4px hsl(var(--primary) / 0.8)) drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
+                        filter:
+                          "drop-shadow(0 0 4px hsl(var(--primary) / 0.8)) drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
                       }}
                     ></div>
                     <div
                       className="absolute inset-0 w-2 h-2 bg-primary rounded-full animate-ping opacity-50"
                       style={{
-                        filter: "drop-shadow(0 0 6px hsl(var(--primary) / 0.9))",
+                        filter:
+                          "drop-shadow(0 0 6px hsl(var(--primary) / 0.9))",
                       }}
                     ></div>
                   </div>
@@ -2563,7 +2615,9 @@ export default function PrototypeChatWindow({
                             </div>
                             <div className="flex flex-col gap-0.5">
                               <span className="font-medium">Sonnet 4.5</span>
-                              <span className="text-xs text-muted-foreground">Best model from Anthropic</span>
+                              <span className="text-xs text-muted-foreground">
+                                Best model from Anthropic
+                              </span>
                             </div>
                           </div>
                         </SelectItem>
@@ -2574,7 +2628,9 @@ export default function PrototypeChatWindow({
                             </div>
                             <div className="flex flex-col gap-0.5">
                               <span className="font-medium">GPT-5</span>
-                              <span className="text-xs text-muted-foreground">The best model from OpenAI</span>
+                              <span className="text-xs text-muted-foreground">
+                                The best model from OpenAI
+                              </span>
                             </div>
                           </div>
                         </SelectItem>
@@ -2584,8 +2640,12 @@ export default function PrototypeChatWindow({
                               <CpuChipIcon className="w-5 h-5" />
                             </div>
                             <div className="flex flex-col gap-0.5">
-                              <span className="font-medium">Gemini 2.5 Flash</span>
-                              <span className="text-xs text-muted-foreground">Best model from Google</span>
+                              <span className="font-medium">
+                                Gemini 2.5 Flash
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Best model from Google
+                              </span>
                             </div>
                           </div>
                         </SelectItem>
@@ -2596,7 +2656,9 @@ export default function PrototypeChatWindow({
                             </div>
                             <div className="flex flex-col gap-0.5">
                               <span className="font-medium">GPT-5 Nano</span>
-                              <span className="text-xs text-muted-foreground">Smaller model from OpenAI</span>
+                              <span className="text-xs text-muted-foreground">
+                                Smaller model from OpenAI
+                              </span>
                             </div>
                           </div>
                         </SelectItem>
@@ -2769,7 +2831,9 @@ export default function PrototypeChatWindow({
             {createdAtLabel && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Created</label>
-                <p className="text-sm text-muted-foreground">{createdAtLabel}</p>
+                <p className="text-sm text-muted-foreground">
+                  {createdAtLabel}
+                </p>
               </div>
             )}
           </div>
@@ -2807,10 +2871,7 @@ export default function PrototypeChatWindow({
       </Dialog>
 
       {/* Visibility Change Modal */}
-      <Dialog
-        open={showVisibilityModal}
-        onOpenChange={setShowVisibilityModal}
-      >
+      <Dialog open={showVisibilityModal} onOpenChange={setShowVisibilityModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Change Visibility</DialogTitle>
