@@ -107,7 +107,8 @@ export class ChatEngineV1 {
     });
 
     if (
-      (this.modelProvider === 'openai' || this.modelProvider === 'openai-mini') &&
+      (this.modelProvider === 'openai' ||
+        this.modelProvider === 'openai-mini') &&
       !config.openAiApiKey
     ) {
       throw new Error('OpenAI API key must be configured to use OpenAI models');
@@ -919,16 +920,23 @@ export class ChatEngineV1 {
     // Fetch and convert image to base64 if imageUrl is provided
     let imageBase64: string | null = null;
     if (imageUrl) {
-      log2.consoleLogDevOnly('info', '[ChatEngine] Fetching image from storage URL', {
-        imageUrl,
-      });
+      log2.consoleLogDevOnly(
+        'info',
+        '[ChatEngine] Fetching image from storage URL',
+        {
+          imageUrl,
+        },
+      );
       imageBase64 = await fetchImageAsBase64(imageUrl, supabase, log2);
       if (!imageBase64) {
         log2.warn('[ChatEngine] Failed to fetch image, proceeding without it', {
           imageUrl,
         });
       } else {
-        log2.consoleLogDevOnly('info', '[ChatEngine] Successfully fetched and converted image to base64');
+        log2.consoleLogDevOnly(
+          'info',
+          '[ChatEngine] Successfully fetched and converted image to base64',
+        );
       }
     }
 
@@ -941,6 +949,10 @@ export class ChatEngineV1 {
       input: unknown;
       output: unknown;
     }> = [];
+
+    // Track total token usage across all phases
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
 
     try {
       log2.consoleLogDevOnly(
@@ -969,11 +981,16 @@ export class ChatEngineV1 {
 
         // Track token usage for spec expansion
         if (specExpansionResult.usage) {
+          const specInputTokens = specExpansionResult.usage.inputTokens ?? 0;
+          const specOutputTokens = specExpansionResult.usage.outputTokens ?? 0;
+
+          totalInputTokens += specInputTokens;
+          totalOutputTokens += specOutputTokens;
+
           log2.metricTokenUsage(
             MODEL_CONFIGS[this.modelProvider],
-            specExpansionResult.usage.inputTokens ?? 0,
-            specExpansionResult.usage.outputTokens ?? 0,
-            specExpansionResult.usage.totalTokens ?? 0,
+            specInputTokens,
+            specOutputTokens,
             { intent: 'spec_expansion' },
           );
         }
@@ -1150,12 +1167,27 @@ export class ChatEngineV1 {
 
       // Track token usage for main chat
       if (finalResultUsage) {
+        const chatInputTokens = finalResultUsage.inputTokens ?? 0;
+        const chatOutputTokens = finalResultUsage.outputTokens ?? 0;
+
+        totalInputTokens += chatInputTokens;
+        totalOutputTokens += chatOutputTokens;
+
         log2.metricTokenUsage(
           MODEL_CONFIGS[this.modelProvider],
-          finalResultUsage.inputTokens ?? 0,
-          finalResultUsage.outputTokens ?? 0,
-          finalResultUsage.totalTokens ?? 0,
+          chatInputTokens,
+          chatOutputTokens,
           { intent: userIntent },
+        );
+      }
+
+      // Track total token usage across all phases
+      if (totalInputTokens > 0 || totalOutputTokens > 0) {
+        log2.metricTokenUsage(
+          MODEL_CONFIGS[this.modelProvider],
+          totalInputTokens,
+          totalOutputTokens,
+          { intent: 'total_chat_call' },
         );
       }
 
