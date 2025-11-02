@@ -2080,7 +2080,7 @@ export default function PrototypeChatWindow({
         </ScrollArea>
 
         {/* Thoughts and Execution Plan Section */}
-        {(currentThought || executionPlan.length > 0) && (
+        {executionPlan.length > 0 && (
           <div className="border-t border-b bg-muted/30 flex-shrink-0">
             <div className="p-3">
               <Button
@@ -2091,7 +2091,7 @@ export default function PrototypeChatWindow({
               >
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-                  {currentThought || "Waiting..."}
+                  {!isThoughtsExpanded ? "Executing..." : "Execution Plan"}
                 </span>
                 {isThoughtsExpanded ? (
                   <ChevronUpIcon className="w-4 h-4" />
