@@ -13,17 +13,17 @@ import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-type Project = Database["public"]["Tables"]["projects"]["Row"];
+type Folder = Database["public"]["Tables"]["projects"]["Row"];
 
-export default function ProjectsPage() {
+export default function FoldersPage() {
   const { user } = useUser();
   const router = useRouter();
   const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProjects = useCallback(async () => {
+  const fetchFolders = useCallback(async () => {
     if (!user?.id) {
       setIsLoading(false);
       return;
@@ -38,15 +38,15 @@ export default function ProjectsPage() {
         .order("updated_at", { ascending: false });
 
       if (error) {
-        logger.debug("error", "Error fetching projects:", {
+        logger.debug("error", "Error fetching folders:", {
           ...error,
         });
         return;
       }
 
-      setProjects(data || []);
+      setFolders(data || []);
     } catch (error) {
-      logger.debug("error", "Error fetching projects:", {
+      logger.debug("error", "Error fetching folders:", {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
@@ -56,15 +56,15 @@ export default function ProjectsPage() {
   }, [user?.id, logger]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    fetchFolders();
+  }, [fetchFolders]);
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
 
-  const handleProjectCreated = (projectId: string) => {
-    fetchProjects(); // Refetch projects after creation
-    router.push(`/dashboard/projects/${projectId}`);
+  const handleFolderCreated = (folderId: string) => {
+    fetchFolders(); // Refetch folders after creation
+    router.push(`/dashboard/folders/${folderId}`);
   };
 
   return (
@@ -103,7 +103,7 @@ export default function ProjectsPage() {
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}
-        onCreated={handleProjectCreated}
+        onCreated={handleFolderCreated}
       />
 
       {/* Projects Grid */}
@@ -113,8 +113,8 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {projects.length > 0 ? (
-            projects.map((project) => (
+          {folders.length > 0 ? (
+            folders.map((project) => (
               <ProjectThumbnail
                 key={project.id}
                 projectName={project.name}
@@ -124,7 +124,7 @@ export default function ProjectsPage() {
                     ? new Date(project.updated_at).toLocaleDateString()
                     : new Date(project.created_at!).toLocaleDateString()
                 }
-                onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                onClick={() => router.push(`/dashboard/folders/${project.id}`)}
               />
             ))
           ) : (

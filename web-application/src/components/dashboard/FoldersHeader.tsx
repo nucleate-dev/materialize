@@ -1,51 +1,38 @@
 "use client";
 import { useSidebar } from "@/components/ui/sidebar";
-import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
-import { useProject } from "@/hooks/useProject";
+import { useFolder } from "@/hooks/useFolder";
 import {
   Bars3Icon,
   ClockIcon,
   Cog6ToothIcon,
-  FolderIcon,
-  RocketLaunchIcon,
-  Square3Stack3DIcon,
+  FolderIcon
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 
-export default function ProjectsHeader() {
+export default function FoldersHeader() {
   const { openMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const params = useParams();
-  const projectId = params?.project_id as string;
-  const { project, isLoading } = useProject(projectId);
+  const folderId = params?.folder_id as string;
+  const { folder, isLoading } = useFolder(folderId);
 
   const tabs = [
     {
       name: "Recent",
-      href: `/dashboard/projects/${projectId}`,
+      href: `/dashboard/folders/${folderId}`,
       icon: ClockIcon,
-      active: pathname === `/dashboard/projects/${projectId}`,
+      active: pathname === `/dashboard/folders/${folderId}`,
     },
     {
-      name: "Projects",
-      href: `/dashboard/projects/${projectId}/prototypes`,
-      icon: RocketLaunchIcon,
-      active: pathname?.includes("/prototypes"),
+      name: "Folders",
+      href: `/dashboard/folders/${folderId}`,
+      icon: FolderIcon,
+      active: pathname === `/dashboard/folders/${folderId}`,
     },
-    ...(SHOW_WHITEBOARDS
-      ? [
-        {
-          name: "Whiteboards",
-          href: `/dashboard/projects/${projectId}/whiteboards`,
-          icon: Square3Stack3DIcon,
-          active: pathname?.includes("/whiteboards"),
-        },
-      ]
-      : []),
     {
       name: "Settings",
-      href: `/dashboard/projects/${projectId}/settings`,
+      href: `/dashboard/folders/${folderId}/settings`,
       icon: Cog6ToothIcon,
       active: pathname?.includes("/settings"),
     },
@@ -75,7 +62,7 @@ export default function ProjectsHeader() {
 
       {/* Header Content */}
       <div className="relative z-10 flex flex-grow items-center justify-between px-6 py-1 md:px-8 2xl:px-12">
-        {/* Left Section - Mobile Menu & Project Name */}
+        {/* Left Section - Mobile Menu & Folder Name */}
         <div className="flex items-center gap-4">
           {/* Modern Mobile Toggle Button */}
           <div className="lg:hidden">
@@ -92,24 +79,24 @@ export default function ProjectsHeader() {
             </button>
           </div>
 
-          {/* Project Name Display */}
+          {/* Folder Name Display */}
           <div className="flex items-center gap-3">
-            {/* Project Icon Container */}
+            {/* Folder Icon Container */}
             <div className="relative p-2.5 bg-gradient-to-br from-primary/10 via-secondary/5 to-info/10 dark:from-primary/20 dark:via-secondary/10 dark:to-info/20 rounded-xl border border-primary/20 dark:border-secondary/30 backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-xl blur-sm opacity-50"></div>
               <FolderIcon className="relative w-5 h-5 text-primary dark:text-secondary" />
             </div>
 
-            {/* Project Name & Loading State */}
+            {/* Folder Name & Loading State */}
             <div className="flex flex-col justify-center min-w-0">
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-6 w-32 bg-gradient-to-r from-stroke/30 to-stroke/20 dark:from-strokedark/30 dark:to-strokedark/20 rounded-lg animate-pulse"></div>
                 </div>
-              ) : project ? (
+              ) : folder ? (
                 <>
                   <h1 className="text-xl font-bold text-black dark:text-white leading-tight truncate max-w-xs md:max-w-sm lg:max-w-md">
-                    {project.name}
+                    {folder.name}
                   </h1>
                   <span className="text-xs font-medium text-body dark:text-bodydark opacity-75 uppercase tracking-wide">
                     Folder

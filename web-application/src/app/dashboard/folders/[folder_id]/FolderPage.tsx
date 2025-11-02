@@ -37,7 +37,7 @@ export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
   const logger = useProductLogger();
-  const projectId = params?.project_id as string;
+  const folderId = params?.project_id as string;
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -46,7 +46,7 @@ export default function ProjectPage() {
   >(null);
 
   const fetchRecentItems = useCallback(async () => {
-    if (!projectId) {
+    if (!folderId) {
       setIsLoading(false);
       return;
     }
@@ -58,12 +58,12 @@ export default function ProjectPage() {
         supabase
           .from("prototypes")
           .select("*")
-          .eq("project_id", projectId)
+          .eq("project_id", folderId)
           .order("updated_at", { ascending: false }),
         supabase
           .from("canvases")
           .select("*")
-          .eq("project_id", projectId)
+          .eq("project_id", folderId)
           .order("updated_at", { ascending: false }),
       ]);
 
@@ -140,7 +140,7 @@ export default function ProjectPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, logger]);
+  }, [folderId, logger]);
 
   useEffect(() => {
     fetchRecentItems();
@@ -148,9 +148,9 @@ export default function ProjectPage() {
 
   const handleItemClick = (item: RecentItem) => {
     if (item.type === "prototype") {
-      router.push(`/dashboard/projects/${projectId}/prototypes/${item.id}`);
+      router.push(`/dashboard/folders/${folderId}/prototypes/${item.id}`);
     } else {
-      router.push(`/dashboard/projects/${projectId}/whiteboards/${item.id}`);
+      router.push(`/dashboard/folders/${folderId}/whiteboards/${item.id}`);
     }
   };
 
@@ -228,7 +228,7 @@ export default function ProjectPage() {
                 title="No recent activity"
                 description="Create your first prototype or whiteboard to get started"
                 onButtonClick={() =>
-                  router.push(`/dashboard/projects/${projectId}/prototypes`)
+                  router.push(`/dashboard/folders/${folderId}/prototypes`)
                 }
                 buttonText="Create Prototype"
               />

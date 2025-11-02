@@ -26,7 +26,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     projects: {
       title: "No folders yet",
       description:
-        "Create your first folder to start organizing your work at the speed of thought.",
+        "Create your first folder to start organizing your work.",
       buttonText: "Create First Folder",
       icon: FolderOpen,
       gradient:
@@ -36,7 +36,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     prototypes: {
       title: "No projects yet",
       description:
-        "Create your first project to start prototyping your ideas at the speed of thought.",
+        "Create your first project to start prototyping your ideas.",
       buttonText: "Create First Project",
       icon: Layers,
       gradient:
@@ -46,7 +46,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     whiteboards: {
       title: "No whiteboards yet",
       description:
-        "Create your first infinite canvas to start prototyping and designing at the speed of thought.",
+        "Create your first infinite canvas to start prototyping and designing.",
       buttonText: "Create First Whiteboard",
       icon: PenTool,
       gradient:

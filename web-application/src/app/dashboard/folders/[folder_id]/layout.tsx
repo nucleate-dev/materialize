@@ -1,6 +1,6 @@
 import ProjectsHeader from "@/components/dashboard/ProjectsHeader";
 
-export default function ProjectLayout({
+export default function FolderLayout({
   children,
 }: {
   children: React.ReactNode;

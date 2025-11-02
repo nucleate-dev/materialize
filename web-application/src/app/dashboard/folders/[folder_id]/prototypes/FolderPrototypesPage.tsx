@@ -12,7 +12,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type Project = Database["public"]["Tables"]["projects"]["Row"];
+type Folder = Database["public"]["Tables"]["projects"]["Row"];
 
 // Utility to format date as relative time
 function formatRelativeTime(dateString: string | null | undefined): string {
@@ -27,14 +27,14 @@ function formatRelativeTime(dateString: string | null | undefined): string {
   return date.toLocaleDateString();
 }
 
-export default function ProjectPrototypesPage() {
+export default function FolderPrototypesPage() {
   const { user } = useUser();
   const params = useParams();
   const router = useRouter();
   const logger = useProductLogger();
-  const projectId = params?.project_id as string;
+  const folderId = params?.project_id as string;
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
-  const [project, setProject] = useState<Project | null>(null);
+  const [folder, setFolder] = useState<Folder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function ProjectPrototypesPage() {
   );
 
   const fetchData = useCallback(async () => {
-    if (!projectId) {
+    if (!folderId) {
       setIsLoading(false);
       return;
     }
@@ -51,21 +51,21 @@ export default function ProjectPrototypesPage() {
     setIsLoading(true);
     try {
       // Fetch project details and prototypes in parallel
-      const [projectResult, prototypesResult] = await Promise.all([
-        supabase.from("projects").select("*").eq("id", projectId).single(),
+      const [folderResult, prototypesResult] = await Promise.all([
+        supabase.from("projects").select("*").eq("id", folderId).single(),
         supabase
           .from("prototypes")
           .select("*")
-          .eq("project_id", projectId)
+          .eq("project_id", folderId)
           .order("updated_at", { ascending: false }),
       ]);
 
-      if (projectResult.error) {
-        logger.debug("error", "Error fetching project:", {
-          ...projectResult.error,
+      if (folderResult.error) {
+        logger.debug("error", "Error fetching folder:", {
+          ...folderResult.error,
         });
       } else {
-        setProject(projectResult.data);
+        setFolder(folderResult.data);
       }
 
       if (prototypesResult.error) {
@@ -83,7 +83,7 @@ export default function ProjectPrototypesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, logger]);
+  }, [folderId, logger]);
 
   useEffect(() => {
     fetchData();
@@ -129,18 +129,18 @@ export default function ProjectPrototypesPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
-            Prototypes for {project?.name || "Project"}
+            Prototypes for {folder?.name || "Folder"}
           </h1>
           <p className="text-body dark:text-bodydark">
-            Manage and organize prototypes within this project
+            Manage and organize prototypes within this folder
           </p>
         </div>
 
         <EmptyState
           type="prototypes"
-          title="This project has no prototypes"
-          description="Create your first prototype within this project to start building amazing experiences."
-          buttonText="Create Prototype in Project"
+          title="This folder has no prototypes"
+          description="Create your first prototype within this folder to start building amazing experiences."
+          buttonText="Create Prototype in Folder"
           onButtonClick={handleOpenModal}
         />
 
@@ -150,7 +150,7 @@ export default function ProjectPrototypesPage() {
           onClose={handleCloseModal}
           user={user}
           onCreated={handlePrototypeCreated}
-          projectId={projectId}
+          projectId={folderId}
         />
       </>
     );
@@ -163,10 +163,10 @@ export default function ProjectPrototypesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
-              Prototypes for {project?.name || "Project"}
+              Prototypes for {folder?.name || "Folder"}
             </h1>
             <p className="text-body dark:text-bodydark">
-              Manage and organize prototypes within this project
+              Manage and organize prototypes within this folder
             </p>
           </div>
 
@@ -219,7 +219,7 @@ export default function ProjectPrototypesPage() {
         onClose={handleCloseModal}
         user={user}
         onCreated={handlePrototypeCreated}
-        projectId={projectId}
+        projectId={folderId}
       />
 
       <PrototypeSettingsModal

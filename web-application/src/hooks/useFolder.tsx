@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/ClientConstants";
 import { Database } from "@/lib/types/supabase";
+import { useCallback, useEffect, useState } from "react";
 
-type Project = Database["public"]["Tables"]["projects"]["Row"];
+type Folder = Database["public"]["Tables"]["projects"]["Row"];
 
-export function useProject(projectId: string | undefined) {
-  const [project, setProject] = useState<Project | null>(null);
+export function useFolder(folderId: string | undefined) {
+  const [folder, setFolder] = useState<Folder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProject = useCallback(async () => {
-    if (!projectId) {
+  const fetchFolder = useCallback(async () => {
+    if (!folderId) {
       setIsLoading(false);
       return;
     }
@@ -24,31 +24,31 @@ export function useProject(projectId: string | undefined) {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .eq("id", projectId)
+        .eq("id", folderId)
         .single();
 
       if (error) {
         setError(error.message);
-        setProject(null);
+        setFolder(null);
       } else {
-        setProject(data);
+        setFolder(data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
-      setProject(null);
+      setFolder(null);
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [folderId]);
 
   useEffect(() => {
-    fetchProject();
-  }, [fetchProject]);
+    fetchFolder();
+  }, [fetchFolder]);
 
   return {
-    project,
+    folder,
     isLoading,
     error,
-    refetch: fetchProject,
+    refetch: fetchFolder,
   };
 }

@@ -119,7 +119,7 @@ export default function ProjectWhiteboardsPage() {
         <EmptyState
           type="whiteboards"
           title="This project has no whiteboards"
-          description="Create your first infinite canvas within this project to start prototyping and designing at the speed of thought."
+          description="Create your first infinite canvas within this project to start prototyping and designing."
           buttonText="Create Whiteboard in Project"
           onButtonClick={handleOpenModal}
         />

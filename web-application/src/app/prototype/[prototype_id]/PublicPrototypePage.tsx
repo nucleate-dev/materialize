@@ -65,7 +65,7 @@ function AppSidebar() {
       active: pathname?.includes("prototypes"),
     },
     {
-      href: "/dashboard/projects",
+      href: "/dashboard/folders",
       icon: Folder,
       label: "Folders",
       active: pathname?.includes("projects"),
