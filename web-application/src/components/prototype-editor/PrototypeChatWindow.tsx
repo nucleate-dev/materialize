@@ -17,8 +17,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SelectTrigger
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -52,15 +51,13 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  DocumentDuplicateIcon,
-  ExclamationTriangleIcon,
+  CpuChipIcon,
+  DocumentDuplicateIcon, InformationCircleIcon,
+  PaperAirplaneIcon,
   PencilIcon,
   PhotoIcon,
   ShareIcon,
-  XMarkIcon,
-  InformationCircleIcon,
-  PaperAirplaneIcon,
-  CpuChipIcon,
+  XMarkIcon
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -1250,17 +1247,6 @@ export default function PrototypeChatWindow({
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                {buildErrors.length > 0 && (
-                  <Button
-                    onClick={handleInsertBuildErrors}
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <ExclamationTriangleIcon className="w-4 h-4 mr-2" />
-                    {buildErrors.length} Error{buildErrors.length > 1 ? "s" : ""} Found
-                  </Button>
-                )}
                 <TooltipProvider>
                   <div className="flex items-center gap-2">
                     <Tooltip>
