@@ -68,52 +68,59 @@ export const handler = async (event) => {
   // If it's a service token, bypass Supabase/RLS checks and proceed
   let visibility = null;
   let latestBuildKey = null;
+  const supabaseUrl = `${SUPABASE_URL}/rest/v1/prototypes?id=eq.${prototypeId}&select=id,visibility,latest_build_key`;
+  const supabaseHeaders = {
+    apikey: SUPABASE_ANON_KEY,
+  };
+  if (isService) {
+    supabaseHeaders.apikey = SUPABASE_SERVICE_ROLE_KEY;
+    supabaseHeaders.Authorization = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+  } else if (token) {
+    supabaseHeaders.Authorization = `Bearer ${token}`;
+  }
+  try {
+    const response = await fetch(supabaseUrl, {
+      headers: supabaseHeaders,
+    });
 
-  if (!isService) {
-    // Not a service token -> treat token as user JWT (or null) and call Supabase
-    const supabaseUrl = `${SUPABASE_URL}/rest/v1/prototypes?id=eq.${prototypeId}&select=id,visibility,latest_build_key`;
-
-    try {
-      const response = await fetch(supabaseUrl, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+    if (!response.ok) {
+      console.log("Supabase denied access:", response.status, {
+        prototypeId,
+        isService,
       });
-
-      if (!response.ok) {
-        console.log("Supabase denied access:", response.status);
+      if (!isService) {
         return {
           status: "403",
           statusDescription: "Forbidden: Access denied",
         };
       }
-
+    } else {
       const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        console.log("Prototype not found or RLS blocked access");
+      if (Array.isArray(data) && data.length > 0) {
+        visibility = data[0].visibility;
+        latestBuildKey = data[0].latest_build_key;
+      } else if (!isService) {
+        console.log("Prototype not found or RLS blocked access", {
+          prototypeId,
+        });
         return {
           status: "403",
           statusDescription: "Forbidden: Prototype not accessible",
         };
       }
-
-      visibility = data[0].visibility;
-      latestBuildKey = data[0].latest_build_key;
-    } catch (err) {
-      console.log("Error fetching from Supabase:", err?.message || String(err));
+    }
+  } catch (err) {
+    console.log("Error fetching from Supabase:", err?.message || String(err), {
+      prototypeId,
+      isService,
+    });
+    if (!isService) {
       return {
         status: "500",
         statusDescription: "Internal Server Error",
         body: "Error verifying access",
       };
     }
-  } else {
-    // isService == true -> bypass Supabase; latestBuildKey remains null and we use fallback 'latest'
-    console.log(
-      "Service token verified — bypassing Supabase checks for",
-      prototypeId,
-    );
   }
 
   const buildFolder = latestBuildKey || "latest";
