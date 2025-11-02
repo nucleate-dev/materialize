@@ -789,8 +789,9 @@ const MaterializeRenderSection = forwardRef<
           case "Static build":
             return {
               className:
-                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2 h-2 bg-blue-500 rounded-full",
+                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
+              dotClassName: "w-2.5 h-2.5 bg-blue-500 rounded-full",
+              dotStyle: { boxShadow: "0 0 8px rgba(59, 130, 246, 0.6)" },
               text: "Static Build",
               animate: false,
             };
@@ -799,24 +800,27 @@ const MaterializeRenderSection = forwardRef<
           case "Starting Dev Server..":
             return {
               className:
-                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse",
+                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
+              dotClassName: "w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse",
+              dotStyle: { boxShadow: "0 0 8px rgba(245, 158, 11, 0.6)" },
               text: status,
               animate: true,
             };
           case "Disconnected":
             return {
               className:
-                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2 h-2 bg-red-500 rounded-full",
+                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
+              dotClassName: "w-2.5 h-2.5 bg-red-500 rounded-full",
+              dotStyle: { boxShadow: "0 0 8px rgba(239, 68, 68, 0.6)" },
               text: "Disconnected",
               animate: false,
             };
           case "Connected":
             return {
               className:
-                "h-8 gap-2 px-3 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2 h-2 bg-green-500 rounded-full",
+                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
+              dotClassName: "w-2.5 h-2.5 bg-green-500 rounded-full",
+              dotStyle: { boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)" },
               text: "Connected",
               animate: false,
             };
@@ -826,8 +830,8 @@ const MaterializeRenderSection = forwardRef<
       const config = getBadgeConfig(currentRenderStatus);
 
       return (
-        <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ${config.className}`}>
-          <div className={config.dotClassName}></div>
+        <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ${config.className}`}>
+          <div className={config.dotClassName} style={config.dotStyle}></div>
           {config.text}
         </div>
       );
@@ -1164,6 +1168,7 @@ const MaterializeRenderSection = forwardRef<
                   </Tooltip>
                 </div>
               </TooltipProvider>
+              <ConnectionStatusIndicator />
               {mobileHint && isMobileLayout && (
                 <span className="text-xs text-muted-foreground">
                   {mobileHint}
@@ -1171,7 +1176,6 @@ const MaterializeRenderSection = forwardRef<
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <ConnectionStatusIndicator />
               <Button
                 variant={isTerminalOpen ? "default" : "secondary"}
                 size="sm"
