@@ -5,6 +5,7 @@ import Loader from "@/components/dashboard/Loader";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
+import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
 import {
   AlertDialog,
@@ -38,6 +39,9 @@ import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type APIResponse,
+  type CreatePrototypeErrorResponse,
+  type CreatePrototypeRequestBody,
+  type CreatePrototypeSuccessResponse,
   type FetchViewingUrlRequestBody,
   type FetchViewingUrlSuccessResponse,
   type StandardErrorResponse,
@@ -98,6 +102,8 @@ export default function InternalPrototypePage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isCloningPrototype, setIsCloningPrototype] = useState(false);
+  const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
@@ -645,6 +651,63 @@ export default function InternalPrototypePage() {
     setShowShareModal(true);
   };
 
+  const handleClone = useCallback(async () => {
+    if (!prototype) return;
+
+    try {
+      setIsCloningPrototype(true);
+      const clonedPrototypeName = `${prototype.name} (Copy)`;
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        logger.debug("error", "No authentication token available");
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: clonedPrototypeName,
+            description: prototype.description,
+            project_id: prototype.project_id || undefined,
+            prototype_id: prototype.id,
+            visibility: "PUBLIC",
+          } as CreatePrototypeRequestBody),
+        },
+      );
+
+      const result: APIResponse<
+        CreatePrototypeSuccessResponse,
+        CreatePrototypeErrorResponse
+      > = await response.json();
+
+      if (result.data) {
+        // Navigate to the new prototype
+        window.location.href = `/dashboard/prototypes/${result.data.prototype_id}`;
+      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
+        setShowCloneUpsellModal(true);
+      } else if (result.error) {
+        logger.debug("error", "Error cloning prototype:", {
+          ...result.error,
+        });
+      }
+    } catch (error) {
+      logger.debug("error", "Error cloning prototype:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsCloningPrototype(false);
+    }
+  }, [logger, prototype]);
+
   const handleCopyLink = async () => {
     if (!prototype) return;
 
@@ -766,7 +829,6 @@ export default function InternalPrototypePage() {
               prototype={prototype}
               canEditPrototype={canEditPrototype}
               onPrototypeUpdate={setPrototype}
-              onShare={handleShare}
               // File system integration
               files={fileSystem.state.files}
               assets={fileSystem.state.assets}
@@ -832,6 +894,9 @@ export default function InternalPrototypePage() {
               onCurrentPathChange={setCurrentViewingPath}
               isPreviewView={isPreviewView}
               onPreviewViewChange={setIsPreviewView}
+              onShare={handleShare}
+              onClone={handleClone}
+              isCloningPrototype={isCloningPrototype}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   <div
@@ -1026,6 +1091,13 @@ export default function InternalPrototypePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Clone Upsell Modal */}
+      <ProPlanUpsellModal
+        open={showCloneUpsellModal}
+        onOpenChange={setShowCloneUpsellModal}
+        reason="prototype_creation_limit_reached"
+      />
     </div>
   );
 }

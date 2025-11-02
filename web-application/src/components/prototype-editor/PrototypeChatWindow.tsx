@@ -32,13 +32,9 @@ import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { ChatStreamEventType } from "@/lib/types/chat-types";
 import {
-  APIResponse,
   ChatErrorResponse,
   ChatRequestBody,
   CodeError,
-  type CreatePrototypeErrorResponse,
-  type CreatePrototypeRequestBody,
-  type CreatePrototypeSuccessResponse,
   ChatMessage as ServerChatMessage,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
@@ -56,7 +52,6 @@ import {
   ClipboardDocumentListIcon,
   CommandLineIcon,
   CpuChipIcon,
-  DocumentDuplicateIcon,
   DocumentPlusIcon,
   EyeIcon,
   InformationCircleIcon,
@@ -66,11 +61,9 @@ import {
   PencilIcon,
   PhotoIcon,
   RocketLaunchIcon,
-  ShareIcon,
   TrashIcon, XCircleIcon,
   XMarkIcon
 } from "@heroicons/react/24/outline";
-import { useRouter } from "next/navigation";
 import {
   type ComponentType,
   type SVGProps,
@@ -160,7 +153,7 @@ const generateTimelineId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const MOCK_FLOW_ENABLED =
-  DEBUG_MODE || process.env.NODE_ENV !== "production";
+  DEBUG_MODE;
 
 const isConversationItem = (
   item: ChatTimelineItem,
@@ -353,7 +346,6 @@ export interface PrototypeChatWindowProps {
   prototype?: Prototype | null;
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
-  onShare?: () => void;
 
   // File system integration
   files: Record<string, PrototypeFile>;
@@ -394,7 +386,6 @@ export default function PrototypeChatWindow({
   prototype,
   canEditPrototype = false,
   onPrototypeUpdate,
-  onShare,
   isChatLoading,
   setIsChatLoading,
   currentViewingUrl,
@@ -406,7 +397,6 @@ export default function PrototypeChatWindow({
   onModelProviderChange,
 }: PrototypeChatWindowProps) {
   const logger = useProductLogger();
-  const router = useRouter();
   const { user } = useUser();
   const userId = user?.id;
   const {
@@ -431,8 +421,6 @@ export default function PrototypeChatWindow({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
-  const [isCloningPrototype, setIsCloningPrototype] = useState(false);
-  const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   // UI state
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -855,61 +843,6 @@ export default function PrototypeChatWindow({
     }
   }, [canEditName, editedTitle, logger, onPrototypeUpdate, prototype]);
 
-  const handleClonePrototype = useCallback(async () => {
-    if (!prototype) return;
-
-    try {
-      setIsCloningPrototype(true);
-      const clonedPrototypeName = `${prototype.name} (Copy)`;
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
-      if (!token) {
-        logger.debug("error", "No authentication token available");
-        return;
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: clonedPrototypeName,
-            description: prototype.description,
-            project_id: prototype.project_id || undefined,
-            prototype_id: prototype.id,
-            visibility: "PUBLIC",
-          } as CreatePrototypeRequestBody),
-        },
-      );
-
-      const result: APIResponse<
-        CreatePrototypeSuccessResponse,
-        CreatePrototypeErrorResponse
-      > = await response.json();
-
-      if (result.data) {
-        router.push(`/dashboard/prototypes/${result.data.prototype_id}`);
-      } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
-        setShowCloneUpsellModal(true);
-      } else if (result.error) {
-        logger.debug("error", "Error cloning prototype:", {
-          ...result.error,
-        });
-      }
-    } catch (error) {
-      logger.debug("error", "Error cloning prototype:", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    } finally {
-      setIsCloningPrototype(false);
-    }
-  }, [logger, prototype, router]);
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -2032,37 +1965,6 @@ export default function PrototypeChatWindow({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        onClick={() => onShare?.()}
-                        variant="outline"
-                        size="icon"
-                        aria-label="Share prototype"
-                      >
-                        <ShareIcon className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Share prototype</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={handleClonePrototype}
-                        variant="outline"
-                        size="icon"
-                        disabled={isCloningPrototype}
-                        aria-label="Clone prototype"
-                      >
-                        {isCloningPrototype ? (
-                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <DocumentDuplicateIcon className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Clone prototype</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
                         onClick={() => setShowSettingsModal(true)}
                         variant="outline"
                         size="icon"
@@ -2540,11 +2442,6 @@ export default function PrototypeChatWindow({
         reason="free_message_limit_reached"
         messageCount={messageCount}
         messageLimit={messageLimit}
-      />
-      <ProPlanUpsellModal
-        open={showCloneUpsellModal}
-        onOpenChange={setShowCloneUpsellModal}
-        reason="prototype_creation_limit_reached"
       />
     </>
   );

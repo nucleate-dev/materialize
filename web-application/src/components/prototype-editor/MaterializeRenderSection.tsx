@@ -36,13 +36,16 @@ import {
   ChevronDown,
   ChevronUp,
   Code2,
+  Copy,
   Eye,
   Loader2,
   Monitor,
   MoreVertical,
-  Palette, RefreshCw,
+  Palette,
+  RefreshCw,
   RotateCcw,
   Settings,
+  Share2,
   Smartphone,
   Terminal as TerminalIcon,
   X
@@ -144,6 +147,10 @@ interface MaterializeRenderSectionProps {
   codeView: ReactNode;
   mobileHint?: string;
   isMobileLayout?: boolean;
+  // Share and clone actions
+  onShare?: () => void;
+  onClone?: () => void;
+  isCloningPrototype?: boolean;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -175,6 +182,9 @@ const MaterializeRenderSection = forwardRef<
       codeView,
       mobileHint,
       isMobileLayout,
+      onShare,
+      onClone,
+      isCloningPrototype = false,
     },
     ref,
   ) => {
@@ -896,19 +906,6 @@ const MaterializeRenderSection = forwardRef<
           <div className="w-full h-full overflow-auto">
             <div className="min-h-full flex items-center justify-center">
               <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4 relative">
-                {/* Dev Server Starting Tooltip */}
-                {currentRenderStatus === "Starting Dev Server.." && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
-                    <div className="bg-background/60 backdrop-blur-sm text-foreground px-6 py-2 rounded-md shadow-lg border border-border/50">
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm font-medium">
-                          Dev Server Starting! This can take about 1 minute
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 {mobileScreens.map((screen, index) => {
                   const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                   const isPrimaryScreen = index === 0;
@@ -1169,6 +1166,14 @@ const MaterializeRenderSection = forwardRef<
                 </div>
               </TooltipProvider>
               <ConnectionStatusIndicator />
+              {currentRenderStatus === "Starting Dev Server.." && (
+                <div className="flex items-center gap-2 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-md border border-border/50">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                  <span className="text-xs font-medium text-foreground whitespace-nowrap">
+                    This can take about 1 minute
+                  </span>
+                </div>
+              )}
               {mobileHint && isMobileLayout && (
                 <span className="text-xs text-muted-foreground">
                   {mobileHint}
@@ -1194,9 +1199,9 @@ const MaterializeRenderSection = forwardRef<
                   className="hidden sm:flex items-center gap-2"
                 >
                   <Palette className="w-4 h-4" />
-                  <Badge variant="outline" className="border-0 px-0">
+                  {/* <Badge variant="outline" className="border-0 px-0">
                     {designSystemLabel}
-                  </Badge>
+                  </Badge> */}
                 </Button>
               )}
               <DropdownMenu>
@@ -1226,13 +1231,30 @@ const MaterializeRenderSection = forwardRef<
                     Web View
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {onShare && (
+                    <DropdownMenuItem onClick={onShare}>
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                  )}
+                  {onClone && (
+                    <DropdownMenuItem onClick={onClone} disabled={isCloningPrototype}>
+                      {isCloningPrototype ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
+                      {isCloningPrototype ? "Cloning..." : "Clone"}
+                    </DropdownMenuItem>
+                  )}
+                  {(onShare || onClone) && <DropdownMenuSeparator />}
                   {designSystemLabel && onDesignSystemClick && (
                     <>
                       <DropdownMenuItem onClick={onDesignSystemClick} className="sm:hidden">
                         <Palette className="w-4 h-4 mr-2" />
-                        <Badge variant="outline" className="border-0 px-0">
+                        {/* <Badge variant="outline" className="border-0 px-0">
                           {designSystemLabel}
-                        </Badge>
+                        </Badge> */}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="sm:hidden" />
                     </>
