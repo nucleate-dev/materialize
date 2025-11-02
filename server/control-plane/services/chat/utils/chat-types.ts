@@ -39,6 +39,10 @@ export enum ChatStreamEventType {
   DISPATCH_ERROR = 'dispatch_error',
   VIEWING_URL = 'viewing_url',
   BUILD_ERRORS = 'build_errors',
+  TYPECHECK_STARTED = 'typecheck_started',
+  TYPECHECK_ERRORS = 'typecheck_errors',
+  TYPECHECK_PASSED = 'typecheck_passed',
+  TYPECHECK_FAILED = 'typecheck_failed',
 
   // Completion Events
   CHAT_COMPLETE = 'chat_complete',
@@ -60,6 +64,8 @@ export enum ChatPhase {
   SPEC_EXPANSION = 'spec_expansion',
   MAIN_EXECUTION = 'main_execution',
   FILE_DISPATCH = 'file_dispatch',
+  ERROR_CHECKING = 'error_checking',
+  ERROR_FIXING = 'error_fixing',
 }
 
 /**
@@ -167,6 +173,38 @@ export interface ToolResultEvent {
   tool: string;
   toolCallId: string;
   result: unknown;
+}
+
+/**
+ * Type check started event - emitted before running validation
+ */
+export interface TypecheckStartedEvent {
+  type: ChatStreamEventType.TYPECHECK_STARTED;
+  command: string;
+}
+
+/**
+ * Type check errors event - emitted when compiler errors are found
+ */
+export interface TypecheckErrorsEvent {
+  type: ChatStreamEventType.TYPECHECK_ERRORS;
+  output: string;
+}
+
+/**
+ * Type check passed event - emitted when the type check completes with no errors
+ */
+export interface TypecheckPassedEvent {
+  type: ChatStreamEventType.TYPECHECK_PASSED;
+  message: string;
+}
+
+/**
+ * Type check failed event - emitted when the type check command cannot be completed
+ */
+export interface TypecheckFailedEvent {
+  type: ChatStreamEventType.TYPECHECK_FAILED;
+  error: string;
 }
 
 /**

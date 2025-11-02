@@ -908,14 +908,20 @@ export class ChatEngineV1 {
           ),
         );
 
-        const dispatchResult = await this.persistAndDispatchFiles(
-          fileManager,
-          params,
-        );
-        dispatchResult.build_errors || [];
+        await this.persistAndDispatchFiles(fileManager, params);
         // Clear change tracking after successful dispatch
         fileManager.clearChangeTracking();
       }
+
+      // Error checking phase after file dispatch
+      // 1. enqueue a new ChatStreamEventType for starting the error checking phase
+      // 2. Use the this.config.dispatcherService.dispatchRunCommand function to run the "npx tsc" command on the dev server
+      // 3. If the stdout is not empty, then the type checking failed. Log the stdout, and then:
+      //     - Stream a new ChatStreamEventType indicating that errors were found and starting the fixing phase
+      //     - Create a new LLM call (using the Vercel AI SDK) to generate a fix for the errors. Set the user intent type to 'error_fixing', and pass in the output from the npx tsc run as a user message
+      //     - Give the LLM all of the same tools that were used in the other two phases
+      //     - Log the token usage for the error_fixing user intent phase (input and output tokens), and aggregate the token usage to the overall total. Move the log for the overall total to after these steps
+      // 4. If the stdout was empty, then log that no errors were found, and then continue
 
       controller.enqueue(
         encoder.encode(
