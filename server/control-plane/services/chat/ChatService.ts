@@ -213,6 +213,34 @@ export class ChatService {
         file_scope = 'complete';
       }
 
+      // 3a. Start a heartbeat to keep the edit intent alive
+      const EDIT_INTENT_HEARTBEAT_MS = 3 * 60_000;
+      let editIntentHeartbeat: NodeJS.Timeout | null = null;
+      const stopEditIntentHeartbeat = (): void => {
+        if (editIntentHeartbeat) {
+          clearInterval(editIntentHeartbeat);
+          editIntentHeartbeat = null;
+        }
+      };
+      const startEditIntentHeartbeat = (): void => {
+        if (editIntentHeartbeat) {
+          return;
+        }
+        editIntentHeartbeat = setInterval(() => {
+          void this.dispatcherService
+            .dispatchEditIntent({ prototype_id }, token, request.log2)
+            .catch((error) => {
+              request.log2.warn(
+                '[ChatService] Failed to refresh edit intent heartbeat',
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              );
+            });
+        }, EDIT_INTENT_HEARTBEAT_MS);
+      };
+      startEditIntentHeartbeat();
+
       // ------------------------------------------------------------------------------------------------
       // 4. Load/generate additional project context and parse file mentions
       // ------------------------------------------------------------------------------------------------
@@ -352,6 +380,7 @@ export class ChatService {
               );
             }
           } finally {
+            stopEditIntentHeartbeat();
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({
@@ -394,6 +423,7 @@ export class ChatService {
           })}\n\n`;
           reply.raw.write(errorEvent);
         } finally {
+          stopEditIntentHeartbeat();
           reply.raw.end();
         }
       };
