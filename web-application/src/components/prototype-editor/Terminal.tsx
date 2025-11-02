@@ -142,8 +142,21 @@ export default function Terminal({
       const handleResize = () => {
         try {
           instance.fitAddon.fit();
+          const cols = instance.xterm.cols;
+          const rows = instance.xterm.rows;
+
+          // Send resize message through WebSocket if connected
+          if (instance.ws && instance.ws.readyState === WebSocket.OPEN) {
+            const message = {
+              type: "resize",
+              cols: cols,
+              rows: rows,
+            };
+            instance.ws.send(JSON.stringify(message));
+          }
+
           if (onResize) {
-            onResize(instance.xterm.cols, instance.xterm.rows);
+            onResize(cols, rows);
           }
         } catch {
           // Do nothing
@@ -252,7 +265,7 @@ export default function Terminal({
   return (
     <div className={`w-full h-full flex flex-col ${className}`}>
       {/* Tab Navigation */}
-      <div className="flex border-b border-border bg-[#1a1a1a]">
+      <div className="flex border-b border-border bg-muted/30">
         {TERMINAL_SESSIONS.map((session) => {
           const instance = terminalInstancesMap.current.get(session);
           const isConnected = instance?.isConnected || false;
@@ -264,8 +277,8 @@ export default function Terminal({
               className={`
                 px-4 py-2 text-sm font-medium transition-colors relative
                 ${activeSession === session
-                  ? "text-foreground bg-[#0a0a0a] border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-[#0a0a0a]/50"
+                  ? "text-foreground bg-background border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                 }
               `}
             >
@@ -273,7 +286,7 @@ export default function Terminal({
                 {TERMINAL_SESSION_LABELS[session]}
                 {/* Connection indicator */}
                 <div
-                  className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-500"
+                  className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-muted-foreground/50"
                     }`}
                   title={isConnected ? "Connected" : "Disconnected"}
                 />
@@ -291,7 +304,7 @@ export default function Terminal({
             ref={(el) => {
               if (el) terminalRefsMap.current.set(session, el);
             }}
-            className={`w-full h-full bg-[#0a0a0a] overflow-hidden absolute inset-0 ${activeSession === session ? "block" : "hidden"
+            className={`w-full h-full bg-black dark:bg-[#0a0a0a] overflow-hidden absolute inset-0 ${activeSession === session ? "block" : "hidden"
               }`}
           />
         ))}
