@@ -21,12 +21,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { Database } from "@/lib/types/supabase";
 import type {
   APIResponse,
-  DeletePrototypeSuccessResponse,
   DeletePrototypeErrorResponse,
+  DeletePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { Database } from "@/lib/types/supabase";
 import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
@@ -196,7 +196,7 @@ export default function PrototypeSettingsModal({
               </Select>
               {userPlan !== "pro" && (
                 <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to change prototype visibility settings.
+                  Upgrade to Pro to change project visibility settings.
                 </p>
               )}
             </div>

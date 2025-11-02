@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -436,6 +437,8 @@ export default function PrototypeChatWindow({
   // UI state
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 
   // Thoughts and execution plan state
   const [currentThought, setCurrentThought] = useState<string>("");
@@ -858,6 +861,48 @@ export default function PrototypeChatWindow({
     }
   }, [canEditName, editedTitle, logger, onPrototypeUpdate, prototype]);
 
+  const handleVisibilityClick = useCallback(() => {
+    if (!canEditPrototype || !prototype) return;
+    setShowVisibilityModal(true);
+  }, [canEditPrototype, prototype]);
+
+  const handleVisibilityChange = useCallback(
+    async (newVisibility: Database["public"]["Enums"]["visibility_level"]) => {
+      if (!canEditPrototype || !prototype || !onPrototypeUpdate) return;
+
+      // If trying to set to SELF (Private) and not a Pro user, show upsell
+      if (newVisibility === "SELF" && userPlan !== "pro") {
+        setShowVisibilityModal(false);
+        setShowUpsellModal(true);
+        return;
+      }
+
+      try {
+        setIsUpdatingVisibility(true);
+
+        const { error } = await supabase
+          .from("prototypes")
+          .update({ visibility: newVisibility })
+          .eq("id", prototype.id);
+
+        if (error) {
+          throw error;
+        }
+
+        // Update local state via callback
+        onPrototypeUpdate({ ...prototype, visibility: newVisibility });
+        setShowVisibilityModal(false);
+      } catch (err) {
+        logger.debug("error", "Error updating prototype visibility:", {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+      } finally {
+        setIsUpdatingVisibility(false);
+      }
+    },
+    [canEditPrototype, logger, onPrototypeUpdate, prototype, userPlan]
+  );
 
   useEffect(() => {
     async function fetchPrototypeChatSessionAndMessages() {
@@ -2353,12 +2398,12 @@ export default function PrototypeChatWindow({
                         onClick={() => setShowSettingsModal(true)}
                         variant="outline"
                         size="icon"
-                        aria-label="Prototype settings"
+                        aria-label="Project settings"
                       >
                         <InformationCircleIcon className="w-4 h-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Prototype info</TooltipContent>
+                    <TooltipContent>Project info</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
@@ -2635,7 +2680,7 @@ export default function PrototypeChatWindow({
       <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Prototype Info</DialogTitle>
+            <DialogTitle>Project Info</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Name Editing */}
@@ -2702,9 +2747,19 @@ export default function PrototypeChatWindow({
             <div className="space-y-2">
               <label className="text-sm font-medium">Visibility</label>
               <div>
-                <Badge variant="outline" className="uppercase tracking-wide">
-                  {visibilityLabel}
-                </Badge>
+                {canEditPrototype ? (
+                  <Badge
+                    variant="outline"
+                    className="uppercase tracking-wide cursor-pointer hover:bg-muted"
+                    onClick={handleVisibilityClick}
+                  >
+                    {visibilityLabel}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="uppercase tracking-wide">
+                    {visibilityLabel}
+                  </Badge>
+                )}
               </div>
             </div>
 
@@ -2745,6 +2800,56 @@ export default function PrototypeChatWindow({
                 Cancel
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visibility Change Modal */}
+      <Dialog
+        open={showVisibilityModal}
+        onOpenChange={setShowVisibilityModal}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Visibility</DialogTitle>
+            <DialogDescription>
+              Choose who can view this project
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-4 px-4"
+              onClick={() => handleVisibilityChange("PUBLIC")}
+              disabled={isUpdatingVisibility}
+            >
+              <div className="flex flex-col items-start">
+                <div className="font-medium">Public</div>
+                <div className="text-sm text-muted-foreground">
+                  Anyone with the link can view
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-4 px-4"
+              onClick={() => handleVisibilityChange("SELF")}
+              disabled={isUpdatingVisibility}
+            >
+              <div className="flex flex-col items-start">
+                <div className="font-medium">
+                  Private
+                  {userPlan !== "pro" && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      Pro
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Only you can view
+                </div>
+              </div>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

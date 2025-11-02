@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import WaitlistModal from "@/components/WaitlistModal";
 import { WAITLIST_MODE } from "@/GlobalConstants";
 import { useUser } from "@/hooks/useUser";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type APIResponse,
@@ -57,6 +58,7 @@ export default function PublicPrototypeHeader({
   const user = userObj.user;
   const router = useRouter();
   const logger = useProductLogger();
+  const { userPlan } = useSubscriptionAccess();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -68,6 +70,8 @@ export default function PublicPrototypeHeader({
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 
   // Fetch file count for display
   useEffect(() => {
@@ -158,6 +162,48 @@ export default function PublicPrototypeHeader({
       logger.debug("error", "Failed to copy link:", {
         error: err instanceof Error ? err.message : String(err),
       });
+    }
+  };
+
+  const handleVisibilityClick = () => {
+    if (!user || prototype.owner_id !== user.id) return;
+    setShowVisibilityModal(true);
+  };
+
+  const handleVisibilityChange = async (
+    newVisibility: Database["public"]["Enums"]["visibility_level"]
+  ) => {
+    if (!prototype || !user || prototype.owner_id !== user.id) return;
+
+    // If trying to set to SELF (Private) and not a Pro user, show upsell
+    if (newVisibility === "SELF" && userPlan !== "pro") {
+      setShowVisibilityModal(false);
+      setShowUpsellModal(true);
+      return;
+    }
+
+    try {
+      setIsUpdatingVisibility(true);
+
+      const { error } = await supabase
+        .from("prototypes")
+        .update({ visibility: newVisibility })
+        .eq("id", prototype.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state via callback
+      onUpdatePrototype({ ...prototype, visibility: newVisibility });
+      setShowVisibilityModal(false);
+    } catch (err) {
+      logger.debug("error", "Error updating prototype visibility:", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+    } finally {
+      setIsUpdatingVisibility(false);
     }
   };
 
@@ -268,13 +314,13 @@ export default function PublicPrototypeHeader({
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
                       <DialogHeader>
-                        <DialogTitle>Prototype Information</DialogTitle>
+                        <DialogTitle>Project Information</DialogTitle>
                         <DialogDescription>
-                          Details about this prototype
+                          Details about this project
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
-                        {/* Prototype Name - Editable for owner */}
+                        {/* Project Name - Editable for owner */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-muted-foreground">
@@ -349,9 +395,23 @@ export default function PublicPrototypeHeader({
                           <span className="text-sm font-medium text-muted-foreground">
                             Visibility
                           </span>
-                          <Badge variant="outline" className="text-xs">
-                            {prototype.visibility?.toLowerCase() || "private"}
-                          </Badge>
+                          {user && prototype.owner_id === user.id ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs cursor-pointer hover:bg-muted"
+                              onClick={handleVisibilityClick}
+                            >
+                              {prototype.visibility === "SELF"
+                                ? "Private"
+                                : "Public"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              {prototype.visibility === "SELF"
+                                ? "Private"
+                                : "Public"}
+                            </Badge>
+                          )}
                         </div>
                         {prototype.created_at && (
                           <div className="flex items-center justify-between">
@@ -482,6 +542,56 @@ export default function PublicPrototypeHeader({
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visibility Change Modal */}
+      <Dialog
+        open={showVisibilityModal}
+        onOpenChange={setShowVisibilityModal}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Visibility</DialogTitle>
+            <DialogDescription>
+              Choose who can view this project
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-4 px-4"
+              onClick={() => handleVisibilityChange("PUBLIC")}
+              disabled={isUpdatingVisibility}
+            >
+              <div className="flex flex-col items-start">
+                <div className="font-medium">Public</div>
+                <div className="text-sm text-muted-foreground">
+                  Anyone with the link can view
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-4 px-4"
+              onClick={() => handleVisibilityChange("SELF")}
+              disabled={isUpdatingVisibility}
+            >
+              <div className="flex flex-col items-start">
+                <div className="font-medium">
+                  Private
+                  {userPlan !== "pro" && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      Pro
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Only you can view
+                </div>
+              </div>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

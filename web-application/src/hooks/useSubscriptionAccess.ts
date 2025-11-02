@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { useUser } from "@/hooks/useUser";
-import { SubscriptionStatuses } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
-import { Database } from "@/lib/types/supabase";
+import { SubscriptionStatuses } from "@/GlobalConstants";
+import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
+import { useEffect, useState } from "react";
 
 type SubscriptionPlanType =
   Database["public"]["Enums"]["subscription_plan_type"];
