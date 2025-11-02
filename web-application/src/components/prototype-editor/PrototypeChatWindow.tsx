@@ -56,9 +56,11 @@ import {
   ExclamationTriangleIcon,
   PencilIcon,
   PhotoIcon,
-  PlayIcon,
   ShareIcon,
   XMarkIcon,
+  InformationCircleIcon,
+  PaperAirplaneIcon,
+  CpuChipIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -236,6 +238,7 @@ export default function PrototypeChatWindow({
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   // UI state
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Thoughts and execution plan state
   const [currentThought, setCurrentThought] = useState<string>("");
@@ -268,6 +271,22 @@ export default function PrototypeChatWindow({
     ? new Date(prototype.created_at).toLocaleDateString()
     : null;
   const canEditName = Boolean(canEditPrototype && onPrototypeUpdate);
+
+  // Helper function to get model display name
+  const getModelDisplayName = (provider: string) => {
+    switch (provider) {
+      case "anthropic":
+        return "Sonnet 4.5";
+      case "openai":
+        return "GPT-5";
+      case "google":
+        return "Gemini 2.5 Flash";
+      case "openai-mini":
+        return "GPT-5 Nano";
+      default:
+        return "Select model";
+    }
+  };
 
 
   // File autocomplete functionality
@@ -1226,87 +1245,11 @@ export default function PrototypeChatWindow({
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap min-w-0">
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Input
-                      value={editedTitle}
-                      onChange={(event) => setEditedTitle(event.target.value)}
-                      className="h-9 w-56 md:w-64"
-                      autoFocus
-                      disabled={isUpdatingTitle}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          handleSaveTitle();
-                        } else if (event.key === "Escape") {
-                          handleCancelTitleEdit();
-                        }
-                      }}
-                    />
-                    <Button
-                      size="icon"
-                      onClick={handleSaveTitle}
-                      disabled={isUpdatingTitle || !editedTitle.trim()}
-                      className="h-8 w-8"
-                    >
-                      {isUpdatingTitle ? (
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <CheckIcon className="w-4 h-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={handleCancelTitleEdit}
-                      disabled={isUpdatingTitle}
-                      className="h-8 w-8"
-                    >
-                      <XMarkIcon className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <h2 className="text-lg font-semibold text-foreground truncate max-w-xs md:max-w-sm">
-                      {prototypeTitle}
-                    </h2>
-                    {canEditName && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleStartTitleEdit}
-                        className="h-8 w-8"
-                        title="Edit prototype name"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </Button>
-                    )}
-                    <Badge variant="outline" className="uppercase tracking-wide">
-                      {visibilityLabel}
-                    </Badge>
-                    {createdAtLabel && (
-                      <span className="text-xs text-muted-foreground">
-                        Created {createdAtLabel}
-                      </span>
-                    )}
-                  </>
-                )}
+                <h2 className="text-lg font-semibold text-foreground truncate max-w-xs md:max-w-sm">
+                  {prototypeTitle}
+                </h2>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                <Select
-                  value={modelProvider}
-                  onValueChange={onModelProviderChange}
-                >
-                  <SelectTrigger className="w-[200px] h-8">
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="google">Gemini 2.5 Flash</SelectItem>
-                    <SelectItem value="anthropic">Claude Sonnet 4</SelectItem>
-                    <SelectItem value="openai">GPT-5</SelectItem>
-                    <SelectItem value="openai-mini">GPT-5 Nano</SelectItem>
-                  </SelectContent>
-                </Select>
                 {buildErrors.length > 0 && (
                   <Button
                     onClick={handleInsertBuildErrors}
@@ -1363,6 +1306,19 @@ export default function PrototypeChatWindow({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Clone prototype</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => setShowSettingsModal(true)}
+                          variant="outline"
+                          size="icon"
+                          aria-label="Prototype settings"
+                        >
+                          <InformationCircleIcon className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Prototype info</TooltipContent>
                     </Tooltip>
                   </div>
                 </TooltipProvider>
@@ -1513,7 +1469,7 @@ export default function PrototypeChatWindow({
         )}
 
         {/* Input Area */}
-        <div className="p-4 border-t">
+        <div className="px-3 py-2 border-t">
           <div className="space-y-2">
             {/* Image Preview */}
             {imagePreview && (
@@ -1536,46 +1492,145 @@ export default function PrototypeChatWindow({
             )}
 
             <div className="relative overflow-visible">
-              <Textarea
-                ref={textareaRef as React.RefObject<HTMLTextAreaElement>}
-                value={currentMessage}
-                onChange={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  handleTextareaChange(e.target.value, target.selectionStart);
-                }}
-                placeholder="Type your message... Use @filename to reference files"
-                className="min-h-[120px] resize-none text-base"
-                disabled={isInputDisabled}
-                onKeyDown={(e) => {
-                  // Handle autocomplete navigation
-                  if (
-                    autocompleteState.isOpen &&
-                    (e.key === "ArrowDown" ||
-                      e.key === "ArrowUp" ||
-                      e.key === "Enter" ||
-                      e.key === "Escape")
-                  ) {
-                    // Let the FileAutocomplete component handle these keys
-                    return;
-                  }
+              {/* Combined Input Container */}
+              <div className="relative border rounded-lg bg-background">
+                <Textarea
+                  ref={textareaRef as React.RefObject<HTMLTextAreaElement>}
+                  value={currentMessage}
+                  onChange={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    handleTextareaChange(e.target.value, target.selectionStart);
+                  }}
+                  placeholder="Describe the mobile app you want to build..."
+                  className="min-h-[140px] resize-none text-[15px] border-0 px-4 pt-3 pr-12 pb-14 focus-visible:ring-0"
+                  disabled={isInputDisabled}
+                  onKeyDown={(e) => {
+                    // Handle autocomplete navigation
+                    if (
+                      autocompleteState.isOpen &&
+                      (e.key === "ArrowDown" ||
+                        e.key === "ArrowUp" ||
+                        e.key === "Enter" ||
+                        e.key === "Escape")
+                    ) {
+                      // Let the FileAutocomplete component handle these keys
+                      return;
+                    }
 
-                  if (
-                    e.key === "Enter" &&
-                    !e.shiftKey &&
-                    !autocompleteState.isOpen
-                  ) {
-                    e.preventDefault();
-                    handleSendMessage(currentMessage);
-                  }
-                }}
-                onBlur={() => {
-                  // Close autocomplete when clicking outside, but with a small delay
-                  // to allow for clicking on autocomplete items
-                  setTimeout(() => {
-                    closeAutocomplete();
-                  }, 200);
-                }}
-              />
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !autocompleteState.isOpen
+                    ) {
+                      e.preventDefault();
+                      handleSendMessage(currentMessage);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Close autocomplete when clicking outside, but with a small delay
+                    // to allow for clicking on autocomplete items
+                    setTimeout(() => {
+                      closeAutocomplete();
+                    }, 200);
+                  }}
+                />
+
+                {/* Bottom Controls */}
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2 border-t bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+
+                    {/* Image upload button */}
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isInputDisabled}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Upload image"
+                    >
+                      <PhotoIcon className="w-5 h-5" />
+                    </Button>
+
+                    {/* Model Selector */}
+                    <Select
+                      value={modelProvider}
+                      onValueChange={onModelProviderChange}
+                    >
+                      <SelectTrigger className="w-auto h-7 border-0 bg-transparent gap-1.5 px-2 hover:bg-accent/50 text-sm text-muted-foreground">
+                        <CpuChipIcon className="w-4 h-4" />
+                        <span>{getModelDisplayName(modelProvider)}</span>
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        <SelectItem value="anthropic" className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+                              <CpuChipIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium">Sonnet 4.5</span>
+                              <span className="text-xs text-muted-foreground">Best model from Anthropic</span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="openai" className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+                              <CpuChipIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium">GPT-5</span>
+                              <span className="text-xs text-muted-foreground">The best model from OpenAI</span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="google" className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+                              <CpuChipIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium">Gemini 2.5 Flash</span>
+                              <span className="text-xs text-muted-foreground">Best model from Google</span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="openai-mini" className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+                              <CpuChipIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium">GPT-5 Nano</span>
+                              <span className="text-xs text-muted-foreground">Smaller model from OpenAI</span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Send Button */}
+                  <Button
+                    onClick={() => {
+                      handleSendMessage(currentMessage);
+                    }}
+                    disabled={isSendDisabled}
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-md hover:bg-accent disabled:opacity-50"
+                  >
+                    <PaperAirplaneIcon className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
 
               {/* File Autocomplete - positioned absolutely above textarea */}
               {autocompleteState.isOpen && (
@@ -1590,38 +1645,7 @@ export default function PrototypeChatWindow({
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
 
-              {/* Image upload button */}
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isInputDisabled}
-                variant="outline"
-                size="icon"
-                title="Upload image"
-              >
-                <PhotoIcon className="w-4 h-4" />
-              </Button>
-
-              <Button
-                onClick={() => {
-                  handleSendMessage(currentMessage);
-                }}
-                disabled={isSendDisabled}
-                className="flex-1"
-              >
-                <PlayIcon className="w-4 h-4 mr-2" />
-                Send Message
-              </Button>
-            </div>
             {isAtLimit && (
               <p className="text-sm text-destructive">
                 You&apos;ve reached your message limit. Please upgrade to
@@ -1652,6 +1676,94 @@ export default function PrototypeChatWindow({
           </div>
         </div>
       </div>
+
+      {/* Prototype Settings Modal */}
+      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Prototype Info</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Name Editing */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedTitle}
+                    onChange={(event) => setEditedTitle(event.target.value)}
+                    className="flex-1"
+                    autoFocus
+                    disabled={isUpdatingTitle}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleSaveTitle();
+                      } else if (event.key === "Escape") {
+                        handleCancelTitleEdit();
+                      }
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleSaveTitle}
+                    disabled={isUpdatingTitle || !editedTitle.trim()}
+                    className="h-9 w-9"
+                  >
+                    {isUpdatingTitle ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <CheckIcon className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={handleCancelTitleEdit}
+                    disabled={isUpdatingTitle}
+                    className="h-9 w-9"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm flex-1">{prototypeTitle}</p>
+                  {canEditName && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleStartTitleEdit}
+                      className="h-8 w-8"
+                      title="Edit prototype name"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Visibility Status */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Visibility</label>
+              <div>
+                <Badge variant="outline" className="uppercase tracking-wide">
+                  {visibilityLabel}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Created Date */}
+            {createdAtLabel && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Created</label>
+                <p className="text-sm text-muted-foreground">{createdAtLabel}</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Clear Chat Confirmation Dialog */}
       <Dialog open={showClearChatDialog} onOpenChange={setShowClearChatDialog}>

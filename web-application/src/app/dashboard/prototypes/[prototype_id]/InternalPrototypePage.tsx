@@ -17,7 +17,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -757,62 +756,54 @@ export default function InternalPrototypePage() {
           className={`${isMobile
             ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
             : "flex"
-            } flex-col relative z-10`}
+            } flex-col relative z-10 bg-background`}
           style={isMobile ? { height: "100%" } : { width: `${leftPanelWidth}%`, minWidth: "320px" }}
         >
-          {/* Card Container */}
-          <Card
-            className={`h-full ${isMobile ? "m-2" : "m-2"} bg-background/80 backdrop-blur-sm border border-border`}
-            style={isMobile ? { height: "calc(100% - 16px)" } : {}}
-          >
-            <CardContent className="h-full flex flex-col p-0 overflow-hidden">
-              {/* Mobile Chat Header */}
-              {isMobile && (
-                <div className="p-6 border-b border-border flex-shrink-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
-                      <h2 className="text-base font-bold text-foreground">
-                        AI Assistant
-                      </h2>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Swipe left to see preview
-                    </div>
-                  </div>
+          {/* Mobile Chat Header */}
+          {isMobile && (
+            <div className="p-6 border-b border-border flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
+                  <h2 className="text-base font-bold text-foreground">
+                    AI Assistant
+                  </h2>
                 </div>
-              )}
-
-              {/* Content Area */}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <PrototypeChatWindow
-                  prototypeId={prototypeId}
-                  prototype={prototype}
-                  canEditPrototype={canEditPrototype}
-                  onPrototypeUpdate={setPrototype}
-                  onShare={handleShare}
-                  // File system integration
-                  files={fileSystem.state.files}
-                  assets={fileSystem.state.assets}
-                  onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
-                  currentViewingUrl={viewingUrl ?? ""}
-                  // Loading state
-                  isChatLoading={isChatLoading}
-                  setIsChatLoading={setIsChatLoading}
-                  // Viewing URL integration
-                  onViewingUrlUpdate={setViewingUrl}
-                  // Render status for disabling input
-                  currentRenderStatus={currentRenderStatus}
-                  onCurrentRenderStatusChange={setCurrentRenderStatus}
-                  // Current viewing path for LLM context
-                  currentViewingPath={currentViewingPath}
-                  // Model provider selection
-                  modelProvider={modelProvider}
-                  onModelProviderChange={setModelProvider}
-                />
+                <div className="text-xs text-muted-foreground">
+                  Swipe left to see preview
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
+
+          {/* Content Area */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <PrototypeChatWindow
+              prototypeId={prototypeId}
+              prototype={prototype}
+              canEditPrototype={canEditPrototype}
+              onPrototypeUpdate={setPrototype}
+              onShare={handleShare}
+              // File system integration
+              files={fileSystem.state.files}
+              assets={fileSystem.state.assets}
+              onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
+              currentViewingUrl={viewingUrl ?? ""}
+              // Loading state
+              isChatLoading={isChatLoading}
+              setIsChatLoading={setIsChatLoading}
+              // Viewing URL integration
+              onViewingUrlUpdate={setViewingUrl}
+              // Render status for disabling input
+              currentRenderStatus={currentRenderStatus}
+              onCurrentRenderStatusChange={setCurrentRenderStatus}
+              // Current viewing path for LLM context
+              currentViewingPath={currentViewingPath}
+              // Model provider selection
+              modelProvider={modelProvider}
+              onModelProviderChange={setModelProvider}
+            />
+          </div>
         </div>
 
         {/* Draggable Divider - Only show on desktop */}
@@ -832,70 +823,63 @@ export default function InternalPrototypePage() {
           className={`${isMobile
             ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
             : "flex"
-            } flex-col relative z-10`}
+            } flex-col relative z-10 bg-background`}
           style={isMobile ? {} : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }}
         >
-          {/* Card Container */}
-          <Card
-            className={`h-full ${isMobile ? "m-2" : "m-2 ml-0"} bg-background/80 backdrop-blur-sm border border-border`}
-          >
-            <CardContent className="h-full flex flex-col p-0">
-              <div className="flex-1 overflow-hidden h-full">
-                <MaterializeRenderSection
-                  viewing_url={viewingUrl ?? ""}
-                  terminal_url={terminalUrl}
-                  prototypeId={prototypeId}
-                  files={fileSystem.state.files}
-                  assets={fileSystem.state.assets}
-                  onViewingUrlUpdate={setViewingUrl}
-                  currentRenderStatus={currentRenderStatus}
-                  onRenderStatusChange={setCurrentRenderStatus}
-                  designSystemLabel={
-                    canEditDesignSystem
-                      ? currentCustomDesignSystemName
-                        ? `${designSystemBadgeLabel} + ${currentCustomDesignSystemName}`
-                        : designSystemBadgeLabel
-                      : undefined
-                  }
-                  onDesignSystemClick={
-                    canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
-                  }
-                  onCurrentPathChange={setCurrentViewingPath}
-                  isPreviewView={isPreviewView}
-                  onPreviewViewChange={setIsPreviewView}
-                  codeView={
-                    <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
-                      <div
-                        className={`${isMobile
-                          ? "w-full max-h-[200px] border-b"
-                          : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                          } border-border`}
-                      >
-                        <div className="h-full overflow-auto">
-                          <FileTree
-                            files={fileSystem.state.files}
-                            assets={fileSystem.state.assets}
-                            selectedFile={fileSystem.state.selectedFile}
-                            onFileSelect={fileSystem.selectFile}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1 h-full">
-                        <CodeEditor
-                          fileSystem={fileSystem}
-                          prototypeId={prototypeId}
-                          onViewingUrlUpdate={setViewingUrl}
-                          currentRenderStatus={currentRenderStatus}
-                        />
-                      </div>
+          <div className="flex-1 overflow-hidden h-full">
+            <MaterializeRenderSection
+              viewing_url={viewingUrl ?? ""}
+              terminal_url={terminalUrl}
+              prototypeId={prototypeId}
+              files={fileSystem.state.files}
+              assets={fileSystem.state.assets}
+              onViewingUrlUpdate={setViewingUrl}
+              currentRenderStatus={currentRenderStatus}
+              onRenderStatusChange={setCurrentRenderStatus}
+              designSystemLabel={
+                canEditDesignSystem
+                  ? currentCustomDesignSystemName
+                    ? `${designSystemBadgeLabel} + ${currentCustomDesignSystemName}`
+                    : designSystemBadgeLabel
+                  : undefined
+              }
+              onDesignSystemClick={
+                canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
+              }
+              onCurrentPathChange={setCurrentViewingPath}
+              isPreviewView={isPreviewView}
+              onPreviewViewChange={setIsPreviewView}
+              codeView={
+                <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
+                  <div
+                    className={`${isMobile
+                      ? "w-full max-h-[200px] border-b"
+                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                      } border-border`}
+                  >
+                    <div className="h-full overflow-auto">
+                      <FileTree
+                        files={fileSystem.state.files}
+                        assets={fileSystem.state.assets}
+                        selectedFile={fileSystem.state.selectedFile}
+                        onFileSelect={fileSystem.selectFile}
+                      />
                     </div>
-                  }
-                  mobileHint={isMobile ? "Swipe right for chat" : undefined}
-                  isMobileLayout={isMobile}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                  <div className="flex-1 h-full">
+                    <CodeEditor
+                      fileSystem={fileSystem}
+                      prototypeId={prototypeId}
+                      onViewingUrlUpdate={setViewingUrl}
+                      currentRenderStatus={currentRenderStatus}
+                    />
+                  </div>
+                </div>
+              }
+              mobileHint={isMobile ? "Swipe right for chat" : undefined}
+              isMobileLayout={isMobile}
+            />
+          </div>
         </div>
       </div>
 
