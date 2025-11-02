@@ -13,7 +13,7 @@ import type {
   EnhancedChatContext,
   PrototypeFileInput,
 } from '../../../types/PublicAPITypes.js';
-import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS.js';
+import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS_V2.js';
 import { VirtualFileManager } from '../utils/file-manager.js';
 import { detectUserIntent } from '../utils/intent-classifier.js';
 import { fetchImageAsBase64 } from '../utils/image-utils.js';
