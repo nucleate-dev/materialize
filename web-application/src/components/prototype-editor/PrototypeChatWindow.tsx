@@ -1234,13 +1234,13 @@ export default function PrototypeChatWindow({
   return (
     <>
       <div
-        className="flex flex-col h-full"
+        className="flex flex-col h-full overflow-hidden"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         {/* Header */}
-        <div className="px-3 pb-2 border-b">
+        <div className="px-3 pb-2 border-b flex-shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <div className="flex items-center flex-wrap min-w-0">
               <h2 className="text-lg font-semibold text-foreground truncate max-w-xs md:max-w-sm">
@@ -1314,7 +1314,7 @@ export default function PrototypeChatWindow({
         </div>
 
         {/* Chat Messages */}
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
           <div className="space-y-4">
             {messages.map((message, index) => (
               <div
@@ -1360,7 +1360,7 @@ export default function PrototypeChatWindow({
 
         {/* Thoughts and Execution Plan Section */}
         {(currentThought || executionPlan.length > 0) && (
-          <div className="border-t border-b bg-muted/30">
+          <div className="border-t border-b bg-muted/30 flex-shrink-0">
             <div className="p-3">
               <Button
                 variant="ghost"
@@ -1436,7 +1436,7 @@ export default function PrototypeChatWindow({
         )}
 
         {/* Input Area */}
-        <div className="px-3 py-2 border-t">
+        <div className="px-3 py-2 border-t flex-shrink-0">
           <div className="space-y-2">
             {/* Image Preview */}
             {imagePreview && (

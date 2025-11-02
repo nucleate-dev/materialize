@@ -759,23 +759,6 @@ export default function InternalPrototypePage() {
             } flex-col relative z-10 bg-background overflow-hidden`}
           style={isMobile ? { height: "100%" } : { width: `${leftPanelWidth}%`, minWidth: "320px" }}
         >
-          {/* Mobile Chat Header */}
-          {isMobile && (
-            <div className="p-6 border-b border-border flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <ChatBubbleLeftRightIcon className="w-4 h-4 text-foreground" />
-                  <h2 className="text-base font-bold text-foreground">
-                    AI Assistant
-                  </h2>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Swipe left to see preview
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Content Area */}
           <div className="flex-1 min-h-0">
             <PrototypeChatWindow
@@ -876,7 +859,7 @@ export default function InternalPrototypePage() {
                   </div>
                 </div>
               }
-              mobileHint={isMobile ? "Swipe right for chat" : undefined}
+              mobileHint={undefined}
               isMobileLayout={isMobile}
             />
           </div>
