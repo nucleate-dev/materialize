@@ -4,6 +4,10 @@ import crypto from "crypto";
 const SUPABASE_URL = "https://hfgjmwidcoszkmvejxhw.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZ2ptd2lkY29zemttdmVqeGh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNDY5MTIsImV4cCI6MjA2ODYyMjkxMn0.wlX6Mc6aRnH2prvcqkYvJ4ccxM6oA3XF5gpX5T13d_w"; // needed for public/project-level access
+const MATERIALIZE_SERVICE_ACCESS_TOKEN =
+  "F4DTabLba3IqlUkj2TtCEWnq3Y8qEYCHCvaE/jZ0qsw=";
+const SERVICE_COOKIE_NAME = "materializeServiceAccess";
+const USER_COOKIE_NAME = "authToken";
 
 export const handler = async (event) => {
   const request = event.Records[0].cf.request;
@@ -27,6 +31,9 @@ export const handler = async (event) => {
   if (!sub || !/^[a-zA-Z0-9-]+$/.test(sub)) return request;
   const prototypeId = sub;
 
+  const cookieHeader = headers.cookie?.[0]?.value || "";
+  const cookies = parseCookies(cookieHeader);
+
   // --- Determine token (URL query param first, then cookie authToken) ---
   let token = null;
   const queryParams = request.querystring || "";
@@ -38,20 +45,16 @@ export const handler = async (event) => {
   }
 
   // If no token in URL, check cookie header for authToken
-  if (!token && headers.cookie && headers.cookie.length) {
-    const cookies = headers.cookie[0].value.split(";").map((c) => c.trim());
-    for (const c of cookies) {
-      if (c.startsWith("authToken=")) {
-        token = c.substring("authToken=".length);
-        break;
-      }
-    }
+  if (!token && cookies[USER_COOKIE_NAME]) {
+    token = cookies[USER_COOKIE_NAME];
   }
 
   // token is now either: (a) from URL, (b) from cookie, or (c) null
   // --- Check if token is the service token first ---
   let isService = false;
-  if (token) {
+  if (cookies[SERVICE_COOKIE_NAME] === "1") {
+    isService = true;
+  } else if (token) {
     // verify service token using host + uri (uri will be "/" for your screenshot URL)
     isService = verifyServiceToken({
       tokenB64: token,
@@ -138,6 +141,29 @@ export const handler = async (event) => {
   request.uri = newUri;
 
   // --- Preserve original cookie + redirect logic for user JWT tokens from query param ---
+  if (tokenFromQuery && isService) {
+    const qs = request.querystring || "";
+    const newQs = qs
+      .split("&")
+      .filter((p) => !p.startsWith("token=") && p !== "")
+      .join("&");
+    const location = `https://${host}${uri}${newQs ? "?" + newQs : ""}`;
+
+    return {
+      status: "302",
+      statusDescription: "Found",
+      headers: {
+        location: [{ key: "Location", value: location }],
+        "set-cookie": [
+          {
+            key: "Set-Cookie",
+            value: `${SERVICE_COOKIE_NAME}=1; Path=/; Secure; HttpOnly; SameSite=None`,
+          },
+        ],
+      },
+    };
+  }
+
   // If token came from query param and prototype is not PUBLIC, set cookie and redirect back to same URL without token
   if (tokenFromQuery && !isService && visibility !== "PUBLIC") {
     console.log(
@@ -205,4 +231,16 @@ function verifyServiceToken({ tokenB64, host, path, secret, skew = 30 }) {
   } catch {
     return false;
   }
+}
+
+function parseCookies(header) {
+  if (!header) return {};
+  return header.split(";").reduce((acc, part) => {
+    const [rawName, ...rest] = part.split("=");
+    if (!rawName || !rest.length) return acc;
+    const name = rawName.trim();
+    if (!name) return acc;
+    acc[name] = rest.join("=").trim();
+    return acc;
+  }, {});
 }
