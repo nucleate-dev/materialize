@@ -410,7 +410,7 @@ export function createDevServerTools(
   return {
     update_dev_server_with_changes: tool({
       description:
-        'Dispatch any pending file changes to the dev server and reset the virtual file system change tracking.',
+        'Dispatch any updates to the expo dev server for the user. This MUST be called before any typescript compile checks.',
       inputSchema: z.object({}),
       execute: async () => {
         const toolLog = log2.child({ tool: 'update_dev_server_with_changes' });

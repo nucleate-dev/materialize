@@ -54,7 +54,8 @@ export class ChatService {
       !this.googleAiApiKey ||
       !this.anthropicApiKey ||
       !this.stripeSecretKey ||
-      !this.jwtSecret
+      !this.jwtSecret ||
+      !this.openAiApiKey
     ) {
       throw new Error('Missing required environment variables for ChatService');
     }
