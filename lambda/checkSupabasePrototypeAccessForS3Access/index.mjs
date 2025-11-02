@@ -141,7 +141,7 @@ export const handler = async (event) => {
   request.uri = newUri;
 
   // --- Preserve original cookie + redirect logic for user JWT tokens from query param ---
-  if (tokenFromQuery && isService) {
+  if (tokenFromQuery && visibility !== "PUBLIC") {
     const qs = request.querystring || "";
     const newQs = qs
       .split("&")
@@ -157,35 +157,9 @@ export const handler = async (event) => {
         "set-cookie": [
           {
             key: "Set-Cookie",
-            value: `${SERVICE_COOKIE_NAME}=1; Path=/; Secure; HttpOnly; SameSite=None`,
-          },
-        ],
-      },
-    };
-  }
-
-  // If token came from query param and prototype is not PUBLIC, set cookie and redirect back to same URL without token
-  if (tokenFromQuery && !isService && visibility !== "PUBLIC") {
-    console.log(
-      "Prototype is not PUBLIC, setting cookie and redirecting to same URL without token",
-    );
-    // remove only the token param from querystring, keep other params intact
-    const qs = request.querystring || "";
-    const newQs = qs
-      .split("&")
-      .filter((p) => !p.startsWith("token=") && p !== "")
-      .join("&");
-    const location = `https://${host}${uri}${newQs ? "?" + newQs : ""}`;
-
-    return {
-      status: "302",
-      statusDescription: "Found",
-      headers: {
-        location: [{ key: "Location", value: location }],
-        "set-cookie": [
-          {
-            key: "Set-Cookie",
-            value: `authToken=${token}; Path=/; Secure; HttpOnly; SameSite=None`,
+            value: isService
+              ? `${SERVICE_COOKIE_NAME}=1; Path=/; Secure; HttpOnly; SameSite=None`
+              : `authToken=${token}; Path=/; Secure; HttpOnly; SameSite=None`,
           },
         ],
       },
