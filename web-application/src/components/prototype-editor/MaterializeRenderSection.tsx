@@ -61,6 +61,7 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -124,6 +125,25 @@ const resolveIframeSrc = (baseUrl: string, path: string) => {
     } catch {
       return baseUrl;
     }
+  }
+};
+
+const toExpoGoDeepLink = (url: string | undefined | null) => {
+  if (!url) {
+    return null;
+  }
+
+  const ensureExpScheme = (value: string) => {
+    const sanitized = value.replace(/^(https?:\/\/)/, "");
+    return sanitized ? `exp://${sanitized}` : null;
+  };
+
+  try {
+    const parsed = new URL(url);
+    const path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return ensureExpScheme(`${parsed.host}${path}`);
+  } catch {
+    return ensureExpScheme(url);
   }
 };
 
@@ -198,6 +218,10 @@ const MaterializeRenderSection = forwardRef<
     ref,
   ) => {
     const logger = useProductLogger();
+    const expoGoDeepLink = useMemo(
+      () => toExpoGoDeepLink(viewing_url),
+      [viewing_url],
+    );
     const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
     const [refreshKey, setRefreshKey] = useState(0);
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
@@ -1120,18 +1144,23 @@ const MaterializeRenderSection = forwardRef<
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4">
-              {viewing_url ? (
+              {expoGoDeepLink ? (
                 <div className="p-4 bg-white rounded-md shadow-sm">
-                  <QRCode value={viewing_url} size={180} />
+                  <QRCode value={expoGoDeepLink} size={180} />
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
                   Viewing URL unavailable. Refresh to try again.
                 </div>
               )}
-              {viewing_url && (
+              {expoGoDeepLink && (
                 <p className="text-sm text-muted-foreground break-all text-center">
-                  {viewing_url}
+                  {expoGoDeepLink}
+                </p>
+              )}
+              {viewing_url && viewing_url !== expoGoDeepLink && (
+                <p className="text-xs text-muted-foreground break-all text-center">
+                  Browser preview: {viewing_url}
                 </p>
               )}
             </div>
@@ -1193,7 +1222,7 @@ const MaterializeRenderSection = forwardRef<
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {viewing_url && (
+              {expoGoDeepLink && (
                 <Button
                   variant="secondary"
                   size="sm"
