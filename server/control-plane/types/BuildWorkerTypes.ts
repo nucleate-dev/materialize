@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-11-02T00:12:56.490Z
+// Last synced: 2025-11-02T05:58:15.059Z
 
 import { Database } from "./supabase.js";
 
@@ -193,14 +193,12 @@ export interface PublicRunCommandRequest {
   cwd?: string;
   env?: Record<string, string>;
   timeout_ms?: number;
+  session_id?: string;
 }
 
 export interface PublicRunCommandResponse {
-  status: "success" | "error";
-  stdout?: string;
-  stderr?: string;
-  exit_code?: number;
-  error?: string;
+  status: "success" | "timeout";
+  stdout: string;
 }
 
 export interface PublicAllocateRequest {

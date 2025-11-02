@@ -10,8 +10,6 @@ import type {
   APIResponse,
   RestartDevServerRequestBody,
   RestartDevServerSuccessResponse,
-  RunCommandRequestBody,
-  RunCommandSuccessResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
 import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
@@ -149,55 +147,6 @@ export class DevelopmentServerService {
       },
       this.handleRestartDevServer.bind(this),
     );
-
-    // POST /dev-server/run-command
-    app.post<{
-      Body: RunCommandRequestBody;
-    }>(
-      '/dev-server/run-command',
-      {
-        schema: {
-          body: {
-            type: 'object',
-            required: ['prototype_id', 'command'],
-            properties: {
-              prototype_id: { type: 'string' },
-              command: { type: 'string' },
-              args: { type: 'array', items: { type: 'string' } },
-              cwd: { type: 'string' },
-              env: { type: 'object' },
-              timeout_ms: { type: 'number' },
-            },
-          },
-        },
-      },
-      this.handleRunCommand.bind(this),
-    );
-  }
-
-  private async handleRunCommand(
-    request: FastifyRequest<{ Body: RunCommandRequestBody }>,
-    reply: FastifyReply,
-  ): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
-    const token = request.headers.authorization?.split(' ')[1];
-    if (!token || !request.headers.authorization?.startsWith('Bearer')) {
-      return reply.status(HTTP_STATUS.UNAUTHORIZED).send({
-        data: null,
-        error: {
-          error: 'Unauthorized',
-          message: 'No token provided',
-        } as StandardErrorResponse,
-      });
-    }
-    const result = await this.dispatcherService.runCommand(
-      request.body,
-      token,
-      request.log2,
-    );
-    reply.status(
-      result.data ? HTTP_STATUS.OK : HTTP_STATUS.INTERNAL_SERVER_ERROR,
-    );
-    return result;
   }
 
   private async handleRestartDevServer(

@@ -1,8 +1,6 @@
 import {
-  APIResponse,
   BuildStatus,
-  RunCommandRequestBody,
-  RunCommandSuccessResponse,
+  APIResponse,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
@@ -16,13 +14,17 @@ import {
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
+import {
+  PublicRunCommandRequest,
+  PublicRunCommandResponse,
+} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleRunCommandImpl(
-  body: RunCommandRequestBody,
+  body: PublicRunCommandRequest & { prototype_id: string },
   jwt: string,
   cache: GlideClient,
   log2: SystemLogger,
-): Promise<APIResponse<RunCommandSuccessResponse, StandardErrorResponse>> {
+): Promise<APIResponse<PublicRunCommandResponse, StandardErrorResponse>> {
   const { prototype_id, command, args, cwd, env, timeout_ms } = body;
 
   // ------------------------------------------------------------------------------------------------
@@ -43,34 +45,19 @@ export async function handleRunCommandImpl(
         data: null,
         error: {
           error: 'Conflict',
-          message: `There is no editable dev server for this prototype`,
+          message: 'There is no editable dev server for this prototype',
         },
       };
     }
-    const runCommandResponse = await callFargateRunCommand(
+    const response = await callFargateRunCommand(
       process.env.FARGATE_DEV_IP,
       { command, args, cwd, env, timeout_ms },
       log2,
     );
-    if (runCommandResponse.status === 'success') {
-      return {
-        data: {
-          stdout: runCommandResponse.stdout ?? '',
-          stderr: runCommandResponse.stderr ?? '',
-          exit_code: runCommandResponse.exit_code ?? -1,
-        } as RunCommandSuccessResponse,
-        error: null,
-      };
-    } else {
-      return {
-        data: null,
-        error: {
-          error: 'Command Execution Failed',
-          message:
-            runCommandResponse.error || 'Failed to run command on dev server',
-        },
-      };
-    }
+    return {
+      data: response,
+      error: null,
+    };
   }
   // ------------------------------------------------------------------------------------------------
 
@@ -144,36 +131,22 @@ export async function handleRunCommandImpl(
       log2,
     );
 
-    if (commandResponse.status === 'success') {
-      // 7. Update last_touched timestamp
-      const updatedBuildData = {
-        ...existingBuild,
-        last_touched: Math.floor(Date.now() / 1000),
-      };
+    // 7. Update last_touched timestamp
+    const updatedBuildData = {
+      ...existingBuild,
+      last_touched: Math.floor(Date.now() / 1000),
+    };
 
-      await cache.hset(
-        activeBuildKey,
-        activeBuildToStringRecord(updatedBuildData),
-      );
+    await cache.hset(
+      activeBuildKey,
+      activeBuildToStringRecord(updatedBuildData),
+    );
 
-      return {
-        data: {
-          stdout: commandResponse.stdout ?? '',
-          stderr: commandResponse.stderr ?? '',
-          exit_code: commandResponse.exit_code ?? -1,
-        } as RunCommandSuccessResponse,
-        error: null,
-      };
-    } else {
-      return {
-        data: null,
-        error: {
-          error: 'Command Execution Failed',
-          message:
-            commandResponse.error || 'Failed to run command on dev server',
-        },
-      };
-    }
+    // Return the command response wrapped in APIResponse format
+    return {
+      data: commandResponse,
+      error: null,
+    };
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     log2.error(error, 'Failed to run command on dev server');
@@ -198,17 +171,21 @@ async function callFargateRunCommand(
     timeout_ms?: number;
   },
   log2: SystemLogger,
-): Promise<{
-  status: string;
-  stdout?: string;
-  stderr?: string;
-  exit_code?: number;
-  error?: string;
-}> {
+): Promise<PublicRunCommandResponse> {
   try {
-    const response = await axios.post(
+    // Build request without session_id - we want each command to run in a new session
+    const request: PublicRunCommandRequest = {
+      command: params.command,
+      args: params.args,
+      cwd: params.cwd,
+      env: params.env,
+      timeout_ms: params.timeout_ms,
+      // Do NOT include session_id - let it create a new temp session
+    };
+
+    const response = await axios.post<PublicRunCommandResponse>(
       `http://${fargatePrivateIp}:3002/run-command`,
-      params,
+      request,
       {
         timeout: params.timeout_ms || 120000,
         headers: {
@@ -222,9 +199,10 @@ async function callFargateRunCommand(
     return response.data;
   } catch (error) {
     log2.error(error, 'Error calling fargate run-command endpoint');
+    // Return a timeout response on error
     return {
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      status: 'timeout',
+      stdout: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
