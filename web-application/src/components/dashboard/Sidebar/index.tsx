@@ -9,8 +9,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
@@ -29,9 +31,11 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const DashboardSidebar = () => {
+const DashboardSidebarContent = () => {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const menuItems = [
     {
@@ -65,33 +69,45 @@ const DashboardSidebar = () => {
   ];
 
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center justify-between gap-3 px-2 py-2">
-          <Link href="/dashboard" className="group">
-            <div className="relative flex items-center gap-3 px-3 py-2">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110" />
-              <span className="relative text-xl font-bold text-foreground transition-transform duration-300 group-hover:scale-105">
-                Materialize
-              </span>
-            </div>
-          </Link>
-          <SidebarTrigger
-            className="-mr-1"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          />
-        </div>
+    <>
+      <SidebarHeader className="border-b">
+        {isCollapsed ? (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <Link href="/dashboard" className="p-2">
+              <FlaskConical className="w-6 h-6 text-primary" />
+            </Link>
+            <SidebarTrigger
+              className="h-6 w-6"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3 px-2 py-2">
+            <Link href="/dashboard" className="group flex-1 min-w-0">
+              <div className="relative flex items-center gap-3 px-3 py-2">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
+                <span className="relative text-xl font-bold text-foreground transition-transform duration-300 group-hover:scale-105">
+                  Materialize
+                </span>
+              </div>
+            </Link>
+            <SidebarTrigger
+              className="-mr-1"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            />
+          </div>
+        )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/dashboard"} size="lg">
+                <SidebarMenuButton asChild isActive={pathname === "/dashboard"} size="lg" tooltip={isCollapsed ? "New chat +" : undefined} className={isCollapsed ? "justify-center" : ""}>
                   <Link href="/dashboard">
                     <Sparkles className="w-5 h-5" />
-                    <span>New chat +</span>
+                    {!isCollapsed && <span>New chat +</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -104,10 +120,10 @@ const DashboardSidebar = () => {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={item.active} size="lg">
+                  <SidebarMenuButton asChild isActive={item.active} size="lg" tooltip={isCollapsed ? item.label : undefined} className={isCollapsed ? "justify-center" : ""}>
                     <Link href={item.href}>
                       <item.icon className="w-5 h-5" />
-                      <span>{item.label}</span>
+                      {!isCollapsed && <span>{item.label}</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -119,24 +135,32 @@ const DashboardSidebar = () => {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <HorizontalModeToggle sidebarExpanded={true} />
+            <HorizontalModeToggle sidebarExpanded={!isCollapsed} />
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname?.includes("account")} size="lg">
+            <SidebarMenuButton asChild isActive={pathname?.includes("account")} size="lg" tooltip={isCollapsed ? "Settings" : undefined} className={isCollapsed ? "justify-center" : ""}>
               <Link href="/dashboard/account">
                 <Settings className="w-5 h-5" />
-                <span>Settings</span>
+                {!isCollapsed && <span>Settings</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} size="lg">
+            <SidebarMenuButton onClick={logout} size="lg" tooltip={isCollapsed ? "Logout" : undefined} className={isCollapsed ? "justify-center" : ""}>
               <LogOut className="w-5 h-5" />
-              <span>Logout</span>
+              {!isCollapsed && <span>Logout</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+    </>
+  );
+};
+
+const DashboardSidebar = () => {
+  return (
+    <Sidebar collapsible="icon">
+      <DashboardSidebarContent />
     </Sidebar>
   );
 };

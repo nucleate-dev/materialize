@@ -2,8 +2,7 @@
 
 import {
   SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
+  SidebarProvider
 } from "@/components/ui/sidebar";
 import { sidebarOpenAtom, sidebarStateAtom } from "@/lib/atoms/sidebar";
 import { useAtom, useAtomValue } from "jotai";
@@ -14,7 +13,7 @@ import DashboardSidebar from "../../components/dashboard/Sidebar";
 import RequireAuth from "./RequireAuth";
 // import WithPaywall from "./Paywall";
 
-function DashboardContent({ children }: { children: React.ReactNode }) {
+function DashboardContent({ children }: { children: React.ReactNode; }) {
   const [, setSidebarOpen] = useAtom(sidebarOpenAtom);
   const sidebarState = useAtomValue(sidebarStateAtom);
   const pathname = usePathname();
@@ -32,11 +31,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <DashboardSidebar />
       <SidebarInset>
         {/* Sidebar Trigger - shown when sidebar is collapsed */}
-        {sidebarState === "collapsed" && (
+        {/* {sidebarState === "collapsed" && (
           <div className="fixed top-4 left-4 z-50 hidden lg:block">
             <SidebarTrigger className="bg-background border shadow-md hover:shadow-lg" />
           </div>
-        )}
+        )} */}
 
         {/* Mobile Header (only shown on mobile) */}
         <div className="lg:hidden">
@@ -52,7 +51,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayout({ children }: { children: React.ReactNode; }) {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
 
   return (
