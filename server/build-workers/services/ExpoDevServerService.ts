@@ -238,10 +238,10 @@ export class ExpoDevServerService {
 
         // Install dependencies for new project
         try {
-          await this.installDependenciesWithErrorParsing(
+          await installDependencies(
             projectDir,
-            buildErrors,
-            buildWarnings,
+            this.log2,
+            this.terminalService.getSession("dev-server")!,
           );
         } catch (error: unknown) {
           const errorMessage =
@@ -1044,29 +1044,6 @@ export class ExpoDevServerService {
     }
   }
 
-  private async installDependenciesWithErrorParsing(
-    projectDir: string,
-    buildErrors: CodeError[],
-    buildWarnings: CodeWarning[],
-  ): Promise<void> {
-    const session = this.terminalService.getSession("dev-server");
-    if (!session) {
-      throw new Error("dev-server terminal session not found");
-    }
-
-    try {
-      // Use shared installDependencies function with SystemLogger and terminal session
-      await installDependencies(projectDir, this.log2, session);
-      this.log2.info("Dependencies installed successfully");
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      // Parse npm errors for build errors/warnings
-      this.parseNpmOutput(errorMessage, buildErrors, buildWarnings);
-      throw error;
-    }
-  }
-
   async updateDevServerFiles(
     files: PrototypeFileInput[],
     assets: PrototypeAssetInputWithContent[],
@@ -1243,10 +1220,10 @@ export class ExpoDevServerService {
 
             // Step 2: Install dependencies in dev-server terminal
             this.log2.info("Installing dependencies...");
-            await this.installDependenciesWithErrorParsing(
+            await installDependencies(
               actualProjectDir,
-              buildErrors,
-              buildWarnings,
+              this.log2,
+              this.terminalService.getSession("dev-server")!,
             );
             this.log2.info("Dependencies reinstalled successfully");
 
