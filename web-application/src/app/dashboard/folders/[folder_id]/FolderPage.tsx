@@ -37,7 +37,7 @@ export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
   const logger = useProductLogger();
-  const folderId = params?.project_id as string;
+  const folderId = params?.folder_id as string;
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -58,12 +58,12 @@ export default function ProjectPage() {
         supabase
           .from("prototypes")
           .select("*")
-          .eq("project_id", folderId)
+          .eq("folder_id", folderId)
           .order("updated_at", { ascending: false }),
         supabase
           .from("canvases")
           .select("*")
-          .eq("project_id", folderId)
+          .eq("folder_id", folderId)
           .order("updated_at", { ascending: false }),
       ]);
 

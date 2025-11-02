@@ -32,7 +32,7 @@ export default function FolderPrototypesPage() {
   const params = useParams();
   const router = useRouter();
   const logger = useProductLogger();
-  const folderId = params?.project_id as string;
+  const folderId = params?.folder_id as string;
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [folder, setFolder] = useState<Folder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +56,7 @@ export default function FolderPrototypesPage() {
         supabase
           .from("prototypes")
           .select("*")
-          .eq("project_id", folderId)
+          .eq("folder_id", folderId)
           .order("updated_at", { ascending: false }),
       ]);
 

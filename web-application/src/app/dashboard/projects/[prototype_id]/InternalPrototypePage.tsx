@@ -676,7 +676,7 @@ export default function InternalPrototypePage() {
           body: JSON.stringify({
             name: clonedPrototypeName,
             description: prototype.description,
-            project_id: prototype.project_id || undefined,
+            folder_id: prototype.folder_id || undefined,
             prototype_id: prototype.id,
             visibility: "PUBLIC",
           } as CreatePrototypeRequestBody),

@@ -31,7 +31,7 @@ export default function ProjectWhiteboardsPage() {
   const params = useParams();
   const router = useRouter();
   const logger = useProductLogger();
-  const projectId = params?.project_id as string;
+  const projectId = params?.folder_id as string;
   const [canvases, setCanvases] = useState<Canvas[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function ProjectWhiteboardsPage() {
         supabase
           .from("canvases")
           .select("*")
-          .eq("project_id", projectId)
+          .eq("folder_id", projectId)
           .order("updated_at", { ascending: false }),
       ]);
 

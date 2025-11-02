@@ -118,7 +118,7 @@ export type Database = {
           id: string;
           name: string;
           owner_id: string;
-          project_id: string | null;
+          folder_id: string | null;
           thumbnail_url: string | null;
           updated_at: string | null;
           visibility: Database['public']['Enums']['visibility_level'] | null;
@@ -129,7 +129,7 @@ export type Database = {
           id?: string;
           name?: string;
           owner_id: string;
-          project_id?: string | null;
+          folder_id?: string | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database['public']['Enums']['visibility_level'] | null;
@@ -140,7 +140,7 @@ export type Database = {
           id?: string;
           name?: string;
           owner_id?: string;
-          project_id?: string | null;
+          folder_id?: string | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database['public']['Enums']['visibility_level'] | null;
@@ -154,8 +154,8 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'canvases_project_id_fkey';
-            columns: ['project_id'];
+            foreignKeyName: 'canvases_folder_id_fkey';
+            columns: ['folder_id'];
             isOneToOne: false;
             referencedRelation: 'projects';
             referencedColumns: ['id'];
@@ -537,7 +537,7 @@ export type Database = {
           latest_build_key: string | null;
           name: string;
           owner_id: string | null;
-          project_id: string | null;
+          folder_id: string | null;
           prototype_context: Json | null;
           thumbnail_url: string | null;
           updated_at: string | null;
@@ -552,7 +552,7 @@ export type Database = {
           latest_build_key?: string | null;
           name?: string;
           owner_id?: string | null;
-          project_id?: string | null;
+          folder_id?: string | null;
           prototype_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
@@ -567,7 +567,7 @@ export type Database = {
           latest_build_key?: string | null;
           name?: string;
           owner_id?: string | null;
-          project_id?: string | null;
+          folder_id?: string | null;
           prototype_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
@@ -589,8 +589,8 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'prototypes_project_id_fkey';
-            columns: ['project_id'];
+            foreignKeyName: 'prototypes_folder_id_fkey';
+            columns: ['folder_id'];
             isOneToOne: false;
             referencedRelation: 'projects';
             referencedColumns: ['id'];
