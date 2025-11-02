@@ -155,7 +155,7 @@ export default function PrototypesPage() {
                   ? new Date(prototype.updated_at).toLocaleDateString()
                   : new Date(prototype.created_at!).toLocaleDateString()
               }
-              onView={() => router.push(`/prototype/${prototype.id}`)}
+              onView={() => router.push(`/project/${prototype.id}`)}
               onEdit={() =>
                 router.push(`/dashboard/projects/${prototype.id}`)
               }
