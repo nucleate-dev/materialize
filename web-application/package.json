@@ -72,6 +72,7 @@
     "postcss": "^8.5.6",
     "posthog-js": "^1.165.0",
     "posthog-node": "^4.2.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-apexcharts": "^1.4.1",
     "react-day-picker": "^9.8.1",

@@ -26,6 +26,14 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { QRCodeSVG } from "qrcode.react";
 
 import JSZip from "jszip";
 
@@ -43,6 +51,7 @@ import {
   Monitor,
   MoreVertical,
   Palette,
+  QrCode,
   RefreshCw,
   RotateCcw,
   Settings,
@@ -213,10 +222,30 @@ const MaterializeRenderSection = forwardRef<
     const [terminalHeight, setTerminalHeight] = useState(250); // Default height in pixels
     const [isResizingTerminal, setIsResizingTerminal] = useState(false);
 
+    // QR code modal state
+    const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+
     const nextMobileScreenId = useRef(1);
 
     // Ref for the iframe's contentWindow
     const webPreviewRef = useRef<Window | null>(null);
+
+    // Generate Expo Go deep link from viewing URL
+    const getExpoGoDeepLink = useCallback(() => {
+      if (!viewing_url) return "";
+
+      try {
+        // Extract the URL without protocol
+        const url = new URL(viewing_url);
+        const hostWithPath = `${url.host}${url.pathname}${url.search}`;
+
+        // Format as Expo Go deep link
+        // exp://NGROK_URL format for Expo Go
+        return `exp://${hostWithPath}`;
+      } catch {
+        return "";
+      }
+    }, [viewing_url]);
 
     // Track iframe refs for each mobile screen to monitor navigation
     const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
@@ -1257,6 +1286,19 @@ const MaterializeRenderSection = forwardRef<
               )}
               {!publicView && (
                 <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsQRModalOpen(true)}
+                  className="flex-shrink-0"
+                  title="View on Device"
+                  disabled={!viewing_url}
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span className="ml-1.5 hidden md:inline">View on Device</span>
+                </Button>
+              )}
+              {!publicView && (
+                <Button
                   variant={isTerminalOpen ? "default" : "secondary"}
                   size="sm"
                   onClick={() => setIsTerminalOpen(!isTerminalOpen)}
@@ -1431,6 +1473,39 @@ const MaterializeRenderSection = forwardRef<
             </div>
           </div>
         )}
+
+        {/* QR Code Modal */}
+        <Dialog open={isQRModalOpen} onOpenChange={setIsQRModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>View on Device</DialogTitle>
+              <DialogDescription>
+                Scan this QR code with your phone&apos;s camera to open the app in Expo Go
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center gap-4 py-4">
+              {viewing_url && (
+                <>
+                  <div className="bg-white p-6 rounded-lg">
+                    <QRCodeSVG
+                      value={getExpoGoDeepLink()}
+                      size={256}
+                      level="H"
+                    />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Make sure you have Expo Go installed on your device
+                    </p>
+                    <p className="text-xs font-mono bg-muted px-3 py-2 rounded break-all">
+                      {getExpoGoDeepLink()}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   },
