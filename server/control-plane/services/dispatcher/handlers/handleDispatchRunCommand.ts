@@ -16,6 +16,10 @@ import {
 import { isEditableDevServer } from '../../../utils/prototypeDevServerStatusUtils.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import axios from 'axios';
+import {
+  PublicRunCommandRequest,
+  PublicRunCommandResponse,
+} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleRunCommandImpl(
   body: RunCommandRequestBody,
@@ -55,19 +59,19 @@ export async function handleRunCommandImpl(
     if (runCommandResponse.status === 'success') {
       return {
         data: {
-          stdout: runCommandResponse.stdout ?? '',
-          stderr: runCommandResponse.stderr ?? '',
-          exit_code: runCommandResponse.exit_code ?? -1,
+          stdout: runCommandResponse.stdout,
+          stderr: '', // BuildWorker no longer returns stderr separately
+          exit_code: 0, // Success means exit code 0
         } as RunCommandSuccessResponse,
         error: null,
       };
     } else {
+      // Status is 'timeout'
       return {
         data: null,
         error: {
-          error: 'Command Execution Failed',
-          message:
-            runCommandResponse.error || 'Failed to run command on dev server',
+          error: 'Command Execution Timeout',
+          message: 'Command timed out or failed to execute',
         },
       };
     }
@@ -158,19 +162,19 @@ export async function handleRunCommandImpl(
 
       return {
         data: {
-          stdout: commandResponse.stdout ?? '',
-          stderr: commandResponse.stderr ?? '',
-          exit_code: commandResponse.exit_code ?? -1,
+          stdout: commandResponse.stdout,
+          stderr: '', // BuildWorker no longer returns stderr separately
+          exit_code: 0, // Success means exit code 0
         } as RunCommandSuccessResponse,
         error: null,
       };
     } else {
+      // Status is 'timeout'
       return {
         data: null,
         error: {
-          error: 'Command Execution Failed',
-          message:
-            commandResponse.error || 'Failed to run command on dev server',
+          error: 'Command Execution Timeout',
+          message: 'Command timed out or failed to execute',
         },
       };
     }
@@ -198,17 +202,21 @@ async function callFargateRunCommand(
     timeout_ms?: number;
   },
   log2: SystemLogger,
-): Promise<{
-  status: string;
-  stdout?: string;
-  stderr?: string;
-  exit_code?: number;
-  error?: string;
-}> {
+): Promise<PublicRunCommandResponse> {
   try {
-    const response = await axios.post(
+    // Build request without session_id - we want each command to run in a new session
+    const request: PublicRunCommandRequest = {
+      command: params.command,
+      args: params.args,
+      cwd: params.cwd,
+      env: params.env,
+      timeout_ms: params.timeout_ms,
+      // Do NOT include session_id - let it create a new temp session
+    };
+
+    const response = await axios.post<PublicRunCommandResponse>(
       `http://${fargatePrivateIp}:3002/run-command`,
-      params,
+      request,
       {
         timeout: params.timeout_ms || 120000,
         headers: {
@@ -222,9 +230,10 @@ async function callFargateRunCommand(
     return response.data;
   } catch (error) {
     log2.error(error, 'Error calling fargate run-command endpoint');
+    // Return a timeout response on error
     return {
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      status: 'timeout',
+      stdout: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
