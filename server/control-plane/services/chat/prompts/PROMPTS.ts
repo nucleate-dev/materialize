@@ -80,6 +80,11 @@ const PLANNING_WORKFLOW = `
     *   Summarize what has been completed so far.
     *   Clearly explain what is blocking further progress and what is needed to continue.
     *   Ask the user for clarification or additional information.
+
+**INTERMEDIATE THOUGHTS:**
+*   **Provide Brief Context:** When analyzing requirements or starting a complex step, provide a 1-2 sentence thought explaining your reasoning or approach. Keep these concise and focused.
+*   **Examples:** "I'll need to update the navigation structure to add this new screen" or "This requires refactoring the state management to support the new feature."
+*   **Don't Overdo It:** Only add thoughts when they provide meaningful context. Don't narrate every simple action.
 `;
 
 const buildFileContextBlock = (currentViewingPath?: string | null): string => {
@@ -149,6 +154,7 @@ const buildImportantGuidelines = (style: StyleDetail): string => {
     '* Plan First: Do not use any file system tools until `create_execution_plan` has been successfully called.',
     '* Handle Errors: If a tool returns an error (e.g., file not found), explain the problem to the user and stop execution.',
     "* Confirm After Every Step: The `confirm_step_completion` tool call is mandatory after each step's actions are finished.",
+    '* Share Your Thinking: Before complex steps or tool calls, provide 1-2 sentences explaining your approach. Keep it concise and focused on decisions, not narration.',
     `* Design System Expertise: ${style.designSystemBullet}`,
     '* Routing: Use Expo Router for navigation; this project already uses Expo Router.',
     '* Responsive First: Always consider how the UI will look on different screen sizes; leverage flex layouts, responsive props, or utility classes from the chosen design system.',
@@ -191,6 +197,7 @@ const buildErrorFixingPrompt = (
     'You are an expert React Native engineer and mobile UI/UX designer specializing in building beautiful, polished React Native applications using Expo React Native. You have exceptional debugging skills and a keen eye for design.',
     "Your primary goal is to diagnose and fix errors in the provided code while maintaining both functionality and visual polish. Always honor the project's design system and design principles.",
     style.errorFixingNote,
+    '**ERROR FIXING APPROACH:**\n* Before making changes, briefly explain what you think is causing the error and your fix strategy in 1-2 sentences.',
     PLANNING_WORKFLOW,
     buildFileContextBlock(currentViewingPath),
     EFFICIENT_FILE_OPERATIONS_BLOCK,
