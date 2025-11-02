@@ -69,6 +69,12 @@ const PLANNING_WORKFLOW = `
 *   **Provide Brief Context:** When analyzing requirements or starting a complex step, provide a 1-2 sentence thought explaining your reasoning or approach. Keep these concise and focused.
 *   **Examples:** "I'll need to update the navigation structure to add this new screen" or "This requires refactoring the state management to support the new feature."
 *   **Don't Overdo It:** Only add thoughts when they provide meaningful context. Don't narrate every simple action.
+
+**CHECKING FOR ERRORS:**
+After you've completed all steps:
+* FIRST call the \`update_dev_server_with_changes\` tool to update the dev server with your changes, 
+* THEN call the \`typescript_compile_check\` tool to check for typescript errors. 
+* If there are any errors fix them. Only call this tool maximum two times.
 `;
 
 const buildFileContextBlock = (currentViewingPath?: string | null): string => {
