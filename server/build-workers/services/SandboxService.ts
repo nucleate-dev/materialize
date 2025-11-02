@@ -101,6 +101,22 @@ export class SandboxService {
     // POST /run-command
     this.fastifyApp.post<{ Body: PublicRunCommandRequest }>(
       "/run-command",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["command"],
+            properties: {
+              command: { type: "string" },
+              args: { type: "array", items: { type: "string" } },
+              cwd: { type: "string" },
+              env: { type: "object" },
+              timeout_ms: { type: "number" },
+              session_id: { type: "string" },
+            },
+          },
+        },
+      },
       this.runCommand.bind(this),
     );
   }
@@ -143,120 +159,84 @@ export class SandboxService {
     request: FastifyRequest<{ Body: PublicRunCommandRequest }>,
     reply: FastifyReply,
   ): Promise<PublicRunCommandResponse> {
-    const { command, args, cwd, env, timeout_ms } = request.body;
+    const { command, args, cwd, env, timeout_ms, session_id } = request.body;
 
-    if (!command) {
-      request.log2.error(
-        new Error("Missing required parameter: command"),
-        "Missing required parameter: command",
-        { command, args },
-      );
-      reply.code(400);
-      return {
-        status: "error",
-        error: "command is required",
-      };
+    // Generate unique completion marker (4-digit random number)
+    const completionMarker = `${Math.floor(1000 + Math.random() * 9000)}-command-complete`;
+    const timeoutMs = timeout_ms || 120000;
+
+    // Determine which session to use
+    let sessionId: string;
+    let shouldCleanupSession = false;
+
+    if (session_id) {
+      // Use existing session
+      sessionId = session_id;
+      this.log2.info("Using existing terminal session", { sessionId });
+    } else {
+      // Create new temporary session
+      sessionId = `temp-${Date.now()}`;
+      try {
+        this.terminalService.getOrCreateTerminalSession(sessionId, "generic", {
+          cwd: cwd || this.workDir,
+        });
+        shouldCleanupSession = true;
+        this.log2.info("Created temporary terminal session", { sessionId });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.log2.error(
+          new Error(errorMessage),
+          "Failed to create terminal session",
+          { sessionId },
+        );
+        reply.code(500);
+        return {
+          status: "timeout",
+          stdout: "",
+        };
+      }
     }
 
-    try {
-      const result = await this.runCommandInternal(
-        command,
-        args || [],
-        cwd || this.workDir,
-        env,
-        timeout_ms || 120000,
-      );
-
-      return {
-        status: result.code === 0 ? "success" : "error",
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exit_code: result.code,
-      };
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      request.log2.error(new Error(errorMessage), "Command execution failed", {
-        stack: errorStack,
-        command,
-        args,
-      });
-      reply.code(500);
-      return {
-        status: "error",
-        error: errorMessage,
-      };
-    }
-  }
-
-  private runCommandInternal(
-    command: string,
-    args: string[],
-    cwd: string,
-    env?: Record<string, string>,
-    timeoutMs: number = 300000, // 5 minutes default
-    sessionId: string = "test",
-  ): Promise<{ stdout: string; stderr: string; code: number }> {
-    return new Promise((resolve, reject) => {
-      let stdout = "";
+    return new Promise((resolve) => {
+      let output = "";
       let commandComplete = false;
-      let exitCode = 0;
       let cleanup: (() => void) | null = null;
-      let exitCodeCheckInterval: NodeJS.Timeout | null = null;
-      let exitIntervalCleanupTimeout: NodeJS.Timeout | null = null;
+      let checkInterval: NodeJS.Timeout | null = null;
 
+      // Set up timeout
       const timeoutHandle = setTimeout(() => {
         if (!commandComplete) {
           commandComplete = true;
-          const error = `Command timed out after ${timeoutMs}ms: ${command} ${args.join(" ")}`;
-          this.log2.error(new Error(error), "Command timeout");
-          if (exitCodeCheckInterval) {
-            clearInterval(exitCodeCheckInterval);
-            exitCodeCheckInterval = null;
+          this.log2.warn("Command timed out", {
+            command,
+            sessionId,
+            timeoutMs,
+          });
+
+          if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
           }
           cleanup?.();
           cleanup = null;
-          reject(new Error(error));
+
+          // Cleanup temp session if needed
+          if (shouldCleanupSession) {
+            this.terminalService.closeSession(sessionId);
+          }
+
+          reply.code(200);
+          resolve({
+            status: "timeout",
+            stdout: output,
+          });
         }
       }, timeoutMs);
 
+      // Listen to terminal output
       const processOutput = (chunk: string): void => {
-        const output = chunk.toString();
-        stdout += output;
-
-        // Try to detect command completion by looking for shell prompt patterns
-        // This is heuristic-based since we're running in a shell
-        const lines = output.split("\n");
-        for (const line of lines) {
-          // Look for common error patterns
-          if (
-            line.includes("command not found") ||
-            line.includes("No such file or directory") ||
-            line.includes("permission denied")
-          ) {
-            if (!commandComplete) {
-              commandComplete = true;
-              exitCode = 1;
-              clearTimeout(timeoutHandle);
-              if (exitCodeCheckInterval) {
-                clearInterval(exitCodeCheckInterval);
-                exitCodeCheckInterval = null;
-              }
-              if (exitIntervalCleanupTimeout) {
-                clearTimeout(exitIntervalCleanupTimeout);
-                exitIntervalCleanupTimeout = null;
-              }
-              cleanup?.();
-              cleanup = null;
-              resolve({
-                stdout: stdout.trim(),
-                stderr: line,
-                code: exitCode,
-              });
-            }
-          }
-        }
+        output += chunk;
       };
 
       const listenerDisposer = this.terminalService.addOutputListener(
@@ -266,18 +246,27 @@ export class SandboxService {
 
       if (!listenerDisposer) {
         clearTimeout(timeoutHandle);
-        reject(
-          new Error(`Terminal session ${sessionId} not found or not running`),
+        this.log2.error(
+          new Error("Terminal session not found"),
+          "Failed to attach listener",
+          { sessionId },
         );
+
+        // Cleanup temp session if needed
+        if (shouldCleanupSession) {
+          this.terminalService.closeSession(sessionId);
+        }
+
+        reply.code(404);
+        resolve({
+          status: "timeout",
+          stdout: "",
+        });
         return;
       }
 
       cleanup = (): void => {
         listenerDisposer();
-        if (exitIntervalCleanupTimeout) {
-          clearTimeout(exitIntervalCleanupTimeout);
-          exitIntervalCleanupTimeout = null;
-        }
       };
 
       // Build environment variables string
@@ -288,88 +277,106 @@ export class SandboxService {
           .join(" ");
       }
 
-      // Build the full command with env vars, cd, and command with args
-      const fullCommand = `${envString ? envString + " " : ""}cd ${cwd} && ${command} ${args.join(" ")}; echo "EXIT_CODE=$?"\n`;
+      // Build the full command with completion marker
+      const argsString = args && args.length > 0 ? " " + args.join(" ") : "";
+      const cwdPrefix = cwd ? `cd ${cwd} && ` : "";
+      const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}; echo "${completionMarker}"\n`;
 
-      this.log2.info("Sending command to terminal", {
+      this.log2.info("Executing command in terminal", {
         command: fullCommand.trim(),
         sessionId,
-        cwd,
+        completionMarker,
       });
 
+      // Send command to terminal
       try {
         this.terminalService.sendInput(sessionId, fullCommand);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         clearTimeout(timeoutHandle);
-        if (exitCodeCheckInterval) {
-          clearInterval(exitCodeCheckInterval);
-          exitCodeCheckInterval = null;
-        }
-        if (exitIntervalCleanupTimeout) {
-          clearTimeout(exitIntervalCleanupTimeout);
-          exitIntervalCleanupTimeout = null;
-        }
         cleanup?.();
         cleanup = null;
-        commandComplete = true;
         this.log2.error(
-          new Error(message),
-          "Failed to send command to terminal session",
-          { sessionId, cwd },
+          new Error(errorMessage),
+          "Failed to send command to terminal",
+          { sessionId },
         );
-        reject(
-          new Error(
-            `Failed to send command to terminal session ${sessionId}: ${message}`,
-          ),
-        );
+
+        // Cleanup temp session if needed
+        if (shouldCleanupSession) {
+          this.terminalService.closeSession(sessionId);
+        }
+
+        reply.code(500);
+        resolve({
+          status: "timeout",
+          stdout: "",
+        });
         return;
       }
 
-      // Set up a detection for the EXIT_CODE marker
-      exitCodeCheckInterval = setInterval(() => {
-        if (stdout.includes("EXIT_CODE=")) {
-          const match = stdout.match(/EXIT_CODE=(\d+)/);
-          if (match && !commandComplete) {
+      // Poll for completion marker
+      checkInterval = setInterval(() => {
+        if (output.includes(completionMarker)) {
+          if (!commandComplete) {
             commandComplete = true;
-            exitCode = parseInt(match[1], 10);
             clearTimeout(timeoutHandle);
-            if (exitCodeCheckInterval) {
-              clearInterval(exitCodeCheckInterval);
-              exitCodeCheckInterval = null;
-            }
-            if (exitIntervalCleanupTimeout) {
-              clearTimeout(exitIntervalCleanupTimeout);
-              exitIntervalCleanupTimeout = null;
+            if (checkInterval) {
+              clearInterval(checkInterval);
+              checkInterval = null;
             }
             cleanup?.();
             cleanup = null;
 
-            // Remove the EXIT_CODE marker from stdout
-            const cleanStdout = stdout.replace(/EXIT_CODE=\d+/, "").trim();
+            // Extract output: everything after the command input and before the completion marker
+            // Find where the actual command output starts (after the echoed command)
+            const commandEchoPattern = fullCommand.trim().replace(/\n$/, "");
+            let outputStart = output.indexOf(commandEchoPattern);
 
-            this.log2.debug("Command completed", {
+            if (outputStart !== -1) {
+              // Skip past the echoed command and any newline
+              outputStart += commandEchoPattern.length;
+              // Skip any leading newlines/whitespace after command
+              while (
+                outputStart < output.length &&
+                (output[outputStart] === "\n" || output[outputStart] === "\r")
+              ) {
+                outputStart++;
+              }
+            } else {
+              // If we can't find the command echo, start from beginning
+              outputStart = 0;
+            }
+
+            // Find where the completion marker starts
+            const markerIndex = output.indexOf(completionMarker);
+
+            // Extract the output between command and marker
+            let cleanOutput = output.substring(outputStart, markerIndex).trim();
+
+            // Remove any trailing shell prompt or newlines
+            cleanOutput = cleanOutput.replace(/\r\n/g, "\n").trim();
+
+            this.log2.info("Command completed successfully", {
               command,
-              exitCode,
               sessionId,
+              outputLength: cleanOutput.length,
             });
 
+            // Cleanup temp session if needed
+            if (shouldCleanupSession) {
+              this.terminalService.closeSession(sessionId);
+            }
+
+            reply.code(200);
             resolve({
-              stdout: cleanStdout,
-              stderr: exitCode !== 0 ? cleanStdout : "",
-              code: exitCode,
+              status: "success",
+              stdout: cleanOutput,
             });
           }
         }
       }, 100);
-
-      // Clean up interval if timeout occurs
-      exitIntervalCleanupTimeout = setTimeout(() => {
-        if (commandComplete && exitCodeCheckInterval) {
-          clearInterval(exitCodeCheckInterval);
-          exitCodeCheckInterval = null;
-        }
-      }, timeoutMs + 1000);
     });
   }
 

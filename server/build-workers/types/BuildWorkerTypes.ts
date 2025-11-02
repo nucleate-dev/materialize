@@ -184,14 +184,12 @@ export interface PublicRunCommandRequest {
   cwd?: string;
   env?: Record<string, string>;
   timeout_ms?: number;
+  session_id?: string;
 }
 
 export interface PublicRunCommandResponse {
-  status: "success" | "error";
-  stdout?: string;
-  stderr?: string;
-  exit_code?: number;
-  error?: string;
+  status: "success" | "timeout";
+  stdout: string;
 }
 
 export interface PublicAllocateRequest {
