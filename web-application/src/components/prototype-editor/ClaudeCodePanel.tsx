@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/ClientConstants";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useEffect, useRef, useState } from "react";
 
 interface ClaudeCodePanelProps {
@@ -17,10 +19,21 @@ interface Message {
   timestamp: number;
 }
 
-export default function ClaudeCodePanel({
-  prototypeId,
-  baseTunnelUrl,
-}: ClaudeCodePanelProps) {
+interface ServerMessage {
+  type: string;
+  error?: string;
+  userId?: string;
+  prototype_id?: string;
+  timestamp?: string;
+  data?: {
+    connectionId?: string;
+    sessionId?: string;
+  };
+  subtype?: string;
+}
+
+export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
+  const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -33,7 +46,7 @@ export default function ClaudeCodePanel({
   useEffect(() => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector(
-        "[data-radix-scroll-area-viewport]"
+        "[data-radix-scroll-area-viewport]",
       );
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -42,17 +55,43 @@ export default function ClaudeCodePanel({
   }, [messages]);
 
   // Connect to WebSocket
-  const connect = () => {
-    if (!baseTunnelUrl) {
-      addMessage("error", "No tunnel URL available. Please start the dev server first.");
-      return;
-    }
-
+  const connect = async () => {
     try {
-      // Convert https://abc.terminals.materializeui.com to wss://abc.terminals.materializeui.com/code/ws/:prototypeId
-      const wsUrl = baseTunnelUrl
-        .replace("https://", "wss://")
-        .replace("http://", "ws://") + `/code/ws/${prototypeId}`;
+      // Get authentication token
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) {
+        addMessage("error", "Not authenticated. Please log in.");
+        return;
+      }
+
+      const token = session.session.access_token;
+
+      // Get server endpoint
+      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
+      if (!serverEndpoint) {
+        addMessage("error", "Server endpoint not configured");
+        return;
+      }
+
+      // Convert https:// to wss:// or http:// to ws://
+      // Send credentials via path params since browser WebSocket API doesn't support custom headers
+      const normalizedEndpoint = serverEndpoint.endsWith("/")
+        ? serverEndpoint.slice(0, -1)
+        : serverEndpoint;
+
+      const wsUrl =
+        normalizedEndpoint
+          .replace("https://", "wss://")
+          .replace("http://", "ws://") +
+        `/chat/v2/ws/${encodeURIComponent(prototypeId)}/${encodeURIComponent(token)}`;
+
+      logger.debug("log", "Attempting WebSocket connection", {
+        serverEndpoint,
+        prototypeId,
+        hasToken: !!token,
+        tokenLength: token?.length,
+        wsPath: `/chat/v2/ws/${encodeURIComponent(prototypeId)}/[token]`,
+      });
 
       const websocket = new WebSocket(wsUrl);
 
@@ -63,26 +102,44 @@ export default function ClaudeCodePanel({
 
       websocket.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data);
+          const message = JSON.parse(event.data) as ServerMessage;
           handleServerMessage(message);
         } catch (error) {
-          console.error("Failed to parse WebSocket message:", error);
+          logger.debug("error", "Failed to parse WebSocket message", { error });
         }
       };
 
       websocket.onclose = (event) => {
         setIsConnected(false);
-        addMessage("system", `Disconnected from Claude Code (code: ${event.code})`);
+        const closeReason = event.reason || "No reason provided";
+        logger.debug("error", "WebSocket closed", {
+          code: event.code,
+          reason: closeReason,
+          wasClean: event.wasClean,
+        });
+        addMessage(
+          "system",
+          `Disconnected from Claude Code (code: ${event.code})`,
+        );
+        if (event.code === 1006) {
+          addMessage(
+            "error",
+            "Connection failed. Check server logs or authentication.",
+          );
+        }
       };
 
       websocket.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        logger.debug("error", "WebSocket connection error", { error });
         addMessage("error", "WebSocket connection error");
       };
 
       setWs(websocket);
     } catch (error) {
-      addMessage("error", `Failed to connect: ${error instanceof Error ? error.message : String(error)}`);
+      addMessage(
+        "error",
+        `Failed to connect: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   };
 
@@ -96,49 +153,65 @@ export default function ClaudeCodePanel({
   };
 
   // Handle messages from server
-  const handleServerMessage = (message: any) => {
+  const handleServerMessage = (message: ServerMessage) => {
     switch (message.type) {
-      case "system":
-        if (message.subtype === "connection") {
-          addMessage("system", `Connection ID: ${message.data.connectionId}`);
-          if (message.data.sessionId) {
-            setSessionId(message.data.sessionId);
-            addMessage("system", `Existing session: ${message.data.sessionId}`);
-          }
+      case "authenticated":
+        // Server confirmed authentication
+        if (message.userId) {
+          setSessionId(message.userId);
+          addMessage(
+            "system",
+            `Authenticated as user: ${message.userId.slice(0, 8)}...`,
+          );
         }
         break;
 
-      case "agent_message":
-        handleAgentMessage(message.data);
-        break;
-
-      case "query_complete":
+      case "message_received":
+        // Server acknowledged receipt of our message
         setIsProcessing(false);
-        addMessage("system", "Query complete");
-        if (message.data.sessionId) {
-          setSessionId(message.data.sessionId);
+        if (message.timestamp) {
+          addMessage(
+            "system",
+            `Message received at ${new Date(message.timestamp).toLocaleTimeString()}`,
+          );
         }
         break;
 
       case "error":
         setIsProcessing(false);
-        addMessage("error", `Error: ${message.error.message}`);
-        if (message.error.details) {
-          addMessage("error", `Details: ${message.error.details}`);
+        addMessage("error", `Error: ${message.error || "Unknown error"}`);
+        break;
+
+      // Keep old handlers for backward compatibility during transition
+      case "system":
+        if (message.subtype === "connection") {
+          addMessage(
+            "system",
+            `Connection ID: ${message.data?.connectionId || "unknown"}`,
+          );
         }
         break;
 
-      case "session_reset":
-        setSessionId(null);
-        addMessage("system", "Session has been reset");
+      case "agent_message":
+        if (message.data) {
+          handleAgentMessage(message.data);
+        }
+        break;
+
+      case "query_complete":
+        setIsProcessing(false);
+        addMessage("system", "Query complete");
         break;
 
       default:
-        console.log("Unknown message type:", message);
+        logger.debug("log", "Unknown message type", {
+          messageType: message.type,
+        });
     }
   };
 
   // Handle agent messages (streaming responses from Claude)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAgentMessage = (data: any) => {
     if (data.type === "system" && data.subtype === "init") {
       setSessionId(data.session_id);
@@ -177,7 +250,7 @@ export default function ClaudeCodePanel({
       addMessage("assistant", JSON.stringify(data.result, null, 2));
     } else {
       // Log other message types for debugging
-      console.log("Agent message:", data);
+      logger.debug("log", "Agent message", { data });
     }
   };
 
@@ -210,18 +283,14 @@ export default function ClaudeCodePanel({
     setInputValue("");
     setIsProcessing(true);
 
+    // Send message in the format expected by SandboxChatProxyService
     ws.send(
       JSON.stringify({
-        type: "query",
-        data: {
-          prompt: userMessage,
-          options: {
-            maxTurns: 10,
-            model: "claude-sonnet-4-5",
-            allowedTools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
-          },
-        },
-      })
+        message: userMessage,
+        // Optional fields - can be added later
+        // imageUrl: undefined,
+        // currentViewingPath: undefined,
+      }),
     );
   };
 
@@ -277,11 +346,7 @@ export default function ClaudeCodePanel({
               </Button>
             </>
           ) : (
-            <Button
-              size="sm"
-              onClick={connect}
-              disabled={!baseTunnelUrl}
-            >
+            <Button size="sm" onClick={connect}>
               Connect
             </Button>
           )}
@@ -293,9 +358,7 @@ export default function ClaudeCodePanel({
         <div className="space-y-4">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
-              {baseTunnelUrl
-                ? "Connect to start chatting with Claude Code"
-                : "Start dev server to enable Claude Code"}
+              Connect to start chatting with Claude Code
             </div>
           ) : (
             messages.map((message) => (
