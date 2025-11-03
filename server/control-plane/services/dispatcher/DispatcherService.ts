@@ -12,7 +12,7 @@ import {
 } from '../../types/PublicAPITypes.js';
 import { IdleContainerAllocationSystemService } from '../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { handleDispatchImpl } from './handlers/handleDispatch.js';
-import { handleDispatchEditIntentImpl } from './handlers/handleDispatchEditIntent.js';
+import { handleDispatchChatEditIntentImpl } from './handlers/handleDispatchChatEditIntent.js';
 import { handleDispatchPrecheckImpl } from './handlers/handleDispatchPrecheck.js';
 import { handleRunCommandImpl } from './handlers/handleDispatchRunCommand.js';
 import { handleRestartDevServerImpl } from './handlers/handleDispatchRestartServer.js';
@@ -72,7 +72,7 @@ export class DispatcherService {
     return handleDispatchPrecheckImpl(body, jwt, this.cache, localLog);
   }
 
-  public async dispatchEditIntent(
+  public async dispatchChatEditIntent(
     body: DispatchPrecheckRequestBody,
     jwt: string,
     log2: SystemLogger,
@@ -82,7 +82,7 @@ export class DispatcherService {
     const localLog = log2.child({
       function: 'dispatchEditIntent',
     });
-    return handleDispatchEditIntentImpl(body, jwt, this.cache, localLog);
+    return handleDispatchChatEditIntentImpl(body, jwt, this.cache, localLog);
   }
 
   public async restartDevServer(

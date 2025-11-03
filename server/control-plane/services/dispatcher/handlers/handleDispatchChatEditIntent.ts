@@ -16,7 +16,7 @@ import { GlideClient } from '@valkey/valkey-glide';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { handleDispatchPrecheckImpl } from './handleDispatchPrecheck.js';
 
-export async function handleDispatchEditIntentImpl(
+export async function handleDispatchChatEditIntentImpl(
   body: DispatchPrecheckRequestBody,
   jwt: string,
   cache: GlideClient,
@@ -44,7 +44,8 @@ export async function handleDispatchEditIntentImpl(
       data: {
         status: (existingDevData?.status as BuildStatus) || null,
         viewing_url: existingDevData?.url || '',
-        terminal_tunnel_hostname: existingDevData?.terminal_tunnel_hostname || null,
+        terminal_tunnel_hostname:
+          existingDevData?.terminal_tunnel_hostname || null,
       },
       error: null,
     };
