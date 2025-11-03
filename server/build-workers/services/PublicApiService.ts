@@ -80,8 +80,8 @@ export class PublicApiService {
       cloudflare_tunnel_token,
     } = request.body;
 
-    // Import the setWorkerContext function dynamically to avoid circular dependency
-    const { setWorkerContext } = await import("../worker.js");
+    // Import functions dynamically to avoid circular dependency
+    const { setWorkerContext, createAuthenticatedSupabaseClient, setSupabaseClient } = await import("../worker.js");
 
     // Set worker context so all future requests include userId and prototypeId in logs
     setWorkerContext(userId, prototypeId);
@@ -91,6 +91,48 @@ export class PublicApiService {
       userId,
       prototypeId,
     });
+
+    // Extract JWT token from Authorization header
+    const authHeader = request.headers.authorization;
+    let jwtToken: string | undefined;
+
+    if (authHeader) {
+      // Support both "Bearer <token>" and raw token formats
+      if (authHeader.startsWith("Bearer ")) {
+        jwtToken = authHeader.substring(7);
+      } else {
+        jwtToken = authHeader;
+      }
+    }
+
+    // JWT token is required - fail if not provided
+    if (!jwtToken) {
+      const errorMessage = "No JWT token provided in Authorization header";
+      request.log2.error(new Error(errorMessage), "Allocation failed");
+      return reply.code(401).send({
+        status: "error",
+        error: "Authentication required",
+        details: errorMessage,
+      });
+    }
+
+    // Create authenticated Supabase client - fail allocation if this fails
+    try {
+      const authenticatedSupabase = createAuthenticatedSupabaseClient(jwtToken);
+      setSupabaseClient(authenticatedSupabase);
+      request.log2.info("Initialized authenticated Supabase client for worker");
+    } catch (supabaseError) {
+      const errorMessage = supabaseError instanceof Error ? supabaseError.message : String(supabaseError);
+      request.log2.error(
+        supabaseError instanceof Error ? supabaseError : new Error(String(supabaseError)),
+        "Failed to initialize Supabase client - allocation failed",
+      );
+      return reply.code(500).send({
+        status: "error",
+        error: "Failed to initialize Supabase client",
+        details: errorMessage,
+      });
+    }
 
     try {
       const scopedS3 = new S3Client({

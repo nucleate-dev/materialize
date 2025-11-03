@@ -11,6 +11,7 @@ import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { TerminalService } from "./services/TerminalService.js";
 import { CodeService } from "./services/CodeService.js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Load environment variables
 dotenv.config();
@@ -42,6 +43,43 @@ export function setWorkerContext(userId: string, prototypeId: string): void {
 
 export function getWorkerContext(): { userId?: string; prototypeId?: string } {
   return workerContext;
+}
+
+// Store Supabase client instance (set by /allocate endpoint)
+let supabaseClient: SupabaseClient | null = null;
+
+export function setSupabaseClient(client: SupabaseClient): void {
+  supabaseClient = client;
+}
+
+export function getSupabaseClient(): SupabaseClient | null {
+  return supabaseClient;
+}
+
+/**
+ * Creates a Supabase client with user JWT authentication
+ * @param jwtToken - The user's JWT token from the Authorization header
+ * @returns Authenticated Supabase client
+ */
+export function createAuthenticatedSupabaseClient(
+  jwtToken: string,
+): SupabaseClient {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Supabase configuration missing. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.",
+    );
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+      },
+    },
+  });
 }
 
 // Initialize default S3 client (uses EC2 IAM role credentials)
