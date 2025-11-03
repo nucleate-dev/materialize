@@ -74,7 +74,7 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
-  nativewind: "NativeWind + Gluestack",
+  nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
 };
 
