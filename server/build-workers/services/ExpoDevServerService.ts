@@ -636,6 +636,7 @@ export class ExpoDevServerService {
         error instanceof Error ? error.message : String(error);
       this.state.devServerStatus = DevServerStatus.ERROR;
       this.state.error = errorMessage;
+      this.state.clearOperation();
       this.log2.error(new Error(errorMessage), "Failed to restart dev server");
       throw error;
     }
