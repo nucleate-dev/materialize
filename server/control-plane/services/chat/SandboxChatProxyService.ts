@@ -1,12 +1,15 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import type WebSocket from 'ws';
-import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 
 interface ChatMessage {
   message: string;
   imageUrl?: string;
   currentViewingPath?: string;
+}
+
+interface ChatQueryString {
+  prototype_id: string;
 }
 
 export class SandboxChatProxyService {
@@ -40,16 +43,16 @@ export class SandboxChatProxyService {
 
   private async handleWebSocket(
     socket: WebSocket,
-    request: FastifyRequest,
+    request: FastifyRequest<{ Querystring: ChatQueryString }>,
   ): Promise<void> {
-    const log2 = (request as any).log2 as SystemLogger;
+    const log2 = request.log2;
 
     log2.info('[SandboxChatProxyService] WebSocket connection attempt', {
       url: request.url,
     });
 
     // Extract prototype_id from query params (validated by Fastify schema)
-    const prototypeId = (request.query as any).prototype_id as string;
+    const prototypeId = request.query.prototype_id;
     const token = request.headers?.authorization?.split(' ')[1];
 
     // Authenticate and authorize user immediately

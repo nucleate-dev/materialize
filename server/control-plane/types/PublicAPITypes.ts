@@ -342,7 +342,12 @@ export interface ChatRequestBody {
   prototype_id: string;
   imageUrl?: string | null; // Storage path or signed URL for the uploaded image (will be converted to base64 for LLM)
   currentViewingPath?: string | null;
-  modelProvider?: 'google' | 'anthropic' | 'openai' | 'openai-mini';
+  modelProvider?:
+    | 'google'
+    | 'anthropic'
+    | 'openai'
+    | 'openai-mini'
+    | 'google-pro';
 }
 
 // Streaming response types for different event types
