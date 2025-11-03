@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Loader2, RefreshCcw } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,7 +48,7 @@ export default function LiveViewerPage() {
   ]);
 
   const serverEndpoint = useMemo(() => {
-    return process.env.NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT ?? "";
+    return process.env.NEXT_PUBLIC_INTERNAL_TOOLS_PROD_SERVER_ENDPOINT ?? "";
   }, []);
 
   const serviceRoleKey = useMemo(() => {
@@ -288,24 +288,6 @@ interface IPhoneFrameProps {
 }
 
 function IPhoneFrame({ viewingUrl, loading }: IPhoneFrameProps) {
-  const [refreshCounter, setRefreshCounter] = useState(0);
-
-  useEffect(() => {
-    setRefreshCounter(0);
-
-    if (!viewingUrl) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setRefreshCounter((prev) => prev + 1);
-    }, 10_000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [viewingUrl]);
-
   return (
     <div className="relative mx-auto flex w-full max-w-[320px] justify-center">
       <div className="relative aspect-[9/19.5] w-full">
@@ -317,7 +299,6 @@ function IPhoneFrame({ viewingUrl, loading }: IPhoneFrameProps) {
               <iframe
                 title="Prototype Viewer"
                 src={viewingUrl}
-                key={`${viewingUrl}-${refreshCounter}`}
                 className="h-full w-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
