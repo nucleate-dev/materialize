@@ -1,12 +1,12 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import Loader from "@/components/dashboard/Loader";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
+import PrototypePageSkeleton from "@/components/prototype-editor/PrototypePageSkeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -793,7 +793,7 @@ export default function InternalPrototypePage() {
     !fileSystem.state.files ||
     !fileSystem.state.assets
   ) {
-    return <Loader />;
+    return <PrototypePageSkeleton />;
   }
 
   return (
