@@ -1,14 +1,13 @@
 "use client";
 
+import { Loader2, Plus, RefreshCcw } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Plus, Loader2, RefreshCcw } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface ViewingCellState {
   id: string;
@@ -60,10 +59,10 @@ export default function LiveViewerPage() {
       prev.map((cell) =>
         cell.id === id
           ? {
-              ...cell,
-              prototypeId: value,
-              error: null,
-            }
+            ...cell,
+            prototypeId: value,
+            error: null,
+          }
           : cell,
       ),
     );
@@ -85,10 +84,10 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-                ...item,
-                loading: false,
-                error: "Please enter a prototype ID",
-              }
+              ...item,
+              loading: false,
+              error: "Please enter a prototype ID",
+            }
             : item,
         ),
       );
@@ -108,11 +107,11 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-                ...item,
-                loading: false,
-                error:
-                  "Server endpoint not configured. Set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT.",
-              }
+              ...item,
+              loading: false,
+              error:
+                "Server endpoint not configured. Set NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT.",
+            }
             : item,
         ),
       );
@@ -124,11 +123,11 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-                ...item,
-                loading: false,
-                error:
-                  "Supabase service role key not configured. Set NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY.",
-              }
+              ...item,
+              loading: false,
+              error:
+                "Supabase service role key not configured. Set NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY.",
+            }
             : item,
         ),
       );
@@ -163,10 +162,10 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-                ...item,
-                loading: false,
-                viewingUrl: payload.data?.viewing_url ?? null,
-              }
+              ...item,
+              loading: false,
+              viewingUrl: payload.data?.viewing_url ?? null,
+            }
             : item,
         ),
       );
@@ -175,13 +174,13 @@ export default function LiveViewerPage() {
         prev.map((item) =>
           item.id === cellId
             ? {
-                ...item,
-                loading: false,
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Unknown error fetching viewing URL",
-              }
+              ...item,
+              loading: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unknown error fetching viewing URL",
+            }
             : item,
         ),
       );
@@ -193,10 +192,10 @@ export default function LiveViewerPage() {
       prev.map((item) =>
         item.id === cellId
           ? {
-              ...item,
-              viewingUrl: null,
-              error: null,
-            }
+            ...item,
+            viewingUrl: null,
+            error: null,
+          }
           : item,
       ),
     );
@@ -289,8 +288,8 @@ interface IPhoneFrameProps {
 
 function IPhoneFrame({ viewingUrl, loading }: IPhoneFrameProps) {
   return (
-    <div className="relative mx-auto flex w-full max-w-[420px] justify-center">
-      <div className="relative aspect-[9/19.5] w-full">
+    <div className="relative mx-auto flex w-full max-w-[600px] justify-center">
+      <div className="relative aspect-[9/17] w-full">
         <div className="absolute inset-0 rounded-[2.75rem] border border-border/60 bg-background shadow-lg">
           <div className="absolute left-1/2 top-2 h-4 w-24 -translate-x-1/2 rounded-full bg-muted" />
           <div className="absolute inset-[10px] rounded-[2.25rem] bg-muted/80" />

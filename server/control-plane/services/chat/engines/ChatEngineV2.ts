@@ -5,27 +5,6 @@ import { LanguageModelV2 } from '@ai-sdk/provider';
 import { createClient } from '@supabase/supabase-js';
 import { generateText, stepCountIs, streamText } from 'ai';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import type {
-  ChatMessage,
-  CodeError,
-  DispatchRequestBody,
-  EnhancedChatContext,
-  PrototypeFileInput,
-} from '../../../types/PublicAPITypes.js';
-import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS_V2.js';
-import { VirtualFileManager } from '../utils/file-manager.js';
-import { detectUserIntent } from '../utils/intent-classifier.js';
-import { fetchImageAsBase64 } from '../utils/image-utils.js';
-import {
-  createDevServerTools,
-  createFileManagerTools,
-  createOrchestrationTools,
-} from '../utils/tools.js';
-import {
-  ChatPhase,
-  ChatStreamEventType,
-  ImageProcessingStatus,
-} from '../utils/chat-types.js';
 import {
   ChatEngineConfig,
   ChatEngineParams,
@@ -35,6 +14,26 @@ import {
   ModelProvider,
   PromptConfig,
 } from '../../../types/InternalTypes.js';
+import type {
+  ChatMessage,
+  CodeError,
+  DispatchRequestBody,
+  PrototypeFileInput,
+} from '../../../types/PublicAPITypes.js';
+import { buildPromptConfig, isDesignStyleKey } from '../prompts/PROMPTS_V2.js';
+import {
+  ChatPhase,
+  ChatStreamEventType,
+  ImageProcessingStatus,
+} from '../utils/chat-types.js';
+import { VirtualFileManager } from '../utils/file-manager.js';
+import { fetchImageAsBase64 } from '../utils/image-utils.js';
+import { detectUserIntent } from '../utils/intent-classifier.js';
+import {
+  createDevServerTools,
+  createFileManagerTools,
+  createOrchestrationTools,
+} from '../utils/tools.js';
 
 const DEFAULT_MODEL_PROVIDER: ModelProvider = 'google';
 
@@ -312,68 +311,6 @@ export class ChatEngineV2 {
         );
         return;
       }
-
-      // 2. Update enhanced chat context in chat session
-      // First, fetch current context
-      const { data: sessionData, error: fetchError } =
-        await supabaseServiceRoleClient
-          .from('prototype_chat_sessions')
-          .select('chat_context')
-          .eq('id', chatSessionId)
-          .single();
-
-      if (fetchError) {
-        log2.error('Failed to fetch chat session context:', fetchError.message);
-        return;
-      }
-
-      // Parse existing context or create new one
-      let context: EnhancedChatContext;
-      try {
-        context = sessionData?.chat_context
-          ? (JSON.parse(
-              sessionData.chat_context as string,
-            ) as EnhancedChatContext)
-          : { conversations: [] };
-      } catch {
-        log2.warn('Failed to parse existing chat context, creating new one');
-        context = { conversations: [] };
-      }
-
-      // Add new conversation
-      context.conversations.push({
-        timestamp: new Date().toISOString(),
-        userMessage,
-        executionPlan,
-        assistantResponse,
-        fileChanges,
-        completedSteps,
-        toolCalls,
-      });
-
-      // Keep only last 50 conversations to prevent unlimited growth
-      if (context.conversations.length > 50) {
-        context.conversations = context.conversations.slice(-50);
-      }
-
-      // Update the session with new context
-      const { error: updateError } = await supabaseServiceRoleClient
-        .from('prototype_chat_sessions')
-        .update({ chat_context: JSON.stringify(context) })
-        .eq('id', chatSessionId);
-
-      if (updateError) {
-        log2.error(
-          'Failed to update chat session context:',
-          updateError.message,
-        );
-        return;
-      }
-
-      log2.consoleLogDevOnly(
-        'info',
-        '[ChatService] Successfully persisted chat messages and context',
-      );
     } catch (error) {
       log2.error(
         'Error in persistChatMessages:',
