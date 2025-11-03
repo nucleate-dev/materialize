@@ -4,7 +4,11 @@ import {
   StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
+import type {
+  ECSClient,
+  RunTaskCommandInput,
+  RunTaskCommandOutput,
+} from '@aws-sdk/client-ecs';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import { GlideClient } from '@valkey/valkey-glide';
 import {
@@ -402,6 +406,11 @@ export class IdleContainerAllocationSystemService {
       );
       const response = await this.ecsClient.send(command);
       if (!response.tasks || response.tasks.length === 0) {
+        log2.error(
+          new Error('No task was created'),
+          'Failed to launch Fargate task:',
+          { response },
+        );
         throw new Error('No task was created');
       }
       // save taskArn to the cache immediately to prevent case where server/request fails before cache is updated
