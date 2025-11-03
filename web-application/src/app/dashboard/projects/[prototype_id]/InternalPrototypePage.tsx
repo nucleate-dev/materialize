@@ -2,6 +2,7 @@
 
 import { supabase } from "@/ClientConstants";
 import Loader from "@/components/dashboard/Loader";
+import ClaudeCodePanel from "@/components/prototype-editor/ClaudeCodePanel";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
@@ -89,7 +90,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -105,7 +106,7 @@ export default function InternalPrototypePage() {
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
-  const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
+  const [baseTunnelUrl, setBaseTunnelUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
@@ -137,6 +138,9 @@ export default function InternalPrototypePage() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
 
+  // Claude Code panel state
+  const [showClaudeCode, setShowClaudeCode] = useState(false);
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
@@ -150,8 +154,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-        (system) => String(system.id) === currentCustomDesignSystemId,
-      )?.name || "Custom design system"
+      (system) => String(system.id) === currentCustomDesignSystemId,
+    )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -356,9 +360,9 @@ export default function InternalPrototypePage() {
         // TODO(priyam): Think through the different possible states here.
         if (
           fetchViewData.data.terminal_url &&
-          fetchViewData.data.terminal_url !== terminalUrl
+          fetchViewData.data.terminal_url !== baseTunnelUrl
         ) {
-          setTerminalUrl(fetchViewData.data.terminal_url);
+          setBaseTunnelUrl(fetchViewData.data.terminal_url);
         }
         if (
           fetchViewData.data.source === "editable_instance" &&
@@ -456,7 +460,7 @@ export default function InternalPrototypePage() {
         // Update viewing URL and terminal URL if provided
         setViewingUrl(result.data.viewing_url);
         if (result.data.terminal_url) {
-          setTerminalUrl(result.data.terminal_url);
+          setBaseTunnelUrl(result.data.terminal_url);
         }
         setCurrentRenderStatus("Connected");
       } catch {
@@ -492,7 +496,7 @@ export default function InternalPrototypePage() {
     shouldTriggerInitialFetch,
     viewingUrl,
     logger,
-    terminalUrl,
+    baseTunnelUrl,
   ]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
@@ -563,9 +567,9 @@ export default function InternalPrototypePage() {
           }
           if (
             data.data.terminal_url &&
-            data.data.terminal_url !== terminalUrl
+            data.data.terminal_url !== baseTunnelUrl
           ) {
-            setTerminalUrl(data.data.terminal_url);
+            setBaseTunnelUrl(data.data.terminal_url);
           }
         } catch (error) {
           logger.debug("error", "Polling error:", {
@@ -586,7 +590,7 @@ export default function InternalPrototypePage() {
         clearInterval(pollTimer);
       }
     };
-  }, [currentRenderStatus, prototypeId, logger, viewingUrl, terminalUrl]);
+  }, [currentRenderStatus, prototypeId, logger, viewingUrl, baseTunnelUrl]);
 
   const handleDesignSystemDialogOpenChange = (open: boolean) => {
     setIsDesignSystemDialogOpen(open);
@@ -638,10 +642,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              design_style: dialogDesignStyle,
-              custom_design_system: nextCustomDesignSystem,
-            }
+            ...prev,
+            design_style: dialogDesignStyle,
+            custom_design_system: nextCustomDesignSystem,
+          }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -822,22 +826,47 @@ export default function InternalPrototypePage() {
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        {/* Left Panel - AI Assistant Chat */}
+        {/* Left Panel - AI Assistant Chat or Claude Code */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
               : { width: `${leftPanelWidth}%`, minWidth: "320px" }
           }
         >
+          {/* Toggle between Chat and Claude Code */}
+          <div className="flex items-center gap-2 p-2 border-b">
+            <Button
+              size="sm"
+              variant={!showClaudeCode ? "default" : "ghost"}
+              onClick={() => setShowClaudeCode(false)}
+              className="flex-1"
+            >
+              Chat
+            </Button>
+            <Button
+              size="sm"
+              variant={showClaudeCode ? "default" : "ghost"}
+              onClick={() => setShowClaudeCode(true)}
+              className="flex-1"
+            >
+              Claude Code
+            </Button>
+          </div>
+
           {/* Content Area */}
           <div className="flex-1 min-h-0">
-            <PrototypeChatWindow
+            {showClaudeCode ? (
+              <ClaudeCodePanel
+                prototypeId={prototypeId}
+                baseTunnelUrl={baseTunnelUrl}
+              />
+            ) : (
+              <PrototypeChatWindow
               prototypeId={prototypeId}
               prototype={prototype}
               canEditPrototype={canEditPrototype}
@@ -865,7 +894,8 @@ export default function InternalPrototypePage() {
               // Model provider selection
               modelProvider={modelProvider}
               onModelProviderChange={setModelProvider}
-            />
+              />
+            )}
           </div>
         </div>
 
@@ -883,11 +913,10 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -897,7 +926,7 @@ export default function InternalPrototypePage() {
           <div className="flex-1 min-h-0 h-full">
             <MaterializeRenderSection
               viewing_url={viewingUrl ?? ""}
-              terminal_url={terminalUrl}
+              base_tunnel_url={baseTunnelUrl}
               prototypeId={prototypeId}
               files={fileSystem.state.files}
               assets={Object.fromEntries(
@@ -928,11 +957,10 @@ export default function InternalPrototypePage() {
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   <div
-                    className={`${
-                      isMobile
-                        ? "w-full max-h-[200px] border-b"
-                        : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                    } border-border`}
+                    className={`${isMobile
+                      ? "w-full max-h-[200px] border-b"
+                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                      } border-border`}
                   >
                     <div className="h-full overflow-auto">
                       <FileTree
@@ -1089,11 +1117,10 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+                  }`}
               >
                 <input
                   type="checkbox"

@@ -10,6 +10,7 @@ import { CloudflareTunnelManagementService } from "./services/CloudflareTunnelMa
 import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { TerminalService } from "./services/TerminalService.js";
+import { CodeService } from "./services/CodeService.js";
 
 // Load environment variables
 dotenv.config();
@@ -88,6 +89,7 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
+const codeService = new CodeService(app, WORK_DIR, baseLogger);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
@@ -148,12 +150,16 @@ terminalService.registerRoutes();
 // Setup sandbox API routes
 sandboxService.registerRoutes();
 
+// Setup Claude Code SDK routes
+codeService.registerRoutes();
+
 // --- Graceful Shutdown Handling ---
 const close = async (): Promise<void> => {
   baseLogger.info("Shutting down build worker...");
   try {
     await expoDevServerService.shutdown();
     terminalService.shutdownAllSessions();
+    await codeService.shutdown();
     await app.close();
   } finally {
     process.exit(0);

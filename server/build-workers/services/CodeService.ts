@@ -1,0 +1,368 @@
+import { query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { FastifyInstance, FastifyRequest } from "fastify";
+import WebSocket from "ws";
+import { SystemLogger } from "../loggers/SystemLogger.js";
+
+interface CodeSessionState {
+  sessionId: string | null;
+  isActive: boolean;
+  createdAt: number;
+  lastActiveAt: number;
+}
+
+interface ClientMessage {
+  type: string;
+  data?: unknown;
+}
+
+interface QueryData {
+  prompt: string;
+  options?: {
+    maxTurns?: number;
+    allowedTools?: string[];
+    model?: string;
+  };
+}
+
+export class CodeService {
+  private readonly workDir: string;
+  private readonly logger: SystemLogger;
+  private readonly fastifyApp: FastifyInstance;
+  private sessionState: CodeSessionState = {
+    sessionId: null,
+    isActive: false,
+    createdAt: 0,
+    lastActiveAt: 0,
+  };
+  private activeConnections = new Map<string, WebSocket>();
+
+  constructor(
+    fastifyApp: FastifyInstance,
+    workDir: string,
+    logger: SystemLogger,
+  ) {
+    this.workDir = workDir;
+    this.fastifyApp = fastifyApp;
+    this.logger = logger.child({ service: "CodeService" });
+
+    this.logger.info("CodeService initialized", {
+      workDir: this.workDir,
+    });
+  }
+
+  public registerRoutes(): void {
+    // WebSocket endpoint for Claude Code
+    this.fastifyApp.get(
+      "/code/ws/:prototypeId",
+      { websocket: true },
+      this.handleWebSocketConnection.bind(this),
+    );
+
+    // Health check endpoint
+    this.fastifyApp.get("/code/health", async () => {
+      return {
+        status: "ok",
+        service: "claude-code-sdk",
+        session: {
+          id: this.sessionState.sessionId,
+          isActive: this.sessionState.isActive,
+          lastActiveAt: this.sessionState.lastActiveAt,
+        },
+      };
+    });
+
+    // Get session info
+    this.fastifyApp.get("/code/session", async () => {
+      return {
+        status: "ok",
+        session: this.sessionState,
+      };
+    });
+  }
+
+  private handleWebSocketConnection(
+    socket: WebSocket,
+    req: FastifyRequest<{ Params: { prototypeId: string } }>,
+  ): void {
+    const { prototypeId } = req.params;
+    const connectionId = `${prototypeId}-${Date.now()}`;
+
+    this.logger.info("Claude Code WebSocket connection established", {
+      prototypeId,
+      connectionId,
+    });
+
+    this.activeConnections.set(connectionId, socket);
+
+    // Send initial connection confirmation
+    this.sendMessage(socket, {
+      type: "system",
+      subtype: "connection",
+      data: {
+        connectionId,
+        prototypeId,
+        sessionId: this.sessionState.sessionId,
+      },
+    });
+
+    // Handle incoming messages
+    socket.on("message", async (raw: Buffer | string) => {
+      try {
+        const message = JSON.parse(raw.toString());
+        await this.handleClientMessage(socket, message, prototypeId);
+      } catch (error) {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to process WebSocket message",
+          { connectionId },
+        );
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: "Failed to process message",
+            details: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    });
+
+    socket.on("close", (code: number, reason: Buffer) => {
+      this.logger.info("Claude Code WebSocket connection closed", {
+        prototypeId,
+        connectionId,
+        code,
+        reason: reason.toString(),
+      });
+      this.activeConnections.delete(connectionId);
+    });
+
+    socket.on("error", (error: Error) => {
+      this.logger.error(error, "Claude Code WebSocket error", {
+        prototypeId,
+        connectionId,
+      });
+      this.activeConnections.delete(connectionId);
+    });
+  }
+
+  private async handleClientMessage(
+    socket: WebSocket,
+    message: ClientMessage,
+    prototypeId: string,
+  ): Promise<void> {
+    const { type, data } = message;
+
+    switch (type) {
+      case "query":
+        await this.handleQuery(socket, data, prototypeId);
+        break;
+
+      case "interrupt":
+        await this.handleInterrupt(socket, data);
+        break;
+
+      case "reset_session":
+        await this.handleResetSession(socket);
+        break;
+
+      default:
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: `Unknown message type: ${type}`,
+          },
+        });
+    }
+  }
+
+  private async handleQuery(
+    socket: WebSocket,
+    data: unknown,
+    prototypeId: string,
+  ): Promise<void> {
+    const { prompt, options } = data as QueryData;
+
+    if (!prompt) {
+      this.sendMessage(socket, {
+        type: "error",
+        error: { message: "prompt is required" },
+      });
+      return;
+    }
+
+    this.logger.info("Starting Claude Code query", {
+      prototypeId,
+      hasSession: !!this.sessionState.sessionId,
+    });
+
+    try {
+      // Create async generator for streaming input
+      async function* generateMessages(): AsyncGenerator<{
+        type: "user";
+        message: { role: "user"; content: string };
+      }> {
+        yield {
+          type: "user" as const,
+          message: {
+            role: "user" as const,
+            content: prompt,
+          },
+        };
+      }
+
+      // Query Claude with session resumption if available
+      const queryOptions = {
+        ...options,
+        workingDirectory: this.workDir,
+        maxTurns: options?.maxTurns ?? 10,
+        allowedTools: options?.allowedTools ?? [
+          "Read",
+          "Write",
+          "Edit",
+          "Glob",
+          "Grep",
+          "Bash",
+        ],
+        model: options?.model ?? "claude-sonnet-4-5",
+        // Resume existing session if available
+        ...(this.sessionState.sessionId && {
+          resume: this.sessionState.sessionId,
+        }),
+      };
+
+      this.logger.info("Querying Claude Agent SDK", {
+        hasResume: !!queryOptions.resume,
+        model: queryOptions.model,
+        workingDirectory: queryOptions.workingDirectory,
+      });
+
+      // Stream responses back to client
+      const response = query({
+        prompt: generateMessages() as AsyncIterable<SDKUserMessage>,
+        options: queryOptions,
+      });
+
+      for await (const msg of response) {
+        // Capture session ID from init message
+        if (msg.type === "system" && msg.subtype === "init") {
+          this.sessionState.sessionId = msg.session_id;
+          this.sessionState.isActive = true;
+          this.sessionState.createdAt = Date.now();
+          this.sessionState.lastActiveAt = Date.now();
+
+          this.logger.info("Claude Code session initialized", {
+            sessionId: msg.session_id,
+          });
+        }
+
+        // Update last active time
+        this.sessionState.lastActiveAt = Date.now();
+
+        // Forward message to client
+        this.sendMessage(socket, {
+          type: "agent_message",
+          data: msg,
+        });
+      }
+
+      // Send completion message
+      this.sendMessage(socket, {
+        type: "query_complete",
+        data: {
+          sessionId: this.sessionState.sessionId,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Claude Code query failed",
+        { prototypeId },
+      );
+
+      this.sendMessage(socket, {
+        type: "error",
+        error: {
+          message: "Query failed",
+          details: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  private async handleInterrupt(
+    socket: WebSocket,
+    _data: unknown,
+  ): Promise<void> {
+    this.logger.info("Interrupt requested", {
+      sessionId: this.sessionState.sessionId,
+    });
+
+    // TODO: Implement interrupt logic when SDK supports it
+    this.sendMessage(socket, {
+      type: "info",
+      message: "Interrupt not yet implemented",
+    });
+  }
+
+  private async handleResetSession(socket: WebSocket): Promise<void> {
+    this.logger.info("Resetting Claude Code session", {
+      oldSessionId: this.sessionState.sessionId,
+    });
+
+    this.sessionState = {
+      sessionId: null,
+      isActive: false,
+      createdAt: 0,
+      lastActiveAt: 0,
+    };
+
+    this.sendMessage(socket, {
+      type: "session_reset",
+      data: {
+        message: "Session has been reset",
+      },
+    });
+  }
+
+  private sendMessage(socket: WebSocket, message: unknown): void {
+    if (socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify(message));
+      } catch (error) {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to send WebSocket message",
+        );
+      }
+    }
+  }
+
+  public getSessionState(): CodeSessionState {
+    return { ...this.sessionState };
+  }
+
+  public async shutdown(): Promise<void> {
+    this.logger.info("Shutting down CodeService");
+
+    // Close all active connections
+    for (const [connectionId, socket] of this.activeConnections.entries()) {
+      try {
+        socket.close(1000, "Server shutting down");
+      } catch {
+        this.logger.warn("Failed to close WebSocket connection", {
+          connectionId,
+        });
+      }
+    }
+
+    this.activeConnections.clear();
+    this.sessionState = {
+      sessionId: null,
+      isActive: false,
+      createdAt: 0,
+      lastActiveAt: 0,
+    };
+
+    this.logger.info("CodeService shutdown complete");
+  }
+}
