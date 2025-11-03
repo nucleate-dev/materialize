@@ -322,9 +322,19 @@ export default function InternalPrototypePage() {
       setPrototype(data);
       setIsPublic(data.visibility === "PUBLIC");
 
-      // 2. FETCH CURRENT VIEWING URL FROM SERVER
+      // 2. GET SESSION AND CHECK OWNERSHIP
       const session = await supabase.auth.getSession();
+      const currentUserId = session.data.session?.user?.id;
       const token = session.data.session?.access_token;
+
+      // Redirect non-owners to public view page
+      if (currentUserId && data.owner_id !== currentUserId) {
+        logger.debug("log", "User is not owner, redirecting to public view page");
+        router.push(`/project/${prototypeId}`);
+        return;
+      }
+
+      // 3. FETCH CURRENT VIEWING URL FROM SERVER
       const headers: HeadersInit = {
         "Content-Type": "application/json",
       };
@@ -390,7 +400,7 @@ export default function InternalPrototypePage() {
         return;
       }
 
-      // 3. AUTO-START DEV SERVER WHEN FILES ARE LOADED
+      // 4. AUTO-START DEV SERVER WHEN FILES ARE LOADED
       if (
         !fileSystem.state.files ||
         !fileSystem.state.assets ||
