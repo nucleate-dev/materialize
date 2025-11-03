@@ -60,12 +60,12 @@ export async function handleDispatchChatEditIntentImpl(
       cache,
       log2,
     );
+    if (precheckResult.error) {
+      return precheckResult;
+    }
 
-    // 4. If there's an editable dev server, then update the last_touched timestamp to now in the current active build so it doesn't get cleaned
-    if (
-      precheckResult.data &&
-      isEditableDevServer(precheckResult.data.status)
-    ) {
+    // 4. If there's an editable dev server, then update the status to "chatting" and the last_touched timestamp to now in the current active build so it doesn't get cleaned
+    if (isEditableDevServer(precheckResult.data.status)) {
       // Get current build ID and update last_touched timestamp
       const currentBuildId = await cache.get(
         CACHE_KEYS.protoCurrentBuild(prototype_id),
@@ -76,12 +76,12 @@ export async function handleDispatchChatEditIntentImpl(
         const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
 
         if (existingBuild && isActiveBuildType(existingBuild)) {
+          // Update the active build cache with new status and timestamp
           const updatedBuildData = {
             ...existingBuild,
+            status: 'chatting' as BuildStatus,
             last_touched: Math.floor(Date.now() / 1000),
           };
-
-          // Update the active build cache with new timestamp
           await cache.hset(
             activeBuildKey,
             activeBuildToStringRecord(updatedBuildData),
@@ -95,11 +95,6 @@ export async function handleDispatchChatEditIntentImpl(
             updatedBuildData.last_touched.toString(),
             buildIdFromKey,
           ]);
-
-          log2.consoleLogDevOnly(
-            'info',
-            `[handleDispatchEditIntent] Updated last_touched timestamp for build: ${currentBuildId}`,
-          );
         }
       }
     }

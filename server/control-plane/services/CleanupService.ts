@@ -141,8 +141,8 @@ export class CleanupService {
         continue;
       }
 
-      // Skip if already cleaning
-      if (build.status === 'cleaning') {
+      // Skip if already cleaning or LLM is actively executing
+      if (build.status === 'cleaning' || build.status === 'chatting') {
         continue;
       }
 

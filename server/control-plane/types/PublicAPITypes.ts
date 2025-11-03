@@ -46,6 +46,7 @@ export interface CodeWarning {
 
 export type BuildStatus =
   | 'creating'
+  | 'chatting'
   | 'updating'
   | 'error'
   | 'stable'
