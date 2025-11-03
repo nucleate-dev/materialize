@@ -5,7 +5,7 @@ import path from "path";
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-13-58-147-79.us-east-2.compute.amazonaws.com";
+const HOST = "ec2-3-137-155-95.us-east-2.compute.amazonaws.com";
 const SSH_OPTS =
   "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts";
 
