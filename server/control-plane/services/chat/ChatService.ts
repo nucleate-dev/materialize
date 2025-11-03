@@ -146,7 +146,13 @@ export class ChatService {
               currentViewingPath: { type: 'string' },
               modelProvider: {
                 type: 'string',
-                enum: ['google', 'google-pro', 'anthropic', 'openai', 'openai-mini'],
+                enum: [
+                  'google',
+                  'google-pro',
+                  'anthropic',
+                  'openai',
+                  'openai-mini',
+                ],
               },
             },
           },
@@ -326,28 +332,29 @@ export class ChatService {
             // 7. Track API usage and get updated count
             // ------------------------------------------------------------------------------------------------
             // TODO: only track api usage if there are no errors
-            const { updatedMessageCount } = await trackChatUsage(
-              this.stripe,
-              user.id,
-              prototype_id,
-              userTier,
-              paywallResult.stripeCustomerId,
-              paywallResult.currentPeriodStart,
-              paywallResult.currentPeriodEnd,
-              this.supabaseUrl,
-              this.supabaseServiceKey,
-              request.log2,
-            );
+            // Temporarily disable this for the playtest. TODO we must add this back in after the playtest.
+            // const { updatedMessageCount } = await trackChatUsage(
+            //   this.stripe,
+            //   user.id,
+            //   prototype_id,
+            //   userTier,
+            //   paywallResult.stripeCustomerId,
+            //   paywallResult.currentPeriodStart,
+            //   paywallResult.currentPeriodEnd,
+            //   this.supabaseUrl,
+            //   this.supabaseServiceKey,
+            //   request.log2,
+            // );
 
             // Send updated message count to client
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({
-                  type: ChatStreamEventType.USAGE_UPDATE,
-                  messageCount: updatedMessageCount,
-                })}\n\n`,
-              ),
-            );
+            // controller.enqueue(
+            //   encoder.encode(
+            //     `data: ${JSON.stringify({
+            //       type: ChatStreamEventType.USAGE_UPDATE,
+            //       messageCount: updatedMessageCount,
+            //     })}\n\n`,
+            //   ),
+            // );
           } catch (error) {
             if (
               error instanceof Error &&
