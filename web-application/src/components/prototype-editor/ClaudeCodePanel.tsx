@@ -185,6 +185,10 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
         }
         break;
 
+      case "ready":
+        // Server acknowledged the connection establishment
+        break;
+
       case "error":
         setIsProcessing(false);
         addMessage("error", `Error: ${message.error || "Unknown error"}`);

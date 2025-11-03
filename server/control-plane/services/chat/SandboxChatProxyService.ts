@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
+import type { SocketStream } from '@fastify/websocket';
 import type WebSocket from 'ws';
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 
@@ -37,10 +38,10 @@ export class SandboxChatProxyService {
     );
   }
 
-  private async handleWebSocket(
-    socket: WebSocket,
+  private handleWebSocket(
+    connection: SocketStream,
     request: FastifyRequest,
-  ): Promise<void> {
+  ): void {
     // WebSocket upgrades might not trigger onRequest hook, so log2 might not be set
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const log2 = (request as any).log2 || request.log;
@@ -61,6 +62,18 @@ export class SandboxChatProxyService {
       isAuthenticated: false,
     };
 
+    const wsSocket = connection.socket as WebSocket | undefined;
+
+    if (!wsSocket) {
+      log2.error(
+        {
+          connectionKeys: Object.keys(connection as Record<string, unknown>),
+        },
+        '[SandboxChatProxyService] Unable to access underlying WebSocket',
+      );
+      return;
+    }
+
     const decodeRawData = (data: WebSocket.RawData): string => {
       if (typeof data === 'string') {
         return data;
@@ -74,7 +87,19 @@ export class SandboxChatProxyService {
       return Buffer.from(data as ArrayBuffer).toString('utf8');
     };
 
-    socket.on('message', async (rawData: WebSocket.RawData) => {
+    try {
+      wsSocket.send(
+        JSON.stringify({
+          type: 'ready',
+          message: 'Connection established',
+        }),
+      );
+      log2.info('[SandboxChatProxyService] Sent ready event to client');
+    } catch (error) {
+      log2.error(error, '[SandboxChatProxyService] Failed to send ready event');
+    }
+
+    wsSocket.on('message', async (rawData: WebSocket.RawData) => {
       const payload = decodeRawData(rawData);
       let data: ChatMessage;
 
@@ -90,7 +115,7 @@ export class SandboxChatProxyService {
           },
           '[SandboxChatProxyService] Failed to parse incoming message',
         );
-        socket.send(
+        wsSocket.send(
           JSON.stringify({
             type: 'error',
             error: 'Invalid message format: expected JSON',
@@ -109,7 +134,7 @@ export class SandboxChatProxyService {
             },
             '[SandboxChatProxyService] Missing prototype_id in message',
           );
-          socket.send(
+          wsSocket.send(
             JSON.stringify({
               type: 'error',
               error: 'prototype_id is required on each message',
@@ -118,8 +143,7 @@ export class SandboxChatProxyService {
           return;
         }
 
-        const token =
-          typeof data.token === 'string' ? data.token.trim() : '';
+        const token = typeof data.token === 'string' ? data.token.trim() : '';
         if (!token) {
           log2.warn(
             {
@@ -128,7 +152,7 @@ export class SandboxChatProxyService {
             },
             '[SandboxChatProxyService] Missing authentication token in message',
           );
-          socket.send(
+          wsSocket.send(
             JSON.stringify({
               type: 'error',
               error: 'token is required on each message',
@@ -140,7 +164,7 @@ export class SandboxChatProxyService {
         const messageText =
           typeof data.message === 'string' ? data.message.trim() : '';
         if (!messageText) {
-          socket.send(
+          wsSocket.send(
             JSON.stringify({
               type: 'error',
               error: 'message is required and cannot be empty',
@@ -160,13 +184,13 @@ export class SandboxChatProxyService {
           log2.error(error, '[SandboxChatProxyService] Authentication error', {
             prototype_id: prototypeId,
           });
-          socket.send(
+          wsSocket.send(
             JSON.stringify({
               type: 'error',
               error: 'Authentication failed',
             }),
           );
-          socket.close(1011, 'Authentication failed');
+          wsSocket.close(1011, 'Authentication failed');
           return;
         }
 
@@ -187,14 +211,14 @@ export class SandboxChatProxyService {
             '[SandboxChatProxyService] Unauthorized access attempt',
           );
 
-          socket.send(
+          wsSocket.send(
             JSON.stringify({
               type: 'error',
               error:
                 'Unauthorized: You do not have edit access to this prototype',
             }),
           );
-          socket.close(1008, 'Unauthorized');
+          wsSocket.close(1008, 'Unauthorized');
           return;
         }
 
@@ -213,7 +237,7 @@ export class SandboxChatProxyService {
             '[SandboxChatProxyService] User authenticated successfully',
           );
 
-          socket.send(
+          wsSocket.send(
             JSON.stringify({
               type: 'authenticated',
               userId,
@@ -237,7 +261,7 @@ export class SandboxChatProxyService {
           '[SandboxChatProxyService] Received chat message',
         );
 
-        socket.send(
+        wsSocket.send(
           JSON.stringify({
             type: 'message_received',
             prototype_id: prototypeId,
@@ -246,7 +270,7 @@ export class SandboxChatProxyService {
         );
       } catch (error) {
         log2.error(error, '[SandboxChatProxyService] Error processing message');
-        socket.send(
+        wsSocket.send(
           JSON.stringify({
             type: 'error',
             error:
@@ -258,7 +282,7 @@ export class SandboxChatProxyService {
       }
     });
 
-    socket.on('close', (code: number, reason: Buffer) => {
+    wsSocket.on('close', (code: number, reason: Buffer) => {
       const reasonText = reason?.length ? reason.toString('utf8') : undefined;
 
       log2.info(
@@ -273,7 +297,7 @@ export class SandboxChatProxyService {
       );
     });
 
-    socket.on('error', (error: Error) => {
+    wsSocket.on('error', (error: Error) => {
       log2.error(error, '[SandboxChatProxyService] WebSocket error', {
         prototype_id: connectionContext.prototypeId,
         userId: connectionContext.userId,
