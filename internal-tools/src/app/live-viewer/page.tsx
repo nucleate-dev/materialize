@@ -289,7 +289,7 @@ interface IPhoneFrameProps {
 
 function IPhoneFrame({ viewingUrl, loading }: IPhoneFrameProps) {
   return (
-    <div className="relative mx-auto flex w-full max-w-[320px] justify-center">
+    <div className="relative mx-auto flex w-full max-w-[420px] justify-center">
       <div className="relative aspect-[9/19.5] w-full">
         <div className="absolute inset-0 rounded-[2.75rem] border border-border/60 bg-background shadow-lg">
           <div className="absolute left-1/2 top-2 h-4 w-24 -translate-x-1/2 rounded-full bg-muted" />
