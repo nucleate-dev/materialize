@@ -135,7 +135,7 @@ export async function handleDispatchImpl(
     jwt,
     log2,
   );
-  if (!authResult || !authResult.canEdit) {
+  if (authResult === null || authResult.user === null || !authResult.canEdit) {
     return {
       data: null,
       error: {
@@ -147,7 +147,7 @@ export async function handleDispatchImpl(
   }
   // update logger context
   log2 = log2.child({
-    userId: authResult.user?.id || 'service-role',
+    userId: authResult.user.id,
     prototypeId: prototype_id,
   });
 
@@ -230,7 +230,8 @@ export async function handleDispatchImpl(
               prototype_id,
               activeBuildKey,
               newBuildCacheData,
-              authResult.user?.id || 'service-role',
+              jwt,
+              authResult.user!.id,
             );
           },
         );
