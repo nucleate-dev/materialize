@@ -511,5 +511,79 @@ export function createDevServerTools(
         };
       },
     }),
+
+    run_command: tool({
+      description:
+        'Run any shell command in the dev server container. The command will block until completion or timeout after 2 minutes. ONLY run commands that complete quickly (e.g., npx tsc, npm install, ls, cat). The output from the terminal will be returned upon completion.',
+      inputSchema: z.object({
+        command: z
+          .string()
+          .describe('The shell command to execute (e.g., "npx tsc", "ls -la")'),
+        args: z
+          .array(z.string())
+          .optional()
+          .describe('Optional array of command arguments'),
+        cwd: z
+          .string()
+          .optional()
+          .describe('Optional working directory (relative to project root)'),
+      }),
+      execute: async ({
+        command,
+        args,
+        cwd,
+      }: {
+        command: string;
+        args?: string[];
+        cwd?: string;
+      }) => {
+        const toolLog = log2.child({ tool: 'run_command', command });
+
+        const commandResult = await dispatcherService.runCommand(
+          {
+            prototype_id: params.prototype_id,
+            command,
+            args,
+            cwd,
+            timeout_ms: 120000,
+            strip_ansi: true,
+          },
+          params.token,
+          toolLog,
+        );
+
+        if (!commandResult.data || commandResult.error) {
+          const errorMessage =
+            commandResult.error?.message ?? 'Failed to run command.';
+          toolLog.warn('[DevServerTools] Command execution failed', {
+            error: errorMessage,
+            command,
+          });
+
+          return {
+            success: false,
+            output: '',
+            status: 'error',
+            error: errorMessage,
+          };
+        }
+
+        const output = commandResult.data.stdout ?? '';
+        const status = commandResult.data.status;
+
+        toolLog.info('[DevServerTools] Command completed', {
+          command,
+          status,
+          outputLength: output.length,
+        });
+
+        return {
+          success: status === 'success',
+          output,
+          status,
+          command,
+        };
+      },
+    }),
   };
 }
