@@ -41,6 +41,7 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const authTokenRef = useRef<string | null>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -57,6 +58,8 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
   // Connect to WebSocket
   const connect = async () => {
     try {
+      authTokenRef.current = null;
+
       // Get authentication token
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) {
@@ -74,23 +77,25 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
       }
 
       // Convert https:// to wss:// or http:// to ws://
-      // Send credentials via path params since browser WebSocket API doesn't support custom headers
+      // Attach credentials per message so the initial WebSocket connection stays open to everyone
       const normalizedEndpoint = serverEndpoint.endsWith("/")
         ? serverEndpoint.slice(0, -1)
         : serverEndpoint;
+
+      authTokenRef.current = token;
 
       const wsUrl =
         normalizedEndpoint
           .replace("https://", "wss://")
           .replace("http://", "ws://") +
-        `/chat/v2/ws/${encodeURIComponent(prototypeId)}/${encodeURIComponent(token)}`;
+        `/chat/v2/ws`;
 
       logger.debug("log", "Attempting WebSocket connection", {
         serverEndpoint,
         prototypeId,
         hasToken: !!token,
         tokenLength: token?.length,
-        wsPath: `/chat/v2/ws/${encodeURIComponent(prototypeId)}/[token]`,
+        wsPath: `/chat/v2/ws`,
       });
 
       const websocket = new WebSocket(wsUrl);
@@ -110,6 +115,7 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
       };
 
       websocket.onclose = (event) => {
+        authTokenRef.current = null;
         setIsConnected(false);
         const closeReason = event.reason || "No reason provided";
         logger.debug("error", "WebSocket closed", {
@@ -136,6 +142,7 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
 
       setWs(websocket);
     } catch (error) {
+      authTokenRef.current = null;
       addMessage(
         "error",
         `Failed to connect: ${error instanceof Error ? error.message : String(error)}`,
@@ -149,6 +156,7 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
       ws.close();
       setWs(null);
       setIsConnected(false);
+      authTokenRef.current = null;
     }
   };
 
@@ -274,11 +282,21 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
       return;
     }
 
-    if (!inputValue.trim()) {
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput) {
       return;
     }
 
-    const userMessage = inputValue.trim();
+    const token = authTokenRef.current;
+    if (!token) {
+      addMessage(
+        "error",
+        "Missing authentication token. Please reconnect and try again.",
+      );
+      return;
+    }
+
+    const userMessage = trimmedInput;
     addMessage("user", userMessage);
     setInputValue("");
     setIsProcessing(true);
@@ -286,6 +304,8 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
     // Send message in the format expected by SandboxChatProxyService
     ws.send(
       JSON.stringify({
+        prototype_id: prototypeId,
+        token,
         message: userMessage,
         // Optional fields - can be added later
         // imageUrl: undefined,
@@ -301,7 +321,23 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
       return;
     }
 
-    ws.send(JSON.stringify({ type: "reset_session" }));
+    const token = authTokenRef.current;
+    if (!token) {
+      addMessage(
+        "error",
+        "Missing authentication token. Please reconnect and try again.",
+      );
+      return;
+    }
+
+    ws.send(
+      JSON.stringify({
+        type: "reset_session",
+        message: "Reset session requested.",
+        prototype_id: prototypeId,
+        token,
+      }),
+    );
     setMessages([]);
   };
 

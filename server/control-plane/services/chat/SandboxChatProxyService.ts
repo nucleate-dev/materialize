@@ -3,14 +3,12 @@ import type WebSocket from 'ws';
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 
 interface ChatMessage {
-  message: string;
+  type?: string;
+  message?: string;
   imageUrl?: string;
   currentViewingPath?: string;
-}
-
-interface ChatQueryString {
-  prototype_id: string;
-  token?: string; // Optional token for browser clients that can't set headers
+  prototype_id?: string;
+  token?: string;
 }
 
 export class SandboxChatProxyService {
@@ -26,15 +24,10 @@ export class SandboxChatProxyService {
     );
 
     // WebSocket route for Claude Code chat
-    // Supports both query params and path params for prototype_id/token
+    // Authentication is performed per message based on prototype_id/token payload fields
     // Note: Schema validation doesn't work well with WebSocket routes, so we validate manually in the handler
     app.get(
       '/chat/v2/ws',
-      { websocket: true },
-      this.handleWebSocket.bind(this),
-    );
-    app.get(
-      '/chat/v2/ws/:prototypeId/:token',
       { websocket: true },
       this.handleWebSocket.bind(this),
     );
@@ -46,220 +39,107 @@ export class SandboxChatProxyService {
 
   private async handleWebSocket(
     socket: WebSocket,
-    request: FastifyRequest<{
-      Querystring: ChatQueryString;
-      Params: { prototypeId?: string; token?: string };
-    }>,
+    request: FastifyRequest,
   ): Promise<void> {
     // WebSocket upgrades might not trigger onRequest hook, so log2 might not be set
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const log2 = (request as any).log2 || request.log;
 
-    // Parse query string manually since Fastify doesn't parse it for WebSocket routes
-    const rawUrl =
-      typeof request.raw?.url === 'string' ? request.raw.url : undefined;
-    const fastifyUrl =
-      typeof request.url === 'string' ? request.url : undefined;
-    const urlToParse = rawUrl || fastifyUrl || '';
-
-    const urlParts = urlToParse.split('?');
-    const queryString = urlParts.length > 1 ? urlParts[1] : '';
-    const queryParams = new URLSearchParams(queryString);
-    const fastifyQuery =
-      (request.query as Partial<ChatQueryString> | undefined) ?? undefined;
-    const params = request.params ?? {};
-
     log2.info(
       {
-        url: urlToParse,
-        queryString,
+        ip: request.ip,
         hasAuthHeader: !!request.headers?.authorization,
-        rawUrl: rawUrl ?? null,
-        fastifyUrl,
-        routerPath: (request as { routerPath?: string }).routerPath ?? null,
-        fastifyQuery,
-        headers: {
-          host: request.headers?.host,
-          origin: request.headers?.origin,
-          xForwardedHost: request.headers?.['x-forwarded-host'],
-          xForwardedFor: request.headers?.['x-forwarded-for'],
-          xForwardedProto: request.headers?.['x-forwarded-proto'],
-          xForwardedUri: request.headers?.['x-forwarded-uri'],
-        },
-        params: {
-          prototypeId: params?.prototypeId,
-          hasToken: params?.token ? true : false,
-        },
       },
-      '[SandboxChatProxyService] WebSocket connection attempt',
+      '[SandboxChatProxyService] WebSocket connection opened',
     );
 
-    // Extract prototype_id from manually parsed query params
-    const prototypeId =
-      queryParams.get('prototype_id') ??
-      fastifyQuery?.prototype_id ??
-      (typeof params.prototypeId === 'string'
-        ? params.prototypeId
-        : undefined) ??
-      undefined;
+    const connectionContext: {
+      isAuthenticated: boolean;
+      prototypeId?: string;
+      userId?: string;
+    } = {
+      isAuthenticated: false,
+    };
 
-    // Extract JWT token from Authorization header or query params (for browser clients)
-    const token =
-      request.headers?.authorization?.split(' ')[1] ||
-      queryParams.get('token') ||
-      fastifyQuery?.token ||
-      (typeof params.token === 'string' ? params.token : undefined) ||
-      undefined;
+    const decodeRawData = (data: WebSocket.RawData): string => {
+      if (typeof data === 'string') {
+        return data;
+      }
+      if (Buffer.isBuffer(data)) {
+        return data.toString('utf8');
+      }
+      if (Array.isArray(data)) {
+        return Buffer.concat(data).toString('utf8');
+      }
+      return Buffer.from(data as ArrayBuffer).toString('utf8');
+    };
 
-    // Manual validation since schema validation doesn't work well with WebSocket routes
-    if (!prototypeId) {
-      log2.warn(
-        {
-          queryString,
-          fastifyQuery,
-          rawUrl: rawUrl ?? null,
-          fastifyUrl,
-          headers: {
-            host: request.headers?.host,
-            origin: request.headers?.origin,
-            xForwardedHost: request.headers?.['x-forwarded-host'],
-            xForwardedFor: request.headers?.['x-forwarded-for'],
-            xForwardedProto: request.headers?.['x-forwarded-proto'],
-            xForwardedUri: request.headers?.['x-forwarded-uri'],
-          },
-          params: {
-            prototypeId: params?.prototypeId,
-            hasToken: params?.token ? true : false,
-          },
-        },
-        '[SandboxChatProxyService] Missing required parameter: prototype_id',
-      );
+    socket.on('message', async (rawData: WebSocket.RawData) => {
+      const payload = decodeRawData(rawData);
+      let data: ChatMessage;
+
       try {
+        data = JSON.parse(payload) as ChatMessage;
+      } catch (parseError) {
+        log2.warn(
+          {
+            error:
+              parseError instanceof Error
+                ? parseError.message
+                : String(parseError),
+          },
+          '[SandboxChatProxyService] Failed to parse incoming message',
+        );
         socket.send(
           JSON.stringify({
             type: 'error',
-            error: 'Missing required query parameter: prototype_id',
+            error: 'Invalid message format: expected JSON',
           }),
         );
-      } catch {
-        // Socket might not be open yet
+        return;
       }
-      socket.close(1008, 'Missing prototype_id');
-      return;
-    }
 
-    if (!token) {
-      log2.warn(
-        {
-          prototype_id: prototypeId,
-          queryString,
-          fastifyQuery,
-          rawUrl: rawUrl ?? null,
-          fastifyUrl,
-          headers: {
-            host: request.headers?.host,
-            origin: request.headers?.origin,
-            xForwardedHost: request.headers?.['x-forwarded-host'],
-            xForwardedFor: request.headers?.['x-forwarded-for'],
-            xForwardedProto: request.headers?.['x-forwarded-proto'],
-            xForwardedUri: request.headers?.['x-forwarded-uri'],
-          },
-          params: {
-            prototypeId: params?.prototypeId,
-            hasToken: params?.token ? true : false,
-          },
-        },
-        '[SandboxChatProxyService] Missing authentication token',
-      );
       try {
-        socket.send(
-          JSON.stringify({
-            type: 'error',
-            error: 'Missing authentication token',
-          }),
-        );
-      } catch {
-        // Socket might not be open yet
-      }
-      socket.close(1008, 'Missing token');
-      return;
-    }
+        const prototypeId =
+          typeof data.prototype_id === 'string' ? data.prototype_id.trim() : '';
+        if (!prototypeId) {
+          log2.warn(
+            {
+              hasPrototypeId: !!data.prototype_id,
+            },
+            '[SandboxChatProxyService] Missing prototype_id in message',
+          );
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              error: 'prototype_id is required on each message',
+            }),
+          );
+          return;
+        }
 
-    log2.info(
-      {
-        prototypeId,
-        hasToken: !!token,
-        tokenLength: token?.length,
-      },
-      '[SandboxChatProxyService] Extracted connection params',
-    );
+        const token =
+          typeof data.token === 'string' ? data.token.trim() : '';
+        if (!token) {
+          log2.warn(
+            {
+              hasToken: !!data.token,
+              prototype_id: prototypeId,
+            },
+            '[SandboxChatProxyService] Missing authentication token in message',
+          );
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              error: 'token is required on each message',
+            }),
+          );
+          return;
+        }
 
-    // Authenticate and authorize user immediately
-    let authResult;
-    try {
-      authResult = await checkUserHasPrototypeEditAccess(
-        prototypeId,
-        token,
-        log2,
-      );
-    } catch (error) {
-      log2.error(error, '[SandboxChatProxyService] Authentication error', {
-        prototype_id: prototypeId,
-      });
-      socket.send(
-        JSON.stringify({
-          type: 'error',
-          error: 'Authentication failed',
-        }),
-      );
-      socket.close();
-      return;
-    }
-
-    if (
-      !authResult ||
-      !authResult.user ||
-      !authResult.prototype ||
-      !authResult.canEdit
-    ) {
-      log2.warn(
-        {
-          prototype_id: prototypeId,
-          hasAuthResult: !!authResult,
-          hasUser: !!authResult?.user,
-          hasPrototype: !!authResult?.prototype,
-          canEdit: authResult?.canEdit,
-        },
-        '[SandboxChatProxyService] Unauthorized access attempt',
-      );
-
-      socket.send(
-        JSON.stringify({
-          type: 'error',
-          error: 'Unauthorized: You do not have edit access to this prototype',
-        }),
-      );
-      socket.close();
-      return;
-    }
-
-    // Authentication successful
-    const userId = authResult.user.id;
-    log2.info(
-      {
-        userId,
-        prototype_id: prototypeId,
-      },
-      '[SandboxChatProxyService] User authenticated successfully',
-    );
-
-    // Set up message handler (only if authenticated)
-    socket.on('message', async (rawData: Buffer) => {
-      try {
-        const data = JSON.parse(rawData.toString()) as ChatMessage;
-
-        // Validate message field
-        if (!data.message || data.message.trim() === '') {
+        const messageText =
+          typeof data.message === 'string' ? data.message.trim() : '';
+        if (!messageText) {
           socket.send(
             JSON.stringify({
               type: 'error',
@@ -269,22 +149,94 @@ export class SandboxChatProxyService {
           return;
         }
 
+        let authResult;
+        try {
+          authResult = await checkUserHasPrototypeEditAccess(
+            prototypeId,
+            token,
+            log2,
+          );
+        } catch (error) {
+          log2.error(error, '[SandboxChatProxyService] Authentication error', {
+            prototype_id: prototypeId,
+          });
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              error: 'Authentication failed',
+            }),
+          );
+          socket.close(1011, 'Authentication failed');
+          return;
+        }
+
+        if (
+          !authResult ||
+          !authResult.user ||
+          !authResult.prototype ||
+          !authResult.canEdit
+        ) {
+          log2.warn(
+            {
+              prototype_id: prototypeId,
+              hasAuthResult: !!authResult,
+              hasUser: !!authResult?.user,
+              hasPrototype: !!authResult?.prototype,
+              canEdit: authResult?.canEdit,
+            },
+            '[SandboxChatProxyService] Unauthorized access attempt',
+          );
+
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              error:
+                'Unauthorized: You do not have edit access to this prototype',
+            }),
+          );
+          socket.close(1008, 'Unauthorized');
+          return;
+        }
+
+        const userId = authResult.user.id;
+
+        if (
+          !connectionContext.isAuthenticated ||
+          connectionContext.userId !== userId ||
+          connectionContext.prototypeId !== prototypeId
+        ) {
+          log2.info(
+            {
+              userId,
+              prototype_id: prototypeId,
+            },
+            '[SandboxChatProxyService] User authenticated successfully',
+          );
+
+          socket.send(
+            JSON.stringify({
+              type: 'authenticated',
+              userId,
+              prototype_id: prototypeId,
+            }),
+          );
+        }
+
+        connectionContext.isAuthenticated = true;
+        connectionContext.userId = userId;
+        connectionContext.prototypeId = prototypeId;
+
         log2.info(
           {
             prototype_id: prototypeId,
             userId,
-            messageLength: data.message.length,
+            messageLength: messageText.length,
             hasImageUrl: !!data.imageUrl,
             hasCurrentViewingPath: !!data.currentViewingPath,
           },
           '[SandboxChatProxyService] Received chat message',
         );
 
-        // TODO: Connect to Fargate WebSocket and forward the message
-        // This is where we'll establish a WebSocket connection to the Fargate container
-        // running the user's prototype and forward all messages bidirectionally
-
-        // For now, send an acknowledgment
         socket.send(
           JSON.stringify({
             type: 'message_received',
@@ -292,8 +244,6 @@ export class SandboxChatProxyService {
             timestamp: new Date().toISOString(),
           }),
         );
-
-        // TODO: Forward response from Fargate WebSocket back to client
       } catch (error) {
         log2.error(error, '[SandboxChatProxyService] Error processing message');
         socket.send(
@@ -308,23 +258,26 @@ export class SandboxChatProxyService {
       }
     });
 
-    socket.on('close', () => {
+    socket.on('close', (code: number, reason: Buffer) => {
+      const reasonText = reason?.length ? reason.toString('utf8') : undefined;
+
       log2.info(
         {
-          prototype_id: prototypeId,
-          userId,
+          prototype_id: connectionContext.prototypeId,
+          userId: connectionContext.userId,
+          wasAuthenticated: connectionContext.isAuthenticated,
+          code,
+          reason: reasonText,
         },
         '[SandboxChatProxyService] WebSocket connection closed',
       );
-      // TODO: Clean up Fargate WebSocket connection if it exists
     });
 
     socket.on('error', (error: Error) => {
       log2.error(error, '[SandboxChatProxyService] WebSocket error', {
-        prototype_id: prototypeId,
-        userId,
+        prototype_id: connectionContext.prototypeId,
+        userId: connectionContext.userId,
       });
-      // TODO: Clean up Fargate WebSocket connection if it exists
     });
   }
 }
