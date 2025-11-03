@@ -73,7 +73,7 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
-  nativewind: "NativeWind + Gluestack",
+  nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
 };
 
@@ -89,7 +89,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -150,8 +150,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-        (system) => String(system.id) === currentCustomDesignSystemId,
-      )?.name || "Custom design system"
+      (system) => String(system.id) === currentCustomDesignSystemId,
+    )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -638,10 +638,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              design_style: dialogDesignStyle,
-              custom_design_system: nextCustomDesignSystem,
-            }
+            ...prev,
+            design_style: dialogDesignStyle,
+            custom_design_system: nextCustomDesignSystem,
+          }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -824,11 +824,10 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -883,11 +882,10 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -928,11 +926,10 @@ export default function InternalPrototypePage() {
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   <div
-                    className={`${
-                      isMobile
-                        ? "w-full max-h-[200px] border-b"
-                        : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                    } border-border`}
+                    className={`${isMobile
+                      ? "w-full max-h-[200px] border-b"
+                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                      } border-border`}
                   >
                     <div className="h-full overflow-auto">
                       <FileTree
@@ -1089,11 +1086,10 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+                  }`}
               >
                 <input
                   type="checkbox"

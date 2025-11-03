@@ -4,6 +4,11 @@ import { supabase } from "@/ClientConstants";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Button } from "@/components/ui/button";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -18,11 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -69,7 +69,7 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
-  nativewind: "NativeWind + Gluestack",
+  nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
 };
 
@@ -458,9 +458,8 @@ export default function NewPrototypeModal({
                 >
                   <span className="text-muted-foreground">Advanced Options</span>
                   <ChevronDownIcon
-                    className={`w-4 h-4 text-muted-foreground transition-transform ${
-                      showAdvanced ? "rotate-180" : ""
-                    }`}
+                    className={`w-4 h-4 text-muted-foreground transition-transform ${showAdvanced ? "rotate-180" : ""
+                      }`}
                   />
                 </Button>
               </CollapsibleTrigger>
