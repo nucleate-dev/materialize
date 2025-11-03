@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/tooltip";
 import type {
   APIResponse,
+  RestartDevServerRequestBody,
+  RestartDevServerSuccessResponse,
   RunCommandRequestBody,
   RunCommandSuccessResponse,
   StandardErrorResponse,
@@ -211,6 +213,7 @@ const MaterializeRenderSection = forwardRef<
     const [iframeError, setIframeError] = useState(false);
     const [isRunningLint, setIsRunningLint] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
       () =>
         viewing_url ? [{ id: 0, path: extractInitialPath(viewing_url) }] : [],
@@ -627,6 +630,63 @@ const MaterializeRenderSection = forwardRef<
       }
     };
 
+    const handleRestartDevServer = async () => {
+      if (!prototypeId) {
+        logger.debug("error", "Cannot restart dev server: missing prototype ID");
+        return;
+      }
+
+      setIsRestartingDevServer(true);
+      onRenderStatusChange("Updating..");
+
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) {
+          logger.debug("error", "No authentication token available");
+          return;
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/restart`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              prototype_id: prototypeId,
+            } as RestartDevServerRequestBody),
+          },
+        );
+
+        const result: APIResponse<
+          RestartDevServerSuccessResponse,
+          StandardErrorResponse
+        > = await response.json();
+
+        if (response.ok && result.data) {
+          // Force refresh the preview to reload
+          forceRefresh();
+        } else {
+          logger.debug("error", "Failed to restart dev server:", {
+            error: result.error?.message,
+          });
+          onRenderStatusChange("Connected");
+        }
+      } catch (error) {
+        logger.debug("error", "Error restarting dev server:", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        onRenderStatusChange("Connected");
+      } finally {
+        setIsRestartingDevServer(false);
+      }
+    };
+
     const handleRefresh = () => {
       if (webPreviewRef.current && viewing_url) {
         setIsIframeLoading(true);
@@ -927,6 +987,7 @@ const MaterializeRenderSection = forwardRef<
 
       const config = getBadgeConfig(currentRenderStatus);
       const isStaticBuild = currentRenderStatus === "Static build";
+      const isConnected = currentRenderStatus === "Connected";
 
       return (
         <div
@@ -951,6 +1012,28 @@ const MaterializeRenderSection = forwardRef<
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Start Dev Server</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {isConnected && prototypeId && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRestartDevServer();
+                    }}
+                    className="ml-1 p-1 hover:bg-primary/10 rounded transition-colors"
+                    aria-label="Restart Dev Server"
+                    disabled={isRestartingDevServer}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRestartingDevServer ? "animate-spin" : ""}`} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Restart Dev Server</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

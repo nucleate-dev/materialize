@@ -414,7 +414,7 @@ export default function InternalPrototypePage() {
         const assetsArray: PrototypeAsset[] = Object.entries(
           fileSystem.state.assets,
         ).map(([path, asset]) => ({
-          storage_url: asset.storage_url,
+          storage_url: asset.storage_url || "",
           name: path,
           prototype_id: asset.prototype_id || prototypeId,
           created_at: asset.created_at || null,
@@ -831,7 +831,12 @@ export default function InternalPrototypePage() {
               onPrototypeUpdate={setPrototype}
               // File system integration
               files={fileSystem.state.files}
-              assets={fileSystem.state.assets}
+              assets={Object.fromEntries(
+                Object.entries(fileSystem.state.assets).map(([key, asset]) => [
+                  key,
+                  { ...asset, storage_url: asset.storage_url || "" },
+                ])
+              )}
               onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
               currentViewingUrl={viewingUrl ?? ""}
               // Loading state
@@ -877,7 +882,12 @@ export default function InternalPrototypePage() {
               terminal_url={terminalUrl}
               prototypeId={prototypeId}
               files={fileSystem.state.files}
-              assets={fileSystem.state.assets}
+              assets={Object.fromEntries(
+                Object.entries(fileSystem.state.assets).map(([key, asset]) => [
+                  key,
+                  { ...asset, storage_url: asset.storage_url || "" },
+                ])
+              )}
               onViewingUrlUpdate={setViewingUrl}
               currentRenderStatus={currentRenderStatus}
               onRenderStatusChange={setCurrentRenderStatus}
@@ -908,7 +918,12 @@ export default function InternalPrototypePage() {
                     <div className="h-full overflow-auto">
                       <FileTree
                         files={fileSystem.state.files}
-                        assets={fileSystem.state.assets}
+                        assets={Object.fromEntries(
+                          Object.entries(fileSystem.state.assets).map(([key, asset]) => [
+                            key,
+                            { ...asset, storage_url: asset.storage_url || "" },
+                          ])
+                        )}
                         selectedFile={fileSystem.state.selectedFile}
                         onFileSelect={fileSystem.selectFile}
                       />
