@@ -667,7 +667,6 @@ const MaterializeRenderSection = forwardRef<
           RestartDevServerSuccessResponse,
           StandardErrorResponse
         > = await response.json();
-        console.log("RESTART DEV SERVER RESULT", result);
         if (response.ok && result.data) {
           // Force refresh the preview to reload
           forceRefresh();

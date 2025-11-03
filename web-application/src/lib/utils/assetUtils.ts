@@ -24,13 +24,11 @@ export async function getAssetSignedUrl(
       .createSignedUrl(storagePath, expiresIn);
 
     if (error) {
-      console.error("Error generating signed URL for asset:", error);
       return null;
     }
 
     return data?.signedUrl || null;
   } catch (error) {
-    console.error("Unexpected error generating signed URL:", error);
     return null;
   }
 }
