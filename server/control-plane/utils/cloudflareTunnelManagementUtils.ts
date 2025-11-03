@@ -81,6 +81,12 @@ export async function createCloudflareTunnelForContainer(
                 service: 'http://localhost:3002',
                 originRequest: {}, // optional; can add timeouts, headers, etc.
               },
+              {
+                hostname,
+                path: '/code/ws/*',
+                service: 'http://localhost:3002', // Claude Code WebSocket
+                originRequest: {},
+              },
               { service: 'http_status:404' },
             ],
           },
