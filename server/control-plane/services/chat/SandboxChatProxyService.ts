@@ -53,126 +53,109 @@ export class SandboxChatProxyService {
     const token = request.headers?.authorization?.split(' ')[1];
 
     // Authenticate and authorize user immediately
-    try {
-      const authResult = await checkUserHasPrototypeEditAccess(
-        prototypeId,
-        token,
-        log2,
-      );
+    const authResult = await checkUserHasPrototypeEditAccess(
+      prototypeId,
+      token,
+      log2,
+    );
 
-      if (
-        !authResult ||
-        !authResult.user ||
-        !authResult.prototype ||
-        !authResult.canEdit
-      ) {
-        log2.warn('[SandboxChatProxyService] Unauthorized access attempt', {
+    if (
+      !authResult ||
+      !authResult.user ||
+      !authResult.prototype ||
+      !authResult.canEdit
+    ) {
+      log2.warn('[SandboxChatProxyService] Unauthorized access attempt', {
+        prototype_id: prototypeId,
+        hasAuthResult: !!authResult,
+        hasUser: !!authResult?.user,
+        hasPrototype: !!authResult?.prototype,
+        canEdit: authResult?.canEdit,
+      });
+
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          error: 'Unauthorized: You do not have edit access to this prototype',
+        }),
+      );
+      socket.close();
+      return;
+    }
+
+    // Authentication successful
+    const userId = authResult.user.id;
+    log2.info('[SandboxChatProxyService] User authenticated successfully', {
+      userId,
+      prototype_id: prototypeId,
+    });
+
+    // Set up message handler (only if authenticated)
+    socket.on('message', async (rawData: Buffer) => {
+      try {
+        const data = JSON.parse(rawData.toString()) as ChatMessage;
+
+        // Validate message field
+        if (!data.message || data.message.trim() === '') {
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              error: 'message is required and cannot be empty',
+            }),
+          );
+          return;
+        }
+
+        log2.info('[SandboxChatProxyService] Received chat message', {
           prototype_id: prototypeId,
-          hasAuthResult: !!authResult,
-          hasUser: !!authResult?.user,
-          hasPrototype: !!authResult?.prototype,
-          canEdit: authResult?.canEdit,
+          userId,
+          messageLength: data.message.length,
+          hasImageUrl: !!data.imageUrl,
+          hasCurrentViewingPath: !!data.currentViewingPath,
         });
 
+        // TODO: Connect to Fargate WebSocket and forward the message
+        // This is where we'll establish a WebSocket connection to the Fargate container
+        // running the user's prototype and forward all messages bidirectionally
+
+        // For now, send an acknowledgment
+        socket.send(
+          JSON.stringify({
+            type: 'message_received',
+            prototype_id: prototypeId,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+
+        // TODO: Forward response from Fargate WebSocket back to client
+      } catch (error) {
+        log2.error(error, '[SandboxChatProxyService] Error processing message');
         socket.send(
           JSON.stringify({
             type: 'error',
             error:
-              'Unauthorized: You do not have edit access to this prototype',
+              error instanceof Error
+                ? error.message
+                : 'Failed to process message',
           }),
         );
-        socket.close();
-        return;
       }
+    });
 
-      // Authentication successful
-      const userId = authResult.user.id;
-      log2.info('[SandboxChatProxyService] User authenticated successfully', {
+    socket.on('close', () => {
+      log2.info('[SandboxChatProxyService] WebSocket connection closed', {
+        prototype_id: prototypeId,
         userId,
+      });
+      // TODO: Clean up Fargate WebSocket connection if it exists
+    });
+
+    socket.on('error', (error: Error) => {
+      log2.error(error, '[SandboxChatProxyService] WebSocket error', {
         prototype_id: prototypeId,
+        userId,
       });
-
-      // Set up message handler (only if authenticated)
-      socket.on('message', async (rawData: Buffer) => {
-        try {
-          const data = JSON.parse(rawData.toString()) as ChatMessage;
-
-          // Validate message field
-          if (!data.message || data.message.trim() === '') {
-            socket.send(
-              JSON.stringify({
-                type: 'error',
-                error: 'message is required and cannot be empty',
-              }),
-            );
-            return;
-          }
-
-          log2.info('[SandboxChatProxyService] Received chat message', {
-            prototype_id: prototypeId,
-            userId,
-            messageLength: data.message.length,
-            hasImageUrl: !!data.imageUrl,
-            hasCurrentViewingPath: !!data.currentViewingPath,
-          });
-
-          // TODO: Connect to Fargate WebSocket and forward the message
-          // This is where we'll establish a WebSocket connection to the Fargate container
-          // running the user's prototype and forward all messages bidirectionally
-
-          // For now, send an acknowledgment
-          socket.send(
-            JSON.stringify({
-              type: 'message_received',
-              prototype_id: prototypeId,
-              timestamp: new Date().toISOString(),
-            }),
-          );
-
-          // TODO: Forward response from Fargate WebSocket back to client
-        } catch (error) {
-          log2.error(
-            error,
-            '[SandboxChatProxyService] Error processing message',
-          );
-          socket.send(
-            JSON.stringify({
-              type: 'error',
-              error:
-                error instanceof Error
-                  ? error.message
-                  : 'Failed to process message',
-            }),
-          );
-        }
-      });
-
-      socket.on('close', () => {
-        log2.info('[SandboxChatProxyService] WebSocket connection closed', {
-          prototype_id: prototypeId,
-          userId,
-        });
-        // TODO: Clean up Fargate WebSocket connection if it exists
-      });
-
-      socket.on('error', (error: Error) => {
-        log2.error(error, '[SandboxChatProxyService] WebSocket error', {
-          prototype_id: prototypeId,
-          userId,
-        });
-        // TODO: Clean up Fargate WebSocket connection if it exists
-      });
-    } catch (error) {
-      log2.error(error, '[SandboxChatProxyService] Authentication error', {
-        prototype_id: prototypeId,
-      });
-      socket.send(
-        JSON.stringify({
-          type: 'error',
-          error: 'Authentication failed due to internal error',
-        }),
-      );
-      socket.close();
-    }
+      // TODO: Clean up Fargate WebSocket connection if it exists
+    });
   }
 }
