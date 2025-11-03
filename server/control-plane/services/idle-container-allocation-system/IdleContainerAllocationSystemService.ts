@@ -4,11 +4,7 @@ import {
   StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import type {
-  ECSClient,
-  RunTaskCommandInput,
-  RunTaskCommandOutput,
-} from '@aws-sdk/client-ecs';
+import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import { GlideClient } from '@valkey/valkey-glide';
 import {
