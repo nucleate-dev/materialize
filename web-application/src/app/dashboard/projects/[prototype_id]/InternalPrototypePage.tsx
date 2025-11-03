@@ -89,7 +89,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -117,8 +117,7 @@ export default function InternalPrototypePage() {
   const [dialogCustomDesignSystem, setDialogCustomDesignSystem] = useState<
     string | null
   >(null);
-  const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] =
-    useState(false);
+  const [isUpdatingDesignSystem, setIsUpdatingDesignSystem] = useState(false);
 
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
@@ -132,7 +131,7 @@ export default function InternalPrototypePage() {
   // Model provider selection
   const [modelProvider, setModelProvider] = useState<
     "google" | "google-pro" | "anthropic" | "openai" | "openai-mini"
-  >("google");
+  >("anthropic");
 
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
@@ -151,11 +150,12 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-      (system) => String(system.id) === currentCustomDesignSystemId,
-    )?.name || "Custom design system"
+        (system) => String(system.id) === currentCustomDesignSystemId,
+      )?.name || "Custom design system"
     : undefined;
-  const canEditPrototype =
-    Boolean(prototype && user && prototype.owner_id === user?.id);
+  const canEditPrototype = Boolean(
+    prototype && user && prototype.owner_id === user?.id,
+  );
 
   const hasCustomDesignSystems = designSystems.length > 0;
   const dialogConfirmDisabled = !dialogDesignStyle || isUpdatingDesignSystem;
@@ -199,7 +199,13 @@ export default function InternalPrototypePage() {
     if (designSystems.length === 0 && !isLoadingDesignSystems) {
       loadDesignSystems();
     }
-  }, [isDesignSystemDialogOpen, user, logger, designSystems.length, isLoadingDesignSystems]);
+  }, [
+    isDesignSystemDialogOpen,
+    user,
+    logger,
+    designSystems.length,
+    isLoadingDesignSystems,
+  ]);
 
   useEffect(() => {
     if (!isDesignSystemDialogOpen) {
@@ -215,11 +221,7 @@ export default function InternalPrototypePage() {
         setDialogCustomDesignSystem(null);
       }
     }
-  }, [
-    isDesignSystemDialogOpen,
-    dialogCustomDesignSystem,
-    designSystems,
-  ]);
+  }, [isDesignSystemDialogOpen, dialogCustomDesignSystem, designSystems]);
 
   // Mobile detection and resize handling
   useEffect(() => {
@@ -275,7 +277,7 @@ export default function InternalPrototypePage() {
         setLeftPanelWidth(newLeftWidth);
       }
     },
-    [isDragging]
+    [isDragging],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -352,7 +354,10 @@ export default function InternalPrototypePage() {
         }
         setViewingUrl(fetchViewData.data.viewing_url);
         // TODO(priyam): Think through the different possible states here.
-        if (fetchViewData.data.terminal_url && fetchViewData.data.terminal_url !== terminalUrl) {
+        if (
+          fetchViewData.data.terminal_url &&
+          fetchViewData.data.terminal_url !== terminalUrl
+        ) {
           setTerminalUrl(fetchViewData.data.terminal_url);
         }
         if (
@@ -556,7 +561,10 @@ export default function InternalPrototypePage() {
               pollInterval = newInterval; // Update the local variable
             }
           }
-          if (data.data.terminal_url && data.data.terminal_url !== terminalUrl) {
+          if (
+            data.data.terminal_url &&
+            data.data.terminal_url !== terminalUrl
+          ) {
             setTerminalUrl(data.data.terminal_url);
           }
         } catch (error) {
@@ -630,10 +638,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            design_style: dialogDesignStyle,
-            custom_design_system: nextCustomDesignSystem,
-          }
+              ...prev,
+              design_style: dialogDesignStyle,
+              custom_design_system: nextCustomDesignSystem,
+            }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -816,11 +824,16 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - AI Assistant Chat */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-background overflow-hidden`}
-          style={isMobile ? { height: "100%" } : { width: `${leftPanelWidth}%`, minWidth: "320px" }}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-background overflow-hidden`}
+          style={
+            isMobile
+              ? { height: "100%" }
+              : { width: `${leftPanelWidth}%`, minWidth: "320px" }
+          }
         >
           {/* Content Area */}
           <div className="flex-1 min-h-0">
@@ -835,7 +848,7 @@ export default function InternalPrototypePage() {
                 Object.entries(fileSystem.state.assets).map(([key, asset]) => [
                   key,
                   { ...asset, storage_url: asset.storage_url || "" },
-                ])
+                ]),
               )}
               onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
               currentViewingUrl={viewingUrl ?? ""}
@@ -870,11 +883,16 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-background overflow-hidden`}
-          style={isMobile ? {} : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-background overflow-hidden`}
+          style={
+            isMobile
+              ? {}
+              : { width: `${100 - leftPanelWidth}%`, minWidth: "320px" }
+          }
         >
           <div className="flex-1 min-h-0 h-full">
             <MaterializeRenderSection
@@ -886,7 +904,7 @@ export default function InternalPrototypePage() {
                 Object.entries(fileSystem.state.assets).map(([key, asset]) => [
                   key,
                   { ...asset, storage_url: asset.storage_url || "" },
-                ])
+                ]),
               )}
               onViewingUrlUpdate={setViewingUrl}
               currentRenderStatus={currentRenderStatus}
@@ -910,19 +928,25 @@ export default function InternalPrototypePage() {
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   <div
-                    className={`${isMobile
-                      ? "w-full max-h-[200px] border-b"
-                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                      } border-border`}
+                    className={`${
+                      isMobile
+                        ? "w-full max-h-[200px] border-b"
+                        : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                    } border-border`}
                   >
                     <div className="h-full overflow-auto">
                       <FileTree
                         files={fileSystem.state.files}
                         assets={Object.fromEntries(
-                          Object.entries(fileSystem.state.assets).map(([key, asset]) => [
-                            key,
-                            { ...asset, storage_url: asset.storage_url || "" },
-                          ])
+                          Object.entries(fileSystem.state.assets).map(
+                            ([key, asset]) => [
+                              key,
+                              {
+                                ...asset,
+                                storage_url: asset.storage_url || "",
+                              },
+                            ],
+                          ),
                         )}
                         selectedFile={fileSystem.state.selectedFile}
                         onFileSelect={fileSystem.selectFile}
@@ -954,8 +978,8 @@ export default function InternalPrototypePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Change design system</AlertDialogTitle>
             <AlertDialogDescription>
-              Changing the design system can modify component structures and styling.
-              This may require additional clean up in your prototype.
+              Changing the design system can modify component structures and
+              styling. This may require additional clean up in your prototype.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4">
@@ -985,7 +1009,10 @@ export default function InternalPrototypePage() {
             {hasCustomDesignSystems && (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
-                  Custom Design System <span className="text-muted-foreground font-normal lowercase">(Optional)</span>
+                  Custom Design System{" "}
+                  <span className="text-muted-foreground font-normal lowercase">
+                    (Optional)
+                  </span>
                 </p>
                 {isLoadingDesignSystems ? (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -996,13 +1023,19 @@ export default function InternalPrototypePage() {
                   <>
                     <Select
                       value={dialogCustomDesignSystem ?? "none"}
-                      onValueChange={(value) => setDialogCustomDesignSystem(value === "none" ? null : value)}
+                      onValueChange={(value) =>
+                        setDialogCustomDesignSystem(
+                          value === "none" ? null : value,
+                        )
+                      }
                     >
                       <SelectTrigger className="h-10">
                         <SelectValue placeholder="No custom design system" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No custom design system</SelectItem>
+                        <SelectItem value="none">
+                          No custom design system
+                        </SelectItem>
                         {designSystems.map((system) => (
                           <SelectItem key={system.id} value={String(system.id)}>
                             {system.name}
@@ -1011,7 +1044,8 @@ export default function InternalPrototypePage() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Apply custom design rules on top of the selected design style
+                      Apply custom design rules on top of the selected design
+                      style
                     </p>
                   </>
                 )}
@@ -1055,10 +1089,11 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"
