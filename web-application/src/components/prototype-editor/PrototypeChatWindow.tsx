@@ -2649,12 +2649,27 @@ export default function PrototypeChatWindow({
                                 Gemini 2.5 Flash
                               </span>
                               <span className="text-xs text-muted-foreground">
+                                Fast model from Google
+                              </span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="google-pro" className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+                              <CpuChipIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium">
+                                Gemini 2.5 Pro
+                              </span>
+                              <span className="text-xs text-muted-foreground">
                                 Best model from Google
                               </span>
                             </div>
                           </div>
                         </SelectItem>
-                        <SelectItem value="openai-mini" className="py-3">
+                        {/* <SelectItem value="openai-mini" className="py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
                               <CpuChipIcon className="w-5 h-5" />
@@ -2666,7 +2681,7 @@ export default function PrototypeChatWindow({
                               </span>
                             </div>
                           </div>
-                        </SelectItem>
+                        </SelectItem> */}
                       </SelectContent>
                     </Select>
 

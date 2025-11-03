@@ -629,6 +629,7 @@ export class ExpoDevServerService {
 
     try {
       await this.startExpoProcess(projectDir, port);
+      this.state.clearOperation();
       this.log2.info("Dev server restarted successfully");
     } catch (error: unknown) {
       const errorMessage =
