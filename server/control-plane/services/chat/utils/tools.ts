@@ -514,7 +514,7 @@ export function createDevServerTools(
 
     run_command: tool({
       description:
-        'Run any shell command in the dev server container. The command will block until completion or timeout after 2 minutes. ONLY run commands that complete quickly (e.g., npx tsc, npm install, ls, cat). The output from the terminal will be returned upon completion.',
+        'Run any shell command in the dev server container. The command will block until completion or timeout after 2 minutes. ONLY run commands that complete quickly (e.g., npx tsc, npm install, ls, cat). The output from the terminal will be returned upon completion. File operations should NEVER happen via this tool, use the other tools for any file operations.',
       inputSchema: z.object({
         command: z
           .string()
