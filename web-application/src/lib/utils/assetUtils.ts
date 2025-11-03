@@ -28,7 +28,7 @@ export async function getAssetSignedUrl(
     }
 
     return data?.signedUrl || null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
