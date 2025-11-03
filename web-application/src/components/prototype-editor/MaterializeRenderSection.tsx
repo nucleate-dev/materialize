@@ -4,6 +4,13 @@ import { supabase } from "@/ClientConstants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -17,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
@@ -28,15 +36,8 @@ import type {
   StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
+import { toast } from "sonner";
 
 import JSZip from "jszip";
 
@@ -221,7 +222,7 @@ const MaterializeRenderSection = forwardRef<
     const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
+      Array<{ route: string; group?: string; }>
     >([]);
 
     // Terminal state
@@ -388,7 +389,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -666,7 +667,7 @@ const MaterializeRenderSection = forwardRef<
           RestartDevServerSuccessResponse,
           StandardErrorResponse
         > = await response.json();
-
+        console.log("RESTART DEV SERVER RESULT", result);
         if (response.ok && result.data) {
           // Force refresh the preview to reload
           forceRefresh();
@@ -1043,7 +1044,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
@@ -1060,7 +1061,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
           <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
@@ -1621,12 +1622,13 @@ const MaterializeRenderSection = forwardRef<
             <DialogHeader>
               <DialogTitle>View on Device</DialogTitle>
               <DialogDescription>
-                Scan this QR code with your phone&apos;s camera to open the app
-                in Expo Go
+                {currentRenderStatus === "Connected"
+                  ? "Scan this QR code with your phone's camera to open the app in Expo Go"
+                  : "URL for viewing"}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center gap-4 py-4">
-              {viewing_url && (
+              {viewing_url && currentRenderStatus === "Connected" ? (
                 <>
                   <div className="bg-white p-6 rounded-lg">
                     <QRCodeSVG
@@ -1644,6 +1646,28 @@ const MaterializeRenderSection = forwardRef<
                     </p>
                   </div>
                 </>
+              ) : (
+                <div className="text-center space-y-2 w-full">
+                  <p className="text-sm text-muted-foreground">
+                    Your viewing URL:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-mono bg-muted px-3 py-2 rounded break-all flex-1">
+                      {viewing_url}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(viewing_url);
+                        toast.success("URL copied to clipboard!");
+                      }}
+                      title="Copy URL"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </DialogContent>
