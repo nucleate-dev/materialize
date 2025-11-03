@@ -4,7 +4,11 @@ import {
   StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
+import type {
+  ECSClient,
+  RunTaskCommandInput,
+  RunTaskCommandOutput,
+} from '@aws-sdk/client-ecs';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import { GlideClient } from '@valkey/valkey-glide';
 import {
@@ -69,7 +73,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
@@ -126,15 +130,15 @@ export class IdleContainerAllocationSystemService {
   ): Promise<FargateInstanceInfo> {
     // If we are in development mode, we need to use the development container.
     // There will never be any idle development containers. Just directly allocate a new container.
-    if (process.env.NODE_ENV === 'development') {
-      return await this.launchFargateInstanceForDispatcherDirectly(
-        prototypeId,
-        this.log2,
-        activeBuildKey,
-        newBuildCacheData,
-        userId,
-      );
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   return await this.launchFargateInstanceForDispatcherDirectly(
+    //     prototypeId,
+    //     this.log2,
+    //     activeBuildKey,
+    //     newBuildCacheData,
+    //     userId,
+    //   );
+    // }
 
     // 1. Try to pop an idle container from the pool
     const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as  // NOTE: this is an atomic operation
@@ -252,7 +256,7 @@ export class IdleContainerAllocationSystemService {
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
 
     let taskArn: string;
     try {
@@ -402,6 +406,11 @@ export class IdleContainerAllocationSystemService {
       );
       const response = await this.ecsClient.send(command);
       if (!response.tasks || response.tasks.length === 0) {
+        log2.error(
+          new Error('No task was created'),
+          'Failed to launch Fargate task:',
+          { response },
+        );
         throw new Error('No task was created');
       }
       // save taskArn to the cache immediately to prevent case where server/request fails before cache is updated
@@ -452,9 +461,9 @@ export class IdleContainerAllocationSystemService {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition:
-        process.env.NODE_ENV === 'production'
-          ? 'fastify-build-worker'
-          : 'materialize-development-containers',
+        // process.env.NODE_ENV === 'production'
+        'fastify-build-worker',
+      // : 'materialize-development-containers',
       launchType: 'FARGATE' as const,
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -467,9 +476,9 @@ export class IdleContainerAllocationSystemService {
         containerOverrides: [
           {
             name:
-              process.env.NODE_ENV === 'production'
-                ? 'materialize-fargate-build-worker-container'
-                : 'materialize-build-worker-container-development',
+              // process.env.NODE_ENV === 'production'
+              'materialize-fargate-build-worker-container',
+            // : 'materialize-build-worker-container-development',
             environment: [
               {
                 name: 'AWS_REGION',
