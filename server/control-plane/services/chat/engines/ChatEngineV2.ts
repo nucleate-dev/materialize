@@ -265,8 +265,8 @@ export class ChatEngineV2 {
   ): Promise<void> {
     try {
       const supabaseServiceRoleClient = createClient(
-        this.config.supabaseUrl,
-        this.config.supabaseServiceKey,
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
       );
 
       // 1. Insert simple messages into prototype_chat_messages table
