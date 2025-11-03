@@ -5,12 +5,15 @@ export function isEditableDevServer(status: BuildStatus | null): boolean {
     status === 'updating' ||
     status === 'creating' ||
     status === 'stable' ||
-    status === 'error'
+    status === 'error' ||
+    status === 'chatting'
   );
 }
 
 export function isDispatchInProgress(status: BuildStatus | null): boolean {
-  return status === 'updating' || status === 'creating';
+  return (
+    status === 'updating' || status === 'creating' || status === 'chatting'
+  );
 }
 
 export function isDevServerInShutdownStages(
