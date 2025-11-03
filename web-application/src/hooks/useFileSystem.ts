@@ -8,7 +8,8 @@ import { useCallback, useEffect, useState } from "react";
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
-export interface AssetWithSignedUrl extends PrototypeAsset {
+export interface AssetWithSignedUrl
+  extends Omit<PrototypeAsset, "storage_url"> {
   storage_url?: string | null;
 }
 
