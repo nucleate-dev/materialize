@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
@@ -102,6 +103,13 @@ fastify.register(cors, {
     'x-internal-signature',
     'x-internal-timestamp',
   ],
+});
+await fastify.register(websocket, {
+  options: {
+    perMessageDeflate: true,
+    // raise if you plan to paste big chunks into the chat
+    maxPayload: 1024 * 1024 * 4, // 4MB
+  },
 });
 
 fastify.addHook('onRequest', async (req) => {
