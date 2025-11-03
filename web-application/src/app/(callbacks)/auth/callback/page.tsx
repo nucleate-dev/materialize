@@ -21,31 +21,33 @@ export default function AuthCallback() {
   const { userPlan } = useSubscriptionAccess();
   const logger = useProductLogger();
 
-  let productId: string | null = null;
-  let chatIntent: { message: string; prototype_id?: string; } | null = null;
-  if (typeof window !== "undefined") {
-    productId = localStorage?.getItem("checkout_intent");
-    if (!productId) {
-      const storedIntent = localStorage.getItem("chat_intent");
-      if (storedIntent) {
-        try {
-          chatIntent = JSON.parse(storedIntent) as {
-            message: string;
-            prototype_id?: string;
-          };
-        } catch (e) {
-          logger.debug("error", "Failed to parse chat_intent", {
-            error: e instanceof Error ? e.message : String(e),
-            stack: e instanceof Error ? e.stack : undefined,
-          });
-        }
-      }
-    }
-  }
-
   useEffect(() => {
     const checkAuth = async () => {
       const { data, error } = await supabase.auth.getSession();
+
+      // Read intents from localStorage inside useEffect to ensure they're available
+      let productId: string | null = null;
+      let chatIntent: { message: string; prototype_id?: string; } | null = null;
+
+      if (typeof window !== "undefined") {
+        productId = localStorage?.getItem("checkout_intent");
+        if (!productId) {
+          const storedIntent = localStorage.getItem("chat_intent");
+          if (storedIntent) {
+            try {
+              chatIntent = JSON.parse(storedIntent) as {
+                message: string;
+                prototype_id?: string;
+              };
+            } catch (e) {
+              logger.debug("error", "Failed to parse chat_intent", {
+                error: e instanceof Error ? e.message : String(e),
+                stack: e instanceof Error ? e.stack : undefined,
+              });
+            }
+          }
+        }
+      }
       if (data.session?.user) {
         // associate logging events with this authenticated user
         if (
@@ -136,7 +138,7 @@ export default function AuthCallback() {
     };
 
     checkAuth();
-  }, [productId, chatIntent, router, userPlan, logger]);
+  }, [router, userPlan, logger]);
 
   if (showEmailVerificationRequired) {
     return <RegistrationAccountCreatedEmailVerificationPending />;

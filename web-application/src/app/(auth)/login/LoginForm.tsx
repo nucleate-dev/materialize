@@ -14,10 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/hooks/useUser";
+import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Provider } from "@supabase/supabase-js";
+import { useAtom } from "jotai";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChangeEvent,
   FormEvent,
@@ -32,7 +34,9 @@ const LAST_LOGIN_METHOD_KEY = "lastLoginMethod";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, userIsLoading } = useUser();
+  const [, setRedirectAfterLogin] = useAtom(redirectAfterLoginAtom);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -51,6 +55,15 @@ export default function LoginForm() {
     const storedMethod = localStorage.getItem(LAST_LOGIN_METHOD_KEY);
     setLastLoginMethod(storedMethod);
   }, []);
+
+  // Store redirect parameter in Jotai atom if present
+  useEffect(() => {
+    const redirectParam = searchParams.get("redirect");
+    if (redirectParam) {
+      const decodedRedirect = decodeURIComponent(redirectParam);
+      setRedirectAfterLogin(decodedRedirect);
+    }
+  }, [searchParams, setRedirectAfterLogin]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -102,9 +115,15 @@ export default function LoginForm() {
     async (provider: Provider) => {
       // Store the OAuth provider as the last login method
       localStorage.setItem(LAST_LOGIN_METHOD_KEY, provider);
-      await signInWithOAuth(provider, "/login/callback");
+      // Store redirect parameter if present
+      const redirectParam = searchParams.get("redirect");
+      if (redirectParam) {
+        const decodedRedirect = decodeURIComponent(redirectParam);
+        setRedirectAfterLogin(decodedRedirect);
+      }
+      await signInWithOAuth(provider, "/auth/callback");
     },
-    [],
+    [searchParams, setRedirectAfterLogin],
   );
 
   // Redirect to dashboard if user is already logged in

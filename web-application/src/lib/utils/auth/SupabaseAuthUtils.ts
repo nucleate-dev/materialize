@@ -1,12 +1,12 @@
+import { supabase } from "@/ClientConstants";
 import {
   AuthError,
   AuthResponse,
-  UserResponse,
   AuthTokenResponsePassword,
   OAuthResponse,
   Provider,
+  UserResponse,
 } from "@supabase/supabase-js";
-import { supabase } from "@/ClientConstants";
 
 // -----------------------------------------------------------------------------
 // SUPABASE AUTH UTIL WRAPPERS:
@@ -245,12 +245,14 @@ export async function signInWithOAuth(
   provider: Provider,
   redirectTo: string | null,
 ): Promise<OAuthResponse> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_BASE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  const fullRedirectUrl = `${baseUrl}${redirectTo || "/auth/callback"}`;
   return await supabase.auth.signInWithOAuth({
     provider: provider,
     options: {
-      redirectTo: redirectTo
-        ? `${process.env.NEXT_PUBLIC_SITE_BASE_URL} + ${redirectTo}`
-        : `${process.env.NEXT_PUBLIC_SITE_BASE_URL}/dashboard`,
+      redirectTo: fullRedirectUrl,
     },
   });
 }

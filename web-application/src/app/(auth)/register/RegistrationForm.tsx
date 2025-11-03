@@ -12,11 +12,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import {
   isValidEmailInput,
   isValidPassword,
 } from "@/lib/utils/auth/AuthFormValidationUtils";
 import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
+import { useAtom } from "jotai";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { OAuthSignInButton } from "../AuthComponents";
@@ -26,6 +28,7 @@ export default function RegistrationForm() {
   // Declare state variables
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [, setRedirectAfterLogin] = useAtom(redirectAfterLoginAtom);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -50,13 +53,14 @@ export default function RegistrationForm() {
   const hasRequiredFields = email && password && firstName && lastName && confirmPassword;
   const isFormValid = !hasErrors && hasRequiredFields;
 
-  // Store redirect parameter in localStorage if present
+  // Store redirect parameter in Jotai atom if present
   useEffect(() => {
     const redirectParam = searchParams.get("redirect");
     if (redirectParam) {
-      localStorage.setItem("redirect_after_login", decodeURIComponent(redirectParam));
+      const decodedRedirect = decodeURIComponent(redirectParam);
+      setRedirectAfterLogin(decodedRedirect);
     }
-  }, [searchParams]);
+  }, [searchParams, setRedirectAfterLogin]);
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -268,7 +272,8 @@ export default function RegistrationForm() {
                 // Store redirect parameter if present
                 const redirectParam = searchParams.get("redirect");
                 if (redirectParam) {
-                  localStorage.setItem("redirect_after_login", decodeURIComponent(redirectParam));
+                  const decodedRedirect = decodeURIComponent(redirectParam);
+                  setRedirectAfterLogin(decodedRedirect);
                 }
                 await signInWithOAuth("google", "/auth/callback");
               }}

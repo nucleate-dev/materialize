@@ -755,8 +755,8 @@ const MaterializeRenderSection = forwardRef<
         const downloadUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement("a");
         const exportName = prototypeId
-          ? `prototype-${prototypeId}.zip`
-          : "prototype-export.zip";
+          ? `materialize-project-${prototypeId}.zip`
+          : "materialize-project-export.zip";
 
         link.href = downloadUrl;
         link.download = exportName;

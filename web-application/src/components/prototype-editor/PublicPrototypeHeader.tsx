@@ -21,8 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import WaitlistModal from "@/components/WaitlistModal";
 import { WAITLIST_MODE } from "@/GlobalConstants";
-import { useUser } from "@/hooks/useUser";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   type APIResponse,

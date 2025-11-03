@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
+import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
@@ -29,6 +30,7 @@ import type {
 import { Database } from "@/lib/types/supabase";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline";
+import { useAtom } from "jotai";
 import {
   Lightbulb,
   Loader2, Send, Sparkles
@@ -58,10 +60,19 @@ export default function DashboardPage() {
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const [redirectAfterLogin, setRedirectAfterLogin] = useAtom(redirectAfterLoginAtom);
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
   const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
+
+  // Handle redirect after login
+  useEffect(() => {
+    if (redirectAfterLogin) {
+      setRedirectAfterLogin(null); // Clear the redirect
+      router.push(redirectAfterLogin);
+    }
+  }, [redirectAfterLogin, setRedirectAfterLogin, router]);
 
   // Fetch design systems
   useEffect(() => {
