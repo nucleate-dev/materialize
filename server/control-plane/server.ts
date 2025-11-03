@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { CleanupService } from './services/CleanupService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
@@ -9,6 +10,7 @@ import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/chat/ChatService.js';
+import { SandboxChatProxyService } from './services/chat/SandboxChatProxyService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
@@ -104,6 +106,9 @@ fastify.register(cors, {
   ],
 });
 
+// Register WebSocket plugin
+fastify.register(websocket);
+
 fastify.addHook('onRequest', async (req) => {
   const { requestId, traceId } = genRequestIds(
     req.headers as Record<string, string | string[] | undefined>,
@@ -123,6 +128,7 @@ let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
+let claudeCodeChatService: SandboxChatProxyService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -210,6 +216,10 @@ const start = async (): Promise<void> => {
     // Create chat service and register routes
     chatService = new ChatService(fastify, dispatcherService);
     chatService.registerRoutes(fastify);
+
+    // Create Claude Code chat service (WebSocket) and register routes
+    claudeCodeChatService = new SandboxChatProxyService(fastify);
+    claudeCodeChatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(
