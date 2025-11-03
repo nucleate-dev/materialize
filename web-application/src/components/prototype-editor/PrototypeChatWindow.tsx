@@ -227,6 +227,10 @@ const getToolIcon = (toolName: string): IconComponent => {
       return CommandLineIcon;
     case "deploy_preview":
       return RocketLaunchIcon;
+    case "update_dev_server_with_changes":
+      return ArrowPathIcon;
+    case "typescript_compile_check":
+      return WrenchScrewdriverIcon;
     case "create_execution_plan":
       return ClipboardDocumentListIcon;
     case "confirm_step_completion":
