@@ -17,14 +17,15 @@ import {
   isValidPassword,
 } from "@/lib/utils/auth/AuthFormValidationUtils";
 import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
-import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { OAuthSignInButton } from "../AuthComponents";
 import RegistrationAccountCreatedEmailVerificationPending from "./RegistrationAccountCreatedEmailVerificationPending";
 
 export default function RegistrationForm() {
   // Declare state variables
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -44,59 +45,82 @@ export default function RegistrationForm() {
   const { email, password, firstName, lastName, confirmPassword } = formData;
   const { emailError, passwordError, confirmPasswordError } = formErrors;
 
+  // Check if form has any validation errors or missing required fields
+  const hasErrors = emailError || passwordError || confirmPasswordError;
+  const hasRequiredFields = email && password && firstName && lastName && confirmPassword;
+  const isFormValid = !hasErrors && hasRequiredFields;
+
+  // Store redirect parameter in localStorage if present
+  useEffect(() => {
+    const redirectParam = searchParams.get("redirect");
+    if (redirectParam) {
+      localStorage.setItem("redirect_after_login", decodeURIComponent(redirectParam));
+    }
+  }, [searchParams]);
+
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
-      setFormData({
-        ...formData,
-        [name]: value,
+
+      // Update form data using functional update to avoid stale closure
+      setFormData((prevFormData) => {
+        const newFormData = {
+          ...prevFormData,
+          [name]: value,
+        };
+
+        // Validate based on which field changed
+        if (name === "email") {
+          if (isValidEmailInput(value)) {
+            setFormErrors((prev) => ({ ...prev, emailError: "" }));
+          } else {
+            setFormErrors((prev) => ({
+              ...prev,
+              emailError: "Please enter a valid email",
+            }));
+          }
+        } else if (name === "password") {
+          const passwordError = isValidPassword(value);
+          setFormErrors((prev) => ({ ...prev, passwordError: passwordError || "" }));
+
+          // Revalidate confirmPassword when password changes
+          setFormErrors((prev) => {
+            if (prev.confirmPasswordError && newFormData.confirmPassword) {
+              const confirmPasswordError = newFormData.confirmPassword !== value ? "Passwords do not match" : "";
+              return { ...prev, confirmPasswordError };
+            }
+            return prev;
+          });
+        } else if (name === "confirmPassword") {
+          // Compare against current password in newFormData
+          const confirmPasswordError = newFormData.password !== value ? "Passwords do not match" : "";
+          setFormErrors((prev) => ({ ...prev, confirmPasswordError }));
+        }
+
+        return newFormData;
       });
-      if (name === "email") {
-        if (isValidEmailInput(value)) {
-          setFormErrors({
-            ...formErrors,
-            emailError: "",
-          });
-        } else {
-          setFormErrors({
-            ...formErrors,
-            emailError: "Please enter a valid email",
-          });
-        }
-      } else if (name === "password") {
-        const passwordError = isValidPassword(value);
-        if (passwordError) {
-          setFormErrors({
-            ...formErrors,
-            passwordError,
-          });
-        } else {
-          // otherwise remove the password error
-          setFormErrors({
-            ...formErrors,
-            passwordError: "",
-          });
-        }
-      } else if (name === "confirmPassword") {
-        if (password !== value) {
-          setFormErrors({
-            ...formErrors,
-            confirmPasswordError: "Passwords do not match",
-          });
-        } else {
-          setFormErrors({
-            ...formErrors,
-            confirmPasswordError: "",
-          });
-        }
-      }
     },
-    [formData, formErrors, password, setFormData, setFormErrors],
+    [], // No dependencies needed - using functional updates
   );
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+
+      // Validate all fields before submission
+      const emailValidationError = !isValidEmailInput(email) ? "Please enter a valid email" : "";
+      const passwordValidationError = isValidPassword(password) || "";
+      const confirmPasswordValidationError = password !== confirmPassword ? "Passwords do not match" : "";
+
+      if (emailValidationError || passwordValidationError || confirmPasswordValidationError) {
+        setFormErrors({
+          emailError: emailValidationError,
+          passwordError: passwordValidationError,
+          confirmPasswordError: confirmPasswordValidationError,
+        });
+        return;
+      }
+
       setIsLoading(true);
       const authResponse = await signUp({
         email,
@@ -117,7 +141,7 @@ export default function RegistrationForm() {
         setShowSuccessState(true);
       }
     },
-    [email, firstName, lastName, password, router],
+    [email, firstName, lastName, password, confirmPassword, router],
   );
 
   if (showSuccessState) {
@@ -222,7 +246,7 @@ export default function RegistrationForm() {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || !isFormValid}>
               {isLoading ? "Creating account..." : "Create account"}
             </Button>
           </form>
@@ -241,7 +265,12 @@ export default function RegistrationForm() {
           <div className="grid grid-cols-1 gap-2">
             <OAuthSignInButton
               onClick={async () => {
-                await signInWithOAuth("google", "/register/callback");
+                // Store redirect parameter if present
+                const redirectParam = searchParams.get("redirect");
+                if (redirectParam) {
+                  localStorage.setItem("redirect_after_login", decodeURIComponent(redirectParam));
+                }
+                await signInWithOAuth("google", "/auth/callback");
               }}
               provider="google"
             />
