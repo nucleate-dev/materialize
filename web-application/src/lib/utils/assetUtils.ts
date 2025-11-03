@@ -13,7 +13,7 @@ const SUPABASE_PROTOTYPE_ASSETS_BUCKET = "prototype-assets";
 export async function getAssetSignedUrl(
   prototypeId: string,
   assetName: string,
-  expiresIn: number = 3600 // 1 hour default
+  expiresIn: number = 3600, // 1 hour default
 ): Promise<string | null> {
   try {
     // Construct the storage path: {prototypeId}/{assetName}
@@ -46,13 +46,13 @@ export async function getAssetSignedUrl(
 export async function getBulkAssetSignedUrls(
   prototypeId: string,
   assetNames: string[],
-  expiresIn: number = 3600
+  expiresIn: number = 3600,
 ): Promise<Record<string, string | null>> {
   const urls = await Promise.all(
     assetNames.map(async (assetName) => ({
       assetName,
       url: await getAssetSignedUrl(prototypeId, assetName, expiresIn),
-    }))
+    })),
   );
 
   return urls.reduce(
@@ -60,7 +60,7 @@ export async function getBulkAssetSignedUrls(
       acc[assetName] = url;
       return acc;
     },
-    {} as Record<string, string | null>
+    {} as Record<string, string | null>,
   );
 }
 
@@ -70,6 +70,6 @@ export async function getBulkAssetSignedUrls(
 export function isImageAsset(fileName: string): boolean {
   const ext = fileName?.split(".").pop()?.toLowerCase();
   return ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico"].includes(
-    ext || ""
+    ext || "",
   );
 }

@@ -52,7 +52,6 @@ const STYLE_DETAILS: Record<DesignStyleKey, StyleDetail> = {
 
 const PLANNING_WORKFLOW = `
 **CRITICAL WORKFLOW:**
-
 1.  **Analyze and Gather Context:** Understand the user's request. The user may provide file context directly in their message using @[filepath] syntax. If file context is provided, use it as your primary source of truth. If the request involves modifying existing files and no file context is provided, your first actions should be to use the list_files and read_file tools to understand the relevant parts of the codebase.
 2.  **Create a Plan:** Once you have sufficient context, your next action MUST be to call the \`create_execution_plan\` tool. This plan should detail all the steps needed to fulfill the request. You MUST NOT use any file modification tools (\`write_file\`, \`delete_file\`, \`create_file\`) before a plan is created.
 3.  **Execute a Single Step:** Perform all the file system actions (\`write_file\`, \`read_file\`, etc.) needed to complete just one step of the plan. If you already fetched the necessary file content earlier in this task and nothing has changed, rely on that context instead of calling \`read_file\` again.
@@ -69,6 +68,16 @@ const PLANNING_WORKFLOW = `
 *   **Provide Brief Context:** When analyzing requirements or starting a complex step, provide a 1-2 sentence thought explaining your reasoning or approach. Keep these concise and focused.
 *   **Examples:** "I'll need to update the navigation structure to add this new screen" or "This requires refactoring the state management to support the new feature."
 *   **Don't Overdo It:** Only add thoughts when they provide meaningful context. Don't narrate every simple action.
+
+**CHECKING FOR ERRORS:**
+After you've completed all steps:
+* FIRST call the \`update_dev_server_with_changes\` tool to update the dev server with your changes, 
+* THEN call the \`typescript_compile_check\` tool to check for typescript errors. 
+* If there are any errors fix them. Only call this tool maximum two times.
+
+**PACKAGE INSTALLATION:**
+NEVER expect the user to install packages themselves. You should always manually edit the package.json file, to ensure that
+updating the dev server with your changes will auto-install the necessary dependencies.
 `;
 
 const buildFileContextBlock = (currentViewingPath?: string | null): string => {
