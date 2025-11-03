@@ -56,6 +56,23 @@ type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 function AppSidebar() {
   const pathname = usePathname();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check initial auth state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+    });
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const menuItems = [
     {
@@ -135,20 +152,34 @@ function AppSidebar() {
           <SidebarMenuItem>
             <HorizontalModeToggle sidebarExpanded={true} />
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname?.includes("account")}>
-              <Link href="/dashboard/account">
-                <Settings className="w-5 h-5" />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout}>
-              <LogOut className="w-5 h-5" />
-              <span>Logout</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {isAuthenticated && (
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname?.includes("account")}>
+                  <Link href="/dashboard/account">
+                    <Settings className="w-5 h-5" />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={logout}>
+                  <LogOut className="w-5 h-5" />
+                  <span>Logout</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
+          )}
+          {!isAuthenticated && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <Link href="/login">
+                  <LogOut className="w-5 h-5 rotate-180" />
+                  <span>Login</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

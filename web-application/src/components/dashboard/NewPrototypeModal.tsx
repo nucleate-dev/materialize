@@ -449,6 +449,37 @@ export default function NewPrototypeModal({
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label
+                htmlFor="prototype-visibility"
+                className="text-sm font-semibold"
+              >
+                Visibility
+              </Label>
+              <Select
+                value={visibility}
+                onValueChange={(value) =>
+                  setVisibility(
+                    value as Database["public"]["Enums"]["visibility_level"],
+                  )
+                }
+                disabled={userPlan !== "pro" || isCreating}
+              >
+                <SelectTrigger id="prototype-visibility" className="h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLIC">Public</SelectItem>
+                  <SelectItem value="SELF">Self</SelectItem>
+                </SelectContent>
+              </Select>
+              {userPlan !== "pro" && (
+                <p className="text-xs text-muted-foreground">
+                  Upgrade to Pro to set project visibility to Self.
+                </p>
+              )}
+            </div>
+
             <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
               <CollapsibleTrigger asChild>
                 <Button
@@ -569,37 +600,6 @@ export default function NewPrototypeModal({
                 )}
               </CollapsibleContent>
             </Collapsible>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="prototype-visibility"
-                className="text-sm font-semibold"
-              >
-                Visibility
-              </Label>
-              <Select
-                value={visibility}
-                onValueChange={(value) =>
-                  setVisibility(
-                    value as Database["public"]["Enums"]["visibility_level"],
-                  )
-                }
-                disabled={userPlan !== "pro" || isCreating}
-              >
-                <SelectTrigger id="prototype-visibility" className="h-12">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PUBLIC">Public</SelectItem>
-                  <SelectItem value="SELF">Self</SelectItem>
-                </SelectContent>
-              </Select>
-              {userPlan !== "pro" && (
-                <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to set project visibility to Self.
-                </p>
-              )}
-            </div>
 
             <Button
               type="submit"

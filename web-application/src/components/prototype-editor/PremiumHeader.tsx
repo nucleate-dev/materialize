@@ -1,5 +1,6 @@
 "use client";
 import { useUser } from "@/hooks/useUser";
+import { FlaskConical } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -28,9 +29,13 @@ export default function PremiumHeader() {
         <nav className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            <span className="text-2xl font-bold text-black dark:text-white">
-              Materialize
-            </span>
+            <Link
+              href={user ? "/dashboard" : "/"}
+              className="flex items-center gap-2 text-2xl font-bold text-black dark:text-white hover:opacity-80 transition-opacity duration-200"
+            >
+              <FlaskConical className="w-6 h-6 text-primary" />
+              <span>Materialize</span>
+            </Link>
           </div>
 
           {/* Navigation */}
