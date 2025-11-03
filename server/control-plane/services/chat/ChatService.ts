@@ -203,11 +203,12 @@ export class ChatService {
       // ------------------------------------------------------------------------------------------------
       // 3. Precheck with dispatcher service to ensure nothing is currently building for this prototype
       // ------------------------------------------------------------------------------------------------
-      const precheckResult = await this.dispatcherService.dispatchEditIntent(
-        { prototype_id },
-        token,
-        request.log2,
-      );
+      const precheckResult =
+        await this.dispatcherService.dispatchChatEditIntent(
+          { prototype_id },
+          token,
+          request.log2,
+        );
       const precheckData = precheckResult;
       let file_scope: 'complete' | 'updates' = 'updates';
       if (precheckData.data && isDispatchInProgress(precheckData.data.status)) {
@@ -237,7 +238,7 @@ export class ChatService {
         }
         editIntentHeartbeat = setInterval(() => {
           void this.dispatcherService
-            .dispatchEditIntent({ prototype_id }, token, request.log2)
+            .dispatchChatEditIntent({ prototype_id }, token, request.log2)
             .catch((error) => {
               request.log2.warn(
                 '[ChatService] Failed to refresh edit intent heartbeat',
