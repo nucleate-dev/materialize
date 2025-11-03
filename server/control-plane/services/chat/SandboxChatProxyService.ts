@@ -1,6 +1,5 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
-import type { SocketStream } from '@fastify/websocket';
-import type WebSocket from 'ws';
+import WebSocket from 'ws';
 import { checkUserHasPrototypeEditAccess } from '../../utils/prototypeAuth.js';
 
 interface ChatMessage {
@@ -38,10 +37,7 @@ export class SandboxChatProxyService {
     );
   }
 
-  private handleWebSocket(
-    connection: SocketStream,
-    request: FastifyRequest,
-  ): void {
+  private handleWebSocket(socket: WebSocket, request: FastifyRequest): void {
     // WebSocket upgrades might not trigger onRequest hook, so log2 might not be set
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const log2 = (request as any).log2 || request.log;
@@ -53,26 +49,6 @@ export class SandboxChatProxyService {
       },
       '[SandboxChatProxyService] WebSocket connection opened',
     );
-
-    const connectionContext: {
-      isAuthenticated: boolean;
-      prototypeId?: string;
-      userId?: string;
-    } = {
-      isAuthenticated: false,
-    };
-
-    const wsSocket = connection.socket as WebSocket | undefined;
-
-    if (!wsSocket) {
-      log2.error(
-        {
-          connectionKeys: Object.keys(connection as Record<string, unknown>),
-        },
-        '[SandboxChatProxyService] Unable to access underlying WebSocket',
-      );
-      return;
-    }
 
     const decodeRawData = (data: WebSocket.RawData): string => {
       if (typeof data === 'string') {
@@ -88,7 +64,7 @@ export class SandboxChatProxyService {
     };
 
     try {
-      wsSocket.send(
+      socket.send(
         JSON.stringify({
           type: 'ready',
           message: 'Connection established',
@@ -99,7 +75,7 @@ export class SandboxChatProxyService {
       log2.error(error, '[SandboxChatProxyService] Failed to send ready event');
     }
 
-    wsSocket.on('message', async (rawData: WebSocket.RawData) => {
+    socket.on('message', async (rawData: WebSocket.RawData) => {
       const payload = decodeRawData(rawData);
       let data: ChatMessage;
 
@@ -115,7 +91,7 @@ export class SandboxChatProxyService {
           },
           '[SandboxChatProxyService] Failed to parse incoming message',
         );
-        wsSocket.send(
+        socket.send(
           JSON.stringify({
             type: 'error',
             error: 'Invalid message format: expected JSON',
@@ -134,7 +110,7 @@ export class SandboxChatProxyService {
             },
             '[SandboxChatProxyService] Missing prototype_id in message',
           );
-          wsSocket.send(
+          socket.send(
             JSON.stringify({
               type: 'error',
               error: 'prototype_id is required on each message',
@@ -152,7 +128,7 @@ export class SandboxChatProxyService {
             },
             '[SandboxChatProxyService] Missing authentication token in message',
           );
-          wsSocket.send(
+          socket.send(
             JSON.stringify({
               type: 'error',
               error: 'token is required on each message',
@@ -164,7 +140,7 @@ export class SandboxChatProxyService {
         const messageText =
           typeof data.message === 'string' ? data.message.trim() : '';
         if (!messageText) {
-          wsSocket.send(
+          socket.send(
             JSON.stringify({
               type: 'error',
               error: 'message is required and cannot be empty',
@@ -184,13 +160,13 @@ export class SandboxChatProxyService {
           log2.error(error, '[SandboxChatProxyService] Authentication error', {
             prototype_id: prototypeId,
           });
-          wsSocket.send(
+          socket.send(
             JSON.stringify({
               type: 'error',
               error: 'Authentication failed',
             }),
           );
-          wsSocket.close(1011, 'Authentication failed');
+          socket.close(1011, 'Authentication failed');
           return;
         }
 
@@ -211,44 +187,18 @@ export class SandboxChatProxyService {
             '[SandboxChatProxyService] Unauthorized access attempt',
           );
 
-          wsSocket.send(
+          socket.send(
             JSON.stringify({
               type: 'error',
               error:
                 'Unauthorized: You do not have edit access to this prototype',
             }),
           );
-          wsSocket.close(1008, 'Unauthorized');
+          socket.close(1008, 'Unauthorized');
           return;
         }
 
         const userId = authResult.user.id;
-
-        if (
-          !connectionContext.isAuthenticated ||
-          connectionContext.userId !== userId ||
-          connectionContext.prototypeId !== prototypeId
-        ) {
-          log2.info(
-            {
-              userId,
-              prototype_id: prototypeId,
-            },
-            '[SandboxChatProxyService] User authenticated successfully',
-          );
-
-          wsSocket.send(
-            JSON.stringify({
-              type: 'authenticated',
-              userId,
-              prototype_id: prototypeId,
-            }),
-          );
-        }
-
-        connectionContext.isAuthenticated = true;
-        connectionContext.userId = userId;
-        connectionContext.prototypeId = prototypeId;
 
         log2.info(
           {
@@ -261,7 +211,7 @@ export class SandboxChatProxyService {
           '[SandboxChatProxyService] Received chat message',
         );
 
-        wsSocket.send(
+        socket.send(
           JSON.stringify({
             type: 'message_received',
             prototype_id: prototypeId,
@@ -270,7 +220,7 @@ export class SandboxChatProxyService {
         );
       } catch (error) {
         log2.error(error, '[SandboxChatProxyService] Error processing message');
-        wsSocket.send(
+        socket.send(
           JSON.stringify({
             type: 'error',
             error:
@@ -282,26 +232,145 @@ export class SandboxChatProxyService {
       }
     });
 
-    wsSocket.on('close', (code: number, reason: Buffer) => {
-      const reasonText = reason?.length ? reason.toString('utf8') : undefined;
-
-      log2.info(
-        {
-          prototype_id: connectionContext.prototypeId,
-          userId: connectionContext.userId,
-          wasAuthenticated: connectionContext.isAuthenticated,
-          code,
-          reason: reasonText,
-        },
-        '[SandboxChatProxyService] WebSocket connection closed',
-      );
-    });
-
-    wsSocket.on('error', (error: Error) => {
-      log2.error(error, '[SandboxChatProxyService] WebSocket error', {
-        prototype_id: connectionContext.prototypeId,
-        userId: connectionContext.userId,
+    socket.on('close', (code: number) => {
+      log2.info('[SandboxChatProxyService] WebSocket connection closed', {
+        code,
       });
     });
+
+    socket.on('error', (error: Error) => {
+      log2.error(error, '[SandboxChatProxyService] WebSocket error');
+    });
   }
+
+  // public attachWebSocket(
+  //   sessionId: string,
+  //   socket: WebSocket,
+  //   options: {
+  //     allowCreate?: boolean;
+  //     defaultType?: TerminalSessionType;
+  //   } = {},
+  // ): void {
+  //   const session =
+  //     this.sessions.get(sessionId) ||
+  //     (options.allowCreate
+  //       ? this.getOrCreateTerminalSession(
+  //           sessionId,
+  //           options.defaultType ?? "generic",
+  //         )
+  //       : undefined);
+
+  //   if (!session) {
+  //     this.logger.warn(
+  //       "Client connection rejected - terminal session not found",
+  //       {
+  //         sessionId,
+  //         allowCreate: options.allowCreate,
+  //         availableSessions: Array.from(this.sessions.keys()),
+  //       },
+  //     );
+  //     const message = JSON.stringify({
+  //       event: "error",
+  //       data: { error: "Terminal session not found", sessionId },
+  //     });
+  //     try {
+  //       socket.send(message);
+  //     } catch (error) {
+  //       this.logger.warn("Failed to send error message to client", {
+  //         sessionId,
+  //         error: error instanceof Error ? error.message : String(error),
+  //       });
+  //     } finally {
+  //       socket.close(1008, "Terminal session not found");
+  //     }
+  //     return;
+  //   }
+
+  //   const clientId = uuidv4();
+  //   const client: TerminalClient = {
+  //     id: clientId,
+  //     socket,
+  //   };
+
+  //   session.clients.set(clientId, client);
+
+  //   const cleanup = (): void => {
+  //     this.removeClient(session, clientId);
+  //   };
+
+  //   socket.on("close", (code: number, reason: Buffer) => {
+  //     this.logger.warn("WebSocket closed", {
+  //       sessionId,
+  //       clientId,
+  //       code,
+  //       reason: reason.toString(),
+  //     });
+  //     cleanup();
+  //   });
+
+  //   socket.on("error", (error: Error) => {
+  //     this.logger.warn("WebSocket error", {
+  //       sessionId,
+  //       clientId,
+  //       error: error.message,
+  //       stack: error.stack,
+  //     });
+  //     cleanup();
+  //   });
+
+  //   client.heartbeat = setInterval(() => {
+  //     if (socket.readyState === WebSocket.OPEN) {
+  //       this.sendWebSocketMessage(
+  //         client,
+  //         "heartbeat",
+  //         session,
+  //         { timestamp: Date.now() },
+  //         Date.now(),
+  //       );
+  //     } else {
+  //       cleanup();
+  //     }
+  //   }, HEARTBEAT_INTERVAL_MS);
+
+  //   this.sendWebSocketMessage(
+  //     client,
+  //     "status",
+  //     session,
+  //     this.buildSessionSnapshot(session),
+  //     Date.now(),
+  //   );
+
+  //   for (const event of session.buffer) {
+  //     this.sendWebSocketMessage(
+  //       client,
+  //       event.type,
+  //       session,
+  //       { ...event.payload },
+  //       event.timestamp,
+  //     );
+  //   }
+  // }
+
+  // private sendWebSocketMessage(
+  //   timestamp: number,
+  // ): void {
+  //   try {
+  //     const data = {
+  //       timestamp,
+  //     };
+  //     const message = JSON.stringify({
+  //       data,
+  //     });
+  //     if (socket.readyState === WebSocket.OPEN) {
+  //       client.socket.send(message);
+  //     }
+  //   } catch (error) {
+  //     this.logger.error(
+  //       error instanceof Error ? error : new Error(String(error)),
+  //       "Failed to send WebSocket message",
+  //       { sessionId: session.id, eventType, error: JSON.stringify(error) },
+  //     );
+  //     this.removeClient(session, client.id);
+  //   }
+  // }
 }
