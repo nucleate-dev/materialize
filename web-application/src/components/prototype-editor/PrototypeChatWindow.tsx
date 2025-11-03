@@ -2299,7 +2299,7 @@ export default function PrototypeChatWindow({
         } else if (hasErrors) {
           containerClasses = "border border-amber-500/40 bg-amber-500/10";
           icon = ExclamationTriangleIcon;
-          statusText = "Type errors detected — fixing automatically";
+          statusText = "Type errors detected — send to LLM to fix";
           statusIcon = (
             <ExclamationTriangleIcon className="h-4 w-4 text-amber-500 dark:text-amber-400" />
           );
