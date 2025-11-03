@@ -231,6 +231,8 @@ const getToolIcon = (toolName: string): IconComponent => {
       return ArrowPathIcon;
     case "typescript_compile_check":
       return WrenchScrewdriverIcon;
+    case "restart_dev_server":
+      return ArrowPathIcon;
     case "create_execution_plan":
       return ClipboardDocumentListIcon;
     case "confirm_step_completion":
@@ -274,6 +276,8 @@ const getToolLabel = (
       return "Updating dev server";
     case "typescript_compile_check":
       return "Checking for errors";
+    case "restart_dev_server":
+      return "Restarting dev server";
     case "create_execution_plan":
       return "Creating execution plan";
     case "confirm_step_completion":

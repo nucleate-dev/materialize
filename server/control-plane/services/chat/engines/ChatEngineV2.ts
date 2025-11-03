@@ -916,171 +916,171 @@ export class ChatEngineV2 {
           streamAndPersistEvent({
             type: ChatStreamEventType.PHASE_STARTED,
             phase: ChatPhase.ERROR_FIXING,
-            description: 'Fixing detected type errors...',
+            description: 'Errors found. Send these back to the LLM to fix.',
           });
 
-          const errorFixMessages = [
-            ...messages.slice(0, -1).map((msg: ChatMessage) => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.content,
-            })),
-            finalUserMessage,
-            {
-              role: 'assistant' as const,
-              content: assistantResponse || finalBuffer,
-            },
-            {
-              role: 'user' as const,
-              content: `The TypeScript compiler reported the following errors:\n\n${typecheckStdout}\n\nPlease fix these errors.`,
-            },
-          ];
+          //   const errorFixMessages = [
+          //     ...messages.slice(0, -1).map((msg: ChatMessage) => ({
+          //       role: msg.role as 'user' | 'assistant',
+          //       content: msg.content,
+          //     })),
+          //     finalUserMessage,
+          //     {
+          //       role: 'assistant' as const,
+          //       content: assistantResponse || finalBuffer,
+          //     },
+          //     {
+          //       role: 'user' as const,
+          //       content: `The TypeScript compiler reported the following errors:\n\n${typecheckStdout}\n\nPlease fix these errors.`,
+          //     },
+          //   ];
 
-          const errorFixResult = streamText({
-            model: this.getCurrentModel(),
-            system: promptConfig.errorFixing,
-            messages: errorFixMessages,
-            tools: {
-              ...createOrchestrationTools(params),
-              ...createFileManagerTools(params),
-            },
-            toolChoice: 'auto',
-            stopWhen: stepCountIs(25),
-          });
+          //   const errorFixResult = streamText({
+          //     model: this.getCurrentModel(),
+          //     system: promptConfig.errorFixing,
+          //     messages: errorFixMessages,
+          //     tools: {
+          //       ...createOrchestrationTools(params),
+          //       ...createFileManagerTools(params),
+          //     },
+          //     toolChoice: 'auto',
+          //     stopWhen: stepCountIs(25),
+          //   });
 
-          let errorFixBuffer = '';
+          //   let errorFixBuffer = '';
 
-          for await (const part of errorFixResult.fullStream) {
-            switch (part.type) {
-              case 'text-delta':
-                errorFixBuffer += part.text;
-                assistantResponse += part.text;
-                streamAndPersistEvent({
-                  type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
-                  content: part.text,
-                });
-                break;
-              case 'tool-call':
-                toolCalls.push({
-                  toolName: part.toolName,
-                  input: part.input,
-                  output: null,
-                });
-                streamAndPersistEvent({
-                  type: ChatStreamEventType.TOOL_CALL,
-                  tool: part.toolName,
-                  toolCallId: part.toolCallId,
-                  args: part.input,
-                });
-                break;
-              case 'tool-result': {
-                const matchingToolCall = toolCalls.find(
-                  (tc) => tc.toolName === part.toolName && tc.output === null,
-                );
-                if (matchingToolCall) {
-                  matchingToolCall.output = part.output;
-                }
+          //   for await (const part of errorFixResult.fullStream) {
+          //     switch (part.type) {
+          //       case 'text-delta':
+          //         errorFixBuffer += part.text;
+          //         assistantResponse += part.text;
+          //         streamAndPersistEvent({
+          //           type: ChatStreamEventType.CHAT_RESPONSE_DELTA,
+          //           content: part.text,
+          //         });
+          //         break;
+          //       case 'tool-call':
+          //         toolCalls.push({
+          //           toolName: part.toolName,
+          //           input: part.input,
+          //           output: null,
+          //         });
+          //         streamAndPersistEvent({
+          //           type: ChatStreamEventType.TOOL_CALL,
+          //           tool: part.toolName,
+          //           toolCallId: part.toolCallId,
+          //           args: part.input,
+          //         });
+          //         break;
+          //       case 'tool-result': {
+          //         const matchingToolCall = toolCalls.find(
+          //           (tc) => tc.toolName === part.toolName && tc.output === null,
+          //         );
+          //         if (matchingToolCall) {
+          //           matchingToolCall.output = part.output;
+          //         }
 
-                if (part.toolName === 'create_execution_plan') {
-                  if (
-                    part.output &&
-                    typeof part.output === 'object' &&
-                    'plan' in part.output
-                  ) {
-                    executionPlan = (part.output as { plan: string[] }).plan;
-                  }
-                  streamAndPersistEvent({
-                    type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
-                    toolCallId: part.toolCallId,
-                    result: part.output,
-                  });
-                } else if (part.toolName === 'confirm_step_completion') {
-                  if (
-                    part.output &&
-                    typeof part.output === 'object' &&
-                    'step' in part.output
-                  ) {
-                    const stepNum = (part.output as { step: number }).step;
-                    if (typeof stepNum === 'number') {
-                      completedSteps.push(stepNum);
-                    }
-                  }
-                  streamAndPersistEvent({
-                    type: ChatStreamEventType.STEP_COMPLETED,
-                    toolCallId: part.toolCallId,
-                    result: part.output,
-                  });
-                } else {
-                  streamAndPersistEvent({
-                    type: ChatStreamEventType.TOOL_RESULT,
-                    tool: part.toolName,
-                    toolCallId: part.toolCallId,
-                    result: part.output,
-                  });
-                }
-                break;
-              }
-              default:
-                break;
-            }
-          }
+          //         if (part.toolName === 'create_execution_plan') {
+          //           if (
+          //             part.output &&
+          //             typeof part.output === 'object' &&
+          //             'plan' in part.output
+          //           ) {
+          //             executionPlan = (part.output as { plan: string[] }).plan;
+          //           }
+          //           streamAndPersistEvent({
+          //             type: ChatStreamEventType.EXECUTION_PLAN_CREATED,
+          //             toolCallId: part.toolCallId,
+          //             result: part.output,
+          //           });
+          //         } else if (part.toolName === 'confirm_step_completion') {
+          //           if (
+          //             part.output &&
+          //             typeof part.output === 'object' &&
+          //             'step' in part.output
+          //           ) {
+          //             const stepNum = (part.output as { step: number }).step;
+          //             if (typeof stepNum === 'number') {
+          //               completedSteps.push(stepNum);
+          //             }
+          //           }
+          //           streamAndPersistEvent({
+          //             type: ChatStreamEventType.STEP_COMPLETED,
+          //             toolCallId: part.toolCallId,
+          //             result: part.output,
+          //           });
+          //         } else {
+          //           streamAndPersistEvent({
+          //             type: ChatStreamEventType.TOOL_RESULT,
+          //             tool: part.toolName,
+          //             toolCallId: part.toolCallId,
+          //             result: part.output,
+          //           });
+          //         }
+          //         break;
+          //       }
+          //       default:
+          //         break;
+          //     }
+          //   }
 
-          const errorFixUsage = await errorFixResult.usage;
-          if (errorFixUsage) {
-            const errorFixInputTokens = errorFixUsage.inputTokens ?? 0;
-            const errorFixOutputTokens = errorFixUsage.outputTokens ?? 0;
+          //   const errorFixUsage = await errorFixResult.usage;
+          //   if (errorFixUsage) {
+          //     const errorFixInputTokens = errorFixUsage.inputTokens ?? 0;
+          //     const errorFixOutputTokens = errorFixUsage.outputTokens ?? 0;
 
-            totalInputTokens += errorFixInputTokens;
-            totalOutputTokens += errorFixOutputTokens;
+          //     totalInputTokens += errorFixInputTokens;
+          //     totalOutputTokens += errorFixOutputTokens;
 
-            log2.metricTokenUsage(
-              MODEL_CONFIGS[this.modelProvider],
-              errorFixInputTokens,
-              errorFixOutputTokens,
-              { intent: 'error_fixing' },
-            );
-          }
+          //     log2.metricTokenUsage(
+          //       MODEL_CONFIGS[this.modelProvider],
+          //       errorFixInputTokens,
+          //       errorFixOutputTokens,
+          //       { intent: 'error_fixing' },
+          //     );
+          //   }
 
-          if (errorFixBuffer.length > 0) {
-            streamAndPersistEvent({
-              type: ChatStreamEventType.CHAT_RESPONSE,
-              content: errorFixBuffer,
-            });
-          }
+          //   if (errorFixBuffer.length > 0) {
+          //     streamAndPersistEvent({
+          //       type: ChatStreamEventType.CHAT_RESPONSE,
+          //       content: errorFixBuffer,
+          //     });
+          //   }
 
-          // Dispatch error fixes to build worker
-          if (
-            fileManager instanceof VirtualFileManager &&
-            fileManager.hasChanges()
-          ) {
-            log2.info('[ChatEngine] Dispatching error fixes to build worker', {
-              updatedFiles: Object.keys(fileManager.getChangedFiles()),
-            });
+          //   // Dispatch error fixes to build worker
+          //   if (
+          //     fileManager instanceof VirtualFileManager &&
+          //     fileManager.hasChanges()
+          //   ) {
+          //     log2.info('[ChatEngine] Dispatching error fixes to build worker', {
+          //       updatedFiles: Object.keys(fileManager.getChangedFiles()),
+          //     });
 
-            streamAndPersistEvent({
-              type: ChatStreamEventType.FILES_SYNCED,
-              updatedFilesObject: fileManager.getChangedFiles(),
-              deletedFiles: fileManager.getDeletedFiles(),
-            });
+          //     streamAndPersistEvent({
+          //       type: ChatStreamEventType.FILES_SYNCED,
+          //       updatedFilesObject: fileManager.getChangedFiles(),
+          //       deletedFiles: fileManager.getDeletedFiles(),
+          //     });
 
-            streamAndPersistEvent({
-              type: ChatStreamEventType.PHASE_STARTED,
-              phase: ChatPhase.FILE_DISPATCH,
-              description: 'Building and deploying error fixes...',
-            });
+          //     streamAndPersistEvent({
+          //       type: ChatStreamEventType.PHASE_STARTED,
+          //       phase: ChatPhase.FILE_DISPATCH,
+          //       description: 'Building and deploying error fixes...',
+          //     });
 
-            await this.persistAndDispatchFiles(
-              fileManager,
-              params,
-              streamAndPersistEvent,
-            );
-            fileManager.clearChangeTracking();
-          }
-        } else {
-          log2.info('[ChatEngine] TypeScript check passed with no errors');
-          streamAndPersistEvent({
-            type: ChatStreamEventType.TYPECHECK_PASSED,
-            message: 'TypeScript check completed successfully.',
-          });
+          //     await this.persistAndDispatchFiles(
+          //       fileManager,
+          //       params,
+          //       streamAndPersistEvent,
+          //     );
+          //     fileManager.clearChangeTracking();
+          //   }
+          // } else {
+          //   log2.info('[ChatEngine] TypeScript check passed with no errors');
+          //   streamAndPersistEvent({
+          //     type: ChatStreamEventType.TYPECHECK_PASSED,
+          //     message: 'TypeScript check completed successfully.',
+          //   });
         }
       }
 

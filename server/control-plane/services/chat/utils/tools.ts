@@ -585,5 +585,54 @@ export function createDevServerTools(
         };
       },
     }),
+
+    restart_dev_server: tool({
+      description:
+        'Restart the dev server container. This should ONLY be used when absolutely necessary, such as when the user is experiencing critical issues that cannot be resolved through other means (e.g., unrecoverable errors, dependency conflicts, or Metro bundler crashes).',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const toolLog = log2.child({ tool: 'restart_dev_server' });
+
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+          toolLog.error(
+            '[DevServerTools] SUPABASE_SERVICE_ROLE_KEY not found in environment',
+          );
+          return {
+            success: false,
+            error: 'Service role key not configured.',
+          };
+        }
+
+        const restartResult = await dispatcherService.restartDevServer(
+          {
+            prototype_id: params.prototype_id,
+          },
+          serviceRoleKey,
+          toolLog,
+        );
+
+        if (!restartResult.data || restartResult.error) {
+          const errorMessage =
+            restartResult.error?.message ?? 'Failed to restart dev server.';
+          toolLog.warn('[DevServerTools] Dev server restart failed', {
+            error: errorMessage,
+          });
+
+          return {
+            success: false,
+            error: errorMessage,
+          };
+        }
+
+        toolLog.info('[DevServerTools] Dev server restarted successfully');
+
+        return {
+          success: true,
+          message:
+            restartResult.data.message ?? 'Dev server restarted successfully.',
+        };
+      },
+    }),
   };
 }

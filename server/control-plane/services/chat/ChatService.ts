@@ -14,7 +14,7 @@ import { validateChatAuth } from './utils/chat-auth.js';
 import { ChatStreamEventType } from './utils/chat-types.js';
 import { parseFileContextFromMessage } from './utils/file-context.js';
 import { VirtualFileManager } from './utils/file-manager.js';
-import { trackChatUsage } from './utils/usage-tracking.js';
+// import { trackChatUsage } from './utils/usage-tracking.js';
 import { DispatcherService } from '../dispatcher/DispatcherService.js';
 import { ChatEngineConfig } from '../../types/InternalTypes.js';
 import { ChatEngineV2 } from './engines/ChatEngineV2.js';
@@ -191,7 +191,8 @@ export class ChatService {
           usage: authValidation.error.usage,
         } as ChatErrorResponse);
       }
-      const { user, userTier, paywallResult } = authValidation.result;
+      // const { user, userTier, paywallResult } = authValidation.result;
+      const { user } = authValidation.result;
       const token = request.headers.authorization?.split(' ')[1] ?? '';
       request.log2 = request.log2.child({
         userId: user.id,
