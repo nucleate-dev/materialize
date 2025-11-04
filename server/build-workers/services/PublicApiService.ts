@@ -288,6 +288,7 @@ export class PublicApiService {
     try {
       const startResponse =
         await this.expoDevServerService.updateDevServerFiles(
+          request.log2,
           request.body.files,
           request.body.assets,
           request.body?.deleted_files || [],
@@ -365,6 +366,7 @@ export class PublicApiService {
       } else if (request.body.file_scope === "updates") {
         const startResponse =
           await this.expoDevServerService.updateDevServerFiles(
+            request.log2,
             request.body.files,
             request.body.assets,
             request.body?.deleted_files || [],
@@ -412,10 +414,10 @@ export class PublicApiService {
   }
 
   private async restartDevServer(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     _reply: FastifyReply,
   ): Promise<PublicDevServerRestartResponse> {
-    await this.expoDevServerService.restartDevServer();
+    await this.expoDevServerService.restartDevServer(request.log2);
     return { status: "success" } as PublicDevServerRestartResponse;
   }
 
@@ -627,6 +629,7 @@ export class PublicApiService {
       try {
         const buildResponse =
           await this.expoDevServerService.buildAndDeployProjectCore(
+            request.log2,
             prototype_id,
           );
 
@@ -757,6 +760,7 @@ export class PublicApiService {
             // Use ExpoDevServerService to build and deploy
             const buildResponse =
               await this.expoDevServerService.buildAndDeployProjectCore(
+                baseLogger,
                 activePrototypeId,
               );
 
@@ -811,7 +815,7 @@ export class PublicApiService {
       const builtVersion = this.expoDevServerService.getState().builtVersion;
 
       try {
-        await this.expoDevServerService.shutdown();
+        await this.expoDevServerService.shutdown(baseLogger);
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -863,7 +867,7 @@ export class PublicApiService {
       const builtVersion = this.expoDevServerService.getState().builtVersion;
 
       try {
-        await this.expoDevServerService.shutdown();
+        await this.expoDevServerService.shutdown(baseLogger);
       } catch (shutdownError: unknown) {
         const errorMessage =
           shutdownError instanceof Error

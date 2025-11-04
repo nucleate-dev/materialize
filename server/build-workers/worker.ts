@@ -195,7 +195,7 @@ codeService.registerRoutes();
 const close = async (): Promise<void> => {
   baseLogger.info("Shutting down build worker...");
   try {
-    await expoDevServerService.shutdown();
+    await expoDevServerService.shutdown(baseLogger);
     terminalService.shutdownAllSessions();
     await codeService.shutdown();
     await app.close();
