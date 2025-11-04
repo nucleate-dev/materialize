@@ -18,6 +18,8 @@ import {
   PublicDevServerStartResponse,
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
+  PublicStartDevServerRequest,
+  PublicUpdateFilesRequest,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
@@ -44,7 +46,19 @@ export class PublicApiService {
   }
 
   public registerRoutes(app: FastifyInstance): void {
-    // POST /dev-server
+    // POST /start-dev-server
+    app.post<{ Body: PublicStartDevServerRequest }>(
+      "/start-dev-server",
+      this.startDevServerNew.bind(this),
+    );
+
+    // POST /update-files
+    app.post<{ Body: PublicUpdateFilesRequest }>(
+      "/update-files",
+      this.updateFiles.bind(this),
+    );
+
+    // POST /dev-server (legacy route - keeping for backward compatibility)
     app.post<{ Body: PublicDevServerStartRequest }>(
       "/dev-server",
       this.startDevServer.bind(this),
@@ -81,7 +95,11 @@ export class PublicApiService {
     } = request.body;
 
     // Import functions dynamically to avoid circular dependency
-    const { setWorkerContext, createAuthenticatedSupabaseClient, setSupabaseClient } = await import("../worker.js");
+    const {
+      setWorkerContext,
+      createAuthenticatedSupabaseClient,
+      setSupabaseClient,
+    } = await import("../worker.js");
 
     // Set worker context so all future requests include userId and prototypeId in logs
     setWorkerContext(userId, prototypeId);
@@ -122,9 +140,14 @@ export class PublicApiService {
       setSupabaseClient(authenticatedSupabase);
       request.log2.info("Initialized authenticated Supabase client for worker");
     } catch (supabaseError) {
-      const errorMessage = supabaseError instanceof Error ? supabaseError.message : String(supabaseError);
+      const errorMessage =
+        supabaseError instanceof Error
+          ? supabaseError.message
+          : String(supabaseError);
       request.log2.error(
-        supabaseError instanceof Error ? supabaseError : new Error(String(supabaseError)),
+        supabaseError instanceof Error
+          ? supabaseError
+          : new Error(String(supabaseError)),
         "Failed to initialize Supabase client - allocation failed",
       );
       return reply.code(500).send({
@@ -193,6 +216,86 @@ export class PublicApiService {
         error: "Failed to create scoped S3 client",
         details: errorMessage,
       });
+    }
+  }
+
+  private async startDevServerNew(
+    request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicDevServerStartResponse> {
+    try {
+      const startResponse = await this.expoDevServerService.startDevServer(
+        request,
+        reply,
+      );
+
+      // Convert response format from ExpoDevServerService to PublicApiService format
+      return {
+        status: startResponse.success ? "success" : "error",
+        tunnel_url: startResponse.tunnelUrl,
+        build_errors: startResponse.build_errors || [],
+        build_warnings: startResponse.build_warnings || [],
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in startDevServerNew",
+        { stack: errorStack },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: `Internal server error: ${errorMessage}`,
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+  }
+
+  private async updateFiles(
+    request: FastifyRequest<{ Body: PublicUpdateFilesRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicDevServerStartResponse> {
+    try {
+      const startResponse =
+        await this.expoDevServerService.updateDevServerFiles(
+          request.body.files,
+          request.body.assets,
+          request.body?.deleted_files || [],
+        );
+      return {
+        status: startResponse.success ? "success" : "error",
+        tunnel_url: startResponse.tunnelUrl,
+        build_errors: startResponse.build_errors || [],
+        build_warnings: startResponse.build_warnings || [],
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in updateFiles",
+        { stack: errorStack },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: `Internal server error: ${errorMessage}`,
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
     }
   }
 
