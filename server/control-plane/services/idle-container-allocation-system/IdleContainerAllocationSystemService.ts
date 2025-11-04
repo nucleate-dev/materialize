@@ -69,7 +69,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
-    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
@@ -258,7 +258,7 @@ export class IdleContainerAllocationSystemService {
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
-    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
 
     let taskArn: string;
     try {
@@ -465,9 +465,9 @@ export class IdleContainerAllocationSystemService {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition:
-        // process.env.NODE_ENV === 'production'
-        'fastify-build-worker',
-      // : 'materialize-development-containers',
+        process.env.NODE_ENV === 'production'
+          ? 'fastify-build-worker'
+          : 'materialize-development-containers',
       launchType: 'FARGATE' as const,
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -480,9 +480,9 @@ export class IdleContainerAllocationSystemService {
         containerOverrides: [
           {
             name:
-              // process.env.NODE_ENV === 'production'
-              'materialize-fargate-build-worker-container',
-            // : 'materialize-build-worker-container-development',
+              process.env.NODE_ENV === 'production'
+                ? 'materialize-fargate-build-worker-container'
+                : 'materialize-build-worker-container-development',
             environment: [
               {
                 name: 'AWS_REGION',
