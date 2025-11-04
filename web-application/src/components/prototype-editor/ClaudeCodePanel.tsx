@@ -64,10 +64,8 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   const sanitizeFilePath = (path: string): string => {
     if (!path) return path;
     const prefix = '/tmp/materialize-dev-server/';
-    if (path.startsWith(prefix)) {
-      return path.substring(prefix.length);
-    }
-    return path;
+    // Replace all occurrences of the prefix, not just at the start
+    return path.replace(new RegExp(prefix, 'g'), '');
   };
 
   // Helper function to sanitize any value that might contain file paths
@@ -203,7 +201,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       websocket.onopen = () => {
         setIsConnected(true);
-        addMessage("system", "Connected to Claude Code");
+        addMessage("system", "Connected");
       };
 
       websocket.onmessage = (event) => {
@@ -295,10 +293,6 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       // Keep old handlers for backward compatibility during transition
       case "system":
         if (message.subtype === "connection") {
-          addMessage(
-            "system",
-            `Connection ID: ${message.data?.connectionId || "unknown"}`,
-          );
         }
         break;
 
@@ -628,7 +622,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   // Send a query to Claude
   const sendQuery = () => {
     if (!ws || !isConnected) {
-      addMessage("error", "Not connected to Claude Code");
+      addMessage("error", "Not connected");
       return;
     }
 
@@ -666,7 +660,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   // Interrupt current query
   const interruptQuery = () => {
     if (!ws || !isConnected) {
-      addMessage("error", "Not connected to Claude Code");
+      addMessage("error", "Not connected");
       return;
     }
 
@@ -680,7 +674,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   // Reset session
   const resetSession = () => {
     if (!ws || !isConnected) {
-      addMessage("error", "Not connected to Claude Code");
+      addMessage("error", "Not connected");
       return;
     }
 
@@ -771,222 +765,229 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
           ) : (
             <>
               {messages.map((message) => (
-              <div key={message.id}>
-                {/* User messages - keep bubble style */}
-                {message.type === "user" && (
-                  <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-lg p-3 bg-primary text-primary-foreground">
-                      <pre className="whitespace-pre-wrap text-sm font-sans">
-                        {message.content}
-                      </pre>
+                <div key={message.id}>
+                  {/* User messages - keep bubble style */}
+                  {message.type === "user" && (
+                    <div className="flex justify-end">
+                      <div className="max-w-[80%] rounded-lg p-3 bg-primary text-primary-foreground">
+                        <pre className="whitespace-pre-wrap text-sm font-sans">
+                          {message.content}
+                        </pre>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Assistant messages - no bubble, just content */}
-                {message.type === "assistant" && (
-                  <div className="max-w-none">
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown
-                        components={{
-                          // Customize code blocks - inline vs block
-                          code: ({ className, children, ...props }) => {
-                            // Check if it's inline code by looking at the node structure
-                            const isInline = !className?.includes('language-');
-                            if (isInline) {
+                  {/* Assistant messages - no bubble, just content */}
+                  {message.type === "assistant" && (
+                    <div className="max-w-none">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown
+                          components={{
+                            // Customize code blocks - inline vs block
+                            code: ({ className, children, ...props }) => {
+                              // Check if it's inline code by looking at the node structure
+                              const isInline = !className?.includes('language-');
+
+                              // Clean up children to remove any extra backticks
+                              let content = children;
+                              if (typeof content === 'string') {
+                                // Remove leading/trailing backticks that might be in the content
+                                content = content.replace(/^`+|`+$/g, '');
+                              }
+
+                              if (isInline) {
+                                return (
+                                  <code
+                                    className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono before:content-none after:content-none"
+                                    {...props}
+                                  >
+                                    {content}
+                                  </code>
+                                );
+                              }
+                              // Block code
                               return (
                                 <code
-                                  className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono"
+                                  className={`block bg-muted p-3 rounded my-2 overflow-x-auto font-mono text-sm ${className || ""}`}
                                   {...props}
                                 >
-                                  {children}
+                                  {content}
                                 </code>
                               );
-                            }
-                            // Block code
-                            return (
-                              <code
-                                className={`block bg-muted p-3 rounded my-2 overflow-x-auto font-mono text-sm ${className || ""}`}
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            );
-                          },
-                          // Customize paragraphs
-                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          // Customize lists
-                          ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
+                            },
+                            // Customize paragraphs
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            // Customize lists
+                            ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Tool messages - sleek inline style with expandable details */}
-                {message.type === "tool" && (
-                  <div className="py-1">
-                    <div
-                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
-                        message.status === "success"
+                  {/* Tool messages - sleek inline style with expandable details */}
+                  {message.type === "tool" && (
+                    <div className="py-1">
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${message.status === "success"
                           ? "bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20"
                           : message.status === "error"
-                          ? "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20"
-                          : "bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
-                      }`}
-                      onClick={() => message.toolCallId && toggleToolExpanded(message.toolCallId)}
-                    >
-                      {message.status === "running" && (
-                        <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
-                      )}
-                      {message.status === "success" && (
-                        <span className="inline-block w-1.5 h-1.5 bg-current rounded-full" />
-                      )}
-                      {message.status === "error" && (
-                        <span className="inline-block">✗</span>
-                      )}
-                      <span>{message.content}</span>
-                      {message.toolInput && (
-                        <span className="inline-block ml-0.5">
-                          {message.toolCallId && expandedTools.has(message.toolCallId) ? "▼" : "▶"}
-                        </span>
-                      )}
-                    </div>
+                            ? "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20"
+                            : "bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
+                          }`}
+                        onClick={() => message.toolCallId && toggleToolExpanded(message.toolCallId)}
+                      >
+                        {message.status === "running" && (
+                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
+                        )}
+                        {message.status === "success" && (
+                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full" />
+                        )}
+                        {message.status === "error" && (
+                          <span className="inline-block">✗</span>
+                        )}
+                        <span>{message.content}</span>
+                        {message.toolInput && (
+                          <span className="inline-block ml-0.5">
+                            {message.toolCallId && expandedTools.has(message.toolCallId) ? "▼" : "▶"}
+                          </span>
+                        )}
+                      </div>
 
-                    {/* Expandable tool details */}
-                    {message.toolCallId && expandedTools.has(message.toolCallId) && message.toolInput && (
-                      <div className="mt-1 ml-4 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
-                        {/* Show history for ephemeral tools (read-only) */}
-                        {message.toolHistory && message.toolHistory.length > 1 && (
-                          <div className="mb-2">
-                            <div className="font-semibold mb-1">History ({message.toolHistory.length} invocations):</div>
-                            <div className="space-y-1 max-h-40 overflow-y-auto">
-                              {message.toolHistory.map((historyItem, idx) => {
-                                const sanitized = sanitizeValue(historyItem);
+                      {/* Expandable tool details */}
+                      {message.toolCallId && expandedTools.has(message.toolCallId) && message.toolInput && (
+                        <div className="mt-1 ml-4 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                          {/* Show history for ephemeral tools (read-only) */}
+                          {message.toolHistory && message.toolHistory.length > 1 && (
+                            <div className="mb-2">
+                              <div className="font-semibold mb-1">History ({message.toolHistory.length} invocations):</div>
+                              <div className="space-y-1 max-h-40 overflow-y-auto">
+                                {message.toolHistory.map((historyItem, idx) => {
+                                  const sanitized = sanitizeValue(historyItem);
+                                  return (
+                                    <div key={idx} className="pl-2 border-l-2 border-muted-foreground/20 font-mono">
+                                      {sanitized.pattern && (
+                                        <div><span className="font-semibold">pattern:</span> {sanitized.pattern}</div>
+                                      )}
+                                      {sanitized.file_path && (
+                                        <div><span className="font-semibold">file:</span> {sanitized.file_path}</div>
+                                      )}
+                                      {sanitized.command && (
+                                        <div><span className="font-semibold">command:</span> {sanitized.command}</div>
+                                      )}
+                                      {/* Show any other parameters */}
+                                      {Object.entries(sanitized).map(([key, value]) => {
+                                        if (['pattern', 'file_path', 'command', 'description'].includes(key)) return null;
+                                        return (
+                                          <div key={key}>
+                                            <span className="font-semibold">{key}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Show most recent invocation details */}
+                          {!message.toolHistory || message.toolHistory.length === 1 ? (
+                            <div className="font-mono">
+                              {message.toolInput.command && (
+                                <div className="mb-1">
+                                  <span className="font-semibold">Command: </span>
+                                  <span>{sanitizeFilePath(message.toolInput.command)}</span>
+                                </div>
+                              )}
+                              {Object.entries(message.toolInput).map(([key, value]) => {
+                                if (key === 'command' || key === 'description') return null;
+                                const sanitizedValue = sanitizeValue(value);
                                 return (
-                                  <div key={idx} className="pl-2 border-l-2 border-muted-foreground/20 font-mono">
-                                    {sanitized.pattern && (
-                                      <div><span className="font-semibold">pattern:</span> {sanitized.pattern}</div>
-                                    )}
-                                    {sanitized.file_path && (
-                                      <div><span className="font-semibold">file:</span> {sanitized.file_path}</div>
-                                    )}
-                                    {sanitized.command && (
-                                      <div><span className="font-semibold">command:</span> {sanitized.command}</div>
-                                    )}
-                                    {/* Show any other parameters */}
-                                    {Object.entries(sanitized).map(([key, value]) => {
-                                      if (['pattern', 'file_path', 'command', 'description'].includes(key)) return null;
-                                      return (
-                                        <div key={key}>
-                                          <span className="font-semibold">{key}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                        </div>
-                                      );
-                                    })}
+                                  <div key={key} className="mb-1">
+                                    <span className="font-semibold">{key}: </span>
+                                    <span>{typeof sanitizedValue === 'object' ? JSON.stringify(sanitizedValue, null, 2) : String(sanitizedValue)}</span>
                                   </div>
                                 );
                               })}
                             </div>
-                          </div>
-                        )}
-
-                        {/* Show most recent invocation details */}
-                        {!message.toolHistory || message.toolHistory.length === 1 ? (
-                          <div className="font-mono">
-                            {message.toolInput.command && (
-                              <div className="mb-1">
-                                <span className="font-semibold">Command: </span>
-                                <span>{sanitizeFilePath(message.toolInput.command)}</span>
-                              </div>
-                            )}
-                            {Object.entries(message.toolInput).map(([key, value]) => {
-                              if (key === 'command' || key === 'description') return null;
-                              const sanitizedValue = sanitizeValue(value);
-                              return (
-                                <div key={key} className="mb-1">
-                                  <span className="font-semibold">{key}: </span>
-                                  <span>{typeof sanitizedValue === 'object' ? JSON.stringify(sanitizedValue, null, 2) : String(sanitizedValue)}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="text-xs opacity-75 mt-1">Most recent shown in history above</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Thinking messages - collapsible low-opacity thoughts */}
-                {message.type === "thinking" && (
-                  <div className="py-2 opacity-60">
-                    <div
-                      className="flex items-start gap-2 cursor-pointer"
-                      onClick={() => message.toolCallId && toggleThinkingExpanded(message.toolCallId)}
-                    >
-                      <div className="flex-shrink-0 mt-0.5">
-                        {message.toolCallId && expandedThinking.has(message.toolCallId) ? (
-                          <span className="text-xs">▼</span>
-                        ) : (
-                          <span className="text-xs">▶</span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium italic text-muted-foreground">
-                            {message.status === "running" ? "Thinking: " : "Thought: "}
-                            {message.content}
-                          </span>
-                          {message.status === "running" && (
-                            <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
+                          ) : (
+                            <div className="text-xs opacity-75 mt-1">Most recent shown in history above</div>
                           )}
                         </div>
+                      )}
+                    </div>
+                  )}
 
-                        {/* Expandable thinking details */}
-                        {message.toolCallId && expandedThinking.has(message.toolCallId) && message.toolInput && (
-                          <div className="mt-2 p-3 bg-muted/30 rounded text-xs">
-                            {message.toolInput.prompt && (
-                              <div className="whitespace-pre-wrap font-mono text-muted-foreground">
-                                {sanitizeFilePath(message.toolInput.prompt)}
-                              </div>
-                            )}
-                            {message.toolInput.subagent_type && (
-                              <div className="mt-2 text-xs">
-                                <span className="font-semibold">Agent: </span>
-                                <span className="text-muted-foreground">{message.toolInput.subagent_type}</span>
-                              </div>
-                            )}
-                            {message.toolInput.model && (
-                              <div className="text-xs">
-                                <span className="font-semibold">Model: </span>
-                                <span className="text-muted-foreground">{message.toolInput.model}</span>
-                              </div>
+                  {/* Thinking messages - collapsible low-opacity thoughts */}
+                  {message.type === "thinking" && (
+                    <div className="py-2 opacity-60">
+                      <div
+                        className="flex items-start gap-2 cursor-pointer"
+                        onClick={() => message.toolCallId && toggleThinkingExpanded(message.toolCallId)}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {message.toolCallId && expandedThinking.has(message.toolCallId) ? (
+                            <span className="text-xs">▼</span>
+                          ) : (
+                            <span className="text-xs">▶</span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium italic text-muted-foreground">
+                              {message.status === "running" ? "Thinking: " : "Thought: "}
+                              {message.content}
+                            </span>
+                            {message.status === "running" && (
+                              <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
                             )}
                           </div>
-                        )}
+
+                          {/* Expandable thinking details */}
+                          {message.toolCallId && expandedThinking.has(message.toolCallId) && message.toolInput && (
+                            <div className="mt-2 p-3 bg-muted/30 rounded text-xs">
+                              {message.toolInput.prompt && (
+                                <div className="whitespace-pre-wrap font-mono text-muted-foreground">
+                                  {sanitizeFilePath(message.toolInput.prompt)}
+                                </div>
+                              )}
+                              {message.toolInput.subagent_type && (
+                                <div className="mt-2 text-xs">
+                                  <span className="font-semibold">Agent: </span>
+                                  <span className="text-muted-foreground">{message.toolInput.subagent_type}</span>
+                                </div>
+                              )}
+                              {message.toolInput.model && (
+                                <div className="text-xs">
+                                  <span className="font-semibold">Model: </span>
+                                  <span className="text-muted-foreground">{message.toolInput.model}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* System messages - subtle */}
-                {message.type === "system" && (
-                  <div className="text-xs text-muted-foreground py-1">
-                    {message.content}
-                  </div>
-                )}
+                  {/* System messages - subtle */}
+                  {message.type === "system" && (
+                    <div className="text-xs text-muted-foreground py-1">
+                      {message.content}
+                    </div>
+                  )}
 
-                {/* Error messages */}
-                {message.type === "error" && (
-                  <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-sm">
-                    {message.content}
-                  </div>
-                )}
-              </div>
+                  {/* Error messages */}
+                  {message.type === "error" && (
+                    <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-sm">
+                      {message.content}
+                    </div>
+                  )}
+                </div>
               ))}
 
               {/* Show "Thinking..." indicator when processing but no response received yet */}
