@@ -42,6 +42,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   const [sessionId, setSessionId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -148,6 +149,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       setWs(null);
       setIsConnected(false);
       authTokenRef.current = null;
+      sessionIdRef.current = null;
     }
   };
 
@@ -216,8 +218,12 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAgentMessage = (data: any) => {
     if (data.type === "system" && data.subtype === "init") {
+      const isNewSession = sessionIdRef.current !== data.session_id;
+      sessionIdRef.current = data.session_id;
       setSessionId(data.session_id);
-      addMessage("system", `Session initialized: ${data.session_id}`);
+      if (isNewSession) {
+        addMessage("system", `Session initialized: ${data.session_id}`);
+      }
     } else if (data.type === "text_delta" || data.type === "text") {
       // Stream text response
       const content = data.content || data.text || "";
@@ -331,6 +337,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       }),
     );
     setMessages([]);
+    sessionIdRef.current = null;
   };
 
   // Handle Enter key

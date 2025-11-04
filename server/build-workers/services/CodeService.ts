@@ -232,8 +232,9 @@ export class CodeService {
 
       this.logger.info("Querying Claude Agent SDK", {
         hasResume: !!queryOptions.resume,
+        resumeSessionId: queryOptions.resume,
         model: queryOptions.model,
-        workingDirectory: queryOptions.workingDirectory,
+        workingDirectory: this.workDir,
       });
 
       // Stream responses back to client
@@ -245,13 +246,20 @@ export class CodeService {
       for await (const msg of response) {
         // Capture session ID from init message
         if (msg.type === "system" && msg.subtype === "init") {
+          const isNewSession = this.sessionState.sessionId !== msg.session_id;
+          const previousSessionId = this.sessionState.sessionId;
+
           this.sessionState.sessionId = msg.session_id;
           this.sessionState.isActive = true;
-          this.sessionState.createdAt = Date.now();
+          if (isNewSession) {
+            this.sessionState.createdAt = Date.now();
+          }
           this.sessionState.lastActiveAt = Date.now();
 
           this.logger.info("Claude Code session initialized", {
             sessionId: msg.session_id,
+            isNewSession,
+            previousSessionId,
           });
         }
 
