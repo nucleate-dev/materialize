@@ -413,6 +413,7 @@ export type Database = {
       prototype_chat_sessions: {
         Row: {
           chat_context: Json | null;
+          claude_session_id: string | null;
           created_at: string | null;
           id: string;
           prototype_id: string | null;
@@ -420,6 +421,7 @@ export type Database = {
         };
         Insert: {
           chat_context?: Json | null;
+          claude_session_id?: string | null;
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
@@ -427,6 +429,7 @@ export type Database = {
         };
         Update: {
           chat_context?: Json | null;
+          claude_session_id?: string | null;
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
