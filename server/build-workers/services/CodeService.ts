@@ -213,7 +213,7 @@ export class CodeService {
       // Query Claude with session resumption if available
       const queryOptions = {
         ...options,
-        workingDirectory: this.workDir,
+        cwd: this.workDir,
         maxTurns: options?.maxTurns ?? 10,
         allowedTools: options?.allowedTools ?? [
           "Read",
@@ -234,7 +234,7 @@ export class CodeService {
         hasResume: !!queryOptions.resume,
         resumeSessionId: queryOptions.resume,
         model: queryOptions.model,
-        workingDirectory: this.workDir,
+        cwd: this.workDir,
       });
 
       // Stream responses back to client
