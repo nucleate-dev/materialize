@@ -1,8 +1,8 @@
 import {
-  Options,
-  PermissionMode,
   HookInput,
   HookJSONOutput,
+  Options,
+  PermissionMode,
   query,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -222,7 +222,7 @@ export class CodeService {
       // Query Claude with session resumption if available
       const queryOptions = {
         ...options,
-        includePartialMessages: true,
+        includePartialMessages: false,
         cwd: this.workDir,
         maxTurns: options?.maxTurns ?? 50,
         allowedTools: options?.allowedTools ?? [
@@ -242,16 +242,33 @@ export class CodeService {
           PreToolUse: [
             {
               hooks: [
-                async (input: HookInput): Promise<HookJSONOutput> => {
-                  if (input.hook_event_name === "PreToolUse") {
-                    // Send tool start event to WebSocket client
-                    this.sendMessage(socket, {
-                      type: "tool_start",
-                      data: {
-                        tool_name: input.tool_name,
-                        tool_input: input.tool_input,
-                      },
-                    });
+                async (
+                  input: HookInput,
+                  toolUseID: string | undefined,
+                  _options: { signal: AbortSignal },
+                ): Promise<HookJSONOutput> => {
+                  try {
+                    if (input.hook_event_name === "PreToolUse") {
+                      // Send tool start event to WebSocket client
+                      if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(
+                          JSON.stringify({
+                            type: "tool_start",
+                            data: {
+                              tool_name: input.tool_name,
+                              tool_input: input.tool_input,
+                              tool_call_id: toolUseID,
+                            },
+                          }),
+                        );
+                      }
+                    }
+                  } catch (error) {
+                    // Log but don't fail the hook
+                    this.logger.error(
+                      error instanceof Error ? error : new Error(String(error)),
+                      "PreToolUse hook error",
+                    );
                   }
                   return { continue: true };
                 },
@@ -261,17 +278,34 @@ export class CodeService {
           PostToolUse: [
             {
               hooks: [
-                async (input: HookInput): Promise<HookJSONOutput> => {
-                  if (input.hook_event_name === "PostToolUse") {
-                    // Send tool complete event to WebSocket client
-                    this.sendMessage(socket, {
-                      type: "tool_complete",
-                      data: {
-                        tool_name: input.tool_name,
-                        tool_input: input.tool_input,
-                        tool_response: input.tool_response,
-                      },
-                    });
+                async (
+                  input: HookInput,
+                  toolUseID: string | undefined,
+                  _options: { signal: AbortSignal },
+                ): Promise<HookJSONOutput> => {
+                  try {
+                    if (input.hook_event_name === "PostToolUse") {
+                      // Send tool complete event to WebSocket client
+                      if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(
+                          JSON.stringify({
+                            type: "tool_complete",
+                            data: {
+                              tool_name: input.tool_name,
+                              tool_input: input.tool_input,
+                              tool_response: input.tool_response,
+                              tool_call_id: toolUseID,
+                            },
+                          }),
+                        );
+                      }
+                    }
+                  } catch (error) {
+                    // Log but don't fail the hook
+                    this.logger.error(
+                      error instanceof Error ? error : new Error(String(error)),
+                      "PostToolUse hook error",
+                    );
                   }
                   return { continue: true };
                 },

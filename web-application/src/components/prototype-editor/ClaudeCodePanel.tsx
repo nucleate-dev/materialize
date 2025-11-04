@@ -19,7 +19,9 @@ interface Message {
   content: string;
   timestamp: number;
   toolName?: string;
+  toolCallId?: string;
   isComplete?: boolean;
+  status?: "running" | "success" | "error";
 }
 
 interface ServerMessage {
@@ -33,6 +35,7 @@ interface ServerMessage {
     sessionId?: string;
     message?: string;
     tool_name?: string;
+    tool_call_id?: string;
     tool_input?: unknown;
     tool_response?: unknown;
   };
@@ -85,9 +88,9 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       }
 
       authTokenRef.current = token;
-
-      const wsUrl = `${baseTunnelUrl}/code/ws/`;
-      logger.debug("log", "WebSocket URL", { wsUrl, baseTunnelUrl, prototypeId });
+      const finalTunnelUrlBase = process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT || baseTunnelUrl;
+      const wsUrl = `${finalTunnelUrlBase}/code/ws/`;
+      logger.debug("log", "WebSocket URL", { wsUrl, finalTunnelUrlBase, prototypeId });
 
       logger.debug("log", "Attempting WebSocket connection", {
         serverEndpoint,
@@ -177,14 +180,8 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         break;
 
       case "message_received":
-        // Server acknowledged receipt of our message
+        // Server acknowledged receipt of our message - don't show in chat
         setIsProcessing(false);
-        if (message.timestamp) {
-          addMessage(
-            "system",
-            `Message received at ${new Date(message.timestamp).toLocaleTimeString()}`,
-          );
-        }
         break;
 
       case "ready":
@@ -231,14 +228,16 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       case "tool_start":
         // Add a tool message when a tool starts
         if (message.data?.tool_name) {
-          addToolMessage(message.data.tool_name, false);
+          const toolCallId = message.data?.tool_call_id || `tool-${Date.now()}`;
+          addToolMessage(message.data.tool_name, toolCallId, "running");
         }
         break;
 
       case "tool_complete":
         // Update the tool message when it completes
         if (message.data?.tool_name) {
-          updateToolMessage(message.data.tool_name, true);
+          const toolCallId = message.data?.tool_call_id || "";
+          updateToolMessage(toolCallId, "success");
         }
         break;
 
@@ -252,14 +251,11 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   // Handle agent messages (streaming responses from Claude)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAgentMessage = (data: any) => {
-    // Handle system init message
+    // Handle system init message - update session ID but don't show in chat
     if (data.type === "system" && data.subtype === "init") {
-      const isNewSession = sessionIdRef.current !== data.session_id;
       sessionIdRef.current = data.session_id;
       setSessionId(data.session_id);
-      if (isNewSession) {
-        addMessage("system", `Session initialized: ${data.session_id}`);
-      }
+      // Don't add system message to chat - it's just internal state
       return;
     }
 
@@ -299,13 +295,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         }
       }
 
-      // Handle content block start (for tool use)
-      else if (event.type === "content_block_start") {
-        if (event.content_block?.type === "tool_use") {
-          addMessage("system", `Tool: ${event.content_block.name || "unknown"}`);
-        }
-      }
-
+      // Don't show tool_use in stream events - we handle them via hooks
       return;
     }
 
@@ -338,58 +328,22 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                 ];
               }
             });
-          } else if (content.type === "tool_use") {
-            addMessage("system", `Tool: ${content.name || "unknown"}`);
           }
+          // Don't show tool_use here - we handle them via hooks
         }
       }
       return;
     }
 
-    // Handle result messages
+    // Handle result messages - don't show completion in chat
     if (data.type === "result") {
-      if (data.subtype === "success") {
-        addMessage("system", `Query completed (${data.num_turns} turns, $${data.total_cost_usd?.toFixed(4) || "0.0000"})`);
-      } else if (data.subtype === "error_max_turns") {
+      // Just log errors, don't show success completion
+      if (data.subtype === "error_max_turns") {
         addMessage("error", "Maximum turns reached");
       } else if (data.subtype === "error_during_execution") {
         addMessage("error", "Error during execution");
       }
-      return;
-    }
-
-    // Handle legacy formats for backward compatibility
-    if (data.type === "text_delta" || data.type === "text") {
-      const content = data.content || data.text || "";
-      if (content) {
-        setMessages((prev) => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage && lastMessage.type === "assistant") {
-            return [
-              ...prev.slice(0, -1),
-              {
-                ...lastMessage,
-                content: lastMessage.content + content,
-              },
-            ];
-          } else {
-            return [
-              ...prev,
-              {
-                id: Date.now().toString(),
-                type: "assistant",
-                content,
-                timestamp: Date.now(),
-              },
-            ];
-          }
-        });
-      }
-      return;
-    }
-
-    if (data.type === "tool_use") {
-      addMessage("system", `Tool: ${data.tool_name || "unknown"}`);
+      // Don't show "Query completed" for success
       return;
     }
 
@@ -411,36 +365,37 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   };
 
   // Add a tool message when a tool starts
-  const addToolMessage = (toolName: string, isComplete: boolean) => {
+  const addToolMessage = (toolName: string, toolCallId: string, status: "running" | "success" | "error") => {
     setMessages((prev) => [
       ...prev,
       {
-        id: `tool-${toolName}-${Date.now()}`,
+        id: `tool-${toolCallId}`,
         type: "tool",
-        content: `${toolName}${isComplete ? " ✓" : "..."}`,
+        content: toolName,
         timestamp: Date.now(),
         toolName,
-        isComplete,
+        toolCallId,
+        isComplete: false,
+        status,
       },
     ]);
   };
 
   // Update a tool message when it completes
-  const updateToolMessage = (toolName: string, isComplete: boolean) => {
+  const updateToolMessage = (toolCallId: string, status: "running" | "success" | "error") => {
     setMessages((prev) => {
-      // Find the most recent incomplete tool message with this name
-      const index = [...prev].reverse().findIndex(
-        (msg) => msg.type === "tool" && msg.toolName === toolName && !msg.isComplete
+      // Find the tool message with this toolCallId
+      const index = prev.findIndex(
+        (msg) => msg.type === "tool" && msg.toolCallId === toolCallId && !msg.isComplete
       );
 
       if (index === -1) return prev;
 
-      const actualIndex = prev.length - 1 - index;
       const updatedMessages = [...prev];
-      updatedMessages[actualIndex] = {
-        ...updatedMessages[actualIndex],
-        content: `${toolName} ✓`,
-        isComplete,
+      updatedMessages[index] = {
+        ...updatedMessages[index],
+        isComplete: true,
+        status,
       };
 
       return updatedMessages;
@@ -584,31 +539,28 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
               Connect to start chatting with Claude Code
             </div>
           ) : (
             messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.type === "user" ? "justify-end" : "justify-start"
-                  }`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg p-3 ${message.type === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : message.type === "error"
-                      ? "bg-destructive/10 text-destructive"
-                      : message.type === "system"
-                        ? "bg-muted text-muted-foreground text-xs"
-                        : message.type === "tool"
-                          ? `bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono ${!message.isComplete ? "animate-pulse" : ""}`
-                          : "bg-muted"
-                    }`}
-                >
-                  {message.type === "assistant" ? (
+              <div key={message.id}>
+                {/* User messages - keep bubble style */}
+                {message.type === "user" && (
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-lg p-3 bg-primary text-primary-foreground">
+                      <pre className="whitespace-pre-wrap text-sm font-sans">
+                        {message.content}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* Assistant messages - no bubble, just content */}
+                {message.type === "assistant" && (
+                  <div className="max-w-none">
                     <div className="prose prose-sm dark:prose-invert max-w-none">
                       <ReactMarkdown
                         components={{
@@ -635,12 +587,46 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                         {message.content}
                       </ReactMarkdown>
                     </div>
-                  ) : (
-                    <pre className="whitespace-pre-wrap text-sm font-sans">
-                      {message.content}
-                    </pre>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {/* Tool messages - sleek inline style */}
+                {message.type === "tool" && (
+                  <div className="flex items-center gap-2 py-1">
+                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${
+                      message.status === "success"
+                        ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                        : message.status === "error"
+                        ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                        : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                    }`}>
+                      {message.status === "running" && (
+                        <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
+                      )}
+                      {message.status === "success" && (
+                        <span className="inline-block w-1.5 h-1.5 bg-current rounded-full" />
+                      )}
+                      {message.status === "error" && (
+                        <span className="inline-block">✗</span>
+                      )}
+                      <span>{message.content}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* System messages - subtle */}
+                {message.type === "system" && (
+                  <div className="text-xs text-muted-foreground py-1">
+                    {message.content}
+                  </div>
+                )}
+
+                {/* Error messages */}
+                {message.type === "error" && (
+                  <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-sm">
+                    {message.content}
+                  </div>
+                )}
               </div>
             ))
           )}

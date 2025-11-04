@@ -176,15 +176,17 @@ export default function Terminal({
       if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
         return;
       }
-
+      const finalTunnelUrlBase = process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT || baseTunnelUrl;
+      console.log("finalTunnelUrlBase", finalTunnelUrlBase);
       // Construct the full WebSocket URL for this session
       const sessionPath = TERMINAL_SESSION_PATHS[session];
-      const fullTerminalUrl = baseTunnelUrl.endsWith('/')
-        ? `${baseTunnelUrl}${sessionPath.slice(1)}`
-        : `${baseTunnelUrl}${sessionPath}`;
-
+      const fullTerminalUrl = finalTunnelUrlBase.endsWith('/')
+        ? `${finalTunnelUrlBase}${sessionPath.slice(1)}`
+        : `${finalTunnelUrlBase}${sessionPath}`;
+      console.log("fullTerminalUrl", fullTerminalUrl);
       // Create WebSocket connection
       const ws = new WebSocket(fullTerminalUrl);
+      console.log("ws", ws);
       instance.ws = ws;
 
       ws.onopen = () => {

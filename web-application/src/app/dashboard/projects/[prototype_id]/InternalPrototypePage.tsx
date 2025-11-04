@@ -86,6 +86,7 @@ export type RenderStatus =
   | "Disconnected"
   | "Connected";
 
+
 export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
@@ -867,33 +868,33 @@ export default function InternalPrototypePage() {
               />
             ) : (
               <PrototypeChatWindow
-              prototypeId={prototypeId}
-              prototype={prototype}
-              canEditPrototype={canEditPrototype}
-              onPrototypeUpdate={setPrototype}
-              // File system integration
-              files={fileSystem.state.files}
-              assets={Object.fromEntries(
-                Object.entries(fileSystem.state.assets).map(([key, asset]) => [
-                  key,
-                  { ...asset, storage_url: asset.storage_url || "" },
-                ]),
-              )}
-              onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
-              currentViewingUrl={viewingUrl ?? ""}
-              // Loading state
-              isChatLoading={isChatLoading}
-              setIsChatLoading={setIsChatLoading}
-              // Viewing URL integration
-              onViewingUrlUpdate={setViewingUrl}
-              // Render status for disabling input
-              currentRenderStatus={currentRenderStatus}
-              onCurrentRenderStatusChange={setCurrentRenderStatus}
-              // Current viewing path for LLM context
-              currentViewingPath={currentViewingPath}
-              // Model provider selection
-              modelProvider={modelProvider}
-              onModelProviderChange={setModelProvider}
+                prototypeId={prototypeId}
+                prototype={prototype}
+                canEditPrototype={canEditPrototype}
+                onPrototypeUpdate={setPrototype}
+                // File system integration
+                files={fileSystem.state.files}
+                assets={Object.fromEntries(
+                  Object.entries(fileSystem.state.assets).map(([key, asset]) => [
+                    key,
+                    { ...asset, storage_url: asset.storage_url || "" },
+                  ]),
+                )}
+                onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
+                currentViewingUrl={viewingUrl ?? ""}
+                // Loading state
+                isChatLoading={isChatLoading}
+                setIsChatLoading={setIsChatLoading}
+                // Viewing URL integration
+                onViewingUrlUpdate={setViewingUrl}
+                // Render status for disabling input
+                currentRenderStatus={currentRenderStatus}
+                onCurrentRenderStatusChange={setCurrentRenderStatus}
+                // Current viewing path for LLM context
+                currentViewingPath={currentViewingPath}
+                // Model provider selection
+                modelProvider={modelProvider}
+                onModelProviderChange={setModelProvider}
               />
             )}
           </div>
