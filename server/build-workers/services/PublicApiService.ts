@@ -223,11 +223,33 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
+    const { prototype_id, framework } = request.body;
+
+    if (!prototype_id || !framework) {
+      reply.code(400);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: "prototype_id and framework are required",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+
     try {
       const startResponse = await this.expoDevServerService.startDevServer(
-        request,
-        reply,
+        prototype_id,
+        framework,
+        request.log2,
       );
+
+      // Set appropriate status code based on response
+      if (!startResponse.success) {
+        reply.code(500);
+      }
 
       // Convert response format from ExpoDevServerService to PublicApiService format
       return {
@@ -303,22 +325,35 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
+    const { prototype_id, framework } = request.body;
+
+    if (!prototype_id || !framework) {
+      reply.code(400);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: "prototype_id and framework are required",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+
     try {
       if (request.body.file_scope === "complete") {
-        // For starting dev server, create a new request with only prototype_id and framework
-        // Files will be fetched from Supabase directly in the ExpoDevServerService
-        const newRequest = {
-          ...request,
-          body: {
-            prototype_id: request.body.prototype_id,
-            framework: request.body.framework,
-          },
-        } as FastifyRequest<{ Body: PublicStartDevServerRequest }>;
-
+        // For starting dev server, files will be fetched from Supabase directly in the ExpoDevServerService
         const startResponse = await this.expoDevServerService.startDevServer(
-          newRequest,
-          reply,
+          prototype_id,
+          framework,
+          request.log2,
         );
+
+        // Set appropriate status code based on response
+        if (!startResponse.success) {
+          reply.code(500);
+        }
 
         // Convert response format from ExpoDevServerService to PublicApiService format
         return {
@@ -341,7 +376,8 @@ export class PublicApiService {
           build_warnings: startResponse.build_warnings || [],
         };
       }
-      // Direct call to ExpoDevServerService with the same request
+      // Invalid file scope
+      reply.code(400);
       return {
         status: "error",
         build_errors: [
