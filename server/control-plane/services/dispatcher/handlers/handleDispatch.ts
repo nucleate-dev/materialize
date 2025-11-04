@@ -7,7 +7,6 @@ import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   StandardErrorResponse,
-  StartDevServerRequestBody,
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { GlideClient } from '@valkey/valkey-glide';
@@ -38,6 +37,7 @@ import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
+import { PublicDevServerStartRequest } from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
   body: DispatchRequestBody,
@@ -448,7 +448,7 @@ async function constructRequestBody({
   file_scope: FileScope;
   deleted_files?: string[];
   log2: SystemLogger;
-}): Promise<StartDevServerRequestBody> {
+}): Promise<PublicDevServerStartRequest> {
   const supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
@@ -510,7 +510,7 @@ async function constructRequestBody({
 
 async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
-  requestBody: StartDevServerRequestBody,
+  requestBody: PublicDevServerStartRequest,
   log2: SystemLogger,
 ): Promise<FargateDevServerResponse> {
   try {

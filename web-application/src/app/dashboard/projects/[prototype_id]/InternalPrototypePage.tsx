@@ -86,12 +86,11 @@ export type RenderStatus =
   | "Disconnected"
   | "Connected";
 
-
 export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -155,8 +154,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-      (system) => String(system.id) === currentCustomDesignSystemId,
-    )?.name || "Custom design system"
+        (system) => String(system.id) === currentCustomDesignSystemId,
+      )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -395,15 +394,6 @@ export default function InternalPrototypePage() {
         return;
       }
 
-      // 3. AUTO-START DEV SERVER WHEN FILES ARE LOADED
-      if (
-        !fileSystem.state.files ||
-        !fileSystem.state.assets ||
-        Object.keys(fileSystem.state.files).length === 0
-      ) {
-        // too soon to send files to server, we'll re-trigger this entirefunction when all files are loaded
-        return;
-      }
       if (hasChatIntent(prototypeId)) {
         setShouldTriggerInitialFetch(false);
         return;
@@ -411,27 +401,6 @@ export default function InternalPrototypePage() {
 
       try {
         setCurrentRenderStatus("Starting Dev Server..");
-        const filesArray: PrototypeFile[] = Object.entries(
-          fileSystem.state.files,
-        ).map(([path, file]) => ({
-          contents: file.contents,
-          name: path,
-          prototype_id: file.prototype_id || prototypeId,
-          id: file.id,
-          created_at: file.created_at || null,
-          updated_at: file.updated_at || null,
-        }));
-        const assetsArray: PrototypeAsset[] = Object.entries(
-          fileSystem.state.assets,
-        ).map(([path, asset]) => ({
-          storage_url: asset.storage_url || "",
-          name: path,
-          prototype_id: asset.prototype_id || prototypeId,
-          created_at: asset.created_at || null,
-          updated_at: asset.updated_at || null,
-          id: asset.id,
-        }));
-
         setShouldTriggerInitialFetch(false);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
@@ -443,10 +412,7 @@ export default function InternalPrototypePage() {
             },
             body: JSON.stringify({
               framework: "expo_react_native",
-              files: filesArray,
-              assets: assetsArray,
               prototype_id: prototypeId,
-              file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
           },
         );
@@ -490,8 +456,6 @@ export default function InternalPrototypePage() {
       }
     };
   }, [
-    fileSystem.state.assets,
-    fileSystem.state.files,
     prototypeId,
     router,
     shouldTriggerInitialFetch,
@@ -643,10 +607,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            design_style: dialogDesignStyle,
-            custom_design_system: nextCustomDesignSystem,
-          }
+              ...prev,
+              design_style: dialogDesignStyle,
+              custom_design_system: nextCustomDesignSystem,
+            }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -829,10 +793,11 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - AI Assistant Chat or Claude Code */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -878,10 +843,12 @@ export default function InternalPrototypePage() {
                 // File system integration
                 files={fileSystem.state.files}
                 assets={Object.fromEntries(
-                  Object.entries(fileSystem.state.assets).map(([key, asset]) => [
-                    key,
-                    { ...asset, storage_url: asset.storage_url || "" },
-                  ]),
+                  Object.entries(fileSystem.state.assets).map(
+                    ([key, asset]) => [
+                      key,
+                      { ...asset, storage_url: asset.storage_url || "" },
+                    ],
+                  ),
                 )}
                 onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
                 currentViewingUrl={viewingUrl ?? ""}
@@ -917,10 +884,11 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -961,10 +929,11 @@ export default function InternalPrototypePage() {
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   <div
-                    className={`${isMobile
-                      ? "w-full max-h-[200px] border-b"
-                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                      } border-border`}
+                    className={`${
+                      isMobile
+                        ? "w-full max-h-[200px] border-b"
+                        : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                    } border-border`}
                   >
                     <div className="h-full overflow-auto">
                       <FileTree
@@ -1121,10 +1090,11 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
-                  }`}
+                className={`relative inline-flex items-center ${
+                  userPlan !== "pro" && !isPublic
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
               >
                 <input
                   type="checkbox"

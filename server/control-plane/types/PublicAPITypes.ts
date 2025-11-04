@@ -262,11 +262,7 @@ export interface UpdateFilesErrorResponse {
 
 export interface StartDevServerRequestBody {
   framework: 'expo_react_native' | 'react';
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
-  file_scope?: 'updates' | 'complete';
-  deleted_files?: string[];
 }
 
 export interface StartDevServerSuccessResponse {

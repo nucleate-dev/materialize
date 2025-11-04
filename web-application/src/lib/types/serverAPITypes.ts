@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-03T21:27:36.346Z
+// Last synced: 2025-11-04T18:24:51.365Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -271,11 +271,7 @@ export interface UpdateFilesErrorResponse {
 
 export interface StartDevServerRequestBody {
   framework: 'expo_react_native' | 'react';
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
-  file_scope?: 'updates' | 'complete';
-  deleted_files?: string[];
 }
 
 export interface StartDevServerSuccessResponse {
@@ -351,12 +347,7 @@ export interface ChatRequestBody {
   prototype_id: string;
   imageUrl?: string | null; // Storage path or signed URL for the uploaded image (will be converted to base64 for LLM)
   currentViewingPath?: string | null;
-  modelProvider?:
-    | 'google'
-    | 'anthropic'
-    | 'openai'
-    | 'openai-mini'
-    | 'google-pro';
+  modelProvider?: 'google' | 'anthropic' | 'openai' | 'openai-mini';
 }
 
 // Streaming response types for different event types
