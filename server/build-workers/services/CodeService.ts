@@ -7,7 +7,10 @@ import {
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { FastifyInstance, FastifyRequest } from "fastify";
+import fs from "fs/promises";
+import path from "path";
 import WebSocket from "ws";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 
 interface CodeSessionState {
@@ -43,6 +46,7 @@ export class CodeService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
+  private readonly getSupabaseClient: () => SupabaseClient | null;
   private sessionState: CodeSessionState = {
     sessionId: null,
     isActive: false,
@@ -51,15 +55,23 @@ export class CodeService {
     abortController: null,
   };
   private activeConnections = new Map<string, WebSocket>();
+  private connectionMetadata = new WeakMap<
+    WebSocket,
+    { connectionId: string; prototypeId: string }
+  >();
+  private changedFilesDuringQuery = new Map<string, Set<string>>();
+  private deletedFilesDuringQuery = new Map<string, Set<string>>();
 
   constructor(
     fastifyApp: FastifyInstance,
     workDir: string,
     logger: SystemLogger,
+    getSupabaseClient: () => SupabaseClient | null,
   ) {
     this.workDir = workDir;
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
+    this.getSupabaseClient = getSupabaseClient;
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
@@ -109,6 +121,7 @@ export class CodeService {
     });
 
     this.activeConnections.set(connectionId, socket);
+    this.connectionMetadata.set(socket, { connectionId, prototypeId });
 
     // Send initial connection confirmation
     this.sendMessage(socket, {
@@ -150,6 +163,7 @@ export class CodeService {
         reason: reason.toString(),
       });
       this.activeConnections.delete(connectionId);
+      this.connectionMetadata.delete(socket);
     });
 
     socket.on("error", (error: Error) => {
@@ -158,6 +172,7 @@ export class CodeService {
         connectionId,
       });
       this.activeConnections.delete(connectionId);
+      this.connectionMetadata.delete(socket);
     });
   }
 
@@ -197,6 +212,7 @@ export class CodeService {
     prototypeId: string,
   ): Promise<void> {
     const { prompt, content, options = {} } = data;
+    const connectionId = this.getConnectionIdForSocket(socket);
 
     // Support both old format (prompt) and new format (content)
     if (!prompt && !content) {
@@ -225,6 +241,10 @@ export class CodeService {
     });
 
     try {
+      if (connectionId) {
+        this.changedFilesDuringQuery.set(connectionId, new Set());
+        this.deletedFilesDuringQuery.set(connectionId, new Set());
+      }
       // Create a new AbortController for this query
       const abortController = new AbortController();
       this.sessionState.abortController = abortController;
@@ -327,6 +347,9 @@ export class CodeService {
                 ): Promise<HookJSONOutput> => {
                   try {
                     if (input.hook_event_name === "PostToolUse") {
+                      if (connectionId && this.isFileModifyingTool(input.tool_name)) {
+                        this.trackChangedFile(connectionId, input);
+                      }
                       // Send tool complete event to WebSocket client
                       if (socket.readyState === WebSocket.OPEN) {
                         socket.send(
@@ -431,6 +454,216 @@ export class CodeService {
           details: error instanceof Error ? error.message : String(error),
         },
       });
+    } finally {
+      if (connectionId) {
+        await this.syncFilesToSupabase(connectionId, prototypeId, socket);
+      }
+    }
+  }
+
+  private getConnectionIdForSocket(socket: WebSocket): string | null {
+    const metadata = this.connectionMetadata.get(socket);
+    return metadata?.connectionId ?? null;
+  }
+
+  private isFileModifyingTool(toolName: string): boolean {
+    const normalized = toolName.toLowerCase();
+    return ["write", "edit", "search_replace", "replace", "delete"].some((token) =>
+      normalized.includes(token),
+    );
+  }
+
+  private normalizeFilePath(filePath: string): string | null {
+    if (!filePath) {
+      return null;
+    }
+
+    const normalizedPath = path.normalize(filePath);
+    let relativePath = normalizedPath;
+
+    if (path.isAbsolute(normalizedPath)) {
+      relativePath = path.relative(this.workDir, normalizedPath);
+    } else if (normalizedPath.startsWith("./")) {
+      relativePath = normalizedPath.replace(/^\.\/+/, "");
+    }
+
+    if (!relativePath || relativePath.startsWith("..")) {
+      return null;
+    }
+
+    return relativePath;
+  }
+
+  private collectFilePathsFromToolInput(
+    value: unknown,
+    accumulator: Set<string>,
+    keyHint?: string,
+  ): void {
+    if (typeof value === "string") {
+      if (!keyHint || keyHint.includes("path") || keyHint.includes("file")) {
+        accumulator.add(value);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        this.collectFilePathsFromToolInput(item, accumulator, keyHint);
+      }
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      for (const [key, nestedValue] of Object.entries(value)) {
+        const loweredKey = key.toLowerCase();
+        if (loweredKey.includes("path") || loweredKey.includes("file")) {
+          this.collectFilePathsFromToolInput(nestedValue, accumulator, loweredKey);
+        }
+      }
+    }
+  }
+
+  private trackChangedFile(connectionId: string, hookInput: HookInput): void {
+    const toolName = hookInput.tool_name.toLowerCase();
+    const toolInput = hookInput.tool_input as unknown;
+
+    if (!this.changedFilesDuringQuery.has(connectionId)) {
+      this.changedFilesDuringQuery.set(connectionId, new Set());
+    }
+    if (!this.deletedFilesDuringQuery.has(connectionId)) {
+      this.deletedFilesDuringQuery.set(connectionId, new Set());
+    }
+
+    const changed = this.changedFilesDuringQuery.get(connectionId)!;
+    const deleted = this.deletedFilesDuringQuery.get(connectionId)!;
+
+    const rawPaths = new Set<string>();
+    this.collectFilePathsFromToolInput(toolInput, rawPaths);
+
+    for (const rawPath of rawPaths) {
+      const normalizedPath = this.normalizeFilePath(rawPath);
+      if (!normalizedPath) {
+        continue;
+      }
+
+      if (toolName.includes("delete")) {
+        deleted.add(normalizedPath);
+        changed.delete(normalizedPath);
+      } else if (
+        toolName.includes("write") ||
+        toolName.includes("edit") ||
+        toolName.includes("replace")
+      ) {
+        changed.add(normalizedPath);
+        deleted.delete(normalizedPath);
+      }
+    }
+  }
+
+  private async syncFilesToSupabase(
+    connectionId: string,
+    prototypeId: string,
+    socket: WebSocket,
+  ): Promise<void> {
+    const changed = this.changedFilesDuringQuery.get(connectionId) || new Set<string>();
+    const deleted = this.deletedFilesDuringQuery.get(connectionId) || new Set<string>();
+
+    if (changed.size === 0 && deleted.size === 0) {
+      this.changedFilesDuringQuery.delete(connectionId);
+      this.deletedFilesDuringQuery.delete(connectionId);
+      return;
+    }
+
+    const supabaseClient = this.getSupabaseClient();
+    if (!supabaseClient) {
+      this.logger.warn("Supabase client not available - skipping file sync", {
+        prototypeId,
+      });
+      this.changedFilesDuringQuery.delete(connectionId);
+      this.deletedFilesDuringQuery.delete(connectionId);
+      return;
+    }
+
+    try {
+      const fileUpdates: Array<{
+        prototype_id: string;
+        name: string;
+        contents: string;
+        updated_at: string;
+      }> = [];
+
+      for (const filePath of changed) {
+        const fullPath = path.isAbsolute(filePath)
+          ? filePath
+          : path.join(this.workDir, filePath);
+        try {
+          const contents = await fs.readFile(fullPath, "utf-8");
+          fileUpdates.push({
+            prototype_id: prototypeId,
+            name: filePath,
+            contents,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (error) {
+          this.logger.warn("Failed to read file for Supabase sync", {
+            prototypeId,
+            filePath,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (fileUpdates.length > 0) {
+        const { error } = await supabaseClient
+          .from("prototype_files")
+          .upsert(fileUpdates, {
+            onConflict: "prototype_id,name",
+            ignoreDuplicates: false,
+          });
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      if (deleted.size > 0) {
+        const { error } = await supabaseClient
+          .from("prototype_files")
+          .delete()
+          .eq("prototype_id", prototypeId)
+          .in("name", Array.from(deleted));
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      this.logger.info("Synced Claude Code file changes to Supabase", {
+        prototypeId,
+        updated: fileUpdates.length,
+        deleted: deleted.size,
+      });
+
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            type: "files_changed",
+            data: {
+              changedFiles: Array.from(changed),
+              deletedFiles: Array.from(deleted),
+            },
+          }),
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to sync Claude Code files to Supabase",
+        { prototypeId },
+      );
+    } finally {
+      this.changedFilesDuringQuery.delete(connectionId);
+      this.deletedFilesDuringQuery.delete(connectionId);
     }
   }
 

@@ -57,6 +57,7 @@ interface CodeEditorProps {
   // Save behavior control
   saveMode?: "single-file" | "all-files"; // Defaults to 'single-file' for better performance
   currentRenderStatus?: RenderStatus;
+  isClaudeCodeActive?: boolean;
 }
 
 const ROOT_FOLDER_VALUE = "__ROOT__";
@@ -100,6 +101,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onBuildingStateChange,
   saveMode = "single-file", // Default to single file saves
   currentRenderStatus,
+  isClaudeCodeActive = false,
 }) => {
   const logger = useProductLogger();
   const { userPlan } = useSubscriptionAccess();
@@ -264,6 +266,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // Determine save button state based on render status and subscription
   const saveButtonState = useMemo(() => {
+    if (isClaudeCodeActive) {
+      return {
+        disabled: true,
+        tooltip: "Claude Code is editing files. Manual saves are temporarily disabled.",
+      };
+    }
+
     // Check subscription first - free users can't save
     if (userPlan === "free") {
       return {
@@ -303,7 +312,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             saveMode === "single-file" ? "Save current file" : "Save all files",
         };
     }
-  }, [currentRenderStatus, saveMode, userPlan]);
+  }, [currentRenderStatus, isClaudeCodeActive, saveMode, userPlan]);
 
   const handleCreateFile = () => {
     // Prevent file creation for free users
@@ -1023,6 +1032,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                 >
                   Upgrade to Pro
                 </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isClaudeCodeActive && userPlan !== "free" && (
+            <Alert className="rounded-none border-l-0 border-r-0 border-t-0 border-primary/20 bg-primary/5">
+              <AlertDescription className="text-sm text-primary flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
+                Claude Code is editing files. Manual saves are temporarily disabled.
               </AlertDescription>
             </Alert>
           )}

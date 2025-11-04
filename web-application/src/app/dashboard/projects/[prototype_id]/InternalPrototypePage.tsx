@@ -110,6 +110,8 @@ export default function InternalPrototypePage() {
   const [baseTunnelUrl, setBaseTunnelUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
+  const [filesBeingUpdated, setFilesBeingUpdated] = useState<string[]>([]);
+  const [isClaudeCodeActive, setIsClaudeCodeActive] = useState(false);
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
   const [isDesignSystemDialogOpen, setIsDesignSystemDialogOpen] =
@@ -868,6 +870,9 @@ export default function InternalPrototypePage() {
                 prototype={prototype}
                 canEditPrototype={canEditPrototype}
                 onPrototypeUpdate={setPrototype}
+                onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
+                onFilesBeingUpdatedChange={setFilesBeingUpdated}
+                onClaudeActivityChange={setIsClaudeCodeActive}
               />
             ) : (
               <PrototypeChatWindow
@@ -982,6 +987,7 @@ export default function InternalPrototypePage() {
                         )}
                         selectedFile={fileSystem.state.selectedFile}
                         onFileSelect={fileSystem.selectFile}
+                        filesBeingUpdated={filesBeingUpdated}
                       />
                     </div>
                   </div>
@@ -991,6 +997,7 @@ export default function InternalPrototypePage() {
                       prototypeId={prototypeId}
                       onViewingUrlUpdate={setViewingUrl}
                       currentRenderStatus={currentRenderStatus}
+                      isClaudeCodeActive={isClaudeCodeActive}
                     />
                   </div>
                 </div>

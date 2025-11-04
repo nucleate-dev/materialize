@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Database } from "@/lib/types/supabase";
 import {
   ChevronDownIcon,
@@ -25,6 +26,7 @@ interface FileTreeProps {
   >;
   selectedFile?: string;
   onFileSelect: (filePath: string) => void;
+  filesBeingUpdated?: string[];
 }
 
 const FileTree: React.FC<FileTreeProps> = ({
@@ -32,6 +34,7 @@ const FileTree: React.FC<FileTreeProps> = ({
   assets,
   selectedFile,
   onFileSelect,
+  filesBeingUpdated = [],
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set([""]),
@@ -233,6 +236,7 @@ const FileTree: React.FC<FileTreeProps> = ({
         </div>
       );
     } else {
+      const isUpdating = filesBeingUpdated.includes(node.path);
       // Handle both files and assets
       return (
         <div
@@ -240,7 +244,9 @@ const FileTree: React.FC<FileTreeProps> = ({
           className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200 ${
             isSelected
               ? "bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20"
-              : ""
+              : isUpdating
+                ? "bg-primary/5 border border-primary/30"
+                : ""
           }`}
           style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}
@@ -261,6 +267,14 @@ const FileTree: React.FC<FileTreeProps> = ({
             <span className="ml-1 text-xs text-body/60 dark:text-bodydark/60">
               (asset)
             </span>
+          )}
+          {isUpdating && (
+            <Badge
+              variant="secondary"
+              className="ml-auto text-[10px] uppercase tracking-wide bg-primary/10 text-primary border-primary/20"
+            >
+              Updated
+            </Badge>
           )}
         </div>
       );

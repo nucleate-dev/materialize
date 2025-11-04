@@ -26,10 +26,11 @@ import {
   PhotoIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
+type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
 
 interface ClaudeCodePanelProps {
   prototypeId: string;
@@ -37,6 +38,13 @@ interface ClaudeCodePanelProps {
   prototype?: Prototype | null;
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
+  onFilesUpdate?: (params: {
+    updatedFiles: Record<string, PrototypeFile>;
+    deletedFiles?: string[];
+    applyUpdatesToServer: boolean;
+  }) => void;
+  onFilesBeingUpdatedChange?: (fileNames: string[]) => void;
+  onClaudeActivityChange?: (isActive: boolean) => void;
 }
 
 interface Message {
@@ -84,6 +92,9 @@ export default function ClaudeCodePanel({
   prototype,
   canEditPrototype = false,
   onPrototypeUpdate,
+  onFilesUpdate,
+  onFilesBeingUpdatedChange,
+  onClaudeActivityChange,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -100,6 +111,56 @@ export default function ClaudeCodePanel({
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filesBeingUpdated, setFilesBeingUpdated] = useState<string[]>([]);
+  const [hasWebSocketIssues, setHasWebSocketIssues] = useState(false);
+  const lastPollTimeRef = useRef<Date | null>(null);
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const updateIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const refetchFilesFromSupabase = useCallback(
+    async (changedFiles: string[], deletedFiles: string[]): Promise<void> => {
+      if (!prototypeId) return;
+      if (!onFilesUpdate) return;
+
+      if (changedFiles.length === 0 && deletedFiles.length === 0) {
+        return;
+      }
+
+      try {
+        let updatedFilesMap: Record<string, PrototypeFile> = {};
+
+        if (changedFiles.length > 0) {
+          const { data: updatedFiles, error } = await supabase
+            .from("prototype_files")
+            .select("*")
+            .eq("prototype_id", prototypeId)
+            .in("name", changedFiles);
+
+          if (error) {
+            throw error;
+          }
+
+          if (updatedFiles && updatedFiles.length > 0) {
+            updatedFilesMap = Object.fromEntries(
+              updatedFiles.map((file) => [file.name, file]),
+            );
+          }
+        }
+
+        onFilesUpdate({
+          updatedFiles: updatedFilesMap,
+          deletedFiles,
+          applyUpdatesToServer: false,
+        });
+      } catch (error) {
+        logger.debug("error", "Failed to refetch files after Claude Code changes", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
+    },
+    [logger, onFilesUpdate, prototypeId],
+  );
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -270,6 +331,116 @@ export default function ClaudeCodePanel({
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (onClaudeActivityChange) {
+      onClaudeActivityChange(isProcessing);
+    }
+  }, [isProcessing, onClaudeActivityChange]);
+
+  useEffect(() => {
+    if (!isProcessing) {
+      lastPollTimeRef.current = null;
+    }
+  }, [isProcessing]);
+
+  useEffect(() => {
+    if (onFilesBeingUpdatedChange) {
+      onFilesBeingUpdatedChange(filesBeingUpdated);
+    }
+  }, [filesBeingUpdated, onFilesBeingUpdatedChange]);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (updateIndicatorTimeoutRef.current) {
+        clearTimeout(updateIndicatorTimeoutRef.current);
+        updateIndicatorTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!prototypeId) {
+      return;
+    }
+
+    if (isProcessing && (!isConnected || hasWebSocketIssues)) {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+      }
+
+      lastPollTimeRef.current = lastPollTimeRef.current ?? new Date();
+
+      pollTimerRef.current = setInterval(async () => {
+        const since = lastPollTimeRef.current ?? new Date(Date.now() - 5000);
+
+        try {
+          const { data, error } = await supabase
+            .from("prototype_files")
+            .select("name, updated_at")
+            .eq("prototype_id", prototypeId)
+            .gt("updated_at", since.toISOString());
+
+          if (error) {
+            logger.debug("error", "Polling fallback error", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+            lastPollTimeRef.current = new Date();
+            return;
+          }
+
+          if (data && data.length > 0) {
+            const changed = data.map((file) => file.name);
+
+            if (updateIndicatorTimeoutRef.current) {
+              clearTimeout(updateIndicatorTimeoutRef.current);
+            }
+
+            setFilesBeingUpdated(changed);
+
+            updateIndicatorTimeoutRef.current = setTimeout(() => {
+              setFilesBeingUpdated([]);
+            }, 2000);
+
+            await refetchFilesFromSupabase(changed, []);
+          }
+
+          lastPollTimeRef.current = new Date();
+        } catch (error) {
+          logger.debug("error", "Polling fallback exception", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          });
+          lastPollTimeRef.current = new Date();
+        }
+      }, 3000);
+
+      return () => {
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+      };
+    }
+
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+
+    return undefined;
+  }, [
+    hasWebSocketIssues,
+    isConnected,
+    isProcessing,
+    logger,
+    prototypeId,
+    refetchFilesFromSupabase,
+  ]);
+
   // Connect to WebSocket
   const connect = async () => {
     try {
@@ -308,13 +479,14 @@ export default function ClaudeCodePanel({
 
       websocket.onopen = () => {
         setIsConnected(true);
+        setHasWebSocketIssues(false);
         addMessage("system", "Connected");
       };
 
-      websocket.onmessage = (event) => {
+      websocket.onmessage = async (event) => {
         try {
           const message = JSON.parse(event.data) as ServerMessage;
-          handleServerMessage(message);
+          await handleServerMessage(message);
         } catch (error) {
           logger.debug("error", "Failed to parse WebSocket message", { error });
         }
@@ -323,6 +495,9 @@ export default function ClaudeCodePanel({
       websocket.onclose = (event) => {
         authTokenRef.current = null;
         setIsConnected(false);
+        if (!event.wasClean) {
+          setHasWebSocketIssues(true);
+        }
         const closeReason = event.reason || "No reason provided";
         logger.debug("error", "WebSocket closed", {
           code: event.code,
@@ -344,6 +519,7 @@ export default function ClaudeCodePanel({
       websocket.onerror = (error) => {
         logger.debug("error", "WebSocket connection error", { error });
         addMessage("error", "WebSocket connection error");
+        setHasWebSocketIssues(true);
       };
 
       setWs(websocket);
@@ -364,173 +540,215 @@ export default function ClaudeCodePanel({
       setIsConnected(false);
       authTokenRef.current = null;
       sessionIdRef.current = null;
+      setHasWebSocketIssues(false);
+      setFilesBeingUpdated([]);
     }
   };
 
   // Handle messages from server
-  const handleServerMessage = (message: ServerMessage) => {
-    logger.debug("log", "Server message received", { message });
+  const handleServerMessage = useCallback(
+    async (message: ServerMessage): Promise<void> => {
+      logger.debug("log", "Server message received", { message });
 
-    switch (message.type) {
-      case "authenticated":
-        // Server confirmed authentication
-        if (message.userId) {
-          setSessionId(message.userId);
-          addMessage(
-            "system",
-            `Authenticated as user: ${message.userId.slice(0, 8)}...`,
-          );
-        }
-        break;
+      switch (message.type) {
+        case "authenticated":
+          // Server confirmed authentication
+          if (message.userId) {
+            setSessionId(message.userId);
+            addMessage(
+              "system",
+              `Authenticated as user: ${message.userId.slice(0, 8)}...`,
+            );
+          }
+          break;
 
-      case "message_received":
-        // Server acknowledged receipt of our message - don't show in chat
-        // Keep isProcessing true, but note we've started
-        break;
+        case "message_received":
+          // Server acknowledged receipt of our message - don't show in chat
+          // Keep isProcessing true, but note we've started
+          break;
 
-      case "ready":
-        // Server acknowledged the connection establishment
-        break;
+        case "ready":
+          // Server acknowledged the connection establishment
+          break;
 
-      case "error":
-        setIsProcessing(false);
-        addMessage("error", `Error: ${JSON.stringify(message.error) || "Unknown error"}`);
-        break;
+        case "error":
+          setIsProcessing(false);
+          addMessage("error", `Error: ${JSON.stringify(message.error) || "Unknown error"}`);
+          break;
 
-      // Keep old handlers for backward compatibility during transition
-      case "system":
-        if (message.subtype === "connection") {
-        }
-        break;
+        // Keep old handlers for backward compatibility during transition
+        case "system":
+          if (message.subtype === "connection") {
+          }
+          break;
 
-      case "agent_message":
-        if (message.data) {
-          handleAgentMessage(message.data);
-        }
-        break;
+        case "agent_message":
+          if (message.data) {
+            handleAgentMessage(message.data);
+          }
+          break;
 
-      case "query_complete":
-        setIsProcessing(false);
-        break;
+        case "query_complete":
+          setIsProcessing(false);
+          break;
 
-      case "interrupted":
-        setIsProcessing(false);
-        addMessage("system", message.data?.message || "Query interrupted");
-        break;
+        case "interrupted":
+          setIsProcessing(false);
+          addMessage("system", message.data?.message || "Query interrupted");
+          break;
 
       case "session_reset":
         setMessages([]);
         sessionIdRef.current = null;
         setSessionId(null);
         addMessage("system", "Session has been reset");
+        setFilesBeingUpdated([]);
         break;
 
-      case "tool_start":
-        // Handle tool start
-        setHasReceivedResponse(true); // We've received some response
-        if (message.data?.tool_name) {
-          const toolName = message.data.tool_name;
-          const toolCallId = message.data?.tool_call_id || `tool-${Date.now()}`;
-          const toolInput = message.data?.tool_input;
+        case "files_changed": {
+          const changedFiles = Array.isArray(message.data?.changedFiles)
+            ? (message.data?.changedFiles as string[])
+            : [];
+          const deletedFiles = Array.isArray(message.data?.deletedFiles)
+            ? (message.data?.deletedFiles as string[])
+            : [];
 
-          // Handle "thinking" tools (Task) separately
-          if (isThinkingTool(toolName)) {
-            // Clean up any incomplete read-only tools
-            setMessages((prev) =>
-              prev.filter(msg =>
-                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
-              )
-            );
-            addThinkingMessage(toolName, toolCallId, toolInput, "running");
-          } else if (isReadOnlyTool(toolName)) {
-            // For read-only tools, check if we can consolidate with the last message
-            setMessages((prev) => {
-              const lastMessage = prev[prev.length - 1];
+          if (changedFiles.length > 0 || deletedFiles.length > 0) {
+            if (updateIndicatorTimeoutRef.current) {
+              clearTimeout(updateIndicatorTimeoutRef.current);
+            }
 
-              // If the last message is an incomplete read-only tool of the same type, update it with history
-              if (
-                lastMessage &&
-                lastMessage.type === "tool" &&
-                !lastMessage.isComplete &&
-                lastMessage.toolName &&
-                isReadOnlyTool(lastMessage.toolName) &&
-                lastMessage.toolName.toLowerCase() === toolName.toLowerCase()
-              ) {
-                // Consolidate - update the existing message with new tool input in history
-                const updatedHistory = [...(lastMessage.toolHistory || []), toolInput];
+            setFilesBeingUpdated(changedFiles);
+
+            updateIndicatorTimeoutRef.current = setTimeout(() => {
+              setFilesBeingUpdated([]);
+            }, 2000);
+
+            await refetchFilesFromSupabase(changedFiles, deletedFiles);
+          }
+          break;
+        }
+
+        case "tool_start":
+          // Handle tool start
+          setHasReceivedResponse(true); // We've received some response
+          if (message.data?.tool_name) {
+            const toolName = message.data.tool_name;
+            const toolCallId = message.data?.tool_call_id || `tool-${Date.now()}`;
+            const toolInput = message.data?.tool_input;
+
+            // Handle "thinking" tools (Task) separately
+            if (isThinkingTool(toolName)) {
+              // Clean up any incomplete read-only tools
+              setMessages((prev) =>
+                prev.filter(msg =>
+                  !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+                )
+              );
+              addThinkingMessage(toolName, toolCallId, toolInput, "running");
+            } else if (isReadOnlyTool(toolName)) {
+              // For read-only tools, check if we can consolidate with the last message
+              setMessages((prev) => {
+                const lastMessage = prev[prev.length - 1];
+
+                // If the last message is an incomplete read-only tool of the same type, update it with history
+                if (
+                  lastMessage &&
+                  lastMessage.type === "tool" &&
+                  !lastMessage.isComplete &&
+                  lastMessage.toolName &&
+                  isReadOnlyTool(lastMessage.toolName) &&
+                  lastMessage.toolName.toLowerCase() === toolName.toLowerCase()
+                ) {
+                  // Consolidate - update the existing message with new tool input in history
+                  const updatedHistory = [...(lastMessage.toolHistory || []), toolInput];
+                  return [
+                    ...prev.slice(0, -1),
+                    {
+                      ...lastMessage,
+                      toolInput, // Update to show most recent
+                      toolHistory: updatedHistory,
+                    },
+                  ];
+                }
+
+                // Otherwise, remove any incomplete read-only tools and add this one
+                const filtered = prev.filter(msg =>
+                  !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+                );
+
                 return [
-                  ...prev.slice(0, -1),
+                  ...filtered,
                   {
-                    ...lastMessage,
-                    toolInput, // Update to show most recent
-                    toolHistory: updatedHistory,
+                    id: `tool-${toolCallId}`,
+                    type: "tool" as const,
+                    content: getToolDisplayName(toolName, toolInput),
+                    timestamp: Date.now(),
+                    toolName,
+                    toolCallId,
+                    isComplete: false,
+                    status: "running" as const,
+                    toolInput,
+                    toolHistory: [toolInput], // Start history with first invocation
                   },
                 ];
-              }
-
-              // Otherwise, remove any incomplete read-only tools and add this one
-              const filtered = prev.filter(msg =>
-                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              });
+            } else {
+              // For action tools, add them to the chat as persistent badges
+              // First, clean up any incomplete read-only tools
+              setMessages((prev) =>
+                prev.filter(msg =>
+                  !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+                )
               );
-
-              return [
-                ...filtered,
-                {
-                  id: `tool-${toolCallId}`,
-                  type: "tool" as const,
-                  content: getToolDisplayName(toolName, toolInput),
-                  timestamp: Date.now(),
-                  toolName,
-                  toolCallId,
-                  isComplete: false,
-                  status: "running" as const,
-                  toolInput,
-                  toolHistory: [toolInput], // Start history with first invocation
-                },
-              ];
-            });
-          } else {
-            // For action tools, add them to the chat as persistent badges
-            // First, clean up any incomplete read-only tools
-            setMessages((prev) =>
-              prev.filter(msg =>
-                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
-              )
-            );
-            addToolMessage(toolName, toolCallId, toolInput, "running");
+              addToolMessage(toolName, toolCallId, toolInput, "running");
+            }
           }
-        }
-        break;
+          break;
 
-      case "tool_complete":
-        // Handle tool completion
-        if (message.data?.tool_name) {
-          const toolName = message.data.tool_name;
-          const toolCallId = message.data?.tool_call_id || "";
+        case "tool_complete":
+          // Handle tool completion
+          if (message.data?.tool_name) {
+            const toolName = message.data.tool_name;
+            const toolCallId = message.data?.tool_call_id || "";
 
-          if (isThinkingTool(toolName)) {
-            // For thinking tools, mark as complete
-            updateThinkingMessage(toolCallId, "success");
-          } else if (isReadOnlyTool(toolName)) {
-            // For read-only tools, remove them from the chat when complete
-            setMessages((prev) =>
-              prev.filter(msg =>
-                !(msg.type === "tool" && msg.toolCallId === toolCallId)
-              )
-            );
-          } else {
-            // For action tools, update their status to success
-            updateToolMessage(toolCallId, "success");
+            if (isThinkingTool(toolName)) {
+              // For thinking tools, mark as complete
+              updateThinkingMessage(toolCallId, "success");
+            } else if (isReadOnlyTool(toolName)) {
+              // For read-only tools, remove them from the chat when complete
+              setMessages((prev) =>
+                prev.filter(msg =>
+                  !(msg.type === "tool" && msg.toolCallId === toolCallId)
+                )
+              );
+            } else {
+              // For action tools, update their status to success
+              updateToolMessage(toolCallId, "success");
+            }
           }
-        }
-        break;
+          break;
 
-      default:
-        logger.debug("log", "Unknown message type", {
-          messageType: message.type,
-        });
-    }
-  };
+        default:
+          logger.debug("log", "Unknown message type", {
+            messageType: message.type,
+          });
+      }
+    },
+    [
+      addMessage,
+      addThinkingMessage,
+      addToolMessage,
+      getToolDisplayName,
+      handleAgentMessage,
+      isReadOnlyTool,
+      isThinkingTool,
+      logger,
+      refetchFilesFromSupabase,
+      updateThinkingMessage,
+      updateToolMessage,
+    ],
+  );
 
   // Handle agent messages (streaming responses from Claude)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -834,6 +1052,7 @@ export default function ClaudeCodePanel({
     setInputValue("");
     setUploadedImages([]); // Clear images after sending
     setIsProcessing(true);
+    lastPollTimeRef.current = new Date();
     setHasReceivedResponse(false); // Reset for new query
 
     // Send message in the format expected by CodeService
