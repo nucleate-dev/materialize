@@ -78,7 +78,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       authTokenRef.current = token;
 
-      const wsUrl = `${baseTunnelUrl}/chat/ws/${prototypeId}`;
+      const wsUrl = `${baseTunnelUrl}/code/ws/`;
       logger.debug("log", "WebSocket URL", { wsUrl, baseTunnelUrl, prototypeId });
 
       logger.debug("log", "Attempting WebSocket connection", {
@@ -182,7 +182,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       case "error":
         setIsProcessing(false);
-        addMessage("error", `Error: ${message.error || "Unknown error"}`);
+        addMessage("error", `Error: ${JSON.stringify(message.error) || "Unknown error"}`);
         break;
 
       // Keep old handlers for backward compatibility during transition
@@ -203,7 +203,6 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       case "query_complete":
         setIsProcessing(false);
-        addMessage("system", "Query complete");
         break;
 
       default:
@@ -296,15 +295,13 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     setInputValue("");
     setIsProcessing(true);
 
-    // Send message in the format expected by SandboxChatProxyService
+    // Send message in the format expected by CodeService
     ws.send(
       JSON.stringify({
-        prototype_id: prototypeId,
-        token,
-        message: userMessage,
-        // Optional fields - can be added later
-        // imageUrl: undefined,
-        // currentViewingPath: undefined,
+        type: "query",
+        data: {
+          prompt: userMessage,
+        },
       }),
     );
   };
