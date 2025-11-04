@@ -8,6 +8,7 @@ interface CodeSessionState {
   isActive: boolean;
   createdAt: number;
   lastActiveAt: number;
+  abortController: AbortController | null;
 }
 
 interface ClientMessage {
@@ -33,6 +34,7 @@ export class CodeService {
     isActive: false,
     createdAt: 0,
     lastActiveAt: 0,
+    abortController: null,
   };
   private activeConnections = new Map<string, WebSocket>();
 
@@ -196,6 +198,10 @@ export class CodeService {
     });
 
     try {
+      // Create a new AbortController for this query
+      const abortController = new AbortController();
+      this.sessionState.abortController = abortController;
+
       // Create async generator for streaming input
       async function* generateMessages(): AsyncGenerator<{
         type: "user";
@@ -214,7 +220,7 @@ export class CodeService {
       const queryOptions = {
         ...options,
         cwd: this.workDir,
-        maxTurns: options?.maxTurns ?? 10,
+        maxTurns: options?.maxTurns ?? 50,
         allowedTools: options?.allowedTools ?? [
           "Read",
           "Write",
@@ -224,6 +230,9 @@ export class CodeService {
           "Bash",
         ],
         model: options?.model ?? "claude-sonnet-4-5",
+        systemPrompt: "claude_code",
+        permissionMode: "bypassPermissions", // other options are 'default', 'acceptEdits', 'plan'
+        abortController,
         // Resume existing session if available
         ...(this.sessionState.sessionId && {
           resume: this.sessionState.sessionId,
@@ -273,6 +282,9 @@ export class CodeService {
         });
       }
 
+      // Clear the abort controller
+      this.sessionState.abortController = null;
+
       // Send completion message
       this.sendMessage(socket, {
         type: "query_complete",
@@ -281,6 +293,9 @@ export class CodeService {
         },
       });
     } catch (error) {
+      // Clear the abort controller on error
+      this.sessionState.abortController = null;
+
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Claude Code query failed",
@@ -303,13 +318,44 @@ export class CodeService {
   ): Promise<void> {
     this.logger.info("Interrupt requested", {
       sessionId: this.sessionState.sessionId,
+      hasAbortController: !!this.sessionState.abortController,
     });
 
-    // TODO: Implement interrupt logic when SDK supports it
-    this.sendMessage(socket, {
-      type: "info",
-      message: "Interrupt not yet implemented",
-    });
+    if (this.sessionState.abortController) {
+      try {
+        // Abort the current query
+        this.sessionState.abortController.abort();
+        this.sessionState.abortController = null;
+
+        this.logger.info("Claude Code query interrupted successfully");
+
+        this.sendMessage(socket, {
+          type: "interrupted",
+          data: {
+            message: "Query has been interrupted",
+            sessionId: this.sessionState.sessionId,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to interrupt query",
+        );
+
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: "Failed to interrupt query",
+            details: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    } else {
+      this.sendMessage(socket, {
+        type: "info",
+        message: "No active query to interrupt",
+      });
+    }
   }
 
   private async handleResetSession(socket: WebSocket): Promise<void> {
@@ -317,11 +363,17 @@ export class CodeService {
       oldSessionId: this.sessionState.sessionId,
     });
 
+    // Abort any active query before resetting
+    if (this.sessionState.abortController) {
+      this.sessionState.abortController.abort();
+    }
+
     this.sessionState = {
       sessionId: null,
       isActive: false,
       createdAt: 0,
       lastActiveAt: 0,
+      abortController: null,
     };
 
     this.sendMessage(socket, {
@@ -352,6 +404,11 @@ export class CodeService {
   public async shutdown(): Promise<void> {
     this.logger.info("Shutting down CodeService");
 
+    // Abort any active query
+    if (this.sessionState.abortController) {
+      this.sessionState.abortController.abort();
+    }
+
     // Close all active connections
     for (const [connectionId, socket] of this.activeConnections.entries()) {
       try {
@@ -369,6 +426,7 @@ export class CodeService {
       isActive: false,
       createdAt: 0,
       lastActiveAt: 0,
+      abortController: null,
     };
 
     this.logger.info("CodeService shutdown complete");
