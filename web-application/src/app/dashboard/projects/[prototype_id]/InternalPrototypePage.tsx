@@ -865,6 +865,9 @@ export default function InternalPrototypePage() {
               <ClaudeCodePanel
                 prototypeId={prototypeId}
                 baseTunnelUrl={baseTunnelUrl}
+                prototype={prototype}
+                canEditPrototype={canEditPrototype}
+                onPrototypeUpdate={setPrototype}
               />
             ) : (
               <PrototypeChatWindow

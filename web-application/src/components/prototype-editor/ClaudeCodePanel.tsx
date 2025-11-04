@@ -1,16 +1,42 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { Database } from "@/lib/types/supabase";
+import {
+  CheckIcon,
+  InformationCircleIcon,
+  PencilIcon,
+  PhotoIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+
+type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 
 interface ClaudeCodePanelProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
+  prototype?: Prototype | null;
+  canEditPrototype?: boolean;
+  onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
 }
 
 interface Message {
@@ -45,7 +71,20 @@ interface ServerMessage {
   subtype?: string;
 }
 
-export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCodePanelProps) {
+interface UploadedImage {
+  id: string;
+  base64: string;
+  mediaType: string;
+  name: string;
+}
+
+export default function ClaudeCodePanel({
+  prototypeId,
+  baseTunnelUrl,
+  prototype,
+  canEditPrototype = false,
+  onPrototypeUpdate,
+}: ClaudeCodePanelProps) {
   const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -59,6 +98,27 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set());
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Settings modal state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
+  const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
+
+  const prototypeTitle = prototype?.name?.trim() || "Project";
+  const visibility = prototype?.visibility?.toLowerCase();
+  const visibilityLabel =
+    visibility === "public"
+      ? "Public"
+      : visibility === "team"
+        ? "Team"
+        : "Private";
+  const createdAtLabel = prototype?.created_at
+    ? new Date(prototype.created_at).toLocaleDateString()
+    : null;
+  const canEditName = Boolean(canEditPrototype && onPrototypeUpdate);
 
   // Helper function to sanitize file paths by removing the dev server prefix
   const sanitizeFilePath = (path: string): string => {
@@ -149,6 +209,53 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       }
       return next;
     });
+  };
+
+  // Handle title editing
+  const handleStartTitleEdit = () => {
+    if (!canEditName || !prototype) return;
+    setEditedTitle(prototype.name);
+    setIsEditingTitle(true);
+  };
+
+  const handleCancelTitleEdit = () => {
+    setIsEditingTitle(false);
+    setEditedTitle("");
+  };
+
+  const handleSaveTitle = async () => {
+    if (
+      !canEditName ||
+      !prototype ||
+      !editedTitle.trim() ||
+      !onPrototypeUpdate
+    ) {
+      return;
+    }
+
+    try {
+      setIsUpdatingTitle(true);
+      const trimmedName = editedTitle.trim();
+      const { error } = await supabase
+        .from("prototypes")
+        .update({ name: trimmedName })
+        .eq("id", prototype.id);
+
+      if (error) {
+        throw error;
+      }
+
+      onPrototypeUpdate({ ...prototype, name: trimmedName });
+      setIsEditingTitle(false);
+      setEditedTitle("");
+    } catch (error) {
+      logger.debug("error", "Error updating prototype name:", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    } finally {
+      setIsUpdatingTitle(false);
+    }
   };
 
   // Auto-scroll to bottom when new messages arrive
@@ -619,6 +726,54 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     });
   };
 
+  // Handle image file selection
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        addMessage("error", `Invalid file type: ${file.name}. Only images are supported.`);
+        return;
+      }
+
+      // Validate file size (5MB limit per Anthropic API)
+      if (file.size > 5 * 1024 * 1024) {
+        addMessage("error", `Image too large: ${file.name}. Maximum size is 5MB.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64Data = base64String.split(",")[1];
+
+        setUploadedImages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            base64: base64Data,
+            mediaType: file.type,
+            name: file.name,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Remove an uploaded image
+  const removeImage = (imageId: string) => {
+    setUploadedImages((prev) => prev.filter((img) => img.id !== imageId));
+  };
+
   // Send a query to Claude
   const sendQuery = () => {
     if (!ws || !isConnected) {
@@ -627,7 +782,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     }
 
     const trimmedInput = inputValue.trim();
-    if (!trimmedInput) {
+    if (!trimmedInput && uploadedImages.length === 0) {
       return;
     }
 
@@ -640,9 +795,44 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       return;
     }
 
-    const userMessage = trimmedInput;
-    addMessage("user", userMessage);
+    // Construct content array with text and images
+    const content: Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string; }; }> = [];
+
+    // Add text if present
+    if (trimmedInput) {
+      content.push({
+        type: "text",
+        text: trimmedInput,
+      });
+    }
+
+    // Add images if present
+    const imageCount = uploadedImages.length;
+    uploadedImages.forEach((image) => {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: image.mediaType,
+          data: image.base64,
+        },
+      });
+    });
+
+    // Debug log
+    logger.debug("log", "Sending query with content", {
+      contentLength: content.length,
+      hasText: !!trimmedInput,
+      imageCount,
+      content: content.map(c => ({ type: c.type, hasText: !!c.text, hasSource: !!c.source }))
+    });
+
+    // Add message to chat (show text and image count)
+    const displayMessage = trimmedInput + (imageCount > 0 ? ` [${imageCount} image${imageCount > 1 ? 's' : ''}]` : "");
+    addMessage("user", displayMessage);
+
     setInputValue("");
+    setUploadedImages([]); // Clear images after sending
     setIsProcessing(true);
     setHasReceivedResponse(false); // Reset for new query
 
@@ -651,7 +841,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       JSON.stringify({
         type: "query",
         data: {
-          prompt: userMessage,
+          content,
         },
       }),
     );
@@ -716,7 +906,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
             className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"
               }`}
           />
-          <span className="text-sm font-medium">Claude Code</span>
+          <span className="text-sm font-medium truncate max-w-xs">{prototypeTitle}</span>
           {sessionId && (
             <span className="text-xs text-muted-foreground">
               Session: {sessionId.slice(0, 8)}...
@@ -752,6 +942,21 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
               Connect
             </Button>
           )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setShowSettingsModal(true)}
+                  variant="outline"
+                  size="sm"
+                  aria-label="Project settings"
+                >
+                  <InformationCircleIcon className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Project info</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -760,7 +965,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
-              Connect to start chatting with Claude Code
+
             </div>
           ) : (
             <>
@@ -1023,7 +1228,58 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       {/* Input */}
       <div className="p-3 border-t">
+        {/* Image previews */}
+        {uploadedImages.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {uploadedImages.map((image) => (
+              <div
+                key={image.id}
+                className="relative group rounded-lg overflow-hidden border border-border"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:${image.mediaType};base64,${image.base64}`}
+                  alt={image.name}
+                  className="h-20 w-20 object-cover"
+                />
+                <button
+                  onClick={() => removeImage(image.id)}
+                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Remove image"
+                >
+                  <XMarkIcon className="w-3 h-3" />
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 truncate">
+                  {image.name}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+
+          {/* Image upload button */}
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isConnected || isProcessing}
+            title="Add images"
+          >
+            <PhotoIcon className="w-5 h-5" />
+          </Button>
+
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -1038,12 +1294,102 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
           />
           <Button
             onClick={sendQuery}
-            disabled={!isConnected || !inputValue.trim() || isProcessing}
+            disabled={!isConnected || (!inputValue.trim() && uploadedImages.length === 0) || isProcessing}
           >
             {isProcessing ? "..." : "Send"}
           </Button>
         </div>
       </div>
+
+      {/* Prototype Settings Modal */}
+      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Project Info</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Name Editing */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedTitle}
+                    onChange={(event) => setEditedTitle(event.target.value)}
+                    className="flex-1"
+                    autoFocus
+                    disabled={isUpdatingTitle}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleSaveTitle();
+                      } else if (event.key === "Escape") {
+                        handleCancelTitleEdit();
+                      }
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleSaveTitle}
+                    disabled={isUpdatingTitle || !editedTitle.trim()}
+                    className="h-9 w-9"
+                  >
+                    {isUpdatingTitle ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <CheckIcon className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={handleCancelTitleEdit}
+                    disabled={isUpdatingTitle}
+                    className="h-9 w-9"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <p className="text-sm flex-1">{prototypeTitle}</p>
+                  {canEditName && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleStartTitleEdit}
+                      className="h-8 w-8"
+                      title="Edit prototype name"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Visibility Status */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Visibility</label>
+              <div>
+                <Badge variant="outline" className="uppercase tracking-wide">
+                  {visibilityLabel}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Created Date */}
+            {createdAtLabel && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Created</label>
+                <p className="text-sm text-muted-foreground">
+                  {createdAtLabel}
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

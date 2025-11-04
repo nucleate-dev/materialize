@@ -23,8 +23,19 @@ interface ClientMessage {
   data?: unknown;
 }
 
+interface ContentBlock {
+  type: "text" | "image";
+  text?: string;
+  source?: {
+    type: "base64";
+    media_type: string;
+    data: string;
+  };
+}
+
 interface QueryData {
-  prompt: string;
+  prompt?: string; // Keep for backward compatibility
+  content?: ContentBlock[];
   options?: Options;
 }
 
@@ -182,15 +193,25 @@ export class CodeService {
 
   private async handleQuery(
     socket: WebSocket,
-    data: { prompt: string; options?: Options },
+    data: QueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, options = {} } = data;
+    const { prompt, content, options = {} } = data;
 
-    if (!prompt) {
+    // Support both old format (prompt) and new format (content)
+    if (!prompt && !content) {
       this.sendMessage(socket, {
         type: "error",
-        error: { message: "prompt is required" },
+        error: { message: "prompt or content is required" },
+      });
+      return;
+    }
+
+    // Validate content if provided
+    if (content && (!Array.isArray(content) || content.length === 0)) {
+      this.sendMessage(socket, {
+        type: "error",
+        error: { message: "content must be a non-empty array" },
       });
       return;
     }
@@ -198,6 +219,9 @@ export class CodeService {
     this.logger.info("Starting Claude Code query", {
       prototypeId,
       hasSession: !!this.sessionState.sessionId,
+      hasPrompt: !!prompt,
+      hasContent: !!content,
+      contentLength: content?.length,
     });
 
     try {
@@ -205,16 +229,34 @@ export class CodeService {
       const abortController = new AbortController();
       this.sessionState.abortController = abortController;
 
+      // Prepare message content - support both text and image content blocks
+      const messageContent: string | Array<{ type: string; text?: string; source?: unknown }> = content
+        ? content.map((block) => {
+            if (block.type === "text") {
+              return {
+                type: "text",
+                text: block.text || "",
+              };
+            } else if (block.type === "image") {
+              return {
+                type: "image",
+                source: block.source,
+              };
+            }
+            return block;
+          })
+        : prompt!;
+
       // Create async generator for streaming input
       async function* generateMessages(): AsyncGenerator<{
         type: "user";
-        message: { role: "user"; content: string };
+        message: { role: "user"; content: string | Array<{ type: string; text?: string; source?: unknown }> };
       }> {
         yield {
           type: "user" as const,
           message: {
             role: "user" as const,
-            content: prompt,
+            content: messageContent,
           },
         };
       }
