@@ -4,8 +4,6 @@ import { FileManagerInterface } from '../services/chat/utils/file-manager.js';
 import { DispatcherService } from '../services/dispatcher/DispatcherService.js';
 import type {
   BuildStatus,
-  CodeError,
-  CodeWarning,
   PrototypeAssetInput,
   PrototypeFileInput,
 } from './PublicAPITypes.js';
@@ -68,18 +66,6 @@ export interface FargateInstanceInfo {
   privateIp: string;
   terminalTunnelId: string;
   terminalTunnelHostname: string;
-}
-
-// ============================================================================
-// REQUEST AND RESPONSE TYPES (Use PublicServerAPITypes as source of truth)
-// ============================================================================
-
-export interface FargateDevServerResponse {
-  status: BuildResultStatus;
-  tunnel_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
-  version?: string;
 }
 
 // ============================================================================

@@ -14,7 +14,6 @@ import {
   ActiveBuild,
   BUILD_TIMEOUTS,
   CACHE_KEYS,
-  FargateDevServerResponse,
   FargateInstanceInfo,
   FileScope,
   Framework,
@@ -37,7 +36,10 @@ import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
-import { PublicDevServerStartRequest } from '../../../types/BuildWorkerTypes.js';
+import {
+  PublicDevServerStartRequest,
+  PublicDevServerStartResponse,
+} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
   body: DispatchRequestBody,
@@ -393,7 +395,7 @@ async function dispatchRequestToFargateInstanceServer({
   file_scope: FileScope;
   log2: SystemLogger;
   fargate_private_ip: string;
-}): Promise<FargateDevServerResponse> {
+}): Promise<PublicDevServerStartResponse> {
   const requestBody = await constructRequestBody({
     token: jwt,
     prototype_id,
@@ -417,7 +419,7 @@ async function dispatchRequestToFargateInstanceServer({
   );
   const fargateResponse = await log2.time(
     LatencyEvents.dispatch_request_to_fargate_server_latency,
-    async (): Promise<FargateDevServerResponse> => {
+    async (): Promise<PublicDevServerStartResponse> => {
       return await dispatchFormedRequestToFargateInstanceServer(
         fargate_private_ip,
         requestBody,
@@ -522,7 +524,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
   requestBody: PublicDevServerStartRequest,
   log2: SystemLogger,
-): Promise<FargateDevServerResponse> {
+): Promise<PublicDevServerStartResponse> {
   try {
     const response = await axios.post(
       `http://${fargatePrivateIp}:3002/dev-server`,
@@ -535,7 +537,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
         },
       },
     );
-    return response.data as FargateDevServerResponse;
+    return response.data as PublicDevServerStartResponse;
   } catch (error) {
     log2.error(error, 'Error dispatching request to fargate instance: ');
     return {
