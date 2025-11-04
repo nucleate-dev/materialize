@@ -15,13 +15,16 @@ interface ClaudeCodePanelProps {
 
 interface Message {
   id: string;
-  type: "user" | "assistant" | "system" | "error" | "tool";
+  type: "user" | "assistant" | "system" | "error" | "tool" | "thinking";
   content: string;
   timestamp: number;
   toolName?: string;
   toolCallId?: string;
   isComplete?: boolean;
   status?: "running" | "success" | "error";
+  toolInput?: any;
+  description?: string;
+  toolHistory?: any[]; // For ephemeral tools, track all invocations
 }
 
 interface ServerMessage {
@@ -53,6 +56,37 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set());
+  const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
+
+  // Helper function to sanitize file paths by removing the dev server prefix
+  const sanitizeFilePath = (path: string): string => {
+    if (!path) return path;
+    const prefix = '/tmp/materialize-dev-server/';
+    if (path.startsWith(prefix)) {
+      return path.substring(prefix.length);
+    }
+    return path;
+  };
+
+  // Helper function to sanitize any value that might contain file paths
+  const sanitizeValue = (value: any): any => {
+    if (typeof value === 'string') {
+      return sanitizeFilePath(value);
+    }
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        return value.map(sanitizeValue);
+      }
+      const sanitized: any = {};
+      for (const [key, val] of Object.entries(value)) {
+        sanitized[key] = sanitizeValue(val);
+      }
+      return sanitized;
+    }
+    return value;
+  };
 
   // Helper function to determine if a tool is read-only (search/inspection)
   const isReadOnlyTool = (toolName: string): boolean => {
@@ -61,9 +95,27 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     return readOnlyTools.some(tool => normalized.includes(tool));
   };
 
-  // Helper function to get friendly tool display name
-  const getToolDisplayName = (toolName: string): string => {
+  // Helper function to determine if a tool is a "thinking" tool (Task, etc.)
+  const isThinkingTool = (toolName: string): boolean => {
     const normalized = toolName.toLowerCase();
+    return normalized === 'task';
+  };
+
+  // Helper function to get friendly tool display name
+  const getToolDisplayName = (toolName: string, toolInput?: any): string => {
+    const normalized = toolName.toLowerCase();
+
+    // For Bash commands, use the description if available
+    if (normalized.includes('bash') && toolInput?.description) {
+      return toolInput.description;
+    }
+
+    // For Task tool, use the description if available
+    if (normalized === 'task' && toolInput?.description) {
+      return toolInput.description;
+    }
+
+    // Default friendly names
     if (normalized.includes('read')) return 'Reading files';
     if (normalized.includes('glob')) return 'Searching files';
     if (normalized.includes('grep')) return 'Searching code';
@@ -73,6 +125,32 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     if (normalized.includes('bash')) return 'Running command';
     if (normalized.includes('delete')) return 'Deleting';
     return toolName;
+  };
+
+  // Toggle expanded state for a tool
+  const toggleToolExpanded = (toolCallId: string) => {
+    setExpandedTools(prev => {
+      const next = new Set(prev);
+      if (next.has(toolCallId)) {
+        next.delete(toolCallId);
+      } else {
+        next.add(toolCallId);
+      }
+      return next;
+    });
+  };
+
+  // Toggle expanded state for thinking
+  const toggleThinkingExpanded = (toolCallId: string) => {
+    setExpandedThinking(prev => {
+      const next = new Set(prev);
+      if (next.has(toolCallId)) {
+        next.delete(toolCallId);
+      } else {
+        next.add(toolCallId);
+      }
+      return next;
+    });
   };
 
   // Auto-scroll to bottom when new messages arrive
@@ -202,7 +280,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       case "message_received":
         // Server acknowledged receipt of our message - don't show in chat
-        setIsProcessing(false);
+        // Keep isProcessing true, but note we've started
         break;
 
       case "ready":
@@ -248,16 +326,27 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
       case "tool_start":
         // Handle tool start
+        setHasReceivedResponse(true); // We've received some response
         if (message.data?.tool_name) {
           const toolName = message.data.tool_name;
           const toolCallId = message.data?.tool_call_id || `tool-${Date.now()}`;
+          const toolInput = message.data?.tool_input;
 
-          if (isReadOnlyTool(toolName)) {
+          // Handle "thinking" tools (Task) separately
+          if (isThinkingTool(toolName)) {
+            // Clean up any incomplete read-only tools
+            setMessages((prev) =>
+              prev.filter(msg =>
+                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              )
+            );
+            addThinkingMessage(toolName, toolCallId, toolInput, "running");
+          } else if (isReadOnlyTool(toolName)) {
             // For read-only tools, check if we can consolidate with the last message
             setMessages((prev) => {
               const lastMessage = prev[prev.length - 1];
 
-              // If the last message is an incomplete read-only tool of the same type, don't add a new one
+              // If the last message is an incomplete read-only tool of the same type, update it with history
               if (
                 lastMessage &&
                 lastMessage.type === "tool" &&
@@ -266,8 +355,16 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                 isReadOnlyTool(lastMessage.toolName) &&
                 lastMessage.toolName.toLowerCase() === toolName.toLowerCase()
               ) {
-                // Consolidate - don't add a new message, just keep the existing one
-                return prev;
+                // Consolidate - update the existing message with new tool input in history
+                const updatedHistory = [...(lastMessage.toolHistory || []), toolInput];
+                return [
+                  ...prev.slice(0, -1),
+                  {
+                    ...lastMessage,
+                    toolInput, // Update to show most recent
+                    toolHistory: updatedHistory,
+                  },
+                ];
               }
 
               // Otherwise, remove any incomplete read-only tools and add this one
@@ -280,12 +377,14 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                 {
                   id: `tool-${toolCallId}`,
                   type: "tool" as const,
-                  content: getToolDisplayName(toolName),
+                  content: getToolDisplayName(toolName, toolInput),
                   timestamp: Date.now(),
                   toolName,
                   toolCallId,
                   isComplete: false,
                   status: "running" as const,
+                  toolInput,
+                  toolHistory: [toolInput], // Start history with first invocation
                 },
               ];
             });
@@ -297,7 +396,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                 !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
               )
             );
-            addToolMessage(toolName, toolCallId, "running");
+            addToolMessage(toolName, toolCallId, toolInput, "running");
           }
         }
         break;
@@ -308,7 +407,10 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
           const toolName = message.data.tool_name;
           const toolCallId = message.data?.tool_call_id || "";
 
-          if (isReadOnlyTool(toolName)) {
+          if (isThinkingTool(toolName)) {
+            // For thinking tools, mark as complete
+            updateThinkingMessage(toolCallId, "success");
+          } else if (isReadOnlyTool(toolName)) {
             // For read-only tools, remove them from the chat when complete
             setMessages((prev) =>
               prev.filter(msg =>
@@ -349,6 +451,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         if (event.delta?.type === "text_delta") {
           const textDelta = event.delta.text || "";
           if (textDelta) {
+            setHasReceivedResponse(true); // We've received some response
             // Append to last assistant message or create new one
             setMessages((prev) => {
               const lastMessage = prev[prev.length - 1];
@@ -446,20 +549,59 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   };
 
   // Add a tool message when a tool starts
-  const addToolMessage = (toolName: string, toolCallId: string, status: "running" | "success" | "error") => {
+  const addToolMessage = (toolName: string, toolCallId: string, toolInput: any, status: "running" | "success" | "error") => {
     setMessages((prev) => [
       ...prev,
       {
         id: `tool-${toolCallId}`,
         type: "tool",
-        content: getToolDisplayName(toolName),
+        content: getToolDisplayName(toolName, toolInput),
         timestamp: Date.now(),
         toolName,
         toolCallId,
         isComplete: false,
         status,
+        toolInput,
       },
     ]);
+  };
+
+  // Add a thinking message when a thinking tool starts (Task, etc.)
+  const addThinkingMessage = (toolName: string, toolCallId: string, toolInput: any, status: "running" | "success" | "error") => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `thinking-${toolCallId}`,
+        type: "thinking",
+        content: getToolDisplayName(toolName, toolInput),
+        timestamp: Date.now(),
+        toolName,
+        toolCallId,
+        isComplete: false,
+        status,
+        toolInput,
+      },
+    ]);
+  };
+
+  // Update a thinking message when it completes
+  const updateThinkingMessage = (toolCallId: string, status: "running" | "success" | "error") => {
+    setMessages((prev) => {
+      const index = prev.findIndex(
+        (msg) => msg.type === "thinking" && msg.toolCallId === toolCallId && !msg.isComplete
+      );
+
+      if (index === -1) return prev;
+
+      const updatedMessages = [...prev];
+      updatedMessages[index] = {
+        ...updatedMessages[index],
+        isComplete: true,
+        status,
+      };
+
+      return updatedMessages;
+    });
   };
 
   // Update a tool message when it completes
@@ -508,6 +650,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     addMessage("user", userMessage);
     setInputValue("");
     setIsProcessing(true);
+    setHasReceivedResponse(false); // Reset for new query
 
     // Send message in the format expected by CodeService
     ws.send(
@@ -646,13 +789,24 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                     <div className="prose prose-sm dark:prose-invert max-w-none">
                       <ReactMarkdown
                         components={{
-                          // Customize code blocks
+                          // Customize code blocks - inline vs block
                           code: ({ className, children, ...props }) => {
-                            // Check if inline by looking for node property
-                            const inline = !(props as any).node?.position;
+                            // Check if it's inline code by looking at the node structure
+                            const isInline = !className?.includes('language-');
+                            if (isInline) {
+                              return (
+                                <code
+                                  className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono"
+                                  {...props}
+                                >
+                                  {children}
+                                </code>
+                              );
+                            }
+                            // Block code
                             return (
                               <code
-                                className={`${inline ? "bg-muted px-1 py-0.5 rounded text-xs" : "block bg-muted p-2 rounded my-2 overflow-x-auto"} ${className || ""}`}
+                                className={`block bg-muted p-3 rounded my-2 overflow-x-auto font-mono text-sm ${className || ""}`}
                                 {...props}
                               >
                                 {children}
@@ -672,16 +826,19 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                   </div>
                 )}
 
-                {/* Tool messages - sleek inline style */}
+                {/* Tool messages - sleek inline style with expandable details */}
                 {message.type === "tool" && (
-                  <div className="flex items-center gap-2 py-1">
-                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${
-                      message.status === "success"
-                        ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                        : message.status === "error"
-                        ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                        : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                    }`}>
+                  <div className="py-1">
+                    <div
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
+                        message.status === "success"
+                          ? "bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20"
+                          : message.status === "error"
+                          ? "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20"
+                          : "bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
+                      }`}
+                      onClick={() => message.toolCallId && toggleToolExpanded(message.toolCallId)}
+                    >
                       {message.status === "running" && (
                         <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
                       )}
@@ -692,6 +849,126 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                         <span className="inline-block">✗</span>
                       )}
                       <span>{message.content}</span>
+                      {message.toolInput && (
+                        <span className="inline-block ml-0.5">
+                          {message.toolCallId && expandedTools.has(message.toolCallId) ? "▼" : "▶"}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Expandable tool details */}
+                    {message.toolCallId && expandedTools.has(message.toolCallId) && message.toolInput && (
+                      <div className="mt-1 ml-4 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                        {/* Show history for ephemeral tools (read-only) */}
+                        {message.toolHistory && message.toolHistory.length > 1 && (
+                          <div className="mb-2">
+                            <div className="font-semibold mb-1">History ({message.toolHistory.length} invocations):</div>
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {message.toolHistory.map((historyItem, idx) => {
+                                const sanitized = sanitizeValue(historyItem);
+                                return (
+                                  <div key={idx} className="pl-2 border-l-2 border-muted-foreground/20 font-mono">
+                                    {sanitized.pattern && (
+                                      <div><span className="font-semibold">pattern:</span> {sanitized.pattern}</div>
+                                    )}
+                                    {sanitized.file_path && (
+                                      <div><span className="font-semibold">file:</span> {sanitized.file_path}</div>
+                                    )}
+                                    {sanitized.command && (
+                                      <div><span className="font-semibold">command:</span> {sanitized.command}</div>
+                                    )}
+                                    {/* Show any other parameters */}
+                                    {Object.entries(sanitized).map(([key, value]) => {
+                                      if (['pattern', 'file_path', 'command', 'description'].includes(key)) return null;
+                                      return (
+                                        <div key={key}>
+                                          <span className="font-semibold">{key}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show most recent invocation details */}
+                        {!message.toolHistory || message.toolHistory.length === 1 ? (
+                          <div className="font-mono">
+                            {message.toolInput.command && (
+                              <div className="mb-1">
+                                <span className="font-semibold">Command: </span>
+                                <span>{sanitizeFilePath(message.toolInput.command)}</span>
+                              </div>
+                            )}
+                            {Object.entries(message.toolInput).map(([key, value]) => {
+                              if (key === 'command' || key === 'description') return null;
+                              const sanitizedValue = sanitizeValue(value);
+                              return (
+                                <div key={key} className="mb-1">
+                                  <span className="font-semibold">{key}: </span>
+                                  <span>{typeof sanitizedValue === 'object' ? JSON.stringify(sanitizedValue, null, 2) : String(sanitizedValue)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-xs opacity-75 mt-1">Most recent shown in history above</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Thinking messages - collapsible low-opacity thoughts */}
+                {message.type === "thinking" && (
+                  <div className="py-2 opacity-60">
+                    <div
+                      className="flex items-start gap-2 cursor-pointer"
+                      onClick={() => message.toolCallId && toggleThinkingExpanded(message.toolCallId)}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {message.toolCallId && expandedThinking.has(message.toolCallId) ? (
+                          <span className="text-xs">▼</span>
+                        ) : (
+                          <span className="text-xs">▶</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium italic text-muted-foreground">
+                            {message.status === "running" ? "Thinking: " : "Thought: "}
+                            {message.content}
+                          </span>
+                          {message.status === "running" && (
+                            <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
+                          )}
+                        </div>
+
+                        {/* Expandable thinking details */}
+                        {message.toolCallId && expandedThinking.has(message.toolCallId) && message.toolInput && (
+                          <div className="mt-2 p-3 bg-muted/30 rounded text-xs">
+                            {message.toolInput.prompt && (
+                              <div className="whitespace-pre-wrap font-mono text-muted-foreground">
+                                {sanitizeFilePath(message.toolInput.prompt)}
+                              </div>
+                            )}
+                            {message.toolInput.subagent_type && (
+                              <div className="mt-2 text-xs">
+                                <span className="font-semibold">Agent: </span>
+                                <span className="text-muted-foreground">{message.toolInput.subagent_type}</span>
+                              </div>
+                            )}
+                            {message.toolInput.model && (
+                              <div className="text-xs">
+                                <span className="font-semibold">Model: </span>
+                                <span className="text-muted-foreground">{message.toolInput.model}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -711,6 +988,33 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                 )}
               </div>
               ))}
+
+              {/* Show "Thinking..." indicator when processing but no response received yet */}
+              {isProcessing && isConnected && !hasReceivedResponse && (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <div className="relative flex items-center justify-center">
+                      <div
+                        className="w-2 h-2 bg-primary rounded-full animate-pulse"
+                        style={{
+                          filter:
+                            "drop-shadow(0 0 4px hsl(var(--primary) / 0.8)) drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
+                        }}
+                      ></div>
+                      <div
+                        className="absolute inset-0 w-2 h-2 bg-primary rounded-full animate-ping opacity-50"
+                        style={{
+                          filter:
+                            "drop-shadow(0 0 6px hsl(var(--primary) / 0.9))",
+                        }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium shimmer-text">
+                      Thinking...
+                    </span>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
