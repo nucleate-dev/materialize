@@ -1,4 +1,9 @@
-import { query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import {
+  Options,
+  PermissionMode,
+  query,
+  SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -18,11 +23,7 @@ interface ClientMessage {
 
 interface QueryData {
   prompt: string;
-  options?: {
-    maxTurns?: number;
-    allowedTools?: string[];
-    model?: string;
-  };
+  options?: Options;
 }
 
 export class CodeService {
@@ -156,7 +157,7 @@ export class CodeService {
 
     switch (type) {
       case "query":
-        await this.handleQuery(socket, data, prototypeId);
+        await this.handleQuery(socket, data as QueryData, prototypeId);
         break;
 
       case "interrupt":
@@ -179,10 +180,10 @@ export class CodeService {
 
   private async handleQuery(
     socket: WebSocket,
-    data: unknown,
+    data: { prompt: string; options?: Options },
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, options } = data as QueryData;
+    const { prompt, options = {} } = data;
 
     if (!prompt) {
       this.sendMessage(socket, {
@@ -231,7 +232,7 @@ export class CodeService {
         ],
         model: options?.model ?? "claude-sonnet-4-5",
         systemPrompt: "claude_code",
-        permissionMode: "bypassPermissions", // other options are 'default', 'acceptEdits', 'plan'
+        permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
         abortController,
         // Resume existing session if available
         ...(this.sessionState.sessionId && {
