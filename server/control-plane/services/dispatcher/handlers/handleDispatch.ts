@@ -39,6 +39,8 @@ import axios from 'axios';
 import {
   PublicDevServerStartRequest,
   PublicDevServerStartResponse,
+  PublicStartDevServerRequest,
+  PublicUpdateFilesRequest,
 } from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
@@ -406,8 +408,10 @@ async function dispatchRequestToFargateInstanceServer({
     file_scope,
     log2,
   });
+  const endpoint =
+    file_scope === 'complete' ? '/start-dev-server' : '/update-files';
   log2.info(
-    `Dispatching request to fargate instance at ${fargate_private_ip}:3002/dev-server: `,
+    `Dispatching request to fargate instance at ${fargate_private_ip}:3002${endpoint}: `,
     {
       requestBodyDetails: {
         prototypeId: prototype_id,
@@ -450,16 +454,12 @@ async function constructRequestBody({
   file_scope: FileScope;
   deleted_files?: string[];
   log2: SystemLogger;
-}): Promise<PublicDevServerStartRequest> {
+}): Promise<PublicStartDevServerRequest | PublicUpdateFilesRequest> {
   if (file_scope === 'complete') {
     // starting dev server. All files will be fetched from supabase directly in the Fargate instance
     return {
       prototype_id,
       framework,
-      files: [],
-      assets: [],
-      deleted_files: [],
-      file_scope: 'complete',
     };
   }
   const supabase = createClient<Database>(
@@ -512,22 +512,24 @@ async function constructRequestBody({
 
   return {
     prototype_id,
-    framework,
     files,
     assets: assetInputs,
-    deleted_files,
-    file_scope,
+    deleted_files: deleted_files || [],
   };
 }
 
 async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
-  requestBody: PublicDevServerStartRequest,
+  requestBody: PublicStartDevServerRequest | PublicUpdateFilesRequest,
   log2: SystemLogger,
 ): Promise<PublicDevServerStartResponse> {
   try {
+    // Determine the endpoint based on the request body type
+    const isStartDevServer = 'framework' in requestBody;
+    const endpoint = isStartDevServer ? '/start-dev-server' : '/update-files';
+
     const response = await axios.post(
-      `http://${fargatePrivateIp}:3002/dev-server`,
+      `http://${fargatePrivateIp}:3002${endpoint}`,
       requestBody,
       {
         timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
