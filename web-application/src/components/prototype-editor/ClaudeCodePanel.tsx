@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface ClaudeCodePanelProps {
   prototypeId: string;
@@ -155,6 +156,8 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
 
   // Handle messages from server
   const handleServerMessage = (message: ServerMessage) => {
+    logger.debug("log", "Server message received", { message });
+
     switch (message.type) {
       case "authenticated":
         // Server confirmed authentication
@@ -411,9 +414,34 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                         : "bg-muted"
                     }`}
                 >
-                  <pre className="whitespace-pre-wrap text-sm font-sans">
-                    {message.content}
-                  </pre>
+                  {message.type === "assistant" ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          // Customize code blocks
+                          code: ({ node, inline, className, children, ...props }) => (
+                            <code
+                              className={`${inline ? "bg-muted px-1 py-0.5 rounded text-xs" : "block bg-muted p-2 rounded my-2 overflow-x-auto"} ${className || ""}`}
+                              {...props}
+                            >
+                              {children}
+                            </code>
+                          ),
+                          // Customize paragraphs
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          // Customize lists
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <pre className="whitespace-pre-wrap text-sm font-sans">
+                      {message.content}
+                    </pre>
+                  )}
                 </div>
               </div>
             ))
@@ -427,7 +455,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder={
               isConnected
                 ? "Ask Claude Code anything..."

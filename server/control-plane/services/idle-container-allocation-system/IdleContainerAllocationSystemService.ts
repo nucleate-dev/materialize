@@ -1,12 +1,18 @@
+import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
 import {
   DescribeTasksCommand,
   RunTaskCommand,
   StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
-import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
+import { AssumeRoleCommand, STSClient } from '@aws-sdk/client-sts';
 import { GlideClient } from '@valkey/valkey-glide';
+import axios from 'axios';
+import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
+import {
+  PublicAllocateRequest,
+  PublicAllocateResponse,
+} from '../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
@@ -15,12 +21,6 @@ import {
   IdleBuild,
   IdleContainerStatus,
 } from '../../types/InternalTypes.js';
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
-import axios from 'axios';
-import {
-  PublicAllocateRequest,
-  PublicAllocateResponse,
-} from '../../types/BuildWorkerTypes.js';
 import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
 import { IdleCloudflareTunnelSystem } from './IdleCloudflareTunnelSystem.js';
 
@@ -532,21 +532,63 @@ export class IdleContainerAllocationSystemService {
   ): Promise<
     Pick<FargateInstanceInfo, 'terminalTunnelId' | 'terminalTunnelHostname'>
   > {
-    const [out, tunnelConfig] = await Promise.all([
-      this.stsClient.send(
+    // Assume AWS STS role for S3 access
+    let out;
+    try {
+      out = await this.stsClient.send(
         new AssumeRoleCommand({
           RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
           RoleSessionName: `proto-${prototypeId}`,
           Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
           DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
         }),
-      ),
-      this.cloudflareTunnelSystem.retrieveIdleTunnelForAllocation(prototypeId),
-    ]);
+      );
+    } catch (error) {
+      this.log2.error(
+        error,
+        `Failed to assume STS role for prototype ${prototypeId}`,
+        {
+          roleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN,
+          prototypeId,
+        },
+      );
+      throw new Error(
+        `Failed to assume AWS STS role: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
-    if (!out.Credentials) throw new Error('Failed to assume role');
+    if (!out.Credentials) {
+      const error = new Error(
+        'STS AssumeRole succeeded but returned no credentials',
+      );
+      this.log2.error(error, 'Missing credentials from STS response', {
+        prototypeId,
+        roleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN,
+      });
+      throw error;
+    }
 
-    // Store tunnel info in cache with https:// prefix
+    // Retrieve Cloudflare tunnel
+    let tunnelConfig;
+    try {
+      tunnelConfig =
+        await this.cloudflareTunnelSystem.retrieveIdleTunnelForAllocation(
+          prototypeId,
+        );
+    } catch (error) {
+      this.log2.error(
+        error,
+        `Failed to retrieve Cloudflare tunnel for prototype ${prototypeId}`,
+        {
+          prototypeId,
+        },
+      );
+      throw new Error(
+        `Failed to retrieve Cloudflare tunnel: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    // Store tunnel info in cache with wss:// prefix
     this.log2.consoleLogDevOnly(
       'debug',
       'updating cache with cloudflare tunnel final Tunnel config',
@@ -557,12 +599,24 @@ export class IdleContainerAllocationSystemService {
       },
     );
     const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
-    await updateBuildTunnelInfo(
-      this.cache,
-      activeBuildKey,
-      tunnelConfig.tunnel_id || '',
-      tunnelHostnameWithProtocol,
-    );
+
+    try {
+      await updateBuildTunnelInfo(
+        this.cache,
+        activeBuildKey,
+        tunnelConfig.tunnel_id || '',
+        tunnelHostnameWithProtocol,
+      );
+    } catch (error) {
+      this.log2.error(error, 'Failed to update build tunnel info in cache', {
+        activeBuildKey,
+        tunnelId: tunnelConfig.tunnel_id,
+        tunnelHostname: tunnelHostnameWithProtocol,
+      });
+      throw new Error(
+        `Failed to update tunnel info in cache: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
     const creds: PublicAllocateRequest = {
       accessKeyId: out.Credentials.AccessKeyId!,
@@ -588,16 +642,39 @@ export class IdleContainerAllocationSystemService {
       if (allocationResponse.status === 'error') {
         this.log2.error(
           new Error(allocationResponse.error),
-          `Failed to allocate to worker ${info.privateIp}`,
+          `Worker returned error status for allocation to ${info.privateIp}`,
+          {
+            workerIp: info.privateIp,
+            prototypeId,
+            errorMessage: allocationResponse.error,
+          },
         );
         throw new Error(
-          allocationResponse.error || 'Failed to allocate to worker',
+          `Worker allocation failed: ${allocationResponse.error || 'Unknown error from worker'}`,
         );
       }
     } catch (error) {
-      this.log2.error(error, 'Failed to make allocation request to worker');
+      // Handle both axios errors and our thrown errors
+      if (axios.isAxiosError(error)) {
+        this.log2.error(
+          error,
+          'Axios request failed when allocating to worker',
+          {
+            workerIp: info.privateIp,
+            prototypeId,
+            statusCode: error.response?.status,
+            responseData: error.response?.data,
+            errorMessage: error.message,
+          },
+        );
+        throw new Error(
+          `Failed to connect to worker at ${info.privateIp}: ${error.message}`,
+        );
+      }
+      // Re-throw if it's already our custom error
       throw error;
     }
+
     return {
       terminalTunnelId: tunnelConfig.tunnel_id || '',
       terminalTunnelHostname: tunnelHostnameWithProtocol,
