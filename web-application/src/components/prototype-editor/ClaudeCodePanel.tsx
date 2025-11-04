@@ -15,9 +15,11 @@ interface ClaudeCodePanelProps {
 
 interface Message {
   id: string;
-  type: "user" | "assistant" | "system" | "error";
+  type: "user" | "assistant" | "system" | "error" | "tool";
   content: string;
   timestamp: number;
+  toolName?: string;
+  isComplete?: boolean;
 }
 
 interface ServerMessage {
@@ -29,6 +31,10 @@ interface ServerMessage {
   data?: {
     connectionId?: string;
     sessionId?: string;
+    message?: string;
+    tool_name?: string;
+    tool_input?: unknown;
+    tool_response?: unknown;
   };
   subtype?: string;
 }
@@ -222,6 +228,20 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         addMessage("system", "Session has been reset");
         break;
 
+      case "tool_start":
+        // Add a tool message when a tool starts
+        if (message.data?.tool_name) {
+          addToolMessage(message.data.tool_name, false);
+        }
+        break;
+
+      case "tool_complete":
+        // Update the tool message when it completes
+        if (message.data?.tool_name) {
+          updateToolMessage(message.data.tool_name, true);
+        }
+        break;
+
       default:
         logger.debug("log", "Unknown message type", {
           messageType: message.type,
@@ -390,6 +410,43 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
     ]);
   };
 
+  // Add a tool message when a tool starts
+  const addToolMessage = (toolName: string, isComplete: boolean) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `tool-${toolName}-${Date.now()}`,
+        type: "tool",
+        content: `${toolName}${isComplete ? " ✓" : "..."}`,
+        timestamp: Date.now(),
+        toolName,
+        isComplete,
+      },
+    ]);
+  };
+
+  // Update a tool message when it completes
+  const updateToolMessage = (toolName: string, isComplete: boolean) => {
+    setMessages((prev) => {
+      // Find the most recent incomplete tool message with this name
+      const index = [...prev].reverse().findIndex(
+        (msg) => msg.type === "tool" && msg.toolName === toolName && !msg.isComplete
+      );
+
+      if (index === -1) return prev;
+
+      const actualIndex = prev.length - 1 - index;
+      const updatedMessages = [...prev];
+      updatedMessages[actualIndex] = {
+        ...updatedMessages[actualIndex],
+        content: `${toolName} ✓`,
+        isComplete,
+      };
+
+      return updatedMessages;
+    });
+  };
+
   // Send a query to Claude
   const sendQuery = () => {
     if (!ws || !isConnected) {
@@ -546,7 +603,9 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                       ? "bg-destructive/10 text-destructive"
                       : message.type === "system"
                         ? "bg-muted text-muted-foreground text-xs"
-                        : "bg-muted"
+                        : message.type === "tool"
+                          ? `bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono ${!message.isComplete ? "animate-pulse" : ""}`
+                          : "bg-muted"
                     }`}
                 >
                   {message.type === "assistant" ? (
@@ -554,14 +613,18 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                       <ReactMarkdown
                         components={{
                           // Customize code blocks
-                          code: ({ node, inline, className, children, ...props }) => (
-                            <code
-                              className={`${inline ? "bg-muted px-1 py-0.5 rounded text-xs" : "block bg-muted p-2 rounded my-2 overflow-x-auto"} ${className || ""}`}
-                              {...props}
-                            >
-                              {children}
-                            </code>
-                          ),
+                          code: ({ className, children, ...props }) => {
+                            // Check if inline by looking for node property
+                            const inline = !(props as any).node?.position;
+                            return (
+                              <code
+                                className={`${inline ? "bg-muted px-1 py-0.5 rounded text-xs" : "block bg-muted p-2 rounded my-2 overflow-x-auto"} ${className || ""}`}
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            );
+                          },
                           // Customize paragraphs
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                           // Customize lists

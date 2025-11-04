@@ -1,6 +1,8 @@
 import {
   Options,
   PermissionMode,
+  HookInput,
+  HookJSONOutput,
   query,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -235,6 +237,48 @@ export class CodeService {
         systemPrompt: "claude_code",
         permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
         abortController,
+        // Add hooks to stream tool usage to WebSocket clients
+        hooks: {
+          PreToolUse: [
+            {
+              hooks: [
+                async (input: HookInput): Promise<HookJSONOutput> => {
+                  if (input.hook_event_name === "PreToolUse") {
+                    // Send tool start event to WebSocket client
+                    this.sendMessage(socket, {
+                      type: "tool_start",
+                      data: {
+                        tool_name: input.tool_name,
+                        tool_input: input.tool_input,
+                      },
+                    });
+                  }
+                  return { continue: true };
+                },
+              ],
+            },
+          ],
+          PostToolUse: [
+            {
+              hooks: [
+                async (input: HookInput): Promise<HookJSONOutput> => {
+                  if (input.hook_event_name === "PostToolUse") {
+                    // Send tool complete event to WebSocket client
+                    this.sendMessage(socket, {
+                      type: "tool_complete",
+                      data: {
+                        tool_name: input.tool_name,
+                        tool_input: input.tool_input,
+                        tool_response: input.tool_response,
+                      },
+                    });
+                  }
+                  return { continue: true };
+                },
+              ],
+            },
+          ],
+        },
         // Resume existing session if available
         ...(this.sessionState.sessionId && {
           resume: this.sessionState.sessionId,
