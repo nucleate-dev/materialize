@@ -305,8 +305,18 @@ export class PublicApiService {
   ): Promise<PublicDevServerStartResponse> {
     try {
       if (request.body.file_scope === "complete") {
+        // For starting dev server, create a new request with only prototype_id and framework
+        // Files will be fetched from Supabase directly in the ExpoDevServerService
+        const newRequest = {
+          ...request,
+          body: {
+            prototype_id: request.body.prototype_id,
+            framework: request.body.framework,
+          },
+        } as FastifyRequest<{ Body: PublicStartDevServerRequest }>;
+
         const startResponse = await this.expoDevServerService.startDevServer(
-          request,
+          newRequest,
           reply,
         );
 

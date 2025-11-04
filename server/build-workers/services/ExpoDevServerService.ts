@@ -21,7 +21,7 @@ import {
   DevServerStatus,
   DevServerStatusResponse,
   OperationStatus,
-  PublicDevServerStartRequest,
+  PublicStartDevServerRequest,
 } from "../types/BuildWorkerTypes.js";
 import {
   installDependencies,
@@ -31,7 +31,7 @@ import {
   resolvePathWithinProject,
   writeProjectFiles,
 } from "../utils/shared-utils.js";
-import { baseLogger } from "../worker.js";
+import { baseLogger, getSupabaseClient } from "../worker.js";
 import { TerminalService } from "./TerminalService.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
@@ -147,30 +147,27 @@ export class ExpoDevServerService {
 
   // Start Expo dev server
   public async startDevServer(
-    request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
+    request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
     reply: FastifyReply,
   ): Promise<DevServerStartResponse> {
-    const { prototype_id, framework, files, assets, file_scope } = request.body;
+    const { prototype_id, framework } = request.body;
 
-    if (!prototype_id || !framework || !files || !file_scope) {
+    if (!prototype_id || !framework) {
       request.log2.error(
         new Error("Missing required parameters"),
         "Missing required parameters",
         {
           prototype_id,
           framework,
-          files: files?.length,
-          file_scope,
         },
       );
       return reply.code(400).send({
         success: false,
         status: DevServerStatus.ERROR,
-        error: "prototype_id, framework, files, and file_scope are required",
+        error: "prototype_id and framework are required",
         build_errors: [
           {
-            message:
-              "prototype_id, framework, files, and file_scope are required",
+            message: "prototype_id and framework are required",
             type: "build",
           },
         ],
@@ -219,69 +216,180 @@ export class ExpoDevServerService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
+      // Fetch files and assets from Supabase
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        const errorMsg = "Supabase client not initialized";
+        request.log2.error(new Error(errorMsg), errorMsg);
+        return reply.code(500).send({
+          success: false,
+          status: DevServerStatus.ERROR,
+          error: errorMsg,
+          build_errors: [
+            {
+              message: errorMsg,
+              type: "build",
+            },
+          ],
+          build_warnings: [],
+        });
+      }
+
+      request.log2.info("Fetching files from Supabase", { prototype_id });
+
+      // Fetch files from Supabase
+      const { data: filesData, error: filesError } = await supabase
+        .from("prototype_files")
+        .select("*")
+        .eq("prototype_id", prototype_id);
+
+      if (filesError) {
+        const errorMsg = `Failed to fetch files from Supabase: ${filesError.message}`;
+        request.log2.error(new Error(errorMsg), "Supabase file fetch failed", {
+          error: filesError,
+        });
+        return reply.code(500).send({
+          success: false,
+          status: DevServerStatus.ERROR,
+          error: errorMsg,
+          build_errors: [
+            {
+              message: errorMsg,
+              type: "build",
+            },
+          ],
+          build_warnings: [],
+        });
+      }
+
+      const files: PrototypeFileInput[] = filesData || [];
+      request.log2.info("Fetched files from Supabase", {
+        fileCount: files.length,
+      });
+
+      // Fetch assets from Supabase
+      const { data: assetsData, error: assetsError } = await supabase
+        .from("prototype_assets")
+        .select("*")
+        .eq("prototype_id", prototype_id);
+
+      if (assetsError) {
+        const errorMsg = `Failed to fetch assets from Supabase: ${assetsError.message}`;
+        request.log2.error(new Error(errorMsg), "Supabase asset fetch failed", {
+          error: assetsError,
+        });
+        return reply.code(500).send({
+          success: false,
+          status: DevServerStatus.ERROR,
+          error: errorMsg,
+          build_errors: [
+            {
+              message: errorMsg,
+              type: "build",
+            },
+          ],
+          build_warnings: [],
+        });
+      }
+
+      request.log2.info("Fetched assets from Supabase", {
+        assetCount: assetsData?.length || 0,
+      });
+
+      // Download assets from Supabase storage and convert to base64
+      const assetsWithContent: PrototypeAssetInputWithContent[] =
+        await Promise.all(
+          (assetsData || []).map(async (asset) => {
+            try {
+              const { data, error } = await supabase.storage
+                .from("prototype-assets")
+                .download(`${asset.prototype_id}/${asset.name}`);
+
+              if (error || !data) {
+                request.log2.error(
+                  error,
+                  `Failed to download asset ${asset.name}: ${
+                    error?.message ?? "unknown error"
+                  }`,
+                );
+                return null;
+              }
+
+              const arrayBuffer = await data.arrayBuffer();
+              const base64Content = Buffer.from(arrayBuffer).toString("base64");
+
+              return {
+                ...asset,
+                contents: base64Content,
+              };
+            } catch (err) {
+              request.log2.error(err, `Error downloading asset ${asset.name}`);
+              return null;
+            }
+          }),
+        ).then((results) =>
+          results.filter(
+            (r): r is PrototypeAssetInputWithContent => r !== null,
+          ),
+        );
+
+      request.log2.info("Downloaded assets from Supabase storage", {
+        downloadedCount: assetsWithContent.length,
+      });
+
       // Handle file scope (fixed path per instance)
       const projectDir = this.workDir;
 
-      if (file_scope === "complete") {
-        // Remove existing directory if it exists
-        try {
-          await fs.rm(projectDir, { recursive: true, force: true });
-        } catch (error: unknown) {
-          request.log2.error(
-            error,
-            "Directory removal failed (expected for new projects)",
-          );
-        }
-        // Create new directory and write all files
-        await fs.mkdir(projectDir, { recursive: true });
-        await writeProjectFiles(files, assets, projectDir);
-
-        // Install dependencies for new project
-        try {
-          await installDependencies(
-            projectDir,
-            this.log2,
-            this.terminalService.getSession("dev-server")!,
-          );
-        } catch (error: unknown) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorStack = error instanceof Error ? error.stack : undefined;
-          request.log2.error(
-            new Error(errorMessage),
-            "Dependency installation failed for complete scope",
-            { stack: errorStack },
-          );
-          buildErrors.push({
-            message: `Dependency installation failed: ${errorMessage}`,
-            type: "dependency",
-          });
-        }
-
-        // Initialize git repository (no-op if .git already exists)
-        try {
-          this.log2.info("Initializing git repository", { projectDir });
-          await this.initGitRepository(
-            projectDir,
-            this.terminalService.getSession("dev-server")!,
-          );
-          this.log2.info("Git repository initialized successfully");
-        } catch (error: unknown) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          request.log2.warn("Failed to initialize git repository", {
-            error: errorMessage,
-          });
-          // Don't add to buildErrors - git init failure shouldn't block dev server
-        }
-      } else if (file_scope === "updates") {
-        await this.updateDevServerFiles(
-          files,
-          assets,
-          [],
-          buildErrors,
-          buildWarnings,
+      // Remove existing directory if it exists
+      try {
+        await fs.rm(projectDir, { recursive: true, force: true });
+      } catch (error: unknown) {
+        request.log2.error(
+          error,
+          "Directory removal failed (expected for new projects)",
         );
+      }
+      // Create new directory and write all files
+      await fs.mkdir(projectDir, { recursive: true });
+      await writeProjectFiles(files, assetsWithContent, projectDir);
+
+      // Install dependencies for new project
+      try {
+        await installDependencies(
+          projectDir,
+          this.log2,
+          this.terminalService.getSession("dev-server")!,
+        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        request.log2.error(
+          new Error(errorMessage),
+          "Dependency installation failed",
+          { stack: errorStack },
+        );
+        buildErrors.push({
+          message: `Dependency installation failed: ${errorMessage}`,
+          type: "dependency",
+        });
+      }
+
+      // Initialize git repository (no-op if .git already exists)
+      try {
+        this.log2.info("Initializing git repository", { projectDir });
+        await this.initGitRepository(
+          projectDir,
+          this.terminalService.getSession("dev-server")!,
+        );
+        this.log2.info("Git repository initialized successfully");
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        request.log2.warn("Failed to initialize git repository", {
+          error: errorMessage,
+        });
+        // Don't add to buildErrors - git init failure shouldn't block dev server
       }
 
       this.state.prototypeId = prototype_id;
