@@ -97,6 +97,10 @@ export async function checkUserHasPrototypeViewingAccess(
       });
       return null;
     }
+    log2.consoleLogDevOnly('info', 'Prototype fetched:', {
+      functionName: 'checkUserHasPrototypeViewingAccess',
+      prototype: prototype,
+    });
     const { user, isServiceRole } = await validateJWTToken(jwtToken, log2);
     return { user, prototype, isServiceRole };
   } catch (error) {

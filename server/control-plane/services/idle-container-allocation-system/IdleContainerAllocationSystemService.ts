@@ -69,7 +69,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
@@ -122,7 +122,8 @@ export class IdleContainerAllocationSystemService {
     prototypeId: string,
     activeBuildKey: string,
     newBuildCacheData: ActiveBuild,
-    userId?: string,
+    jwt: string,
+    userId: string,
   ): Promise<FargateInstanceInfo> {
     // If we are in development mode, we need to use the development container.
     // There will never be any idle development containers. Just directly allocate a new container.
@@ -132,6 +133,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        jwt,
         userId,
       );
     }
@@ -161,6 +163,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        jwt,
         userId,
       );
       return info;
@@ -186,6 +189,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        jwt,
         userId,
       );
     }
@@ -215,6 +219,7 @@ export class IdleContainerAllocationSystemService {
         this.log2,
         activeBuildKey,
         newBuildCacheData,
+        jwt,
         userId,
       );
     }
@@ -235,6 +240,7 @@ export class IdleContainerAllocationSystemService {
           info,
           activeBuildKey,
           prototypeId,
+          jwt,
           userId,
         );
       return { ...info, ...tunnelInfo };
@@ -252,7 +258,7 @@ export class IdleContainerAllocationSystemService {
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
-    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
 
     let taskArn: string;
     try {
@@ -341,7 +347,8 @@ export class IdleContainerAllocationSystemService {
     log2: SystemLogger,
     activeBuildKey: string,
     newBuildCacheData: ActiveBuild,
-    userId?: string,
+    jwt: string,
+    userId: string,
   ): Promise<FargateInstanceInfo> {
     try {
       const taskArn = await this.launchFargateInstanceNotReady(log2);
@@ -369,6 +376,7 @@ export class IdleContainerAllocationSystemService {
             info,
             activeBuildKey,
             prototypeId,
+            jwt,
             userId,
           );
         return { ...info, ...tunnelInfo };
@@ -457,9 +465,9 @@ export class IdleContainerAllocationSystemService {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition:
-        process.env.NODE_ENV === 'production'
-          ? 'fastify-build-worker'
-          : 'materialize-development-containers',
+        // process.env.NODE_ENV === 'production'
+        'fastify-build-worker',
+      // : 'materialize-development-containers',
       launchType: 'FARGATE' as const,
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -472,9 +480,9 @@ export class IdleContainerAllocationSystemService {
         containerOverrides: [
           {
             name:
-              process.env.NODE_ENV === 'production'
-                ? 'materialize-fargate-build-worker-container'
-                : 'materialize-build-worker-container-development',
+              // process.env.NODE_ENV === 'production'
+              'materialize-fargate-build-worker-container',
+            // : 'materialize-build-worker-container-development',
             environment: [
               {
                 name: 'AWS_REGION',
@@ -519,7 +527,8 @@ export class IdleContainerAllocationSystemService {
     info: FargateInstanceInfo,
     activeBuildKey: string,
     prototypeId: string,
-    userId?: string,
+    jwt: string,
+    userId: string,
   ): Promise<
     Pick<FargateInstanceInfo, 'terminalTunnelId' | 'terminalTunnelHostname'>
   > {
@@ -572,6 +581,7 @@ export class IdleContainerAllocationSystemService {
         {
           headers: {
             'content-type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
           },
         },
       );

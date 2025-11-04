@@ -10,7 +10,6 @@ import { StripeManagementService } from './services/StripeManagementService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { ChatService } from './services/chat/ChatService.js';
-import { SandboxChatProxyService } from './services/chat/SandboxChatProxyService.js';
 import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
 import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
 import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
@@ -105,9 +104,13 @@ fastify.register(cors, {
     'x-internal-timestamp',
   ],
 });
-
-// Register WebSocket plugin
-fastify.register(websocket);
+await fastify.register(websocket, {
+  options: {
+    perMessageDeflate: true,
+    // raise if you plan to paste big chunks into the chat
+    maxPayload: 1024 * 1024 * 4, // 4MB
+  },
+});
 
 fastify.addHook('onRequest', async (req) => {
   const { requestId, traceId } = genRequestIds(
@@ -128,7 +131,6 @@ let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
-let claudeCodeChatService: SandboxChatProxyService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -216,10 +218,6 @@ const start = async (): Promise<void> => {
     // Create chat service and register routes
     chatService = new ChatService(fastify, dispatcherService);
     chatService.registerRoutes(fastify);
-
-    // Create Claude Code chat service (WebSocket) and register routes
-    claudeCodeChatService = new SandboxChatProxyService(fastify);
-    claudeCodeChatService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(
