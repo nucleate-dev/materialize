@@ -1,9 +1,9 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/ClientConstants";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useEffect, useRef, useState } from "react";
 
@@ -32,7 +32,7 @@ interface ServerMessage {
   subtype?: string;
 }
 
-export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
+export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -76,19 +76,10 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
         return;
       }
 
-      // Convert https:// to wss:// or http:// to ws://
-      // Attach credentials per message so the initial WebSocket connection stays open to everyone
-      const normalizedEndpoint = serverEndpoint.endsWith("/")
-        ? serverEndpoint.slice(0, -1)
-        : serverEndpoint;
-
       authTokenRef.current = token;
 
-      const wsUrl =
-        normalizedEndpoint
-          .replace("https://", "wss://")
-          .replace("http://", "ws://") +
-        `/chat/v2/ws`;
+      const wsUrl = `${baseTunnelUrl}/chat/ws/${prototypeId}`;
+      logger.debug("log", "WebSocket URL", { wsUrl, baseTunnelUrl, prototypeId });
 
       logger.debug("log", "Attempting WebSocket connection", {
         serverEndpoint,
@@ -359,9 +350,8 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
           <div
-            className={`w-2 h-2 rounded-full ${
-              isConnected ? "bg-green-500" : "bg-gray-400"
-            }`}
+            className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"
+              }`}
           />
           <span className="text-sm font-medium">Claude Code</span>
           {sessionId && (
@@ -404,20 +394,18 @@ export default function ClaudeCodePanel({ prototypeId }: ClaudeCodePanelProps) {
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${
-                  message.type === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${message.type === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.type === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : message.type === "error"
-                        ? "bg-destructive/10 text-destructive"
-                        : message.type === "system"
-                          ? "bg-muted text-muted-foreground text-xs"
-                          : "bg-muted"
-                  }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${message.type === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : message.type === "error"
+                      ? "bg-destructive/10 text-destructive"
+                      : message.type === "system"
+                        ? "bg-muted text-muted-foreground text-xs"
+                        : "bg-muted"
+                    }`}
                 >
                   <pre className="whitespace-pre-wrap text-sm font-sans">
                     {message.content}

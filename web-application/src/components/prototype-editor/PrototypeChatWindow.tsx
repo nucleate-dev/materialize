@@ -1799,15 +1799,34 @@ export default function PrototypeChatWindow({
   const messageLimit = getMessageLimit();
   const isAtLimit = userPlan === "free" && messageCount >= messageLimit;
   const isDevServerNotReady = currentRenderStatus === "Starting Dev Server..";
+
+  // Reasons to disable typing in the input
   const inputDisabledReasons = {
     noPrototypeChatSession: !prototypeChatSession,
     noFiles: !files,
     isChatLoading,
     isAtLimit,
-    isDevServerNotReady,
+    // Don't block typing when dev server is starting - let users compose their message
   } as const;
   const isInputDisabled = Object.values(inputDisabledReasons).some(Boolean);
-  const isSendDisabled = !currentMessage.trim() || isInputDisabled;
+
+  // Reasons to disable the send button (includes dev server not ready)
+  const sendDisabledReasons = {
+    ...inputDisabledReasons,
+    isDevServerNotReady,
+  } as const;
+  const isSendDisabled = !currentMessage.trim() || Object.values(sendDisabledReasons).some(Boolean);
+
+  // Get the reason why send is disabled for tooltip
+  const getSendDisabledReason = (): string | null => {
+    if (!currentMessage.trim()) return "Type a message to send";
+    if (sendDisabledReasons.isDevServerNotReady) return "Waiting for dev server to start...";
+    if (sendDisabledReasons.isAtLimit) return "Message limit reached. Upgrade to continue.";
+    if (sendDisabledReasons.isChatLoading) return "Processing your previous message...";
+    if (sendDisabledReasons.noPrototypeChatSession) return "Loading chat session...";
+    if (sendDisabledReasons.noFiles) return "Loading project files...";
+    return null;
+  };
 
   // Show upsell modal when free user reaches limit
   useEffect(() => {
@@ -2714,17 +2733,26 @@ export default function PrototypeChatWindow({
                   </div>
 
                   {/* Send Button */}
-                  <Button
-                    onClick={() => {
-                      handleSendMessage(currentMessage);
-                    }}
-                    disabled={isSendDisabled}
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 rounded-md hover:bg-accent disabled:opacity-50"
-                  >
-                    <PaperAirplaneIcon className="w-4 h-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => {
+                          handleSendMessage(currentMessage);
+                        }}
+                        disabled={isSendDisabled}
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 rounded-md hover:bg-accent disabled:opacity-50"
+                      >
+                        <PaperAirplaneIcon className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    {isSendDisabled && (
+                      <TooltipContent>
+                        {getSendDisabledReason()}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 </div>
               </div>
 
