@@ -305,6 +305,30 @@ export interface RunCommandSuccessResponse {
 }
 
 // ============================================================================
+// /orchestration ENDPOINTS
+// ============================================================================
+
+export interface StartChatRequestBody {
+  prototype_id: string;
+  // Add other fields as needed
+}
+
+export interface StartChatResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface EndChatRequestBody {
+  prototype_id: string;
+  // Add other fields as needed
+}
+
+export interface EndChatResponse {
+  success: boolean;
+  message?: string;
+}
+
+// ============================================================================
 // /chat ENDPOINT
 // ============================================================================
 
