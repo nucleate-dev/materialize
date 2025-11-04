@@ -449,6 +449,17 @@ async function constructRequestBody({
   deleted_files?: string[];
   log2: SystemLogger;
 }): Promise<PublicDevServerStartRequest> {
+  if (file_scope === 'complete') {
+    // starting dev server. All files will be fetched from supabase directly in the Fargate instance
+    return {
+      prototype_id,
+      framework,
+      files: [],
+      assets: [],
+      deleted_files: [],
+      file_scope: 'complete',
+    };
+  }
   const supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
@@ -460,7 +471,6 @@ async function constructRequestBody({
       },
     },
   );
-
   // Run all downloads concurrently
   const assetInputs: PrototypeAssetInputWithContent[] = await Promise.all(
     assets.map(async (asset) => {
