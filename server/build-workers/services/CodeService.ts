@@ -220,6 +220,7 @@ export class CodeService {
       // Query Claude with session resumption if available
       const queryOptions = {
         ...options,
+        includePartialMessages: true,
         cwd: this.workDir,
         maxTurns: options?.maxTurns ?? 50,
         allowedTools: options?.allowedTools ?? [

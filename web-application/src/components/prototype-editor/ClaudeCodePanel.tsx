@@ -210,6 +210,18 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         setIsProcessing(false);
         break;
 
+      case "interrupted":
+        setIsProcessing(false);
+        addMessage("system", message.data?.message || "Query interrupted");
+        break;
+
+      case "session_reset":
+        setMessages([]);
+        sessionIdRef.current = null;
+        setSessionId(null);
+        addMessage("system", "Session has been reset");
+        break;
+
       default:
         logger.debug("log", "Unknown message type", {
           messageType: message.type,
@@ -220,6 +232,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   // Handle agent messages (streaming responses from Claude)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAgentMessage = (data: any) => {
+    // Handle system init message
     if (data.type === "system" && data.subtype === "init") {
       const isNewSession = sessionIdRef.current !== data.session_id;
       sessionIdRef.current = data.session_id;
@@ -227,11 +240,108 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       if (isNewSession) {
         addMessage("system", `Session initialized: ${data.session_id}`);
       }
-    } else if (data.type === "text_delta" || data.type === "text") {
-      // Stream text response
+      return;
+    }
+
+    // Handle stream_event (SDKPartialAssistantMessage)
+    if (data.type === "stream_event") {
+      const event = data.event;
+
+      // Handle content block delta events (streaming text)
+      if (event.type === "content_block_delta") {
+        if (event.delta?.type === "text_delta") {
+          const textDelta = event.delta.text || "";
+          if (textDelta) {
+            // Append to last assistant message or create new one
+            setMessages((prev) => {
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage && lastMessage.type === "assistant") {
+                return [
+                  ...prev.slice(0, -1),
+                  {
+                    ...lastMessage,
+                    content: lastMessage.content + textDelta,
+                  },
+                ];
+              } else {
+                return [
+                  ...prev,
+                  {
+                    id: Date.now().toString(),
+                    type: "assistant",
+                    content: textDelta,
+                    timestamp: Date.now(),
+                  },
+                ];
+              }
+            });
+          }
+        }
+      }
+
+      // Handle content block start (for tool use)
+      else if (event.type === "content_block_start") {
+        if (event.content_block?.type === "tool_use") {
+          addMessage("system", `Tool: ${event.content_block.name || "unknown"}`);
+        }
+      }
+
+      return;
+    }
+
+    // Handle assistant message (complete messages)
+    if (data.type === "assistant") {
+      const message = data.message;
+      if (message?.content) {
+        for (const content of message.content) {
+          if (content.type === "text" && content.text) {
+            // Append or create assistant message
+            setMessages((prev) => {
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage && lastMessage.type === "assistant") {
+                return [
+                  ...prev.slice(0, -1),
+                  {
+                    ...lastMessage,
+                    content: lastMessage.content + content.text,
+                  },
+                ];
+              } else {
+                return [
+                  ...prev,
+                  {
+                    id: Date.now().toString(),
+                    type: "assistant",
+                    content: content.text,
+                    timestamp: Date.now(),
+                  },
+                ];
+              }
+            });
+          } else if (content.type === "tool_use") {
+            addMessage("system", `Tool: ${content.name || "unknown"}`);
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle result messages
+    if (data.type === "result") {
+      if (data.subtype === "success") {
+        addMessage("system", `Query completed (${data.num_turns} turns, $${data.total_cost_usd?.toFixed(4) || "0.0000"})`);
+      } else if (data.subtype === "error_max_turns") {
+        addMessage("error", "Maximum turns reached");
+      } else if (data.subtype === "error_during_execution") {
+        addMessage("error", "Error during execution");
+      }
+      return;
+    }
+
+    // Handle legacy formats for backward compatibility
+    if (data.type === "text_delta" || data.type === "text") {
       const content = data.content || data.text || "";
       if (content) {
-        // Append to last assistant message or create new one
         setMessages((prev) => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage && lastMessage.type === "assistant") {
@@ -255,14 +365,16 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
           }
         });
       }
-    } else if (data.type === "tool_use") {
-      addMessage("system", `Tool: ${data.tool_name || "unknown"}`);
-    } else if (data.type === "result") {
-      addMessage("assistant", JSON.stringify(data.result, null, 2));
-    } else {
-      // Log other message types for debugging
-      logger.debug("log", "Agent message", { data });
+      return;
     }
+
+    if (data.type === "tool_use") {
+      addMessage("system", `Tool: ${data.tool_name || "unknown"}`);
+      return;
+    }
+
+    // Log other message types for debugging
+    logger.debug("log", "Agent message", { data });
   };
 
   // Add a message to the chat
@@ -311,6 +423,20 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         data: {
           prompt: userMessage,
         },
+      }),
+    );
+  };
+
+  // Interrupt current query
+  const interruptQuery = () => {
+    if (!ws || !isConnected) {
+      addMessage("error", "Not connected to Claude Code");
+      return;
+    }
+
+    ws.send(
+      JSON.stringify({
+        type: "interrupt",
       }),
     );
   };
@@ -370,11 +496,20 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         <div className="flex gap-2">
           {isConnected ? (
             <>
+              {isProcessing && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={interruptQuery}
+                >
+                  Stop
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
                 onClick={resetSession}
-                disabled={!sessionId}
+                disabled={!sessionId || isProcessing}
               >
                 Reset
               </Button>
