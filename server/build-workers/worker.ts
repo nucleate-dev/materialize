@@ -46,16 +46,16 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
 }
 
 // Store Supabase client instance (set by /allocate endpoint)
-let supabaseClient: SupabaseClient | null = null;
-
+let supabaseClient: SupabaseClient = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!,
+);
 export function setSupabaseClient(client: SupabaseClient): void {
   supabaseClient = client;
 }
-
 export function getSupabaseClient(): SupabaseClient | null {
   return supabaseClient;
 }
-
 /**
  * Creates a Supabase client with user JWT authentication
  * @param jwtToken - The user's JWT token from the Authorization header
