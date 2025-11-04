@@ -54,6 +54,27 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
+  // Helper function to determine if a tool is read-only (search/inspection)
+  const isReadOnlyTool = (toolName: string): boolean => {
+    const normalized = toolName.toLowerCase();
+    const readOnlyTools = ['read', 'glob', 'grep', 'list', 'search'];
+    return readOnlyTools.some(tool => normalized.includes(tool));
+  };
+
+  // Helper function to get friendly tool display name
+  const getToolDisplayName = (toolName: string): string => {
+    const normalized = toolName.toLowerCase();
+    if (normalized.includes('read')) return 'Reading files';
+    if (normalized.includes('glob')) return 'Searching files';
+    if (normalized.includes('grep')) return 'Searching code';
+    if (normalized.includes('list')) return 'Listing files';
+    if (normalized.includes('write')) return 'Writing';
+    if (normalized.includes('edit')) return 'Editing';
+    if (normalized.includes('bash')) return 'Running command';
+    if (normalized.includes('delete')) return 'Deleting';
+    return toolName;
+  };
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -226,18 +247,78 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
         break;
 
       case "tool_start":
-        // Add a tool message when a tool starts
+        // Handle tool start
         if (message.data?.tool_name) {
+          const toolName = message.data.tool_name;
           const toolCallId = message.data?.tool_call_id || `tool-${Date.now()}`;
-          addToolMessage(message.data.tool_name, toolCallId, "running");
+
+          if (isReadOnlyTool(toolName)) {
+            // For read-only tools, check if we can consolidate with the last message
+            setMessages((prev) => {
+              const lastMessage = prev[prev.length - 1];
+
+              // If the last message is an incomplete read-only tool of the same type, don't add a new one
+              if (
+                lastMessage &&
+                lastMessage.type === "tool" &&
+                !lastMessage.isComplete &&
+                lastMessage.toolName &&
+                isReadOnlyTool(lastMessage.toolName) &&
+                lastMessage.toolName.toLowerCase() === toolName.toLowerCase()
+              ) {
+                // Consolidate - don't add a new message, just keep the existing one
+                return prev;
+              }
+
+              // Otherwise, remove any incomplete read-only tools and add this one
+              const filtered = prev.filter(msg =>
+                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              );
+
+              return [
+                ...filtered,
+                {
+                  id: `tool-${toolCallId}`,
+                  type: "tool" as const,
+                  content: getToolDisplayName(toolName),
+                  timestamp: Date.now(),
+                  toolName,
+                  toolCallId,
+                  isComplete: false,
+                  status: "running" as const,
+                },
+              ];
+            });
+          } else {
+            // For action tools, add them to the chat as persistent badges
+            // First, clean up any incomplete read-only tools
+            setMessages((prev) =>
+              prev.filter(msg =>
+                !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
+              )
+            );
+            addToolMessage(toolName, toolCallId, "running");
+          }
         }
         break;
 
       case "tool_complete":
-        // Update the tool message when it completes
+        // Handle tool completion
         if (message.data?.tool_name) {
+          const toolName = message.data.tool_name;
           const toolCallId = message.data?.tool_call_id || "";
-          updateToolMessage(toolCallId, "success");
+
+          if (isReadOnlyTool(toolName)) {
+            // For read-only tools, remove them from the chat when complete
+            setMessages((prev) =>
+              prev.filter(msg =>
+                !(msg.type === "tool" && msg.toolCallId === toolCallId)
+              )
+            );
+          } else {
+            // For action tools, update their status to success
+            updateToolMessage(toolCallId, "success");
+          }
         }
         break;
 
@@ -371,7 +452,7 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
       {
         id: `tool-${toolCallId}`,
         type: "tool",
-        content: toolName,
+        content: getToolDisplayName(toolName),
         timestamp: Date.now(),
         toolName,
         toolCallId,
@@ -545,7 +626,8 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
               Connect to start chatting with Claude Code
             </div>
           ) : (
-            messages.map((message) => (
+            <>
+              {messages.map((message) => (
               <div key={message.id}>
                 {/* User messages - keep bubble style */}
                 {message.type === "user" && (
@@ -628,7 +710,8 @@ export default function ClaudeCodePanel({ prototypeId, baseTunnelUrl }: ClaudeCo
                   </div>
                 )}
               </div>
-            ))
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>

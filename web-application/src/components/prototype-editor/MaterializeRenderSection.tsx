@@ -57,12 +57,10 @@ import {
   Palette,
   QrCode,
   RefreshCw,
-  RotateCcw,
-  Settings,
-  Share2,
+  RotateCcw, Share2,
   Smartphone,
   Terminal as TerminalIcon,
-  X,
+  X
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -1516,19 +1514,6 @@ const MaterializeRenderSection = forwardRef<
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="sm:hidden" />
                     </>
-                  )}
-                  {prototypeId && currentRenderStatus === "Connected" && (
-                    <DropdownMenuItem
-                      onClick={handleRunLint}
-                      disabled={!prototypeId || isRunningLint}
-                    >
-                      {isRunningLint ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Settings className="w-4 h-4 mr-2" />
-                      )}
-                      {isRunningLint ? "Running Lint..." : "Run Lint"}
-                    </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
                     onClick={handleRefresh}
