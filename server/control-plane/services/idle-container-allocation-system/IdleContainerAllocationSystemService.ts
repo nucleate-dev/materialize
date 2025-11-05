@@ -8,6 +8,7 @@ import {
 import { AssumeRoleCommand, STSClient } from '@aws-sdk/client-sts';
 import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
+import { randomBytes } from 'crypto';
 import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
 import {
   PublicAllocateRequest,
@@ -600,12 +601,16 @@ export class IdleContainerAllocationSystemService {
     );
     const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
 
+    // Generate orchestration token for authenticating container orchestration requests
+    const orchestrationToken = randomBytes(32).toString('hex');
+
     try {
       await updateBuildTunnelInfo(
         this.cache,
         activeBuildKey,
         tunnelConfig.tunnel_id || '',
         tunnelHostnameWithProtocol,
+        orchestrationToken,
       );
     } catch (error) {
       this.log2.error(error, 'Failed to update build tunnel info in cache', {
@@ -625,6 +630,7 @@ export class IdleContainerAllocationSystemService {
       prototypeId,
       userId: userId || 'unknown',
       cloudflare_tunnel_token: tunnelConfig.token || '',
+      orchestration_token: orchestrationToken,
     };
 
     // Send creds to worker

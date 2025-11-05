@@ -37,7 +37,6 @@ import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import {
-  PublicDevServerStartRequest,
   PublicDevServerStartResponse,
   PublicStartDevServerRequest,
   PublicUpdateFilesRequest,

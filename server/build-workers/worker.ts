@@ -132,6 +132,7 @@ const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,
+  codeService,
   WORK_DIR,
 );
 

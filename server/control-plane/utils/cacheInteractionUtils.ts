@@ -70,6 +70,7 @@ export async function hgetallAsActiveBuild(
     last_touched: parseInt(obj.last_touched, 10),
     terminal_tunnel_id: obj.terminal_tunnel_id || '',
     terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
+    orchestration_token: obj.orchestration_token || '',
   };
 }
 
@@ -84,6 +85,7 @@ export function activeBuildToStringRecord(
     last_touched: build.last_touched.toString(),
     terminal_tunnel_id: build.terminal_tunnel_id,
     terminal_tunnel_hostname: build.terminal_tunnel_hostname,
+    orchestration_token: build.orchestration_token,
   };
 }
 
@@ -92,10 +94,12 @@ export async function updateBuildTunnelInfo(
   activeBuildKey: string,
   tunnelId: string,
   tunnelHostname: string,
+  orchestrationToken: string,
 ): Promise<void> {
   await cache.hset(activeBuildKey, {
     terminal_tunnel_id: tunnelId,
     terminal_tunnel_hostname: tunnelHostname,
+    orchestration_token: orchestrationToken,
   });
 }
 

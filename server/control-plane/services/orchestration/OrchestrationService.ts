@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { GlideClient } from '@valkey/valkey-glide';
 import {
   HTTP_STATUS,
   StartChatRequestBody,
@@ -6,12 +7,23 @@ import {
   EndChatRequestBody,
   EndChatResponse,
 } from '../../types/PublicAPITypes.js';
+import { CACHE_KEYS } from '../../types/InternalTypes.js';
+import { hgetallAsActiveBuild } from '../../utils/cacheInteractionUtils.js';
+import { SystemLogger } from '../../loggers/SystemLogger.js';
 
 export class OrchestrationService {
   private fastifyApp: FastifyInstance;
+  private cache: GlideClient;
+  private logger: SystemLogger;
 
-  constructor(fastifyApp: FastifyInstance) {
+  constructor(
+    fastifyApp: FastifyInstance,
+    cache: GlideClient,
+    logger: SystemLogger,
+  ) {
     this.fastifyApp = fastifyApp;
+    this.cache = cache;
+    this.logger = logger.child({ service: 'OrchestrationService' });
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -54,12 +66,111 @@ export class OrchestrationService {
     );
   }
 
+  /**
+   * Validates the orchestration token from the request headers
+   * @param request - The Fastify request object
+   * @param prototypeId - The prototype ID to validate against
+   * @returns The build ID if validation succeeds, null if it fails
+   */
+  private async validateOrchestrationToken(
+    request: FastifyRequest,
+    prototypeId: string,
+  ): Promise<{ isValid: boolean; buildId?: string; errorMessage?: string }> {
+    // Extract token from x-orchestration-token header
+    const providedToken = request.headers['x-orchestration-token'];
+
+    if (!providedToken || typeof providedToken !== 'string') {
+      this.logger.warn('Missing orchestration token in request', {
+        prototypeId,
+      });
+      return {
+        isValid: false,
+        errorMessage: 'Missing x-orchestration-token header',
+      };
+    }
+
+    // Get current build ID for this prototype from cache
+    const currentBuildId = await this.cache.get(
+      CACHE_KEYS.protoCurrentBuild(prototypeId),
+    );
+
+    if (!currentBuildId) {
+      this.logger.warn('No active build found for prototype', { prototypeId });
+      return {
+        isValid: false,
+        errorMessage: 'No active build found for this prototype',
+      };
+    }
+
+    // Fetch the active build from cache
+    const activeBuild = await hgetallAsActiveBuild(
+      this.cache,
+      CACHE_KEYS.activeBuild(currentBuildId),
+    );
+
+    if (!activeBuild) {
+      this.logger.error(
+        new Error('Active build data not found in cache'),
+        'Build metadata missing',
+        { prototypeId, buildId: currentBuildId },
+      );
+      return {
+        isValid: false,
+        errorMessage: 'Build metadata not found',
+      };
+    }
+
+    // Validate the token
+    if (activeBuild.orchestration_token !== providedToken) {
+      this.logger.warn('Invalid orchestration token provided', {
+        prototypeId,
+        buildId: currentBuildId,
+      });
+      return {
+        isValid: false,
+        errorMessage: 'Invalid orchestration token',
+      };
+    }
+
+    // Token is valid
+    this.logger.info('Orchestration token validated successfully', {
+      prototypeId,
+      buildId: currentBuildId,
+    });
+
+    return {
+      isValid: true,
+      buildId: currentBuildId,
+    };
+  }
+
   private async handleStartChat(
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
     reply: FastifyReply,
   ): Promise<StartChatResponse> {
+    const { prototype_id } = request.body;
+
+    // Validate orchestration token
+    const validation = await this.validateOrchestrationToken(
+      request,
+      prototype_id,
+    );
+
+    if (!validation.isValid) {
+      const statusCode =
+        validation.errorMessage === 'No active build found for this prototype'
+          ? HTTP_STATUS.NOT_FOUND
+          : HTTP_STATUS.UNAUTHORIZED;
+
+      return reply.status(statusCode).send({
+        success: false,
+        message: validation.errorMessage,
+      });
+    }
+
     // TODO: Implement start-chat logic
     // This will handle state updates when a chat message begins
+    // validation.buildId contains the validated build ID
 
     return reply.status(HTTP_STATUS.OK).send({
       success: true,
@@ -71,8 +182,29 @@ export class OrchestrationService {
     request: FastifyRequest<{ Body: EndChatRequestBody }>,
     reply: FastifyReply,
   ): Promise<EndChatResponse> {
+    const { prototype_id } = request.body;
+
+    // Validate orchestration token
+    const validation = await this.validateOrchestrationToken(
+      request,
+      prototype_id,
+    );
+
+    if (!validation.isValid) {
+      const statusCode =
+        validation.errorMessage === 'No active build found for this prototype'
+          ? HTTP_STATUS.NOT_FOUND
+          : HTTP_STATUS.UNAUTHORIZED;
+
+      return reply.status(statusCode).send({
+        success: false,
+        message: validation.errorMessage,
+      });
+    }
+
     // TODO: Implement end-chat logic
     // This will handle state updates when a chat message ends
+    // validation.buildId contains the validated build ID
 
     return reply.status(HTTP_STATUS.OK).send({
       success: true,

@@ -24,6 +24,7 @@ import {
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
+import { CodeService } from "./CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
 
@@ -31,17 +32,20 @@ export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
   private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
+  private readonly codeService: CodeService;
   private readonly workDir: string;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
+    codeService: CodeService,
     workDir: string,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
     this.cloudflareTunnelManagementService = cloudflareTunnelManagementService;
+    this.codeService = codeService;
     this.workDir = workDir;
   }
 
@@ -92,6 +96,7 @@ export class PublicApiService {
       prototypeId,
       userId,
       cloudflare_tunnel_token,
+      orchestration_token,
     } = request.body;
 
     // Import functions dynamically to avoid circular dependency
@@ -198,6 +203,12 @@ export class PublicApiService {
               : "Failed to start Cloudflare tunnel";
           request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
         }
+      }
+
+      // Store orchestration token if provided
+      if (orchestration_token) {
+        this.codeService.setOrchestrationToken(orchestration_token);
+        request.log2.info("Orchestration token received and stored in CodeService");
       }
 
       return reply.status(200).send({

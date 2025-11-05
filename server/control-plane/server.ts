@@ -20,6 +20,7 @@ import { StripeManagementService } from './services/StripeManagementService.js';
 import { ChatService } from './services/chat/ChatService.js';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
+import { OrchestrationService } from './services/orchestration/OrchestrationService.js';
 import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 
 // Extend FastifyRequest to include our custom logger
@@ -123,6 +124,7 @@ let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
+let orchestrationService: OrchestrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -210,6 +212,14 @@ const start = async (): Promise<void> => {
     // Create chat service and register routes
     chatService = new ChatService(fastify, dispatcherService);
     chatService.registerRoutes(fastify);
+
+    // Create orchestration service and register routes
+    orchestrationService = new OrchestrationService(
+      fastify,
+      cacheClient,
+      baseLogger,
+    );
+    orchestrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(

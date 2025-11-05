@@ -213,6 +213,7 @@ export interface PublicAllocateRequest {
   prototypeId: string;
   userId: string;
   cloudflare_tunnel_token?: string;
+  orchestration_token?: string;
 }
 
 export interface PublicAllocateResponse {

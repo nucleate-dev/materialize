@@ -51,6 +51,7 @@ export class CodeService {
     abortController: null,
   };
   private activeConnections = new Map<string, WebSocket>();
+  private orchestrationToken: string | null = null;
 
   constructor(
     fastifyApp: FastifyInstance,
@@ -64,6 +65,15 @@ export class CodeService {
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
     });
+  }
+
+  public setOrchestrationToken(token: string): void {
+    this.orchestrationToken = token;
+    this.logger.info("Orchestration token set");
+  }
+
+  public getOrchestrationToken(): string | null {
+    return this.orchestrationToken;
   }
 
   public registerRoutes(): void {
