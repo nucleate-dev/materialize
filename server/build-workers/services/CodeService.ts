@@ -2,13 +2,12 @@ import {
   HookInput,
   HookJSONOutput,
   Options,
-  PermissionMode,
   query,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
-import axios from "axios";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 
 interface CodeSessionState {
@@ -301,7 +300,7 @@ export class CodeService {
           ],
           model: options?.model ?? "claude-sonnet-4-5",
           systemPrompt: "claude_code",
-          permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
+          // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           // Add hooks to stream tool usage to WebSocket clients
           hooks: {
