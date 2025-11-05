@@ -16,61 +16,44 @@ export async function POST(request: NextRequest) {
     const projectRoot = path.resolve(process.cwd(), "..");
     const results: { file: string; success: boolean; error?: string }[] = [];
 
-    // 1. Update deploy-control-plane-for-dev.js
+    // 1. Update server/scripts/.env
     try {
-      const cpDeployPath = path.join(
-        projectRoot,
-        "server/scripts/deploy-control-plane-for-dev.js",
-      );
-      let cpDeployContent = fs.readFileSync(cpDeployPath, "utf-8");
+      const scriptsEnvPath = path.join(projectRoot, "server/scripts/.env");
+      let scriptsEnvContent = "";
 
-      // Replace the HOST line
-      cpDeployContent = cpDeployContent.replace(
-        /const HOST = ".*";/,
-        `const HOST = "${publicDns}";`,
-      );
+      // Read existing content if file exists
+      if (fs.existsSync(scriptsEnvPath)) {
+        scriptsEnvContent = fs.readFileSync(scriptsEnvPath, "utf-8");
+      }
 
-      fs.writeFileSync(cpDeployPath, cpDeployContent, "utf-8");
+      // Replace or add HOST line
+      if (scriptsEnvContent.includes("HOST=")) {
+        scriptsEnvContent = scriptsEnvContent.replace(
+          /HOST=.*/,
+          `HOST=${publicDns}`,
+        );
+      } else {
+        // Add HOST if it doesn't exist
+        if (scriptsEnvContent && !scriptsEnvContent.endsWith("\n")) {
+          scriptsEnvContent += "\n";
+        }
+        scriptsEnvContent += `# EC2 instance configuration for deployment scripts\nHOST=${publicDns}\n`;
+      }
+
+      fs.writeFileSync(scriptsEnvPath, scriptsEnvContent, "utf-8");
       results.push({
-        file: "server/scripts/deploy-control-plane-for-dev.js",
+        file: "server/scripts/.env",
         success: true,
       });
     } catch (error) {
       results.push({
-        file: "server/scripts/deploy-control-plane-for-dev.js",
+        file: "server/scripts/.env",
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }
 
-    // 2. Update deploy-build-workers-for-dev.js
-    try {
-      const bwDeployPath = path.join(
-        projectRoot,
-        "server/scripts/deploy-build-workers-for-dev.js",
-      );
-      let bwDeployContent = fs.readFileSync(bwDeployPath, "utf-8");
-
-      // Replace the HOST line
-      bwDeployContent = bwDeployContent.replace(
-        /const HOST = ".*";/,
-        `const HOST = "${publicDns}";`,
-      );
-
-      fs.writeFileSync(bwDeployPath, bwDeployContent, "utf-8");
-      results.push({
-        file: "server/scripts/deploy-build-workers-for-dev.js",
-        success: true,
-      });
-    } catch (error) {
-      results.push({
-        file: "server/scripts/deploy-build-workers-for-dev.js",
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-
-    // 3. Update web-application/.env
+    // 2. Update web-application/.env
     try {
       const webEnvPath = path.join(projectRoot, "web-application/.env");
       let webEnvContent = fs.readFileSync(webEnvPath, "utf-8");
@@ -94,7 +77,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Update internal-tools/.env
+    // 3. Update internal-tools/.env
     try {
       const internalEnvPath = path.join(projectRoot, "internal-tools/.env");
       let internalEnvContent = fs.readFileSync(internalEnvPath, "utf-8");
@@ -105,7 +88,7 @@ export async function POST(request: NextRequest) {
         `NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
       );
 
-      // Replace NEXT_PUBLIC_INTERNAL_TOOLS_SERVER_ENDPOINT
+      // Replace NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
       internalEnvContent = internalEnvContent.replace(
         /NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=.*/,
         `NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=http://${publicIpv4}:3002`,
