@@ -38,6 +38,13 @@ interface ClaudeCodePanelProps {
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   onFileSyncComplete?: () => void;
+  // External WebSocket management (optional)
+  externalWS?: WebSocket | null;
+  externalWSConnected?: boolean;
+  onConnect?: () => Promise<void>;
+  onDisconnect?: () => void;
+  onRegisterMessageHandler?: (id: string, handler: (msg: any) => void) => void;
+  onUnregisterMessageHandler?: (id: string) => void;
 }
 
 interface Message {
@@ -86,10 +93,28 @@ export default function ClaudeCodePanel({
   canEditPrototype = false,
   onPrototypeUpdate,
   onFileSyncComplete,
+  externalWS,
+  externalWSConnected,
+  onConnect,
+  onDisconnect,
+  onRegisterMessageHandler,
+  onUnregisterMessageHandler,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+
+  // Determine if using external WebSocket management
+  const usingExternalWS = !!externalWS;
+
+  // Internal WebSocket state (only used if no external WS provided)
+  const [internalWS, setInternalWS] = useState<WebSocket | null>(null);
+  const [internalConnected, setInternalConnected] = useState(false);
+
+  // Use external or internal WebSocket
+  const ws = usingExternalWS ? externalWS : internalWS;
+  const isConnected = usingExternalWS
+    ? externalWSConnected ?? false
+    : internalConnected;
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -272,8 +297,21 @@ export default function ClaudeCodePanel({
     }
   }, [messages]);
 
+  // Register message handler with parent if using external WS
+  useEffect(() => {
+    if (usingExternalWS && onRegisterMessageHandler && onUnregisterMessageHandler) {
+      const handlerId = `claude-code-panel-${Date.now()}`;
+      onRegisterMessageHandler(handlerId, handleServerMessage);
+
+      return () => {
+        onUnregisterMessageHandler(handlerId);
+      };
+    }
+  }, [usingExternalWS, onRegisterMessageHandler, onUnregisterMessageHandler]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Connect to WebSocket
-  const connect = async () => {
+  // Internal WebSocket connection (only used if no external WS provided)
+  const connectInternal = async () => {
     try {
       authTokenRef.current = null;
 
@@ -295,7 +333,7 @@ export default function ClaudeCodePanel({
 
       authTokenRef.current = token;
       const finalTunnelUrlBase = (process.env.FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
-      const wsUrl = `${finalTunnelUrlBase}/code/ws/`;
+      const wsUrl = `${finalTunnelUrlBase}/code/ws/${prototypeId}`;
       logger.debug("log", "WebSocket URL", { wsUrl, finalTunnelUrlBase, prototypeId });
 
       logger.debug("log", "Attempting WebSocket connection", {
@@ -303,13 +341,12 @@ export default function ClaudeCodePanel({
         prototypeId,
         hasToken: !!token,
         tokenLength: token?.length,
-        wsPath: `/chat/v2/ws`,
       });
 
       const websocket = new WebSocket(wsUrl);
 
       websocket.onopen = () => {
-        setIsConnected(true);
+        setInternalConnected(true);
         addMessage("system", "Connected");
       };
 
@@ -324,7 +361,7 @@ export default function ClaudeCodePanel({
 
       websocket.onclose = (event) => {
         authTokenRef.current = null;
-        setIsConnected(false);
+        setInternalConnected(false);
         const closeReason = event.reason || "No reason provided";
         logger.debug("error", "WebSocket closed", {
           code: event.code,
@@ -348,7 +385,7 @@ export default function ClaudeCodePanel({
         addMessage("error", "WebSocket connection error");
       };
 
-      setWs(websocket);
+      setInternalWS(websocket);
     } catch (error) {
       authTokenRef.current = null;
       addMessage(
@@ -358,16 +395,20 @@ export default function ClaudeCodePanel({
     }
   };
 
-  // Disconnect from WebSocket
-  const disconnect = () => {
-    if (ws) {
-      ws.close();
-      setWs(null);
-      setIsConnected(false);
+  // Internal disconnect (only used if no external WS provided)
+  const disconnectInternal = () => {
+    if (internalWS) {
+      internalWS.close();
+      setInternalWS(null);
+      setInternalConnected(false);
       authTokenRef.current = null;
       sessionIdRef.current = null;
     }
   };
+
+  // Use external or internal connect/disconnect
+  const connect = usingExternalWS && onConnect ? onConnect : connectInternal;
+  const disconnect = usingExternalWS && onDisconnect ? onDisconnect : disconnectInternal;
 
   // Handle messages from server
   const handleServerMessage = (message: ServerMessage) => {

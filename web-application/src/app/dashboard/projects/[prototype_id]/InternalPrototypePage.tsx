@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useClaudeCodeWebSocket } from "@/hooks/useClaudeCodeWebSocket";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
@@ -58,7 +59,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
@@ -90,7 +91,7 @@ export default function InternalPrototypePage() {
   const router = useRouter();
   const { user, userIsLoading } = useUser();
   const { userPlan } = useSubscriptionAccess();
-  const params = useParams<{ prototype_id: string }>();
+  const params = useParams<{ prototype_id: string; }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -145,6 +146,44 @@ export default function InternalPrototypePage() {
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
 
+  // Claude Code WebSocket management
+  const claudeCodeWSMessageHandlers = useRef<
+    Map<string, (msg: any) => void>
+  >(new Map());
+
+  const handleClaudeCodeMessage = useCallback((message: any) => {
+    // Broadcast to all registered handlers
+    claudeCodeWSMessageHandlers.current.forEach((handler) => handler(message));
+  }, []);
+
+  const {
+    ws: claudeCodeWS,
+    isConnected: claudeCodeWSConnected,
+    connect: connectClaudeCodeWS,
+    disconnect: disconnectClaudeCodeWS,
+    sendSyncFiles,
+  } = useClaudeCodeWebSocket({
+    prototypeId,
+    baseTunnelUrl,
+    onMessage: handleClaudeCodeMessage,
+    autoConnect: false, // ClaudeCodePanel controls when to connect
+  });
+
+  // Handler for when files are saved in CodeEditor
+  const handleFilesSaved = useCallback(
+    (fileNames: string[], assetNames: string[] = []) => {
+      // Immediately sync files to Claude Code working directory
+      if (claudeCodeWSConnected) {
+        logger.debug("log", "Triggering Claude Code file sync", {
+          fileNames,
+          assetNames,
+        });
+        sendSyncFiles(prototypeId, fileNames, assetNames);
+      }
+    },
+    [claudeCodeWSConnected, sendSyncFiles, prototypeId, logger],
+  );
+
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
   );
@@ -154,8 +193,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-        (system) => String(system.id) === currentCustomDesignSystemId,
-      )?.name || "Custom design system"
+      (system) => String(system.id) === currentCustomDesignSystemId,
+    )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -607,10 +646,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-              ...prev,
-              design_style: dialogDesignStyle,
-              custom_design_system: nextCustomDesignSystem,
-            }
+            ...prev,
+            design_style: dialogDesignStyle,
+            custom_design_system: nextCustomDesignSystem,
+          }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -793,11 +832,10 @@ export default function InternalPrototypePage() {
       >
         {/* Left Panel - AI Assistant Chat or Claude Code */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -837,6 +875,17 @@ export default function InternalPrototypePage() {
                   // Reload files and assets from database when Claude Code finishes syncing
                   fileSystem.loadFilesFromDatabase(prototypeId);
                   fileSystem.loadAssetsFromDatabase(prototypeId);
+                }}
+                // Pass external WebSocket management
+                externalWS={claudeCodeWS}
+                externalWSConnected={claudeCodeWSConnected}
+                onConnect={connectClaudeCodeWS}
+                onDisconnect={disconnectClaudeCodeWS}
+                onRegisterMessageHandler={(id: string, handler: (msg: any) => void) => {
+                  claudeCodeWSMessageHandlers.current.set(id, handler);
+                }}
+                onUnregisterMessageHandler={(id: string) => {
+                  claudeCodeWSMessageHandlers.current.delete(id);
                 }}
               />
             ) : (
@@ -889,11 +938,10 @@ export default function InternalPrototypePage() {
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${
-            isMobile
-              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-          } flex-col relative z-10 bg-background overflow-hidden`}
+          className={`${isMobile
+            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+            : "flex"
+            } flex-col relative z-10 bg-background overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -934,11 +982,10 @@ export default function InternalPrototypePage() {
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   <div
-                    className={`${
-                      isMobile
-                        ? "w-full max-h-[200px] border-b"
-                        : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                    } border-border`}
+                    className={`${isMobile
+                      ? "w-full max-h-[200px] border-b"
+                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
+                      } border-border`}
                   >
                     <div className="h-full overflow-auto">
                       <FileTree
@@ -965,6 +1012,7 @@ export default function InternalPrototypePage() {
                       prototypeId={prototypeId}
                       onViewingUrlUpdate={setViewingUrl}
                       currentRenderStatus={currentRenderStatus}
+                      onFilesSaved={handleFilesSaved}
                     />
                   </div>
                 </div>
@@ -1095,11 +1143,10 @@ export default function InternalPrototypePage() {
                 )}
               </div>
               <label
-                className={`relative inline-flex items-center ${
-                  userPlan !== "pro" && !isPublic
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className={`relative inline-flex items-center ${userPlan !== "pro" && !isPublic
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer"
+                  }`}
               >
                 <input
                   type="checkbox"
