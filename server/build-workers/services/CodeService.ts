@@ -11,6 +11,12 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { Database } from "../types/supabase.js";
+import {
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+  writeProjectFiles,
+} from "../utils/shared-utils.js";
+import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
 
 interface CodeSessionState {
@@ -66,11 +72,7 @@ export class CodeService {
     this.workDir = workDir;
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
-    this.fileSyncService = new FileSyncService(
-      workDir,
-      supabaseClient,
-      logger,
-    );
+    this.fileSyncService = new FileSyncService(workDir, supabaseClient, logger);
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
@@ -199,6 +201,10 @@ export class CodeService {
 
       case "reset_session":
         await this.handleResetSession(socket);
+        break;
+
+      case "sync_files":
+        await this.handleSyncFiles(socket, data);
         break;
 
       default:
@@ -507,15 +513,14 @@ export class CodeService {
             assetsUpdated: syncResult.assetsUpdated,
             assetsDeleted: syncResult.assetsDeleted,
             errorCount: syncResult.errors.length,
-            errors: syncResult.errors.length > 0 ? syncResult.errors : undefined,
+            errors:
+              syncResult.errors.length > 0 ? syncResult.errors : undefined,
           },
         });
       } catch (syncError) {
         // Log sync errors but don't fail the session
         this.logger.error(
-          syncError instanceof Error
-            ? syncError
-            : new Error(String(syncError)),
+          syncError instanceof Error ? syncError : new Error(String(syncError)),
           "Failed to sync files to Supabase",
           { prototypeId },
         );
@@ -617,6 +622,201 @@ export class CodeService {
         message: "Session has been reset",
       },
     });
+  }
+
+  private async handleSyncFiles(
+    socket: WebSocket,
+    data: unknown,
+  ): Promise<void> {
+    this.logger.info("Sync files requested", { data });
+
+    try {
+      // Parse and validate input data
+      const syncData = data as {
+        prototypeId?: string;
+        filenames?: string[];
+        assetNames?: string[];
+      };
+
+      const prototypeId = syncData?.prototypeId;
+      if (!prototypeId) {
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: "prototypeId is required for file sync",
+          },
+        });
+        return;
+      }
+
+      const filenames = syncData?.filenames || [];
+      const assetNames = syncData?.assetNames || [];
+
+      // Determine if we're syncing all or specific files
+      const syncAll = filenames.length === 0 && assetNames.length === 0;
+
+      this.logger.info("Starting file sync", {
+        prototypeId,
+        syncAll,
+        filenamesCount: filenames.length,
+        assetNamesCount: assetNames.length,
+      });
+
+      // Get Supabase client
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        const errorMsg = "Supabase client not initialized";
+        this.logger.error(new Error(errorMsg), errorMsg);
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: errorMsg,
+          },
+        });
+        return;
+      }
+
+      // Fetch text files from prototype_files table
+      let filesQuery = supabase
+        .from("prototype_files")
+        .select("*")
+        .eq("prototype_id", prototypeId);
+
+      // Filter by specific filenames if provided
+      if (!syncAll && filenames.length > 0) {
+        filesQuery = filesQuery.in("name", filenames);
+      }
+
+      const { data: filesData, error: filesError } = await filesQuery;
+
+      if (filesError) {
+        const errorMsg = `Failed to fetch files from Supabase: ${filesError.message}`;
+        this.logger.error(new Error(errorMsg), "Supabase file fetch failed", {
+          error: filesError,
+        });
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: errorMsg,
+          },
+        });
+        return;
+      }
+
+      const files: PrototypeFileInput[] = (filesData || []).map((file) => ({
+        name: file.name,
+        contents: file.contents,
+      }));
+
+      this.logger.info("Fetched files from Supabase", {
+        fileCount: files.length,
+      });
+
+      // Fetch assets from prototype_assets table
+      let assetsQuery = supabase
+        .from("prototype_assets")
+        .select("*")
+        .eq("prototype_id", prototypeId);
+
+      // Filter by specific asset names if provided
+      if (!syncAll && assetNames.length > 0) {
+        assetsQuery = assetsQuery.in("name", assetNames);
+      }
+
+      const { data: assetsData, error: assetsError } = await assetsQuery;
+
+      if (assetsError) {
+        const errorMsg = `Failed to fetch assets from Supabase: ${assetsError.message}`;
+        this.logger.error(new Error(errorMsg), "Supabase asset fetch failed", {
+          error: assetsError,
+        });
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: errorMsg,
+          },
+        });
+        return;
+      }
+
+      this.logger.info("Fetched assets from Supabase", {
+        assetCount: assetsData?.length || 0,
+      });
+
+      // Download assets from Supabase storage and convert to base64
+      const assetsWithContent: PrototypeAssetInputWithContent[] =
+        await Promise.all(
+          (assetsData || []).map(async (asset) => {
+            try {
+              const { data, error } = await supabase.storage
+                .from("prototype-assets")
+                .download(`${asset.prototype_id}/${asset.name}`);
+
+              if (error || !data) {
+                this.logger.error(
+                  error,
+                  `Failed to download asset ${asset.name}: ${
+                    error?.message ?? "unknown error"
+                  }`,
+                );
+                return null;
+              }
+
+              const arrayBuffer = await data.arrayBuffer();
+              const base64Content = Buffer.from(arrayBuffer).toString("base64");
+
+              return {
+                name: asset.name,
+                contents: base64Content,
+              };
+            } catch (err) {
+              this.logger.error(err, `Error downloading asset ${asset.name}`);
+              return null;
+            }
+          }),
+        ).then((results) =>
+          results.filter(
+            (r): r is PrototypeAssetInputWithContent => r !== null,
+          ),
+        );
+
+      this.logger.info("Downloaded assets from Supabase storage", {
+        downloadedCount: assetsWithContent.length,
+      });
+
+      // Write files and assets to disk
+      await writeProjectFiles(files, assetsWithContent, this.workDir);
+
+      this.logger.info("File sync completed successfully", {
+        filesCount: files.length,
+        assetsCount: assetsWithContent.length,
+      });
+
+      // Send success response
+      this.sendMessage(socket, {
+        type: "sync_complete",
+        data: {
+          success: true,
+          filesCount: files.length,
+          assetsCount: assetsWithContent.length,
+        },
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        error instanceof Error ? error : new Error(errorMessage),
+        "File sync failed",
+      );
+
+      this.sendMessage(socket, {
+        type: "error",
+        error: {
+          message: "File sync failed",
+          details: errorMessage,
+        },
+      });
+    }
   }
 
   private sendMessage(socket: WebSocket, message: unknown): void {

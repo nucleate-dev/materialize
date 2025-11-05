@@ -100,7 +100,12 @@ export class FileSyncService {
           stdio: "pipe",
         });
       } catch (error) {
-        this.logger.warn("Git not initialized, skipping sync", { prototypeId });
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          new Error(message),
+          "Git not initialized, skipping sync",
+          { prototypeId },
+        );
         return result;
       }
 
@@ -173,7 +178,9 @@ export class FileSyncService {
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(new Error(message), "File sync failed", { prototypeId });
+      this.logger.error(new Error(message), "File sync failed", {
+        prototypeId,
+      });
       result.errors.push(`Sync failed: ${message}`);
       result.success = false;
       return result;
