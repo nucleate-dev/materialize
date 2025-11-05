@@ -292,7 +292,7 @@ export default function ClaudeCodePanel({
       }
 
       authTokenRef.current = token;
-      const finalTunnelUrlBase = process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT || baseTunnelUrl;
+      const finalTunnelUrlBase = (process.env.FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
       const wsUrl = `${finalTunnelUrlBase}/code/ws/`;
       logger.debug("log", "WebSocket URL", { wsUrl, finalTunnelUrlBase, prototypeId });
 
