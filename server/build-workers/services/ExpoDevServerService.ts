@@ -774,7 +774,21 @@ export class ExpoDevServerService {
 
       const cleanup = listenerDisposer;
 
-      const command = `cd ${projectDir} && git init; echo "GIT_INIT_DONE"\n`;
+      // Create .gitignore file first to prevent tracking unwanted files
+      const gitignoreContent = `node_modules/
+dist/
+.expo/
+.next/
+build/
+*.log
+.DS_Store
+`;
+      const gitignoreCommand = `cat > .gitignore << 'EOF'
+${gitignoreContent}EOF
+`;
+
+      // Combine gitignore creation and git init in one command
+      const command = `cd ${projectDir} && ${gitignoreCommand} && git init; echo "GIT_INIT_DONE"\n`;
 
       try {
         this.terminalService.sendInput(terminalSession.id, command);

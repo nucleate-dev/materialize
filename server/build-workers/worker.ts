@@ -127,7 +127,7 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
-const codeService = new CodeService(app, WORK_DIR, baseLogger);
+const codeService = new CodeService(app, WORK_DIR, baseLogger, supabaseClient);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,

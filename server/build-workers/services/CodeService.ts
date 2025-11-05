@@ -5,10 +5,13 @@ import {
   query,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
+import { Database } from "../types/supabase.js";
+import { FileSyncService } from "./FileSyncService.js";
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -43,6 +46,7 @@ export class CodeService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
+  private readonly fileSyncService: FileSyncService;
   private sessionState: CodeSessionState = {
     sessionId: null,
     isActive: false,
@@ -57,10 +61,16 @@ export class CodeService {
     fastifyApp: FastifyInstance,
     workDir: string,
     logger: SystemLogger,
+    supabaseClient: SupabaseClient<Database>,
   ) {
     this.workDir = workDir;
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
+    this.fileSyncService = new FileSyncService(
+      workDir,
+      supabaseClient,
+      logger,
+    );
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
@@ -460,6 +470,56 @@ export class CodeService {
         });
       }
     } finally {
+      // Sync file changes to Supabase before notifying orchestration
+      // This ensures all Claude Code edits are persisted before the session ends
+      try {
+        this.logger.info("Syncing file changes to Supabase", { prototypeId });
+        const syncResult =
+          await this.fileSyncService.syncFilesToSupabase(prototypeId);
+
+        if (syncResult.success) {
+          this.logger.info("File sync completed successfully", {
+            prototypeId,
+            filesUpdated: syncResult.filesUpdated,
+            filesDeleted: syncResult.filesDeleted,
+            assetsUpdated: syncResult.assetsUpdated,
+            assetsDeleted: syncResult.assetsDeleted,
+          });
+        } else {
+          this.logger.error(
+            new Error("File sync completed with errors"),
+            "File sync had errors",
+            {
+              prototypeId,
+              errorCount: syncResult.errors.length,
+              errors: syncResult.errors,
+            },
+          );
+        }
+
+        // Send sync status to WebSocket client
+        this.sendMessage(socket, {
+          type: "file_sync_complete",
+          data: {
+            success: syncResult.success,
+            filesUpdated: syncResult.filesUpdated,
+            filesDeleted: syncResult.filesDeleted,
+            assetsUpdated: syncResult.assetsUpdated,
+            assetsDeleted: syncResult.assetsDeleted,
+            errorCount: syncResult.errors.length,
+          },
+        });
+      } catch (syncError) {
+        // Log sync errors but don't fail the session
+        this.logger.error(
+          syncError instanceof Error
+            ? syncError
+            : new Error(String(syncError)),
+          "Failed to sync files to Supabase",
+          { prototypeId },
+        );
+      }
+
       // CRITICAL: This notification must ALWAYS be sent at the end of every chat session,
       // regardless of success or failure. The control plane relies on this to properly
       // manage container state, resource allocation, and cleanup operations.
