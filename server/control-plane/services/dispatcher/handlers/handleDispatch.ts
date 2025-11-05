@@ -217,6 +217,7 @@ export async function handleDispatchImpl(
         last_touched: currentTime,
         terminal_tunnel_id: '',
         terminal_tunnel_hostname: '',
+        orchestration_token: '',
       };
       activeBuildKey = await setNewBuildCacheData(
         cache,

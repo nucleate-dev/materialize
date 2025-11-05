@@ -90,17 +90,23 @@ export class OrchestrationService {
     }
 
     // Get current build ID for this prototype from cache
-    const currentBuildId = await this.cache.get(
+    const currentBuildIdRaw = await this.cache.get(
       CACHE_KEYS.protoCurrentBuild(prototypeId),
     );
 
-    if (!currentBuildId) {
+    if (!currentBuildIdRaw) {
       this.logger.warn('No active build found for prototype', { prototypeId });
       return {
         isValid: false,
         errorMessage: 'No active build found for this prototype',
       };
     }
+
+    // Convert GlideString to string
+    const currentBuildId =
+      typeof currentBuildIdRaw === 'string'
+        ? currentBuildIdRaw
+        : currentBuildIdRaw.toString();
 
     // Fetch the active build from cache
     const activeBuild = await hgetallAsActiveBuild(
@@ -168,14 +174,38 @@ export class OrchestrationService {
       });
     }
 
-    // TODO: Implement start-chat logic
-    // This will handle state updates when a chat message begins
-    // validation.buildId contains the validated build ID
+    // Update active build state in cache
+    const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
+    const currentTime = Date.now();
 
-    return reply.status(HTTP_STATUS.OK).send({
-      success: true,
-      message: 'Start chat handler - implementation pending',
-    });
+    try {
+      await this.cache.hset(activeBuildKey, {
+        status: 'chatting',
+        last_touched: currentTime.toString(),
+      });
+
+      this.logger.info('Updated build state to chatting', {
+        prototypeId: prototype_id,
+        buildId: validation.buildId,
+        timestamp: currentTime,
+      });
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        message: 'Chat session started, build state updated to chatting',
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        'Failed to update build state to chatting',
+        { prototypeId: prototype_id, buildId: validation.buildId },
+      );
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        message: 'Failed to update build state',
+      });
+    }
   }
 
   private async handleEndChat(
@@ -202,13 +232,37 @@ export class OrchestrationService {
       });
     }
 
-    // TODO: Implement end-chat logic
-    // This will handle state updates when a chat message ends
-    // validation.buildId contains the validated build ID
+    // Update active build state in cache
+    const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
+    const currentTime = Date.now();
 
-    return reply.status(HTTP_STATUS.OK).send({
-      success: true,
-      message: 'End chat handler - implementation pending',
-    });
+    try {
+      await this.cache.hset(activeBuildKey, {
+        status: 'stable',
+        last_touched: currentTime.toString(),
+      });
+
+      this.logger.info('Updated build state to stable', {
+        prototypeId: prototype_id,
+        buildId: validation.buildId,
+        timestamp: currentTime,
+      });
+
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        message: 'Chat session ended, build state updated to stable',
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        'Failed to update build state to stable',
+        { prototypeId: prototype_id, buildId: validation.buildId },
+      );
+
+      return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        success: false,
+        message: 'Failed to update build state',
+      });
+    }
   }
 }

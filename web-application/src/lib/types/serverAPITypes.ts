@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-04T19:22:39.056Z
+// Last synced: 2025-11-05T03:07:59.106Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -311,6 +311,30 @@ export interface RunCommandSuccessResponse {
   stdout: string;
   stderr: string;
   exit_code: number;
+}
+
+// ============================================================================
+// /orchestration ENDPOINTS
+// ============================================================================
+
+export interface StartChatRequestBody {
+  prototype_id: string;
+  // Add other fields as needed
+}
+
+export interface StartChatResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface EndChatRequestBody {
+  prototype_id: string;
+  // Add other fields as needed
+}
+
+export interface EndChatResponse {
+  success: boolean;
+  message?: string;
 }
 
 // ============================================================================

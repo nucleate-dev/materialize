@@ -765,6 +765,7 @@ export class InternalCacheManagementService {
       last_touched: parseInt(obj.last_touched, 10),
       terminal_tunnel_id: obj.terminal_tunnel_id || '',
       terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
+      orchestration_token: obj.orchestration_token || '',
     };
   }
 }
