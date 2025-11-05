@@ -2,12 +2,34 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+// Load environment variables from .env file in scripts directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envPath = path.join(__dirname, ".env");
+
+if (!fs.existsSync(envPath)) {
+  console.error(`❌ Error: .env file not found at ${envPath}`);
+  console.error(
+    "Please create a .env file in the scripts directory with HOST=<your-ec2-host>",
+  );
+  process.exit(1);
+}
+
+dotenv.config({ path: envPath });
 
 const KEY_PATH = "mat-ec2-key-1.pem";
 const USER = "ec2-user";
-const HOST = "ec2-3-14-65-82.us-east-2.compute.amazonaws.com";
+const HOST = process.env.HOST;
 const SSH_OPTS =
   "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts";
+
+if (!HOST) {
+  console.error("❌ Error: HOST not defined in .env file");
+  process.exit(1);
+}
 
 const localBase = path.resolve("control-plane");
 const localZip = "control-plane.zip";
