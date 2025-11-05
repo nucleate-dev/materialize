@@ -247,7 +247,9 @@ export class CodeService {
         this.sessionState.abortController = abortController;
 
         // Prepare message content - support both text and image content blocks
-        const messageContent: string | Array<{ type: string; text?: string; source?: unknown }> = content
+        const messageContent:
+          | string
+          | Array<{ type: string; text?: string; source?: unknown }> = content
           ? content.map((block) => {
               if (block.type === "text") {
                 return {
@@ -267,7 +269,12 @@ export class CodeService {
         // Create async generator for streaming input
         async function* generateMessages(): AsyncGenerator<{
           type: "user";
-          message: { role: "user"; content: string | Array<{ type: string; text?: string; source?: unknown }> };
+          message: {
+            role: "user";
+            content:
+              | string
+              | Array<{ type: string; text?: string; source?: unknown }>;
+          };
         }> {
           yield {
             type: "user" as const,
@@ -297,7 +304,7 @@ export class CodeService {
           permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           // Add hooks to stream tool usage to WebSocket clients
-            hooks: {
+          hooks: {
             PreToolUse: [
               {
                 hooks: [
@@ -325,7 +332,9 @@ export class CodeService {
                     } catch (error) {
                       // Log but don't fail the hook
                       this.logger.error(
-                        error instanceof Error ? error : new Error(String(error)),
+                        error instanceof Error
+                          ? error
+                          : new Error(String(error)),
                         "PreToolUse hook error",
                       );
                     }
@@ -362,7 +371,9 @@ export class CodeService {
                     } catch (error) {
                       // Log but don't fail the hook
                       this.logger.error(
-                        error instanceof Error ? error : new Error(String(error)),
+                        error instanceof Error
+                          ? error
+                          : new Error(String(error)),
                         "PostToolUse hook error",
                       );
                     }
@@ -596,9 +607,7 @@ export class CodeService {
    * to properly manage container state and resource allocation. If this call fails,
    * it will be retried to ensure the control plane receives the notification.
    */
-  private async notifyOrchestrationEndChat(
-    prototypeId: string,
-  ): Promise<void> {
+  private async notifyOrchestrationEndChat(prototypeId: string): Promise<void> {
     const serverEndpoint = process.env.MATERIALIZE_SERVER_ENDPOINT;
     if (!serverEndpoint) {
       this.logger.warn(
