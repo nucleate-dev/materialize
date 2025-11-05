@@ -68,6 +68,10 @@ export interface PrototypeBuildData {
       url: string;
       status: string;
       last_touched: number;
+      terminal_tunnel_id: string;
+      terminal_tunnel_hostname: string;
+      orchestration_token: string;
+      clean_attempts: number;
     };
   }[];
   buildHistory: {

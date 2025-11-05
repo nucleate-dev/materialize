@@ -68,6 +68,7 @@ export interface FargateInstanceInfo {
   privateIp: string;
   terminalTunnelId: string;
   terminalTunnelHostname: string;
+  orchestrationToken: string;
 }
 
 // ============================================================================

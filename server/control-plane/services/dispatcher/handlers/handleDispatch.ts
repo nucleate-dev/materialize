@@ -258,6 +258,7 @@ export async function handleDispatchImpl(
         fargate_private_ip: newFargateInstance.privateIp,
         terminal_tunnel_id: newFargateInstance.terminalTunnelId,
         terminal_tunnel_hostname: newFargateInstance.terminalTunnelHostname,
+        orchestration_token: newFargateInstance.orchestrationToken,
       };
     } else {
       // Reuse existing build

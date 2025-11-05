@@ -531,7 +531,10 @@ export class IdleContainerAllocationSystemService {
     jwt: string,
     userId: string,
   ): Promise<
-    Pick<FargateInstanceInfo, 'terminalTunnelId' | 'terminalTunnelHostname'>
+    Pick<
+      FargateInstanceInfo,
+      'terminalTunnelId' | 'terminalTunnelHostname' | 'orchestrationToken'
+    >
   > {
     // Assume AWS STS role for S3 access
     let out;
@@ -684,6 +687,7 @@ export class IdleContainerAllocationSystemService {
     return {
       terminalTunnelId: tunnelConfig.tunnel_id || '',
       terminalTunnelHostname: tunnelHostnameWithProtocol,
+      orchestrationToken: orchestrationToken,
     };
   }
 }
