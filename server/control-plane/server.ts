@@ -102,6 +102,7 @@ fastify.register(cors, {
     'Authorization',
     'x-internal-signature',
     'x-internal-timestamp',
+    'x-orchestration-token',
   ],
 });
 
