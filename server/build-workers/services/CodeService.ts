@@ -497,7 +497,7 @@ export class CodeService {
           );
         }
 
-        // Send sync status to WebSocket client
+        // Send sync status to WebSocket client with detailed file change information
         this.sendMessage(socket, {
           type: "file_sync_complete",
           data: {
@@ -507,6 +507,7 @@ export class CodeService {
             assetsUpdated: syncResult.assetsUpdated,
             assetsDeleted: syncResult.assetsDeleted,
             errorCount: syncResult.errors.length,
+            errors: syncResult.errors.length > 0 ? syncResult.errors : undefined,
           },
         });
       } catch (syncError) {
@@ -518,6 +519,24 @@ export class CodeService {
           "Failed to sync files to Supabase",
           { prototypeId },
         );
+
+        // Still send a sync complete message, but mark as failed
+        this.sendMessage(socket, {
+          type: "file_sync_complete",
+          data: {
+            success: false,
+            filesUpdated: 0,
+            filesDeleted: 0,
+            assetsUpdated: 0,
+            assetsDeleted: 0,
+            errorCount: 1,
+            errors: [
+              syncError instanceof Error
+                ? syncError.message
+                : String(syncError),
+            ],
+          },
+        });
       }
 
       // CRITICAL: This notification must ALWAYS be sent at the end of every chat session,

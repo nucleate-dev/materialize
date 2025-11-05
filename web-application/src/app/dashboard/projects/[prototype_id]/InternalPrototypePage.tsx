@@ -833,6 +833,11 @@ export default function InternalPrototypePage() {
                 prototype={prototype}
                 canEditPrototype={canEditPrototype}
                 onPrototypeUpdate={setPrototype}
+                onFileSyncComplete={() => {
+                  // Reload files and assets from database when Claude Code finishes syncing
+                  fileSystem.loadFilesFromDatabase(prototypeId);
+                  fileSystem.loadAssetsFromDatabase(prototypeId);
+                }}
               />
             ) : (
               <PrototypeChatWindow

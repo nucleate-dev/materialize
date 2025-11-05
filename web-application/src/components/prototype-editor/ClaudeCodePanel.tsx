@@ -37,6 +37,7 @@ interface ClaudeCodePanelProps {
   prototype?: Prototype | null;
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
+  onFileSyncComplete?: () => void;
 }
 
 interface Message {
@@ -84,6 +85,7 @@ export default function ClaudeCodePanel({
   prototype,
   canEditPrototype = false,
   onPrototypeUpdate,
+  onFileSyncComplete,
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -522,6 +524,36 @@ export default function ClaudeCodePanel({
             // For action tools, update their status to success
             updateToolMessage(toolCallId, "success");
           }
+        }
+        break;
+
+      case "file_sync_complete":
+        // Handle file sync completion - trigger file reload
+        logger.debug("log", "File sync completed", {
+          data: message.data,
+        });
+
+        // Show system message about sync
+        if (message.data) {
+          const { filesUpdated, filesDeleted, assetsUpdated, assetsDeleted, errorCount } = message.data as any;
+          const updates: string[] = [];
+          if (filesUpdated > 0) updates.push(`${filesUpdated} file${filesUpdated > 1 ? 's' : ''} updated`);
+          if (filesDeleted > 0) updates.push(`${filesDeleted} file${filesDeleted > 1 ? 's' : ''} deleted`);
+          if (assetsUpdated > 0) updates.push(`${assetsUpdated} asset${assetsUpdated > 1 ? 's' : ''} updated`);
+          if (assetsDeleted > 0) updates.push(`${assetsDeleted} asset${assetsDeleted > 1 ? 's' : ''} deleted`);
+
+          if (updates.length > 0) {
+            addMessage("system", `Files synced: ${updates.join(", ")}`);
+          }
+
+          if (errorCount > 0) {
+            addMessage("system", `⚠️ ${errorCount} sync error${errorCount > 1 ? 's' : ''} occurred`);
+          }
+        }
+
+        // Trigger file reload in parent
+        if (onFileSyncComplete) {
+          onFileSyncComplete();
         }
         break;
 
