@@ -71,6 +71,7 @@ export async function hgetallAsActiveBuild(
     terminal_tunnel_id: obj.terminal_tunnel_id || '',
     terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
     orchestration_token: obj.orchestration_token || '',
+    clean_attempts: parseInt(obj.clean_attempts || '0', 10),
   };
 }
 
@@ -86,6 +87,7 @@ export function activeBuildToStringRecord(
     terminal_tunnel_id: build.terminal_tunnel_id,
     terminal_tunnel_hostname: build.terminal_tunnel_hostname,
     orchestration_token: build.orchestration_token,
+    clean_attempts: build.clean_attempts.toString(),
   };
 }
 

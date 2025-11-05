@@ -53,6 +53,7 @@ export interface ActiveBuild {
   terminal_tunnel_id: string;
   terminal_tunnel_hostname: string;
   orchestration_token: string;
+  clean_attempts: number;
 }
 
 export interface IdleBuild {

@@ -766,6 +766,7 @@ export class InternalCacheManagementService {
       terminal_tunnel_id: obj.terminal_tunnel_id || '',
       terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
       orchestration_token: obj.orchestration_token || '',
+      clean_attempts: parseInt(obj.clean_attempts || '0', 10),
     };
   }
 }

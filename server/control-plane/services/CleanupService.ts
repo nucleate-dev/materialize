@@ -229,19 +229,56 @@ export class CleanupService {
         build.fargate_private_ip,
       );
       if (killResult.buildInProgress) {
-        // Reset the status back to building since we're not cleaning up yet
-        // TODO: add some sort of counter here so there is a max number of times we can do this
-        const activeBuild: ActiveBuild = {
-          ...build,
-          status: 'building',
-        };
-        const setCacheResult = await this.setCacheActiveBuildData(
-          buildKey,
-          activeBuild,
-          buildId,
-        );
-        if (!setCacheResult) stats.failedCleanups++;
-        continue;
+        // Increment clean attempts counter
+        const newCleanAttempts = (build.clean_attempts || 0) + 1;
+
+        // Check if we've exceeded max cleanup attempts
+        if (newCleanAttempts >= 3) {
+          // Force cleanup after 3 failed attempts to prevent containers from getting stuck
+          const now = new Date();
+          const utcTimestamp = now.toISOString();
+          const unixTimestamp = now.getTime();
+
+          this.log2.error(
+            new Error('Max cleanup attempts reached - forcing cleanup'),
+            'Fargate container stuck in bad state, forcing cleanup',
+            {
+              fargate_task_arn: build.fargate_task_arn,
+              prototype_id: prototypeId,
+              clean_attempts: newCleanAttempts,
+              utc_timestamp: utcTimestamp,
+              unix_timestamp: unixTimestamp,
+            },
+          );
+
+          // Continue with forced cleanup (don't skip to next iteration)
+          this.log2.info('Proceeding with forced cleanup', {
+            buildId,
+            prototypeId,
+            clean_attempts: newCleanAttempts,
+          });
+        } else {
+          // Reset the status back to building and increment clean_attempts
+          const activeBuild: ActiveBuild = {
+            ...build,
+            status: 'building',
+            clean_attempts: newCleanAttempts,
+          };
+          const setCacheResult = await this.setCacheActiveBuildData(
+            buildKey,
+            activeBuild,
+            buildId,
+          );
+          if (!setCacheResult) stats.failedCleanups++;
+
+          this.log2.info('Build still in progress, incrementing clean attempts', {
+            buildId,
+            prototypeId,
+            clean_attempts: newCleanAttempts,
+          });
+
+          continue;
+        }
       }
 
       // 4.5 Delete the cloudflare tunnel for the build if it exists
