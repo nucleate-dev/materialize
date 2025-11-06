@@ -47,6 +47,17 @@ interface CodeSessionState {
   fileWatcher: FSWatcher | null; // File system watcher for tracking changes
 }
 
+interface ToolInputWithFilePath {
+  file_path?: string;
+  notebook_path?: string;
+  [key: string]: unknown;
+}
+
+interface ToolResponseWithFilePath {
+  file_path?: string;
+  [key: string]: unknown;
+}
+
 interface ClientMessage {
   type: string;
   data?: unknown;
@@ -268,7 +279,9 @@ export class CodeService {
     // Refresh Supabase client with JWT token if provided
     if (token) {
       try {
-        const { createAuthenticatedSupabaseClient } = await import("../worker.js");
+        const { createAuthenticatedSupabaseClient } = await import(
+          "../worker.js"
+        );
         const authenticatedClient = createAuthenticatedSupabaseClient(token);
         // Update the FileSyncService's Supabase client with the authenticated one
         this.fileSyncService.setSupabaseClient(authenticatedClient);
@@ -279,7 +292,7 @@ export class CodeService {
         this.logger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Failed to refresh Supabase client with JWT token",
-          { prototypeId }
+          { prototypeId },
         );
         this.sendMessage(socket, {
           type: "error",
@@ -424,10 +437,16 @@ export class CodeService {
                       if (input.hook_event_name === "PostToolUse") {
                         // Track file changes from file-modifying tools (BACKUP - only if enabled)
                         if (ENABLE_HOOK_BASED_TRACKING) {
-                          const fileModifyingTools = ["Write", "Edit", "NotebookEdit"];
+                          const fileModifyingTools = [
+                            "Write",
+                            "Edit",
+                            "NotebookEdit",
+                          ];
                           if (fileModifyingTools.includes(input.tool_name)) {
-                            const toolInput = input.tool_input as any;
-                            const toolResponse = input.tool_response as any;
+                            const toolInput =
+                              input.tool_input as ToolInputWithFilePath;
+                            const toolResponse =
+                              input.tool_response as ToolResponseWithFilePath;
 
                             // Extract file path from tool input or response
                             let filePath: string | null = null;
@@ -442,17 +461,23 @@ export class CodeService {
 
                             if (filePath) {
                               // Convert to relative path from workDir
-                              const relativePath = filePath.startsWith(this.workDir)
+                              const relativePath = filePath.startsWith(
+                                this.workDir,
+                              )
                                 ? filePath.slice(this.workDir.length + 1)
                                 : filePath;
 
                               this.sessionState.trackedFiles.add(relativePath);
 
-                              this.logger.info("File tracked for sync (hook-based)", {
-                                tool: input.tool_name,
-                                filePath: relativePath,
-                                totalTrackedFiles: this.sessionState.trackedFiles.size,
-                              });
+                              this.logger.info(
+                                "File tracked for sync (hook-based)",
+                                {
+                                  tool: input.tool_name,
+                                  filePath: relativePath,
+                                  totalTrackedFiles:
+                                    this.sessionState.trackedFiles.size,
+                                },
+                              );
                             }
                           }
                         }
@@ -576,11 +601,10 @@ export class CodeService {
           trackedFilesCount: this.sessionState.trackedFiles.size,
           trackedFiles: Array.from(this.sessionState.trackedFiles),
         });
-        const syncResult =
-          await this.fileSyncService.syncFilesToSupabase(
-            prototypeId,
-            this.sessionState.trackedFiles
-          );
+        const syncResult = await this.fileSyncService.syncFilesToSupabase(
+          prototypeId,
+          this.sessionState.trackedFiles,
+        );
 
         if (syncResult.success) {
           this.logger.info("File sync completed successfully", {
@@ -776,17 +800,22 @@ export class CodeService {
       let supabase: SupabaseClient<Database>;
       if (token) {
         try {
-          const { createAuthenticatedSupabaseClient } = await import("../worker.js");
+          const { createAuthenticatedSupabaseClient } = await import(
+            "../worker.js"
+          );
           supabase = createAuthenticatedSupabaseClient(token);
-          this.logger.info("Using JWT-authenticated Supabase client for file sync", {
-            prototypeId,
-          });
+          this.logger.info(
+            "Using JWT-authenticated Supabase client for file sync",
+            {
+              prototypeId,
+            },
+          );
         } catch (error) {
           const errorMsg = "Failed to create authenticated Supabase client";
           this.logger.error(
             error instanceof Error ? error : new Error(String(error)),
             errorMsg,
-            { prototypeId }
+            { prototypeId },
           );
           this.sendMessage(socket, {
             type: "error",

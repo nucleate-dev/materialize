@@ -79,7 +79,7 @@ export class FileSyncService {
 
   /**
    * Syncs all changed files from the tracked file list to Supabase.
-   * Uses the file paths provided by Claude Code tool hooks instead of git.
+   * Uses file paths tracked by the file system watcher in CodeService.
    */
   public async syncFilesToSupabase(
     prototypeId: string,
@@ -136,6 +136,11 @@ export class FileSyncService {
         prototypeId,
         result,
       );
+
+      // Set success to false if any individual file operations failed
+      if (result.errors.length > 0) {
+        result.success = false;
+      }
 
       return result;
     } catch (error) {
