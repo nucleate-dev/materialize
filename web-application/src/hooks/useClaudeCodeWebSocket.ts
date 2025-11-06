@@ -19,7 +19,7 @@ interface UseClaudeCodeWebSocketReturn {
     prototypeId: string,
     filenames?: string[],
     assetNames?: string[],
-  ) => void;
+  ) => Promise<void>;
 }
 
 export function useClaudeCodeWebSocket({
@@ -141,22 +141,35 @@ export function useClaudeCodeWebSocket({
   );
 
   const sendSyncFiles = useCallback(
-    (prototypeId: string, filenames?: string[], assetNames?: string[]) => {
+    async (prototypeId: string, filenames?: string[], assetNames?: string[]) => {
       if (!ws || !isConnected) {
         logger.debug("warn", "Cannot send sync_files: WebSocket not connected");
         return;
+      }
+
+      // Refresh JWT token before syncing files
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session?.access_token) {
+          authTokenRef.current = session.session.access_token;
+        }
+      } catch (error) {
+        logger.debug("warn", "Failed to refresh token for sync_files", { error });
+        // Continue with existing token if refresh fails
       }
 
       logger.debug("log", "Sending sync_files message", {
         prototypeId,
         filenames,
         assetNames,
+        hasToken: !!authTokenRef.current,
       });
 
       sendMessage("sync_files", {
         prototypeId,
         filenames: filenames || [],
         assetNames: assetNames || [],
+        token: authTokenRef.current, // Include JWT token for Supabase authentication
       });
     },
     [ws, isConnected, sendMessage, logger],

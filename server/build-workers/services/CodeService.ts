@@ -47,6 +47,7 @@ interface QueryData {
   prompt?: string; // Keep for backward compatibility
   content?: ContentBlock[];
   options?: Options;
+  token?: string; // JWT token for Supabase authentication
 }
 
 export class CodeService {
@@ -224,7 +225,7 @@ export class CodeService {
     data: QueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, content, options = {} } = data;
+    const { prompt, content, options = {}, token } = data;
 
     // Support both old format (prompt) and new format (content)
     if (!prompt && !content) {
@@ -244,12 +245,40 @@ export class CodeService {
       return;
     }
 
+    // Refresh Supabase client with JWT token if provided
+    if (token) {
+      try {
+        const { createAuthenticatedSupabaseClient } = await import("../worker.js");
+        const authenticatedClient = createAuthenticatedSupabaseClient(token);
+        // Update the FileSyncService's Supabase client with the authenticated one
+        this.fileSyncService.setSupabaseClient(authenticatedClient);
+        this.logger.info("Refreshed Supabase client with JWT token", {
+          prototypeId,
+        });
+      } catch (error) {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Failed to refresh Supabase client with JWT token",
+          { prototypeId }
+        );
+        this.sendMessage(socket, {
+          type: "error",
+          error: {
+            message: "Failed to authenticate with provided token",
+            details: error instanceof Error ? error.message : String(error),
+          },
+        });
+        return;
+      }
+    }
+
     this.logger.info("Starting Claude Code query", {
       prototypeId,
       hasSession: !!this.sessionState.sessionId,
       hasPrompt: !!prompt,
       hasContent: !!content,
       contentLength: content?.length,
+      hasToken: !!token,
     });
 
     // Notify control plane that chat is starting
@@ -682,6 +711,7 @@ export class CodeService {
         prototypeId?: string;
         filenames?: string[];
         assetNames?: string[];
+        token?: string; // JWT token for Supabase authentication
       };
 
       const prototypeId = syncData?.prototypeId;
@@ -697,6 +727,7 @@ export class CodeService {
 
       const filenames = syncData?.filenames || [];
       const assetNames = syncData?.assetNames || [];
+      const token = syncData?.token;
 
       // Determine if we're syncing all or specific files
       const syncAll = filenames.length === 0 && assetNames.length === 0;
@@ -706,20 +737,48 @@ export class CodeService {
         syncAll,
         filenamesCount: filenames.length,
         assetNamesCount: assetNames.length,
+        hasToken: !!token,
       });
 
-      // Get Supabase client
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        const errorMsg = "Supabase client not initialized";
-        this.logger.error(new Error(errorMsg), errorMsg);
-        this.sendMessage(socket, {
-          type: "error",
-          error: {
-            message: errorMsg,
-          },
-        });
-        return;
+      // Get Supabase client - use JWT-authenticated client if token provided
+      let supabase: SupabaseClient<Database>;
+      if (token) {
+        try {
+          const { createAuthenticatedSupabaseClient } = await import("../worker.js");
+          supabase = createAuthenticatedSupabaseClient(token);
+          this.logger.info("Using JWT-authenticated Supabase client for file sync", {
+            prototypeId,
+          });
+        } catch (error) {
+          const errorMsg = "Failed to create authenticated Supabase client";
+          this.logger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            errorMsg,
+            { prototypeId }
+          );
+          this.sendMessage(socket, {
+            type: "error",
+            error: {
+              message: errorMsg,
+              details: error instanceof Error ? error.message : String(error),
+            },
+          });
+          return;
+        }
+      } else {
+        const globalClient = getSupabaseClient();
+        if (!globalClient) {
+          const errorMsg = "Supabase client not initialized";
+          this.logger.error(new Error(errorMsg), errorMsg);
+          this.sendMessage(socket, {
+            type: "error",
+            error: {
+              message: errorMsg,
+            },
+          });
+          return;
+        }
+        supabase = globalClient;
       }
 
       // Fetch text files from prototype_files table

@@ -168,7 +168,168 @@ export const useFileSystem = (
     if (!prototypeId) return;
     loadFilesFromDatabase(prototypeId);
     loadAssetsFromDatabase(prototypeId);
-  }, [prototypeId, loadFilesFromDatabase, loadAssetsFromDatabase]);
+
+    // Set up realtime subscriptions for collaborative editing
+    const filesChannel = supabase
+      .channel(`prototype_files:${prototypeId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "prototype_files",
+          filter: `prototype_id=eq.${prototypeId}`,
+        },
+        (payload) => {
+          logger.debug("info", "Realtime INSERT for prototype_files:", {
+            payload,
+          });
+          const newFile = payload.new as PrototypeFile;
+          setFiles((prevFiles) => ({
+            ...prevFiles,
+            [newFile.name]: newFile,
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "prototype_files",
+          filter: `prototype_id=eq.${prototypeId}`,
+        },
+        (payload) => {
+          logger.debug("info", "Realtime UPDATE for prototype_files:", {
+            payload,
+          });
+          const updatedFile = payload.new as PrototypeFile;
+          // Overwrite local changes with remote changes
+          setFiles((prevFiles) => ({
+            ...prevFiles,
+            [updatedFile.name]: updatedFile,
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "prototype_files",
+          filter: `prototype_id=eq.${prototypeId}`,
+        },
+        (payload) => {
+          logger.debug("info", "Realtime DELETE for prototype_files:", {
+            payload,
+          });
+          const deletedFile = payload.old as PrototypeFile;
+          setFiles((prevFiles) => {
+            const newFiles = { ...prevFiles };
+            delete newFiles[deletedFile.name];
+            return newFiles;
+          });
+
+          // If deleted file was selected, select another file
+          if (selectedFile === deletedFile.name) {
+            setFiles((prevFiles) => {
+              const remainingFiles = Object.keys(prevFiles).filter(
+                (f) => f !== deletedFile.name,
+              );
+              if (remainingFiles.length > 0) {
+                setSelectedFile(remainingFiles[0]);
+              } else {
+                setSelectedFile(defaultFile);
+              }
+              return prevFiles;
+            });
+          }
+        },
+      )
+      .subscribe();
+
+    const assetsChannel = supabase
+      .channel(`prototype_assets:${prototypeId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "prototype_assets",
+          filter: `prototype_id=eq.${prototypeId}`,
+        },
+        async (payload) => {
+          logger.debug("info", "Realtime INSERT for prototype_assets:", {
+            payload,
+          });
+          const newAsset = payload.new as PrototypeAsset;
+          // Get signed URL for the new asset
+          const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
+            newAsset.name,
+          ]);
+          setAssets((prevAssets) => ({
+            ...prevAssets,
+            [newAsset.name]: {
+              ...newAsset,
+              storage_url: signedUrls[newAsset.name],
+            },
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "prototype_assets",
+          filter: `prototype_id=eq.${prototypeId}`,
+        },
+        async (payload) => {
+          logger.debug("info", "Realtime UPDATE for prototype_assets:", {
+            payload,
+          });
+          const updatedAsset = payload.new as PrototypeAsset;
+          // Get signed URL for the updated asset
+          const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
+            updatedAsset.name,
+          ]);
+          setAssets((prevAssets) => ({
+            ...prevAssets,
+            [updatedAsset.name]: {
+              ...updatedAsset,
+              storage_url: signedUrls[updatedAsset.name],
+            },
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "prototype_assets",
+          filter: `prototype_id=eq.${prototypeId}`,
+        },
+        (payload) => {
+          logger.debug("info", "Realtime DELETE for prototype_assets:", {
+            payload,
+          });
+          const deletedAsset = payload.old as PrototypeAsset;
+          setAssets((prevAssets) => {
+            const newAssets = { ...prevAssets };
+            delete newAssets[deletedAsset.name];
+            return newAssets;
+          });
+        },
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount or when prototypeId changes
+    return () => {
+      supabase.removeChannel(filesChannel);
+      supabase.removeChannel(assetsChannel);
+    };
+  }, [prototypeId, loadFilesFromDatabase, loadAssetsFromDatabase, logger, defaultFile, selectedFile]);
 
   // File selection
   const selectFile = useCallback((filePath: string) => {

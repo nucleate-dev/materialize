@@ -580,7 +580,7 @@ export class ExpoDevServerService {
           }
 
           this.state.devServerStatus = DevServerStatus.RUNNING;
-          log2.info("Tunnel ready detected", {
+          log2.info("Expo App Tunnel URL ready detected", {
             tunnelUrl: this.state.tunnelUrl,
           });
           clearTimeout(timeout);

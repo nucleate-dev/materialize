@@ -16,7 +16,7 @@ interface SyncResult {
 export class FileSyncService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
-  private readonly supabaseClient: SupabaseClient<Database>;
+  private supabaseClient: SupabaseClient<Database>;
 
   // Binary file extensions (matching PublicApiService)
   private readonly binaryExtensions = [
@@ -71,12 +71,19 @@ export class FileSyncService {
   }
 
   /**
+   * Updates the Supabase client instance (e.g., for JWT refresh)
+   */
+  public setSupabaseClient(client: SupabaseClient<Database>): void {
+    this.supabaseClient = client;
+  }
+
+  /**
    * Syncs all changed files from the tracked file list to Supabase.
    * Uses the file paths provided by Claude Code tool hooks instead of git.
    */
   public async syncFilesToSupabase(
     prototypeId: string,
-    trackedFiles: Set<string>
+    trackedFiles: Set<string>,
   ): Promise<SyncResult> {
     const result: SyncResult = {
       success: true,
@@ -88,11 +95,6 @@ export class FileSyncService {
     };
 
     try {
-      this.logger.info("Starting file sync to Supabase", {
-        prototypeId,
-        trackedFilesCount: trackedFiles.size,
-      });
-
       if (trackedFiles.size === 0) {
         this.logger.info("No file changes detected, skipping sync", {
           prototypeId,
@@ -118,7 +120,8 @@ export class FileSyncService {
             deletedFiles.push(filePath);
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.warn("Error checking file status", {
             filePath,
             error: message,
@@ -126,25 +129,13 @@ export class FileSyncService {
         }
       }
 
-      this.logger.info("Detected file changes from tracked files", {
-        prototypeId,
-        modifiedCount: modifiedFiles.length,
-        deletedCount: deletedFiles.length,
+      // Process each changed file
+      await this.processChangedFiles(
         modifiedFiles,
         deletedFiles,
-      });
-
-      // Process each changed file
-      await this.processChangedFiles(modifiedFiles, deletedFiles, prototypeId, result);
-
-      this.logger.info("File sync completed", {
         prototypeId,
-        filesUpdated: result.filesUpdated,
-        filesDeleted: result.filesDeleted,
-        assetsUpdated: result.assetsUpdated,
-        assetsDeleted: result.assetsDeleted,
-        errorCount: result.errors.length,
-      });
+        result,
+      );
 
       return result;
     } catch (error) {
@@ -157,7 +148,6 @@ export class FileSyncService {
       return result;
     }
   }
-
 
   /**
    * Process all changed files and sync to Supabase
@@ -282,40 +272,22 @@ export class FileSyncService {
             const fullPath = path.join(this.workDir, filePath);
             const contents = await fs.readFile(fullPath, "utf8");
 
-            // First, try to find existing file
-            const { data: existingFile } = await this.supabaseClient
-              .from("prototype_files")
-              .select("id")
-              .match({ prototype_id: prototypeId, name: filePath })
-              .single();
-
-            // Retry logic for upsert/update
+            // Retry logic for upsert
             let retries = 3;
             while (retries > 0) {
-              let error;
-
-              if (existingFile) {
-                // Update existing file
-                const updateResult = await this.supabaseClient
-                  .from("prototype_files")
-                  .update({
-                    contents: contents,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", existingFile.id);
-                error = updateResult.error;
-              } else {
-                // Insert new file
-                const insertResult = await this.supabaseClient
-                  .from("prototype_files")
-                  .insert({
+              const { error } = await this.supabaseClient
+                .from("prototype_files")
+                .upsert(
+                  {
                     prototype_id: prototypeId,
                     name: filePath,
                     contents: contents,
                     updated_at: new Date().toISOString(),
-                  });
-                error = insertResult.error;
-              }
+                  },
+                  {
+                    onConflict: "prototype_id,name",
+                  },
+                );
 
               if (!error) {
                 result.filesUpdated++;
@@ -420,36 +392,19 @@ export class FileSyncService {
             // Update metadata in database
             const storageUrl = `${prototypeId}/${filePath}`;
 
-            // First, try to find existing asset
-            const { data: existingAsset } = await this.supabaseClient
+            const { error: dbError } = await this.supabaseClient
               .from("prototype_assets")
-              .select("id")
-              .match({ prototype_id: prototypeId, name: filePath })
-              .single();
-
-            let dbError;
-            if (existingAsset) {
-              // Update existing asset
-              const updateResult = await this.supabaseClient
-                .from("prototype_assets")
-                .update({
-                  storage_url: storageUrl,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", existingAsset.id);
-              dbError = updateResult.error;
-            } else {
-              // Insert new asset
-              const insertResult = await this.supabaseClient
-                .from("prototype_assets")
-                .insert({
+              .upsert(
+                {
                   prototype_id: prototypeId,
                   name: filePath,
                   storage_url: storageUrl,
                   updated_at: new Date().toISOString(),
-                });
-              dbError = insertResult.error;
-            }
+                },
+                {
+                  onConflict: "prototype_id,name",
+                },
+              );
 
             if (dbError) {
               this.logger.error(
@@ -485,7 +440,6 @@ export class FileSyncService {
     const ext = path.extname(filePath).toLowerCase();
     return this.binaryExtensions.includes(ext);
   }
-
 
   /**
    * Get content type for binary file

@@ -848,7 +848,7 @@ export default function ClaudeCodePanel({
   };
 
   // Send a query to Claude
-  const sendQuery = () => {
+  const sendQuery = async () => {
     if (!ws || !isConnected) {
       addMessage("error", "Not connected");
       return;
@@ -856,6 +856,26 @@ export default function ClaudeCodePanel({
 
     const trimmedInput = inputValue.trim();
     if (!trimmedInput && uploadedImages.length === 0) {
+      return;
+    }
+
+    // Refresh the JWT token on each query to ensure it's not expired
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) {
+        addMessage(
+          "error",
+          "Authentication session expired. Please reconnect.",
+        );
+        return;
+      }
+      authTokenRef.current = session.session.access_token;
+    } catch (error) {
+      logger.debug("error", "Failed to refresh authentication token", { error });
+      addMessage(
+        "error",
+        "Failed to refresh authentication token. Please reconnect.",
+      );
       return;
     }
 
@@ -915,6 +935,7 @@ export default function ClaudeCodePanel({
         type: "query",
         data: {
           content,
+          token, // Include JWT token for Supabase authentication
         },
       }),
     );
