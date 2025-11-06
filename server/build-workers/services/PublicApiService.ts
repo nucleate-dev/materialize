@@ -22,7 +22,11 @@ import {
   PublicUpdateFilesRequest,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
-import { baseLogger } from "../worker.js";
+import {
+  baseLogger,
+  createAuthenticatedSupabaseClient,
+  setSupabaseClient,
+} from "../worker.js";
 import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
 import { CodeService } from "./CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
@@ -208,7 +212,9 @@ export class PublicApiService {
       // Store orchestration token if provided
       if (orchestration_token) {
         this.codeService.setOrchestrationToken(orchestration_token);
-        request.log2.info("Orchestration token received and stored in CodeService");
+        request.log2.info(
+          "Orchestration token received and stored in CodeService",
+        );
       }
 
       return reply.status(200).send({
@@ -234,8 +240,11 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
-    const { prototype_id, framework } = request.body;
-
+    const { prototype_id, framework, jwt } = request.body;
+    if (jwt) {
+      const authenticatedSupabase = createAuthenticatedSupabaseClient(jwt);
+      setSupabaseClient(authenticatedSupabase);
+    }
     if (!prototype_id || !framework) {
       reply.code(400);
       return {

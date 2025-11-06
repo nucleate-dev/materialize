@@ -1,15 +1,13 @@
-import {
-  APIResponse,
-  BuildStatus,
-  DispatchRequestBody,
-  DispatchSuccessResponse,
-  PrototypeAssetInput,
-  PrototypeAssetInputWithContent,
-  PrototypeFileInput,
-  StandardErrorResponse,
-} from '../../../types/PublicAPITypes.js';
-import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
+import { createClient } from '@supabase/supabase-js';
 import { GlideClient } from '@valkey/valkey-glide';
+import axios from 'axios';
+import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
+import { SystemLogger } from '../../../loggers/SystemLogger.js';
+import {
+  PublicDevServerStartResponse,
+  PublicStartDevServerRequest,
+  PublicUpdateFilesRequest,
+} from '../../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
@@ -21,26 +19,28 @@ import {
   S3_URL_TEMPLATE,
 } from '../../../types/InternalTypes.js';
 import {
+  APIResponse,
+  BuildStatus,
+  DispatchRequestBody,
+  DispatchSuccessResponse,
+  PrototypeAssetInput,
+  PrototypeAssetInputWithContent,
+  PrototypeFileInput,
+  StandardErrorResponse,
+} from '../../../types/PublicAPITypes.js';
+import { Database } from '../../../types/supabase.js';
+import {
   activeBuildToStringRecord,
   hgetallAsActiveBuild,
   hgetallAsDevBuild,
   removeBuildDataFromCache,
 } from '../../../utils/cacheInteractionUtils.js';
+import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import {
   isDevServerInShutdownStages,
   isDispatchInProgress,
 } from '../../../utils/prototypeDevServerStatusUtils.js';
-import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
 import { IdleContainerAllocationSystemService } from '../../idle-container-allocation-system/IdleContainerAllocationSystemService.js';
-import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { Database } from '../../../types/supabase.js';
-import { createClient } from '@supabase/supabase-js';
-import axios from 'axios';
-import {
-  PublicDevServerStartResponse,
-  PublicStartDevServerRequest,
-  PublicUpdateFilesRequest,
-} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
   body: DispatchRequestBody,
@@ -416,6 +416,7 @@ async function dispatchRequestToFargateInstanceServer({
     `Dispatching request to fargate instance at ${fargate_private_ip}:3002${endpoint}: `,
     {
       requestBodyDetails: {
+        jwt,
         prototypeId: prototype_id,
         fileCount: files.length,
         assetCount: assets.length,

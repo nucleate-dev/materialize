@@ -456,26 +456,29 @@ export type Database = {
       prototype_chat_sessions: {
         Row: {
           chat_context: Json | null;
-          claude_session_id: string | null;
           created_at: string | null;
           id: string;
           prototype_id: string | null;
+          session_id: string | null;
+          session_type: string | null;
           user_id: string | null;
         };
         Insert: {
           chat_context?: Json | null;
-          claude_session_id?: string | null;
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
+          session_id?: string | null;
+          session_type?: string | null;
           user_id?: string | null;
         };
         Update: {
           chat_context?: Json | null;
-          claude_session_id?: string | null;
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
+          session_id?: string | null;
+          session_type?: string | null;
           user_id?: string | null;
         };
         Relationships: [

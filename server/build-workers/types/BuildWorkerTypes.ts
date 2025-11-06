@@ -103,6 +103,7 @@ export interface PublicDevServerStartRequest {
 export interface PublicStartDevServerRequest {
   prototype_id: string;
   framework: "expo_react_native" | "react";
+  jwt?: string;
 }
 
 export interface PublicUpdateFilesRequest {
