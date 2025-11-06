@@ -50,8 +50,9 @@ export function useClaudeCodeWebSocket({
 
       const finalTunnelUrlBase =
         process.env.FARGATE_DEV_MODE === "true"
-          ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
-          : null || baseTunnelUrl;
+          ? (process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT ??
+            null)
+          : baseTunnelUrl;
 
       if (!finalTunnelUrlBase) {
         logger.debug("error", "Base tunnel URL not available");

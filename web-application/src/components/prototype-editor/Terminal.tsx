@@ -176,7 +176,7 @@ export default function Terminal({
       if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
         return;
       }
-      const finalTunnelUrlBase = (process.env.FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
+      const finalTunnelUrlBase = (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
       console.log("finalTunnelUrlBase", finalTunnelUrlBase);
       // Construct the full WebSocket URL for this session
       const sessionPath = TERMINAL_SESSION_PATHS[session];
