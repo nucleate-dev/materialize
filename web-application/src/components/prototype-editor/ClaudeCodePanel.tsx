@@ -38,7 +38,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-
+type PrototypeChatSession = Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 interface ClaudeCodePanelProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
@@ -127,13 +127,8 @@ export default function ClaudeCodePanel({
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [chatSessionId, setChatSessionId] = useState<number | null>(null); // prototype_chat_sessions.id
-  const [allChatSessions, setAllChatSessions] = useState<Array<{
-    id: number;
-    session_id: string | null;
-    created_at: string;
-    updated_at: string;
-  }>>([]);
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null); // prototype_chat_sessions.id
+  const [allChatSessions, setAllChatSessions] = useState<Array<PrototypeChatSession>>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -323,7 +318,7 @@ export default function ClaudeCodePanel({
 
         if (existingSessions && existingSessions.length > 0) {
           // Use most recently updated session
-          const mostRecentSession = existingSessions[0];
+          const mostRecentSession = existingSessions[0] as PrototypeChatSession;
           setChatSessionId(mostRecentSession.id);
           setSessionId(mostRecentSession.session_id);
           sessionIdRef.current = mostRecentSession.session_id;
@@ -1098,7 +1093,7 @@ export default function ClaudeCodePanel({
   };
 
   // Switch to a different chat session
-  const switchChatSession = async (targetChatSessionId: number) => {
+  const switchChatSession = async (targetChatSessionId: string) => {
     try {
       // Find the selected session
       const selectedSession = allChatSessions.find(
@@ -1176,12 +1171,12 @@ export default function ClaudeCodePanel({
   };
 
   // Helper function to load historical messages (extracted to be reusable)
-  const loadHistoricalMessages = async (chatSessionId: number) => {
+  const loadHistoricalMessages = async (chatSessionId: string) => {
     try {
       const { data: historicalMessages, error: messagesError } = await supabase
         .from("prototype_chat_messages")
         .select("*")
-        .eq("chat_session_id", chatSessionId)
+        .eq("id", chatSessionId)
         .order("created_at", { ascending: true });
 
       if (messagesError) {
@@ -1299,17 +1294,15 @@ export default function ClaudeCodePanel({
           {allChatSessions.length > 0 && (
             <Select
               value={chatSessionId ? String(chatSessionId) : undefined}
-              onValueChange={(value) => switchChatSession(Number(value))}
+              onValueChange={(value) => switchChatSession(value)}
             >
               <SelectTrigger className="w-[180px] h-8 text-xs">
                 <SelectValue placeholder="Select session" />
               </SelectTrigger>
               <SelectContent>
                 {allChatSessions.map((session) => {
-                  const date = new Date(session.updated_at);
-                  const label = session.session_id
-                    ? `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    : `New - ${date.toLocaleDateString()}`;
+                  const date = new Date(session.created_at ?? new Date());
+                  const label = session.session_id || `New - ${date.toLocaleDateString()}`;
 
                   return (
                     <SelectItem key={session.id} value={String(session.id)}>

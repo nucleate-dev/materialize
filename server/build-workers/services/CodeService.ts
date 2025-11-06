@@ -39,7 +39,7 @@ const ENABLE_HOOK_BASED_TRACKING = false;
 
 interface CodeSessionState {
   sessionId: string | null;
-  chatSessionId: number | null; // ID from prototype_chat_sessions table
+  chatSessionId: string | null; // ID from prototype_chat_sessions table
   isActive: boolean;
   createdAt: number;
   lastActiveAt: number;
@@ -314,12 +314,13 @@ export class CodeService {
 
     // Fetch or create chat_session_id from database for message persistence
     try {
-      const { data: chatSessions, error: fetchError } = await this.supabaseClient
-        .from("prototype_chat_sessions")
-        .select("*")
-        .eq("prototype_id", prototypeId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      const { data: chatSessions, error: fetchError } =
+        await this.supabaseClient
+          .from("prototype_chat_sessions")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .order("created_at", { ascending: false })
+          .limit(1);
 
       if (fetchError) {
         this.logger.error(
@@ -329,20 +330,24 @@ export class CodeService {
         );
       } else if (chatSessions && chatSessions.length > 0) {
         this.sessionState.chatSessionId = chatSessions[0].id;
-        this.logger.info("Using existing chat session for message persistence", {
-          chatSessionId: this.sessionState.chatSessionId,
-          prototypeId,
-        });
+        this.logger.info(
+          "Using existing chat session for message persistence",
+          {
+            chatSessionId: this.sessionState.chatSessionId,
+            prototypeId,
+          },
+        );
       } else {
         // Create a new chat session if none exists
-        const { data: newChatSession, error: createError } = await this.supabaseClient
-          .from("prototype_chat_sessions")
-          .insert({
-            prototype_id: prototypeId,
-            session_id: session_id || null,
-          })
-          .select()
-          .single();
+        const { data: newChatSession, error: createError } =
+          await this.supabaseClient
+            .from("prototype_chat_sessions")
+            .insert({
+              prototype_id: prototypeId,
+              session_id: session_id || null,
+            })
+            .select()
+            .single();
 
         if (createError) {
           this.logger.error(
@@ -370,9 +375,12 @@ export class CodeService {
     // If client explicitly passes null session_id, it wants to start a NEW session
     // Clear internal session state to force Claude to create a fresh session
     if (session_id === null) {
-      this.logger.info("Client requested new session - clearing internal state", {
-        previousSessionId: this.sessionState.sessionId,
-      });
+      this.logger.info(
+        "Client requested new session - clearing internal state",
+        {
+          previousSessionId: this.sessionState.sessionId,
+        },
+      );
       this.sessionState.sessionId = null;
     }
 
@@ -725,7 +733,8 @@ export class CodeService {
         // Clear the abort controller on error
         this.sessionState.abortController = null;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
 
         this.logger.error(
           error instanceof Error ? error : new Error(String(error)),
