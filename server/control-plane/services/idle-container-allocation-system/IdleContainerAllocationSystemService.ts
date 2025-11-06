@@ -234,6 +234,7 @@ export class IdleContainerAllocationSystemService {
       privateIp,
       terminalTunnelId: '',
       terminalTunnelHostname: '',
+      orchestrationToken: '',
     };
     try {
       const tunnelInfo =
@@ -370,6 +371,7 @@ export class IdleContainerAllocationSystemService {
         privateIp,
         terminalTunnelId: '',
         terminalTunnelHostname: '',
+        orchestrationToken: '',
       };
       try {
         const tunnelInfo =
