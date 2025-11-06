@@ -78,6 +78,7 @@ interface QueryData {
   content?: ContentBlock[];
   options?: Options;
   token?: string; // JWT token for Supabase authentication
+  session_id?: string | null; // Claude Code session ID for resumption
 }
 
 export class CodeService {
@@ -256,7 +257,7 @@ export class CodeService {
     data: QueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, content, options = {}, token } = data;
+    const { prompt, content, options = {}, token, session_id } = data;
 
     // Support both old format (prompt) and new format (content)
     if (!prompt && !content) {
@@ -312,6 +313,7 @@ export class CodeService {
       hasContent: !!content,
       contentLength: content?.length,
       hasToken: !!token,
+      providedSessionId: session_id,
     });
 
     // Notify control plane that chat is starting
@@ -512,15 +514,17 @@ export class CodeService {
               },
             ],
           },
-          // Resume existing session if available
-          ...(this.sessionState.sessionId && {
-            resume: this.sessionState.sessionId,
+          // Resume existing session if provided by client, otherwise use internal session state
+          ...(session_id && {
+            resume: session_id,
           }),
         };
 
         this.logger.info("Querying Claude Agent SDK", {
           hasResume: !!queryOptions.resume,
           resumeSessionId: queryOptions.resume,
+          providedSessionId: session_id,
+          internalSessionId: this.sessionState.sessionId,
           model: queryOptions.model,
           cwd: this.workDir,
         });

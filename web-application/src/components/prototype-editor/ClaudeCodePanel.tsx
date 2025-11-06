@@ -119,6 +119,7 @@ export default function ClaudeCodePanel({
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [chatSessionId, setChatSessionId] = useState<number | null>(null); // prototype_chat_sessions.id
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -284,6 +285,74 @@ export default function ClaudeCodePanel({
       setIsUpdatingTitle(false);
     }
   };
+
+  // Fetch or create prototype_chat_session on mount
+  useEffect(() => {
+    async function fetchOrCreateChatSession() {
+      try {
+        // Fetch existing chat session for this prototype
+        const { data: existingSessions, error: fetchError } = await supabase
+          .from("prototype_chat_sessions")
+          .select("*")
+          .eq("prototype_id", prototypeId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (fetchError) {
+          logger.debug("error", "Failed to fetch chat session", {
+            error: fetchError,
+          });
+          return;
+        }
+
+        if (existingSessions && existingSessions.length > 0) {
+          // Use existing session
+          const existingSession = existingSessions[0];
+          setChatSessionId(existingSession.id);
+          setSessionId(existingSession.session_id);
+          sessionIdRef.current = existingSession.session_id;
+
+          logger.debug("log", "Using existing chat session", {
+            chatSessionId: existingSession.id,
+            sessionId: existingSession.session_id,
+          });
+        } else {
+          // Create new chat session with null session_id
+          const { data: newSession, error: createError } = await supabase
+            .from("prototype_chat_sessions")
+            .insert({
+              prototype_id: prototypeId,
+              session_id: null,
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            logger.debug("error", "Failed to create chat session", {
+              error: createError,
+            });
+            return;
+          }
+
+          setChatSessionId(newSession.id);
+          setSessionId(null);
+          sessionIdRef.current = null;
+
+          logger.debug("log", "Created new chat session", {
+            chatSessionId: newSession.id,
+          });
+        }
+      } catch (error) {
+        logger.debug("error", "Error managing chat session", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (prototypeId) {
+      fetchOrCreateChatSession();
+    }
+  }, [prototypeId, logger]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -606,8 +675,32 @@ export default function ClaudeCodePanel({
   const handleAgentMessage = (data: any) => {
     // Handle system init message - update session ID but don't show in chat
     if (data.type === "system" && data.subtype === "init") {
-      sessionIdRef.current = data.session_id;
-      setSessionId(data.session_id);
+      const newSessionId = data.session_id;
+      sessionIdRef.current = newSessionId;
+      setSessionId(newSessionId);
+
+      // If we have a chat session without a session_id, upsert it
+      if (chatSessionId && !sessionId) {
+        supabase
+          .from("prototype_chat_sessions")
+          .update({ session_id: newSessionId })
+          .eq("id", chatSessionId)
+          .then(({ error }) => {
+            if (error) {
+              logger.debug("error", "Failed to update session_id in database", {
+                error,
+                chatSessionId,
+                newSessionId,
+              });
+            } else {
+              logger.debug("log", "Updated session_id in database", {
+                chatSessionId,
+                newSessionId,
+              });
+            }
+          });
+      }
+
       // Don't add system message to chat - it's just internal state
       return;
     }
@@ -936,6 +1029,7 @@ export default function ClaudeCodePanel({
         data: {
           content,
           token, // Include JWT token for Supabase authentication
+          session_id: sessionIdRef.current, // Pass session_id for resumption
         },
       }),
     );
