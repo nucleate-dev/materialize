@@ -39,6 +39,7 @@ const ENABLE_HOOK_BASED_TRACKING = false;
 
 interface CodeSessionState {
   sessionId: string | null;
+  chatSessionId: number | null; // ID from prototype_chat_sessions table
   isActive: boolean;
   createdAt: number;
   lastActiveAt: number;
@@ -86,8 +87,10 @@ export class CodeService {
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
+  private supabaseClient: SupabaseClient<Database>;
   private sessionState: CodeSessionState = {
     sessionId: null,
+    chatSessionId: null,
     isActive: false,
     createdAt: 0,
     lastActiveAt: 0,
@@ -107,6 +110,7 @@ export class CodeService {
     this.workDir = workDir;
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
+    this.supabaseClient = supabaseClient;
     this.fileSyncService = new FileSyncService(workDir, supabaseClient, logger);
 
     this.logger.info("CodeService initialized", {
@@ -286,6 +290,8 @@ export class CodeService {
         const authenticatedClient = createAuthenticatedSupabaseClient(token);
         // Update the FileSyncService's Supabase client with the authenticated one
         this.fileSyncService.setSupabaseClient(authenticatedClient);
+        // Update the CodeService's Supabase client for message persistence
+        this.supabaseClient = authenticatedClient;
         this.logger.info("Refreshed Supabase client with JWT token", {
           prototypeId,
         });
@@ -304,6 +310,70 @@ export class CodeService {
         });
         return;
       }
+    }
+
+    // Fetch or create chat_session_id from database for message persistence
+    try {
+      const { data: chatSessions, error: fetchError } = await this.supabaseClient
+        .from("prototype_chat_sessions")
+        .select("*")
+        .eq("prototype_id", prototypeId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (fetchError) {
+        this.logger.error(
+          fetchError,
+          "Failed to fetch chat session from database",
+          { prototypeId },
+        );
+      } else if (chatSessions && chatSessions.length > 0) {
+        this.sessionState.chatSessionId = chatSessions[0].id;
+        this.logger.info("Using existing chat session for message persistence", {
+          chatSessionId: this.sessionState.chatSessionId,
+          prototypeId,
+        });
+      } else {
+        // Create a new chat session if none exists
+        const { data: newChatSession, error: createError } = await this.supabaseClient
+          .from("prototype_chat_sessions")
+          .insert({
+            prototype_id: prototypeId,
+            session_id: session_id || null,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          this.logger.error(
+            createError,
+            "Failed to create chat session in database",
+            { prototypeId },
+          );
+        } else {
+          this.sessionState.chatSessionId = newChatSession.id;
+          this.logger.info("Created new chat session for message persistence", {
+            chatSessionId: this.sessionState.chatSessionId,
+            prototypeId,
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error managing chat session",
+        { prototypeId },
+      );
+      // Continue even if chat session fetch/create fails - we can still process the query
+    }
+
+    // If client explicitly passes null session_id, it wants to start a NEW session
+    // Clear internal session state to force Claude to create a fresh session
+    if (session_id === null) {
+      this.logger.info("Client requested new session - clearing internal state", {
+        previousSessionId: this.sessionState.sessionId,
+      });
+      this.sessionState.sessionId = null;
     }
 
     this.logger.info("Starting Claude Code query", {
@@ -349,6 +419,29 @@ export class CodeService {
               return block;
             })
           : prompt!;
+
+        // Persist user message to database
+        const userMessageText =
+          typeof messageContent === "string"
+            ? messageContent
+            : messageContent
+                .filter((block) => block.type === "text")
+                .map((block) => block.text || "")
+                .join("\n");
+        const hasImages = Array.isArray(messageContent)
+          ? messageContent.some((block) => block.type === "image")
+          : false;
+        const userMessageDisplay = hasImages
+          ? `${userMessageText} [with images]`
+          : userMessageText;
+
+        await this.persistMessage(
+          "user",
+          userMessageDisplay,
+          "text",
+          null,
+          null,
+        );
 
         // Create async generator for streaming input
         async function* generateMessages(): AsyncGenerator<{
@@ -412,6 +505,19 @@ export class CodeService {
                             }),
                           );
                         }
+
+                        // Persist tool start to database
+                        await this.persistMessage(
+                          "assistant",
+                          `Tool: ${input.tool_name}`,
+                          "tool_use",
+                          "tool_start",
+                          {
+                            tool_name: input.tool_name,
+                            tool_input: input.tool_input,
+                            tool_call_id: toolUseID,
+                          },
+                        );
                       }
                     } catch (error) {
                       // Log but don't fail the hook
@@ -498,6 +604,20 @@ export class CodeService {
                             }),
                           );
                         }
+
+                        // Persist tool completion to database
+                        await this.persistMessage(
+                          "assistant",
+                          `Tool completed: ${input.tool_name}`,
+                          "tool_result",
+                          "tool_complete",
+                          {
+                            tool_name: input.tool_name,
+                            tool_input: input.tool_input,
+                            tool_response: input.tool_response,
+                            tool_call_id: toolUseID,
+                          },
+                        );
                       }
                     } catch (error) {
                       // Log but don't fail the hook
@@ -535,6 +655,9 @@ export class CodeService {
           options: queryOptions,
         });
 
+        // Buffer for assistant message text (to persist at the end)
+        let assistantMessageBuffer = "";
+
         for await (const msg of response) {
           // Capture session ID from init message
           if (msg.type === "system" && msg.subtype === "init") {
@@ -555,6 +678,18 @@ export class CodeService {
             });
           }
 
+          // Track assistant text content for persistence
+          if (msg.type === "assistant") {
+            const message = (msg as any).message;
+            if (message?.content) {
+              for (const content of message.content) {
+                if (content.type === "text" && content.text) {
+                  assistantMessageBuffer += content.text;
+                }
+              }
+            }
+          }
+
           // Update last active time
           this.sessionState.lastActiveAt = Date.now();
 
@@ -563,6 +698,17 @@ export class CodeService {
             type: "agent_message",
             data: msg,
           });
+        }
+
+        // Persist accumulated assistant message if there is any
+        if (assistantMessageBuffer.trim()) {
+          await this.persistMessage(
+            "assistant",
+            assistantMessageBuffer,
+            "text",
+            null,
+            null,
+          );
         }
 
         // Clear the abort controller
@@ -579,17 +725,31 @@ export class CodeService {
         // Clear the abort controller on error
         this.sessionState.abortController = null;
 
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
         this.logger.error(
           error instanceof Error ? error : new Error(String(error)),
           "Claude Code query failed",
           { prototypeId },
         );
 
+        // Persist error to database
+        await this.persistMessage(
+          "system",
+          `Error: ${errorMessage}`,
+          "error",
+          "query_error",
+          {
+            error: errorMessage,
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        );
+
         this.sendMessage(socket, {
           type: "error",
           error: {
             message: "Query failed",
-            details: error instanceof Error ? error.message : String(error),
+            details: errorMessage,
           },
         });
       }
@@ -699,6 +859,17 @@ export class CodeService {
 
         this.logger.info("Claude Code query interrupted successfully");
 
+        // Persist interrupt event to database
+        await this.persistMessage(
+          "system",
+          "Query interrupted by user",
+          "system",
+          "query_interrupted",
+          {
+            sessionId: this.sessionState.sessionId,
+          },
+        );
+
         this.sendMessage(socket, {
           type: "interrupted",
           data: {
@@ -743,6 +914,7 @@ export class CodeService {
 
     this.sessionState = {
       sessionId: null,
+      chatSessionId: null,
       isActive: false,
       createdAt: 0,
       lastActiveAt: 0,
@@ -1125,6 +1297,67 @@ export class CodeService {
   }
 
   /**
+   * Persists a message to the prototype_chat_messages table.
+   * Called for user messages, assistant messages, tool events, and system events.
+   */
+  private async persistMessage(
+    role: "user" | "assistant" | "system",
+    content: string,
+    messageType: "text" | "tool_use" | "tool_result" | "error" | "system",
+    eventType?: string | null,
+    eventData?: unknown,
+  ): Promise<void> {
+    if (!this.sessionState.chatSessionId) {
+      this.logger.warn("Cannot persist message - no chat session ID", {
+        role,
+        messageType,
+        eventType,
+      });
+      return;
+    }
+
+    try {
+      const { error } = await this.supabaseClient
+        .from("prototype_chat_messages")
+        .insert({
+          chat_session_id: this.sessionState.chatSessionId,
+          role,
+          content,
+          message_type: messageType,
+          event_type: eventType || null,
+          event_data: eventData ? JSON.stringify(eventData) : null,
+        });
+
+      if (error) {
+        this.logger.error(error, "Failed to persist message", {
+          chatSessionId: this.sessionState.chatSessionId,
+          role,
+          messageType,
+          eventType,
+        });
+      } else {
+        this.logger.debug("Persisted message", {
+          chatSessionId: this.sessionState.chatSessionId,
+          role,
+          messageType,
+          eventType,
+          contentLength: content.length,
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error in persistMessage",
+        {
+          chatSessionId: this.sessionState.chatSessionId,
+          role,
+          messageType,
+        },
+      );
+    }
+  }
+
+  /**
    * Starts a file system watcher to track all file changes in the work directory.
    * Uses chokidar for cross-platform file watching with proper event handling.
    */
@@ -1281,6 +1514,7 @@ export class CodeService {
     this.activeConnections.clear();
     this.sessionState = {
       sessionId: null,
+      chatSessionId: null,
       isActive: false,
       createdAt: 0,
       lastActiveAt: 0,

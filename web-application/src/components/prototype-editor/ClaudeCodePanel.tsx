@@ -12,6 +12,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -24,6 +31,7 @@ import {
   InformationCircleIcon,
   PencilIcon,
   PhotoIcon,
+  PlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
@@ -120,6 +128,12 @@ export default function ClaudeCodePanel({
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<number | null>(null); // prototype_chat_sessions.id
+  const [allChatSessions, setAllChatSessions] = useState<Array<{
+    id: number;
+    session_id: string | null;
+    created_at: string;
+    updated_at: string;
+  }>>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -290,32 +304,37 @@ export default function ClaudeCodePanel({
   useEffect(() => {
     async function fetchOrCreateChatSession() {
       try {
-        // Fetch existing chat session for this prototype
+        // Fetch ALL existing chat sessions for this prototype
         const { data: existingSessions, error: fetchError } = await supabase
           .from("prototype_chat_sessions")
           .select("*")
           .eq("prototype_id", prototypeId)
-          .order("created_at", { ascending: false })
-          .limit(1);
+          .order("updated_at", { ascending: false });
 
         if (fetchError) {
-          logger.debug("error", "Failed to fetch chat session", {
+          logger.debug("error", "Failed to fetch chat sessions", {
             error: fetchError,
           });
           return;
         }
 
-        if (existingSessions && existingSessions.length > 0) {
-          // Use existing session
-          const existingSession = existingSessions[0];
-          setChatSessionId(existingSession.id);
-          setSessionId(existingSession.session_id);
-          sessionIdRef.current = existingSession.session_id;
+        // Store all sessions for dropdown
+        setAllChatSessions(existingSessions || []);
 
-          logger.debug("log", "Using existing chat session", {
-            chatSessionId: existingSession.id,
-            sessionId: existingSession.session_id,
+        if (existingSessions && existingSessions.length > 0) {
+          // Use most recently updated session
+          const mostRecentSession = existingSessions[0];
+          setChatSessionId(mostRecentSession.id);
+          setSessionId(mostRecentSession.session_id);
+          sessionIdRef.current = mostRecentSession.session_id;
+
+          logger.debug("log", "Using most recent chat session", {
+            chatSessionId: mostRecentSession.id,
+            sessionId: mostRecentSession.session_id,
           });
+
+          // Load historical messages for this session
+          await loadHistoricalMessages(mostRecentSession.id);
         } else {
           // Create new chat session with null session_id
           const { data: newSession, error: createError } = await supabase
@@ -337,6 +356,7 @@ export default function ClaudeCodePanel({
           setChatSessionId(newSession.id);
           setSessionId(null);
           sessionIdRef.current = null;
+          setAllChatSessions([newSession]);
 
           logger.debug("log", "Created new chat session", {
             chatSessionId: newSession.id,
@@ -1077,6 +1097,185 @@ export default function ClaudeCodePanel({
     sessionIdRef.current = null;
   };
 
+  // Switch to a different chat session
+  const switchChatSession = async (targetChatSessionId: number) => {
+    try {
+      // Find the selected session
+      const selectedSession = allChatSessions.find(
+        (session) => session.id === targetChatSessionId,
+      );
+
+      if (!selectedSession) {
+        logger.debug("error", "Selected session not found", {
+          targetChatSessionId,
+        });
+        return;
+      }
+
+      // Update current session state
+      setChatSessionId(selectedSession.id);
+      setSessionId(selectedSession.session_id);
+      sessionIdRef.current = selectedSession.session_id;
+
+      // Clear current messages and load historical messages for this session
+      setMessages([]);
+      await loadHistoricalMessages(selectedSession.id);
+
+      logger.debug("log", "Switched to chat session", {
+        chatSessionId: selectedSession.id,
+        sessionId: selectedSession.session_id,
+      });
+    } catch (error) {
+      logger.debug("error", "Error switching chat session", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  // Create a new chat session
+  const createNewChatSession = async () => {
+    try {
+      // Create new chat session with null session_id
+      const { data: newSession, error: createError } = await supabase
+        .from("prototype_chat_sessions")
+        .insert({
+          prototype_id: prototypeId,
+          session_id: null,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        logger.debug("error", "Failed to create new chat session", {
+          error: createError,
+        });
+        addMessage("error", "Failed to create new chat session");
+        return;
+      }
+
+      // Update state with new session
+      setChatSessionId(newSession.id);
+      setSessionId(null);
+      sessionIdRef.current = null;
+      setMessages([]);
+
+      // Add new session to the list
+      setAllChatSessions((prev) => [newSession, ...prev]);
+
+      logger.debug("log", "Created new chat session", {
+        chatSessionId: newSession.id,
+      });
+
+      addMessage("system", "New chat session created");
+    } catch (error) {
+      logger.debug("error", "Error creating new chat session", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      addMessage("error", "Failed to create new chat session");
+    }
+  };
+
+  // Helper function to load historical messages (extracted to be reusable)
+  const loadHistoricalMessages = async (chatSessionId: number) => {
+    try {
+      const { data: historicalMessages, error: messagesError } = await supabase
+        .from("prototype_chat_messages")
+        .select("*")
+        .eq("chat_session_id", chatSessionId)
+        .order("created_at", { ascending: true });
+
+      if (messagesError) {
+        logger.debug("error", "Failed to fetch historical messages", {
+          error: messagesError,
+        });
+        return;
+      }
+
+      if (historicalMessages && historicalMessages.length > 0) {
+        // Convert database messages to UI message format
+        const uiMessages: Message[] = [];
+
+        for (const dbMessage of historicalMessages) {
+          // Handle different message types
+          if (dbMessage.message_type === "text") {
+            // Regular text message (user or assistant)
+            uiMessages.push({
+              id: String(dbMessage.id),
+              type: dbMessage.role as "user" | "assistant",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+            });
+          } else if (
+            dbMessage.message_type === "tool_use" &&
+            dbMessage.event_type === "tool_start"
+          ) {
+            // Tool start event
+            const eventData = dbMessage.event_data as any;
+            uiMessages.push({
+              id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
+              type: "tool",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+              toolName: eventData?.tool_name,
+              toolCallId: eventData?.tool_call_id,
+              isComplete: false, // Will be updated if we find a matching tool_complete
+              status: "running",
+              toolInput: eventData?.tool_input,
+            });
+          } else if (
+            dbMessage.message_type === "tool_result" &&
+            dbMessage.event_type === "tool_complete"
+          ) {
+            // Tool complete event - find and update the matching tool_start message
+            const eventData = dbMessage.event_data as any;
+            const toolCallId = eventData?.tool_call_id;
+
+            // Find the matching tool message and mark it as complete
+            const toolMessageIndex = uiMessages.findIndex(
+              (msg) =>
+                msg.type === "tool" &&
+                msg.toolCallId === toolCallId &&
+                !msg.isComplete,
+            );
+
+            if (toolMessageIndex !== -1) {
+              uiMessages[toolMessageIndex] = {
+                ...uiMessages[toolMessageIndex],
+                isComplete: true,
+                status: "success",
+              };
+            }
+          } else if (dbMessage.message_type === "error") {
+            // Error message
+            uiMessages.push({
+              id: String(dbMessage.id),
+              type: "error",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+            });
+          } else if (dbMessage.message_type === "system") {
+            // System message
+            uiMessages.push({
+              id: String(dbMessage.id),
+              type: "system",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+            });
+          }
+        }
+
+        setMessages(uiMessages);
+        logger.debug("log", "Loaded historical messages", {
+          count: uiMessages.length,
+        });
+      }
+    } catch (error) {
+      logger.debug("error", "Error loading historical messages", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
   // Handle Enter key
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1089,17 +1288,56 @@ export default function ClaudeCodePanel({
     <div className="flex flex-col h-full bg-background border rounded-lg">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <div
             className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"
               }`}
           />
-          <span className="text-sm font-medium truncate max-w-xs">{prototypeTitle}</span>
-          {sessionId && (
-            <span className="text-xs text-muted-foreground">
-              Session: {sessionId.slice(0, 8)}...
-            </span>
+          <span className="text-sm font-medium truncate max-w-[150px]">{prototypeTitle}</span>
+
+          {/* Session Selector */}
+          {allChatSessions.length > 0 && (
+            <Select
+              value={chatSessionId ? String(chatSessionId) : undefined}
+              onValueChange={(value) => switchChatSession(Number(value))}
+            >
+              <SelectTrigger className="w-[180px] h-8 text-xs">
+                <SelectValue placeholder="Select session" />
+              </SelectTrigger>
+              <SelectContent>
+                {allChatSessions.map((session) => {
+                  const date = new Date(session.updated_at);
+                  const label = session.session_id
+                    ? `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : `New - ${date.toLocaleDateString()}`;
+
+                  return (
+                    <SelectItem key={session.id} value={String(session.id)}>
+                      {label}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           )}
+
+          {/* New Chat Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={createNewChatSession}
+                  disabled={!isConnected}
+                  className="h-8 px-2"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New chat</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div className="flex gap-2">
           {isConnected ? (
