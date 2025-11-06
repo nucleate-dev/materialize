@@ -7,6 +7,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
+import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -19,6 +20,23 @@ import {
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
 
+/**
+ * FILE TRACKING STRATEGY
+ *
+ * This service uses a file system watcher (chokidar) to track all file changes
+ * made during Claude Code sessions. The watcher monitors the work directory and
+ * captures add/change/unlink events for files.
+ *
+ * Why file system watching over hooks?
+ * - Captures ALL file changes regardless of how they're made (Write, Edit, Bash, etc.)
+ * - Independent of Claude SDK hook reliability
+ * - OS-native events with minimal overhead
+ * - Battle-tested approach used by Webpack, Vite, Next.js dev server
+ *
+ * Hook-based tracking is available as a backup but disabled by default.
+ */
+const ENABLE_HOOK_BASED_TRACKING = false;
+
 interface CodeSessionState {
   sessionId: string | null;
   isActive: boolean;
@@ -26,6 +44,7 @@ interface CodeSessionState {
   lastActiveAt: number;
   abortController: AbortController | null;
   trackedFiles: Set<string>; // Track files that were modified during the session
+  fileWatcher: FSWatcher | null; // File system watcher for tracking changes
 }
 
 interface ClientMessage {
@@ -62,6 +81,7 @@ export class CodeService {
     lastActiveAt: 0,
     abortController: null,
     trackedFiles: new Set<string>(),
+    fileWatcher: null,
   };
   private activeConnections = new Map<string, WebSocket>();
   private orchestrationToken: string | null = null;
@@ -284,6 +304,9 @@ export class CodeService {
     // Notify control plane that chat is starting
     await this.notifyOrchestrationStartChat(prototypeId);
 
+    // Start file system watcher to track all file changes
+    this.startFileWatcher();
+
     // CRITICAL: Wrap entire query processing in try-finally to ensure end-chat
     // notification is ALWAYS sent, regardless of success or failure
     try {
@@ -399,36 +422,38 @@ export class CodeService {
                   ): Promise<HookJSONOutput> => {
                     try {
                       if (input.hook_event_name === "PostToolUse") {
-                        // Track file changes from file-modifying tools
-                        const fileModifyingTools = ["Write", "Edit", "NotebookEdit"];
-                        if (fileModifyingTools.includes(input.tool_name)) {
-                          const toolInput = input.tool_input as any;
-                          const toolResponse = input.tool_response as any;
+                        // Track file changes from file-modifying tools (BACKUP - only if enabled)
+                        if (ENABLE_HOOK_BASED_TRACKING) {
+                          const fileModifyingTools = ["Write", "Edit", "NotebookEdit"];
+                          if (fileModifyingTools.includes(input.tool_name)) {
+                            const toolInput = input.tool_input as any;
+                            const toolResponse = input.tool_response as any;
 
-                          // Extract file path from tool input or response
-                          let filePath: string | null = null;
+                            // Extract file path from tool input or response
+                            let filePath: string | null = null;
 
-                          if (toolInput?.file_path) {
-                            filePath = toolInput.file_path;
-                          } else if (toolInput?.notebook_path) {
-                            filePath = toolInput.notebook_path;
-                          } else if (toolResponse?.file_path) {
-                            filePath = toolResponse.file_path;
-                          }
+                            if (toolInput?.file_path) {
+                              filePath = toolInput.file_path;
+                            } else if (toolInput?.notebook_path) {
+                              filePath = toolInput.notebook_path;
+                            } else if (toolResponse?.file_path) {
+                              filePath = toolResponse.file_path;
+                            }
 
-                          if (filePath) {
-                            // Convert to relative path from workDir
-                            const relativePath = filePath.startsWith(this.workDir)
-                              ? filePath.slice(this.workDir.length + 1)
-                              : filePath;
+                            if (filePath) {
+                              // Convert to relative path from workDir
+                              const relativePath = filePath.startsWith(this.workDir)
+                                ? filePath.slice(this.workDir.length + 1)
+                                : filePath;
 
-                            this.sessionState.trackedFiles.add(relativePath);
+                              this.sessionState.trackedFiles.add(relativePath);
 
-                            this.logger.info("File tracked for sync", {
-                              tool: input.tool_name,
-                              filePath: relativePath,
-                              totalTrackedFiles: this.sessionState.trackedFiles.size,
-                            });
+                              this.logger.info("File tracked for sync (hook-based)", {
+                                tool: input.tool_name,
+                                filePath: relativePath,
+                                totalTrackedFiles: this.sessionState.trackedFiles.size,
+                              });
+                            }
                           }
                         }
 
@@ -540,6 +565,9 @@ export class CodeService {
         });
       }
     } finally {
+      // Stop file watcher before syncing
+      await this.stopFileWatcher();
+
       // Sync file changes to Supabase before notifying orchestration
       // This ensures all Claude Code edits are persisted before the session ends
       try {
@@ -682,6 +710,9 @@ export class CodeService {
       this.sessionState.abortController.abort();
     }
 
+    // Stop file watcher before resetting
+    await this.stopFileWatcher();
+
     this.sessionState = {
       sessionId: null,
       isActive: false,
@@ -689,6 +720,7 @@ export class CodeService {
       lastActiveAt: 0,
       abortController: null,
       trackedFiles: new Set<string>(),
+      fileWatcher: null,
     };
 
     this.sendMessage(socket, {
@@ -1059,6 +1091,138 @@ export class CodeService {
     return { ...this.sessionState };
   }
 
+  /**
+   * Starts a file system watcher to track all file changes in the work directory.
+   * Uses chokidar for cross-platform file watching with proper event handling.
+   */
+  private startFileWatcher(): void {
+    // Clean up any existing watcher
+    if (this.sessionState.fileWatcher) {
+      this.sessionState.fileWatcher.close();
+    }
+
+    this.logger.info("Starting file system watcher", {
+      workDir: this.workDir,
+    });
+
+    try {
+      // Initialize chokidar watcher with optimized settings
+      const watcher = chokidar.watch(this.workDir, {
+        // Don't fire events for files that already exist when watcher starts
+        ignoreInitial: true,
+        // Wait for file writes to complete before firing events
+        awaitWriteFinish: {
+          stabilityThreshold: 200, // Wait 200ms after last change
+          pollInterval: 50,
+        },
+        // Performance optimizations
+        atomic: true, // Use atomic writes when available
+        usePolling: false, // Use native OS events (faster)
+        // Ignore common directories and system files that shouldn't be synced
+        ignored: [
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/.next/**",
+          "**/dist/**",
+          "**/build/**",
+          "**/.cache/**",
+          "**/tmp/**",
+          "**/*.log",
+          "**/.DS_Store",
+        ],
+      });
+
+      // Track file additions and modifications
+      watcher.on("add", (filePath) => {
+        const relativePath = this.getRelativePath(filePath);
+        this.sessionState.trackedFiles.add(relativePath);
+        this.logger.debug("File watcher: file added", {
+          path: relativePath,
+          totalTracked: this.sessionState.trackedFiles.size,
+        });
+      });
+
+      watcher.on("change", (filePath) => {
+        const relativePath = this.getRelativePath(filePath);
+        this.sessionState.trackedFiles.add(relativePath);
+        this.logger.debug("File watcher: file changed", {
+          path: relativePath,
+          totalTracked: this.sessionState.trackedFiles.size,
+        });
+      });
+
+      // Track file deletions separately (handled by FileSyncService)
+      watcher.on("unlink", (filePath) => {
+        const relativePath = this.getRelativePath(filePath);
+        this.sessionState.trackedFiles.add(relativePath);
+        this.logger.debug("File watcher: file deleted", {
+          path: relativePath,
+          totalTracked: this.sessionState.trackedFiles.size,
+        });
+      });
+
+      // Log watcher errors but don't crash
+      watcher.on("error", (error) => {
+        this.logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "File watcher error",
+        );
+      });
+
+      // Log when watcher is ready
+      watcher.on("ready", () => {
+        this.logger.info("File system watcher ready", {
+          workDir: this.workDir,
+        });
+      });
+
+      this.sessionState.fileWatcher = watcher;
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to start file watcher",
+      );
+      // Don't throw - we can fall back to hook-based tracking if enabled
+    }
+  }
+
+  /**
+   * Stops the file system watcher and cleans up resources.
+   */
+  private async stopFileWatcher(): Promise<void> {
+    if (!this.sessionState.fileWatcher) {
+      return;
+    }
+
+    try {
+      this.logger.info("Stopping file system watcher", {
+        trackedFilesCount: this.sessionState.trackedFiles.size,
+      });
+
+      await this.sessionState.fileWatcher.close();
+      this.sessionState.fileWatcher = null;
+
+      this.logger.info("File system watcher stopped successfully");
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to stop file watcher",
+      );
+      // Force cleanup even if close fails
+      this.sessionState.fileWatcher = null;
+    }
+  }
+
+  /**
+   * Converts absolute file path to relative path from workDir
+   */
+  private getRelativePath(absolutePath: string): string {
+    if (absolutePath.startsWith(this.workDir)) {
+      return absolutePath.slice(this.workDir.length + 1);
+    }
+    return absolutePath;
+  }
+
   public async shutdown(): Promise<void> {
     this.logger.info("Shutting down CodeService");
 
@@ -1066,6 +1230,9 @@ export class CodeService {
     if (this.sessionState.abortController) {
       this.sessionState.abortController.abort();
     }
+
+    // Stop file watcher
+    await this.stopFileWatcher();
 
     // Close all active connections
     for (const [connectionId, socket] of this.activeConnections.entries()) {
@@ -1086,6 +1253,7 @@ export class CodeService {
       lastActiveAt: 0,
       abortController: null,
       trackedFiles: new Set<string>(),
+      fileWatcher: null,
     };
 
     this.logger.info("CodeService shutdown complete");
