@@ -7,7 +7,6 @@ import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,7 +97,6 @@ export default function InternalPrototypePage() {
 
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
-  const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -130,17 +128,10 @@ export default function InternalPrototypePage() {
   // Current viewing path tracking
   const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
-  // Model provider selection
-  const [modelProvider, setModelProvider] = useState<
-    "google" | "google-pro" | "anthropic" | "openai" | "openai-mini"
-  >("anthropic");
-
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
 
-  // Claude Code panel state
-  const [showClaudeCode, setShowClaudeCode] = useState(false);
 
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
@@ -807,7 +798,7 @@ export default function InternalPrototypePage() {
               className="flex items-center gap-2"
             >
               <ChatBubbleLeftRightIcon className="w-4 h-4" />
-              Chat
+              Claude Code
             </Button>
             <Button
               variant={activePanel === "preview" ? "default" : "ghost"}
@@ -830,7 +821,7 @@ export default function InternalPrototypePage() {
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        {/* Left Panel - AI Assistant Chat or Claude Code */}
+        {/* Left Panel - Claude Code */}
         <div
           className={`${isMobile
             ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
@@ -842,85 +833,31 @@ export default function InternalPrototypePage() {
               : { width: `${leftPanelWidth}%`, minWidth: "320px" }
           }
         >
-          {/* Toggle between Chat and Claude Code */}
-          <div className="flex items-center gap-2 p-2 border-b">
-            <Button
-              size="sm"
-              variant={!showClaudeCode ? "default" : "ghost"}
-              onClick={() => setShowClaudeCode(false)}
-              className="flex-1"
-            >
-              Chat
-            </Button>
-            <Button
-              size="sm"
-              variant={showClaudeCode ? "default" : "ghost"}
-              onClick={() => setShowClaudeCode(true)}
-              className="flex-1"
-            >
-              Claude Code
-            </Button>
-          </div>
-
           {/* Content Area */}
           <div className="flex-1 min-h-0">
-            {showClaudeCode ? (
-              <ClaudeCodePanel
-                prototypeId={prototypeId}
-                baseTunnelUrl={baseTunnelUrl}
-                prototype={prototype}
-                canEditPrototype={canEditPrototype}
-                onPrototypeUpdate={setPrototype}
-                onFileSyncComplete={() => {
-                  // Reload files and assets from database when Claude Code finishes syncing
-                  fileSystem.loadFilesFromDatabase(prototypeId);
-                  fileSystem.loadAssetsFromDatabase(prototypeId);
-                }}
-                // Pass external WebSocket management
-                externalWS={claudeCodeWS}
-                externalWSConnected={claudeCodeWSConnected}
-                onConnect={connectClaudeCodeWS}
-                onDisconnect={disconnectClaudeCodeWS}
-                onRegisterMessageHandler={(id: string, handler: (msg: any) => void) => {
-                  claudeCodeWSMessageHandlers.current.set(id, handler);
-                }}
-                onUnregisterMessageHandler={(id: string) => {
-                  claudeCodeWSMessageHandlers.current.delete(id);
-                }}
-              />
-            ) : (
-              <PrototypeChatWindow
-                prototypeId={prototypeId}
-                prototype={prototype}
-                canEditPrototype={canEditPrototype}
-                onPrototypeUpdate={setPrototype}
-                // File system integration
-                files={fileSystem.state.files}
-                assets={Object.fromEntries(
-                  Object.entries(fileSystem.state.assets).map(
-                    ([key, asset]) => [
-                      key,
-                      { ...asset, storage_url: asset.storage_url || "" },
-                    ],
-                  ),
-                )}
-                onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
-                currentViewingUrl={viewingUrl ?? ""}
-                // Loading state
-                isChatLoading={isChatLoading}
-                setIsChatLoading={setIsChatLoading}
-                // Viewing URL integration
-                onViewingUrlUpdate={setViewingUrl}
-                // Render status for disabling input
-                currentRenderStatus={currentRenderStatus}
-                onCurrentRenderStatusChange={setCurrentRenderStatus}
-                // Current viewing path for LLM context
-                currentViewingPath={currentViewingPath}
-                // Model provider selection
-                modelProvider={modelProvider}
-                onModelProviderChange={setModelProvider}
-              />
-            )}
+            <ClaudeCodePanel
+              prototypeId={prototypeId}
+              baseTunnelUrl={baseTunnelUrl}
+              prototype={prototype}
+              canEditPrototype={canEditPrototype}
+              onPrototypeUpdate={setPrototype}
+              onFileSyncComplete={() => {
+                // Reload files and assets from database when Claude Code finishes syncing
+                fileSystem.loadFilesFromDatabase(prototypeId);
+                fileSystem.loadAssetsFromDatabase(prototypeId);
+              }}
+              // Pass external WebSocket management
+              externalWS={claudeCodeWS}
+              externalWSConnected={claudeCodeWSConnected}
+              onConnect={connectClaudeCodeWS}
+              onDisconnect={disconnectClaudeCodeWS}
+              onRegisterMessageHandler={(id: string, handler: (msg: any) => void) => {
+                claudeCodeWSMessageHandlers.current.set(id, handler);
+              }}
+              onUnregisterMessageHandler={(id: string) => {
+                claudeCodeWSMessageHandlers.current.delete(id);
+              }}
+            />
           </div>
         </div>
 
