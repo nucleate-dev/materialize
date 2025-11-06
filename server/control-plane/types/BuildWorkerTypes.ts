@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2025-11-05T03:30:40.471Z
+// Last synced: 2025-11-06T05:15:48.727Z
 
 import { Database } from "./supabase.js";
 
@@ -215,9 +215,9 @@ export interface PublicRunCommandResponse {
 }
 
 export interface PublicAllocateRequest {
-  accessKeyId: string;
-  secretAccessKey: string;
-  sessionToken: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  sessionToken?: string;
   expiration?: string;
   prototypeId: string;
   userId: string;

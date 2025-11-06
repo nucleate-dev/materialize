@@ -206,9 +206,9 @@ export interface PublicRunCommandResponse {
 }
 
 export interface PublicAllocateRequest {
-  accessKeyId: string;
-  secretAccessKey: string;
-  sessionToken: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  sessionToken?: string;
   expiration?: string;
   prototypeId: string;
   userId: string;

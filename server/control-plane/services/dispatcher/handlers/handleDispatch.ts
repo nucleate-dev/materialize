@@ -87,6 +87,63 @@ export async function handleDispatchImpl(
       terminal_tunnel_hostname: devTerminalUrl,
     });
 
+    // Call /allocate endpoint to initialize the worker (without S3 credentials or tunnel in dev mode)
+    try {
+      const allocateResponse = await axios.post(
+        `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
+        {
+          prototypeId: prototype_id,
+          userId: 'dev-user', // Placeholder for dev mode since auth is skipped
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
+          },
+        },
+      );
+
+      if (allocateResponse.data.status === 'error') {
+        log2.error(
+          new Error(allocateResponse.data.error || 'Allocation failed'),
+          'Failed to allocate worker in dev mode',
+          { details: allocateResponse.data.details },
+        );
+        await cache.hset(devKey, {
+          status: 'error' as BuildStatus,
+          url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+        });
+        return {
+          data: null,
+          error: {
+            error: 'Allocation Failed',
+            message: `Failed to allocate worker: ${allocateResponse.data.error || 'Unknown error'}`,
+          },
+        };
+      }
+      log2.consoleLogDevOnly(
+        'info',
+        'Worker allocated successfully in dev mode',
+      );
+    } catch (allocateError) {
+      log2.error(allocateError, 'Failed to call /allocate in dev mode');
+      await cache.hset(devKey, {
+        status: 'error' as BuildStatus,
+        url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+      });
+      return {
+        data: null,
+        error: {
+          error: 'Allocation Failed',
+          message:
+            'Failed to allocate dev EC2 for build workers: ' +
+            (allocateError instanceof Error
+              ? allocateError.message
+              : 'Unknown error'),
+        },
+      };
+    }
+
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
       jwt,
       prototype_id,

@@ -163,12 +163,17 @@ export class PublicApiService {
     }
 
     try {
-      const scopedS3 = new S3Client({
-        region: process.env.AWS_REGION!,
-        credentials: { accessKeyId, secretAccessKey, sessionToken },
-      });
-      this.expoDevServerService.setS3Client(scopedS3);
-      request.log2.info("Allocated worker to prototype for S3 access");
+      // Only set up S3 client if credentials are provided
+      if (accessKeyId && secretAccessKey && sessionToken) {
+        const scopedS3 = new S3Client({
+          region: process.env.AWS_REGION!,
+          credentials: { accessKeyId, secretAccessKey, sessionToken },
+        });
+        this.expoDevServerService.setS3Client(scopedS3);
+        request.log2.info("Allocated worker to prototype for S3 access");
+      } else {
+        request.log2.info("No S3 credentials provided, skipping S3 client setup (dev mode)");
+      }
 
       // If cloudflare tunnel token is provided, start the tunnel
       let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
@@ -224,7 +229,7 @@ export class PublicApiService {
       });
       return reply.code(500).send({
         status: "error",
-        error: "Failed to create scoped S3 client",
+        error: "Failed to allocate worker to prototype",
         details: errorMessage,
       });
     }
