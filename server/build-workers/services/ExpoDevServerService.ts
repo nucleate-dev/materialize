@@ -787,8 +787,8 @@ build/
 ${gitignoreContent}EOF
 `;
 
-      // Combine gitignore creation and git init in one command
-      const command = `cd ${projectDir} && ${gitignoreCommand} && git init; echo "GIT_INIT_DONE"\n`;
+      // Combine gitignore creation, git init, and initial commit in one command
+      const command = `cd ${projectDir} && ${gitignoreCommand} && git init && git add . && git commit -m "Initial commit"; echo "GIT_INIT_DONE"\n`;
 
       try {
         this.terminalService.sendInput(terminalSession.id, command);

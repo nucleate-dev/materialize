@@ -25,6 +25,7 @@ interface CodeSessionState {
   createdAt: number;
   lastActiveAt: number;
   abortController: AbortController | null;
+  trackedFiles: Set<string>; // Track files that were modified during the session
 }
 
 interface ClientMessage {
@@ -59,6 +60,7 @@ export class CodeService {
     createdAt: 0,
     lastActiveAt: 0,
     abortController: null,
+    trackedFiles: new Set<string>(),
   };
   private activeConnections = new Map<string, WebSocket>();
   private orchestrationToken: string | null = null;
@@ -368,6 +370,39 @@ export class CodeService {
                   ): Promise<HookJSONOutput> => {
                     try {
                       if (input.hook_event_name === "PostToolUse") {
+                        // Track file changes from file-modifying tools
+                        const fileModifyingTools = ["Write", "Edit", "NotebookEdit"];
+                        if (fileModifyingTools.includes(input.tool_name)) {
+                          const toolInput = input.tool_input as any;
+                          const toolResponse = input.tool_response as any;
+
+                          // Extract file path from tool input or response
+                          let filePath: string | null = null;
+
+                          if (toolInput?.file_path) {
+                            filePath = toolInput.file_path;
+                          } else if (toolInput?.notebook_path) {
+                            filePath = toolInput.notebook_path;
+                          } else if (toolResponse?.file_path) {
+                            filePath = toolResponse.file_path;
+                          }
+
+                          if (filePath) {
+                            // Convert to relative path from workDir
+                            const relativePath = filePath.startsWith(this.workDir)
+                              ? filePath.slice(this.workDir.length + 1)
+                              : filePath;
+
+                            this.sessionState.trackedFiles.add(relativePath);
+
+                            this.logger.info("File tracked for sync", {
+                              tool: input.tool_name,
+                              filePath: relativePath,
+                              totalTrackedFiles: this.sessionState.trackedFiles.size,
+                            });
+                          }
+                        }
+
                         // Send tool complete event to WebSocket client
                         if (socket.readyState === WebSocket.OPEN) {
                           socket.send(
@@ -479,9 +514,16 @@ export class CodeService {
       // Sync file changes to Supabase before notifying orchestration
       // This ensures all Claude Code edits are persisted before the session ends
       try {
-        this.logger.info("Syncing file changes to Supabase", { prototypeId });
+        this.logger.info("Syncing file changes to Supabase", {
+          prototypeId,
+          trackedFilesCount: this.sessionState.trackedFiles.size,
+          trackedFiles: Array.from(this.sessionState.trackedFiles),
+        });
         const syncResult =
-          await this.fileSyncService.syncFilesToSupabase(prototypeId);
+          await this.fileSyncService.syncFilesToSupabase(
+            prototypeId,
+            this.sessionState.trackedFiles
+          );
 
         if (syncResult.success) {
           this.logger.info("File sync completed successfully", {
@@ -491,6 +533,9 @@ export class CodeService {
             assetsUpdated: syncResult.assetsUpdated,
             assetsDeleted: syncResult.assetsDeleted,
           });
+
+          // Clear tracked files after successful sync
+          this.sessionState.trackedFiles.clear();
         } else {
           this.logger.error(
             new Error("File sync completed with errors"),
@@ -614,6 +659,7 @@ export class CodeService {
       createdAt: 0,
       lastActiveAt: 0,
       abortController: null,
+      trackedFiles: new Set<string>(),
     };
 
     this.sendMessage(socket, {
@@ -980,6 +1026,7 @@ export class CodeService {
       createdAt: 0,
       lastActiveAt: 0,
       abortController: null,
+      trackedFiles: new Set<string>(),
     };
 
     this.logger.info("CodeService shutdown complete");

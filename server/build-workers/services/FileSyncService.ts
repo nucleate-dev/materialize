@@ -1,5 +1,4 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { execSync } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -12,11 +11,6 @@ interface SyncResult {
   assetsUpdated: number;
   assetsDeleted: number;
   errors: string[];
-}
-
-interface GitFileChange {
-  status: string; // M, A, D, R, etc.
-  path: string;
 }
 
 export class FileSyncService {
@@ -77,10 +71,13 @@ export class FileSyncService {
   }
 
   /**
-   * Syncs all changed files from the local git repository to Supabase.
-   * Uses git status to detect changes and commits them before syncing.
+   * Syncs all changed files from the tracked file list to Supabase.
+   * Uses the file paths provided by Claude Code tool hooks instead of git.
    */
-  public async syncFilesToSupabase(prototypeId: string): Promise<SyncResult> {
+  public async syncFilesToSupabase(
+    prototypeId: string,
+    trackedFiles: Set<string>
+  ): Promise<SyncResult> {
     const result: SyncResult = {
       success: true,
       filesUpdated: 0,
@@ -91,80 +88,54 @@ export class FileSyncService {
     };
 
     try {
-      this.logger.info("Starting file sync to Supabase", { prototypeId });
+      this.logger.info("Starting file sync to Supabase", {
+        prototypeId,
+        trackedFilesCount: trackedFiles.size,
+      });
 
-      // Check if git is initialized
-      try {
-        execSync("git rev-parse --git-dir", {
-          cwd: this.workDir,
-          stdio: "pipe",
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          new Error(message),
-          "Git not initialized, skipping sync",
-          { prototypeId },
-        );
-        return result;
-      }
-
-      // Get list of changed files before commit
-      const changedFiles = this.getChangedFiles();
-
-      if (changedFiles.length === 0) {
+      if (trackedFiles.size === 0) {
         this.logger.info("No file changes detected, skipping sync", {
           prototypeId,
         });
         return result;
       }
 
-      this.logger.info("Detected file changes", {
+      // Separate files into modified and deleted
+      const modifiedFiles: string[] = [];
+      const deletedFiles: string[] = [];
+
+      for (const filePath of trackedFiles) {
+        try {
+          const fullPath = path.join(this.workDir, filePath);
+
+          // Check if file exists (if not, it was deleted)
+          try {
+            await fs.access(fullPath);
+            // File exists - it was modified or added
+            modifiedFiles.push(filePath);
+          } catch {
+            // File doesn't exist - it was deleted
+            deletedFiles.push(filePath);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn("Error checking file status", {
+            filePath,
+            error: message,
+          });
+        }
+      }
+
+      this.logger.info("Detected file changes from tracked files", {
         prototypeId,
-        fileCount: changedFiles.length,
-        files: changedFiles.map((f) => `${f.status} ${f.path}`),
+        modifiedCount: modifiedFiles.length,
+        deletedCount: deletedFiles.length,
+        modifiedFiles,
+        deletedFiles,
       });
 
-      // Add all changes to staging
-      try {
-        execSync("git add -A", { cwd: this.workDir, stdio: "pipe" });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          new Error(message),
-          "Failed to stage files with git add",
-        );
-        result.errors.push(`Failed to stage files: ${message}`);
-        result.success = false;
-        return result;
-      }
-
-      // Commit changes
-      const commitMessage = `Claude Code changes - ${new Date().toISOString()}`;
-      try {
-        execSync(`git commit -m "${commitMessage}"`, {
-          cwd: this.workDir,
-          stdio: "pipe",
-        });
-        this.logger.info("Committed changes to git", { prototypeId });
-      } catch (error) {
-        // Commit might fail if there are no changes (shouldn't happen, but handle it)
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("nothing to commit")) {
-          this.logger.info("No changes to commit", { prototypeId });
-          return result;
-        }
-        this.logger.error(
-          new Error(message),
-          "Failed to commit changes to git",
-        );
-        result.errors.push(`Failed to commit: ${message}`);
-        result.success = false;
-        return result;
-      }
-
       // Process each changed file
-      await this.processChangedFiles(changedFiles, prototypeId, result);
+      await this.processChangedFiles(modifiedFiles, deletedFiles, prototypeId, result);
 
       this.logger.info("File sync completed", {
         prototypeId,
@@ -187,70 +158,25 @@ export class FileSyncService {
     }
   }
 
-  /**
-   * Gets list of changed files from git status
-   */
-  private getChangedFiles(): GitFileChange[] {
-    try {
-      const output = execSync("git status --porcelain", {
-        cwd: this.workDir,
-        encoding: "utf8",
-      });
-
-      if (!output.trim()) {
-        return [];
-      }
-
-      const changes: GitFileChange[] = [];
-      const lines = output.trim().split("\n");
-
-      for (const line of lines) {
-        // Git status --porcelain format: XY filename
-        // X = index status, Y = working tree status
-        const status = line.substring(0, 2).trim();
-        const filePath = line.substring(3).trim();
-
-        // Skip ignored files and directories
-        if (this.shouldIgnoreFile(filePath)) {
-          continue;
-        }
-
-        changes.push({
-          status: status,
-          path: filePath,
-        });
-      }
-
-      return changes;
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to get git status",
-      );
-      return [];
-    }
-  }
 
   /**
    * Process all changed files and sync to Supabase
    */
   private async processChangedFiles(
-    changes: GitFileChange[],
+    modifiedFiles: string[],
+    deletedFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
-    // Separate files by type
-    const textFiles: GitFileChange[] = [];
-    const binaryFiles: GitFileChange[] = [];
-    const deletedFiles: GitFileChange[] = [];
+    // Separate modified files by type
+    const textFiles: string[] = [];
+    const binaryFiles: string[] = [];
 
-    for (const change of changes) {
-      if (change.status === "D") {
-        deletedFiles.push(change);
-      } else if (this.isBinaryFile(change.path)) {
-        binaryFiles.push(change);
+    for (const filePath of modifiedFiles) {
+      if (this.isBinaryFile(filePath)) {
+        binaryFiles.push(filePath);
       } else {
-        textFiles.push(change);
+        textFiles.push(filePath);
       }
     }
 
@@ -268,23 +194,23 @@ export class FileSyncService {
    * Process deleted files
    */
   private async processDeletions(
-    deletedFiles: GitFileChange[],
+    deletedFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
-    for (const file of deletedFiles) {
+    for (const filePath of deletedFiles) {
       try {
-        const isBinary = this.isBinaryFile(file.path);
+        const isBinary = this.isBinaryFile(filePath);
 
         if (isBinary) {
           // Delete from storage bucket
           try {
             await this.supabaseClient.storage
               .from("prototype-assets")
-              .remove([`${prototypeId}/${file.path}`]);
+              .remove([`${prototypeId}/${filePath}`]);
           } catch (storageError) {
             this.logger.warn("Failed to delete asset from storage", {
-              path: file.path,
+              path: filePath,
               error:
                 storageError instanceof Error
                   ? storageError.message
@@ -296,14 +222,14 @@ export class FileSyncService {
           const { error } = await this.supabaseClient
             .from("prototype_assets")
             .delete()
-            .match({ prototype_id: prototypeId, name: file.path });
+            .match({ prototype_id: prototypeId, name: filePath });
 
           if (error) {
             this.logger.error(error, "Failed to delete asset from database", {
-              path: file.path,
+              path: filePath,
             });
             result.errors.push(
-              `Failed to delete asset ${file.path}: ${error.message}`,
+              `Failed to delete asset ${filePath}: ${error.message}`,
             );
           } else {
             result.assetsDeleted++;
@@ -313,14 +239,14 @@ export class FileSyncService {
           const { error } = await this.supabaseClient
             .from("prototype_files")
             .delete()
-            .match({ prototype_id: prototypeId, name: file.path });
+            .match({ prototype_id: prototypeId, name: filePath });
 
           if (error) {
             this.logger.error(error, "Failed to delete file from database", {
-              path: file.path,
+              path: filePath,
             });
             result.errors.push(
-              `Failed to delete file ${file.path}: ${error.message}`,
+              `Failed to delete file ${filePath}: ${error.message}`,
             );
           } else {
             result.filesDeleted++;
@@ -331,9 +257,9 @@ export class FileSyncService {
         this.logger.error(
           new Error(message),
           "Failed to process file deletion",
-          { path: file.path },
+          { path: filePath },
         );
-        result.errors.push(`Failed to delete ${file.path}: ${message}`);
+        result.errors.push(`Failed to delete ${filePath}: ${message}`);
       }
     }
   }
@@ -342,7 +268,7 @@ export class FileSyncService {
    * Process text files with parallel upload (concurrency limit: 5)
    */
   private async processTextFiles(
-    textFiles: GitFileChange[],
+    textFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
@@ -351,16 +277,16 @@ export class FileSyncService {
 
     for (const chunk of chunks) {
       await Promise.all(
-        chunk.map(async (file) => {
+        chunk.map(async (filePath) => {
           try {
-            const fullPath = path.join(this.workDir, file.path);
+            const fullPath = path.join(this.workDir, filePath);
             const contents = await fs.readFile(fullPath, "utf8");
 
             // First, try to find existing file
             const { data: existingFile } = await this.supabaseClient
               .from("prototype_files")
               .select("id")
-              .match({ prototype_id: prototypeId, name: file.path })
+              .match({ prototype_id: prototypeId, name: filePath })
               .single();
 
             // Retry logic for upsert/update
@@ -384,7 +310,7 @@ export class FileSyncService {
                   .from("prototype_files")
                   .insert({
                     prototype_id: prototypeId,
-                    name: file.path,
+                    name: filePath,
                     contents: contents,
                     updated_at: new Date().toISOString(),
                   });
@@ -399,10 +325,10 @@ export class FileSyncService {
               retries--;
               if (retries === 0) {
                 this.logger.error(error, "Failed to upsert file to database", {
-                  path: file.path,
+                  path: filePath,
                 });
                 result.errors.push(
-                  `Failed to upsert file ${file.path}: ${error.message}`,
+                  `Failed to upsert file ${filePath}: ${error.message}`,
                 );
               } else {
                 // Exponential backoff
@@ -417,9 +343,9 @@ export class FileSyncService {
             this.logger.error(
               new Error(message),
               "Failed to process text file",
-              { path: file.path },
+              { path: filePath },
             );
-            result.errors.push(`Failed to process ${file.path}: ${message}`);
+            result.errors.push(`Failed to process ${filePath}: ${message}`);
           }
         }),
       );
@@ -430,7 +356,7 @@ export class FileSyncService {
    * Process binary files with parallel upload (concurrency limit: 3)
    */
   private async processBinaryFiles(
-    binaryFiles: GitFileChange[],
+    binaryFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
@@ -439,19 +365,19 @@ export class FileSyncService {
 
     for (const chunk of chunks) {
       await Promise.all(
-        chunk.map(async (file) => {
+        chunk.map(async (filePath) => {
           try {
-            const fullPath = path.join(this.workDir, file.path);
+            const fullPath = path.join(this.workDir, filePath);
             const stats = await fs.stat(fullPath);
 
             // Skip very large files (>10MB)
             if (stats.size > 10 * 1024 * 1024) {
               this.logger.warn("Skipping large binary file", {
-                path: file.path,
+                path: filePath,
                 size: stats.size,
               });
               result.errors.push(
-                `Skipped ${file.path}: file too large (${Math.round(stats.size / 1024 / 1024)}MB)`,
+                `Skipped ${filePath}: file too large (${Math.round(stats.size / 1024 / 1024)}MB)`,
               );
               return;
             }
@@ -464,9 +390,9 @@ export class FileSyncService {
             while (retries > 0 && !uploadSuccess) {
               const { error: uploadError } = await this.supabaseClient.storage
                 .from("prototype-assets")
-                .upload(`${prototypeId}/${file.path}`, fileBuffer, {
+                .upload(`${prototypeId}/${filePath}`, fileBuffer, {
                   upsert: true,
-                  contentType: this.getContentType(file.path),
+                  contentType: this.getContentType(filePath),
                 });
 
               if (!uploadError) {
@@ -477,10 +403,10 @@ export class FileSyncService {
                   this.logger.error(
                     uploadError,
                     "Failed to upload asset to storage",
-                    { path: file.path },
+                    { path: filePath },
                   );
                   result.errors.push(
-                    `Failed to upload asset ${file.path}: ${uploadError.message}`,
+                    `Failed to upload asset ${filePath}: ${uploadError.message}`,
                   );
                   return;
                 } else {
@@ -492,13 +418,13 @@ export class FileSyncService {
             }
 
             // Update metadata in database
-            const storageUrl = `${prototypeId}/${file.path}`;
+            const storageUrl = `${prototypeId}/${filePath}`;
 
             // First, try to find existing asset
             const { data: existingAsset } = await this.supabaseClient
               .from("prototype_assets")
               .select("id")
-              .match({ prototype_id: prototypeId, name: file.path })
+              .match({ prototype_id: prototypeId, name: filePath })
               .single();
 
             let dbError;
@@ -518,7 +444,7 @@ export class FileSyncService {
                 .from("prototype_assets")
                 .insert({
                   prototype_id: prototypeId,
-                  name: file.path,
+                  name: filePath,
                   storage_url: storageUrl,
                   updated_at: new Date().toISOString(),
                 });
@@ -529,10 +455,10 @@ export class FileSyncService {
               this.logger.error(
                 dbError,
                 "Failed to upsert asset metadata to database",
-                { path: file.path },
+                { path: filePath },
               );
               result.errors.push(
-                `Failed to upsert asset metadata ${file.path}: ${dbError.message}`,
+                `Failed to upsert asset metadata ${filePath}: ${dbError.message}`,
               );
             } else {
               result.assetsUpdated++;
@@ -543,9 +469,9 @@ export class FileSyncService {
             this.logger.error(
               new Error(message),
               "Failed to process binary file",
-              { path: file.path },
+              { path: filePath },
             );
-            result.errors.push(`Failed to process ${file.path}: ${message}`);
+            result.errors.push(`Failed to process ${filePath}: ${message}`);
           }
         }),
       );
@@ -560,21 +486,6 @@ export class FileSyncService {
     return this.binaryExtensions.includes(ext);
   }
 
-  /**
-   * Check if file should be ignored
-   */
-  private shouldIgnoreFile(filePath: string): boolean {
-    const ignoredPaths = [
-      "node_modules/",
-      "dist/",
-      ".expo/",
-      ".git/",
-      ".next/",
-      "build/",
-    ];
-
-    return ignoredPaths.some((ignored) => filePath.startsWith(ignored));
-  }
 
   /**
    * Get content type for binary file

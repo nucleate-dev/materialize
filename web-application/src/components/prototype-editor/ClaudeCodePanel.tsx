@@ -555,12 +555,8 @@ export default function ClaudeCodePanel({
             // For thinking tools, mark as complete
             updateThinkingMessage(toolCallId, "success");
           } else if (isReadOnlyTool(toolName)) {
-            // For read-only tools, remove them from the chat when complete
-            setMessages((prev) =>
-              prev.filter(msg =>
-                !(msg.type === "tool" && msg.toolCallId === toolCallId)
-              )
-            );
+            // For read-only tools, mark them as complete (keep visible)
+            updateToolMessage(toolCallId, "success");
           } else {
             // For action tools, update their status to success
             updateToolMessage(toolCallId, "success");
@@ -630,11 +626,13 @@ export default function ClaudeCodePanel({
             setMessages((prev) => {
               const lastMessage = prev[prev.length - 1];
               if (lastMessage && lastMessage.type === "assistant") {
+                // Add line breaks if we're appending to existing content after a tool call
+                const needsLineBreak = lastMessage.content.trim().length > 0;
                 return [
                   ...prev.slice(0, -1),
                   {
                     ...lastMessage,
-                    content: lastMessage.content + textDelta,
+                    content: lastMessage.content + (needsLineBreak ? '\n\n' : '') + textDelta,
                   },
                 ];
               } else {
@@ -667,11 +665,13 @@ export default function ClaudeCodePanel({
             setMessages((prev) => {
               const lastMessage = prev[prev.length - 1];
               if (lastMessage && lastMessage.type === "assistant") {
+                // Add line breaks if we're appending to existing content
+                const needsLineBreak = lastMessage.content.trim().length > 0;
                 return [
                   ...prev.slice(0, -1),
                   {
                     ...lastMessage,
-                    content: lastMessage.content + content.text,
+                    content: lastMessage.content + (needsLineBreak ? '\n\n' : '') + content.text,
                   },
                 ];
               } else {

@@ -1,4 +1,4 @@
-import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 export default function HomeScreen() {
   return (
@@ -16,12 +16,6 @@ export default function HomeScreen() {
       <Text className="text-center text-sm text-gray-600 opacity-80 dark:text-gray-400">
         The app automatically supports dark and light mode with theme support.
       </Text>
-
-      <TouchableOpacity
-        className="mt-4 rounded-lg bg-blue-500 px-6 py-3 dark:bg-blue-600"
-        onPress={() => Alert.alert('Button pressed!')}>
-        <Text className="text-base font-semibold text-white">Press Me!</Text>
-      </TouchableOpacity>
     </View>
   );
 }

@@ -1,5 +1,4 @@
-import { Alert } from 'react-native';
-import { Button, H1, Paragraph, Separator, Text, YStack } from 'tamagui';
+import { H1, Paragraph, Separator, Text, YStack } from 'tamagui';
 
 export default function HomeScreen() {
   return (
@@ -24,14 +23,6 @@ export default function HomeScreen() {
       <Text fontSize="$3" color="$color11" textAlign="center" opacity={0.8}>
         The app automatically supports dark and light mode with theme support.
       </Text>
-
-      <Button
-        size="$4"
-        onPress={() => Alert.alert('Button pressed!')}
-        marginTop="$4"
-      >
-        Press Me!
-      </Button>
     </YStack>
   );
 }
