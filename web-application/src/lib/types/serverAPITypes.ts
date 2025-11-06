@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-03T18:17:00.934Z
+// Last synced: 2025-11-06T04:08:53.410Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -55,6 +55,7 @@ export interface CodeWarning {
 
 export type BuildStatus =
   | 'creating'
+  | 'chatting'
   | 'updating'
   | 'error'
   | 'stable'
