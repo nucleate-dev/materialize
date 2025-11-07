@@ -841,6 +841,7 @@ export default function InternalPrototypePage() {
               prototype={prototype}
               canEditPrototype={canEditPrototype}
               onPrototypeUpdate={setPrototype}
+              currentRenderStatus={currentRenderStatus}
               onFileSyncComplete={() => {
                 // Reload files and assets from database when Claude Code finishes syncing
                 fileSystem.loadFilesFromDatabase(prototypeId);

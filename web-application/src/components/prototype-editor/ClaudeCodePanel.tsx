@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
+import { getChatIntent, clearChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   CheckIcon,
   InformationCircleIcon,
@@ -39,6 +40,15 @@ import ReactMarkdown from "react-markdown";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
 type PrototypeChatSession = Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
+
+type RenderStatus =
+  | "Static build"
+  | "Connecting.."
+  | "Updating.."
+  | "Starting Dev Server.."
+  | "Disconnected"
+  | "Connected";
+
 interface ClaudeCodePanelProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
@@ -46,6 +56,7 @@ interface ClaudeCodePanelProps {
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   onFileSyncComplete?: () => void;
+  currentRenderStatus?: RenderStatus;
   // External WebSocket management (optional)
   externalWS?: WebSocket | null;
   externalWSConnected?: boolean;
@@ -67,6 +78,7 @@ interface Message {
   toolInput?: any;
   description?: string;
   toolHistory?: any[]; // For ephemeral tools, track all invocations
+  isQueued?: boolean; // For queued messages waiting for dev server
 }
 
 interface ServerMessage {
@@ -101,6 +113,7 @@ export default function ClaudeCodePanel({
   canEditPrototype = false,
   onPrototypeUpdate,
   onFileSyncComplete,
+  currentRenderStatus,
   externalWS,
   externalWSConnected,
   onConnect,
@@ -137,6 +150,9 @@ export default function ClaudeCodePanel({
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const hasProcessedChatIntent = useRef(false);
+  const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -371,6 +387,119 @@ export default function ClaudeCodePanel({
       fetchOrCreateChatSession();
     }
   }, [prototypeId, logger]);
+
+  // Check for chat intent on mount and queue the message
+  useEffect(() => {
+    if (hasProcessedChatIntent.current) {
+      return;
+    }
+
+    const chatIntent = getChatIntent(prototypeId);
+    if (chatIntent && chatIntent.message) {
+      logger.debug("log", "Found chat intent, queueing message", {
+        message: chatIntent.message,
+      });
+
+      // Set queued message state
+      setQueuedMessage(chatIntent.message);
+
+      // Add queued message to UI
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `queued-${Date.now()}`,
+          type: "user",
+          content: chatIntent.message,
+          timestamp: Date.now(),
+          isQueued: true,
+        },
+      ]);
+
+      // Set timeout for queued message (2 minutes)
+      queueTimeoutRef.current = setTimeout(() => {
+        logger.debug("error", "Queued message timeout - dev server took too long", {
+          message: chatIntent.message,
+        });
+
+        // Update queued message to show error
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.isQueued
+              ? { ...msg, isQueued: false }
+              : msg
+          )
+        );
+
+        addMessage(
+          "error",
+          "Dev server took too long to start. Please try sending your message again."
+        );
+
+        setQueuedMessage(null);
+        clearChatIntent();
+      }, 120000); // 2 minutes
+
+      hasProcessedChatIntent.current = true;
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (queueTimeoutRef.current) {
+        clearTimeout(queueTimeoutRef.current);
+      }
+    };
+  }, [prototypeId, logger]);
+
+  // Auto-send queued message when dev server becomes connected
+  useEffect(() => {
+    const isDevServerReady = currentRenderStatus === "Connected";
+
+    if (queuedMessage && isDevServerReady && isConnected && !isProcessing) {
+      logger.debug("log", "Dev server ready, auto-sending queued message", {
+        message: queuedMessage,
+        currentRenderStatus,
+      });
+
+      // Clear the timeout since we're sending the message now
+      if (queueTimeoutRef.current) {
+        clearTimeout(queueTimeoutRef.current);
+        queueTimeoutRef.current = null;
+      }
+
+      // Update the queued message to show it's being sent
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isQueued
+            ? { ...msg, isQueued: false }
+            : msg
+        )
+      );
+
+      // Send the message
+      const content = queuedMessage;
+      setQueuedMessage(null);
+      setIsProcessing(true);
+      setHasReceivedResponse(false);
+
+      // Clear chat intent from localStorage
+      clearChatIntent();
+
+      // Send message via WebSocket
+      if (ws) {
+        const messageContent = [{ type: "text", text: content }];
+        ws.send(
+          JSON.stringify({
+            type: "query",
+            data: {
+              content: messageContent,
+              token: authTokenRef.current,
+              session_id: sessionIdRef.current,
+            },
+          })
+        );
+      }
+    }
+  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger]);
 
   // Auto-connect when component mounts (only if using internal WebSocket)
   useEffect(() => {
@@ -977,6 +1106,72 @@ export default function ClaudeCodePanel({
       return;
     }
 
+    // Check if dev server is ready
+    const isDevServerReady = currentRenderStatus === "Connected";
+
+    // If dev server isn't ready and we already have a queued message, prevent queueing another
+    if (!isDevServerReady && queuedMessage) {
+      addMessage("system", "Please wait for the current message to be sent");
+      return;
+    }
+
+    // If dev server isn't ready, queue the message
+    if (!isDevServerReady) {
+      logger.debug("log", "Dev server not ready, queueing message", {
+        currentRenderStatus,
+        message: trimmedInput,
+      });
+
+      setQueuedMessage(trimmedInput);
+
+      // Add message to chat as queued
+      const imageCount = uploadedImages.length;
+      const displayMessage = trimmedInput + (imageCount > 0 ? ` [${imageCount} image${imageCount > 1 ? 's' : ''}]` : "");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `queued-${Date.now()}`,
+          type: "user",
+          content: displayMessage,
+          timestamp: Date.now(),
+          isQueued: true,
+        },
+      ]);
+
+      setInputValue("");
+      setUploadedImages([]);
+
+      // Set timeout for queued message (2 minutes)
+      if (queueTimeoutRef.current) {
+        clearTimeout(queueTimeoutRef.current);
+      }
+      queueTimeoutRef.current = setTimeout(() => {
+        logger.debug("error", "Queued message timeout - dev server took too long", {
+          message: trimmedInput,
+        });
+
+        // Update queued message to show error
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.isQueued
+              ? { ...msg, isQueued: false }
+              : msg
+          )
+        );
+
+        addMessage(
+          "error",
+          "Dev server took too long to start. Please try sending your message again."
+        );
+
+        setQueuedMessage(null);
+      }, 120000); // 2 minutes
+
+      // Show system message about queuing
+      addMessage("system", `Message queued - waiting for dev server to start (status: ${currentRenderStatus})`);
+      return;
+    }
+
     // Refresh the JWT token on each query to ensure it's not expired
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -1437,7 +1632,13 @@ export default function ClaudeCodePanel({
                   {/* User messages - keep bubble style */}
                   {message.type === "user" && (
                     <div className="flex justify-end">
-                      <div className="max-w-[80%] rounded-lg p-3 bg-primary text-primary-foreground">
+                      <div className={`max-w-[80%] rounded-lg p-3 ${message.isQueued ? 'bg-primary/50 text-primary-foreground border-2 border-primary border-dashed' : 'bg-primary text-primary-foreground'}`}>
+                        {message.isQueued && (
+                          <div className="flex items-center gap-2 mb-2 text-xs opacity-90">
+                            <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
+                            <span>Queued - waiting for dev server...</span>
+                          </div>
+                        )}
                         <pre className="whitespace-pre-wrap text-sm font-sans">
                           {message.content}
                         </pre>
