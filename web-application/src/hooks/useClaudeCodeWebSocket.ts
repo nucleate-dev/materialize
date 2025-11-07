@@ -2,10 +2,15 @@ import { supabase } from "@/ClientConstants";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+interface ClaudeCodeMessage {
+  type: string;
+  data: unknown;
+}
+
 interface UseClaudeCodeWebSocketProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
-  onMessage?: (message: any) => void;
+  onMessage?: (message: ClaudeCodeMessage) => void;
   autoConnect?: boolean;
 }
 
@@ -14,7 +19,7 @@ interface UseClaudeCodeWebSocketReturn {
   isConnected: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
-  sendMessage: (type: string, data: any) => void;
+  sendMessage: (type: string, data: unknown) => void;
   sendSyncFiles: (
     prototypeId: string,
     filenames?: string[],
@@ -120,7 +125,7 @@ export function useClaudeCodeWebSocket({
   }, [ws]);
 
   const sendMessage = useCallback(
-    (type: string, data: any) => {
+    (type: string, data: unknown) => {
       if (!ws || !isConnected) {
         logger.debug("warn", "Cannot send message: WebSocket not connected");
         return;
@@ -141,7 +146,11 @@ export function useClaudeCodeWebSocket({
   );
 
   const sendSyncFiles = useCallback(
-    async (prototypeId: string, filenames?: string[], assetNames?: string[]) => {
+    async (
+      prototypeId: string,
+      filenames?: string[],
+      assetNames?: string[],
+    ) => {
       if (!ws || !isConnected) {
         logger.debug("warn", "Cannot send sync_files: WebSocket not connected");
         return;
@@ -154,7 +163,9 @@ export function useClaudeCodeWebSocket({
           authTokenRef.current = session.session.access_token;
         }
       } catch (error) {
-        logger.debug("warn", "Failed to refresh token for sync_files", { error });
+        logger.debug("warn", "Failed to refresh token for sync_files", {
+          error,
+        });
         // Continue with existing token if refresh fails
       }
 
