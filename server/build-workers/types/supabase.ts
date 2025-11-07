@@ -736,7 +736,7 @@ export type Database = {
       };
     };
     Enums: {
-      chat_role: "user" | "assistant";
+      chat_role: "user" | "assistant" | "system";
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom";
       file_type: "text" | "asset";
       subscription_plan_type: "free" | "team" | "pro";
