@@ -3,6 +3,7 @@ import {
   HookJSONOutput,
   Options,
   query,
+  SDKAssistantMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -751,7 +752,7 @@ export class CodeService {
 
           // Track assistant text content for persistence
           if (msg.type === "assistant") {
-            const message = (msg as any).message;
+            const message = (msg as SDKAssistantMessage).message;
             if (message?.content) {
               for (const content of message.content) {
                 if (content.type === "text" && content.text) {
