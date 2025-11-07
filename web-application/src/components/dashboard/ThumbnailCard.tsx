@@ -69,7 +69,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
     >
       <Card className="bg-background/80 backdrop-blur-sm border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group-hover:border-primary/50 cursor-pointer">
         {/* Image Container */}
-        <div className="relative aspect-[4/3] bg-muted overflow-hidden flex items-center justify-center">
+        <div className="relative aspect-[4/5] bg-muted overflow-hidden flex items-center justify-center">
           {/* Settings button */}
           {onSettings && (
             <Button
