@@ -314,53 +314,116 @@ export class CodeService {
 
     // Fetch or create chat_session_id from database for message persistence
     try {
-      const { data: chatSessions, error: fetchError } =
-        await this.supabaseClient
-          .from("prototype_chat_sessions")
-          .select("*")
-          .eq("prototype_id", prototypeId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-      if (fetchError) {
-        this.logger.error(
-          fetchError,
-          "Failed to fetch chat session from database",
-          { prototypeId },
-        );
-      } else if (chatSessions && chatSessions.length > 0) {
-        this.sessionState.chatSessionId = chatSessions[0].id;
-        this.logger.info(
-          "Using existing chat session for message persistence",
-          {
-            chatSessionId: this.sessionState.chatSessionId,
-            prototypeId,
-          },
-        );
-      } else {
-        // Create a new chat session if none exists
-        const { data: newChatSession, error: createError } =
+      // If client provided a session_id (Claude Code session ID), look for matching chat session
+      if (session_id) {
+        const { data: chatSessions, error: fetchError } =
           await this.supabaseClient
             .from("prototype_chat_sessions")
-            .insert({
-              prototype_id: prototypeId,
-              session_id: session_id || null,
-            })
-            .select()
-            .single();
+            .select("*")
+            .eq("prototype_id", prototypeId)
+            .eq("session_id", session_id)
+            .limit(1);
 
-        if (createError) {
+        if (fetchError) {
           this.logger.error(
-            createError,
-            "Failed to create chat session in database",
-            { prototypeId },
+            fetchError,
+            "Failed to fetch chat session from database",
+            { prototypeId, session_id },
+          );
+        } else if (chatSessions && chatSessions.length > 0) {
+          // Found existing chat session matching this Claude Code session_id
+          this.sessionState.chatSessionId = chatSessions[0].id;
+          this.logger.info(
+            "Using existing chat session for message persistence",
+            {
+              chatSessionId: this.sessionState.chatSessionId,
+              claudeCodeSessionId: session_id,
+              prototypeId,
+            },
           );
         } else {
-          this.sessionState.chatSessionId = newChatSession.id;
-          this.logger.info("Created new chat session for message persistence", {
-            chatSessionId: this.sessionState.chatSessionId,
-            prototypeId,
-          });
+          // No matching chat session found, create a new one
+          const { data: newChatSession, error: createError } =
+            await this.supabaseClient
+              .from("prototype_chat_sessions")
+              .insert({
+                prototype_id: prototypeId,
+                session_id: session_id,
+              })
+              .select()
+              .single();
+
+          if (createError) {
+            this.logger.error(
+              createError,
+              "Failed to create chat session in database",
+              { prototypeId, session_id },
+            );
+          } else {
+            this.sessionState.chatSessionId = newChatSession.id;
+            this.logger.info(
+              "Created new chat session for message persistence",
+              {
+                chatSessionId: this.sessionState.chatSessionId,
+                claudeCodeSessionId: session_id,
+                prototypeId,
+              },
+            );
+          }
+        }
+      } else {
+        // No session_id provided, get the most recent chat session for this prototype
+        const { data: chatSessions, error: fetchError } =
+          await this.supabaseClient
+            .from("prototype_chat_sessions")
+            .select("*")
+            .eq("prototype_id", prototypeId)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+        if (fetchError) {
+          this.logger.error(
+            fetchError,
+            "Failed to fetch chat session from database",
+            { prototypeId },
+          );
+        } else if (chatSessions && chatSessions.length > 0) {
+          this.sessionState.chatSessionId = chatSessions[0].id;
+          this.logger.info(
+            "Using most recent chat session for message persistence",
+            {
+              chatSessionId: this.sessionState.chatSessionId,
+              prototypeId,
+            },
+          );
+        } else {
+          // Create a new chat session with no Claude Code session_id
+          const { data: newChatSession, error: createError } =
+            await this.supabaseClient
+              .from("prototype_chat_sessions")
+              .insert({
+                prototype_id: prototypeId,
+                session_id: null,
+              })
+              .select()
+              .single();
+
+          if (createError) {
+            this.logger.error(
+              createError,
+              "Failed to create chat session in database",
+              { prototypeId },
+            );
+          } else {
+            this.sessionState.chatSessionId = newChatSession.id;
+            this.logger.info(
+              "Created new chat session for message persistence",
+              {
+                chatSessionId: this.sessionState.chatSessionId,
+                prototypeId,
+              },
+            );
+          }
         }
       }
     } catch (error) {
