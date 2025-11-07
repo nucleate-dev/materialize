@@ -1176,7 +1176,7 @@ export default function ClaudeCodePanel({
       const { data: historicalMessages, error: messagesError } = await supabase
         .from("prototype_chat_messages")
         .select("*")
-        .eq("id", chatSessionId)
+        .eq("chat_session_id", chatSessionId)
         .order("created_at", { ascending: true });
 
       if (messagesError) {
