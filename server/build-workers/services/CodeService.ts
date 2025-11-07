@@ -13,6 +13,7 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { Database } from "../types/supabase.js";
+import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
 import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
@@ -20,7 +21,6 @@ import {
 } from "../utils/shared-utils.js";
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
-
 /**
  * FILE TRACKING STRATEGY
  *
@@ -549,7 +549,11 @@ export class CodeService {
             "Bash",
           ],
           model: options?.model ?? "claude-sonnet-4-5",
-          systemPrompt: "claude_code",
+          systemPrompt: {
+            type: "preset" as const,
+            preset: "claude_code" as const,
+            append: SYSTEM_PROMPT,
+          },
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           // Add hooks to stream tool usage to WebSocket clients
