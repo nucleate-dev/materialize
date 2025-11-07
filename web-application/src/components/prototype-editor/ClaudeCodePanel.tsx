@@ -304,7 +304,7 @@ export default function ClaudeCodePanel({
           .from("prototype_chat_sessions")
           .select("*")
           .eq("prototype_id", prototypeId)
-          .order("updated_at", { ascending: false });
+          .order("created_at", { ascending: false });
 
         if (fetchError) {
           logger.debug("error", "Failed to fetch chat sessions", {
@@ -368,6 +368,13 @@ export default function ClaudeCodePanel({
       fetchOrCreateChatSession();
     }
   }, [prototypeId, logger]);
+
+  // Auto-connect when component mounts (only if using internal WebSocket)
+  useEffect(() => {
+    if (!usingExternalWS && !isConnected && prototypeId) {
+      connect();
+    }
+  }, [prototypeId, usingExternalWS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
