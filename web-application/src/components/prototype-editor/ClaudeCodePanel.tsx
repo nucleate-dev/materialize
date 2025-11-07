@@ -144,6 +144,9 @@ export default function ClaudeCodePanel({
   const [editedTitle, setEditedTitle] = useState("");
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false);
 
+  // Reset confirmation modal state
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+
   const prototypeTitle = prototype?.name?.trim() || "Project";
   const visibility = prototype?.visibility?.toLowerCase();
   const visibilityLabel =
@@ -1071,32 +1074,67 @@ export default function ClaudeCodePanel({
     );
   };
 
-  // Reset session
-  const resetSession = () => {
-    if (!ws || !isConnected) {
-      addMessage("error", "Not connected");
+  // Reset session - delete current chat session and create a new one
+  const resetSession = async () => {
+    if (!chatSessionId) {
+      addMessage("error", "No active chat session");
       return;
     }
 
-    const token = authTokenRef.current;
-    if (!token) {
-      addMessage(
-        "error",
-        "Missing authentication token. Please reconnect and try again.",
-      );
-      return;
-    }
+    try {
+      // Delete the current chat session (cascade will delete messages)
+      const { error: deleteError } = await supabase
+        .from("prototype_chat_sessions")
+        .delete()
+        .eq("id", chatSessionId);
 
-    ws.send(
-      JSON.stringify({
-        type: "reset_session",
-        message: "Reset session requested.",
-        prototype_id: prototypeId,
-        token,
-      }),
-    );
-    setMessages([]);
-    sessionIdRef.current = null;
+      if (deleteError) {
+        logger.debug("error", "Failed to delete chat session", {
+          error: deleteError,
+        });
+        addMessage("error", "Failed to reset session");
+        return;
+      }
+
+      // Create new chat session with null session_id
+      const { data: newSession, error: createError } = await supabase
+        .from("prototype_chat_sessions")
+        .insert({
+          prototype_id: prototypeId,
+          session_id: null,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        logger.debug("error", "Failed to create new chat session", {
+          error: createError,
+        });
+        addMessage("error", "Failed to create new session");
+        return;
+      }
+
+      // Update state with new session
+      setChatSessionId(newSession.id);
+      setSessionId(null);
+      sessionIdRef.current = null;
+      setMessages([]);
+
+      // Update the sessions list
+      setAllChatSessions((prev) => [newSession, ...prev.filter((s) => s.id !== chatSessionId)]);
+
+      logger.debug("log", "Reset session - created new chat session", {
+        oldChatSessionId: chatSessionId,
+        newChatSessionId: newSession.id,
+      });
+
+      addMessage("system", "Session reset - starting fresh conversation");
+    } catch (error) {
+      logger.debug("error", "Error resetting session", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      addMessage("error", "Failed to reset session");
+    }
   };
 
   // Switch to a different chat session
@@ -1340,34 +1378,23 @@ export default function ClaudeCodePanel({
           </TooltipProvider>
         </div>
         <div className="flex gap-2">
-          {isConnected ? (
-            <>
-              {isProcessing && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={interruptQuery}
-                >
-                  Stop
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={resetSession}
-                disabled={!sessionId || isProcessing}
-              >
-                Reset
-              </Button>
-              <Button size="sm" variant="destructive" onClick={disconnect}>
-                Disconnect
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" onClick={connect}>
-              Connect
+          {isProcessing && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={interruptQuery}
+            >
+              Stop
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowResetConfirmation(true)}
+            disabled={!chatSessionId || isProcessing}
+          >
+            Reset
+          </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1813,6 +1840,37 @@ export default function ClaudeCodePanel({
                 </p>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Confirmation Modal */}
+      <Dialog open={showResetConfirmation} onOpenChange={setShowResetConfirmation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Session?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete all messages in the current conversation and start a fresh session. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowResetConfirmation(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setShowResetConfirmation(false);
+                  resetSession();
+                }}
+              >
+                Reset Session
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
