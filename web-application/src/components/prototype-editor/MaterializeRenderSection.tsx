@@ -28,12 +28,9 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
-  RestartDevServerSuccessResponse,
-  RunCommandRequestBody,
-  RunCommandSuccessResponse,
-  StandardErrorResponse,
+  RestartDevServerSuccessResponse, StandardErrorResponse,
   StartDevServerRequestBody,
-  StartDevServerSuccessResponse,
+  StartDevServerSuccessResponse
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { QRCodeSVG } from "qrcode.react";
@@ -210,7 +207,6 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
-    const [isRunningLint, setIsRunningLint] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
@@ -772,62 +768,6 @@ const MaterializeRenderSection = forwardRef<
         setIsExporting(false);
       }
     }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
-
-    const handleRunLint = async () => {
-      if (!prototypeId) return;
-      setIsRunningLint(true);
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/run-command`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              prototype_id: prototypeId,
-              command: "npm",
-              args: ["run", "lint"],
-            } as RunCommandRequestBody),
-          },
-        );
-
-        const result: APIResponse<
-          RunCommandSuccessResponse,
-          StandardErrorResponse
-        > = await response.json();
-
-        if (response.ok && result.data) {
-          // TODO: Display lint results in a better way
-          if (result.data.exit_code === 0) {
-            alert("Lint passed successfully!");
-          } else {
-            alert(
-              `Lint failed with exit code ${result.data.exit_code}\n\nCheck console for details.`,
-            );
-          }
-        } else {
-          logger.debug("error", "Failed to run lint command", {
-            error: result.error?.message,
-          });
-          alert("Failed to run lint command");
-        }
-      } catch (error) {
-        logger.debug("error", "Error running lint command", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        alert("Error running lint command");
-      } finally {
-        setIsRunningLint(false);
-      }
-    };
 
     const handleModeChange = (mode: PreviewMode) => {
       setPreviewMode(mode);
