@@ -1347,7 +1347,17 @@ export default function ClaudeCodePanel({
               <SelectContent>
                 {allChatSessions.map((session) => {
                   const date = new Date(session.created_at ?? new Date());
-                  const label = session.session_id || `New - ${date.toLocaleDateString()}`;
+                  const dateStr = date.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                  });
+                  const timeStr = date.toLocaleTimeString(undefined, {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                  const label = `${dateStr} at ${timeStr}`;
 
                   return (
                     <SelectItem key={session.id} value={String(session.id)}>
