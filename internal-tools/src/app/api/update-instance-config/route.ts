@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
+import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 
 export async function POST(request: NextRequest) {
@@ -62,6 +62,10 @@ export async function POST(request: NextRequest) {
       webEnvContent = webEnvContent.replace(
         /NEXT_PUBLIC_SERVER_ENDPOINT=.*/,
         `NEXT_PUBLIC_SERVER_ENDPOINT=http://${publicIpv4}:3000`,
+      );
+      webEnvContent = webEnvContent.replace(
+        /NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=.*/,
+        `NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT=http://${publicIpv4}:3002`,
       );
 
       fs.writeFileSync(webEnvPath, webEnvContent, "utf-8");
