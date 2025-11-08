@@ -38,6 +38,7 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
   type APIResponse,
   type CreatePrototypeErrorResponse,
@@ -137,13 +138,18 @@ export default function InternalPrototypePage() {
 
   // Claude Code WebSocket management
   const claudeCodeWSMessageHandlers = useRef<
-    Map<string, (msg: unknown) => void>
+    Map<string, (msg: ChatServerMessage) => void>
   >(new Map());
 
-  const handleClaudeCodeMessage = useCallback((message: any) => {
-    // Broadcast to all registered handlers
-    claudeCodeWSMessageHandlers.current.forEach((handler) => handler(message));
-  }, []);
+  const handleClaudeCodeMessage = useCallback(
+    (message: { type: string; data: unknown }) => {
+      const parsedMessage = message as ChatServerMessage;
+      claudeCodeWSMessageHandlers.current.forEach((handler) =>
+        handler(parsedMessage),
+      );
+    },
+    [],
+  );
 
   const {
     ws: claudeCodeWS,
@@ -850,7 +856,10 @@ export default function InternalPrototypePage() {
               externalWSConnected={claudeCodeWSConnected}
               onConnect={connectClaudeCodeWS}
               onDisconnect={disconnectClaudeCodeWS}
-              onRegisterMessageHandler={(id: string, handler: (msg: any) => void) => {
+              onRegisterMessageHandler={(
+                id: string,
+                handler: (msg: ChatServerMessage) => void,
+              ) => {
                 claudeCodeWSMessageHandlers.current.set(id, handler);
               }}
               onUnregisterMessageHandler={(id: string) => {

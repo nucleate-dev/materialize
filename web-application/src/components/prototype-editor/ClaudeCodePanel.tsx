@@ -27,6 +27,8 @@ import {
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
 import { getChatIntent, clearChatIntent } from "@/lib/utils/chatIntentUtils";
+import { ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
+import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
   CheckIcon,
   InformationCircleIcon,
@@ -51,16 +53,10 @@ type RenderStatus =
   | "Connected";
 
 // Type for tool input data
-type ToolInput = Record<string, unknown>;
-
-// Type for file sync data
-interface FileSyncData {
-  filesUpdated?: number;
-  filesDeleted?: number;
-  assetsUpdated?: number;
-  assetsDeleted?: number;
-  errorCount?: number;
-}
+// Tool inputs can contain arbitrary data structures depending on the tool invoked
+// Using `any` here maintains compatibility with existing usage where fields are accessed dynamically
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolInput = Record<string, any>;
 
 // Type for tool event data
 interface ToolEventData {
@@ -82,7 +78,10 @@ interface ClaudeCodePanelProps {
   externalWSConnected?: boolean;
   onConnect?: () => Promise<void>;
   onDisconnect?: () => void;
-  onRegisterMessageHandler?: (id: string, handler: (msg: ServerMessage) => void) => void;
+  onRegisterMessageHandler?: (
+    id: string,
+    handler: (msg: ChatServerMessage) => void,
+  ) => void;
   onUnregisterMessageHandler?: (id: string) => void;
 }
 
@@ -99,24 +98,6 @@ interface Message {
   description?: string;
   toolHistory?: ToolInput[]; // For ephemeral tools, track all invocations
   isQueued?: boolean; // For queued messages waiting for dev server
-}
-
-interface ServerMessage {
-  type: string;
-  error?: string;
-  userId?: string;
-  prototype_id?: string;
-  timestamp?: string;
-  data?: {
-    connectionId?: string;
-    sessionId?: string;
-    message?: string;
-    tool_name?: string;
-    tool_call_id?: string;
-    tool_input?: unknown;
-    tool_response?: unknown;
-  };
-  subtype?: string;
 }
 
 interface UploadedImage {
@@ -367,6 +348,107 @@ export default function ClaudeCodePanel({
       setIsUpdatingTitle(false);
     }
   };
+
+  // Helper function to load historical messages (extracted to be reusable)
+  const loadHistoricalMessages = useCallback(async (chatSessionId: string) => {
+    try {
+      const { data: historicalMessages, error: messagesError } = await supabase
+        .from("prototype_chat_messages")
+        .select("*")
+        .eq("chat_session_id", chatSessionId)
+        .order("created_at", { ascending: true });
+
+      if (messagesError) {
+        logger.debug("error", "Failed to fetch historical messages", {
+          error: messagesError,
+        });
+        return;
+      }
+
+      if (historicalMessages && historicalMessages.length > 0) {
+        // Convert database messages to UI message format
+        const uiMessages: Message[] = [];
+
+        for (const dbMessage of historicalMessages) {
+          // Handle different message types
+          if (dbMessage.message_type === "text") {
+            // Regular text message (user or assistant)
+            uiMessages.push({
+              id: String(dbMessage.id),
+              type: dbMessage.role as "user" | "assistant",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+            });
+          } else if (
+            dbMessage.message_type === "tool_use" &&
+            dbMessage.event_type === "tool_start"
+          ) {
+            // Tool start event
+            const eventData = dbMessage.event_data as ToolEventData;
+            uiMessages.push({
+              id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
+              type: "tool",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+              toolName: eventData?.tool_name,
+              toolCallId: eventData?.tool_call_id,
+              isComplete: false, // Will be updated if we find a matching tool_complete
+              status: "running",
+              toolInput: eventData?.tool_input,
+            });
+          } else if (
+            dbMessage.message_type === "tool_result" &&
+            dbMessage.event_type === "tool_complete"
+          ) {
+            // Tool complete event - find and update the matching tool_start message
+            const eventData = dbMessage.event_data as ToolEventData;
+            const toolCallId = eventData?.tool_call_id;
+
+            // Find the matching tool message and mark it as complete
+            const toolMessageIndex = uiMessages.findIndex(
+              (msg) =>
+                msg.type === "tool" &&
+                msg.toolCallId === toolCallId &&
+                !msg.isComplete,
+            );
+
+            if (toolMessageIndex !== -1) {
+              uiMessages[toolMessageIndex] = {
+                ...uiMessages[toolMessageIndex],
+                isComplete: true,
+                status: "success",
+              };
+            }
+          } else if (dbMessage.message_type === "error") {
+            // Error message
+            uiMessages.push({
+              id: String(dbMessage.id),
+              type: "error",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+            });
+          } else if (dbMessage.message_type === "system") {
+            // System message
+            uiMessages.push({
+              id: String(dbMessage.id),
+              type: "system",
+              content: dbMessage.content,
+              timestamp: new Date(dbMessage.created_at).getTime(),
+            });
+          }
+        }
+
+        setMessages(uiMessages);
+        logger.debug("log", "Loaded historical messages", {
+          count: uiMessages.length,
+        });
+      }
+    } catch (error) {
+      logger.debug("error", "Error loading historical messages", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [logger]);
 
   // Fetch or create prototype_chat_session on mount
   useEffect(() => {
@@ -665,7 +747,7 @@ export default function ClaudeCodePanel({
 
       websocket.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data) as ServerMessage;
+          const message = JSON.parse(event.data) as ChatServerMessage;
           handleServerMessage(message);
         } catch (error) {
           logger.debug("error", "Failed to parse WebSocket message", { error });
@@ -727,86 +809,85 @@ export default function ClaudeCodePanel({
   void _disconnect;
 
   // Handle messages from server
-  const handleServerMessage = (message: ServerMessage) => {
+  const handleServerMessage = (message: ChatServerMessage) => {
     logger.debug("log", "Server message received", { message });
 
     switch (message.type) {
-      case "authenticated":
-        // Server confirmed authentication
-        if (message.userId) {
-          setSessionId(message.userId);
+      case ChatEvent.AUTHENTICATED: {
+        const userId = message.userId;
+        if (userId) {
+          setSessionId(userId);
           addMessage(
             "system",
-            `Authenticated as user: ${message.userId.slice(0, 8)}...`,
+            `Authenticated as user: ${userId.slice(0, 8)}...`,
           );
         }
         break;
+      }
 
-      case "message_received":
-        // Server acknowledged receipt of our message - don't show in chat
-        // Keep isProcessing true, but note we've started
+      case ChatEvent.MESSAGE_RECEIVED:
+      case ChatEvent.READY:
         break;
 
-      case "ready":
-        // Server acknowledged the connection establishment
-        break;
-
-      case "error":
+      case ChatEvent.ERROR: {
         setIsProcessing(false);
-        addMessage("error", `Error: ${JSON.stringify(message.error) || "Unknown error"}`);
+        const { message: errorMessage, details } = message.error;
+        const formattedDetails = details ? `${errorMessage}: ${details}` : errorMessage;
+        addMessage("error", `Error: ${formattedDetails}`);
         break;
+      }
 
-      // Keep old handlers for backward compatibility during transition
-      case "system":
-        if (message.subtype === "connection") {
+      case ChatEvent.SYSTEM:
+        if (message.subtype === ChatSystemEventSubtype.CONNECTION) {
+          // Connection established - nothing to show in chat
         }
         break;
 
-      case "agent_message":
+      case ChatEvent.AGENT_MESSAGE:
         if (message.data) {
           handleAgentMessage(message.data);
         }
         break;
 
-      case "query_complete":
+      case ChatEvent.QUERY_COMPLETE:
         setIsProcessing(false);
         break;
 
-      case "interrupted":
+      case ChatEvent.INTERRUPTED:
         setIsProcessing(false);
-        addMessage("system", message.data?.message || "Query interrupted");
+        addMessage("system", message.data.message || "Query interrupted");
         break;
 
-      case "session_reset":
+      case ChatEvent.SESSION_RESET:
         setMessages([]);
         sessionIdRef.current = null;
         setSessionId(null);
-        addMessage("system", "Session has been reset");
+        addMessage("system", message.data.message);
         break;
 
-      case "tool_start":
-        // Handle tool start
-        setHasReceivedResponse(true); // We've received some response
-        if (message.data?.tool_name) {
-          const toolName = message.data.tool_name;
-          const toolCallId = message.data?.tool_call_id || `tool-${Date.now()}`;
-          const toolInput = message.data?.tool_input;
+      case ChatEvent.TOOL_START: {
+        setHasReceivedResponse(true);
+        const {
+          tool_name: toolName,
+          tool_call_id: rawToolCallId,
+          tool_input,
+        } = message.data;
 
-          // Handle "thinking" tools (Task) separately
+        if (toolName) {
+          const toolCallId = rawToolCallId || `tool-${Date.now()}`;
+          const toolInput = (tool_input ?? {}) as ToolInput;
+
           if (isThinkingTool(toolName)) {
-            // Clean up any incomplete read-only tools
             setMessages((prev) =>
               prev.filter(msg =>
                 !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
-              )
+              ),
             );
             addThinkingMessage(toolName, toolCallId, toolInput, "running");
           } else if (isReadOnlyTool(toolName)) {
-            // For read-only tools, check if we can consolidate with the last message
             setMessages((prev) => {
               const lastMessage = prev[prev.length - 1];
 
-              // If the last message is an incomplete read-only tool of the same type, update it with history
               if (
                 lastMessage &&
                 lastMessage.type === "tool" &&
@@ -815,19 +896,17 @@ export default function ClaudeCodePanel({
                 isReadOnlyTool(lastMessage.toolName) &&
                 lastMessage.toolName.toLowerCase() === toolName.toLowerCase()
               ) {
-                // Consolidate - update the existing message with new tool input in history
                 const updatedHistory = [...(lastMessage.toolHistory || []), toolInput];
                 return [
                   ...prev.slice(0, -1),
                   {
                     ...lastMessage,
-                    toolInput, // Update to show most recent
+                    toolInput,
                     toolHistory: updatedHistory,
                   },
                 ];
               }
 
-              // Otherwise, remove any incomplete read-only tools and add this one
               const filtered = prev.filter(msg =>
                 !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
               );
@@ -844,76 +923,118 @@ export default function ClaudeCodePanel({
                   isComplete: false,
                   status: "running" as const,
                   toolInput,
-                  toolHistory: [toolInput], // Start history with first invocation
+                  toolHistory: [toolInput],
                 },
               ];
             });
           } else {
-            // For action tools, add them to the chat as persistent badges
-            // First, clean up any incomplete read-only tools
             setMessages((prev) =>
               prev.filter(msg =>
                 !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
-              )
+              ),
             );
             addToolMessage(toolName, toolCallId, toolInput, "running");
           }
         }
         break;
+      }
 
-      case "tool_complete":
-        // Handle tool completion
-        if (message.data?.tool_name) {
-          const toolName = message.data.tool_name;
-          const toolCallId = message.data?.tool_call_id || "";
+      case ChatEvent.TOOL_COMPLETE: {
+        const {
+          tool_name: toolName,
+          tool_call_id: toolCallId = "",
+        } = message.data;
 
+        if (toolName) {
           if (isThinkingTool(toolName)) {
-            // For thinking tools, mark as complete
             updateThinkingMessage(toolCallId, "success");
-          } else if (isReadOnlyTool(toolName)) {
-            // For read-only tools, mark them as complete (keep visible)
-            updateToolMessage(toolCallId, "success");
           } else {
-            // For action tools, update their status to success
             updateToolMessage(toolCallId, "success");
           }
         }
         break;
+      }
 
-      case "file_sync_complete":
-        // Handle file sync completion - trigger file reload
+      case ChatEvent.FILE_SYNC_COMPLETE: {
         logger.debug("log", "File sync completed", {
           data: message.data,
         });
 
-        // Show system message about sync
-        if (message.data) {
-          const { filesUpdated, filesDeleted, assetsUpdated, assetsDeleted, errorCount } = message.data as FileSyncData;
-          const updates: string[] = [];
-          if (filesUpdated > 0) updates.push(`${filesUpdated} file${filesUpdated > 1 ? 's' : ''} updated`);
-          if (filesDeleted > 0) updates.push(`${filesDeleted} file${filesDeleted > 1 ? 's' : ''} deleted`);
-          if (assetsUpdated > 0) updates.push(`${assetsUpdated} asset${assetsUpdated > 1 ? 's' : ''} updated`);
-          if (assetsDeleted > 0) updates.push(`${assetsDeleted} asset${assetsDeleted > 1 ? 's' : ''} deleted`);
+        const {
+          filesUpdated,
+          filesDeleted,
+          assetsUpdated,
+          assetsDeleted,
+          errorCount,
+        } = message.data;
 
-          if (updates.length > 0) {
-            addMessage("system", `Files synced: ${updates.join(", ")}`);
-          }
-
-          if (errorCount > 0) {
-            addMessage("system", `⚠️ ${errorCount} sync error${errorCount > 1 ? 's' : ''} occurred`);
-          }
+        const updates: string[] = [];
+        if (filesUpdated > 0) {
+          updates.push(`${filesUpdated} file${filesUpdated > 1 ? "s" : ""} updated`);
+        }
+        if (filesDeleted > 0) {
+          updates.push(`${filesDeleted} file${filesDeleted > 1 ? "s" : ""} deleted`);
+        }
+        if (assetsUpdated > 0) {
+          updates.push(`${assetsUpdated} asset${assetsUpdated > 1 ? "s" : ""} updated`);
+        }
+        if (assetsDeleted > 0) {
+          updates.push(`${assetsDeleted} asset${assetsDeleted > 1 ? "s" : ""} deleted`);
         }
 
-        // Trigger file reload in parent
+        if (updates.length > 0) {
+          addMessage("system", `Files synced: ${updates.join(", ")}`);
+        }
+
+        if (errorCount > 0) {
+          addMessage(
+            "system",
+            `⚠️ ${errorCount} sync error${errorCount > 1 ? "s" : ""} occurred`,
+          );
+        }
+
         if (onFileSyncComplete) {
           onFileSyncComplete();
         }
         break;
+      }
 
-      default:
+      case ChatEvent.SYNC_COMPLETE: {
+        const { success, filesCount, assetsCount } = message.data;
+        if (success) {
+          const parts: string[] = [];
+          if (filesCount > 0) {
+            parts.push(`${filesCount} file${filesCount > 1 ? "s" : ""}`);
+          }
+          if (assetsCount > 0) {
+            parts.push(`${assetsCount} asset${assetsCount > 1 ? "s" : ""}`);
+          }
+          if (parts.length > 0) {
+            addMessage("system", `Sync complete: ${parts.join(", ")}`);
+          }
+        }
+
+        if (onFileSyncComplete) {
+          onFileSyncComplete();
+        }
+        break;
+      }
+
+      case ChatEvent.USAGE_UPDATE:
+        // Usage updates are handled elsewhere (e.g., billing UI)
+        break;
+
+      case ChatEvent.INFO:
+        addMessage("system", message.message);
+        break;
+
+      default: {
+        const unknownMessage = message as { type: string };
         logger.debug("log", "Unknown message type", {
-          messageType: message.type,
+          messageType: unknownMessage.type,
         });
+        break;
+      }
     }
   };
 
@@ -1502,107 +1623,6 @@ export default function ClaudeCodePanel({
       addMessage("error", "Failed to create new chat session");
     }
   };
-
-  // Helper function to load historical messages (extracted to be reusable)
-  const loadHistoricalMessages = useCallback(async (chatSessionId: string) => {
-    try {
-      const { data: historicalMessages, error: messagesError } = await supabase
-        .from("prototype_chat_messages")
-        .select("*")
-        .eq("chat_session_id", chatSessionId)
-        .order("created_at", { ascending: true });
-
-      if (messagesError) {
-        logger.debug("error", "Failed to fetch historical messages", {
-          error: messagesError,
-        });
-        return;
-      }
-
-      if (historicalMessages && historicalMessages.length > 0) {
-        // Convert database messages to UI message format
-        const uiMessages: Message[] = [];
-
-        for (const dbMessage of historicalMessages) {
-          // Handle different message types
-          if (dbMessage.message_type === "text") {
-            // Regular text message (user or assistant)
-            uiMessages.push({
-              id: String(dbMessage.id),
-              type: dbMessage.role as "user" | "assistant",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-            });
-          } else if (
-            dbMessage.message_type === "tool_use" &&
-            dbMessage.event_type === "tool_start"
-          ) {
-            // Tool start event
-            const eventData = dbMessage.event_data as ToolEventData;
-            uiMessages.push({
-              id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
-              type: "tool",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-              toolName: eventData?.tool_name,
-              toolCallId: eventData?.tool_call_id,
-              isComplete: false, // Will be updated if we find a matching tool_complete
-              status: "running",
-              toolInput: eventData?.tool_input,
-            });
-          } else if (
-            dbMessage.message_type === "tool_result" &&
-            dbMessage.event_type === "tool_complete"
-          ) {
-            // Tool complete event - find and update the matching tool_start message
-            const eventData = dbMessage.event_data as ToolEventData;
-            const toolCallId = eventData?.tool_call_id;
-
-            // Find the matching tool message and mark it as complete
-            const toolMessageIndex = uiMessages.findIndex(
-              (msg) =>
-                msg.type === "tool" &&
-                msg.toolCallId === toolCallId &&
-                !msg.isComplete,
-            );
-
-            if (toolMessageIndex !== -1) {
-              uiMessages[toolMessageIndex] = {
-                ...uiMessages[toolMessageIndex],
-                isComplete: true,
-                status: "success",
-              };
-            }
-          } else if (dbMessage.message_type === "error") {
-            // Error message
-            uiMessages.push({
-              id: String(dbMessage.id),
-              type: "error",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-            });
-          } else if (dbMessage.message_type === "system") {
-            // System message
-            uiMessages.push({
-              id: String(dbMessage.id),
-              type: "system",
-              content: dbMessage.content,
-              timestamp: new Date(dbMessage.created_at).getTime(),
-            });
-          }
-        }
-
-        setMessages(uiMessages);
-        logger.debug("log", "Loaded historical messages", {
-          count: uiMessages.length,
-        });
-      }
-    } catch (error) {
-      logger.debug("error", "Error loading historical messages", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, [logger]);
 
   // Handle Enter key
   const handleKeyPress = (e: React.KeyboardEvent) => {
