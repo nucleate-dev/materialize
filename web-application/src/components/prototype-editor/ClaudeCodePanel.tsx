@@ -486,12 +486,20 @@ export default function ClaudeCodePanel({
           // Load historical messages for this session
           await loadHistoricalMessages(mostRecentSession.id);
         } else {
+          // Get current user for RLS policy
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            logger.debug("error", "Not authenticated - cannot create chat session");
+            return;
+          }
+
           // Create new chat session with null session_id
           const { data: newSession, error: createError } = await supabase
             .from("prototype_chat_sessions")
             .insert({
               prototype_id: prototypeId,
               session_id: null,
+              user_id: user.id,
             })
             .select()
             .single();
@@ -1490,6 +1498,13 @@ export default function ClaudeCodePanel({
     }
 
     try {
+      // Get current user for RLS policy
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addMessage("error", "Not authenticated. Please log in.");
+        return;
+      }
+
       // Delete the current chat session (cascade will delete messages)
       const { error: deleteError } = await supabase
         .from("prototype_chat_sessions")
@@ -1510,6 +1525,7 @@ export default function ClaudeCodePanel({
         .insert({
           prototype_id: prototypeId,
           session_id: null,
+          user_id: user.id,
         })
         .select()
         .single();
@@ -1583,12 +1599,20 @@ export default function ClaudeCodePanel({
   // Create a new chat session
   const createNewChatSession = async () => {
     try {
+      // Get current user for RLS policy
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addMessage("error", "Not authenticated. Please log in.");
+        return;
+      }
+
       // Create new chat session with null session_id
       const { data: newSession, error: createError } = await supabase
         .from("prototype_chat_sessions")
         .insert({
           prototype_id: prototypeId,
           session_id: null,
+          user_id: user.id,
         })
         .select()
         .single();

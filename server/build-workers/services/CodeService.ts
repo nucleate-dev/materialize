@@ -12,19 +12,17 @@ import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
-import { Database } from "../types/supabase.js";
-import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
 import {
   ChatClientEvent,
   ChatClientMessage,
-  ChatContentBlock,
   ChatEvent,
   ChatQueryData,
   ChatServerMessage,
   ChatSystemEventSubtype,
-  FileSyncResultData,
   SyncFilesRequest,
 } from "../types/ChatTypes.js";
+import { Database } from "../types/supabase.js";
+import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
 import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
@@ -339,32 +337,44 @@ export class CodeService {
           );
         } else {
           // No matching chat session found, create a new one
-          const { data: newChatSession, error: createError } =
-            await this.supabaseClient
-              .from("prototype_chat_sessions")
-              .insert({
-                prototype_id: prototypeId,
-                session_id: session_id,
-              })
-              .select()
-              .single();
-
-          if (createError) {
+          // Get current user for RLS policy
+          const { data: { user }, error: userError } = await this.supabaseClient.auth.getUser();
+          if (userError || !user) {
             this.logger.error(
-              createError,
-              "Failed to create chat session in database",
-              { prototypeId, session_id },
+              userError || new Error("No authenticated user"),
+              "Cannot create chat session - not authenticated",
+              { prototypeId, session_id }
             );
+            // Continue without chat session - we can still process the query
           } else {
-            this.sessionState.chatSessionId = newChatSession.id;
-            this.logger.info(
-              "Created new chat session for message persistence",
-              {
-                chatSessionId: this.sessionState.chatSessionId,
-                claudeCodeSessionId: session_id,
-                prototypeId,
-              },
-            );
+            const { data: newChatSession, error: createError } =
+              await this.supabaseClient
+                .from("prototype_chat_sessions")
+                .insert({
+                  prototype_id: prototypeId,
+                  session_id: session_id,
+                  user_id: user.id,
+                })
+                .select()
+                .single();
+
+            if (createError) {
+              this.logger.error(
+                createError,
+                "Failed to create chat session in database",
+                { prototypeId, session_id },
+              );
+            } else {
+              this.sessionState.chatSessionId = newChatSession.id;
+              this.logger.info(
+                "Created new chat session for message persistence",
+                {
+                  chatSessionId: this.sessionState.chatSessionId,
+                  claudeCodeSessionId: session_id,
+                  prototypeId,
+                },
+              );
+            }
           }
         }
       } else {
@@ -394,31 +404,43 @@ export class CodeService {
           );
         } else {
           // Create a new chat session with no Claude Code session_id
-          const { data: newChatSession, error: createError } =
-            await this.supabaseClient
-              .from("prototype_chat_sessions")
-              .insert({
-                prototype_id: prototypeId,
-                session_id: null,
-              })
-              .select()
-              .single();
-
-          if (createError) {
+          // Get current user for RLS policy
+          const { data: { user }, error: userError } = await this.supabaseClient.auth.getUser();
+          if (userError || !user) {
             this.logger.error(
-              createError,
-              "Failed to create chat session in database",
-              { prototypeId },
+              userError || new Error("No authenticated user"),
+              "Cannot create chat session - not authenticated",
+              { prototypeId }
             );
+            // Continue without chat session - we can still process the query
           } else {
-            this.sessionState.chatSessionId = newChatSession.id;
-            this.logger.info(
-              "Created new chat session for message persistence",
-              {
-                chatSessionId: this.sessionState.chatSessionId,
-                prototypeId,
-              },
-            );
+            const { data: newChatSession, error: createError } =
+              await this.supabaseClient
+                .from("prototype_chat_sessions")
+                .insert({
+                  prototype_id: prototypeId,
+                  session_id: null,
+                  user_id: user.id,
+                })
+                .select()
+                .single();
+
+            if (createError) {
+              this.logger.error(
+                createError,
+                "Failed to create chat session in database",
+                { prototypeId },
+              );
+            } else {
+              this.sessionState.chatSessionId = newChatSession.id;
+              this.logger.info(
+                "Created new chat session for message persistence",
+                {
+                  chatSessionId: this.sessionState.chatSessionId,
+                  prototypeId,
+                },
+              );
+            }
           }
         }
       }
@@ -764,11 +786,11 @@ export class CodeService {
           // Update last active time
           this.sessionState.lastActiveAt = Date.now();
 
-        // Forward message to client
-        this.sendMessage(socket, {
-          type: ChatEvent.AGENT_MESSAGE,
-          data: msg,
-        });
+          // Forward message to client
+          this.sendMessage(socket, {
+            type: ChatEvent.AGENT_MESSAGE,
+            data: msg,
+          });
         }
 
         // Persist accumulated assistant message if there is any
@@ -950,22 +972,22 @@ export class CodeService {
             periodEnd: currentPeriodEnd.toISOString(),
           });
 
-        const { updatedMessageCount } = await trackApiUsageBuildWorker(
-          this.supabaseClient,
-          user.id,
-          prototypeId,
-          currentPeriodStart,
-          currentPeriodEnd,
-          this.logger,
-        );
+          const { updatedMessageCount } = await trackApiUsageBuildWorker(
+            this.supabaseClient,
+            user.id,
+            prototypeId,
+            currentPeriodStart,
+            currentPeriodEnd,
+            this.logger,
+          );
 
-        // Send updated message count to client
-        this.sendMessage(socket, {
-          type: ChatEvent.USAGE_UPDATE,
-          data: {
-            messageCount: updatedMessageCount,
-          },
-        });
+          // Send updated message count to client
+          this.sendMessage(socket, {
+            type: ChatEvent.USAGE_UPDATE,
+            data: {
+              messageCount: updatedMessageCount,
+            },
+          });
 
           this.logger.info("API usage tracked successfully", {
             userId: user.id,
