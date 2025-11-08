@@ -20,8 +20,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
  */
 const ProductKeys = Object.freeze({
   FREE_SUBSCRIPTION: 'free',
-  TEAM_SUBSCRIPTION: 'team',
+  PLUS_SUBSCRIPTION: 'plus',
   PRO_SUBSCRIPTION: 'pro',
+  MAX_SUBSCRIPTION: 'max',
 });
 
 export class StripeManagementService {
@@ -42,7 +43,7 @@ export class StripeManagementService {
             properties: {
               productID: {
                 type: 'string',
-                enum: ['free', 'team', 'pro'],
+                enum: ['free', 'plus', 'pro', 'max'],
               },
             },
           },
@@ -104,12 +105,29 @@ export class StripeManagementService {
 
     const { productID } = request.body;
 
+    // Handle free tier - no Stripe checkout needed
+    if (productID === ProductKeys.FREE_SUBSCRIPTION) {
+      request.log2.info('Free tier selected - no Stripe checkout needed');
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+        data: null,
+        error: {
+          id: null,
+          error: 'Invalid product selection',
+          message: 'Free tier does not require checkout',
+        },
+      });
+    }
+
     // Determine price ID based on product
-    let priceID = process.env.STRIPE_BASE_PRICE_ID as string;
-    if (productID === ProductKeys.TEAM_SUBSCRIPTION) {
-      priceID = process.env.STRIPE_TEAM_PRICE_ID as string;
+    let priceID: string;
+    if (productID === ProductKeys.PLUS_SUBSCRIPTION) {
+      priceID = process.env.STRIPE_PLUS_PRICE_ID as string;
     } else if (productID === ProductKeys.PRO_SUBSCRIPTION) {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
+    } else if (productID === ProductKeys.MAX_SUBSCRIPTION) {
+      priceID = process.env.STRIPE_MAX_PRICE_ID as string;
+    } else {
+      throw new Error('Invalid product ID');
     }
 
     try {

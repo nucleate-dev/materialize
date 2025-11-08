@@ -122,7 +122,7 @@ export interface CleanupStats {
 // PROTOTYPE MANAGEMENT TYPES
 // ============================================================================
 
-export type SubscriptionPlanType = 'free' | 'pro' | 'team';
+export type SubscriptionPlanType = 'free' | 'pro' | 'plus' | 'max' | 'team';
 
 export interface PrototypeAuthResult {
   success: boolean;

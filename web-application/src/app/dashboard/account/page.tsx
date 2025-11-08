@@ -1,5 +1,9 @@
 "use client";
 
+import { supabase } from "@/ClientConstants";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,11 +12,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { ProductKeys } from "@/GlobalConstants";
-import { useUser } from "@/hooks/useUser";
-import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
-import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,24 +20,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MessageLimits, ProductKeys } from "@/GlobalConstants";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useUser } from "@/hooks/useUser";
+import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
+import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
-  Mail,
+  AlertCircle,
   Calendar,
   CreditCard,
+  Crown,
+  Mail,
   MessageSquare,
   Settings,
-  Crown,
-  AlertCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/ClientConstants";
-import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 
 function AccountSettings() {
   const logger = useProductLogger();
@@ -65,10 +65,10 @@ function AccountSettings() {
       setEmail(user.user.email || "");
       setName(
         user.user.user_metadata?.full_name ||
-          user.user.user_metadata?.first_name +
-            " " +
-            user.user.user_metadata?.last_name ||
-          "",
+        user.user.user_metadata?.first_name +
+        " " +
+        user.user.user_metadata?.last_name ||
+        "",
       );
       setMemberSince(new Date(user.user.created_at));
     }
@@ -120,13 +120,17 @@ function AccountSettings() {
   const getMessageLimit = () => {
     switch (userPlan) {
       case "free":
-        return 15;
+        return MessageLimits.FREE;
+      case "plus":
+        return MessageLimits.PLUS;
       case "pro":
-        return 100;
+        return MessageLimits.PRO;
+      case "max":
+        return MessageLimits.MAX;
       case "team":
-        return 100;
+        return MessageLimits.TEAM;
       default:
-        return 15;
+        return MessageLimits.FREE;
     }
   };
 
@@ -137,6 +141,10 @@ function AccountSettings() {
     switch (userPlan) {
       case "pro":
         return ProductKeys.PRO_SUBSCRIPTION;
+      case "plus":
+        return ProductKeys.PLUS_SUBSCRIPTION;
+      case "max":
+        return ProductKeys.MAX_SUBSCRIPTION;
       case "team":
         return ProductKeys.TEAM_SUBSCRIPTION;
       default:
@@ -148,12 +156,16 @@ function AccountSettings() {
 
   const getPlanBadgeVariant = (plan: string) => {
     switch (plan.toLowerCase()) {
+      case ProductKeys.MAX_SUBSCRIPTION.toLowerCase():
+        return "default"; // Highest tier gets primary badge
       case ProductKeys.PRO_SUBSCRIPTION.toLowerCase():
         return "default";
+      case ProductKeys.PLUS_SUBSCRIPTION.toLowerCase():
+        return "secondary";
       case ProductKeys.TEAM_SUBSCRIPTION.toLowerCase():
         return "secondary";
       default:
-        return "outline";
+        return "outline"; // Free tier
     }
   };
 
@@ -170,10 +182,10 @@ function AccountSettings() {
       .slice(0, 2);
   };
 
-  const handleUpgradeToProClick = async () => {
+  const handleUpgradeClick = async (targetPlan: string) => {
     try {
       setIsProcessingUpgrade(true);
-      await handleCheckout(ProductKeys.PRO_SUBSCRIPTION, router);
+      await handleCheckout(targetPlan, router);
       // Keep processing state for 2 seconds to account for Stripe redirect delay
       setTimeout(() => {
         setIsProcessingUpgrade(false);
@@ -186,6 +198,22 @@ function AccountSettings() {
       setIsProcessingUpgrade(false);
     }
   };
+
+  // Get the next tier upgrade option
+  const getUpgradeOption = () => {
+    switch (currentSubscription) {
+      case ProductKeys.FREE_SUBSCRIPTION:
+        return { tier: ProductKeys.PLUS_SUBSCRIPTION, label: "Upgrade to Plus" };
+      case ProductKeys.PLUS_SUBSCRIPTION:
+        return { tier: ProductKeys.PRO_SUBSCRIPTION, label: "Upgrade to Pro" };
+      case ProductKeys.PRO_SUBSCRIPTION:
+        return { tier: ProductKeys.MAX_SUBSCRIPTION, label: "Upgrade to Max" };
+      default:
+        return null;
+    }
+  };
+
+  const upgradeOption = getUpgradeOption();
 
   return (
     <div className="container mx-auto py-6 space-y-8 max-w-4xl">
@@ -322,40 +350,45 @@ function AccountSettings() {
 
           <Separator />
 
-          {currentSubscription === ProductKeys.FREE_SUBSCRIPTION ? (
-            <Button
-              onClick={handleUpgradeToProClick}
-              className="w-full"
-              size="lg"
-              disabled={isProcessingUpgrade}
-            >
-              {isProcessingUpgrade ? (
-                <>
-                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Crown className="w-4 h-4 mr-2" />
-                  Upgrade to Pro
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button
-              onClick={() => {
-                handleRedirectToStripeCustomerPortal(
-                  user.user?.id ?? "",
-                  router,
-                );
-              }}
-              className="w-full"
-              size="lg"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Manage Subscription & Billing
-            </Button>
-          )}
+          <div className="space-y-3">
+            {upgradeOption && (
+              <Button
+                onClick={() => handleUpgradeClick(upgradeOption.tier)}
+                className="w-full"
+                size="lg"
+                disabled={isProcessingUpgrade}
+              >
+                {isProcessingUpgrade ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Crown className="w-4 h-4 mr-2" />
+                    {upgradeOption.label}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {currentSubscription !== ProductKeys.FREE_SUBSCRIPTION && (
+              <Button
+                onClick={() => {
+                  handleRedirectToStripeCustomerPortal(
+                    user.user?.id ?? "",
+                    router,
+                  );
+                }}
+                className="w-full"
+                size="lg"
+                variant={upgradeOption ? "outline" : "default"}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Manage Subscription & Billing
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 

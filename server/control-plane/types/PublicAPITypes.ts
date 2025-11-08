@@ -127,7 +127,7 @@ export type CacheClearResponse =
 // ============================================================================
 
 export interface CheckoutRequestBody {
-  productID: 'free' | 'team' | 'pro';
+  productID: 'free' | 'plus' | 'pro' | 'max';
 }
 
 export interface CheckoutSuccessResponse {

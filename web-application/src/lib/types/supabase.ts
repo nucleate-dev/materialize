@@ -638,7 +638,7 @@ export type Database = {
       design_style: "tamagui" | "stylesheets" | "nativewind";
       chat_role: "user" | "assistant" | "system";
       file_type: "text" | "asset";
-      subscription_plan_type: "free" | "team" | "pro";
+      subscription_plan_type: "free" | "plus" | "pro" | "max" | "team";
       subscription_status: "active" | "past_due" | "canceled";
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC";
     };
@@ -773,7 +773,7 @@ export const Constants = {
     Enums: {
       chat_role: ["user", "assistant"],
       file_type: ["text", "asset"],
-      subscription_plan_type: ["free", "team", "pro"],
+      subscription_plan_type: ["free", "plus", "pro", "max", "team"],
       subscription_status: ["active", "past_due", "canceled"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],
     },
