@@ -15,6 +15,17 @@ import { SystemLogger } from "../loggers/SystemLogger.js";
 import { Database } from "../types/supabase.js";
 import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
 import {
+  ChatClientEvent,
+  ChatClientMessage,
+  ChatContentBlock,
+  ChatEvent,
+  ChatQueryData,
+  ChatServerMessage,
+  ChatSystemEventSubtype,
+  FileSyncResultData,
+  SyncFilesRequest,
+} from "../types/ChatTypes.js";
+import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   writeProjectFiles,
@@ -59,29 +70,6 @@ interface ToolInputWithFilePath {
 interface ToolResponseWithFilePath {
   file_path?: string;
   [key: string]: unknown;
-}
-
-interface ClientMessage {
-  type: string;
-  data?: unknown;
-}
-
-interface ContentBlock {
-  type: "text" | "image";
-  text?: string;
-  source?: {
-    type: "base64";
-    media_type: string;
-    data: string;
-  };
-}
-
-interface QueryData {
-  prompt?: string; // Keep for backward compatibility
-  content?: ContentBlock[];
-  options?: Options;
-  token?: string; // JWT token for Supabase authentication
-  session_id?: string | null; // Claude Code session ID for resumption
 }
 
 export class CodeService {
@@ -175,8 +163,8 @@ export class CodeService {
 
     // Send initial connection confirmation
     this.sendMessage(socket, {
-      type: "system",
-      subtype: "connection",
+      type: ChatEvent.SYSTEM,
+      subtype: ChatSystemEventSubtype.CONNECTION,
       data: {
         connectionId,
         prototypeId,
@@ -187,8 +175,23 @@ export class CodeService {
     // Handle incoming messages
     socket.on("message", async (raw: Buffer | string) => {
       try {
-        const message = JSON.parse(raw.toString());
-        await this.handleClientMessage(socket, message, prototypeId);
+        const parsedMessage = JSON.parse(raw.toString());
+
+        if (!parsedMessage || typeof parsedMessage.type !== "string") {
+          throw new Error("Invalid message format");
+        }
+
+        const messageType = parsedMessage.type as ChatClientEvent;
+
+        if (!Object.values(ChatClientEvent).includes(messageType)) {
+          throw new Error(`Unknown message type: ${parsedMessage.type}`);
+        }
+
+        await this.handleClientMessage(
+          socket,
+          { ...parsedMessage, type: messageType } as ChatClientMessage,
+          prototypeId,
+        );
       } catch (error) {
         this.logger.error(
           error instanceof Error ? error : new Error(String(error)),
@@ -196,7 +199,7 @@ export class CodeService {
           { connectionId },
         );
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: "Failed to process message",
             details: error instanceof Error ? error.message : String(error),
@@ -226,49 +229,40 @@ export class CodeService {
 
   private async handleClientMessage(
     socket: WebSocket,
-    message: ClientMessage,
+    message: ChatClientMessage,
     prototypeId: string,
   ): Promise<void> {
-    const { type, data } = message;
-
-    switch (type) {
-      case "query":
-        await this.handleQuery(socket, data as QueryData, prototypeId);
+    switch (message.type) {
+      case ChatClientEvent.QUERY:
+        await this.handleQuery(socket, message.data, prototypeId);
         break;
 
-      case "interrupt":
-        await this.handleInterrupt(socket, data);
+      case ChatClientEvent.INTERRUPT:
+        await this.handleInterrupt(socket);
         break;
 
-      case "reset_session":
+      case ChatClientEvent.RESET_SESSION:
         await this.handleResetSession(socket);
         break;
 
-      case "sync_files":
-        await this.handleSyncFiles(socket, data);
+      case ChatClientEvent.SYNC_FILES:
+        await this.handleSyncFiles(socket, message.data);
         break;
-
-      default:
-        this.sendMessage(socket, {
-          type: "error",
-          error: {
-            message: `Unknown message type: ${type}`,
-          },
-        });
     }
   }
 
   private async handleQuery(
     socket: WebSocket,
-    data: QueryData,
+    data: ChatQueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, content, options = {}, token, session_id } = data;
+    const { prompt, content, token, session_id } = data;
+    const options = (data.options ?? {}) as Options;
 
     // Support both old format (prompt) and new format (content)
     if (!prompt && !content) {
       this.sendMessage(socket, {
-        type: "error",
+        type: ChatEvent.ERROR,
         error: { message: "prompt or content is required" },
       });
       return;
@@ -277,7 +271,7 @@ export class CodeService {
     // Validate content if provided
     if (content && (!Array.isArray(content) || content.length === 0)) {
       this.sendMessage(socket, {
-        type: "error",
+        type: ChatEvent.ERROR,
         error: { message: "content must be a non-empty array" },
       });
       return;
@@ -304,7 +298,7 @@ export class CodeService {
           { prototypeId },
         );
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: "Failed to authenticate with provided token",
             details: error instanceof Error ? error.message : String(error),
@@ -573,7 +567,7 @@ export class CodeService {
                         if (socket.readyState === WebSocket.OPEN) {
                           socket.send(
                             JSON.stringify({
-                              type: "tool_start",
+                              type: ChatEvent.TOOL_START,
                               data: {
                                 tool_name: input.tool_name,
                                 tool_input: input.tool_input,
@@ -671,7 +665,7 @@ export class CodeService {
                         if (socket.readyState === WebSocket.OPEN) {
                           socket.send(
                             JSON.stringify({
-                              type: "tool_complete",
+                              type: ChatEvent.TOOL_COMPLETE,
                               data: {
                                 tool_name: input.tool_name,
                                 tool_input: input.tool_input,
@@ -770,11 +764,11 @@ export class CodeService {
           // Update last active time
           this.sessionState.lastActiveAt = Date.now();
 
-          // Forward message to client
-          this.sendMessage(socket, {
-            type: "agent_message",
-            data: msg,
-          });
+        // Forward message to client
+        this.sendMessage(socket, {
+          type: ChatEvent.AGENT_MESSAGE,
+          data: msg,
+        });
         }
 
         // Persist accumulated assistant message if there is any
@@ -793,7 +787,7 @@ export class CodeService {
 
         // Send completion message
         this.sendMessage(socket, {
-          type: "query_complete",
+          type: ChatEvent.QUERY_COMPLETE,
           data: {
             sessionId: this.sessionState.sessionId,
           },
@@ -824,7 +818,7 @@ export class CodeService {
         );
 
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: "Query failed",
             details: errorMessage,
@@ -873,7 +867,7 @@ export class CodeService {
 
         // Send sync status to WebSocket client with detailed file change information
         this.sendMessage(socket, {
-          type: "file_sync_complete",
+          type: ChatEvent.FILE_SYNC_COMPLETE,
           data: {
             success: syncResult.success,
             filesUpdated: syncResult.filesUpdated,
@@ -895,7 +889,7 @@ export class CodeService {
 
         // Still send a sync complete message, but mark as failed
         this.sendMessage(socket, {
-          type: "file_sync_complete",
+          type: ChatEvent.FILE_SYNC_COMPLETE,
           data: {
             success: false,
             filesUpdated: 0,
@@ -956,22 +950,22 @@ export class CodeService {
             periodEnd: currentPeriodEnd.toISOString(),
           });
 
-          const { updatedMessageCount } = await trackApiUsageBuildWorker(
-            this.supabaseClient,
-            user.id,
-            prototypeId,
-            currentPeriodStart,
-            currentPeriodEnd,
-            this.logger,
-          );
+        const { updatedMessageCount } = await trackApiUsageBuildWorker(
+          this.supabaseClient,
+          user.id,
+          prototypeId,
+          currentPeriodStart,
+          currentPeriodEnd,
+          this.logger,
+        );
 
-          // Send updated message count to client
-          this.sendMessage(socket, {
-            type: "usage_update",
-            data: {
-              messageCount: updatedMessageCount,
-            },
-          });
+        // Send updated message count to client
+        this.sendMessage(socket, {
+          type: ChatEvent.USAGE_UPDATE,
+          data: {
+            messageCount: updatedMessageCount,
+          },
+        });
 
           this.logger.info("API usage tracked successfully", {
             userId: user.id,
@@ -998,10 +992,7 @@ export class CodeService {
     }
   }
 
-  private async handleInterrupt(
-    socket: WebSocket,
-    _data: unknown,
-  ): Promise<void> {
+  private async handleInterrupt(socket: WebSocket): Promise<void> {
     this.logger.info("Interrupt requested", {
       sessionId: this.sessionState.sessionId,
       hasAbortController: !!this.sessionState.abortController,
@@ -1027,7 +1018,7 @@ export class CodeService {
         );
 
         this.sendMessage(socket, {
-          type: "interrupted",
+          type: ChatEvent.INTERRUPTED,
           data: {
             message: "Query has been interrupted",
             sessionId: this.sessionState.sessionId,
@@ -1040,7 +1031,7 @@ export class CodeService {
         );
 
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: "Failed to interrupt query",
             details: error instanceof Error ? error.message : String(error),
@@ -1049,7 +1040,7 @@ export class CodeService {
       }
     } else {
       this.sendMessage(socket, {
-        type: "info",
+        type: ChatEvent.INFO,
         message: "No active query to interrupt",
       });
     }
@@ -1080,7 +1071,7 @@ export class CodeService {
     };
 
     this.sendMessage(socket, {
-      type: "session_reset",
+      type: ChatEvent.SESSION_RESET,
       data: {
         message: "Session has been reset",
       },
@@ -1089,23 +1080,17 @@ export class CodeService {
 
   private async handleSyncFiles(
     socket: WebSocket,
-    data: unknown,
+    data: SyncFilesRequest,
   ): Promise<void> {
     this.logger.info("Sync files requested", { data });
 
     try {
-      // Parse and validate input data
-      const syncData = data as {
-        prototypeId?: string;
-        filenames?: string[];
-        assetNames?: string[];
-        token?: string; // JWT token for Supabase authentication
-      };
+      const syncData = data ?? {};
 
-      const prototypeId = syncData?.prototypeId;
+      const prototypeId = syncData.prototypeId;
       if (!prototypeId) {
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: "prototypeId is required for file sync",
           },
@@ -1113,9 +1098,9 @@ export class CodeService {
         return;
       }
 
-      const filenames = syncData?.filenames || [];
-      const assetNames = syncData?.assetNames || [];
-      const token = syncData?.token;
+      const filenames = syncData.filenames ?? [];
+      const assetNames = syncData.assetNames ?? [];
+      const token = syncData.token;
 
       // Determine if we're syncing all or specific files
       const syncAll = filenames.length === 0 && assetNames.length === 0;
@@ -1150,7 +1135,7 @@ export class CodeService {
             { prototypeId },
           );
           this.sendMessage(socket, {
-            type: "error",
+            type: ChatEvent.ERROR,
             error: {
               message: errorMsg,
               details: error instanceof Error ? error.message : String(error),
@@ -1164,7 +1149,7 @@ export class CodeService {
           const errorMsg = "Supabase client not initialized";
           this.logger.error(new Error(errorMsg), errorMsg);
           this.sendMessage(socket, {
-            type: "error",
+            type: ChatEvent.ERROR,
             error: {
               message: errorMsg,
             },
@@ -1193,7 +1178,7 @@ export class CodeService {
           error: filesError,
         });
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: errorMsg,
           },
@@ -1229,7 +1214,7 @@ export class CodeService {
           error: assetsError,
         });
         this.sendMessage(socket, {
-          type: "error",
+          type: ChatEvent.ERROR,
           error: {
             message: errorMsg,
           },
@@ -1292,7 +1277,7 @@ export class CodeService {
 
       // Send success response
       this.sendMessage(socket, {
-        type: "sync_complete",
+        type: ChatEvent.SYNC_COMPLETE,
         data: {
           success: true,
           filesCount: files.length,
@@ -1308,7 +1293,7 @@ export class CodeService {
       );
 
       this.sendMessage(socket, {
-        type: "error",
+        type: ChatEvent.ERROR,
         error: {
           message: "File sync failed",
           details: errorMessage,
@@ -1317,7 +1302,7 @@ export class CodeService {
     }
   }
 
-  private sendMessage(socket: WebSocket, message: unknown): void {
+  private sendMessage(socket: WebSocket, message: ChatServerMessage): void {
     if (socket.readyState === WebSocket.OPEN) {
       try {
         socket.send(JSON.stringify(message));
