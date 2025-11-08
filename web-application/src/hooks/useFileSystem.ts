@@ -181,9 +181,6 @@ export const useFileSystem = (
           filter: `prototype_id=eq.${prototypeId}`,
         },
         (payload) => {
-          logger.debug("info", "Realtime INSERT for prototype_files:", {
-            payload,
-          });
           const newFile = payload.new as PrototypeFile;
           setFiles((prevFiles) => ({
             ...prevFiles,
@@ -200,9 +197,6 @@ export const useFileSystem = (
           filter: `prototype_id=eq.${prototypeId}`,
         },
         (payload) => {
-          logger.debug("info", "Realtime UPDATE for prototype_files:", {
-            payload,
-          });
           const updatedFile = payload.new as PrototypeFile;
           // Overwrite local changes with remote changes
           setFiles((prevFiles) => ({
@@ -220,9 +214,6 @@ export const useFileSystem = (
           filter: `prototype_id=eq.${prototypeId}`,
         },
         (payload) => {
-          logger.debug("info", "Realtime DELETE for prototype_files:", {
-            payload,
-          });
           const deletedFile = payload.old as PrototypeFile;
           setFiles((prevFiles) => {
             const newFiles = { ...prevFiles };
@@ -259,9 +250,6 @@ export const useFileSystem = (
           filter: `prototype_id=eq.${prototypeId}`,
         },
         async (payload) => {
-          logger.debug("info", "Realtime INSERT for prototype_assets:", {
-            payload,
-          });
           const newAsset = payload.new as PrototypeAsset;
           // Get signed URL for the new asset
           const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
@@ -285,9 +273,6 @@ export const useFileSystem = (
           filter: `prototype_id=eq.${prototypeId}`,
         },
         async (payload) => {
-          logger.debug("info", "Realtime UPDATE for prototype_assets:", {
-            payload,
-          });
           const updatedAsset = payload.new as PrototypeAsset;
           // Get signed URL for the updated asset
           const signedUrls = await getBulkAssetSignedUrls(prototypeId, [
@@ -311,9 +296,6 @@ export const useFileSystem = (
           filter: `prototype_id=eq.${prototypeId}`,
         },
         (payload) => {
-          logger.debug("info", "Realtime DELETE for prototype_assets:", {
-            payload,
-          });
           const deletedAsset = payload.old as PrototypeAsset;
           setAssets((prevAssets) => {
             const newAssets = { ...prevAssets };
@@ -329,7 +311,14 @@ export const useFileSystem = (
       supabase.removeChannel(filesChannel);
       supabase.removeChannel(assetsChannel);
     };
-  }, [prototypeId, loadFilesFromDatabase, loadAssetsFromDatabase, logger, defaultFile, selectedFile]);
+  }, [
+    prototypeId,
+    loadFilesFromDatabase,
+    loadAssetsFromDatabase,
+    logger,
+    defaultFile,
+    selectedFile,
+  ]);
 
   // File selection
   const selectFile = useCallback((filePath: string) => {
