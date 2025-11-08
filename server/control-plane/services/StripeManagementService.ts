@@ -136,6 +136,7 @@ export class StripeManagementService {
         line_items: [
           {
             price: priceID,
+            quantity: 1,
           },
         ],
         mode: 'subscription',
