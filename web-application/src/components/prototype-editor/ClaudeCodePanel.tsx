@@ -638,12 +638,13 @@ export default function ClaudeCodePanel({
               content: messageContent,
               token: authTokenRef.current,
               session_id: sessionIdRef.current,
+              chat_session_id: chatSessionId,
             },
           })
         );
       }
     }
-  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger]);
+  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, chatSessionId]);
 
   // Auto-connect when component mounts (only if using internal WebSocket)
   useEffect(() => {
@@ -1470,7 +1471,8 @@ export default function ClaudeCodePanel({
         data: {
           content,
           token, // Include JWT token for Supabase authentication
-          session_id: sessionIdRef.current, // Pass session_id for resumption
+          session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
+          chat_session_id: chatSessionId, // Pass database chat session ID for message persistence
         },
       }),
     );

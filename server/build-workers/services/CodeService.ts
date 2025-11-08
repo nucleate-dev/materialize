@@ -254,7 +254,7 @@ export class CodeService {
     data: ChatQueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, content, token, session_id } = data;
+    const { prompt, content, token, session_id, chat_session_id } = data;
     const options = (data.options ?? {}) as Options;
 
     // Support both old format (prompt) and new format (content)
@@ -306,151 +306,21 @@ export class CodeService {
       }
     }
 
-    // Fetch or create chat_session_id from database for message persistence
-    try {
-      // If client provided a session_id (Claude Code session ID), look for matching chat session
-      if (session_id) {
-        const { data: chatSessions, error: fetchError } =
-          await this.supabaseClient
-            .from("prototype_chat_sessions")
-            .select("*")
-            .eq("prototype_id", prototypeId)
-            .eq("session_id", session_id)
-            .limit(1);
-
-        if (fetchError) {
-          this.logger.error(
-            fetchError,
-            "Failed to fetch chat session from database",
-            { prototypeId, session_id },
-          );
-        } else if (chatSessions && chatSessions.length > 0) {
-          // Found existing chat session matching this Claude Code session_id
-          this.sessionState.chatSessionId = chatSessions[0].id;
-          this.logger.info(
-            "Using existing chat session for message persistence",
-            {
-              chatSessionId: this.sessionState.chatSessionId,
-              claudeCodeSessionId: session_id,
-              prototypeId,
-            },
-          );
-        } else {
-          // No matching chat session found, create a new one
-          // Get current user for RLS policy
-          const { data: { user }, error: userError } = await this.supabaseClient.auth.getUser();
-          if (userError || !user) {
-            this.logger.error(
-              userError || new Error("No authenticated user"),
-              "Cannot create chat session - not authenticated",
-              { prototypeId, session_id }
-            );
-            // Continue without chat session - we can still process the query
-          } else {
-            const { data: newChatSession, error: createError } =
-              await this.supabaseClient
-                .from("prototype_chat_sessions")
-                .insert({
-                  prototype_id: prototypeId,
-                  session_id: session_id,
-                  user_id: user.id,
-                })
-                .select()
-                .single();
-
-            if (createError) {
-              this.logger.error(
-                createError,
-                "Failed to create chat session in database",
-                { prototypeId, session_id },
-              );
-            } else {
-              this.sessionState.chatSessionId = newChatSession.id;
-              this.logger.info(
-                "Created new chat session for message persistence",
-                {
-                  chatSessionId: this.sessionState.chatSessionId,
-                  claudeCodeSessionId: session_id,
-                  prototypeId,
-                },
-              );
-            }
-          }
-        }
-      } else {
-        // No session_id provided, get the most recent chat session for this prototype
-        const { data: chatSessions, error: fetchError } =
-          await this.supabaseClient
-            .from("prototype_chat_sessions")
-            .select("*")
-            .eq("prototype_id", prototypeId)
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-        if (fetchError) {
-          this.logger.error(
-            fetchError,
-            "Failed to fetch chat session from database",
-            { prototypeId },
-          );
-        } else if (chatSessions && chatSessions.length > 0) {
-          this.sessionState.chatSessionId = chatSessions[0].id;
-          this.logger.info(
-            "Using most recent chat session for message persistence",
-            {
-              chatSessionId: this.sessionState.chatSessionId,
-              prototypeId,
-            },
-          );
-        } else {
-          // Create a new chat session with no Claude Code session_id
-          // Get current user for RLS policy
-          const { data: { user }, error: userError } = await this.supabaseClient.auth.getUser();
-          if (userError || !user) {
-            this.logger.error(
-              userError || new Error("No authenticated user"),
-              "Cannot create chat session - not authenticated",
-              { prototypeId }
-            );
-            // Continue without chat session - we can still process the query
-          } else {
-            const { data: newChatSession, error: createError } =
-              await this.supabaseClient
-                .from("prototype_chat_sessions")
-                .insert({
-                  prototype_id: prototypeId,
-                  session_id: null,
-                  user_id: user.id,
-                })
-                .select()
-                .single();
-
-            if (createError) {
-              this.logger.error(
-                createError,
-                "Failed to create chat session in database",
-                { prototypeId },
-              );
-            } else {
-              this.sessionState.chatSessionId = newChatSession.id;
-              this.logger.info(
-                "Created new chat session for message persistence",
-                {
-                  chatSessionId: this.sessionState.chatSessionId,
-                  prototypeId,
-                },
-              );
-            }
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Error managing chat session",
-        { prototypeId },
-      );
-      // Continue even if chat session fetch/create fails - we can still process the query
+    // Use the chat_session_id provided by the client for message persistence
+    // The client manages chat sessions and always provides the correct ID
+    if (chat_session_id) {
+      this.sessionState.chatSessionId = chat_session_id;
+      this.logger.info("Using chat session ID from client", {
+        chatSessionId: chat_session_id,
+        claudeCodeSessionId: session_id,
+        prototypeId,
+      });
+    } else {
+      this.logger.warn("No chat_session_id provided by client", {
+        prototypeId,
+        session_id,
+      });
+      this.sessionState.chatSessionId = null;
     }
 
     // If client explicitly passes null session_id, it wants to start a NEW session

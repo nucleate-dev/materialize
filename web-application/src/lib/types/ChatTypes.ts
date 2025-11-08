@@ -47,7 +47,8 @@ export interface ChatQueryData {
   content?: ChatContentBlock[];
   options?: Record<string, unknown>;
   token?: string;
-  session_id?: string | null;
+  session_id?: string | null; // Claude SDK session ID for resuming conversations
+  chat_session_id?: string | null; // Database primary key from prototype_chat_sessions table
 }
 
 export interface QueryMessage {
