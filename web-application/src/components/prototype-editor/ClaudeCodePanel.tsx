@@ -34,6 +34,7 @@ import {
   PhotoIcon,
   PlusIcon,
   XMarkIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -145,7 +146,6 @@ export default function ClaudeCodePanel({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set());
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -153,6 +153,8 @@ export default function ClaudeCodePanel({
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const hasProcessedChatIntent = useRef(false);
   const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isNearBottom, setIsNearBottom] = useState(true);
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -175,6 +177,23 @@ export default function ClaudeCodePanel({
     ? new Date(prototype.created_at).toLocaleDateString()
     : null;
   const canEditName = Boolean(canEditPrototype && onPrototypeUpdate);
+
+  // Helper function to format relative timestamps
+  const getRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (seconds < 10) return "just now";
+    if (seconds < 60) return `${seconds}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   // Helper function to sanitize file paths by removing the dev server prefix
   const sanitizeFilePath = (path: string): string => {
@@ -229,6 +248,34 @@ export default function ClaudeCodePanel({
       return toolInput.description;
     }
 
+    // More descriptive tool names with parameters
+    if (normalized.includes('read') && toolInput?.file_path) {
+      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+      return `Reading ${fileName}`;
+    }
+    if (normalized.includes('glob') && toolInput?.pattern) {
+      return `Searching files matching ${toolInput.pattern}`;
+    }
+    if (normalized.includes('grep') && toolInput?.pattern) {
+      return `Searching code for "${toolInput.pattern}"`;
+    }
+    if (normalized.includes('list') && toolInput?.path) {
+      const pathName = sanitizeFilePath(toolInput.path).split('/').pop() || toolInput.path;
+      return `Listing ${pathName}`;
+    }
+    if (normalized.includes('write') && toolInput?.file_path) {
+      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+      return `Writing ${fileName}`;
+    }
+    if (normalized.includes('edit') && toolInput?.file_path) {
+      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+      return `Editing ${fileName}`;
+    }
+    if (normalized.includes('delete') && toolInput?.file_path) {
+      const fileName = sanitizeFilePath(toolInput.file_path).split('/').pop() || toolInput.file_path;
+      return `Deleting ${fileName}`;
+    }
+
     // Default friendly names
     if (normalized.includes('read')) return 'Reading files';
     if (normalized.includes('glob')) return 'Searching files';
@@ -239,19 +286,6 @@ export default function ClaudeCodePanel({
     if (normalized.includes('bash')) return 'Running command';
     if (normalized.includes('delete')) return 'Deleting';
     return toolName;
-  };
-
-  // Toggle expanded state for a tool
-  const toggleToolExpanded = (toolCallId: string) => {
-    setExpandedTools(prev => {
-      const next = new Set(prev);
-      if (next.has(toolCallId)) {
-        next.delete(toolCallId);
-      } else {
-        next.add(toolCallId);
-      }
-      return next;
-    });
   };
 
   // Toggle expanded state for thinking
@@ -508,9 +542,9 @@ export default function ClaudeCodePanel({
     }
   }, [prototypeId, usingExternalWS]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive (only if already near bottom)
   useEffect(() => {
-    if (scrollAreaRef.current) {
+    if (scrollAreaRef.current && isNearBottom) {
       const scrollContainer = scrollAreaRef.current.querySelector(
         "[data-radix-scroll-area-viewport]",
       );
@@ -518,7 +552,43 @@ export default function ClaudeCodePanel({
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [messages, isNearBottom]);
+
+  // Detect scroll position to show/hide "Jump to bottom" button
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      const nearBottom = distanceFromBottom < 100; // Within 100px of bottom
+
+      setIsNearBottom(nearBottom);
+      setShowScrollToBottom(!nearBottom && messages.length > 0);
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll);
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, [messages.length]);
+
+  // Function to scroll to bottom
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]",
+      );
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }
+  };
 
   // Register message handler with parent if using external WS
   useEffect(() => {
@@ -1619,7 +1689,7 @@ export default function ClaudeCodePanel({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 p-4 relative" ref={scrollAreaRef}>
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
@@ -1631,26 +1701,38 @@ export default function ClaudeCodePanel({
                 <div key={message.id}>
                   {/* User messages - keep bubble style */}
                   {message.type === "user" && (
-                    <div className="flex justify-end">
-                      <div className={`max-w-[80%] rounded-lg p-3 ${message.isQueued ? 'bg-primary/50 text-primary-foreground border-2 border-primary border-dashed' : 'bg-primary text-primary-foreground'}`}>
-                        {message.isQueued && (
-                          <div className="flex items-center gap-2 mb-2 text-xs opacity-90">
-                            <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
-                            <span>Queued - waiting for dev server...</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex justify-end">
+                            <div className={`max-w-[80%] rounded-lg p-3 ${message.isQueued ? 'bg-primary/50 text-primary-foreground border-2 border-primary border-dashed' : 'bg-primary text-primary-foreground'}`}>
+                              {message.isQueued && (
+                                <div className="flex items-center gap-2 mb-2 text-xs opacity-90">
+                                  <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
+                                  <span>Queued - waiting for dev server...</span>
+                                </div>
+                              )}
+                              <pre className="whitespace-pre-wrap text-sm font-sans">
+                                {message.content}
+                              </pre>
+                            </div>
                           </div>
-                        )}
-                        <pre className="whitespace-pre-wrap text-sm font-sans">
-                          {message.content}
-                        </pre>
-                      </div>
-                    </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {getRelativeTime(message.timestamp)}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
 
                   {/* Assistant messages - no bubble, just content */}
                   {message.type === "assistant" && (
-                    <div className="max-w-none">
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="max-w-none cursor-default">
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown
                           components={{
                             // Customize code blocks - inline vs block
                             code: ({ className, children, ...props }) => {
@@ -1691,103 +1773,41 @@ export default function ClaudeCodePanel({
                             ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
                           }}
                         >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {getRelativeTime(message.timestamp)}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
 
-                  {/* Tool messages - sleek inline style with expandable details */}
+                  {/* Tool messages - sleek inline style, always blue */}
                   {message.type === "tool" && (
                     <div className="py-1">
                       <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${message.status === "success"
-                          ? "bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20"
-                          : message.status === "error"
-                            ? "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20"
-                            : "bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                          message.status === "error"
+                            ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                            : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                           }`}
-                        onClick={() => message.toolCallId && toggleToolExpanded(message.toolCallId)}
                       >
                         {message.status === "running" && (
-                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
-                        )}
-                        {message.status === "success" && (
-                          <span className="inline-block w-1.5 h-1.5 bg-current rounded-full" />
+                          <span
+                            className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse"
+                            style={{
+                              filter: "drop-shadow(0 0 2px currentColor) drop-shadow(0 0 4px currentColor)",
+                            }}
+                          />
                         )}
                         {message.status === "error" && (
                           <span className="inline-block">✗</span>
                         )}
                         <span>{message.content}</span>
-                        {message.toolInput && (
-                          <span className="inline-block ml-0.5">
-                            {message.toolCallId && expandedTools.has(message.toolCallId) ? "▼" : "▶"}
-                          </span>
-                        )}
                       </div>
-
-                      {/* Expandable tool details */}
-                      {message.toolCallId && expandedTools.has(message.toolCallId) && message.toolInput && (
-                        <div className="mt-1 ml-4 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
-                          {/* Show history for ephemeral tools (read-only) */}
-                          {message.toolHistory && message.toolHistory.length > 1 && (
-                            <div className="mb-2">
-                              <div className="font-semibold mb-1">History ({message.toolHistory.length} invocations):</div>
-                              <div className="space-y-1 max-h-40 overflow-y-auto">
-                                {message.toolHistory.map((historyItem, idx) => {
-                                  const sanitized = sanitizeValue(historyItem);
-                                  return (
-                                    <div key={idx} className="pl-2 border-l-2 border-muted-foreground/20 font-mono">
-                                      {sanitized.pattern && (
-                                        <div><span className="font-semibold">pattern:</span> {sanitized.pattern}</div>
-                                      )}
-                                      {sanitized.file_path && (
-                                        <div><span className="font-semibold">file:</span> {sanitized.file_path}</div>
-                                      )}
-                                      {sanitized.command && (
-                                        <div><span className="font-semibold">command:</span> {sanitized.command}</div>
-                                      )}
-                                      {/* Show any other parameters */}
-                                      {Object.entries(sanitized).map(([key, value]) => {
-                                        if (['pattern', 'file_path', 'command', 'description'].includes(key)) return null;
-                                        return (
-                                          <div key={key}>
-                                            <span className="font-semibold">{key}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Show most recent invocation details */}
-                          {!message.toolHistory || message.toolHistory.length === 1 ? (
-                            <div className="font-mono">
-                              {message.toolInput.command && (
-                                <div className="mb-1">
-                                  <span className="font-semibold">Command: </span>
-                                  <span>{sanitizeFilePath(message.toolInput.command)}</span>
-                                </div>
-                              )}
-                              {Object.entries(message.toolInput).map(([key, value]) => {
-                                if (key === 'command' || key === 'description') return null;
-                                const sanitizedValue = sanitizeValue(value);
-                                return (
-                                  <div key={key} className="mb-1">
-                                    <span className="font-semibold">{key}: </span>
-                                    <span>{typeof sanitizedValue === 'object' ? JSON.stringify(sanitizedValue, null, 2) : String(sanitizedValue)}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-xs opacity-75 mt-1">Most recent shown in history above</div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -1888,6 +1908,21 @@ export default function ClaudeCodePanel({
             </>
           )}
         </div>
+
+        {/* Jump to bottom button */}
+        {showScrollToBottom && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={scrollToBottom}
+              className="shadow-lg border"
+            >
+              <ChevronDownIcon className="w-4 h-4 mr-1" />
+              Jump to bottom
+            </Button>
+          </div>
+        )}
       </ScrollArea>
 
       {/* Input */}
