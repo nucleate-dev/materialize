@@ -36,7 +36,7 @@ import {
   XMarkIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -49,6 +49,25 @@ type RenderStatus =
   | "Starting Dev Server.."
   | "Disconnected"
   | "Connected";
+
+// Type for tool input data
+type ToolInput = Record<string, unknown>;
+
+// Type for file sync data
+interface FileSyncData {
+  filesUpdated?: number;
+  filesDeleted?: number;
+  assetsUpdated?: number;
+  assetsDeleted?: number;
+  errorCount?: number;
+}
+
+// Type for tool event data
+interface ToolEventData {
+  tool_name?: string;
+  tool_call_id?: string;
+  tool_input?: ToolInput;
+}
 
 interface ClaudeCodePanelProps {
   prototypeId: string;
@@ -63,7 +82,7 @@ interface ClaudeCodePanelProps {
   externalWSConnected?: boolean;
   onConnect?: () => Promise<void>;
   onDisconnect?: () => void;
-  onRegisterMessageHandler?: (id: string, handler: (msg: any) => void) => void;
+  onRegisterMessageHandler?: (id: string, handler: (msg: ServerMessage) => void) => void;
   onUnregisterMessageHandler?: (id: string) => void;
 }
 
@@ -76,9 +95,9 @@ interface Message {
   toolCallId?: string;
   isComplete?: boolean;
   status?: "running" | "success" | "error";
-  toolInput?: any;
+  toolInput?: ToolInput;
   description?: string;
-  toolHistory?: any[]; // For ephemeral tools, track all invocations
+  toolHistory?: ToolInput[]; // For ephemeral tools, track all invocations
   isQueued?: boolean; // For queued messages waiting for dev server
 }
 
@@ -204,22 +223,23 @@ export default function ClaudeCodePanel({
   };
 
   // Helper function to sanitize any value that might contain file paths
-  const sanitizeValue = (value: any): any => {
-    if (typeof value === 'string') {
-      return sanitizeFilePath(value);
-    }
-    if (typeof value === 'object' && value !== null) {
-      if (Array.isArray(value)) {
-        return value.map(sanitizeValue);
-      }
-      const sanitized: any = {};
-      for (const [key, val] of Object.entries(value)) {
-        sanitized[key] = sanitizeValue(val);
-      }
-      return sanitized;
-    }
-    return value;
-  };
+  // Currently unused but kept for potential future use
+  // const sanitizeValue = (value: unknown): unknown => {
+  //   if (typeof value === 'string') {
+  //     return sanitizeFilePath(value);
+  //   }
+  //   if (typeof value === 'object' && value !== null) {
+  //     if (Array.isArray(value)) {
+  //       return value.map(sanitizeValue);
+  //     }
+  //     const sanitized: Record<string, unknown> = {};
+  //     for (const [key, val] of Object.entries(value)) {
+  //       sanitized[key] = sanitizeValue(val);
+  //     }
+  //     return sanitized;
+  //   }
+  //   return value;
+  // };
 
   // Helper function to determine if a tool is read-only (search/inspection)
   const isReadOnlyTool = (toolName: string): boolean => {
@@ -235,7 +255,7 @@ export default function ClaudeCodePanel({
   };
 
   // Helper function to get friendly tool display name
-  const getToolDisplayName = (toolName: string, toolInput?: any): string => {
+  const getToolDisplayName = (toolName: string, toolInput?: ToolInput): string => {
     const normalized = toolName.toLowerCase();
 
     // For Bash commands, use the description if available
@@ -420,7 +440,7 @@ export default function ClaudeCodePanel({
     if (prototypeId) {
       fetchOrCreateChatSession();
     }
-  }, [prototypeId, logger]);
+  }, [prototypeId, logger, loadHistoricalMessages]);
 
   // Check for chat intent on mount and queue the message
   useEffect(() => {
@@ -701,7 +721,10 @@ export default function ClaudeCodePanel({
 
   // Use external or internal connect/disconnect
   const connect = usingExternalWS && onConnect ? onConnect : connectInternal;
-  const disconnect = usingExternalWS && onDisconnect ? onDisconnect : disconnectInternal;
+  // Disconnect function available but currently unused - kept for potential future use
+  const _disconnect = usingExternalWS && onDisconnect ? onDisconnect : disconnectInternal;
+  // Suppress unused var warning
+  void _disconnect;
 
   // Handle messages from server
   const handleServerMessage = (message: ServerMessage) => {
@@ -865,7 +888,7 @@ export default function ClaudeCodePanel({
 
         // Show system message about sync
         if (message.data) {
-          const { filesUpdated, filesDeleted, assetsUpdated, assetsDeleted, errorCount } = message.data as any;
+          const { filesUpdated, filesDeleted, assetsUpdated, assetsDeleted, errorCount } = message.data as FileSyncData;
           const updates: string[] = [];
           if (filesUpdated > 0) updates.push(`${filesUpdated} file${filesUpdated > 1 ? 's' : ''} updated`);
           if (filesDeleted > 0) updates.push(`${filesDeleted} file${filesDeleted > 1 ? 's' : ''} deleted`);
@@ -1040,7 +1063,7 @@ export default function ClaudeCodePanel({
   };
 
   // Add a tool message when a tool starts
-  const addToolMessage = (toolName: string, toolCallId: string, toolInput: any, status: "running" | "success" | "error") => {
+  const addToolMessage = (toolName: string, toolCallId: string, toolInput: ToolInput, status: "running" | "success" | "error") => {
     setMessages((prev) => [
       ...prev,
       {
@@ -1058,7 +1081,7 @@ export default function ClaudeCodePanel({
   };
 
   // Add a thinking message when a thinking tool starts (Task, etc.)
-  const addThinkingMessage = (toolName: string, toolCallId: string, toolInput: any, status: "running" | "success" | "error") => {
+  const addThinkingMessage = (toolName: string, toolCallId: string, toolInput: ToolInput, status: "running" | "success" | "error") => {
     setMessages((prev) => [
       ...prev,
       {
@@ -1481,7 +1504,7 @@ export default function ClaudeCodePanel({
   };
 
   // Helper function to load historical messages (extracted to be reusable)
-  const loadHistoricalMessages = async (chatSessionId: string) => {
+  const loadHistoricalMessages = useCallback(async (chatSessionId: string) => {
     try {
       const { data: historicalMessages, error: messagesError } = await supabase
         .from("prototype_chat_messages")
@@ -1515,7 +1538,7 @@ export default function ClaudeCodePanel({
             dbMessage.event_type === "tool_start"
           ) {
             // Tool start event
-            const eventData = dbMessage.event_data as any;
+            const eventData = dbMessage.event_data as ToolEventData;
             uiMessages.push({
               id: `tool-${eventData?.tool_call_id || dbMessage.id}`,
               type: "tool",
@@ -1532,7 +1555,7 @@ export default function ClaudeCodePanel({
             dbMessage.event_type === "tool_complete"
           ) {
             // Tool complete event - find and update the matching tool_start message
-            const eventData = dbMessage.event_data as any;
+            const eventData = dbMessage.event_data as ToolEventData;
             const toolCallId = eventData?.tool_call_id;
 
             // Find the matching tool message and mark it as complete
@@ -1579,7 +1602,7 @@ export default function ClaudeCodePanel({
         error: error instanceof Error ? error.message : String(error),
       });
     }
-  };
+  }, [logger]);
 
   // Handle Enter key
   const handleKeyPress = (e: React.KeyboardEvent) => {

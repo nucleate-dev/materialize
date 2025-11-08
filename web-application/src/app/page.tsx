@@ -299,7 +299,6 @@ function UseCasesSection() {
 
 function PricingSection() {
   const router = useRouter();
-  const { user } = useUser();
 
   const handleGetStarted = (productKey: string) => {
     handleCheckout(productKey, router);

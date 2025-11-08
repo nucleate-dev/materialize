@@ -61,8 +61,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
@@ -126,7 +124,7 @@ export default function InternalPrototypePage() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Current viewing path tracking
-  const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
+  const [, setCurrentViewingPath] = useState<string>("/");
 
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
@@ -139,7 +137,7 @@ export default function InternalPrototypePage() {
 
   // Claude Code WebSocket management
   const claudeCodeWSMessageHandlers = useRef<
-    Map<string, (msg: any) => void>
+    Map<string, (msg: unknown) => void>
   >(new Map());
 
   const handleClaudeCodeMessage = useCallback((message: any) => {
