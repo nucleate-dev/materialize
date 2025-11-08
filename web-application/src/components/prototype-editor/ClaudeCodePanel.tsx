@@ -25,18 +25,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import { Database } from "@/lib/types/supabase";
-import { getChatIntent, clearChatIntent } from "@/lib/utils/chatIntentUtils";
-import { ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
+import { ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
+import { Database } from "@/lib/types/supabase";
+import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   CheckIcon,
+  ChevronDownIcon,
   InformationCircleIcon,
   PencilIcon,
   PhotoIcon,
   PlusIcon,
   XMarkIcon,
-  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -742,7 +742,6 @@ export default function ClaudeCodePanel({
 
       websocket.onopen = () => {
         setInternalConnected(true);
-        addMessage("system", "Connected");
       };
 
       websocket.onmessage = (event) => {
@@ -1029,7 +1028,7 @@ export default function ClaudeCodePanel({
         break;
 
       default: {
-        const unknownMessage = message as { type: string };
+        const unknownMessage = message as { type: string; };
         logger.debug("log", "Unknown message type", {
           messageType: unknownMessage.type,
         });
@@ -1776,46 +1775,46 @@ export default function ClaudeCodePanel({
                           <div className="max-w-none cursor-default">
                             <div className="prose prose-sm dark:prose-invert max-w-none">
                               <ReactMarkdown
-                          components={{
-                            // Customize code blocks - inline vs block
-                            code: ({ className, children, ...props }) => {
-                              // Check if it's inline code by looking at the node structure
-                              const isInline = !className?.includes('language-');
+                                components={{
+                                  // Customize code blocks - inline vs block
+                                  code: ({ className, children, ...props }) => {
+                                    // Check if it's inline code by looking at the node structure
+                                    const isInline = !className?.includes('language-');
 
-                              // Clean up children to remove any extra backticks
-                              let content = children;
-                              if (typeof content === 'string') {
-                                // Remove leading/trailing backticks that might be in the content
-                                content = content.replace(/^`+|`+$/g, '');
-                              }
+                                    // Clean up children to remove any extra backticks
+                                    let content = children;
+                                    if (typeof content === 'string') {
+                                      // Remove leading/trailing backticks that might be in the content
+                                      content = content.replace(/^`+|`+$/g, '');
+                                    }
 
-                              if (isInline) {
-                                return (
-                                  <code
-                                    className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono before:content-none after:content-none"
-                                    {...props}
-                                  >
-                                    {content}
-                                  </code>
-                                );
-                              }
-                              // Block code
-                              return (
-                                <code
-                                  className={`block bg-muted p-3 rounded my-2 overflow-x-auto font-mono text-sm ${className || ""}`}
-                                  {...props}
-                                >
-                                  {content}
-                                </code>
-                              );
-                            },
-                            // Customize paragraphs
-                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                            // Customize lists
-                            ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
-                            ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
-                          }}
-                        >
+                                    if (isInline) {
+                                      return (
+                                        <code
+                                          className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono before:content-none after:content-none"
+                                          {...props}
+                                        >
+                                          {content}
+                                        </code>
+                                      );
+                                    }
+                                    // Block code
+                                    return (
+                                      <code
+                                        className={`block bg-muted p-3 rounded my-2 overflow-x-auto font-mono text-sm ${className || ""}`}
+                                        {...props}
+                                      >
+                                        {content}
+                                      </code>
+                                    );
+                                  },
+                                  // Customize paragraphs
+                                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                  // Customize lists
+                                  ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
+                                  ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
+                                }}
+                              >
                                 {message.content}
                               </ReactMarkdown>
                             </div>
@@ -1832,8 +1831,7 @@ export default function ClaudeCodePanel({
                   {message.type === "tool" && (
                     <div className="py-1">
                       <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                          message.status === "error"
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${message.status === "error"
                             ? "bg-red-500/10 text-red-700 dark:text-red-400"
                             : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                           }`}
