@@ -21,6 +21,7 @@ import {
 } from "../utils/shared-utils.js";
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
+import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 /**
  * FILE TRACKING STRATEGY
  *
@@ -909,6 +910,84 @@ export class CodeService {
             ],
           },
         });
+      }
+
+      // ------------------------------------------------------------------------------------------------
+      // Track API usage
+      // ------------------------------------------------------------------------------------------------
+      try {
+        // Get user ID from authenticated Supabase client
+        const {
+          data: { user },
+          error: userError,
+        } = await this.supabaseClient.auth.getUser();
+
+        if (userError || !user) {
+          this.logger.warn(
+            "Unable to track API usage - no authenticated user",
+            {
+              prototypeId,
+              error: userError,
+            },
+          );
+        } else {
+          // TODO: Fetch user's billing period from subscription info
+          // For now, use current month as billing period
+          const now = new Date();
+          const currentPeriodStart = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            1,
+          );
+          const currentPeriodEnd = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999,
+          );
+
+          this.logger.info("Tracking API usage", {
+            userId: user.id,
+            prototypeId,
+            periodStart: currentPeriodStart.toISOString(),
+            periodEnd: currentPeriodEnd.toISOString(),
+          });
+
+          const { updatedMessageCount } = await trackApiUsageBuildWorker(
+            this.supabaseClient,
+            user.id,
+            prototypeId,
+            currentPeriodStart,
+            currentPeriodEnd,
+            this.logger,
+          );
+
+          // Send updated message count to client
+          this.sendMessage(socket, {
+            type: "usage_update",
+            data: {
+              messageCount: updatedMessageCount,
+            },
+          });
+
+          this.logger.info("API usage tracked successfully", {
+            userId: user.id,
+            prototypeId,
+            updatedMessageCount,
+          });
+        }
+      } catch (usageError) {
+        // Log but don't fail the session if usage tracking fails
+        this.logger.error(
+          usageError instanceof Error
+            ? usageError
+            : new Error(String(usageError)),
+          "Failed to track API usage",
+          { prototypeId },
+        );
       }
 
       // CRITICAL: This notification must ALWAYS be sent at the end of every chat session,
