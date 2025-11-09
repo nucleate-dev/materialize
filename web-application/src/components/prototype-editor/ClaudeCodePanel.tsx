@@ -98,6 +98,7 @@ interface Message {
   description?: string;
   toolHistory?: ToolInput[]; // For ephemeral tools, track all invocations
   isQueued?: boolean; // For queued messages waiting for dev server
+  imageUrls?: string[]; // Signed URLs for historical images
 }
 
 interface UploadedImage {
@@ -373,12 +374,52 @@ export default function ClaudeCodePanel({
           // Handle different message types
           if (dbMessage.message_type === "text") {
             // Regular text message (user or assistant)
-            uiMessages.push({
+            const message: Message = {
               id: String(dbMessage.id),
               type: dbMessage.role as "user" | "assistant",
               content: dbMessage.content,
               timestamp: new Date(dbMessage.created_at).getTime(),
-            });
+            };
+
+            // Check if this message has images in event_data
+            if (dbMessage.event_data) {
+              try {
+                const eventData = typeof dbMessage.event_data === 'string'
+                  ? JSON.parse(dbMessage.event_data)
+                  : dbMessage.event_data;
+
+                if (eventData.images && Array.isArray(eventData.images)) {
+                  // Fetch signed URLs for each image
+                  const imageUrls: string[] = [];
+                  for (const imageMetadata of eventData.images) {
+                    try {
+                      const { data: signedUrlData } = await supabase.storage
+                        .from("prototype-assets")
+                        .createSignedUrl(imageMetadata.storage_path, 3600); // 1 hour expiry
+
+                      if (signedUrlData?.signedUrl) {
+                        imageUrls.push(signedUrlData.signedUrl);
+                      }
+                    } catch (error) {
+                      logger.debug("error", "Failed to get signed URL for image", {
+                        storagePath: imageMetadata.storage_path,
+                        error: error instanceof Error ? error.message : String(error),
+                      });
+                    }
+                  }
+
+                  if (imageUrls.length > 0) {
+                    message.imageUrls = imageUrls;
+                  }
+                }
+              } catch (error) {
+                logger.debug("error", "Failed to parse event_data for images", {
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            }
+
+            uiMessages.push(message);
           } else if (
             dbMessage.message_type === "tool_use" &&
             dbMessage.event_type === "tool_start"
@@ -1507,6 +1548,42 @@ export default function ClaudeCodePanel({
         return;
       }
 
+      // Delete chat images from storage before deleting session
+      try {
+        // List all images in the chat session folder
+        const chatImagePrefix = `${prototypeId}/chat/${chatSessionId}/`;
+        const { data: imageList, error: listError } = await supabase.storage
+          .from("prototype-assets")
+          .list(chatImagePrefix);
+
+        if (listError) {
+          logger.debug("error", "Failed to list chat images for deletion", {
+            error: listError,
+          });
+        } else if (imageList && imageList.length > 0) {
+          // Delete all images in the folder
+          const filePaths = imageList.map(file => `${chatImagePrefix}${file.name}`);
+          const { error: deleteImagesError } = await supabase.storage
+            .from("prototype-assets")
+            .remove(filePaths);
+
+          if (deleteImagesError) {
+            logger.debug("error", "Failed to delete chat images", {
+              error: deleteImagesError,
+            });
+          } else {
+            logger.debug("log", "Deleted chat images", {
+              count: imageList.length,
+            });
+          }
+        }
+      } catch (error) {
+        logger.debug("error", "Error cleaning up chat images", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Continue with session deletion even if image cleanup fails
+      }
+
       // Delete the current chat session (cascade will delete messages)
       const { error: deleteError } = await supabase
         .from("prototype_chat_sessions")
@@ -1783,6 +1860,25 @@ export default function ClaudeCodePanel({
                               <pre className="whitespace-pre-wrap text-sm font-sans">
                                 {message.content}
                               </pre>
+                              {/* Display historical images if available */}
+                              {message.imageUrls && message.imageUrls.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {message.imageUrls.map((imageUrl, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="relative group rounded-lg overflow-hidden border border-primary-foreground/20"
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={imageUrl}
+                                        alt={`Uploaded image ${idx + 1}`}
+                                        className="max-h-40 max-w-full object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                                        onClick={() => window.open(imageUrl, '_blank')}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TooltipTrigger>

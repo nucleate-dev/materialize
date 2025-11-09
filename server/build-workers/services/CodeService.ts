@@ -31,6 +31,7 @@ import {
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
+import { processImage } from "../utils/imageProcessing.js";
 /**
  * FILE TRACKING STRATEGY
  *
@@ -379,7 +380,17 @@ export class CodeService {
             })
           : prompt!;
 
-        // Persist user message to database
+        // Extract images from content for later storage (after successful query)
+        const imagesFromContent = Array.isArray(messageContent)
+          ? messageContent
+              .filter((block) => block.type === "image")
+              .map((block) => ({
+                base64: (block.source as { data: string }).data,
+                mediaType: (block.source as { media_type: string }).media_type,
+              }))
+          : [];
+
+        // Persist user message to database (without images initially)
         const userMessageText =
           typeof messageContent === "string"
             ? messageContent
@@ -387,11 +398,9 @@ export class CodeService {
                 .filter((block) => block.type === "text")
                 .map((block) => block.text || "")
                 .join("\n");
-        const hasImages = Array.isArray(messageContent)
-          ? messageContent.some((block) => block.type === "image")
-          : false;
+        const hasImages = imagesFromContent.length > 0;
         const userMessageDisplay = hasImages
-          ? `${userMessageText} [with images]`
+          ? `${userMessageText} [with ${imagesFromContent.length} image${imagesFromContent.length > 1 ? "s" : ""}]`
           : userMessageText;
 
         await this.persistMessage(
@@ -671,6 +680,15 @@ export class CodeService {
             "text",
             null,
             null,
+          );
+        }
+
+        // Process and upload images to storage after successful query
+        if (imagesFromContent.length > 0 && this.sessionState.chatSessionId) {
+          await this.uploadChatImages(
+            prototypeId,
+            this.sessionState.chatSessionId,
+            imagesFromContent,
           );
         }
 
@@ -1387,6 +1405,129 @@ export class CodeService {
           messageType,
         },
       );
+    }
+  }
+
+  /**
+   * Uploads chat images to Supabase Storage and updates the user message with image metadata
+   * @param prototypeId - The prototype ID
+   * @param chatSessionId - The chat session ID
+   * @param images - Array of images with base64 data and media type
+   */
+  private async uploadChatImages(
+    prototypeId: string,
+    chatSessionId: string,
+    images: Array<{ base64: string; mediaType: string }>,
+  ): Promise<void> {
+    try {
+      this.logger.info("Uploading chat images to storage", {
+        prototypeId,
+        chatSessionId,
+        imageCount: images.length,
+      });
+
+      const uploadedImageMetadata: Array<{
+        storage_path: string;
+        media_type: string;
+        file_size: number;
+      }> = [];
+
+      // Process and upload each image
+      for (let i = 0; i < images.length; i++) {
+        const image = images[i];
+        try {
+          // Resize and optimize image
+          const processed = await processImage(image.base64, image.mediaType);
+
+          // Generate unique filename: timestamp_uuid.ext
+          const timestamp = Date.now();
+          const uuid = Math.random().toString(36).substring(2, 15);
+          const filename = `${timestamp}_${uuid}.${processed.extension}`;
+          const storagePath = `${prototypeId}/chat/${chatSessionId}/${filename}`;
+
+          // Upload to Supabase Storage
+          const { error: uploadError } = await this.supabaseClient.storage
+            .from("prototype-assets")
+            .upload(storagePath, processed.buffer, {
+              contentType: processed.mediaType,
+              upsert: false,
+            });
+
+          if (uploadError) {
+            throw uploadError;
+          }
+
+          uploadedImageMetadata.push({
+            storage_path: storagePath,
+            media_type: processed.mediaType,
+            file_size: processed.buffer.length,
+          });
+
+          this.logger.debug("Uploaded chat image", {
+            storagePath,
+            mediaType: processed.mediaType,
+            fileSize: processed.buffer.length,
+          });
+        } catch (error) {
+          this.logger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            `Failed to upload image ${i + 1}/${images.length}`,
+            { prototypeId, chatSessionId },
+          );
+          // Continue with other images even if one fails
+        }
+      }
+
+      // Update the user message in database with image metadata
+      if (uploadedImageMetadata.length > 0) {
+        // Find the most recent user message for this chat session
+        const { data: messages, error: fetchError } = await this.supabaseClient
+          .from("prototype_chat_messages")
+          .select("id")
+          .eq("chat_session_id", chatSessionId)
+          .eq("role", "user")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        if (messages && messages.length > 0) {
+          const messageId = messages[0].id;
+
+          // Update the message with image metadata
+          const { error: updateError } = await this.supabaseClient
+            .from("prototype_chat_messages")
+            .update({
+              event_data: JSON.stringify({ images: uploadedImageMetadata }),
+            })
+            .eq("id", messageId);
+
+          if (updateError) {
+            throw updateError;
+          }
+
+          this.logger.info("Updated user message with image metadata", {
+            messageId,
+            imageCount: uploadedImageMetadata.length,
+          });
+        }
+      }
+
+      this.logger.info("Chat images upload completed", {
+        prototypeId,
+        chatSessionId,
+        successCount: uploadedImageMetadata.length,
+        totalCount: images.length,
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to upload chat images",
+        { prototypeId, chatSessionId },
+      );
+      // Don't throw - we don't want to fail the entire query if image upload fails
     }
   }
 
