@@ -58,6 +58,8 @@ interface CodeSessionState {
   abortController: AbortController | null;
   trackedFiles: Set<string>; // Track files that were modified during the session
   fileWatcher: FSWatcher | null; // File system watcher for tracking changes
+  designSystemId: string | null; // ID of currently loaded design system
+  designSystemRules: string | null; // Cached design system rules
 }
 
 interface ToolInputWithFilePath {
@@ -86,6 +88,8 @@ export class CodeService {
     abortController: null,
     trackedFiles: new Set<string>(),
     fileWatcher: null,
+    designSystemId: null,
+    designSystemRules: null,
   };
   private activeConnections = new Map<string, WebSocket>();
   private orchestrationToken: string | null = null;
@@ -336,6 +340,61 @@ export class CodeService {
       this.sessionState.sessionId = null;
     }
 
+    // Handle custom design system
+    const { custom_design_system_id } = data;
+
+    // Check if design system changed or needs to be loaded
+    if (custom_design_system_id !== this.sessionState.designSystemId) {
+      if (custom_design_system_id === null || custom_design_system_id === undefined) {
+        // Clear design system
+        this.sessionState.designSystemId = null;
+        this.sessionState.designSystemRules = null;
+        this.logger.info("Design system cleared");
+      } else {
+        // Fetch new design system
+        try {
+          const { data: designSystem, error } = await this.supabaseClient
+            .from("design_systems")
+            .select("rules")
+            .eq("id", custom_design_system_id)
+            .single();
+
+          if (error) {
+            this.logger.error(
+              error,
+              "Failed to fetch design system",
+              { designSystemId: custom_design_system_id }
+            );
+            // Continue with default prompt - don't fail the query
+            this.sessionState.designSystemId = null;
+            this.sessionState.designSystemRules = null;
+          } else if (designSystem) {
+            this.sessionState.designSystemId = custom_design_system_id;
+            this.sessionState.designSystemRules = designSystem.rules;
+            this.logger.info("Design system loaded", {
+              designSystemId: custom_design_system_id,
+              rulesLength: designSystem.rules?.length || 0,
+            });
+          } else {
+            this.logger.warn("Design system not found", {
+              designSystemId: custom_design_system_id,
+            });
+            this.sessionState.designSystemId = null;
+            this.sessionState.designSystemRules = null;
+          }
+        } catch (error) {
+          this.logger.error(
+            error instanceof Error ? error : new Error(String(error)),
+            "Error fetching design system",
+            { designSystemId: custom_design_system_id }
+          );
+          // Continue with default prompt - don't fail the query
+          this.sessionState.designSystemId = null;
+          this.sessionState.designSystemRules = null;
+        }
+      }
+    }
+
     this.logger.info("Starting Claude Code query", {
       prototypeId,
       hasSession: !!this.sessionState.sessionId,
@@ -344,6 +403,7 @@ export class CodeService {
       contentLength: content?.length,
       hasToken: !!token,
       providedSessionId: session_id,
+      hasDesignSystem: !!this.sessionState.designSystemRules,
     });
 
     // Notify control plane that chat is starting
@@ -431,6 +491,11 @@ export class CodeService {
         }
 
         // Query Claude with session resumption if available
+        // Build system prompt with optional design system rules
+        const systemPromptAppend = this.sessionState.designSystemRules
+          ? SYSTEM_PROMPT + '\n\n## Custom Design System Rules:\n' + this.sessionState.designSystemRules
+          : SYSTEM_PROMPT;
+
         const queryOptions = {
           ...options,
           includePartialMessages: false,
@@ -448,7 +513,7 @@ export class CodeService {
           systemPrompt: {
             type: "preset" as const,
             preset: "claude_code" as const,
-            append: SYSTEM_PROMPT,
+            append: systemPromptAppend,
           },
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
@@ -978,6 +1043,8 @@ export class CodeService {
       abortController: null,
       trackedFiles: new Set<string>(),
       fileWatcher: null,
+      designSystemId: null,
+      designSystemRules: null,
     };
 
     this.sendMessage(socket, {
@@ -1695,6 +1762,8 @@ export class CodeService {
       abortController: null,
       trackedFiles: new Set<string>(),
       fileWatcher: null,
+      designSystemId: null,
+      designSystemRules: null,
     };
 
     this.logger.info("CodeService shutdown complete");
