@@ -407,11 +407,11 @@ function AccountSettings() {
         <CardContent className="space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Messages Used</span>
+              <span className="text-sm font-medium">Credits Used</span>
               <span className="text-sm text-muted-foreground">
                 {loadingUsageCount
                   ? "Loading..."
-                  : `${messageCount} / ${messageLimit}`}
+                  : `${creditsUsed} / ${creditLimit}`}
               </span>
             </div>
             <Progress value={getUsagePercentage()} className="h-2" />
@@ -432,11 +432,11 @@ function AccountSettings() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Messages remaining:</span>
+              <span className="text-muted-foreground">Credits remaining:</span>
               <span className="font-medium">
                 {loadingUsageCount
                   ? "..."
-                  : Math.max(0, messageLimit - messageCount)}
+                  : Math.max(0, creditLimit - creditsUsed)}
               </span>
             </div>
           </div>
