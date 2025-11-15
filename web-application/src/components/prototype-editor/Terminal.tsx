@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 interface TerminalProps {
   className?: string;
-  terminalUrl?: string | null;
+  baseTunnelUrl?: string | null;
   onResize?: (cols: number, rows: number) => void;
 }
 
@@ -36,7 +36,7 @@ interface TerminalInstanceState {
 
 export default function Terminal({
   className = "",
-  terminalUrl,
+  baseTunnelUrl,
   onResize,
 }: TerminalProps) {
   const [activeSession, setActiveSession] = useState<TerminalSession>("dev-server");
@@ -129,7 +129,7 @@ export default function Terminal({
         instancesMap.delete(session);
       });
     };
-  }, [onResize, terminalUrl]);
+  }, [onResize, baseTunnelUrl]);
 
   // Handle resize for all terminals
   useEffect(() => {
@@ -162,7 +162,7 @@ export default function Terminal({
 
   // WebSocket connection management for each session
   useEffect(() => {
-    if (!terminalUrl) {
+    if (!baseTunnelUrl) {
       return;
     }
 
@@ -176,13 +176,12 @@ export default function Terminal({
       if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
         return;
       }
-
+      const finalTunnelUrlBase = (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
       // Construct the full WebSocket URL for this session
       const sessionPath = TERMINAL_SESSION_PATHS[session];
-      const fullTerminalUrl = terminalUrl.endsWith('/')
-        ? `${terminalUrl}${sessionPath.slice(1)}`
-        : `${terminalUrl}${sessionPath}`;
-
+      const fullTerminalUrl = finalTunnelUrlBase.endsWith('/')
+        ? `${finalTunnelUrlBase}${sessionPath.slice(1)}`
+        : `${finalTunnelUrlBase}${sessionPath}`;
       // Create WebSocket connection
       const ws = new WebSocket(fullTerminalUrl);
       instance.ws = ws;
@@ -247,7 +246,7 @@ export default function Terminal({
     return () => {
       cleanupFunctions.forEach((cleanup) => cleanup());
     };
-  }, [terminalUrl]);
+  }, [baseTunnelUrl]);
 
   return (
     <div className={`w-full h-full flex flex-col ${className}`}>

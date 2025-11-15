@@ -127,7 +127,7 @@ export type CacheClearResponse =
 // ============================================================================
 
 export interface CheckoutRequestBody {
-  productID: 'free' | 'team' | 'pro';
+  productID: 'free' | 'plus' | 'pro' | 'max';
 }
 
 export interface CheckoutSuccessResponse {
@@ -262,11 +262,7 @@ export interface UpdateFilesErrorResponse {
 
 export interface StartDevServerRequestBody {
   framework: 'expo_react_native' | 'react';
-  files: PrototypeFileInput[];
-  assets: PrototypeAssetInputWithContent[]; // There's support here, but we probably will not have assets to update.
   prototype_id: string;
-  file_scope?: 'updates' | 'complete';
-  deleted_files?: string[];
 }
 
 export interface StartDevServerSuccessResponse {
@@ -306,6 +302,30 @@ export interface RunCommandSuccessResponse {
   stdout: string;
   stderr: string;
   exit_code: number;
+}
+
+// ============================================================================
+// /orchestration ENDPOINTS
+// ============================================================================
+
+export interface StartChatRequestBody {
+  prototype_id: string;
+  // Add other fields as needed
+}
+
+export interface StartChatResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface EndChatRequestBody {
+  prototype_id: string;
+  // Add other fields as needed
+}
+
+export interface EndChatResponse {
+  success: boolean;
+  message?: string;
 }
 
 // ============================================================================

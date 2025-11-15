@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -19,13 +19,6 @@ export default function HomeScreen() {
       <Text style={[styles.subtext, { color: isDark ? '#aaa' : '#666' }]}>
         The app automatically supports dark and light mode with theme support.
       </Text>
-
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: isDark ? '#0A84FF' : '#007AFF' }]}
-        onPress={() => console.log('Button pressed!')}
-      >
-        <Text style={styles.buttonText}>Get Started</Text>
-      </TouchableOpacity>
     </View>
   );
 }

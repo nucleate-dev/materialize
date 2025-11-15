@@ -115,10 +115,10 @@ export type Database = {
         Row: {
           created_at: string | null;
           description: string | null;
+          folder_id: string | null;
           id: string;
           name: string;
           owner_id: string;
-          folder_id: string | null;
           thumbnail_url: string | null;
           updated_at: string | null;
           visibility: Database["public"]["Enums"]["visibility_level"] | null;
@@ -126,10 +126,10 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           description?: string | null;
+          folder_id?: string | null;
           id?: string;
           name?: string;
           owner_id: string;
-          folder_id?: string | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
@@ -137,10 +137,10 @@ export type Database = {
         Update: {
           created_at?: string | null;
           description?: string | null;
+          folder_id?: string | null;
           id?: string;
           name?: string;
           owner_id?: string;
-          folder_id?: string | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
           visibility?: Database["public"]["Enums"]["visibility_level"] | null;
@@ -154,7 +154,7 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "canvases_folder_id_fkey";
+            foreignKeyName: "canvases_project_id_fkey";
             columns: ["folder_id"];
             isOneToOne: false;
             referencedRelation: "folders";
@@ -257,6 +257,63 @@ export type Database = {
           },
         ];
       };
+      folders: {
+        Row: {
+          created_at: string | null;
+          custom_design_system: string | null;
+          default_design_style: Database["public"]["Enums"]["design_style"];
+          description: string | null;
+          folder_context: Json | null;
+          id: string;
+          name: string;
+          owner_id: string | null;
+          thumbnail_url: string | null;
+          updated_at: string | null;
+          visibility: Database["public"]["Enums"]["visibility_level"] | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          custom_design_system?: string | null;
+          default_design_style?: Database["public"]["Enums"]["design_style"];
+          description?: string | null;
+          folder_context?: Json | null;
+          id?: string;
+          name?: string;
+          owner_id?: string | null;
+          thumbnail_url?: string | null;
+          updated_at?: string | null;
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+        };
+        Update: {
+          created_at?: string | null;
+          custom_design_system?: string | null;
+          default_design_style?: Database["public"]["Enums"]["design_style"];
+          description?: string | null;
+          folder_context?: Json | null;
+          id?: string;
+          name?: string;
+          owner_id?: string | null;
+          thumbnail_url?: string | null;
+          updated_at?: string | null;
+          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "projects_custom_design_system_fkey";
+            columns: ["custom_design_system"];
+            isOneToOne: false;
+            referencedRelation: "design_systems";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payments: {
         Row: {
           amount: number | null;
@@ -302,63 +359,6 @@ export type Database = {
           {
             foreignKeyName: "payments_user_id_fkey";
             columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      folders: {
-        Row: {
-          created_at: string | null;
-          custom_design_system: string | null;
-          default_design_style: Database["public"]["Enums"]["design_style"];
-          description: string | null;
-          id: string;
-          name: string;
-          owner_id: string | null;
-          folder_context: Json | null;
-          thumbnail_url: string | null;
-          updated_at: string | null;
-          visibility: Database["public"]["Enums"]["visibility_level"] | null;
-        };
-        Insert: {
-          created_at?: string | null;
-          custom_design_system?: string | null;
-          default_design_style?: Database["public"]["Enums"]["design_style"];
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string | null;
-          folder_context?: Json | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-        };
-        Update: {
-          created_at?: string | null;
-          custom_design_system?: string | null;
-          default_design_style?: Database["public"]["Enums"]["design_style"];
-          description?: string | null;
-          id?: string;
-          name?: string;
-          owner_id?: string | null;
-          folder_context?: Json | null;
-          thumbnail_url?: string | null;
-          updated_at?: string | null;
-          visibility?: Database["public"]["Enums"]["visibility_level"] | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "folders_custom_design_system_fkey";
-            columns: ["custom_design_system"];
-            isOneToOne: false;
-            referencedRelation: "design_systems";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "folders_owner_id_fkey";
-            columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -459,6 +459,8 @@ export type Database = {
           created_at: string | null;
           id: string;
           prototype_id: string | null;
+          session_id: string | null;
+          session_type: string | null;
           user_id: string | null;
         };
         Insert: {
@@ -466,6 +468,8 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
+          session_id?: string | null;
+          session_type?: string | null;
           user_id?: string | null;
         };
         Update: {
@@ -473,6 +477,8 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
+          session_id?: string | null;
+          session_type?: string | null;
           user_id?: string | null;
         };
         Relationships: [
@@ -533,11 +539,11 @@ export type Database = {
           custom_design_system: string | null;
           description: string | null;
           design_style: Database["public"]["Enums"]["design_style"];
+          folder_id: string | null;
           id: string;
           latest_build_key: string | null;
           name: string;
           owner_id: string | null;
-          folder_id: string | null;
           prototype_context: Json | null;
           thumbnail_url: string | null;
           updated_at: string | null;
@@ -548,11 +554,11 @@ export type Database = {
           custom_design_system?: string | null;
           description?: string | null;
           design_style?: Database["public"]["Enums"]["design_style"];
+          folder_id?: string | null;
           id?: string;
           latest_build_key?: string | null;
           name?: string;
           owner_id?: string | null;
-          folder_id?: string | null;
           prototype_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
@@ -563,11 +569,11 @@ export type Database = {
           custom_design_system?: string | null;
           description?: string | null;
           design_style?: Database["public"]["Enums"]["design_style"];
+          folder_id?: string | null;
           id?: string;
           latest_build_key?: string | null;
           name?: string;
           owner_id?: string | null;
-          folder_id?: string | null;
           prototype_context?: Json | null;
           thumbnail_url?: string | null;
           updated_at?: string | null;
@@ -582,17 +588,17 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "prototypes_owner_id_fkey";
-            columns: ["owner_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "prototypes_folder_id_fkey";
             columns: ["folder_id"];
             isOneToOne: false;
             referencedRelation: "folders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prototypes_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
@@ -730,10 +736,10 @@ export type Database = {
       };
     };
     Enums: {
-      chat_role: "user" | "assistant";
+      chat_role: "user" | "assistant" | "system";
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom";
       file_type: "text" | "asset";
-      subscription_plan_type: "free" | "team" | "pro";
+      subscription_plan_type: "free" | "plus" | "pro" | "max" | "team";
       subscription_status: "active" | "past_due" | "canceled";
       tunnel_status: "creating" | "idle" | "allocated";
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC";
@@ -870,7 +876,7 @@ export const Constants = {
       chat_role: ["user", "assistant"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
-      subscription_plan_type: ["free", "team", "pro"],
+      subscription_plan_type: ["free", "plus", "pro", "max", "team"],
       subscription_status: ["active", "past_due", "canceled"],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],

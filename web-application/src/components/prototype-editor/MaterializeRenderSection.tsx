@@ -28,12 +28,9 @@ import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import type {
   APIResponse,
   RestartDevServerRequestBody,
-  RestartDevServerSuccessResponse,
-  RunCommandRequestBody,
-  RunCommandSuccessResponse,
-  StandardErrorResponse,
+  RestartDevServerSuccessResponse, StandardErrorResponse,
   StartDevServerRequestBody,
-  StartDevServerSuccessResponse,
+  StartDevServerSuccessResponse
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { QRCodeSVG } from "qrcode.react";
@@ -57,12 +54,10 @@ import {
   Palette,
   QrCode,
   RefreshCw,
-  RotateCcw,
-  Settings,
-  Share2,
+  RotateCcw, Share2,
   Smartphone,
   Terminal as TerminalIcon,
-  X,
+  X
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -140,7 +135,7 @@ type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 
 interface MaterializeRenderSectionProps {
   viewing_url: string; // ASSUMPTION: viewing_url is always normalized with protocol (e.g., https://)
-  terminal_url?: string | null; // WebSocket URL for terminal connection
+  base_tunnel_url?: string | null; // WebSocket URL for terminal connection
   onResetToDefault?: () => void;
   // Props for dev server functionality
   prototypeId?: string;
@@ -182,7 +177,7 @@ const MaterializeRenderSection = forwardRef<
   (
     {
       viewing_url,
-      terminal_url,
+      base_tunnel_url,
       onResetToDefault,
       prototypeId,
       files,
@@ -212,7 +207,6 @@ const MaterializeRenderSection = forwardRef<
     const [mobileSize, setMobileSize] = useState({ width: 320, height: 640 });
     const [isIframeLoading, setIsIframeLoading] = useState(false);
     const [iframeError, setIframeError] = useState(false);
-    const [isRunningLint, setIsRunningLint] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isRestartingDevServer, setIsRestartingDevServer] = useState(false);
     const [mobileScreens, setMobileScreens] = useState<MobileScreenConfig[]>(
@@ -774,62 +768,6 @@ const MaterializeRenderSection = forwardRef<
         setIsExporting(false);
       }
     }, [assets, files, loadingSubscriptionData, logger, prototypeId, userPlan]);
-
-    const handleRunLint = async () => {
-      if (!prototypeId) return;
-      setIsRunningLint(true);
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/dev-server/run-command`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              prototype_id: prototypeId,
-              command: "npm",
-              args: ["run", "lint"],
-            } as RunCommandRequestBody),
-          },
-        );
-
-        const result: APIResponse<
-          RunCommandSuccessResponse,
-          StandardErrorResponse
-        > = await response.json();
-
-        if (response.ok && result.data) {
-          // TODO: Display lint results in a better way
-          if (result.data.exit_code === 0) {
-            alert("Lint passed successfully!");
-          } else {
-            alert(
-              `Lint failed with exit code ${result.data.exit_code}\n\nCheck console for details.`,
-            );
-          }
-        } else {
-          logger.debug("error", "Failed to run lint command", {
-            error: result.error?.message,
-          });
-          alert("Failed to run lint command");
-        }
-      } catch (error) {
-        logger.debug("error", "Error running lint command", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        alert("Error running lint command");
-      } finally {
-        setIsRunningLint(false);
-      }
-    };
 
     const handleModeChange = (mode: PreviewMode) => {
       setPreviewMode(mode);
@@ -1517,19 +1455,6 @@ const MaterializeRenderSection = forwardRef<
                       <DropdownMenuSeparator className="sm:hidden" />
                     </>
                   )}
-                  {prototypeId && currentRenderStatus === "Connected" && (
-                    <DropdownMenuItem
-                      onClick={handleRunLint}
-                      disabled={!prototypeId || isRunningLint}
-                    >
-                      {isRunningLint ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Settings className="w-4 h-4 mr-2" />
-                      )}
-                      {isRunningLint ? "Running Lint..." : "Run Lint"}
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuItem
                     onClick={handleRefresh}
                     disabled={!viewing_url}
@@ -1610,7 +1535,7 @@ const MaterializeRenderSection = forwardRef<
 
             {/* Terminal Content */}
             <div className="absolute top-8 left-0 right-0 bottom-0 p-2">
-              <Terminal className="w-full h-full" terminalUrl={terminal_url} />
+              <Terminal className="w-full h-full" baseTunnelUrl={base_tunnel_url} />
             </div>
           </div>
         )}

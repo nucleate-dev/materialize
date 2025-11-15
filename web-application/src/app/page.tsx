@@ -13,6 +13,7 @@ import type {
   CreatePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
   CheckBadgeIcon,
   PaperAirplaneIcon,
@@ -298,20 +299,9 @@ function UseCasesSection() {
 
 function PricingSection() {
   const router = useRouter();
-  const { user } = useUser();
 
-  const handleGetStarted = (plan: string) => {
-    if (!user?.id) {
-      router.push("/login");
-    } else {
-      // Navigate to dashboard or checkout based on plan
-      if (plan === "free") {
-        router.push("/dashboard");
-      } else {
-        // Handle pro plan checkout
-        router.push("/dashboard");
-      }
-    }
+  const handleGetStarted = (productKey: string) => {
+    handleCheckout(productKey, router);
   };
 
   const pricingPlans = [
@@ -328,21 +318,53 @@ function PricingSection() {
       ],
       cta: "Get Started",
       highlighted: false,
+      productKey: "free",
     },
     {
-      name: "Pro",
-      price: "$29",
+      name: "Plus",
+      price: "$20",
       period: "per month",
-      description: "For professionals and teams",
+      description: "For individual creators",
       features: [
         "Unlimited projects",
         "Export to React Native",
-        "Priority support",
+        "Email support",
         "Custom design tokens",
-        "Team collaboration",
       ],
-      cta: "Start Free Trial",
+      cta: "Upgrade to Plus",
+      highlighted: false,
+      productKey: "plus",
+    },
+    {
+      name: "Pro",
+      price: "$50",
+      period: "per month",
+      description: "For professionals and small teams",
+      features: [
+        "Everything in Plus",
+        "Priority support",
+        "Team collaboration",
+        "Advanced integrations",
+      ],
+      cta: "Upgrade to Pro",
       highlighted: true,
+      productKey: "pro",
+    },
+    {
+      name: "Max",
+      price: "$200",
+      period: "per month",
+      description: "For enterprises and large teams",
+      features: [
+        "Everything in Pro",
+        "Dedicated support",
+        "Custom SLA",
+        "Advanced security",
+        "White-label options",
+      ],
+      cta: "Upgrade to Max",
+      highlighted: false,
+      productKey: "max",
     },
   ];
 
@@ -361,7 +383,7 @@ function PricingSection() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {pricingPlans.map((plan, index) => (
               <div
                 key={index}
@@ -407,7 +429,7 @@ function PricingSection() {
 
                   {/* CTA Button */}
                   <Button
-                    onClick={() => handleGetStarted(plan.name.toLowerCase())}
+                    onClick={() => handleGetStarted(plan.productKey)}
                     className={`w-full py-6 text-lg font-semibold rounded-xl transition-all duration-200 ${plan.highlighted
                       ? "bg-foreground text-background hover:bg-foreground/90 shadow-lg"
                       : "bg-foreground/5 hover:bg-foreground/10 text-foreground border-2 border-foreground/20"

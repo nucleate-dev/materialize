@@ -1,6 +1,16 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,6 +62,7 @@ export default function PrototypeSettingsModal({
   const [visibility, setVisibility] =
     useState<Database["public"]["Enums"]["visibility_level"]>("SELF");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { userPlan } = useSubscriptionAccess();
 
   useEffect(() => {
@@ -99,12 +110,9 @@ export default function PrototypeSettingsModal({
 
   const handleDelete = async () => {
     if (!prototype) return;
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this prototype?",
-    );
-    if (!confirmed) return;
 
     setIsSubmitting(true);
+    setShowDeleteDialog(false);
     try {
       // Get the current session to get the JWT token
       const {
@@ -204,11 +212,11 @@ export default function PrototypeSettingsModal({
               <Button
                 type="button"
                 variant="destructive"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 disabled={isSubmitting}
                 className="cursor-pointer"
               >
-                {isSubmitting ? "Deleting..." : "Delete Prototype"}
+                Delete Prototype
               </Button>
               <Button
                 type="submit"
@@ -221,6 +229,28 @@ export default function PrototypeSettingsModal({
           </form>
         )}
       </DialogContent>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Prototype</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this prototype? This action cannot
+              be undone and will permanently remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isSubmitting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isSubmitting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

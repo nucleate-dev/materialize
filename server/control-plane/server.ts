@@ -1,27 +1,27 @@
-import 'dotenv/config';
-import Fastify from 'fastify';
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import cors from '@fastify/cors';
-import websocket from '@fastify/websocket';
-import { DispatcherService } from './services/dispatcher/DispatcherService.js';
-import { CleanupService } from './services/CleanupService.js';
-import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
-import { StripeManagementService } from './services/StripeManagementService.js';
-import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
-import { DevelopmentServerService } from './services/DevelopmentServerService.js';
-import { ChatService } from './services/chat/ChatService.js';
-import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
-import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
-import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
-import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
-import { InternalBuildWorkerDevProxyService } from './internal-services/InternalBuildWorkerDevProxyService.js';
-import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
-import { ECSClient } from '@aws-sdk/client-ecs';
-import { EC2Client } from '@aws-sdk/client-ec2';
 import { AutoScalingClient } from '@aws-sdk/client-auto-scaling';
-import { GlideClient } from '@valkey/valkey-glide';
+import { EC2Client } from '@aws-sdk/client-ec2';
+import { ECSClient } from '@aws-sdk/client-ecs';
 import { S3Client } from '@aws-sdk/client-s3';
 import { STSClient } from '@aws-sdk/client-sts';
+import cors from '@fastify/cors';
+import { GlideClient } from '@valkey/valkey-glide';
+import 'dotenv/config';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import Fastify from 'fastify';
+import { InternalBuildWorkerDevProxyService } from './internal-services/InternalBuildWorkerDevProxyService.js';
+import { InternalCacheManagementService } from './internal-services/InternalCacheManagementService.js';
+import { InternalCleanupServiceManagement } from './internal-services/InternalCleanupServiceManagement.js';
+import { InternalControlPlaneDevelopmentService } from './internal-services/InternalControlPlaneDevelopmentService.js';
+import { InternalProductionDeploymentService } from './internal-services/InternalProductionDeploymentService.js';
+import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
+import { CleanupService } from './services/CleanupService.js';
+import { DevelopmentServerService } from './services/DevelopmentServerService.js';
+import { StripeManagementService } from './services/StripeManagementService.js';
+import { ChatService } from './services/chat/ChatService.js';
+import { DispatcherService } from './services/dispatcher/DispatcherService.js';
+import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
+import { OrchestrationService } from './services/orchestration/OrchestrationService.js';
+import { PrototypeManagementService } from './services/prototype-management/PrototypeManagementService.js';
 
 // Extend FastifyRequest to include our custom logger
 declare module 'fastify' {
@@ -102,6 +102,7 @@ fastify.register(cors, {
     'Authorization',
     'x-internal-signature',
     'x-internal-timestamp',
+    'x-orchestration-token',
   ],
 });
 await fastify.register(websocket, {
@@ -131,6 +132,7 @@ let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
 let chatService: ChatService;
+let orchestrationService: OrchestrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -218,6 +220,14 @@ const start = async (): Promise<void> => {
     // Create chat service and register routes
     chatService = new ChatService(fastify, dispatcherService);
     chatService.registerRoutes(fastify);
+
+    // Create orchestration service and register routes
+    orchestrationService = new OrchestrationService(
+      fastify,
+      cacheClient,
+      baseLogger,
+    );
+    orchestrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(

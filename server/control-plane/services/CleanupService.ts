@@ -229,22 +229,69 @@ export class CleanupService {
         build.fargate_private_ip,
       );
       if (killResult.buildInProgress) {
-        // Reset the status back to building since we're not cleaning up yet
-        // TODO: add some sort of counter here so there is a max number of times we can do this
-        const activeBuild: ActiveBuild = {
-          ...build,
-          status: 'building',
-        };
-        const setCacheResult = await this.setCacheActiveBuildData(
-          buildKey,
-          activeBuild,
-          buildId,
-        );
-        if (!setCacheResult) stats.failedCleanups++;
-        continue;
+        // Increment clean attempts counter
+        const newCleanAttempts = (build.clean_attempts || 0) + 1;
+        // Check if we've exceeded max cleanup attempts
+        if (newCleanAttempts >= 3) {
+          // Force cleanup after 3 failed attempts to prevent containers from getting stuck
+          this.log2.error(
+            new Error('Max cleanup attempts reached - forcing cleanup'),
+            'Fargate container stuck in bad state, forcing cleanup',
+            {
+              fargate_task_arn: build.fargate_task_arn,
+              prototype_id: prototypeId,
+              clean_attempts: newCleanAttempts,
+              utc_timestamp: new Date().toISOString(),
+              unix_timestamp: new Date().getTime(),
+            },
+          );
+        } else {
+          // Reset the status back to building and increment clean_attempts
+          const activeBuild: ActiveBuild = {
+            ...build,
+            status: 'building',
+            clean_attempts: newCleanAttempts,
+          };
+          const setCacheResult = await this.setCacheActiveBuildData(
+            buildKey,
+            activeBuild,
+            buildId,
+          );
+          if (!setCacheResult) stats.failedCleanups++;
+
+          this.log2.info(
+            'Build still in progress, incrementing clean attempts',
+            {
+              buildId,
+              prototypeId,
+              clean_attempts: newCleanAttempts,
+            },
+          );
+
+          continue;
+        }
       }
 
-      // 4.5 Delete the cloudflare tunnel for the build if it exists
+      // 5. Kill the fargate task using the task arn (only if safe to do so)
+      const terminateResult = await this.terminateFargateTask(
+        build.fargate_task_arn,
+      );
+      if (!terminateResult.success) {
+        this.log2.error(
+          terminateResult.error,
+          `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
+        );
+        const activeBuild: ActiveBuild = {
+          ...build,
+          status: 'stable',
+        };
+        await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
+        stats.failedCleanups++;
+        continue;
+      }
+      killedPrototypeIds.push(prototypeId);
+
+      // 5.5 Delete the cloudflare tunnel for the build if it exists
       // Delete the Cloudflare tunnel for the build if it exists
       this.log2.info('deleting cloudflare tunnel', {
         tunnelId: build.terminal_tunnel_id,
@@ -271,25 +318,6 @@ export class CleanupService {
           // Continue with cleanup even if tunnel deletion fails
         }
       }
-
-      // 5. Kill the fargate task using the task arn (only if safe to do so)
-      const terminateResult = await this.terminateFargateTask(
-        build.fargate_task_arn,
-      );
-      if (!terminateResult.success) {
-        this.log2.error(
-          terminateResult.error,
-          `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
-        );
-        const activeBuild: ActiveBuild = {
-          ...build,
-          status: 'stable',
-        };
-        await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
-        stats.failedCleanups++;
-        continue;
-      }
-      killedPrototypeIds.push(prototypeId);
 
       // 6. remove the active build from cache and cleanup schema entries
       const removedFromCache = await removeBuildDataFromCache(

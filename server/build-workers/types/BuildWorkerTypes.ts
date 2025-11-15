@@ -100,6 +100,18 @@ export interface PublicDevServerStartRequest {
   file_scope: "updates" | "complete";
 }
 
+export interface PublicStartDevServerRequest {
+  prototype_id: string;
+  framework: "expo_react_native" | "react";
+}
+
+export interface PublicUpdateFilesRequest {
+  prototype_id: string;
+  files: PrototypeFileInput[];
+  assets: PrototypeAssetInputWithContent[];
+  deleted_files?: string[];
+}
+
 export interface PublicDevServerStartResponse {
   status: "success" | "error";
   tunnel_url?: string;
@@ -194,13 +206,14 @@ export interface PublicRunCommandResponse {
 }
 
 export interface PublicAllocateRequest {
-  accessKeyId: string;
-  secretAccessKey: string;
-  sessionToken: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  sessionToken?: string;
   expiration?: string;
   prototypeId: string;
   userId: string;
   cloudflare_tunnel_token?: string;
+  orchestration_token?: string;
 }
 
 export interface PublicAllocateResponse {

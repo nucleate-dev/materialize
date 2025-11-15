@@ -5,8 +5,18 @@ export enum NavigationTabNames {
 
 export const ProductKeys = Object.freeze({
   FREE_SUBSCRIPTION: "free",
-  TEAM_SUBSCRIPTION: "team",
+  PLUS_SUBSCRIPTION: "plus",
   PRO_SUBSCRIPTION: "pro",
+  MAX_SUBSCRIPTION: "max",
+  TEAM_SUBSCRIPTION: "team",
+});
+
+export const MessageLimits = Object.freeze({
+  FREE: 15,
+  PLUS: 50,
+  PRO: 100,
+  MAX: 500,
+  TEAM: 100,
 });
 
 export const SubscriptionStatuses = Object.freeze({

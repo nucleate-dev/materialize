@@ -1,12 +1,19 @@
+import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
 import {
   DescribeTasksCommand,
   RunTaskCommand,
   StopTaskCommand,
   waitUntilTasksRunning,
 } from '@aws-sdk/client-ecs';
-import type { ECSClient, RunTaskCommandInput } from '@aws-sdk/client-ecs';
-import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
+import { AssumeRoleCommand, STSClient } from '@aws-sdk/client-sts';
 import { GlideClient } from '@valkey/valkey-glide';
+import axios from 'axios';
+import { randomBytes } from 'crypto';
+import type { SystemLogger } from '../../loggers/SystemLogger.js'; // adjust your path
+import {
+  PublicAllocateRequest,
+  PublicAllocateResponse,
+} from '../../types/BuildWorkerTypes.js';
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
@@ -15,12 +22,6 @@ import {
   IdleBuild,
   IdleContainerStatus,
 } from '../../types/InternalTypes.js';
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
-import axios from 'axios';
-import {
-  PublicAllocateRequest,
-  PublicAllocateResponse,
-} from '../../types/BuildWorkerTypes.js';
 import { updateBuildTunnelInfo } from '../../utils/cacheInteractionUtils.js';
 import { IdleCloudflareTunnelSystem } from './IdleCloudflareTunnelSystem.js';
 
@@ -69,7 +70,7 @@ export class IdleContainerAllocationSystemService {
   }
 
   private async ensureIdleCapacity(): Promise<void> {
-    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
     const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
@@ -233,6 +234,7 @@ export class IdleContainerAllocationSystemService {
       privateIp,
       terminalTunnelId: '',
       terminalTunnelHostname: '',
+      orchestrationToken: '',
     };
     try {
       const tunnelInfo =
@@ -258,7 +260,7 @@ export class IdleContainerAllocationSystemService {
 
   /** Launch one idle build (with PROTOTYPE_ID=idle) */
   private async launchIdleContainer(): Promise<void> {
-    // if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
+    if (process.env.NODE_ENV === 'development') return; // no idle containers in development mode
 
     let taskArn: string;
     try {
@@ -369,6 +371,7 @@ export class IdleContainerAllocationSystemService {
         privateIp,
         terminalTunnelId: '',
         terminalTunnelHostname: '',
+        orchestrationToken: '',
       };
       try {
         const tunnelInfo =
@@ -465,9 +468,9 @@ export class IdleContainerAllocationSystemService {
     return {
       cluster: process.env.ECS_CLUSTER_NAME!,
       taskDefinition:
-        // process.env.NODE_ENV === 'production'
-        'fastify-build-worker',
-      // : 'materialize-development-containers',
+        process.env.NODE_ENV === 'production'
+          ? 'fastify-build-worker'
+          : 'materialize-development-containers',
       launchType: 'FARGATE' as const,
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -480,9 +483,9 @@ export class IdleContainerAllocationSystemService {
         containerOverrides: [
           {
             name:
-              // process.env.NODE_ENV === 'production'
-              'materialize-fargate-build-worker-container',
-            // : 'materialize-build-worker-container-development',
+              process.env.NODE_ENV === 'production'
+                ? 'materialize-fargate-build-worker-container'
+                : 'materialize-build-worker-container-development',
             environment: [
               {
                 name: 'AWS_REGION',
@@ -530,23 +533,68 @@ export class IdleContainerAllocationSystemService {
     jwt: string,
     userId: string,
   ): Promise<
-    Pick<FargateInstanceInfo, 'terminalTunnelId' | 'terminalTunnelHostname'>
+    Pick<
+      FargateInstanceInfo,
+      'terminalTunnelId' | 'terminalTunnelHostname' | 'orchestrationToken'
+    >
   > {
-    const [out, tunnelConfig] = await Promise.all([
-      this.stsClient.send(
+    // Assume AWS STS role for S3 access
+    let out;
+    try {
+      out = await this.stsClient.send(
         new AssumeRoleCommand({
           RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
           RoleSessionName: `proto-${prototypeId}`,
           Tags: [{ Key: 'PrototypeId', Value: prototypeId }],
           DurationSeconds: 3600 * 12, // 12 hours, refresh as needed
         }),
-      ),
-      this.cloudflareTunnelSystem.retrieveIdleTunnelForAllocation(prototypeId),
-    ]);
+      );
+    } catch (error) {
+      this.log2.error(
+        error,
+        `Failed to assume STS role for prototype ${prototypeId}`,
+        {
+          roleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN,
+          prototypeId,
+        },
+      );
+      throw new Error(
+        `Failed to assume AWS STS role: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
-    if (!out.Credentials) throw new Error('Failed to assume role');
+    if (!out.Credentials) {
+      const error = new Error(
+        'STS AssumeRole succeeded but returned no credentials',
+      );
+      this.log2.error(error, 'Missing credentials from STS response', {
+        prototypeId,
+        roleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN,
+      });
+      throw error;
+    }
 
-    // Store tunnel info in cache with https:// prefix
+    // Retrieve Cloudflare tunnel
+    let tunnelConfig;
+    try {
+      tunnelConfig =
+        await this.cloudflareTunnelSystem.retrieveIdleTunnelForAllocation(
+          prototypeId,
+        );
+    } catch (error) {
+      this.log2.error(
+        error,
+        `Failed to retrieve Cloudflare tunnel for prototype ${prototypeId}`,
+        {
+          prototypeId,
+        },
+      );
+      throw new Error(
+        `Failed to retrieve Cloudflare tunnel: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    // Store tunnel info in cache with wss:// prefix
     this.log2.consoleLogDevOnly(
       'debug',
       'updating cache with cloudflare tunnel final Tunnel config',
@@ -557,12 +605,28 @@ export class IdleContainerAllocationSystemService {
       },
     );
     const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
-    await updateBuildTunnelInfo(
-      this.cache,
-      activeBuildKey,
-      tunnelConfig.tunnel_id || '',
-      tunnelHostnameWithProtocol,
-    );
+
+    // Generate orchestration token for authenticating container orchestration requests
+    const orchestrationToken = randomBytes(32).toString('hex');
+
+    try {
+      await updateBuildTunnelInfo(
+        this.cache,
+        activeBuildKey,
+        tunnelConfig.tunnel_id || '',
+        tunnelHostnameWithProtocol,
+        orchestrationToken,
+      );
+    } catch (error) {
+      this.log2.error(error, 'Failed to update build tunnel info in cache', {
+        activeBuildKey,
+        tunnelId: tunnelConfig.tunnel_id,
+        tunnelHostname: tunnelHostnameWithProtocol,
+      });
+      throw new Error(
+        `Failed to update tunnel info in cache: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
     const creds: PublicAllocateRequest = {
       accessKeyId: out.Credentials.AccessKeyId!,
@@ -571,6 +635,7 @@ export class IdleContainerAllocationSystemService {
       prototypeId,
       userId: userId || 'unknown',
       cloudflare_tunnel_token: tunnelConfig.token || '',
+      orchestration_token: orchestrationToken,
     };
 
     // Send creds to worker
@@ -588,19 +653,43 @@ export class IdleContainerAllocationSystemService {
       if (allocationResponse.status === 'error') {
         this.log2.error(
           new Error(allocationResponse.error),
-          `Failed to allocate to worker ${info.privateIp}`,
+          `Worker returned error status for allocation to ${info.privateIp}`,
+          {
+            workerIp: info.privateIp,
+            prototypeId,
+            errorMessage: allocationResponse.error,
+          },
         );
         throw new Error(
-          allocationResponse.error || 'Failed to allocate to worker',
+          `Worker allocation failed: ${allocationResponse.error || 'Unknown error from worker'}`,
         );
       }
     } catch (error) {
-      this.log2.error(error, 'Failed to make allocation request to worker');
+      // Handle both axios errors and our thrown errors
+      if (axios.isAxiosError(error)) {
+        this.log2.error(
+          error,
+          'Axios request failed when allocating to worker',
+          {
+            workerIp: info.privateIp,
+            prototypeId,
+            statusCode: error.response?.status,
+            responseData: error.response?.data,
+            errorMessage: error.message,
+          },
+        );
+        throw new Error(
+          `Failed to connect to worker at ${info.privateIp}: ${error.message}`,
+        );
+      }
+      // Re-throw if it's already our custom error
       throw error;
     }
+
     return {
       terminalTunnelId: tunnelConfig.tunnel_id || '',
       terminalTunnelHostname: tunnelHostnameWithProtocol,
+      orchestrationToken: orchestrationToken,
     };
   }
 }

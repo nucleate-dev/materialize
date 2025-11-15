@@ -7,7 +7,6 @@ import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
   StandardErrorResponse,
-  StartDevServerRequestBody,
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
 import { GlideClient } from '@valkey/valkey-glide';
@@ -15,7 +14,6 @@ import {
   ActiveBuild,
   BUILD_TIMEOUTS,
   CACHE_KEYS,
-  FargateDevServerResponse,
   FargateInstanceInfo,
   FileScope,
   Framework,
@@ -38,6 +36,11 @@ import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { Database } from '../../../types/supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
+import {
+  PublicDevServerStartResponse,
+  PublicStartDevServerRequest,
+  PublicUpdateFilesRequest,
+} from '../../../types/BuildWorkerTypes.js';
 
 export async function handleDispatchImpl(
   body: DispatchRequestBody,
@@ -83,6 +86,66 @@ export async function handleDispatchImpl(
       url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
       terminal_tunnel_hostname: devTerminalUrl,
     });
+
+    // Call /allocate endpoint to initialize the worker only when starting dev server (file_scope === 'complete')
+    // For file updates, the worker is already allocated so we skip this step
+    if (file_scope === 'complete') {
+      try {
+        const allocateResponse = await axios.post(
+          `http://${process.env.FARGATE_DEV_IP}:3002/allocate`,
+          {
+            prototypeId: prototype_id,
+            userId: 'dev-user', // Placeholder for dev mode since auth is skipped
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${jwt}`,
+            },
+          },
+        );
+
+        if (allocateResponse.data.status === 'error') {
+          log2.error(
+            new Error(allocateResponse.data.error || 'Allocation failed'),
+            'Failed to allocate worker in dev mode',
+            { details: allocateResponse.data.details },
+          );
+          await cache.hset(devKey, {
+            status: 'error' as BuildStatus,
+            url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+          });
+          return {
+            data: null,
+            error: {
+              error: 'Allocation Failed',
+              message: `Failed to allocate worker: ${allocateResponse.data.error || 'Unknown error'}`,
+            },
+          };
+        }
+        log2.consoleLogDevOnly(
+          'info',
+          'Worker allocated successfully in dev mode',
+        );
+      } catch (allocateError) {
+        log2.error(allocateError, 'Failed to call /allocate in dev mode');
+        await cache.hset(devKey, {
+          status: 'error' as BuildStatus,
+          url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
+        });
+        return {
+          data: null,
+          error: {
+            error: 'Allocation Failed',
+            message:
+              'Failed to allocate dev EC2 for build workers: ' +
+              (allocateError instanceof Error
+                ? allocateError.message
+                : 'Unknown error'),
+          },
+        };
+      }
+    }
 
     const fargateResponse = await dispatchRequestToFargateInstanceServer({
       jwt,
@@ -214,6 +277,8 @@ export async function handleDispatchImpl(
         last_touched: currentTime,
         terminal_tunnel_id: '',
         terminal_tunnel_hostname: '',
+        orchestration_token: '',
+        clean_attempts: 0,
       };
       activeBuildKey = await setNewBuildCacheData(
         cache,
@@ -253,6 +318,7 @@ export async function handleDispatchImpl(
         fargate_private_ip: newFargateInstance.privateIp,
         terminal_tunnel_id: newFargateInstance.terminalTunnelId,
         terminal_tunnel_hostname: newFargateInstance.terminalTunnelHostname,
+        orchestration_token: newFargateInstance.orchestrationToken,
       };
     } else {
       // Reuse existing build
@@ -393,7 +459,7 @@ async function dispatchRequestToFargateInstanceServer({
   file_scope: FileScope;
   log2: SystemLogger;
   fargate_private_ip: string;
-}): Promise<FargateDevServerResponse> {
+}): Promise<PublicDevServerStartResponse> {
   const requestBody = await constructRequestBody({
     token: jwt,
     prototype_id,
@@ -404,8 +470,10 @@ async function dispatchRequestToFargateInstanceServer({
     file_scope,
     log2,
   });
+  const endpoint =
+    file_scope === 'complete' ? '/start-dev-server' : '/update-files';
   log2.info(
-    `Dispatching request to fargate instance at ${fargate_private_ip}:3002/dev-server: `,
+    `Dispatching request to fargate instance at ${fargate_private_ip}:3002${endpoint}: `,
     {
       requestBodyDetails: {
         prototypeId: prototype_id,
@@ -417,7 +485,7 @@ async function dispatchRequestToFargateInstanceServer({
   );
   const fargateResponse = await log2.time(
     LatencyEvents.dispatch_request_to_fargate_server_latency,
-    async (): Promise<FargateDevServerResponse> => {
+    async (): Promise<PublicDevServerStartResponse> => {
       return await dispatchFormedRequestToFargateInstanceServer(
         fargate_private_ip,
         requestBody,
@@ -448,7 +516,14 @@ async function constructRequestBody({
   file_scope: FileScope;
   deleted_files?: string[];
   log2: SystemLogger;
-}): Promise<StartDevServerRequestBody> {
+}): Promise<PublicStartDevServerRequest | PublicUpdateFilesRequest> {
+  if (file_scope === 'complete') {
+    // starting dev server. All files will be fetched from supabase directly in the Fargate instance
+    return {
+      prototype_id,
+      framework,
+    };
+  }
   const supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
@@ -460,7 +535,6 @@ async function constructRequestBody({
       },
     },
   );
-
   // Run all downloads concurrently
   const assetInputs: PrototypeAssetInputWithContent[] = await Promise.all(
     assets.map(async (asset) => {
@@ -500,22 +574,24 @@ async function constructRequestBody({
 
   return {
     prototype_id,
-    framework,
     files,
     assets: assetInputs,
-    deleted_files,
-    file_scope,
+    deleted_files: deleted_files || [],
   };
 }
 
 async function dispatchFormedRequestToFargateInstanceServer(
   fargatePrivateIp: string,
-  requestBody: StartDevServerRequestBody,
+  requestBody: PublicStartDevServerRequest | PublicUpdateFilesRequest,
   log2: SystemLogger,
-): Promise<FargateDevServerResponse> {
+): Promise<PublicDevServerStartResponse> {
   try {
+    // Determine the endpoint based on the request body type
+    const isStartDevServer = 'framework' in requestBody;
+    const endpoint = isStartDevServer ? '/start-dev-server' : '/update-files';
+
     const response = await axios.post(
-      `http://${fargatePrivateIp}:3002/dev-server`,
+      `http://${fargatePrivateIp}:3002${endpoint}`,
       requestBody,
       {
         timeout: BUILD_TIMEOUTS.REQUEST_TIMEOUT,
@@ -525,7 +601,7 @@ async function dispatchFormedRequestToFargateInstanceServer(
         },
       },
     );
-    return response.data as FargateDevServerResponse;
+    return response.data as PublicDevServerStartResponse;
   } catch (error) {
     log2.error(error, 'Error dispatching request to fargate instance: ');
     return {

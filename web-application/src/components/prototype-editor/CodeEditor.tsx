@@ -2,7 +2,6 @@
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
 import { supabase } from "@/ClientConstants";
-import { ENABLE_ASSET_UPLOAD } from "@/GlobalConstants";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -27,13 +27,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ENABLE_ASSET_UPLOAD } from "@/GlobalConstants";
 import { UseFileSystemReturn } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -57,6 +57,8 @@ interface CodeEditorProps {
   // Save behavior control
   saveMode?: "single-file" | "all-files"; // Defaults to 'single-file' for better performance
   currentRenderStatus?: RenderStatus;
+  // File sync callback for Claude Code
+  onFilesSaved?: (fileNames: string[], assetNames?: string[]) => void;
 }
 
 const ROOT_FOLDER_VALUE = "__ROOT__";
@@ -100,6 +102,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onBuildingStateChange,
   saveMode = "single-file", // Default to single file saves
   currentRenderStatus,
+  onFilesSaved,
 }) => {
   const logger = useProductLogger();
   const { userPlan } = useSubscriptionAccess();
@@ -581,6 +584,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         if (result.data.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.data.viewing_url);
         }
+
+        // Trigger Claude Code sync after successful save
+        // Order: Supabase save -> API call -> sync_files (so files are in DB when synced)
+        if (onFilesSaved) {
+          onFilesSaved([fileSystem.state.selectedFile], []);
+        }
       } else if (result.error) {
         // Handle error response
         logger.debug("error", "Failed to update file:", {
@@ -667,6 +676,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         // Update viewing URL if provided
         if (result.data.viewing_url && onViewingUrlUpdate) {
           onViewingUrlUpdate(result.data.viewing_url);
+        }
+
+        // Trigger Claude Code sync after successful save
+        // Order: Supabase save -> API call -> sync_files (so files are in DB when synced)
+        if (onFilesSaved) {
+          const savedFileNames = Object.keys(fileSystem.state.files);
+          onFilesSaved(savedFileNames, []);
         }
       } else if (result.error) {
         // Handle error response

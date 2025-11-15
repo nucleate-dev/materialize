@@ -1,13 +1,13 @@
-import { ProductKeys } from "@/GlobalConstants";
 import { supabase } from "@/ClientConstants";
-import { loadStripe } from "@stripe/stripe-js";
-import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { ProductKeys } from "@/GlobalConstants";
 import type {
+  APIResponse,
+  CheckoutErrorResponse,
   CheckoutRequestBody,
   CheckoutSuccessResponse,
-  CheckoutErrorResponse,
-  APIResponse,
 } from "@/lib/types/serverAPITypes";
+import { loadStripe } from "@stripe/stripe-js";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 /**
  * Handles the checkout process for a product by either creating a Stripe checkout session
@@ -81,7 +81,7 @@ export async function handleRedirectToPaymentsPage(
   );
 
   const requestBody: CheckoutRequestBody = {
-    productID: productID as "free" | "team" | "pro",
+    productID: productID as "free" | "plus" | "pro" | "max" | "team",
   };
 
   const response = await fetch(
@@ -101,7 +101,8 @@ export async function handleRedirectToPaymentsPage(
     throw new Error(`Checkout failed: ${errorData.message || "Unknown error"}`);
   }
 
-  const result: APIResponse<CheckoutSuccessResponse, CheckoutErrorResponse> = await response.json();
+  const result: APIResponse<CheckoutSuccessResponse, CheckoutErrorResponse> =
+    await response.json();
 
   // Handle successful response
   if (result.data) {

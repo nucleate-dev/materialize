@@ -91,38 +91,8 @@ export class DevelopmentServerService {
         schema: {
           body: {
             type: 'object',
-            required: ['files', 'assets', 'prototype_id'],
+            required: ['prototype_id'],
             properties: {
-              files: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['contents', 'name', 'prototype_id'],
-                  properties: {
-                    contents: { type: 'string' },
-                    name: { type: 'string' },
-                    prototype_id: { type: 'string' },
-                    id: { type: 'string' },
-                    created_at: { type: 'string' },
-                    updated_at: { type: 'string' },
-                  },
-                },
-              },
-              assets: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['name', 'storage_url', 'prototype_id'],
-                  properties: {
-                    id: { type: 'string' },
-                    name: { type: 'string' },
-                    storage_url: { type: 'string' },
-                    prototype_id: { type: 'string' },
-                    created_at: { type: 'string' },
-                    updated_at: { type: 'string' },
-                  },
-                },
-              },
               prototype_id: { type: 'string' },
             },
           },
@@ -321,14 +291,12 @@ export class DevelopmentServerService {
     APIResponse<StartDevServerSuccessResponse, StandardErrorResponse>
   > {
     try {
-      const { files, assets, prototype_id } = request.body;
+      const { prototype_id } = request.body;
 
       request.log2.consoleLogDevOnly(
         'info',
         '[handleStartDevServer] Starting start dev server',
         {
-          filesLength: files.length,
-          assetsLength: assets.length,
           prototypeId: prototype_id,
         },
       );
@@ -430,8 +398,8 @@ export class DevelopmentServerService {
         {
           prototype_id: prototype_id,
           framework: 'expo_react_native',
-          files: files,
-          assets: assets,
+          files: [],
+          assets: [],
           file_scope: 'complete', // all start-dev-server requests must have complete file scope
         },
         token,

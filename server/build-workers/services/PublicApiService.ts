@@ -18,10 +18,13 @@ import {
   PublicDevServerStartResponse,
   PublicDevServerStopRequest,
   PublicDevServerStopResponse,
+  PublicStartDevServerRequest,
+  PublicUpdateFilesRequest,
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
 import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
+import { CodeService } from "./CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
 
@@ -29,22 +32,37 @@ export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
   private readonly sandboxService: SandboxService;
   private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
+  private readonly codeService: CodeService;
   private readonly workDir: string;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
     sandboxService: SandboxService,
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
+    codeService: CodeService,
     workDir: string,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
     this.cloudflareTunnelManagementService = cloudflareTunnelManagementService;
+    this.codeService = codeService;
     this.workDir = workDir;
   }
 
   public registerRoutes(app: FastifyInstance): void {
-    // POST /dev-server
+    // POST /start-dev-server
+    app.post<{ Body: PublicStartDevServerRequest }>(
+      "/start-dev-server",
+      this.startDevServerNew.bind(this),
+    );
+
+    // POST /update-files
+    app.post<{ Body: PublicUpdateFilesRequest }>(
+      "/update-files",
+      this.updateFiles.bind(this),
+    );
+
+    // POST /dev-server (legacy route - keeping for backward compatibility)
     app.post<{ Body: PublicDevServerStartRequest }>(
       "/dev-server",
       this.startDevServer.bind(this),
@@ -78,10 +96,15 @@ export class PublicApiService {
       prototypeId,
       userId,
       cloudflare_tunnel_token,
+      orchestration_token,
     } = request.body;
 
-    // Import the setWorkerContext function dynamically to avoid circular dependency
-    const { setWorkerContext } = await import("../worker.js");
+    // Import functions dynamically to avoid circular dependency
+    const {
+      setWorkerContext,
+      createAuthenticatedSupabaseClient,
+      setSupabaseClient,
+    } = await import("../worker.js");
 
     // Set worker context so all future requests include userId and prototypeId in logs
     setWorkerContext(userId, prototypeId);
@@ -92,13 +115,65 @@ export class PublicApiService {
       prototypeId,
     });
 
-    try {
-      const scopedS3 = new S3Client({
-        region: process.env.AWS_REGION!,
-        credentials: { accessKeyId, secretAccessKey, sessionToken },
+    // Extract JWT token from Authorization header
+    const authHeader = request.headers.authorization;
+    let jwtToken: string | undefined;
+
+    if (authHeader) {
+      // Support both "Bearer <token>" and raw token formats
+      if (authHeader.startsWith("Bearer ")) {
+        jwtToken = authHeader.substring(7);
+      } else {
+        jwtToken = authHeader;
+      }
+    }
+
+    // JWT token is required - fail if not provided
+    if (!jwtToken) {
+      const errorMessage = "No JWT token provided in Authorization header";
+      request.log2.error(new Error(errorMessage), "Allocation failed");
+      return reply.code(401).send({
+        status: "error",
+        error: "Authentication required",
+        details: errorMessage,
       });
-      this.expoDevServerService.setS3Client(scopedS3);
-      request.log2.info("Allocated worker to prototype for S3 access");
+    }
+
+    // Create authenticated Supabase client - fail allocation if this fails
+    try {
+      const authenticatedSupabase = createAuthenticatedSupabaseClient(jwtToken);
+      setSupabaseClient(authenticatedSupabase);
+      request.log2.info("Initialized authenticated Supabase client for worker");
+    } catch (supabaseError) {
+      const errorMessage =
+        supabaseError instanceof Error
+          ? supabaseError.message
+          : String(supabaseError);
+      request.log2.error(
+        supabaseError instanceof Error
+          ? supabaseError
+          : new Error(String(supabaseError)),
+        "Failed to initialize Supabase client - allocation failed",
+      );
+      return reply.code(500).send({
+        status: "error",
+        error: "Failed to initialize Supabase client",
+        details: errorMessage,
+      });
+    }
+
+    try {
+      // Only set up S3 client if credentials are provided
+      if (accessKeyId && secretAccessKey && sessionToken) {
+        const scopedS3 = new S3Client({
+          region: process.env.AWS_REGION!,
+          credentials: { accessKeyId, secretAccessKey, sessionToken },
+        });
+        this.expoDevServerService.setS3Client(scopedS3);
+        request.log2.info("Allocated worker to prototype for S3 access");
+      } else {
+        request.log2.info("No S3 credentials provided, skipping S3 client setup (dev mode)");
+      }
 
       // If cloudflare tunnel token is provided, start the tunnel
       let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
@@ -135,6 +210,12 @@ export class PublicApiService {
         }
       }
 
+      // Store orchestration token if provided
+      if (orchestration_token) {
+        this.codeService.setOrchestrationToken(orchestration_token);
+        request.log2.info("Orchestration token received and stored in CodeService");
+      }
+
       return reply.status(200).send({
         status: "ok",
         tunnel_status: tunnelStatus,
@@ -148,9 +229,112 @@ export class PublicApiService {
       });
       return reply.code(500).send({
         status: "error",
-        error: "Failed to create scoped S3 client",
+        error: "Failed to allocate worker to prototype",
         details: errorMessage,
       });
+    }
+  }
+
+  private async startDevServerNew(
+    request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicDevServerStartResponse> {
+    const { prototype_id, framework } = request.body;
+
+    if (!prototype_id || !framework) {
+      reply.code(400);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: "prototype_id and framework are required",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+
+    try {
+      const startResponse = await this.expoDevServerService.startDevServer(
+        prototype_id,
+        framework,
+        request.log2,
+      );
+
+      // Set appropriate status code based on response
+      if (!startResponse.success) {
+        reply.code(500);
+      }
+
+      // Convert response format from ExpoDevServerService to PublicApiService format
+      return {
+        status: startResponse.success ? "success" : "error",
+        tunnel_url: startResponse.tunnelUrl,
+        build_errors: startResponse.build_errors || [],
+        build_warnings: startResponse.build_warnings || [],
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in startDevServerNew",
+        { stack: errorStack },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: `Internal server error: ${errorMessage}`,
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+  }
+
+  private async updateFiles(
+    request: FastifyRequest<{ Body: PublicUpdateFilesRequest }>,
+    reply: FastifyReply,
+  ): Promise<PublicDevServerStartResponse> {
+    try {
+      const startResponse =
+        await this.expoDevServerService.updateDevServerFiles(
+          request.log2,
+          request.body.files,
+          request.body.assets,
+          request.body?.deleted_files || [],
+        );
+      return {
+        status: startResponse.success ? "success" : "error",
+        tunnel_url: startResponse.tunnelUrl,
+        build_errors: startResponse.build_errors || [],
+        build_warnings: startResponse.build_warnings || [],
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log2.error(
+        new Error(errorMessage),
+        "Internal server error in updateFiles",
+        { stack: errorStack },
+      );
+      reply.code(500);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: `Internal server error: ${errorMessage}`,
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
     }
   }
 
@@ -158,12 +342,35 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStartRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStartResponse> {
+    const { prototype_id, framework } = request.body;
+
+    if (!prototype_id || !framework) {
+      reply.code(400);
+      return {
+        status: "error",
+        build_errors: [
+          {
+            message: "prototype_id and framework are required",
+            type: "build",
+          },
+        ],
+        build_warnings: [],
+      };
+    }
+
     try {
       if (request.body.file_scope === "complete") {
+        // For starting dev server, files will be fetched from Supabase directly in the ExpoDevServerService
         const startResponse = await this.expoDevServerService.startDevServer(
-          request,
-          reply,
+          prototype_id,
+          framework,
+          request.log2,
         );
+
+        // Set appropriate status code based on response
+        if (!startResponse.success) {
+          reply.code(500);
+        }
 
         // Convert response format from ExpoDevServerService to PublicApiService format
         return {
@@ -175,6 +382,7 @@ export class PublicApiService {
       } else if (request.body.file_scope === "updates") {
         const startResponse =
           await this.expoDevServerService.updateDevServerFiles(
+            request.log2,
             request.body.files,
             request.body.assets,
             request.body?.deleted_files || [],
@@ -186,7 +394,8 @@ export class PublicApiService {
           build_warnings: startResponse.build_warnings || [],
         };
       }
-      // Direct call to ExpoDevServerService with the same request
+      // Invalid file scope
+      reply.code(400);
       return {
         status: "error",
         build_errors: [
@@ -221,10 +430,10 @@ export class PublicApiService {
   }
 
   private async restartDevServer(
-    _request: FastifyRequest,
+    request: FastifyRequest,
     _reply: FastifyReply,
   ): Promise<PublicDevServerRestartResponse> {
-    await this.expoDevServerService.restartDevServer();
+    await this.expoDevServerService.restartDevServer(request.log2);
     return { status: "success" } as PublicDevServerRestartResponse;
   }
 
@@ -436,6 +645,7 @@ export class PublicApiService {
       try {
         const buildResponse =
           await this.expoDevServerService.buildAndDeployProjectCore(
+            request.log2,
             prototype_id,
           );
 
@@ -566,6 +776,7 @@ export class PublicApiService {
             // Use ExpoDevServerService to build and deploy
             const buildResponse =
               await this.expoDevServerService.buildAndDeployProjectCore(
+                baseLogger,
                 activePrototypeId,
               );
 
@@ -620,7 +831,7 @@ export class PublicApiService {
       const builtVersion = this.expoDevServerService.getState().builtVersion;
 
       try {
-        await this.expoDevServerService.shutdown();
+        await this.expoDevServerService.shutdown(baseLogger);
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -672,7 +883,7 @@ export class PublicApiService {
       const builtVersion = this.expoDevServerService.getState().builtVersion;
 
       try {
-        await this.expoDevServerService.shutdown();
+        await this.expoDevServerService.shutdown(baseLogger);
       } catch (shutdownError: unknown) {
         const errorMessage =
           shutdownError instanceof Error

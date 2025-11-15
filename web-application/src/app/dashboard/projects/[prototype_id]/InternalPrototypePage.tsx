@@ -1,12 +1,12 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
+import Loader from "@/components/dashboard/Loader";
+import ClaudeCodePanel from "@/components/prototype-editor/ClaudeCodePanel";
 import CodeEditor from "@/components/prototype-editor/CodeEditor";
 import FileTree from "@/components/prototype-editor/FileTree";
 import MaterializeRenderSection from "@/components/prototype-editor/MaterializeRenderSection";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
-import PrototypeChatWindow from "@/components/prototype-editor/PrototypeChatWindow";
-import PrototypePageSkeleton from "@/components/prototype-editor/PrototypePageSkeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,11 +32,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useClaudeCodeWebSocket } from "@/hooks/useClaudeCodeWebSocket";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
   type APIResponse,
   type CreatePrototypeErrorResponse,
@@ -57,11 +59,9 @@ import {
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeFile = Database["public"]["Tables"]["prototype_files"]["Row"];
-type PrototypeAsset = Database["public"]["Tables"]["prototype_assets"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 
@@ -96,7 +96,6 @@ export default function InternalPrototypePage() {
 
   const [shouldTriggerInitialFetch, setShouldTriggerInitialFetch] =
     useState(true);
-  const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPreviewView, setIsPreviewView] = useState(true);
   const [prototype, setPrototype] = useState<Prototype | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -105,7 +104,7 @@ export default function InternalPrototypePage() {
   const [isCloningPrototype, setIsCloningPrototype] = useState(false);
   const [showCloneUpsellModal, setShowCloneUpsellModal] = useState(false);
   const [viewingUrl, setViewingUrl] = useState<string | null>(null);
-  const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
+  const [baseTunnelUrl, setBaseTunnelUrl] = useState<string | null>(null);
   const [currentRenderStatus, setCurrentRenderStatus] =
     useState<RenderStatus>("Static build");
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
@@ -126,20 +125,59 @@ export default function InternalPrototypePage() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Current viewing path tracking
-  const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
-
-  // Model provider selection
-  const [modelProvider, setModelProvider] = useState<
-    "google" | "google-pro" | "anthropic" | "openai" | "openai-mini"
-  >("anthropic");
+  const [, setCurrentViewingPath] = useState<string>("/");
 
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
   const [isDragging, setIsDragging] = useState(false);
 
+
   // Initialize FileSystem hook
   const defaultFile = "App.js"; // TODO update this for the new default app
   const fileSystem = useFileSystem(prototypeId, defaultFile);
+
+  // Claude Code WebSocket management
+  const claudeCodeWSMessageHandlers = useRef<
+    Map<string, (msg: ChatServerMessage) => void>
+  >(new Map());
+
+  const handleClaudeCodeMessage = useCallback(
+    (message: { type: string; data: unknown; }) => {
+      const parsedMessage = message as ChatServerMessage;
+      claudeCodeWSMessageHandlers.current.forEach((handler) =>
+        handler(parsedMessage),
+      );
+    },
+    [],
+  );
+
+  const {
+    ws: claudeCodeWS,
+    isConnected: claudeCodeWSConnected,
+    connect: connectClaudeCodeWS,
+    disconnect: disconnectClaudeCodeWS,
+    sendSyncFiles,
+  } = useClaudeCodeWebSocket({
+    prototypeId,
+    baseTunnelUrl,
+    onMessage: handleClaudeCodeMessage,
+    autoConnect: false, // ClaudeCodePanel controls when to connect
+  });
+
+  // Handler for when files are saved in CodeEditor
+  const handleFilesSaved = useCallback(
+    (fileNames: string[], assetNames: string[] = []) => {
+      // Immediately sync files to Claude Code working directory
+      if (claudeCodeWSConnected) {
+        logger.debug("log", "Triggering Claude Code file sync", {
+          fileNames,
+          assetNames,
+        });
+        sendSyncFiles(prototypeId, fileNames, assetNames);
+      }
+    },
+    [claudeCodeWSConnected, sendSyncFiles, prototypeId, logger],
+  );
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -322,19 +360,9 @@ export default function InternalPrototypePage() {
       setPrototype(data);
       setIsPublic(data.visibility === "PUBLIC");
 
-      // 2. GET SESSION AND CHECK OWNERSHIP
+      // 2. FETCH CURRENT VIEWING URL FROM SERVER
       const session = await supabase.auth.getSession();
-      const currentUserId = session.data.session?.user?.id;
       const token = session.data.session?.access_token;
-
-      // Redirect non-owners to public view page
-      if (currentUserId && data.owner_id !== currentUserId) {
-        logger.debug("log", "User is not owner, redirecting to public view page");
-        router.push(`/project/${prototypeId}`);
-        return;
-      }
-
-      // 3. FETCH CURRENT VIEWING URL FROM SERVER
       const headers: HeadersInit = {
         "Content-Type": "application/json",
       };
@@ -366,9 +394,9 @@ export default function InternalPrototypePage() {
         // TODO(priyam): Think through the different possible states here.
         if (
           fetchViewData.data.terminal_url &&
-          fetchViewData.data.terminal_url !== terminalUrl
+          fetchViewData.data.terminal_url !== baseTunnelUrl
         ) {
-          setTerminalUrl(fetchViewData.data.terminal_url);
+          setBaseTunnelUrl(fetchViewData.data.terminal_url);
         }
         if (
           fetchViewData.data.source === "editable_instance" &&
@@ -400,15 +428,6 @@ export default function InternalPrototypePage() {
         return;
       }
 
-      // 4. AUTO-START DEV SERVER WHEN FILES ARE LOADED
-      if (
-        !fileSystem.state.files ||
-        !fileSystem.state.assets ||
-        Object.keys(fileSystem.state.files).length === 0
-      ) {
-        // too soon to send files to server, we'll re-trigger this entirefunction when all files are loaded
-        return;
-      }
       if (hasChatIntent(prototypeId)) {
         setShouldTriggerInitialFetch(false);
         return;
@@ -416,27 +435,6 @@ export default function InternalPrototypePage() {
 
       try {
         setCurrentRenderStatus("Starting Dev Server..");
-        const filesArray: PrototypeFile[] = Object.entries(
-          fileSystem.state.files,
-        ).map(([path, file]) => ({
-          contents: file.contents,
-          name: path,
-          prototype_id: file.prototype_id || prototypeId,
-          id: file.id,
-          created_at: file.created_at || null,
-          updated_at: file.updated_at || null,
-        }));
-        const assetsArray: PrototypeAsset[] = Object.entries(
-          fileSystem.state.assets,
-        ).map(([path, asset]) => ({
-          storage_url: asset.storage_url || "",
-          name: path,
-          prototype_id: asset.prototype_id || prototypeId,
-          created_at: asset.created_at || null,
-          updated_at: asset.updated_at || null,
-          id: asset.id,
-        }));
-
         setShouldTriggerInitialFetch(false);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/files/start-dev-server`,
@@ -448,10 +446,7 @@ export default function InternalPrototypePage() {
             },
             body: JSON.stringify({
               framework: "expo_react_native",
-              files: filesArray,
-              assets: assetsArray,
               prototype_id: prototypeId,
-              file_scope: "complete", // Send all files to properly initialize dev server
             } as StartDevServerRequestBody),
           },
         );
@@ -466,7 +461,7 @@ export default function InternalPrototypePage() {
         // Update viewing URL and terminal URL if provided
         setViewingUrl(result.data.viewing_url);
         if (result.data.terminal_url) {
-          setTerminalUrl(result.data.terminal_url);
+          setBaseTunnelUrl(result.data.terminal_url);
         }
         setCurrentRenderStatus("Connected");
       } catch {
@@ -495,14 +490,12 @@ export default function InternalPrototypePage() {
       }
     };
   }, [
-    fileSystem.state.assets,
-    fileSystem.state.files,
     prototypeId,
     router,
     shouldTriggerInitialFetch,
     viewingUrl,
     logger,
-    terminalUrl,
+    baseTunnelUrl,
   ]);
 
   // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
@@ -573,9 +566,9 @@ export default function InternalPrototypePage() {
           }
           if (
             data.data.terminal_url &&
-            data.data.terminal_url !== terminalUrl
+            data.data.terminal_url !== baseTunnelUrl
           ) {
-            setTerminalUrl(data.data.terminal_url);
+            setBaseTunnelUrl(data.data.terminal_url);
           }
         } catch (error) {
           logger.debug("error", "Polling error:", {
@@ -596,7 +589,7 @@ export default function InternalPrototypePage() {
         clearInterval(pollTimer);
       }
     };
-  }, [currentRenderStatus, prototypeId, logger, viewingUrl, terminalUrl]);
+  }, [currentRenderStatus, prototypeId, logger, viewingUrl, baseTunnelUrl]);
 
   const handleDesignSystemDialogOpenChange = (open: boolean) => {
     setIsDesignSystemDialogOpen(open);
@@ -793,7 +786,7 @@ export default function InternalPrototypePage() {
     !fileSystem.state.files ||
     !fileSystem.state.assets
   ) {
-    return <PrototypePageSkeleton />;
+    return <Loader />;
   }
 
   return (
@@ -809,7 +802,7 @@ export default function InternalPrototypePage() {
               className="flex items-center gap-2"
             >
               <ChatBubbleLeftRightIcon className="w-4 h-4" />
-              Chat
+              Claude Code
             </Button>
             <Button
               variant={activePanel === "preview" ? "default" : "ghost"}
@@ -832,7 +825,7 @@ export default function InternalPrototypePage() {
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        {/* Left Panel - AI Assistant Chat */}
+        {/* Left Panel - Claude Code */}
         <div
           className={`${isMobile
             ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
@@ -846,34 +839,32 @@ export default function InternalPrototypePage() {
         >
           {/* Content Area */}
           <div className="flex-1 min-h-0">
-            <PrototypeChatWindow
+            <ClaudeCodePanel
               prototypeId={prototypeId}
+              baseTunnelUrl={baseTunnelUrl}
               prototype={prototype}
               canEditPrototype={canEditPrototype}
               onPrototypeUpdate={setPrototype}
-              // File system integration
-              files={fileSystem.state.files}
-              assets={Object.fromEntries(
-                Object.entries(fileSystem.state.assets).map(([key, asset]) => [
-                  key,
-                  { ...asset, storage_url: asset.storage_url || "" },
-                ]),
-              )}
-              onFilesUpdate={fileSystem.applyAndPersistFileUpdates}
-              currentViewingUrl={viewingUrl ?? ""}
-              // Loading state
-              isChatLoading={isChatLoading}
-              setIsChatLoading={setIsChatLoading}
-              // Viewing URL integration
-              onViewingUrlUpdate={setViewingUrl}
-              // Render status for disabling input
               currentRenderStatus={currentRenderStatus}
-              onCurrentRenderStatusChange={setCurrentRenderStatus}
-              // Current viewing path for LLM context
-              currentViewingPath={currentViewingPath}
-              // Model provider selection
-              modelProvider={modelProvider}
-              onModelProviderChange={setModelProvider}
+              onFileSyncComplete={() => {
+                // Reload files and assets from database when Claude Code finishes syncing
+                fileSystem.loadFilesFromDatabase(prototypeId);
+                fileSystem.loadAssetsFromDatabase(prototypeId);
+              }}
+              // Pass external WebSocket management
+              externalWS={claudeCodeWS}
+              externalWSConnected={claudeCodeWSConnected}
+              onConnect={connectClaudeCodeWS}
+              onDisconnect={disconnectClaudeCodeWS}
+              onRegisterMessageHandler={(
+                id: string,
+                handler: (msg: ChatServerMessage) => void,
+              ) => {
+                claudeCodeWSMessageHandlers.current.set(id, handler);
+              }}
+              onUnregisterMessageHandler={(id: string) => {
+                claudeCodeWSMessageHandlers.current.delete(id);
+              }}
             />
           </div>
         </div>
@@ -905,7 +896,7 @@ export default function InternalPrototypePage() {
           <div className="flex-1 min-h-0 h-full">
             <MaterializeRenderSection
               viewing_url={viewingUrl ?? ""}
-              terminal_url={terminalUrl}
+              base_tunnel_url={baseTunnelUrl}
               prototypeId={prototypeId}
               files={fileSystem.state.files}
               assets={Object.fromEntries(
@@ -966,6 +957,7 @@ export default function InternalPrototypePage() {
                       prototypeId={prototypeId}
                       onViewingUrlUpdate={setViewingUrl}
                       currentRenderStatus={currentRenderStatus}
+                      onFilesSaved={handleFilesSaved}
                     />
                   </div>
                 </div>

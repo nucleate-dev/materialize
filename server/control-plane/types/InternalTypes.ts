@@ -4,8 +4,6 @@ import { FileManagerInterface } from '../services/chat/utils/file-manager.js';
 import { DispatcherService } from '../services/dispatcher/DispatcherService.js';
 import type {
   BuildStatus,
-  CodeError,
-  CodeWarning,
   PrototypeAssetInput,
   PrototypeFileInput,
 } from './PublicAPITypes.js';
@@ -54,6 +52,8 @@ export interface ActiveBuild {
   last_touched: number;
   terminal_tunnel_id: string;
   terminal_tunnel_hostname: string;
+  orchestration_token: string;
+  clean_attempts: number;
 }
 
 export interface IdleBuild {
@@ -68,18 +68,7 @@ export interface FargateInstanceInfo {
   privateIp: string;
   terminalTunnelId: string;
   terminalTunnelHostname: string;
-}
-
-// ============================================================================
-// REQUEST AND RESPONSE TYPES (Use PublicServerAPITypes as source of truth)
-// ============================================================================
-
-export interface FargateDevServerResponse {
-  status: BuildResultStatus;
-  tunnel_url?: string;
-  build_errors: CodeError[];
-  build_warnings: CodeWarning[];
-  version?: string;
+  orchestrationToken: string;
 }
 
 // ============================================================================
@@ -133,7 +122,7 @@ export interface CleanupStats {
 // PROTOTYPE MANAGEMENT TYPES
 // ============================================================================
 
-export type SubscriptionPlanType = 'free' | 'pro' | 'team';
+export type SubscriptionPlanType = 'free' | 'pro' | 'plus' | 'max' | 'team';
 
 export interface PrototypeAuthResult {
   success: boolean;

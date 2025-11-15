@@ -4,7 +4,6 @@ import {
   createCloudflareTunnelForContainer,
   deleteCloudflareTunnel,
 } from '../../utils/cloudflareTunnelManagementUtils.js';
-import { v4 as uuidv4 } from 'uuid';
 import type { Database } from '../../types/supabase.js';
 
 const MAX_IDLE_TUNNELS: number = 20;
@@ -132,8 +131,12 @@ export class IdleCloudflareTunnelSystem {
         '[launchIdleTunnelAndHostname]Creating new tunnel and hostname in cloudflare',
       );
       // 2. Create a new tunnel and hostname in cloudflare using the cloudflareTunnelManagementUtils.ts
+      const tunnelName = placeholderEntry.id;
+      if (!tunnelName) {
+        throw new Error('Placeholder tunnel entry missing id');
+      }
       const { tunnelId, token, hostname, cnameTarget } =
-        await createCloudflareTunnelForContainer(uuidv4(), this.log2);
+        await createCloudflareTunnelForContainer(tunnelName, this.log2);
 
       // 3. Update all the tunnel information in the supabase idle pool (tunnel_id, hostname, token, DNS, etc.) and set status to 'idle'
       this.log2.consoleLogDevOnly(

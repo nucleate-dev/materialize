@@ -459,6 +459,8 @@ export type Database = {
           created_at: string | null;
           id: string;
           prototype_id: string | null;
+          session_id: string | null;
+          session_type: string | null;
           user_id: string | null;
         };
         Insert: {
@@ -466,6 +468,8 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
+          session_id?: string | null;
+          session_type?: string | null;
           user_id?: string | null;
         };
         Update: {
@@ -473,6 +477,8 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           prototype_id?: string | null;
+          session_id?: string | null;
+          session_type?: string | null;
           user_id?: string | null;
         };
         Relationships: [
@@ -730,10 +736,10 @@ export type Database = {
       };
     };
     Enums: {
-      chat_role: 'user' | 'assistant';
+      chat_role: 'user' | 'assistant' | 'system';
       design_style: 'tamagui' | 'stylesheets' | 'nativewind' | 'custom';
       file_type: 'text' | 'asset';
-      subscription_plan_type: 'free' | 'team' | 'pro';
+      subscription_plan_type: 'free' | 'plus' | 'pro' | 'max' | 'team';
       subscription_status: 'active' | 'past_due' | 'canceled';
       tunnel_status: 'creating' | 'idle' | 'allocated';
       visibility_level: 'SELF' | 'TEAM_SUBSET' | 'TEAM' | 'PUBLIC';
@@ -870,7 +876,7 @@ export const Constants = {
       chat_role: ['user', 'assistant'],
       design_style: ['tamagui', 'stylesheets', 'nativewind', 'custom'],
       file_type: ['text', 'asset'],
-      subscription_plan_type: ['free', 'team', 'pro'],
+      subscription_plan_type: ['free', 'plus', 'pro', 'max', 'team'],
       subscription_status: ['active', 'past_due', 'canceled'],
       tunnel_status: ['creating', 'idle', 'allocated'],
       visibility_level: ['SELF', 'TEAM_SUBSET', 'TEAM', 'PUBLIC'],

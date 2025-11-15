@@ -230,6 +230,10 @@ export class InternalCacheManagementService {
                           url: { type: 'string' },
                           status: { type: 'string' },
                           last_touched: { type: 'number' },
+                          terminal_tunnel_id: { type: 'string' },
+                          terminal_tunnel_hostname: { type: 'string' },
+                          orchestration_token: { type: 'string' },
+                          clean_attempts: { type: 'number' },
                         },
                       },
                     },
@@ -765,6 +769,8 @@ export class InternalCacheManagementService {
       last_touched: parseInt(obj.last_touched, 10),
       terminal_tunnel_id: obj.terminal_tunnel_id || '',
       terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
+      orchestration_token: obj.orchestration_token || '',
+      clean_attempts: parseInt(obj.clean_attempts || '0', 10),
     };
   }
 }

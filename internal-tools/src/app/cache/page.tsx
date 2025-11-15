@@ -28,6 +28,8 @@ import {
   Server,
   Link,
   Activity,
+  Key,
+  Shield,
 } from "lucide-react";
 import {
   getCacheStats,
@@ -150,6 +152,8 @@ export default function CacheManagementPage() {
       case "updating":
       case "building":
         return "secondary";
+      case "chatting":
+        return "default"; // Active chat session
       case "creating":
         return "outline";
       case "cleaning":
@@ -553,6 +557,40 @@ export default function CacheManagementPage() {
                             <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
                               {buildData.activeBuild.terminal_tunnel_id || "N/A"}
                             </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Shield className="h-4 w-4" />
+                              <span className="font-medium text-sm">Orchestration Token</span>
+                            </div>
+                            <span className="text-xs font-mono bg-muted p-1 rounded border break-all">
+                              {buildData.activeBuild.orchestration_token
+                                ? `${buildData.activeBuild.orchestration_token.substring(0, 16)}...${buildData.activeBuild.orchestration_token.substring(buildData.activeBuild.orchestration_token.length - 8)}`
+                                : "N/A"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <RefreshCw className="h-4 w-4" />
+                              <span className="font-medium text-sm">Clean Attempts</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono bg-muted px-2 py-1 rounded border">
+                                {buildData.activeBuild.clean_attempts ?? 0}
+                              </span>
+                              {buildData.activeBuild.clean_attempts >= 3 && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Max Reached
+                                </Badge>
+                              )}
+                              {buildData.activeBuild.clean_attempts > 0 && buildData.activeBuild.clean_attempts < 3 && (
+                                <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                                  {3 - buildData.activeBuild.clean_attempts} remaining
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

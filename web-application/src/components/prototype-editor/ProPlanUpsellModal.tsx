@@ -8,7 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ProductKeys } from "@/GlobalConstants";
+import { MessageLimits, ProductKeys } from "@/GlobalConstants";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { Check, Sparkles, Star } from "lucide-react";
@@ -39,45 +40,91 @@ export default function ProPlanUpsellModal({
   const logger = useProductLogger();
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
+  const { userPlan } = useSubscriptionAccess();
+
+  // Determine which tier to suggest based on current plan
+  const getSuggestedUpgrade = () => {
+    switch (userPlan) {
+      case "free":
+        return {
+          tier: ProductKeys.PLUS_SUBSCRIPTION,
+          name: "Plus",
+          price: "$20/month",
+        };
+      case "plus":
+        return {
+          tier: ProductKeys.PRO_SUBSCRIPTION,
+          name: "Pro",
+          price: "$50/month",
+        };
+      case "pro":
+        return {
+          tier: ProductKeys.MAX_SUBSCRIPTION,
+          name: "Max",
+          price: "$200/month",
+        };
+      default:
+        return {
+          tier: ProductKeys.PLUS_SUBSCRIPTION,
+          name: "Plus",
+          price: "$20/month",
+        };
+    }
+  };
+
+  const suggestedUpgrade = getSuggestedUpgrade();
 
   const getUpsellContent = () => {
+    const getMessageLimitForPlan = (plan: string) => {
+      switch (plan) {
+        case "Plus":
+          return MessageLimits.PLUS;
+        case "Pro":
+          return MessageLimits.PRO;
+        case "Max":
+          return MessageLimits.MAX;
+        default:
+          return MessageLimits.PLUS;
+      }
+    };
+
+    const nextTierMessages = getMessageLimitForPlan(suggestedUpgrade.name);
+
     switch (reason) {
       case "free_message_limit_reached":
         return {
-          limitText: `Free limit reached: ${messageCount}/${messageLimit} messages`,
-          title: "Continue building with Pro",
-          description:
-            "Unlock unlimited AI-powered development and keep building amazing apps.",
+          limitText: `Limit reached: ${messageCount}/${messageLimit} messages`,
+          title: `Continue building with ${suggestedUpgrade.name}`,
+          description: `Upgrade to ${suggestedUpgrade.name} for ${nextTierMessages} messages per month and keep building amazing apps.`,
           features: [
-            "100 messages per month",
+            `${nextTierMessages} messages per month`,
             "Priority AI responses",
             "Advanced code generation",
-            "Premium support",
+            suggestedUpgrade.name === "Max" ? "Dedicated support" : "Premium support",
           ],
         };
       case "prototype_creation_limit_reached":
         return {
-          limitText: "Free limit reached: 5/5 projects",
-          title: "Create unlimited projects with Pro",
-          description:
-            "You can only create 5 projects on the free plan. Upgrade to Pro for unlimited projects creation.",
+          limitText: "Project limit reached",
+          title: `Create unlimited projects with ${suggestedUpgrade.name}`,
+          description: `Upgrade to ${suggestedUpgrade.name} for unlimited project creation and advanced features.`,
           features: [
             "Unlimited projects",
+            `${nextTierMessages} messages per month`,
             "Advanced prototyping features",
-            "Priority AI responses",
-            "Premium support",
+            suggestedUpgrade.name === "Max" ? "Dedicated support" : "Priority support",
           ],
         };
       default:
         return {
-          limitText: "Free limit reached",
-          title: "Upgrade to Pro",
+          limitText: "Limit reached",
+          title: `Upgrade to ${suggestedUpgrade.name}`,
           description: "Unlock premium features and continue building.",
           features: [
-            "Unlimited access",
+            `${nextTierMessages} messages per month`,
+            "Unlimited projects",
             "Priority support",
             "Advanced features",
-            "Premium tools",
           ],
         };
     }
@@ -88,7 +135,7 @@ export default function ProPlanUpsellModal({
   const handleUpgrade = async () => {
     try {
       setIsProcessing(true);
-      await handleCheckout(ProductKeys.PRO_SUBSCRIPTION, router);
+      await handleCheckout(suggestedUpgrade.tier, router);
       // Keep processing state for 1 second longer to account for Stripe redirect delay
       setTimeout(() => {
         setIsProcessing(false);
@@ -98,8 +145,8 @@ export default function ProPlanUpsellModal({
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
-      // Fallback to billing page if checkout fails
-      window.open("/dashboard/billing", "_blank");
+      // Fallback to account page if checkout fails
+      window.open("/dashboard/account", "_blank");
       setIsProcessing(false);
     }
   };
@@ -119,7 +166,9 @@ export default function ProPlanUpsellModal({
             <div className="p-3 rounded-xl bg-muted">
               <Star className="w-6 h-6 text-primary" />
             </div>
-            <DialogTitle className="text-xl">Upgrade to Pro</DialogTitle>
+            <DialogTitle className="text-xl">
+              Upgrade to {suggestedUpgrade.name}
+            </DialogTitle>
           </div>
         </DialogHeader>
 
@@ -162,7 +211,7 @@ export default function ProPlanUpsellModal({
             ) : (
               <>
                 <Star className="w-4 h-4 mr-2" />
-                Upgrade to Pro
+                Upgrade to {suggestedUpgrade.name} - {suggestedUpgrade.price}
               </>
             )}
           </Button>
