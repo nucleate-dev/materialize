@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { MessageLimits, ProductKeys } from "@/GlobalConstants";
+import { CreditLimits, ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -54,7 +54,7 @@ function AccountSettings() {
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [memberSince, setMemberSince] = useState<Date>(new Date());
-  const [messageCount, setMessageCount] = useState<number>(0);
+  const [creditsUsed, setCreditsUsed] = useState<number>(0);
   const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
   const [isProcessingUpgrade, setIsProcessingUpgrade] =
     useState<boolean>(false);
@@ -74,40 +74,41 @@ function AccountSettings() {
     }
   }, [user.user]);
 
-  // Fetch message count for current billing period
+  // Fetch credits used for current billing period
   useEffect(() => {
-    async function fetchMessageCount() {
+    async function fetchCreditsUsed() {
       if (!user.user?.id || loadingSubscriptionData) return;
 
       setLoadingUsageCount(true);
       try {
-        const { count, error } = await supabase
+        const { data, error } = await supabase
           .from("api_usage")
-          .select("*", { count: "exact", head: true })
+          .select("credits_used")
           .eq("user_id", user.user.id)
           .gte("created_at", currentPeriodStart.toISOString())
           .lte("created_at", currentPeriodEnd.toISOString());
 
         if (error) {
-          logger.debug("error", "Error fetching message count:", {
+          logger.debug("error", "Error fetching credits used:", {
             error: error.message,
           });
-          setMessageCount(0);
+          setCreditsUsed(0);
         } else {
-          setMessageCount(count || 0);
+          const total = data?.reduce((sum, row) => sum + row.credits_used, 0) || 0;
+          setCreditsUsed(total);
         }
       } catch (error) {
-        logger.debug("error", "Error fetching message count:", {
+        logger.debug("error", "Error fetching credits used:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        setMessageCount(0);
+        setCreditsUsed(0);
       } finally {
         setLoadingUsageCount(false);
       }
     }
 
-    fetchMessageCount();
+    fetchCreditsUsed();
   }, [
     user.user?.id,
     currentPeriodStart,
@@ -116,25 +117,25 @@ function AccountSettings() {
     logger,
   ]);
 
-  // Calculate message limit based on subscription plan
-  const getMessageLimit = () => {
+  // Calculate credit limit based on subscription plan
+  const getCreditLimit = () => {
     switch (userPlan) {
       case "free":
-        return MessageLimits.FREE;
+        return CreditLimits.FREE;
       case "plus":
-        return MessageLimits.PLUS;
+        return CreditLimits.PLUS;
       case "pro":
-        return MessageLimits.PRO;
+        return CreditLimits.PRO;
       case "max":
-        return MessageLimits.MAX;
+        return CreditLimits.MAX;
       case "team":
-        return MessageLimits.TEAM;
+        return CreditLimits.TEAM;
       default:
-        return MessageLimits.FREE;
+        return CreditLimits.FREE;
     }
   };
 
-  const messageLimit = getMessageLimit();
+  const creditLimit = getCreditLimit();
 
   // Convert userPlan to ProductKeys format
   const getCurrentSubscription = () => {
@@ -170,7 +171,7 @@ function AccountSettings() {
   };
 
   const getUsagePercentage = () => {
-    return messageLimit > 0 ? (messageCount / messageLimit) * 100 : 0;
+    return creditLimit > 0 ? (creditsUsed / creditLimit) * 100 : 0;
   };
 
   const getInitials = (name: string) => {
@@ -300,7 +301,7 @@ function AccountSettings() {
               <p className="text-sm text-muted-foreground">
                 {currentSubscription === ProductKeys.FREE_SUBSCRIPTION
                   ? "Free forever with basic features"
-                  : `${messageLimit} messages per billing cycle`}
+                  : `${creditLimit} credits per billing cycle`}
               </p>
             </div>
             <Badge
@@ -416,7 +417,7 @@ function AccountSettings() {
             <Progress value={getUsagePercentage()} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>0</span>
-              <span>{messageLimit} messages</span>
+              <span>{creditLimit} credits</span>
             </div>
           </div>
 
@@ -449,8 +450,8 @@ function AccountSettings() {
                   <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
                     <AlertCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800 dark:text-red-200">
-                      {`You've exceeded your free plan limit (${messageCount}/
-                      ${messageLimit} messages). Upgrade to Pro to continue using
+                      {`You've exceeded your free plan limit (${creditsUsed.toFixed(1)}/
+                      ${creditLimit} credits). Upgrade to Pro to continue using
                       the service this period.`}
                     </AlertDescription>
                   </Alert>
