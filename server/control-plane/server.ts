@@ -105,13 +105,6 @@ fastify.register(cors, {
     'x-orchestration-token',
   ],
 });
-await fastify.register(websocket, {
-  options: {
-    perMessageDeflate: true,
-    // raise if you plan to paste big chunks into the chat
-    maxPayload: 1024 * 1024 * 4, // 4MB
-  },
-});
 
 fastify.addHook('onRequest', async (req) => {
   const { requestId, traceId } = genRequestIds(
