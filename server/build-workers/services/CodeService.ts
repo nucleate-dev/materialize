@@ -23,6 +23,7 @@ import {
 } from "../types/ChatTypes.js";
 import { Database } from "../types/supabase.js";
 import { SYSTEM_PROMPT } from "../utils/ClaudeCodePrompts.js";
+import { processImage } from "../utils/imageProcessing.js";
 import {
   PrototypeAssetInputWithContent,
   PrototypeFileInput,
@@ -31,7 +32,6 @@ import {
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
-import { processImage } from "../utils/imageProcessing.js";
 /**
  * FILE TRACKING STRATEGY
  *
@@ -345,7 +345,10 @@ export class CodeService {
 
     // Check if design system changed or needs to be loaded
     if (custom_design_system_id !== this.sessionState.designSystemId) {
-      if (custom_design_system_id === null || custom_design_system_id === undefined) {
+      if (
+        custom_design_system_id === null ||
+        custom_design_system_id === undefined
+      ) {
         // Clear design system
         this.sessionState.designSystemId = null;
         this.sessionState.designSystemRules = null;
@@ -360,21 +363,15 @@ export class CodeService {
             .single();
 
           if (error) {
-            this.logger.error(
-              error,
-              "Failed to fetch design system",
-              { designSystemId: custom_design_system_id }
-            );
+            this.logger.error(error, "Failed to fetch design system", {
+              designSystemId: custom_design_system_id,
+            });
             // Continue with default prompt - don't fail the query
             this.sessionState.designSystemId = null;
             this.sessionState.designSystemRules = null;
           } else if (designSystem) {
             this.sessionState.designSystemId = custom_design_system_id;
-            this.sessionState.designSystemRules = designSystem.rules;
-            this.logger.info("Design system loaded", {
-              designSystemId: custom_design_system_id,
-              rulesLength: designSystem.rules?.length || 0,
-            });
+            this.sessionState.designSystemRules = designSystem;
           } else {
             this.logger.warn("Design system not found", {
               designSystemId: custom_design_system_id,
@@ -386,7 +383,7 @@ export class CodeService {
           this.logger.error(
             error instanceof Error ? error : new Error(String(error)),
             "Error fetching design system",
-            { designSystemId: custom_design_system_id }
+            { designSystemId: custom_design_system_id },
           );
           // Continue with default prompt - don't fail the query
           this.sessionState.designSystemId = null;
@@ -493,7 +490,9 @@ export class CodeService {
         // Query Claude with session resumption if available
         // Build system prompt with optional design system rules
         const systemPromptAppend = this.sessionState.designSystemRules
-          ? SYSTEM_PROMPT + '\n\n## Custom Design System Rules:\n' + this.sessionState.designSystemRules
+          ? SYSTEM_PROMPT +
+            "\n\n## Custom Design System Rules:\n" +
+            this.sessionState.designSystemRules
           : SYSTEM_PROMPT;
 
         const queryOptions = {

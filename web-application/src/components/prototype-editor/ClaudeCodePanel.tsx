@@ -1741,10 +1741,28 @@ export default function ClaudeCodePanel({
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2 flex-1">
-          <div
-            className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"
-              }`}
-          />
+          {/* Connection Status Badge */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                  isConnected
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                    : "bg-red-500/10 text-red-700 dark:text-red-400"
+                }`}>
+                  <div
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
+                      }`}
+                  />
+                  <span>{isConnected ? "Connected" : "Disconnected"}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isConnected ? "WebSocket connection active" : "WebSocket disconnected"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <span className="text-sm font-medium truncate max-w-[150px]">{prototypeTitle}</span>
 
           {/* Session Selector */}
@@ -1800,6 +1818,16 @@ export default function ClaudeCodePanel({
           </TooltipProvider>
         </div>
         <div className="flex gap-2">
+          {/* Reconnect Button - shown when disconnected */}
+          {!isConnected && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={connect}
+            >
+              Reconnect
+            </Button>
+          )}
           {isProcessing && (
             <Button
               size="sm"

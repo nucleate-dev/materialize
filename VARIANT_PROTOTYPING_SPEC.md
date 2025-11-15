@@ -65,7 +65,7 @@ Each variant has a clean route path:
 /paywall-v3
 ```
 
-The multi-screen preview shows these routes simultaneously in separate mobile frames.
+The multi-screen preview shows these routes simultaneously in separate mobile frames. **Each frame displays the route path prominently at the top** (e.g., a badge showing `/paywall-v1`) so users can easily identify which variant they're viewing.
 
 ## Current Implementation Status
 
@@ -462,7 +462,47 @@ const [pendingVariants, setPendingVariants] = useState<{
 } | null>(null);
 ```
 
-#### 2.2 Add Mode Toggle UI
+Add effect to load mode from chat session (in the same section where chat session is loaded):
+```typescript
+// Load mode from chat session
+useEffect(() => {
+  if (chatSessionId) {
+    const session = allChatSessions.find(s => s.id === chatSessionId);
+    if (session?.mode) {
+      setChatMode(session.mode as 'standard' | 'prototyping');
+    }
+  }
+}, [chatSessionId, allChatSessions]);
+```
+
+#### 2.2 Add Mode Toggle UI and Persistence
+
+Create a handler to save mode changes to database:
+```typescript
+const handleModeChange = async (newMode: 'standard' | 'prototyping') => {
+  if (!chatSessionId) return;
+
+  try {
+    setChatMode(newMode);
+
+    // Save to database
+    const { error } = await supabase
+      .from('prototype_chat_sessions')
+      .update({ mode: newMode })
+      .eq('id', chatSessionId);
+
+    if (error) {
+      logger.debug('error', 'Failed to update chat mode', { error });
+    } else {
+      logger.debug('log', 'Chat mode updated', { mode: newMode });
+    }
+  } catch (error) {
+    logger.debug('error', 'Error updating chat mode', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+```
 
 In the header section (around line 1742), add mode toggle:
 ```tsx
@@ -476,7 +516,7 @@ In the header section (around line 1742), add mode toggle:
       <Button
         variant={chatMode === 'standard' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => setChatMode('standard')}
+        onClick={() => handleModeChange('standard')}
         className="h-7 text-xs px-2"
       >
         Standard
@@ -484,7 +524,7 @@ In the header section (around line 1742), add mode toggle:
       <Button
         variant={chatMode === 'prototyping' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => setChatMode('prototyping')}
+        onClick={() => handleModeChange('prototyping')}
         className="h-7 text-xs px-2"
       >
         Prototyping
@@ -641,23 +681,21 @@ export default function ClaudeCodePanel({
 
 **File:** `web-application/src/app/dashboard/prototypes/[prototype_id]/InternalPrototypePage.tsx`
 
-The parent component needs to:
-1. Accept the `onShowVariants` callback from ClaudeCodePanel
-2. Pass it down to MaterializeRenderSection (or manage state directly)
-
-**Approach 1: Direct State Management (Recommended)**
+The parent component needs to handle the `onShowVariants` callback from ClaudeCodePanel and update MaterializeRenderSection's mobile screens.
 
 ```typescript
 const handleShowVariants = useCallback((paths: string[]) => {
-  // Directly update MaterializeRenderSection state
-  // This requires MaterializeRenderSection to expose a way to update its screens
-  // OR the parent manages mobileScreens state and passes it as a prop
+  // When user confirms showing variants in ClaudeCodePanel's modal,
+  // this callback updates the mobile preview screens
 
-  // TODO: Determine how MaterializeRenderSection's mobileScreens state is managed
-  // Option A: MaterializeRenderSection exposes imperative handle
-  // Option B: Parent owns mobileScreens state and passes it down
+  // Implementation will depend on how MaterializeRenderSection exposes
+  // its screen update functionality (prop, ref, or context)
 
-  console.log("Show variants requested:", paths);
+  // Action: Replace current screens with variant paths
+  setMobileScreens(paths.map((path, idx) => ({
+    id: generateId(),
+    path,
+  })));
 }, []);
 
 <ClaudeCodePanel
@@ -666,35 +704,11 @@ const handleShowVariants = useCallback((paths: string[]) => {
 />
 ```
 
-**Approach 2: Shared State Context**
-
-If MaterializeRenderSection and ClaudeCodePanel are far apart in the component tree, consider:
-- Creating a `PrototypeEditorContext` that holds `mobileScreens` state
-- Both components consume the context
-- ClaudeCodePanel updates context when variants are confirmed
-
-#### 3.2 Questions for MaterializeRenderSection Integration
-
-**Key Questions:**
-1. **Who owns `mobileScreens` state?**
-   - Currently seems to be internal to MaterializeRenderSection
-   - Should it be lifted to parent (InternalPrototypePage)?
-   - Or should MaterializeRenderSection expose a method to update it?
-
-2. **How does state flow?**
-   - ClaudeCodePanel → Parent → MaterializeRenderSection (via props)
-   - ClaudeCodePanel → Shared Context ← MaterializeRenderSection
-   - ClaudeCodePanel → Imperative handle on MaterializeRenderSection
-
-3. **What happens to existing screens?**
-   - Replace all screens with variants
-   - Add variants alongside existing screens
-   - Let user choose in the modal
-
-**Recommended Approach:**
-- Lift `mobileScreens` state to parent component
-- Pass `mobileScreens` and `setMobileScreens` to MaterializeRenderSection
-- `handleShowVariants` directly calls `setMobileScreens`
+**Implementation Note:**
+The exact implementation depends on MaterializeRenderSection's current architecture. You may need to:
+- Lift `mobileScreens` state to parent component if it's currently internal
+- Or expose an update method from MaterializeRenderSection via ref
+- Or use a shared context if components are far apart in the tree
 
 ## Technical Considerations
 
@@ -724,26 +738,52 @@ The current implementation uses a file watcher (CodeService.ts:1605-1694) which 
 3. User can manually trigger screen addition if needed
 4. Future: Detect variant files and auto-suggest showing them
 
-## Open Questions
+## Design Decisions
 
-1. **Mode Persistence:**
-   - Should mode be saved per-session in `prototype_chat_sessions`?
-   - Or is it ephemeral (resets on page reload)?
-   - **Recommendation:** Ephemeral for now, always default to Standard
+### Mode Persistence
+**Decision:** Mode is saved per-session in `prototype_chat_sessions` table.
 
-2. **Variant File Cleanup:**
-   - Should there be a "Clear all variants" action?
-   - How do users distinguish variant files from production code?
-   - **Recommendation:** Manual cleanup for now, consider future folder badge in file tree
+- Add `mode` column to `prototype_chat_sessions` table
+- Default to 'standard' for new sessions
+- Mode persists across page reloads
+- Users can switch modes within a session
 
-3. **Multi-screen State Management:**
-   - See "Phase 3.2 Questions" above
-   - **Recommendation:** Lift state to parent, pass as props
+**Implementation:**
+```sql
+ALTER TABLE prototype_chat_sessions
+ADD COLUMN mode TEXT DEFAULT 'standard' CHECK (mode IN ('standard', 'prototyping'));
+```
 
-4. **Tool Validation:**
-   - Should we validate that variant files exist before showing modal?
-   - What if AI calls `show_variants` with invalid paths?
-   - **Recommendation:** Show modal regardless, let iframes show 404 if paths are invalid
+### Variant Path Display
+**Decision:** Show the route path prominently on top of each variant preview.
+
+MaterializeRenderSection should display the current route path (e.g., `/paywall-v1`) above each mobile preview frame. This helps users:
+- Quickly identify which variant they're viewing
+- Understand the relationship between files and previews
+- Navigate between variants when editing
+
+The path should be displayed in a badge or label, matching the existing UI style.
+
+### Variant File Cleanup
+**Decision:** No special UI for clearing variants folder initially.
+
+Users manage variant files like any other files in the codebase:
+- Delete via file tree
+- Ask AI to remove them in chat
+- Manual file system cleanup
+
+Future enhancement: Add "Clear variants folder" quick action in file tree.
+
+### Tool Validation
+**Decision:** Show modal regardless of file validation.
+
+When AI calls `show_variants`:
+- Display the confirmation modal immediately
+- Don't validate that files exist beforehand
+- Let iframes show 404 if paths are invalid
+- Users can fix via chat if paths are wrong
+
+This keeps the flow simple and fast.
 
 ## Success Metrics
 
@@ -754,6 +794,10 @@ The current implementation uses a file watcher (CodeService.ts:1605-1694) which 
 
 ## Implementation Checklist
 
+### Database
+- [ ] Add `mode` column to `prototype_chat_sessions` table
+- [ ] Run migration: `ALTER TABLE prototype_chat_sessions ADD COLUMN mode TEXT DEFAULT 'standard' CHECK (mode IN ('standard', 'prototyping'));`
+
 ### Backend
 - [ ] Add `mode` to `ChatQueryData` type (ChatTypes.ts)
 - [ ] Add `PROTOTYPING_MODE_PROMPT` constant (ClaudeCodePrompts.ts)
@@ -762,19 +806,25 @@ The current implementation uses a file watcher (CodeService.ts:1605-1694) which 
 - [ ] Handle `show_variants` in PreToolUse hook (CodeService.ts:520)
 - [ ] Add `ChatEvent.SHOW_VARIANTS` event type (ChatTypes.ts)
 
-### Frontend
+### Frontend - ClaudeCodePanel
 - [ ] Add mode state to ClaudeCodePanel (ClaudeCodePanel.tsx:144)
+- [ ] Load mode from chat session on mount
 - [ ] Add mode toggle UI (ClaudeCodePanel.tsx:1742)
+- [ ] Save mode to database when changed
 - [ ] Pass mode in WebSocket query (ClaudeCodePanel.tsx:1510)
 - [ ] Handle SHOW_VARIANTS event (ClaudeCodePanel.tsx:862)
 - [ ] Add variants confirmation modal (ClaudeCodePanel.tsx:2287)
 - [ ] Add `onShowVariants` prop (ClaudeCodePanel.tsx:68)
 
+### Frontend - MaterializeRenderSection
+- [ ] Display route path above each mobile preview frame
+- [ ] Style path badge to match existing UI
+- [ ] Ensure path updates when navigation occurs in iframe
+
 ### Integration
 - [ ] Add `handleShowVariants` callback (InternalPrototypePage.tsx)
-- [ ] Lift `mobileScreens` state to parent OR expose update method
+- [ ] Implement screen update logic based on MaterializeRenderSection architecture
 - [ ] Pass callback to ClaudeCodePanel
-- [ ] Update MaterializeRenderSection to accept screens prop
 
 ### Testing
 - [ ] Test mode toggle UI
