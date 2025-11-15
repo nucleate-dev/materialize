@@ -51,7 +51,6 @@ import {
   type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import { hasChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
@@ -424,11 +423,6 @@ export default function InternalPrototypePage() {
           stack:
             fetchViewError instanceof Error ? fetchViewError.stack : undefined,
         });
-        setShouldTriggerInitialFetch(false);
-        return;
-      }
-
-      if (hasChatIntent(prototypeId)) {
         setShouldTriggerInitialFetch(false);
         return;
       }
