@@ -74,31 +74,34 @@ function AccountSettings() {
     }
   }, [user.user]);
 
-  // Fetch credits used for current billing period
+  // Fetch credits used from all unexpired grants
   useEffect(() => {
     async function fetchCreditsUsed() {
       if (!user.user?.id || loadingSubscriptionData) return;
 
       setLoadingUsageCount(true);
       try {
+        // Query all unexpired credit grants
         const { data, error } = await supabase
-          .from("api_usage")
-          .select("credits_used")
+          .from("credit_grants")
+          .select("credits_granted, credits_remaining")
           .eq("user_id", user.user.id)
-          .gte("created_at", currentPeriodStart.toISOString())
-          .lte("created_at", currentPeriodEnd.toISOString());
+          .gt("expires_at", new Date().toISOString());
 
         if (error) {
-          logger.debug("error", "Error fetching credits used:", {
+          logger.debug("error", "Error fetching credits:", {
             error: error.message,
           });
           setCreditsUsed(0);
         } else {
-          const total = data?.reduce((sum, row) => sum + row.credits_used, 0) || 0;
-          setCreditsUsed(total);
+          // Calculate total granted and total used from remaining
+          const totalGranted = data?.reduce((sum, row) => sum + row.credits_granted, 0) || 0;
+          const totalRemaining = data?.reduce((sum, row) => sum + row.credits_remaining, 0) || 0;
+          const totalUsed = totalGranted - totalRemaining;
+          setCreditsUsed(totalUsed);
         }
       } catch (error) {
-        logger.debug("error", "Error fetching credits used:", {
+        logger.debug("error", "Error fetching credits:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
@@ -111,8 +114,6 @@ function AccountSettings() {
     fetchCreditsUsed();
   }, [
     user.user?.id,
-    currentPeriodStart,
-    currentPeriodEnd,
     loadingSubscriptionData,
     logger,
   ]);

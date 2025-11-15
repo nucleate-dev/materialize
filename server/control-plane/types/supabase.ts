@@ -17,6 +17,7 @@ export type Database = {
       api_usage: {
         Row: {
           created_at: string | null;
+          credit_grant_id: string | null;
           credits_used: number;
           id: number;
           prototype_id: string | null;
@@ -24,6 +25,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string | null;
+          credit_grant_id?: string | null;
           credits_used?: number;
           id?: never;
           prototype_id?: string | null;
@@ -31,6 +33,7 @@ export type Database = {
         };
         Update: {
           created_at?: string | null;
+          credit_grant_id?: string | null;
           credits_used?: number;
           id?: never;
           prototype_id?: string | null;
@@ -42,6 +45,13 @@ export type Database = {
             columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'api_usage_credit_grant_id_fkey';
+            columns: ['credit_grant_id'];
+            isOneToOne: false;
+            referencedRelation: 'credit_grants';
             referencedColumns: ['id'];
           },
         ];
@@ -203,31 +213,34 @@ export type Database = {
       };
       credit_grants: {
         Row: {
-          billing_period_end: string;
-          billing_period_start: string;
           created_at: string;
           credits_granted: number;
+          credits_remaining: number;
+          expires_at: string;
           grant_reason: string | null;
+          grant_type: string;
           id: string;
           subscription_id: string | null;
           user_id: string;
         };
         Insert: {
-          billing_period_end: string;
-          billing_period_start: string;
           created_at?: string;
           credits_granted: number;
+          credits_remaining: number;
+          expires_at: string;
           grant_reason?: string | null;
+          grant_type?: string;
           id?: string;
           subscription_id?: string | null;
           user_id: string;
         };
         Update: {
-          billing_period_end?: string;
-          billing_period_start?: string;
           created_at?: string;
           credits_granted?: number;
+          credits_remaining?: number;
+          expires_at?: string;
           grant_reason?: string | null;
+          grant_type?: string;
           id?: string;
           subscription_id?: string | null;
           user_id?: string;

@@ -163,23 +163,21 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
-  // Grant credits to the user for this billing period
+  // Grant credits to the user with expiration date
   const planKey = getPlanKey(subscription.items.data[0].price.id);
   const creditsToGrant = getCreditsForPlan(planKey);
-  const billingPeriodStart = new Date(
-    subscription.items.data[0].current_period_start * 1000,
-  ).toISOString();
-  const billingPeriodEnd = new Date(
+  const expiresAt = new Date(
     subscription.items.data[0].current_period_end * 1000,
   ).toISOString();
 
   const { error: creditGrantError } = await supabase.from("credit_grants").insert({
     user_id: userId,
     credits_granted: creditsToGrant,
+    credits_remaining: creditsToGrant,
     subscription_id: subscription.id,
     grant_reason: "subscription_renewal",
-    billing_period_start: billingPeriodStart,
-    billing_period_end: billingPeriodEnd,
+    grant_type: "subscription",
+    expires_at: expiresAt,
   });
 
   if (creditGrantError) {

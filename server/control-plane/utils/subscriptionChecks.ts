@@ -199,138 +199,12 @@ export async function hasExceededPrototypeCreationLimit(
   };
 }
 
-/**
- * Get the total credits granted to a user for the current billing period
- *
- * @param jwtToken - JWT token for authentication
- * @param userId - The user ID to check
- * @param currentPeriodStart - Start of the billing period
- * @param currentPeriodEnd - End of the billing period
- * @param log2 - Logger instance
- * @returns Promise<number> - Total credits granted in the period
- */
-export async function getTotalCreditsGranted(
-  jwtToken: string,
-  userId: string,
-  currentPeriodStart: Date,
-  currentPeriodEnd: Date,
-  log2: SystemLogger,
-): Promise<number> {
-  const supabaseClient = createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      },
-    },
-  );
-
-  try {
-    const periodStart = currentPeriodStart.toISOString();
-    const periodEnd = currentPeriodEnd.toISOString();
-
-    const { data, error } = await supabaseClient
-      .from('credit_grants')
-      .select('credits_granted')
-      .eq('user_id', userId)
-      .gte('billing_period_start', periodStart)
-      .lte('billing_period_end', periodEnd);
-
-    if (error) {
-      log2.error(error, 'Error fetching credit grants from supabase:', {
-        functionName: 'getTotalCreditsGranted',
-      });
-      return 0;
-    }
-
-    if (!data || data.length === 0) {
-      return 0;
-    }
-
-    // Sum all credits granted in this period
-    const totalCredits = data.reduce(
-      (sum, grant) => sum + grant.credits_granted,
-      0,
-    );
-    return totalCredits;
-  } catch (error) {
-    log2.error(error, 'Error in getTotalCreditsGranted:', {
-      functionName: 'getTotalCreditsGranted',
-    });
-    return 0;
-  }
-}
+// DEPRECATED: getTotalCreditsGranted and getTotalCreditsUsed
+// These functions are no longer used with the new expirable credits system
+// Credits are now tracked per-grant with individual expiration dates
 
 /**
- * Get the total credits used by a user in the current billing period
- *
- * @param jwtToken - JWT token for authentication
- * @param userId - The user ID to check
- * @param currentPeriodStart - Start of the billing period
- * @param currentPeriodEnd - End of the billing period
- * @param log2 - Logger instance
- * @returns Promise<number> - Total credits used in the period
- */
-export async function getTotalCreditsUsed(
-  jwtToken: string,
-  userId: string,
-  currentPeriodStart: Date,
-  currentPeriodEnd: Date,
-  log2: SystemLogger,
-): Promise<number> {
-  const supabaseClient = createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      },
-    },
-  );
-
-  try {
-    const periodStart = currentPeriodStart.toISOString();
-    const periodEnd = currentPeriodEnd.toISOString();
-
-    const { data, error } = await supabaseClient
-      .from('api_usage')
-      .select('credits_used')
-      .eq('user_id', userId)
-      .gte('created_at', periodStart)
-      .lte('created_at', periodEnd);
-
-    if (error) {
-      log2.error(error, 'Error fetching API usage from supabase:', {
-        functionName: 'getTotalCreditsUsed',
-      });
-      return 0;
-    }
-
-    if (!data || data.length === 0) {
-      return 0;
-    }
-
-    // Sum all credits used in this period
-    const totalCredits = data.reduce(
-      (sum, usage) => sum + usage.credits_used,
-      0,
-    );
-    return totalCredits;
-  } catch (error) {
-    log2.error(error, 'Error in getTotalCreditsUsed:', {
-      functionName: 'getTotalCreditsUsed',
-    });
-    return 0;
-  }
-}
-
-/**
- * Get the remaining credits for a user in the current billing period
+ * Get the remaining credits for a user across all unexpired credit grants
  *
  * @param jwtToken - JWT token for authentication
  * @param userId - The user ID to check
@@ -351,24 +225,43 @@ export async function getRemainingCredits(
   currentPeriodEnd: Date;
   stripeCustomerId: string;
 }> {
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      },
+    },
+  );
+
   try {
     const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
 
-    const creditsGranted = await getTotalCreditsGranted(
-      jwtToken,
-      userId,
-      subscriptionInfo.currentPeriodStart,
-      subscriptionInfo.currentPeriodEnd,
-      log2,
-    );
+    // Get total credits remaining from all unexpired grants
+    const { data: grants, error: grantsError } = await supabaseClient
+      .from('credit_grants')
+      .select('credits_granted, credits_remaining')
+      .eq('user_id', userId)
+      .gt('expires_at', new Date().toISOString());
 
-    const creditsUsed = await getTotalCreditsUsed(
-      jwtToken,
-      userId,
-      subscriptionInfo.currentPeriodStart,
-      subscriptionInfo.currentPeriodEnd,
-      log2,
-    );
+    if (grantsError) {
+      log2.error(grantsError, 'Error fetching credit grants:', {
+        functionName: 'getRemainingCredits',
+      });
+    }
+
+    const totalGranted = grants?.reduce(
+      (sum, g) => sum + g.credits_granted,
+      0,
+    ) || 0;
+    const totalRemaining = grants?.reduce(
+      (sum, g) => sum + g.credits_remaining,
+      0,
+    ) || 0;
+    const totalUsed = totalGranted - totalRemaining;
 
     // Get the credit limit for this plan
     let creditLimit = 0;
@@ -392,14 +285,10 @@ export async function getRemainingCredits(
         creditLimit = CreditLimits.FREE;
     }
 
-    // If no credits have been granted yet, use the plan limit as granted
-    const effectiveGranted = creditsGranted > 0 ? creditsGranted : creditLimit;
-    const remaining = effectiveGranted - creditsUsed;
-
     return {
-      remaining,
-      granted: effectiveGranted,
-      used: creditsUsed,
+      remaining: totalRemaining,
+      granted: totalGranted,
+      used: totalUsed,
       limit: creditLimit,
       plan: subscriptionInfo.userPlan,
       currentPeriodStart: subscriptionInfo.currentPeriodStart,
