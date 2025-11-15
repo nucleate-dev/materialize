@@ -21,13 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import type {
-  APIResponse,
-  CreatePrototypeErrorResponse,
-  CreatePrototypeRequestBody,
-  CreatePrototypeSuccessResponse,
-} from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline";
 import { useAtom } from "jotai";
@@ -55,6 +50,7 @@ const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
 
 export default function DashboardPage() {
   const logger = useProductLogger();
+  const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -122,43 +118,10 @@ export default function DashboardPage() {
         return;
       }
 
-      let result: APIResponse<
-        CreatePrototypeSuccessResponse,
-        CreatePrototypeErrorResponse
-      >;
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-
-        if (!token) {
-          logger.debug("error", "No authentication token available");
-          return;
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              name: "New Prototype",
-              design_style: designStyle,
-              custom_design_system: customDesignSystemId ?? undefined,
-            } as CreatePrototypeRequestBody),
-          },
-        );
-
-        result = await response.json();
-      } catch (error) {
-        logger.debug("error", "Error creating prototype:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        return;
-      }
+      const result = await createPrototype({
+        design_style: designStyle,
+        custom_design_system: customDesignSystemId ?? undefined,
+      });
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false);

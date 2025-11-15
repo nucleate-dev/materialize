@@ -1,17 +1,11 @@
 "use client";
-import { supabase } from "@/ClientConstants";
 import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
-import type {
-  APIResponse,
-  CreatePrototypeErrorResponse,
-  CreatePrototypeRequestBody,
-  CreatePrototypeSuccessResponse,
-} from "@/lib/types/serverAPITypes";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import {
@@ -54,6 +48,7 @@ function MinimalDepthElements() {
 
 function HeroSection() {
   const logger = useProductLogger();
+  const { createPrototype } = useCreatePrototype();
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -83,41 +78,7 @@ function HeroSection() {
         return;
       }
 
-      let result: APIResponse<
-        CreatePrototypeSuccessResponse,
-        CreatePrototypeErrorResponse
-      >;
-      try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-
-        if (!token) {
-          logger.debug("error", "No authentication token available");
-          return;
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/create`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              name: "New Prototype",
-            } as CreatePrototypeRequestBody),
-          },
-        );
-
-        result = await response.json();
-      } catch (error) {
-        logger.debug("error", "Error creating prototype:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        return;
-      }
+      const result = await createPrototype();
 
       if (result.data) {
         setChatIntent(result.data.prototype_id, content, false);
