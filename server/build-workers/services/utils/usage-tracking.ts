@@ -22,16 +22,12 @@ export async function trackApiUsageBuildWorker(
   });
 
   try {
-    let creditsRemaining = creditsUsed;
-    const consumedGrants: Array<{ grantId: string; creditsConsumed: number }> = [];
-
-    // Find all available credit grants ordered by expiration (FIFO)
+    const nowIso = new Date().toISOString();
     const { data: grants, error: grantsError } = await supabase
       .from("credit_grants")
-      .select("id, credits_remaining, expires_at")
+      .select("id, credits_granted, expires_at")
       .eq("user_id", userId)
-      .gt("credits_remaining", 0)
-      .gt("expires_at", new Date().toISOString())
+      .gt("expires_at", nowIso)
       .order("expires_at", { ascending: true });
 
     if (grantsError) {
@@ -50,8 +46,45 @@ export async function trackApiUsageBuildWorker(
       throw new Error("No available credits");
     }
 
-    // Consume credits from grants using FIFO order
-    for (const grant of grants) {
+    const grantIds = grants.map(grant => grant.id);
+    const usageMap = new Map<string, number>();
+
+    if (grantIds.length > 0) {
+      const { data: usageRows, error: usageError } = await supabase
+        .from("api_usage")
+        .select("credit_grant_id, credits_used")
+        .eq("user_id", userId)
+        .in("credit_grant_id", grantIds);
+
+      if (usageError) {
+        log2.error(usageError, "Error fetching api_usage for credits:", {
+          functionName: "trackApiUsageBuildWorker",
+          userId,
+        });
+        throw new Error(usageError.message);
+      }
+
+      usageRows?.forEach(row => {
+        if (!row.credit_grant_id) return;
+        const current = usageMap.get(row.credit_grant_id) || 0;
+        usageMap.set(row.credit_grant_id, current + row.credits_used);
+      });
+    }
+
+    const grantsWithRemaining = grants
+      .map(grant => {
+        const used = usageMap.get(grant.id) || 0;
+        return {
+          id: grant.id,
+          credits_remaining: Math.max(0, grant.credits_granted - used),
+        };
+      })
+      .filter(grant => grant.credits_remaining > 0);
+
+    let creditsRemaining = creditsUsed;
+    const consumedGrants: Array<{ grantId: string; creditsConsumed: number }> = [];
+
+    for (const grant of grantsWithRemaining) {
       if (creditsRemaining <= 0) break;
 
       const creditsToConsume = Math.min(creditsRemaining, grant.credits_remaining);
@@ -63,9 +96,11 @@ export async function trackApiUsageBuildWorker(
       creditsRemaining -= creditsToConsume;
     }
 
-    // Check if we have enough credits
     if (creditsRemaining > 0) {
-      const totalAvailable = grants.reduce((sum, g) => sum + g.credits_remaining, 0);
+      const totalAvailable = grantsWithRemaining.reduce(
+        (sum, g) => sum + g.credits_remaining,
+        0,
+      );
       log2.error("Insufficient credits available", {
         functionName: "trackApiUsageBuildWorker",
         userId,
@@ -75,7 +110,7 @@ export async function trackApiUsageBuildWorker(
       throw new Error(`Insufficient credits: need ${creditsUsed}, have ${totalAvailable}`);
     }
 
-    // Insert api_usage records and update credit_grants
+    // Insert api_usage records
     for (const { grantId, creditsConsumed } of consumedGrants) {
       // Insert usage record linked to the grant
       const { error: insertError } = await supabase
@@ -95,40 +130,13 @@ export async function trackApiUsageBuildWorker(
         });
         throw new Error(insertError.message);
       }
-
-      // Update credits_remaining on the grant
-      const grant = grants.find(g => g.id === grantId);
-      if (!grant) continue;
-
-      const newCreditsRemaining = grant.credits_remaining - creditsConsumed;
-
-      const { error: updateError } = await supabase
-        .from("credit_grants")
-        .update({ credits_remaining: newCreditsRemaining })
-        .eq("id", grantId);
-
-      if (updateError) {
-        log2.error(updateError, "Error updating credit_grant:", {
-          functionName: "trackApiUsageBuildWorker",
-          userId,
-          grantId,
-        });
-        throw new Error(updateError.message);
-      }
     }
 
-    // Calculate total remaining credits
-    const { data: allGrants } = await supabase
-      .from("credit_grants")
-      .select("credits_remaining")
-      .eq("user_id", userId)
-      .gt("credits_remaining", 0)
-      .gt("expires_at", new Date().toISOString());
-
-    const totalRemainingCredits = allGrants?.reduce(
-      (sum, g) => sum + g.credits_remaining,
+    const totalRemainingCredits = Math.max(
       0,
-    ) || 0;
+      grantsWithRemaining.reduce((sum, grant) => sum + grant.credits_remaining, 0) -
+        creditsUsed,
+    );
 
     return {
       totalRemainingCredits,

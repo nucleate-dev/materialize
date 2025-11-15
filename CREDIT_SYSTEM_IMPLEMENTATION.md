@@ -52,20 +52,18 @@ Deprecated `MessageLimits` in favor of the new credit system.
 ### 4. Credit Management Utilities ✅
 **Location:** `server/control-plane/utils/subscriptionChecks.ts`
 
-Added new functions:
-- **`getTotalCreditsGranted()`** - Calculates total credits granted in current billing period
-- **`getTotalCreditsUsed()`** - Calculates total credits consumed in current billing period
-- **`getRemainingCredits()`** - Returns remaining credit balance with metadata
-- **`hasExceededCreditLimit()`** - Checks if user has exceeded their credit limit (replaces `hasExceededChatUsageLimit`)
+Core functions:
+- **`getRemainingCredits()`** - Aggregates unexpired grants with real-time `api_usage` consumption to compute remaining balance
+- **`hasExceededCreditLimit()`** - Applies the computed balance against the user’s plan limits (replaces `hasExceededChatUsageLimit`)
 
 ### 5. Stripe Webhook Integration ✅
 **Location:** `web-application/src/app/api/payments/handle-subscription/route.ts`
 
 Updated `handleInvoicePaid()` to:
-- Grant credits when invoice is paid (subscription renewal)
-- Insert record into `credit_grants` table
+- Grant credits when an invoice is paid (subscription renewal)
+- Upsert a record into `credit_grants` keyed by `(subscription_id, billing_period_start)` so Stripe retries stay idempotent
+- Store billing period start/end dates plus expiration timestamp for each grant
 - Calculate credit amount based on subscription plan
-- Track billing period for each credit grant
 
 Also updated:
 - `getPlanKey()` - Now includes PLUS and MAX subscription tiers
@@ -79,23 +77,23 @@ Also updated:
 
 Updated `trackChatUsage()`:
 - Added optional `creditsUsed` parameter (default 1.0)
-- Records `credits_used` in database
-- Returns both `updatedMessageCount` and `totalCreditsUsed`
-- Sends credit amount to Stripe meter events for Pro users
+- Computes remaining balances in real time by subtracting `api_usage` per grant (no `credit_grants` mutations)
+- Inserts granular `api_usage` rows that reference the specific grant consumed
+- Returns the aggregate `totalRemainingCredits`
 
 **Build Worker Usage Tracking**
 **Location:** `server/build-workers/services/utils/usage-tracking.ts`
 
 Updated `trackApiUsageBuildWorker()`:
 - Added optional `creditsUsed` parameter (default 1.0)
-- Records `credits_used` in database
-- Returns both `updatedMessageCount` and `totalCreditsUsed`
+- Shares the same FIFO consumption logic as chat (read-only against `credit_grants`)
+- Returns `totalRemainingCredits` so the UI can update immediately
 
 ### 7. Generic Credit Usage Utility ✅
 **Location:** `server/control-plane/utils/creditUsage.ts` (NEW FILE)
 
 Created reusable utility functions:
-- **`recordCreditUsage()`** - Generic function to record any credit usage
+- **`recordCreditUsage()`** - Generic function to record any credit usage by pulling real-time grant balances
 - **`recordSingleCreditUsage()`** - Convenience function for 1.0 credit operations
 
 ---

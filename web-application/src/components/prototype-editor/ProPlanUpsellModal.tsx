@@ -24,8 +24,8 @@ interface ProPlanUpsellModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   reason: UpsellReason;
-  messageCount?: number;
-  messageLimit?: number;
+  creditsUsed?: number;
+  creditLimit?: number;
   onDismiss?: () => void;
 }
 
@@ -33,8 +33,8 @@ export default function ProPlanUpsellModal({
   open,
   onOpenChange,
   reason,
-  messageCount,
-  messageLimit,
+  creditsUsed,
+  creditLimit,
   onDismiss,
 }: ProPlanUpsellModalProps) {
   const logger = useProductLogger();
@@ -93,7 +93,7 @@ export default function ProPlanUpsellModal({
     switch (reason) {
       case "free_message_limit_reached":
         return {
-          limitText: `Limit reached: ${messageCount}/${messageLimit} credits`,
+          limitText: `Limit reached: ${creditsUsed ?? 0}/${creditLimit ?? nextTierCredits} credits`,
           title: `Continue building with ${suggestedUpgrade.name}`,
           description: `Upgrade to ${suggestedUpgrade.name} for ${nextTierCredits} credits per month and keep building amazing apps.`,
           features: [

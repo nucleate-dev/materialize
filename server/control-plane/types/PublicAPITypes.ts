@@ -459,7 +459,7 @@ export interface ChatStreamDispatchCompleteEvent extends ChatStreamEventBase {
 
 export interface ChatStreamUsageUpdateEvent extends ChatStreamEventBase {
   type: 'usage_update';
-  messageCount: number;
+  creditsRemaining: number;
 }
 
 export interface ChatStreamErrorEvent extends ChatStreamEventBase {

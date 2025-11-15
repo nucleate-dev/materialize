@@ -81,25 +81,56 @@ function AccountSettings() {
 
       setLoadingUsageCount(true);
       try {
-        // Query all unexpired credit grants
-        const { data, error } = await supabase
+        const nowIso = new Date().toISOString();
+        const { data: grants, error: grantsError } = await supabase
           .from("credit_grants")
-          .select("credits_granted, credits_remaining")
+          .select("id, credits_granted")
           .eq("user_id", user.user.id)
-          .gt("expires_at", new Date().toISOString());
+          .gt("expires_at", nowIso);
 
-        if (error) {
+        if (grantsError) {
           logger.debug("error", "Error fetching credits:", {
-            error: error.message,
+            error: grantsError.message,
           });
           setCreditsUsed(0);
-        } else {
-          // Calculate total granted and total used from remaining
-          const totalGranted = data?.reduce((sum, row) => sum + row.credits_granted, 0) || 0;
-          const totalRemaining = data?.reduce((sum, row) => sum + row.credits_remaining, 0) || 0;
-          const totalUsed = totalGranted - totalRemaining;
-          setCreditsUsed(totalUsed);
+          return;
         }
+
+        const grantIds = grants?.map(grant => grant.id) ?? [];
+        const usageMap = new Map<string, number>();
+
+        if (grantIds.length > 0) {
+          const { data: usageRows, error: usageError } = await supabase
+            .from("api_usage")
+            .select("credit_grant_id, credits_used")
+            .eq("user_id", user.user.id)
+            .in("credit_grant_id", grantIds);
+
+          if (usageError) {
+            logger.debug("error", "Error fetching usage records:", {
+              error: usageError.message,
+            });
+          } else {
+            usageRows?.forEach(row => {
+              if (!row.credit_grant_id) return;
+              const current = usageMap.get(row.credit_grant_id) || 0;
+              usageMap.set(row.credit_grant_id, current + row.credits_used);
+            });
+          }
+        }
+
+        const totalGranted = grants?.reduce(
+          (sum, grant) => sum + grant.credits_granted,
+          0,
+        ) || 0;
+        const totalRemaining =
+          grants?.reduce((sum, grant) => {
+            const used = usageMap.get(grant.id) || 0;
+            return sum + Math.max(0, grant.credits_granted - used);
+          }, 0) || 0;
+        const totalUsed = totalGranted - totalRemaining;
+
+        setCreditsUsed(totalUsed);
       } catch (error) {
         logger.debug("error", "Error fetching credits:", {
           error: error instanceof Error ? error.message : String(error),

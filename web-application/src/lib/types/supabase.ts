@@ -238,7 +238,8 @@ export type Database = {
         Row: {
           created_at: string;
           credits_granted: number;
-          credits_remaining: number;
+          billing_period_start: string | null;
+          billing_period_end: string | null;
           expires_at: string;
           grant_reason: string | null;
           grant_type: string;
@@ -249,7 +250,8 @@ export type Database = {
         Insert: {
           created_at?: string;
           credits_granted: number;
-          credits_remaining: number;
+          billing_period_start?: string | null;
+          billing_period_end?: string | null;
           expires_at: string;
           grant_reason?: string | null;
           grant_type?: string;
@@ -260,7 +262,8 @@ export type Database = {
         Update: {
           created_at?: string;
           credits_granted?: number;
-          credits_remaining?: number;
+          billing_period_start?: string | null;
+          billing_period_end?: string | null;
           expires_at?: string;
           grant_reason?: string | null;
           grant_type?: string;

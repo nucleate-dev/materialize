@@ -42,9 +42,9 @@ psql $DATABASE_URL < database/migrations/002_create_credit_grants_table.sql
 
 ### 002_create_credit_grants_table.sql
 - Creates new `credit_grants` table to track when credits are given to users
-- Tracks billing periods for each credit grant
+- Adds billing period start/end timestamps plus expiration timestamps
 - Links to subscriptions table
-- Includes appropriate indexes and constraints
+- Includes indexes plus a unique constraint on `(subscription_id, billing_period_start)` so Stripe retries cannot double-grant credits
 - **RLS Policies:**
   - Enables Row Level Security on `credit_grants` table
   - Authenticated users can read their own credit grants

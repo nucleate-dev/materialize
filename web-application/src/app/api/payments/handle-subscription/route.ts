@@ -166,19 +166,31 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   // Grant credits to the user with expiration date
   const planKey = getPlanKey(subscription.items.data[0].price.id);
   const creditsToGrant = getCreditsForPlan(planKey);
-  const expiresAt = new Date(
+  const billingPeriodStart = new Date(
+    subscription.items.data[0].current_period_start * 1000,
+  ).toISOString();
+  const billingPeriodEnd = new Date(
     subscription.items.data[0].current_period_end * 1000,
   ).toISOString();
+  const expiresAt = billingPeriodEnd;
 
-  const { error: creditGrantError } = await supabase.from("credit_grants").insert({
-    user_id: userId,
-    credits_granted: creditsToGrant,
-    credits_remaining: creditsToGrant,
-    subscription_id: subscription.id,
-    grant_reason: "subscription_renewal",
-    grant_type: "subscription",
-    expires_at: expiresAt,
-  });
+  const { error: creditGrantError } = await supabase
+    .from("credit_grants")
+    .upsert(
+      {
+        user_id: userId,
+        credits_granted: creditsToGrant,
+        subscription_id: subscription.id,
+        grant_reason: "subscription_renewal",
+        grant_type: "subscription",
+        billing_period_start: billingPeriodStart,
+        billing_period_end: billingPeriodEnd,
+        expires_at: expiresAt,
+      },
+      {
+        onConflict: "subscription_id,billing_period_start",
+      },
+    );
 
   if (creditGrantError) {
     posthog.capture({
