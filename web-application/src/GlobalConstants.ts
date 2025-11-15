@@ -12,18 +12,6 @@ export const ProductKeys = Object.freeze({
 });
 
 /**
- * @deprecated Use CreditLimits instead. This will be removed in a future version.
- * Message limits are now handled via the credit system.
- */
-export const MessageLimits = Object.freeze({
-  FREE: 15,
-  PLUS: 50,
-  PRO: 100,
-  MAX: 500,
-  TEAM: 100,
-});
-
-/**
  * Credit limits per subscription plan (per billing period)
  * Credits reset at the start of each billing period and do not roll over
  */

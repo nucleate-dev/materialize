@@ -2,7 +2,7 @@ import { FastifyRequest } from 'fastify';
 import type { User } from '@supabase/supabase-js';
 import type { ChatRequestBody } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
-import { hasExceededChatUsageLimit } from '../../../utils/subscriptionChecks.js';
+import { hasExceededCreditLimit } from '../../../utils/subscriptionChecks.js';
 
 export interface ChatAuthResult {
   user: User;
@@ -76,7 +76,7 @@ export async function validateChatAuth(
   // ------------------------------------------------------------------------------------------------
   // Step 3: Fetch user subscription and paywall the user if needed
   // ------------------------------------------------------------------------------------------------
-  const paywallResult = await hasExceededChatUsageLimit(
+  const paywallResult = await hasExceededCreditLimit(
     token,
     user.id,
     request.log2,
@@ -87,11 +87,11 @@ export async function validateChatAuth(
       success: false,
       error: {
         type: 'PAYWALL_EXCEEDED',
-        error: 'Unauthorized: User has exceeded their monthly usage limit',
+        error: 'Unauthorized: User has exceeded their monthly credit limit',
         usage: {
-          current: paywallResult.current,
-          limit: 15,
-          tier: 'free',
+          current: paywallResult.used,
+          limit: paywallResult.limit,
+          tier: paywallResult.plan,
         },
       },
     };

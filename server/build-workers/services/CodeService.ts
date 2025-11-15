@@ -919,7 +919,7 @@ export class CodeService {
             periodEnd: currentPeriodEnd.toISOString(),
           });
 
-          const { updatedMessageCount } = await trackApiUsageBuildWorker(
+          const { totalCreditsUsed } = await trackApiUsageBuildWorker(
             this.supabaseClient,
             user.id,
             prototypeId,
@@ -928,18 +928,18 @@ export class CodeService {
             this.logger,
           );
 
-          // Send updated message count to client
+          // Send updated credits to client
           this.sendMessage(socket, {
             type: ChatEvent.USAGE_UPDATE,
             data: {
-              messageCount: updatedMessageCount,
+              creditsUsed: totalCreditsUsed,
             },
           });
 
           this.logger.info("API usage tracked successfully", {
             userId: user.id,
             prototypeId,
-            updatedMessageCount,
+            totalCreditsUsed,
           });
         }
       } catch (usageError) {
