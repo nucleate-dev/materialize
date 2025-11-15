@@ -17,18 +17,21 @@ export type Database = {
       api_usage: {
         Row: {
           created_at: string | null;
+          credits_used: number;
           id: number;
           prototype_id: string | null;
           user_id: string;
         };
         Insert: {
           created_at?: string | null;
+          credits_used?: number;
           id?: never;
           prototype_id?: string | null;
           user_id: string;
         };
         Update: {
           created_at?: string | null;
+          credits_used?: number;
           id?: never;
           prototype_id?: string | null;
           user_id?: string;
@@ -197,6 +200,54 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      credit_grants: {
+        Row: {
+          billing_period_end: string;
+          billing_period_start: string;
+          created_at: string;
+          credits_granted: number;
+          grant_reason: string | null;
+          id: string;
+          subscription_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          billing_period_end: string;
+          billing_period_start: string;
+          created_at?: string;
+          credits_granted: number;
+          grant_reason?: string | null;
+          id?: string;
+          subscription_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          billing_period_end?: string;
+          billing_period_start?: string;
+          created_at?: string;
+          credits_granted?: number;
+          grant_reason?: string | null;
+          id?: string;
+          subscription_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'credit_grants_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'credit_grants_subscription_id_fkey';
+            columns: ['subscription_id'];
+            isOneToOne: false;
+            referencedRelation: 'subscriptions';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       design_system_files: {
         Row: {

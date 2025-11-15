@@ -1,4 +1,4 @@
-import { ProductKeys, SubscriptionStatuses } from "@/GlobalConstants";
+import { ProductKeys, SubscriptionStatuses, CreditLimits } from "@/GlobalConstants";
 import {
   triggerSubscriptionFreeTrialWillEndEmail,
   triggerSubscriptionPaymentFailedEmail,
@@ -161,6 +161,38 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       subscriptionUpdateError,
     );
     return;
+  }
+
+  // Grant credits to the user for this billing period
+  const planKey = getPlanKey(subscription.items.data[0].price.id);
+  const creditsToGrant = getCreditsForPlan(planKey);
+  const billingPeriodStart = new Date(
+    subscription.items.data[0].current_period_start * 1000,
+  ).toISOString();
+  const billingPeriodEnd = new Date(
+    subscription.items.data[0].current_period_end * 1000,
+  ).toISOString();
+
+  const { error: creditGrantError } = await supabase.from("credit_grants").insert({
+    user_id: userId,
+    credits_granted: creditsToGrant,
+    subscription_id: subscription.id,
+    grant_reason: "subscription_renewal",
+    billing_period_start: billingPeriodStart,
+    billing_period_end: billingPeriodEnd,
+  });
+
+  if (creditGrantError) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.CREDIT_GRANT_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: creditGrantError,
+      },
+    });
+    console.error("Error granting credits to user:", creditGrantError);
+    // Don't return - continue with payment recording even if credit grant fails
   }
 
   const { error: paymentUpdateError } = await supabase.from("payments").insert({
@@ -565,11 +597,35 @@ function getCustomerIdFromSubscription(
 
 function getPlanKey(priceID: string) {
   switch (priceID) {
-    case process.env.STRIPE_TEAM_PRICE_ID:
-      return ProductKeys.TEAM_SUBSCRIPTION;
+    case process.env.STRIPE_PLUS_PRICE_ID:
+      return ProductKeys.PLUS_SUBSCRIPTION;
     case process.env.STRIPE_PRO_PRICE_ID:
       return ProductKeys.PRO_SUBSCRIPTION;
+    case process.env.STRIPE_MAX_PRICE_ID:
+      return ProductKeys.MAX_SUBSCRIPTION;
+    case process.env.STRIPE_TEAM_PRICE_ID:
+      return ProductKeys.TEAM_SUBSCRIPTION;
     default:
       return ProductKeys.FREE_SUBSCRIPTION;
+  }
+}
+
+/**
+ * Get the number of credits to grant based on the subscription plan
+ */
+function getCreditsForPlan(planKey: string): number {
+  switch (planKey) {
+    case ProductKeys.FREE_SUBSCRIPTION:
+      return CreditLimits.FREE;
+    case ProductKeys.PLUS_SUBSCRIPTION:
+      return CreditLimits.PLUS;
+    case ProductKeys.PRO_SUBSCRIPTION:
+      return CreditLimits.PRO;
+    case ProductKeys.MAX_SUBSCRIPTION:
+      return CreditLimits.MAX;
+    case ProductKeys.TEAM_SUBSCRIPTION:
+      return CreditLimits.TEAM;
+    default:
+      return CreditLimits.FREE;
   }
 }
