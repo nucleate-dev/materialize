@@ -35,19 +35,20 @@ import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 /**
  * FILE TRACKING STRATEGY
  *
- * This service uses a file system watcher (chokidar) to track all file changes
- * made during Claude Code sessions. The watcher monitors the work directory and
- * captures add/change/unlink events for files.
+ * This service uses hook-based tracking to capture file changes during Claude Code sessions.
+ * The PostToolUse hook tracks Write, Edit, and NotebookEdit tool executions and extracts
+ * file paths from tool inputs/responses.
  *
- * Why file system watching over hooks?
- * - Captures ALL file changes regardless of how they're made (Write, Edit, Bash, etc.)
- * - Independent of Claude SDK hook reliability
- * - OS-native events with minimal overhead
- * - Battle-tested approach used by Webpack, Vite, Next.js dev server
+ * Why hook-based tracking over file system watching?
+ * - Synchronous execution during tool use - no race conditions
+ * - Guaranteed to capture every file modification tool execution
+ * - No timing dependencies or watcher initialization delays
+ * - Works reliably across all platforms and file systems
  *
- * Hook-based tracking is available as a backup but disabled by default.
+ * File system watching had reliability issues due to race conditions between
+ * watcher initialization and Claude's first file writes.
  */
-const ENABLE_HOOK_BASED_TRACKING = false;
+const ENABLE_HOOK_BASED_TRACKING = true;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -406,9 +407,6 @@ export class CodeService {
     // Notify control plane that chat is starting
     await this.notifyOrchestrationStartChat(prototypeId);
 
-    // Start file system watcher to track all file changes
-    this.startFileWatcher();
-
     // CRITICAL: Wrap entire query processing in try-finally to ensure end-chat
     // notification is ALWAYS sent, regardless of success or failure
     try {
@@ -579,7 +577,7 @@ export class CodeService {
                   ): Promise<HookJSONOutput> => {
                     try {
                       if (input.hook_event_name === "PostToolUse") {
-                        // Track file changes from file-modifying tools (BACKUP - only if enabled)
+                        // Track file changes from file-modifying tools
                         if (ENABLE_HOOK_BASED_TRACKING) {
                           const fileModifyingTools = [
                             "Write",
@@ -800,9 +798,6 @@ export class CodeService {
         });
       }
     } finally {
-      // Stop file watcher before syncing
-      await this.stopFileWatcher();
-
       // Sync file changes to Supabase before notifying orchestration
       // This ensures all Claude Code edits are persisted before the session ends
       try {
@@ -1029,9 +1024,6 @@ export class CodeService {
     if (this.sessionState.abortController) {
       this.sessionState.abortController.abort();
     }
-
-    // Stop file watcher before resetting
-    await this.stopFileWatcher();
 
     this.sessionState = {
       sessionId: null,
@@ -1736,9 +1728,6 @@ export class CodeService {
     if (this.sessionState.abortController) {
       this.sessionState.abortController.abort();
     }
-
-    // Stop file watcher
-    await this.stopFileWatcher();
 
     // Close all active connections
     for (const [connectionId, socket] of this.activeConnections.entries()) {

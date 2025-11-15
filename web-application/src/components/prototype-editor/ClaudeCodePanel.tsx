@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -156,6 +157,11 @@ export default function ClaudeCodePanel({
   const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Helper to check if current session is the most recent
+  const isCurrentSessionMostRecent = allChatSessions.length === 0 ||
+    (chatSessionId && allChatSessions[0]?.id === chatSessionId);
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -727,6 +733,19 @@ export default function ClaudeCodePanel({
     scrollContainer.addEventListener("scroll", handleScroll);
     return () => scrollContainer.removeEventListener("scroll", handleScroll);
   }, [messages.length]);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight, but cap at max-height
+      const maxHeight = 200; // Max height in pixels
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [inputValue]);
 
   // Function to scroll to bottom
   const scrollToBottom = () => {
@@ -1741,28 +1760,6 @@ export default function ClaudeCodePanel({
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2 flex-1">
-          {/* Connection Status Badge */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
-                  isConnected
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400"
-                }`}>
-                  <div
-                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
-                      }`}
-                  />
-                  <span>{isConnected ? "Connected" : "Disconnected"}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isConnected ? "WebSocket connection active" : "WebSocket disconnected"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
           <span className="text-sm font-medium truncate max-w-[150px]">{prototypeTitle}</span>
 
           {/* Session Selector */}
@@ -1837,6 +1834,27 @@ export default function ClaudeCodePanel({
               Stop
             </Button>
           )}
+          {/* Connection Status Badge */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                  isConnected
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                    : "bg-red-500/10 text-red-700 dark:text-red-400"
+                }`}>
+                  <div
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
+                      }`}
+                  />
+                  <span>{isConnected ? "Connected" : "Disconnected"}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isConnected ? "WebSocket connection active" : "WebSocket disconnected"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button
             size="sm"
             variant="outline"
@@ -2103,7 +2121,7 @@ export default function ClaudeCodePanel({
         </div>
 
         {/* Jump to bottom button */}
-        {showScrollToBottom && (
+        {showScrollToBottom && isCurrentSessionMostRecent && (
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
             <Button
               size="sm"
@@ -2114,6 +2132,15 @@ export default function ClaudeCodePanel({
               <ChevronDownIcon className="w-4 h-4 mr-1" />
               Jump to bottom
             </Button>
+          </div>
+        )}
+
+        {/* Old session warning banner */}
+        {!isCurrentSessionMostRecent && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-md px-4">
+            <div className="bg-yellow-500/90 text-yellow-950 dark:bg-yellow-600/90 dark:text-yellow-50 px-4 py-2 rounded-lg shadow-lg border border-yellow-600 text-sm font-medium text-center">
+              You're viewing an older conversation. Only the most recent session can receive new messages.
+            </div>
           </div>
         )}
       </ScrollArea>
@@ -2166,27 +2193,32 @@ export default function ClaudeCodePanel({
             size="icon"
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
-            disabled={!isConnected || isProcessing}
-            title="Add images"
+            disabled={!isConnected || isProcessing || !isCurrentSessionMostRecent}
+            title={!isCurrentSessionMostRecent ? "Cannot add images to old sessions" : "Add images"}
           >
             <PhotoIcon className="w-5 h-5" />
           </Button>
 
-          <Input
+          <Textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder={
-              isConnected
-                ? "Ask Claude Code anything..."
-                : "Connect to start chatting"
+              !isCurrentSessionMostRecent
+                ? "Cannot send messages to old sessions"
+                : isConnected
+                  ? "Ask Claude Code anything..."
+                  : "Connect to start chatting"
             }
-            disabled={!isConnected || isProcessing}
-            className="flex-1"
+            disabled={!isConnected || isProcessing || !isCurrentSessionMostRecent}
+            className="flex-1 resize-none overflow-y-auto"
+            rows={1}
+            style={{ minHeight: 'auto' }}
           />
           <Button
             onClick={sendQuery}
-            disabled={!isConnected || (!inputValue.trim() && uploadedImages.length === 0) || isProcessing}
+            disabled={!isConnected || (!inputValue.trim() && uploadedImages.length === 0) || isProcessing || !isCurrentSessionMostRecent}
           >
             {isProcessing ? "..." : "Send"}
           </Button>
