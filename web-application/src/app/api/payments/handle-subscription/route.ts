@@ -207,13 +207,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const newGrant = grantRows[0];
     let remainingCredits = newGrant.credits_granted;
 
-    if (remainingCredits > 0) {
-      const { data: overageRows, error: overageFetchError } = await supabase
-        .from("api_usage")
-        .select("id, credits_used, prototype_id")
-        .eq("user_id", userId)
-        .is("credit_grant_id", null)
-        .order("created_at", { ascending: true });
+      if (remainingCredits > 0) {
+        const { data: overageRows, error: overageFetchError } = await supabase
+          .from("api_usage")
+          .select("id, credits_used, prototype_id")
+          .eq("user_id", userId)
+          .eq("is_free_tier", false)
+          .is("credit_grant_id", null)
+          .order("created_at", { ascending: true });
 
       if (overageFetchError) {
         posthog.capture({
@@ -235,7 +236,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
           if (usageCredits === 0) {
             const { error: assignZeroError } = await supabase
               .from("api_usage")
-              .update({ credit_grant_id: newGrant.id })
+              .update({ credit_grant_id: newGrant.id, is_free_tier: false })
               .eq("id", usageRow.id);
 
             if (assignZeroError) {
@@ -256,7 +257,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
           if (usageCredits <= remainingCredits + Number.EPSILON) {
             const { error: assignError } = await supabase
               .from("api_usage")
-              .update({ credit_grant_id: newGrant.id })
+              .update({ credit_grant_id: newGrant.id, is_free_tier: false })
               .eq("id", usageRow.id);
 
             if (assignError) {
@@ -280,7 +281,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
             const { error: residualUpdateError } = await supabase
               .from("api_usage")
-              .update({ credits_used: residualCredits })
+              .update({ credits_used: residualCredits, is_free_tier: false })
               .eq("id", usageRow.id);
 
             if (residualUpdateError) {
@@ -304,6 +305,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                 prototype_id: usageRow.prototype_id,
                 credits_used: partialCredits,
                 credit_grant_id: newGrant.id,
+                is_free_tier: false,
               });
 
             if (partialInsertError) {

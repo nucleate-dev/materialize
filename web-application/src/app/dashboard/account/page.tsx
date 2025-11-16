@@ -81,6 +81,44 @@ function AccountSettings() {
 
       setLoadingUsageCount(true);
       try {
+        if (userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999,
+          );
+          const { data: freeUsageRows, error: freeUsageError } = await supabase
+            .from("api_usage")
+            .select("credits_used")
+            .eq("user_id", user.user.id)
+            .eq("is_free_tier", true)
+            .gte("created_at", startOfMonth.toISOString())
+            .lte("created_at", endOfMonth.toISOString());
+
+          if (freeUsageError) {
+            logger.debug("error", "Error fetching credits:", {
+              error: freeUsageError.message,
+            });
+            setCreditsUsed(0);
+            return;
+          }
+
+          const totalUsed =
+            freeUsageRows?.reduce(
+              (sum, row) => sum + (row.credits_used || 0),
+              0,
+            ) ?? 0;
+
+          setCreditsUsed(totalUsed);
+          return;
+        }
+
         const nowIso = new Date().toISOString();
         const { data: balances, error: balancesError } = await supabase
           .from("credit_grant_balances")
@@ -124,6 +162,7 @@ function AccountSettings() {
     user.user?.id,
     loadingSubscriptionData,
     logger,
+    userPlan,
   ]);
 
   // Calculate credit limit based on subscription plan

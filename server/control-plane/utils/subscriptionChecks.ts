@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import type { SubscriptionInfo } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
@@ -139,6 +139,39 @@ export async function getSubscriptionInfo(
   }
 }
 
+async function calculateFreeTierCreditInfo(
+  supabaseClient: SupabaseClient<Database>,
+  userId: string,
+  log2: SystemLogger,
+): Promise<{ remaining: number; granted: number; used: number }> {
+  const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+  const periodStart = startOfMonth.toISOString();
+  const periodEnd = endOfMonth.toISOString();
+  const { data: usageRows, error } = await supabaseClient
+    .from('api_usage')
+    .select('credits_used')
+    .eq('user_id', userId)
+    .eq('is_free_tier', true)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd);
+
+  if (error) {
+    log2.error(error, 'Error fetching free-tier usage:', {
+      functionName: 'calculateFreeTierCreditInfo',
+      userId,
+    });
+  }
+
+  const totalUsed =
+    usageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
+  const remaining = Math.max(CreditLimits.FREE - totalUsed, 0);
+  return {
+    remaining,
+    granted: CreditLimits.FREE,
+    used: totalUsed,
+  };
+}
+
 export async function hasExceededPrototypeCreationLimit(
   jwtToken: string,
   userId: string,
@@ -239,6 +272,24 @@ export async function getRemainingCredits(
 
   try {
     const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+
+    if (subscriptionInfo.userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+      const freeCreditInfo = await calculateFreeTierCreditInfo(
+        supabaseClient,
+        userId,
+        log2,
+      );
+      return {
+        remaining: freeCreditInfo.remaining,
+        granted: freeCreditInfo.granted,
+        used: freeCreditInfo.used,
+        limit: CreditLimits.FREE,
+        plan: subscriptionInfo.userPlan,
+        currentPeriodStart: subscriptionInfo.currentPeriodStart,
+        currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+        stripeCustomerId: subscriptionInfo.stripeCustomerId,
+      };
+    }
 
     const nowIso = new Date().toISOString();
     const { data: balances, error: balancesError } = await supabaseClient

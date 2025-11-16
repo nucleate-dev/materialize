@@ -19,6 +19,7 @@ export type Database = {
           created_at: string | null;
           credit_grant_id: string | null;
           credits_used: number;
+          is_free_tier: boolean;
           id: number;
           prototype_id: string | null;
           user_id: string;
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string | null;
           credit_grant_id?: string | null;
           credits_used?: number;
+          is_free_tier?: boolean;
           id?: never;
           prototype_id?: string | null;
           user_id: string;
@@ -35,6 +37,7 @@ export type Database = {
           created_at?: string | null;
           credit_grant_id?: string | null;
           credits_used?: number;
+          is_free_tier?: boolean;
           id?: never;
           prototype_id?: string | null;
           user_id?: string;

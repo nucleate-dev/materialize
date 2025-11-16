@@ -1,9 +1,26 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import { CreditLimits, ProductKeys } from '../../../web-application/src/GlobalConstants.js';
+import { getSubscriptionInfo } from './subscriptionChecks.js';
 
 type ConsumeCreditsResponse =
   Database['public']['Functions']['consume_credits']['Returns'];
+
+function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
+  return { startOfMonth, endOfMonth };
+}
 
 /**
  * Result of recording credit usage with FIFO consumption
@@ -34,6 +51,70 @@ async function callConsumeCredits(
   return data?.[0] ?? null;
 }
 
+async function recordFreeTierUsage(
+  supabaseClient: SupabaseClient<Database>,
+  userId: string,
+  prototypeId: string | null,
+  creditsUsed: number,
+  log2: SystemLogger,
+): Promise<RecordCreditUsageResult> {
+  const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+  const periodStart = startOfMonth.toISOString();
+  const periodEnd = endOfMonth.toISOString();
+
+  const { error: insertError } = await supabaseClient.from('api_usage').insert({
+    user_id: userId,
+    prototype_id: prototypeId,
+    credits_used: creditsUsed,
+    credit_grant_id: null,
+    is_free_tier: true,
+  });
+
+  if (insertError) {
+    log2.error(insertError, 'Failed to insert free-tier usage row', {
+      functionName: 'recordFreeTierUsage',
+      userId,
+    });
+    return {
+      success: false,
+      creditsUsed,
+      totalRemainingCredits: 0,
+      error: insertError.message,
+    };
+  }
+
+  const { data: usageRows, error: usageError } = await supabaseClient
+    .from('api_usage')
+    .select('credits_used')
+    .eq('user_id', userId)
+    .eq('is_free_tier', true)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd);
+
+  if (usageError) {
+    log2.error(usageError, 'Failed to fetch free-tier usage summary', {
+      functionName: 'recordFreeTierUsage',
+      userId,
+    });
+    return {
+      success: true,
+      creditsUsed,
+      totalRemainingCredits: 0,
+      error: usageError.message,
+    };
+  }
+
+  const totalUsed =
+    usageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
+  const totalRemaining = Math.max(CreditLimits.FREE - totalUsed, 0);
+
+  return {
+    success: true,
+    creditsUsed,
+    totalRemainingCredits: totalRemaining,
+  };
+}
+
 /**
  * Consumes credits via the transactional consume_credits RPC
  */
@@ -50,6 +131,17 @@ export async function recordCreditUsage(
   );
 
   try {
+    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+    if (subscriptionInfo.userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+      return recordFreeTierUsage(
+        supabaseClient,
+        userId,
+        prototypeId,
+        creditsUsed,
+        log2,
+      );
+    }
+
     const rpcResult = await callConsumeCredits(
       supabaseClient,
       userId,
@@ -68,6 +160,7 @@ export async function recordCreditUsage(
         prototype_id: prototypeId,
         credits_used: creditsUsed,
         credit_grant_id: null,
+        is_free_tier: false,
       });
 
       if (insertError) {
@@ -110,6 +203,7 @@ export async function recordCreditUsage(
         prototype_id: prototypeId,
         credits_used: creditsUsed,
         credit_grant_id: null,
+        is_free_tier: false,
       });
 
     if (insertFallback.error) {

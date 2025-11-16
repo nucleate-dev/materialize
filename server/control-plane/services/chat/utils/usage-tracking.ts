@@ -1,10 +1,105 @@
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../types/supabase.js';
+import { CreditLimits, ProductKeys } from '../../../../../web-application/src/GlobalConstants.js';
 
 export interface UsageTrackingResult {
   totalRemainingCredits: number;
   grantBalances?: unknown;
+}
+
+function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
+  return { startOfMonth, endOfMonth };
+}
+
+async function fetchUserPlan(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  log2: SystemLogger,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('plan_id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    log2.error(error, 'Failed to fetch user plan for usage tracking', {
+      functionName: 'fetchUserPlan',
+      userId,
+    });
+    return ProductKeys.FREE_SUBSCRIPTION;
+  }
+
+  const plan = data?.[0]?.plan_id;
+  return plan ?? ProductKeys.FREE_SUBSCRIPTION;
+}
+
+async function trackFreeTierUsage(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  prototypeId: string | null,
+  creditsUsed: number,
+  log2: SystemLogger,
+): Promise<UsageTrackingResult> {
+  const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+  const periodStart = startOfMonth.toISOString();
+  const periodEnd = endOfMonth.toISOString();
+
+  const { error: insertError } = await supabase.from('api_usage').insert({
+    user_id: userId,
+    prototype_id: prototypeId || null,
+    credits_used: creditsUsed,
+    credit_grant_id: null,
+    is_free_tier: true,
+  });
+
+  if (insertError) {
+    log2.error(insertError, 'Failed to insert free-tier usage row', {
+      functionName: 'trackFreeTierUsage',
+      userId,
+    });
+    return {
+      totalRemainingCredits: 0,
+    };
+  }
+
+  const { data: usageRows, error: usageError } = await supabase
+    .from('api_usage')
+    .select('credits_used')
+    .eq('user_id', userId)
+    .eq('is_free_tier', true)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd);
+
+  if (usageError) {
+    log2.error(usageError, 'Failed to fetch free-tier usage totals', {
+      functionName: 'trackFreeTierUsage',
+      userId,
+    });
+    return {
+      totalRemainingCredits: 0,
+    };
+  }
+
+  const totalUsed =
+    usageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
+  return {
+    totalRemainingCredits: Math.max(CreditLimits.FREE - totalUsed, 0),
+  };
 }
 
 /**
@@ -25,12 +120,18 @@ export async function trackChatUsage(
 
   const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
-  const insertFallbackUsage = async () => {
+  const userPlan = await fetchUserPlan(supabase, userId, log2);
+  if (userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+    return trackFreeTierUsage(supabase, userId, prototypeId, creditsUsed, log2);
+  }
+
+  const insertFallbackUsage = async (): Promise<void> => {
     const { error: insertError } = await supabase.from('api_usage').insert({
       user_id: userId,
       prototype_id: prototypeId || null,
       credits_used: creditsUsed,
       credit_grant_id: null,
+      is_free_tier: false,
     });
 
     if (insertError) {
