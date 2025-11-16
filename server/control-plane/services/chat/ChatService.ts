@@ -325,7 +325,7 @@ export class ChatService {
             //   encoder.encode(
             //     `data: ${JSON.stringify({
             //       type: ChatStreamEventType.USAGE_UPDATE,
-            //       messageCount: updatedMessageCount,
+            //       creditsRemaining,
             //     })}\n\n`,
             //   ),
             // );

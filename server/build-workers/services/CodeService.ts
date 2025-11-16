@@ -896,50 +896,30 @@ export class CodeService {
         } else {
           // TODO: Fetch user's billing period from subscription info
           // For now, use current month as billing period
-          const now = new Date();
-          const currentPeriodStart = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            1,
-          );
-          const currentPeriodEnd = new Date(
-            now.getFullYear(),
-            now.getMonth() + 1,
-            0,
-            23,
-            59,
-            59,
-            999,
-          );
-
           this.logger.info("Tracking API usage", {
             userId: user.id,
             prototypeId,
-            periodStart: currentPeriodStart.toISOString(),
-            periodEnd: currentPeriodEnd.toISOString(),
           });
 
-          const { updatedMessageCount } = await trackApiUsageBuildWorker(
+          const { totalRemainingCredits } = await trackApiUsageBuildWorker(
             this.supabaseClient,
             user.id,
             prototypeId,
-            currentPeriodStart,
-            currentPeriodEnd,
             this.logger,
           );
 
-          // Send updated message count to client
+          // Send updated credits to client
           this.sendMessage(socket, {
             type: ChatEvent.USAGE_UPDATE,
             data: {
-              messageCount: updatedMessageCount,
+              creditsRemaining: totalRemainingCredits,
             },
           });
 
           this.logger.info("API usage tracked successfully", {
             userId: user.id,
             prototypeId,
-            updatedMessageCount,
+            totalRemainingCredits,
           });
         }
       } catch (usageError) {

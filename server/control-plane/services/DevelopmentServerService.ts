@@ -12,7 +12,7 @@ import type {
   RestartDevServerSuccessResponse,
 } from '../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../utils/prototypeAuth.js';
-import { hasExceededChatUsageLimit } from '../utils/subscriptionChecks.js';
+import { hasExceededCreditLimit } from '../utils/subscriptionChecks.js';
 import {
   isDispatchInProgress,
   isEditableDevServer,
@@ -334,7 +334,7 @@ export class DevelopmentServerService {
       }
 
       // 2. Paywall check this user
-      const exceededUsageLimit = await hasExceededChatUsageLimit(
+      const exceededUsageLimit = await hasExceededCreditLimit(
         token,
         authResponse.user.id,
         request.log2,

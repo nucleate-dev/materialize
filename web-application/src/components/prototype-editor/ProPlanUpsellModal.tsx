@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MessageLimits, ProductKeys } from "@/GlobalConstants";
+import { CreditLimits, ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -24,8 +24,8 @@ interface ProPlanUpsellModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   reason: UpsellReason;
-  messageCount?: number;
-  messageLimit?: number;
+  creditsUsed?: number;
+  creditLimit?: number;
   onDismiss?: () => void;
 }
 
@@ -33,8 +33,8 @@ export default function ProPlanUpsellModal({
   open,
   onOpenChange,
   reason,
-  messageCount,
-  messageLimit,
+  creditsUsed,
+  creditLimit,
   onDismiss,
 }: ProPlanUpsellModalProps) {
   const logger = useProductLogger();
@@ -75,29 +75,29 @@ export default function ProPlanUpsellModal({
   const suggestedUpgrade = getSuggestedUpgrade();
 
   const getUpsellContent = () => {
-    const getMessageLimitForPlan = (plan: string) => {
+    const getCreditLimitForPlan = (plan: string) => {
       switch (plan) {
         case "Plus":
-          return MessageLimits.PLUS;
+          return CreditLimits.PLUS;
         case "Pro":
-          return MessageLimits.PRO;
+          return CreditLimits.PRO;
         case "Max":
-          return MessageLimits.MAX;
+          return CreditLimits.MAX;
         default:
-          return MessageLimits.PLUS;
+          return CreditLimits.PLUS;
       }
     };
 
-    const nextTierMessages = getMessageLimitForPlan(suggestedUpgrade.name);
+    const nextTierCredits = getCreditLimitForPlan(suggestedUpgrade.name);
 
     switch (reason) {
       case "free_message_limit_reached":
         return {
-          limitText: `Limit reached: ${messageCount}/${messageLimit} messages`,
+          limitText: `Limit reached: ${creditsUsed ?? 0}/${creditLimit ?? nextTierCredits} credits`,
           title: `Continue building with ${suggestedUpgrade.name}`,
-          description: `Upgrade to ${suggestedUpgrade.name} for ${nextTierMessages} messages per month and keep building amazing apps.`,
+          description: `Upgrade to ${suggestedUpgrade.name} for ${nextTierCredits} credits per month and keep building amazing apps.`,
           features: [
-            `${nextTierMessages} messages per month`,
+            `${nextTierCredits} credits per month`,
             "Priority AI responses",
             "Advanced code generation",
             suggestedUpgrade.name === "Max" ? "Dedicated support" : "Premium support",
@@ -110,7 +110,7 @@ export default function ProPlanUpsellModal({
           description: `Upgrade to ${suggestedUpgrade.name} for unlimited project creation and advanced features.`,
           features: [
             "Unlimited projects",
-            `${nextTierMessages} messages per month`,
+            `${nextTierCredits} credits per month`,
             "Advanced prototyping features",
             suggestedUpgrade.name === "Max" ? "Dedicated support" : "Priority support",
           ],
@@ -121,7 +121,7 @@ export default function ProPlanUpsellModal({
           title: `Upgrade to ${suggestedUpgrade.name}`,
           description: "Unlock premium features and continue building.",
           features: [
-            `${nextTierMessages} messages per month`,
+            `${nextTierCredits} credits per month`,
             "Unlimited projects",
             "Priority support",
             "Advanced features",

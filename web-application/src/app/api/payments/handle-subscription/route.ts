@@ -1,4 +1,4 @@
-import { ProductKeys, SubscriptionStatuses } from "@/GlobalConstants";
+import { ProductKeys, SubscriptionStatuses, CreditLimits } from "@/GlobalConstants";
 import {
   triggerSubscriptionFreeTrialWillEndEmail,
   triggerSubscriptionPaymentFailedEmail,
@@ -161,6 +161,173 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       subscriptionUpdateError,
     );
     return;
+  }
+
+  // Grant credits to the user with expiration date
+  const planKey = getPlanKey(subscription.items.data[0].price.id);
+  const creditsToGrant = getCreditsForPlan(planKey);
+  const billingPeriodStart = new Date(
+    subscription.items.data[0].current_period_start * 1000,
+  ).toISOString();
+  const billingPeriodEnd = new Date(
+    subscription.items.data[0].current_period_end * 1000,
+  ).toISOString();
+  const expiresAt = billingPeriodEnd;
+
+  const { data: grantRows, error: creditGrantError } = await supabase
+    .from("credit_grants")
+    .upsert(
+      {
+        user_id: userId,
+        credits_granted: creditsToGrant,
+        subscription_id: subscription.id,
+        grant_reason: "subscription_renewal",
+        grant_type: "subscription",
+        billing_period_start: billingPeriodStart,
+        billing_period_end: billingPeriodEnd,
+        expires_at: expiresAt,
+      },
+      {
+        onConflict: "subscription_id,billing_period_start",
+      },
+    )
+    .select();
+
+  if (creditGrantError || !grantRows || grantRows.length === 0) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.CREDIT_GRANT_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: creditGrantError,
+      },
+    });
+    console.error("Error granting credits to user:", creditGrantError);
+  } else {
+    const newGrant = grantRows[0];
+    let remainingCredits = newGrant.credits_granted;
+
+      if (remainingCredits > 0) {
+        const { data: overageRows, error: overageFetchError } = await supabase
+          .from("api_usage")
+          .select("id, credits_used, prototype_id")
+          .eq("user_id", userId)
+          .eq("is_free_tier", false)
+          .is("credit_grant_id", null)
+          .order("created_at", { ascending: true });
+
+      if (overageFetchError) {
+        posthog.capture({
+          distinctId: userId,
+          event: ExceptionEvents.CREDIT_GRANT_ERROR,
+          properties: {
+            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+            error: overageFetchError,
+            context: "fetch_overage_usage",
+          },
+        });
+        console.error("Error fetching overage usage:", overageFetchError);
+      } else if (overageRows && overageRows.length > 0) {
+        for (const usageRow of overageRows) {
+          if (remainingCredits <= 0) break;
+
+          const usageCredits = Math.max(usageRow.credits_used || 0, 0);
+
+          if (usageCredits === 0) {
+            const { error: assignZeroError } = await supabase
+              .from("api_usage")
+              .update({ credit_grant_id: newGrant.id, is_free_tier: false })
+              .eq("id", usageRow.id);
+
+            if (assignZeroError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: assignZeroError,
+                  context: "assign_zero_overage",
+                },
+              });
+              console.error("Error assigning zero-credit usage to grant:", assignZeroError);
+            }
+            continue;
+          }
+
+          if (usageCredits <= remainingCredits + Number.EPSILON) {
+            const { error: assignError } = await supabase
+              .from("api_usage")
+              .update({ credit_grant_id: newGrant.id, is_free_tier: false })
+              .eq("id", usageRow.id);
+
+            if (assignError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: assignError,
+                  context: "assign_full_overage",
+                },
+              });
+              console.error("Error assigning overage usage to grant:", assignError);
+              break;
+            }
+
+            remainingCredits -= usageCredits;
+          } else {
+            const partialCredits = remainingCredits;
+            const residualCredits = usageCredits - partialCredits;
+
+            const { error: residualUpdateError } = await supabase
+              .from("api_usage")
+              .update({ credits_used: residualCredits, is_free_tier: false })
+              .eq("id", usageRow.id);
+
+            if (residualUpdateError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: residualUpdateError,
+                  context: "reduce_overage_row",
+                },
+              });
+              console.error("Error reducing overage usage row:", residualUpdateError);
+              break;
+            }
+
+            const { error: partialInsertError } = await supabase
+              .from("api_usage")
+              .insert({
+                user_id: userId,
+                prototype_id: usageRow.prototype_id,
+                credits_used: partialCredits,
+                credit_grant_id: newGrant.id,
+                is_free_tier: false,
+              });
+
+            if (partialInsertError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: partialInsertError,
+                  context: "insert_partial_overage",
+                },
+              });
+              console.error("Error inserting partial overage coverage row:", partialInsertError);
+              break;
+            }
+
+            remainingCredits = 0;
+            break;
+          }
+        }
+      }
+    }
   }
 
   const { error: paymentUpdateError } = await supabase.from("payments").insert({
@@ -565,11 +732,35 @@ function getCustomerIdFromSubscription(
 
 function getPlanKey(priceID: string) {
   switch (priceID) {
-    case process.env.STRIPE_TEAM_PRICE_ID:
-      return ProductKeys.TEAM_SUBSCRIPTION;
+    case process.env.STRIPE_PLUS_PRICE_ID:
+      return ProductKeys.PLUS_SUBSCRIPTION;
     case process.env.STRIPE_PRO_PRICE_ID:
       return ProductKeys.PRO_SUBSCRIPTION;
+    case process.env.STRIPE_MAX_PRICE_ID:
+      return ProductKeys.MAX_SUBSCRIPTION;
+    case process.env.STRIPE_TEAM_PRICE_ID:
+      return ProductKeys.TEAM_SUBSCRIPTION;
     default:
       return ProductKeys.FREE_SUBSCRIPTION;
+  }
+}
+
+/**
+ * Get the number of credits to grant based on the subscription plan
+ */
+function getCreditsForPlan(planKey: string): number {
+  switch (planKey) {
+    case ProductKeys.FREE_SUBSCRIPTION:
+      return CreditLimits.FREE;
+    case ProductKeys.PLUS_SUBSCRIPTION:
+      return CreditLimits.PLUS;
+    case ProductKeys.PRO_SUBSCRIPTION:
+      return CreditLimits.PRO;
+    case ProductKeys.MAX_SUBSCRIPTION:
+      return CreditLimits.MAX;
+    case ProductKeys.TEAM_SUBSCRIPTION:
+      return CreditLimits.TEAM;
+    default:
+      return CreditLimits.FREE;
   }
 }

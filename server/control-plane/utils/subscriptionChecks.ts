@@ -1,7 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import type { SubscriptionInfo } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
+import { CreditLimits, ProductKeys } from '../../../web-application/src/GlobalConstants.js';
 
 /**
  * Helper function to get the start and end of the current month
@@ -138,134 +139,37 @@ export async function getSubscriptionInfo(
   }
 }
 
-/**
- * Get user's API usage count within a specific billing period
- *
- * @param jwtToken - JWT token for authentication
- * @param userId - The user ID to check usage for
- * @param currentPeriodStart - Start of the billing period
- * @param currentPeriodEnd - End of the billing period
- * @returns Promise<number> - Number of API calls in the specified period
- */
-export async function getCurrentPeriodApiUsage(
-  jwtToken: string,
-  userId: string,
-  currentPeriodStart: Date,
-  currentPeriodEnd: Date,
-  log2: SystemLogger,
-): Promise<number> {
-  const supabaseClient = createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      },
-    },
-  );
-
-  try {
-    const periodStart = currentPeriodStart.toISOString();
-    const periodEnd = currentPeriodEnd.toISOString();
-
-    // Query api_usage table for usage within the period
-    const { count, error } = await supabaseClient
-      .from('api_usage')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', periodStart)
-      .lte('created_at', periodEnd);
-
-    if (error) {
-      log2.error(error, 'Error fetching API usage from supabase:', {
-        functionName: 'getCurrentPeriodApiUsage',
-      });
-      return 0; // Default to 0 on error
-    }
-
-    return count || 0;
-  } catch (error) {
-    log2.error(error, 'Error in getCurrentPeriodApiUsage:', {
-      functionName: 'getCurrentPeriodApiUsage',
-    });
-    return 0;
-  }
-}
-
-/**
- * Check if user has exceeded their usage limit for current period
- * Free users: 15 messages per month
- * Paid users: No limit (returns false)
- *
- * @param jwtToken - JWT token for authentication
- * @param userId - The user ID to check
- * @returns Promise<{ exceeded: boolean; current: number; limit: number; plan: string }> - Usage limit status
- */
-export async function hasExceededChatUsageLimit(
-  jwtToken: string,
+async function calculateFreeTierCreditInfo(
+  supabaseClient: SupabaseClient<Database>,
   userId: string,
   log2: SystemLogger,
-): Promise<{
-  exceeded: boolean;
-  current: number;
-  limit: number;
-  plan: string;
-  currentPeriodStart: Date;
-  currentPeriodEnd: Date;
-  stripeCustomerId: string;
-}> {
-  try {
-    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
-    const currentUsage = await getCurrentPeriodApiUsage(
-      jwtToken,
+): Promise<{ remaining: number; granted: number; used: number }> {
+  const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+  const periodStart = startOfMonth.toISOString();
+  const periodEnd = endOfMonth.toISOString();
+  const { data: usageRows, error } = await supabaseClient
+    .from('api_usage')
+    .select('credits_used')
+    .eq('user_id', userId)
+    .eq('is_free_tier', true)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd);
+
+  if (error) {
+    log2.error(error, 'Error fetching free-tier usage:', {
+      functionName: 'calculateFreeTierCreditInfo',
       userId,
-      subscriptionInfo.currentPeriodStart,
-      subscriptionInfo.currentPeriodEnd,
-      log2,
-    );
-
-    // Free users have a limit of 15 messages per month
-    if (subscriptionInfo.userPlan === 'free') {
-      const limit = 15;
-      return {
-        exceeded: currentUsage >= limit,
-        current: currentUsage,
-        limit: limit,
-        plan: subscriptionInfo.userPlan,
-        currentPeriodStart: subscriptionInfo.currentPeriodStart,
-        currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
-        stripeCustomerId: subscriptionInfo.stripeCustomerId,
-      };
-    }
-
-    // Paid users have no limit
-    return {
-      exceeded: false,
-      current: currentUsage,
-      limit: -1, // -1 indicates unlimited
-      plan: subscriptionInfo.userPlan,
-      currentPeriodStart: subscriptionInfo.currentPeriodStart,
-      currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
-      stripeCustomerId: subscriptionInfo.stripeCustomerId,
-    };
-  } catch (error) {
-    log2.error(error, 'Error in hasExceededUsageLimit:', {
-      functionName: 'hasExceededUsageLimit',
     });
-    const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
-    // Default to free plan limits on error
-    return {
-      exceeded: true,
-      current: 0,
-      limit: 15,
-      plan: 'free',
-      currentPeriodStart: startOfMonth,
-      currentPeriodEnd: endOfMonth,
-      stripeCustomerId: '',
-    };
   }
+
+  const totalUsed =
+    usageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
+  const remaining = Math.max(CreditLimits.FREE - totalUsed, 0);
+  return {
+    remaining,
+    granted: CreditLimits.FREE,
+    used: totalUsed,
+  };
 }
 
 export async function hasExceededPrototypeCreationLimit(
@@ -326,4 +230,186 @@ export async function hasExceededPrototypeCreationLimit(
     limit: 5,
     plan: subscriptionInfo.userPlan,
   };
+}
+
+// DEPRECATED: getTotalCreditsGranted and getTotalCreditsUsed
+// These functions are no longer used with the new expirable credits system
+// Credits are now tracked per-grant with individual expiration dates
+
+/**
+ * Get the remaining credits for a user across all unexpired credit grants
+ *
+ * @param jwtToken - JWT token for authentication
+ * @param userId - The user ID to check
+ * @param log2 - Logger instance
+ * @returns Promise with remaining credits, granted, used, plan, and billing period info
+ */
+export async function getRemainingCredits(
+  jwtToken: string,
+  userId: string,
+  log2: SystemLogger,
+): Promise<{
+  remaining: number;
+  granted: number;
+  used: number;
+  limit: number;
+  plan: string;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  stripeCustomerId: string;
+}> {
+  const supabaseClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      },
+    },
+  );
+
+  try {
+    const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
+
+    if (subscriptionInfo.userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+      const freeCreditInfo = await calculateFreeTierCreditInfo(
+        supabaseClient,
+        userId,
+        log2,
+      );
+      return {
+        remaining: freeCreditInfo.remaining,
+        granted: freeCreditInfo.granted,
+        used: freeCreditInfo.used,
+        limit: CreditLimits.FREE,
+        plan: subscriptionInfo.userPlan,
+        currentPeriodStart: subscriptionInfo.currentPeriodStart,
+        currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+        stripeCustomerId: subscriptionInfo.stripeCustomerId,
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    const { data: balances, error: balancesError } = await supabaseClient
+      .from('credit_grant_balances')
+      .select('credits_granted, credits_remaining')
+      .eq('user_id', userId)
+      .gt('expires_at', nowIso);
+
+    if (balancesError) {
+      log2.error(balancesError, 'Error fetching credit grant balances:', {
+        functionName: 'getRemainingCredits',
+      });
+    }
+
+    const totalGranted = balances?.reduce(
+      (sum, balance) => sum + (balance.credits_granted || 0),
+      0,
+    ) || 0;
+    const totalRemaining = balances?.reduce(
+      (sum, balance) => sum + (balance.credits_remaining || 0),
+      0,
+    ) || 0;
+    const totalUsed = totalGranted - totalRemaining;
+
+    // Get the credit limit for this plan
+    let creditLimit = 0;
+    switch (subscriptionInfo.userPlan) {
+      case ProductKeys.FREE_SUBSCRIPTION:
+        creditLimit = CreditLimits.FREE;
+        break;
+      case ProductKeys.PLUS_SUBSCRIPTION:
+        creditLimit = CreditLimits.PLUS;
+        break;
+      case ProductKeys.PRO_SUBSCRIPTION:
+        creditLimit = CreditLimits.PRO;
+        break;
+      case ProductKeys.MAX_SUBSCRIPTION:
+        creditLimit = CreditLimits.MAX;
+        break;
+      case ProductKeys.TEAM_SUBSCRIPTION:
+        creditLimit = CreditLimits.TEAM;
+        break;
+      default:
+        creditLimit = CreditLimits.FREE;
+    }
+
+    return {
+      remaining: totalRemaining,
+      granted: totalGranted,
+      used: totalUsed,
+      limit: creditLimit,
+      plan: subscriptionInfo.userPlan,
+      currentPeriodStart: subscriptionInfo.currentPeriodStart,
+      currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
+      stripeCustomerId: subscriptionInfo.stripeCustomerId,
+    };
+  } catch (error) {
+    log2.error(error, 'Error in getRemainingCredits:', {
+      functionName: 'getRemainingCredits',
+    });
+    const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+    return {
+      remaining: 0,
+      granted: 0,
+      used: 0,
+      limit: CreditLimits.FREE,
+      plan: ProductKeys.FREE_SUBSCRIPTION,
+      currentPeriodStart: startOfMonth,
+      currentPeriodEnd: endOfMonth,
+      stripeCustomerId: '',
+    };
+  }
+}
+
+/**
+ * Check if user has exceeded their credit limit for current period
+ * Replaces hasExceededChatUsageLimit with credit-based system
+ *
+ * @param jwtToken - JWT token for authentication
+ * @param userId - The user ID to check
+ * @param log2 - Logger instance
+ * @returns Promise with exceeded status and credit information
+ */
+export async function hasExceededCreditLimit(
+  jwtToken: string,
+  userId: string,
+  log2: SystemLogger,
+): Promise<{
+  exceeded: boolean;
+  remaining: number;
+  granted: number;
+  used: number;
+  limit: number;
+  plan: string;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  stripeCustomerId: string;
+}> {
+  try {
+    const creditInfo = await getRemainingCredits(jwtToken, userId, log2);
+
+    return {
+      exceeded: creditInfo.remaining <= 0,
+      ...creditInfo,
+    };
+  } catch (error) {
+    log2.error(error, 'Error in hasExceededCreditLimit:', {
+      functionName: 'hasExceededCreditLimit',
+    });
+    const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+    return {
+      exceeded: true,
+      remaining: 0,
+      granted: 0,
+      used: 0,
+      limit: CreditLimits.FREE,
+      plan: ProductKeys.FREE_SUBSCRIPTION,
+      currentPeriodStart: startOfMonth,
+      currentPeriodEnd: endOfMonth,
+      stripeCustomerId: '',
+    };
+  }
 }

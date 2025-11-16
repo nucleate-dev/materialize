@@ -11,7 +11,11 @@ export const ProductKeys = Object.freeze({
   TEAM_SUBSCRIPTION: "team",
 });
 
-export const MessageLimits = Object.freeze({
+/**
+ * Credit limits per subscription plan (per billing period)
+ * Credits reset at the start of each billing period and do not roll over
+ */
+export const CreditLimits = Object.freeze({
   FREE: 15,
   PLUS: 50,
   PRO: 100,

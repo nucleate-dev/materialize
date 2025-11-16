@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { MessageLimits, ProductKeys } from "@/GlobalConstants";
+import { CreditLimits, ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -54,7 +54,7 @@ function AccountSettings() {
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [memberSince, setMemberSince] = useState<Date>(new Date());
-  const [messageCount, setMessageCount] = useState<number>(0);
+  const [creditsUsed, setCreditsUsed] = useState<number>(0);
   const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
   const [isProcessingUpgrade, setIsProcessingUpgrade] =
     useState<boolean>(false);
@@ -74,67 +74,116 @@ function AccountSettings() {
     }
   }, [user.user]);
 
-  // Fetch message count for current billing period
+  // Fetch credits used from all unexpired grants
   useEffect(() => {
-    async function fetchMessageCount() {
+    async function fetchCreditsUsed() {
       if (!user.user?.id || loadingSubscriptionData) return;
 
       setLoadingUsageCount(true);
       try {
-        const { count, error } = await supabase
-          .from("api_usage")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.user.id)
-          .gte("created_at", currentPeriodStart.toISOString())
-          .lte("created_at", currentPeriodEnd.toISOString());
+        if (userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999,
+          );
+          const { data: freeUsageRows, error: freeUsageError } = await supabase
+            .from("api_usage")
+            .select("credits_used")
+            .eq("user_id", user.user.id)
+            .eq("is_free_tier", true)
+            .gte("created_at", startOfMonth.toISOString())
+            .lte("created_at", endOfMonth.toISOString());
 
-        if (error) {
-          logger.debug("error", "Error fetching message count:", {
-            error: error.message,
-          });
-          setMessageCount(0);
-        } else {
-          setMessageCount(count || 0);
+          if (freeUsageError) {
+            logger.debug("error", "Error fetching credits:", {
+              error: freeUsageError.message,
+            });
+            setCreditsUsed(0);
+            return;
+          }
+
+          const totalUsed =
+            freeUsageRows?.reduce(
+              (sum, row) => sum + (row.credits_used || 0),
+              0,
+            ) ?? 0;
+
+          setCreditsUsed(totalUsed);
+          return;
         }
+
+        const nowIso = new Date().toISOString();
+        const { data: balances, error: balancesError } = await supabase
+          .from("credit_grant_balances")
+          .select("credits_granted, credits_remaining")
+          .eq("user_id", user.user.id)
+          .gt("expires_at", nowIso);
+
+        if (balancesError) {
+          logger.debug("error", "Error fetching credits:", {
+            error: balancesError.message,
+          });
+          setCreditsUsed(0);
+          return;
+        }
+
+        const totalGranted = balances?.reduce(
+          (sum, balance) => sum + (balance.credits_granted || 0),
+          0,
+        ) || 0;
+        const totalRemaining =
+          balances?.reduce(
+            (sum, balance) => sum + (balance.credits_remaining || 0),
+            0,
+          ) || 0;
+        const totalUsed = totalGranted - totalRemaining;
+
+        setCreditsUsed(totalUsed);
       } catch (error) {
-        logger.debug("error", "Error fetching message count:", {
+        logger.debug("error", "Error fetching credits:", {
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
         });
-        setMessageCount(0);
+        setCreditsUsed(0);
       } finally {
         setLoadingUsageCount(false);
       }
     }
 
-    fetchMessageCount();
+    fetchCreditsUsed();
   }, [
     user.user?.id,
-    currentPeriodStart,
-    currentPeriodEnd,
     loadingSubscriptionData,
     logger,
+    userPlan,
   ]);
 
-  // Calculate message limit based on subscription plan
-  const getMessageLimit = () => {
+  // Calculate credit limit based on subscription plan
+  const getCreditLimit = () => {
     switch (userPlan) {
       case "free":
-        return MessageLimits.FREE;
+        return CreditLimits.FREE;
       case "plus":
-        return MessageLimits.PLUS;
+        return CreditLimits.PLUS;
       case "pro":
-        return MessageLimits.PRO;
+        return CreditLimits.PRO;
       case "max":
-        return MessageLimits.MAX;
+        return CreditLimits.MAX;
       case "team":
-        return MessageLimits.TEAM;
+        return CreditLimits.TEAM;
       default:
-        return MessageLimits.FREE;
+        return CreditLimits.FREE;
     }
   };
 
-  const messageLimit = getMessageLimit();
+  const creditLimit = getCreditLimit();
 
   // Convert userPlan to ProductKeys format
   const getCurrentSubscription = () => {
@@ -170,7 +219,7 @@ function AccountSettings() {
   };
 
   const getUsagePercentage = () => {
-    return messageLimit > 0 ? (messageCount / messageLimit) * 100 : 0;
+    return creditLimit > 0 ? (creditsUsed / creditLimit) * 100 : 0;
   };
 
   const getInitials = (name: string) => {
@@ -300,7 +349,7 @@ function AccountSettings() {
               <p className="text-sm text-muted-foreground">
                 {currentSubscription === ProductKeys.FREE_SUBSCRIPTION
                   ? "Free forever with basic features"
-                  : `${messageLimit} messages per billing cycle`}
+                  : `${creditLimit} credits per billing cycle`}
               </p>
             </div>
             <Badge
@@ -406,17 +455,17 @@ function AccountSettings() {
         <CardContent className="space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Messages Used</span>
+              <span className="text-sm font-medium">Credits Used</span>
               <span className="text-sm text-muted-foreground">
                 {loadingUsageCount
                   ? "Loading..."
-                  : `${messageCount} / ${messageLimit}`}
+                  : `${creditsUsed} / ${creditLimit}`}
               </span>
             </div>
             <Progress value={getUsagePercentage()} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>0</span>
-              <span>{messageLimit} messages</span>
+              <span>{creditLimit} credits</span>
             </div>
           </div>
 
@@ -431,11 +480,11 @@ function AccountSettings() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Messages remaining:</span>
+              <span className="text-muted-foreground">Credits remaining:</span>
               <span className="font-medium">
                 {loadingUsageCount
                   ? "..."
-                  : Math.max(0, messageLimit - messageCount)}
+                  : Math.max(0, creditLimit - creditsUsed)}
               </span>
             </div>
           </div>
@@ -449,8 +498,8 @@ function AccountSettings() {
                   <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
                     <AlertCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800 dark:text-red-200">
-                      {`You've exceeded your free plan limit (${messageCount}/
-                      ${messageLimit} messages). Upgrade to Pro to continue using
+                      {`You've exceeded your free plan limit (${creditsUsed.toFixed(1)}/
+                      ${creditLimit} credits). Upgrade to Pro to continue using
                       the service this period.`}
                     </AlertDescription>
                   </Alert>

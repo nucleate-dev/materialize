@@ -283,7 +283,7 @@ export interface StreamCompleteEvent {
  */
 export interface UsageUpdateEvent {
   type: ChatStreamEventType.USAGE_UPDATE;
-  messageCount: number;
+  creditsRemaining: number;
 }
 
 /**
