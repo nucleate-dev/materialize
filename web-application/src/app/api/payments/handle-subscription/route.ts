@@ -174,7 +174,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   ).toISOString();
   const expiresAt = billingPeriodEnd;
 
-  const { error: creditGrantError } = await supabase
+  const { data: grantRows, error: creditGrantError } = await supabase
     .from("credit_grants")
     .upsert(
       {
@@ -190,9 +190,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       {
         onConflict: "subscription_id,billing_period_start",
       },
-    );
+    )
+    .select();
 
-  if (creditGrantError) {
+  if (creditGrantError || !grantRows || grantRows.length === 0) {
     posthog.capture({
       distinctId: userId,
       event: ExceptionEvents.CREDIT_GRANT_ERROR,
@@ -202,7 +203,129 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       },
     });
     console.error("Error granting credits to user:", creditGrantError);
-    // Don't return - continue with payment recording even if credit grant fails
+  } else {
+    const newGrant = grantRows[0];
+    let remainingCredits = newGrant.credits_granted;
+
+    if (remainingCredits > 0) {
+      const { data: overageRows, error: overageFetchError } = await supabase
+        .from("api_usage")
+        .select("id, credits_used, prototype_id")
+        .eq("user_id", userId)
+        .is("credit_grant_id", null)
+        .order("created_at", { ascending: true });
+
+      if (overageFetchError) {
+        posthog.capture({
+          distinctId: userId,
+          event: ExceptionEvents.CREDIT_GRANT_ERROR,
+          properties: {
+            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+            error: overageFetchError,
+            context: "fetch_overage_usage",
+          },
+        });
+        console.error("Error fetching overage usage:", overageFetchError);
+      } else if (overageRows && overageRows.length > 0) {
+        for (const usageRow of overageRows) {
+          if (remainingCredits <= 0) break;
+
+          const usageCredits = Math.max(usageRow.credits_used || 0, 0);
+
+          if (usageCredits === 0) {
+            const { error: assignZeroError } = await supabase
+              .from("api_usage")
+              .update({ credit_grant_id: newGrant.id })
+              .eq("id", usageRow.id);
+
+            if (assignZeroError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: assignZeroError,
+                  context: "assign_zero_overage",
+                },
+              });
+              console.error("Error assigning zero-credit usage to grant:", assignZeroError);
+            }
+            continue;
+          }
+
+          if (usageCredits <= remainingCredits + Number.EPSILON) {
+            const { error: assignError } = await supabase
+              .from("api_usage")
+              .update({ credit_grant_id: newGrant.id })
+              .eq("id", usageRow.id);
+
+            if (assignError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: assignError,
+                  context: "assign_full_overage",
+                },
+              });
+              console.error("Error assigning overage usage to grant:", assignError);
+              break;
+            }
+
+            remainingCredits -= usageCredits;
+          } else {
+            const partialCredits = remainingCredits;
+            const residualCredits = usageCredits - partialCredits;
+
+            const { error: residualUpdateError } = await supabase
+              .from("api_usage")
+              .update({ credits_used: residualCredits })
+              .eq("id", usageRow.id);
+
+            if (residualUpdateError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: residualUpdateError,
+                  context: "reduce_overage_row",
+                },
+              });
+              console.error("Error reducing overage usage row:", residualUpdateError);
+              break;
+            }
+
+            const { error: partialInsertError } = await supabase
+              .from("api_usage")
+              .insert({
+                user_id: userId,
+                prototype_id: usageRow.prototype_id,
+                credits_used: partialCredits,
+                credit_grant_id: newGrant.id,
+              });
+
+            if (partialInsertError) {
+              posthog.capture({
+                distinctId: userId,
+                event: ExceptionEvents.CREDIT_GRANT_ERROR,
+                properties: {
+                  source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+                  error: partialInsertError,
+                  context: "insert_partial_overage",
+                },
+              });
+              console.error("Error inserting partial overage coverage row:", partialInsertError);
+              break;
+            }
+
+            remainingCredits = 0;
+            break;
+          }
+        }
+      }
+    }
   }
 
   const { error: paymentUpdateError } = await supabase.from("payments").insert({
