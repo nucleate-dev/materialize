@@ -696,10 +696,54 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      credit_grant_balances: {
+        Row: {
+          billing_period_end: string | null;
+          billing_period_start: string | null;
+          created_at: string;
+          credits_granted: number;
+          credits_remaining: number;
+          credits_used: number;
+          expires_at: string;
+          grant_reason: string | null;
+          grant_type: string;
+          id: string | null;
+          subscription_id: string | null;
+          user_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "credit_grants_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credit_grants_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
-      [_ in never]: never;
+      consume_credits: {
+        Args: {
+          p_user_id: string;
+          p_prototype_id?: string | null;
+          p_credits: number;
+        };
+        Returns: {
+          success: boolean;
+          total_remaining: number;
+          consumed_grants: Json;
+          grant_balances: Json;
+          error: string | null;
+        };
+      };
     };
     Enums: {
       design_style: "tamagui" | "stylesheets" | "nativewind";

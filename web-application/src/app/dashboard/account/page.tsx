@@ -82,52 +82,29 @@ function AccountSettings() {
       setLoadingUsageCount(true);
       try {
         const nowIso = new Date().toISOString();
-        const { data: grants, error: grantsError } = await supabase
-          .from("credit_grants")
-          .select("id, credits_granted")
+        const { data: balances, error: balancesError } = await supabase
+          .from("credit_grant_balances")
+          .select("credits_granted, credits_remaining")
           .eq("user_id", user.user.id)
           .gt("expires_at", nowIso);
 
-        if (grantsError) {
+        if (balancesError) {
           logger.debug("error", "Error fetching credits:", {
-            error: grantsError.message,
+            error: balancesError.message,
           });
           setCreditsUsed(0);
           return;
         }
 
-        const grantIds = grants?.map(grant => grant.id) ?? [];
-        const usageMap = new Map<string, number>();
-
-        if (grantIds.length > 0) {
-          const { data: usageRows, error: usageError } = await supabase
-            .from("api_usage")
-            .select("credit_grant_id, credits_used")
-            .eq("user_id", user.user.id)
-            .in("credit_grant_id", grantIds);
-
-          if (usageError) {
-            logger.debug("error", "Error fetching usage records:", {
-              error: usageError.message,
-            });
-          } else {
-            usageRows?.forEach(row => {
-              if (!row.credit_grant_id) return;
-              const current = usageMap.get(row.credit_grant_id) || 0;
-              usageMap.set(row.credit_grant_id, current + row.credits_used);
-            });
-          }
-        }
-
-        const totalGranted = grants?.reduce(
-          (sum, grant) => sum + grant.credits_granted,
+        const totalGranted = balances?.reduce(
+          (sum, balance) => sum + (balance.credits_granted || 0),
           0,
         ) || 0;
         const totalRemaining =
-          grants?.reduce((sum, grant) => {
-            const used = usageMap.get(grant.id) || 0;
-            return sum + Math.max(0, grant.credits_granted - used);
-          }, 0) || 0;
+          balances?.reduce(
+            (sum, balance) => sum + (balance.credits_remaining || 0),
+            0,
+          ) || 0;
         const totalUsed = totalGranted - totalRemaining;
 
         setCreditsUsed(totalUsed);

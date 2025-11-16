@@ -10,13 +10,16 @@ Successfully implemented a flexible credit-based system to replace the message-c
 ### 1. Database Schema Changes ✅
 **Location:** `database/migrations/`
 
-Created two migration files:
+Created three migration files:
 - **001_add_credits_to_api_usage.sql** - Adds `credits_used` column (DECIMAL) to existing `api_usage` table
   - Includes RLS policies for authenticated users to insert/view their own usage
   - Service role has full access for backend operations
 - **002_create_credit_grants_table.sql** - Creates new `credit_grants` table to track when credits are granted to users
   - Includes RLS policies for authenticated users to view their own grants
   - Only service role can insert grants (via Stripe webhooks)
+- **003_create_consume_credits_function.sql** - Adds the `credit_grant_balances` view plus the transactional `consume_credits` stored procedure used by every writer
+  - View surfaces granted/used/remaining credit metadata per grant
+  - RPC enforces FIFO spending, emits per-grant consumption details, and is callable from both service role and authenticated clients
 
 **Security Features:**
 - Row Level Security (RLS) enabled on both tables
@@ -53,7 +56,7 @@ Deprecated `MessageLimits` in favor of the new credit system.
 **Location:** `server/control-plane/utils/subscriptionChecks.ts`
 
 Core functions:
-- **`getRemainingCredits()`** - Aggregates unexpired grants with real-time `api_usage` consumption to compute remaining balance
+- **`getRemainingCredits()`** - Reads from the `credit_grant_balances` view (which already includes usage deltas) to compute remaining balance
 - **`hasExceededCreditLimit()`** - Applies the computed balance against the user’s plan limits (replaces `hasExceededChatUsageLimit`)
 
 ### 5. Stripe Webhook Integration ✅
@@ -77,23 +80,22 @@ Also updated:
 
 Updated `trackChatUsage()`:
 - Added optional `creditsUsed` parameter (default 1.0)
-- Computes remaining balances in real time by subtracting `api_usage` per grant (no `credit_grants` mutations)
-- Inserts granular `api_usage` rows that reference the specific grant consumed
-- Returns the aggregate `totalRemainingCredits`
+- Calls the transactional `consume_credits` RPC so all grant locking, deduction, and `api_usage` inserts happen inside the database
+- Returns the aggregate `totalRemainingCredits` plus grant metadata for future UI hooks
 
 **Build Worker Usage Tracking**
 **Location:** `server/build-workers/services/utils/usage-tracking.ts`
 
 Updated `trackApiUsageBuildWorker()`:
 - Added optional `creditsUsed` parameter (default 1.0)
-- Shares the same FIFO consumption logic as chat (read-only against `credit_grants`)
+- Shares the exact RPC path as chat (no ad-hoc queries in the worker)
 - Returns `totalRemainingCredits` so the UI can update immediately
 
 ### 7. Generic Credit Usage Utility ✅
 **Location:** `server/control-plane/utils/creditUsage.ts` (NEW FILE)
 
 Created reusable utility functions:
-- **`recordCreditUsage()`** - Generic function to record any credit usage by pulling real-time grant balances
+- **`recordCreditUsage()`** - Generic function to record any credit usage by delegating to the `consume_credits` RPC
 - **`recordSingleCreditUsage()`** - Convenience function for 1.0 credit operations
 
 ---
@@ -102,15 +104,17 @@ Created reusable utility functions:
 
 1. `database/migrations/001_add_credits_to_api_usage.sql` (NEW)
 2. `database/migrations/002_create_credit_grants_table.sql` (NEW)
-3. `database/migrations/README.md` (NEW)
-4. `server/control-plane/types/supabase.ts` (MODIFIED)
-5. `web-application/src/GlobalConstants.ts` (MODIFIED)
-6. `server/control-plane/utils/subscriptionChecks.ts` (MODIFIED)
-7. `web-application/src/app/api/payments/handle-subscription/route.ts` (MODIFIED)
-8. `web-application/src/LoggingEvents.ts` (MODIFIED)
-9. `server/control-plane/services/chat/utils/usage-tracking.ts` (MODIFIED)
-10. `server/build-workers/services/utils/usage-tracking.ts` (MODIFIED)
-11. `server/control-plane/utils/creditUsage.ts` (NEW)
+3. `database/migrations/003_create_consume_credits_function.sql` (NEW)
+4. `database/migrations/README.md` (UPDATED)
+5. `server/control-plane/types/supabase.ts` (MODIFIED)
+6. `web-application/src/GlobalConstants.ts` (MODIFIED)
+7. `server/control-plane/utils/subscriptionChecks.ts` (MODIFIED)
+8. `web-application/src/app/api/payments/handle-subscription/route.ts` (MODIFIED)
+9. `web-application/src/LoggingEvents.ts` (MODIFIED)
+10. `server/control-plane/services/chat/utils/usage-tracking.ts` (MODIFIED)
+11. `server/build-workers/services/utils/usage-tracking.ts` (MODIFIED)
+12. `server/control-plane/utils/creditUsage.ts` (NEW)
+13. `CREDIT_SYSTEM_TRANSACTION_PLAN.md` (NEW)
 
 ---
 
@@ -123,10 +127,12 @@ Before deploying the code, you MUST run the SQL migrations:
 # Run each file in order:
 # - database/migrations/001_add_credits_to_api_usage.sql
 # - database/migrations/002_create_credit_grants_table.sql
+# - database/migrations/003_create_consume_credits_function.sql
 
 # Option 2: Via psql
 psql $DATABASE_URL < database/migrations/001_add_credits_to_api_usage.sql
 psql $DATABASE_URL < database/migrations/002_create_credit_grants_table.sql
+psql $DATABASE_URL < database/migrations/003_create_consume_credits_function.sql
 ```
 
 ### 2. Update API Endpoints to Use New Credit Functions

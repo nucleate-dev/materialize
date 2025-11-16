@@ -12,6 +12,7 @@ These migrations need to be executed in your Supabase database in order:
 3. Run each migration file in numerical order:
    - `001_add_credits_to_api_usage.sql`
    - `002_create_credit_grants_table.sql`
+   - `003_create_consume_credits_function.sql`
 
 ### Option 2: Supabase CLI
 If you have the Supabase CLI installed and linked to your project:
@@ -25,6 +26,7 @@ Or run individually:
 ```bash
 psql $DATABASE_URL < database/migrations/001_add_credits_to_api_usage.sql
 psql $DATABASE_URL < database/migrations/002_create_credit_grants_table.sql
+psql $DATABASE_URL < database/migrations/003_create_consume_credits_function.sql
 ```
 
 ## Migration Files
@@ -45,6 +47,11 @@ psql $DATABASE_URL < database/migrations/002_create_credit_grants_table.sql
 - Adds billing period start/end timestamps plus expiration timestamps
 - Links to subscriptions table
 - Includes indexes plus a unique constraint on `(subscription_id, billing_period_start)` so Stripe retries cannot double-grant credits
+
+### 003_create_consume_credits_function.sql
+- Adds `credit_grant_balances` view for live granted/used/remaining metrics
+- Introduces `consume_credits` stored procedure that performs FIFO credit consumption in a single transaction
+- Grants authenticated clients the ability to call the RPC while keeping detailed `consumed_grants` metadata in the response
 - **RLS Policies:**
   - Enables Row Level Security on `credit_grants` table
   - Authenticated users can read their own credit grants

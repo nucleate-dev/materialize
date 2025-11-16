@@ -241,50 +241,26 @@ export async function getRemainingCredits(
     const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
 
     const nowIso = new Date().toISOString();
-    const { data: grants, error: grantsError } = await supabaseClient
-      .from('credit_grants')
-      .select('id, credits_granted')
+    const { data: balances, error: balancesError } = await supabaseClient
+      .from('credit_grant_balances')
+      .select('credits_granted, credits_remaining')
       .eq('user_id', userId)
       .gt('expires_at', nowIso);
 
-    if (grantsError) {
-      log2.error(grantsError, 'Error fetching credit grants:', {
+    if (balancesError) {
+      log2.error(balancesError, 'Error fetching credit grant balances:', {
         functionName: 'getRemainingCredits',
       });
     }
 
-    const grantIds = grants?.map(grant => grant.id) || [];
-    const usageMap = new Map<string, number>();
-
-    if (grantIds.length > 0) {
-      const { data: usageRows, error: usageError } = await supabaseClient
-        .from('api_usage')
-        .select('credit_grant_id, credits_used')
-        .eq('user_id', userId)
-        .in('credit_grant_id', grantIds);
-
-      if (usageError) {
-        log2.error(usageError, 'Error fetching api_usage for credits:', {
-          functionName: 'getRemainingCredits',
-        });
-      } else {
-        usageRows?.forEach(row => {
-          if (!row.credit_grant_id) return;
-          const current = usageMap.get(row.credit_grant_id) || 0;
-          usageMap.set(row.credit_grant_id, current + row.credits_used);
-        });
-      }
-    }
-
-    const totalGranted = grants?.reduce(
-      (sum, g) => sum + g.credits_granted,
+    const totalGranted = balances?.reduce(
+      (sum, balance) => sum + (balance.credits_granted || 0),
       0,
     ) || 0;
-    const totalRemaining =
-      grants?.reduce((sum, grant) => {
-        const used = usageMap.get(grant.id) || 0;
-        return sum + Math.max(0, grant.credits_granted - used);
-      }, 0) || 0;
+    const totalRemaining = balances?.reduce(
+      (sum, balance) => sum + (balance.credits_remaining || 0),
+      0,
+    ) || 0;
     const totalUsed = totalGranted - totalRemaining;
 
     // Get the credit limit for this plan

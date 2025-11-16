@@ -9,8 +9,7 @@
 ## Proposed Architecture
 1. **Postgres Stored Procedure**
    - New function `consume_credits(p_user_id UUID, p_prototype_id UUID, p_credits NUMERIC, p_metadata JSONB)`:
-     1. `LOCK TABLE credit_grants IN SHARE ROW EXCLUSIVE MODE;`
-     2. Select eligible grants `FOR UPDATE` ordered by `expires_at`.
+     1. Select eligible grants `FOR UPDATE` ordered by `expires_at` (scoped to `user_id` to avoid cross-user contention).
      3. Loop through grants, decrement `credits_remaining` computed via `credits_granted - COALESCE(SUM(credits_used), 0)` inside the transaction.
      4. Insert one `api_usage` row per grant chunk with `credit_grant_id`.
      5. Return the new total remaining credits plus metadata (e.g., grant ids consumed).
@@ -53,7 +52,7 @@
      - Verify insufficient credit error path returns deterministic error message.
    - Load test: stress RPC with dozens of concurrent requests to ensure no deadlocks/timeouts.
 
-## Open Questions
-- Should we expire unused credits automatically via background job (delete expired grants) to keep table small?
-- Do we need per-grant metadata in the RPC response (e.g., for UI progress bars) or is aggregate remaining sufficient?
-- Need to confirm Supabase RPC call latency fits real-time chat requirements; otherwise consider dedicated app server endpoint proxying the RPC.
+## Open Questions (Resolved)
+- We will **not** delete expired grants yet; table cleanup can be revisited later once usage patterns are clearer.
+- The RPC response should include per-grant metadata (granted, used, remaining, expiration) so clients can optionally surface detailed usage visuals.
+- Supabase RPC latency is acceptable for this scope—no dedicated app-server proxy is planned; optimizations should focus on the SQL function itself.
