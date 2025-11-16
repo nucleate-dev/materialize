@@ -34,7 +34,7 @@ export function useCreatePrototype() {
         return {
           data: null,
           error: {
-            error: "AUTH_REQUIRED",
+            error: "UNAUTHORIZED",
             message: "Authentication token missing",
           },
         };
@@ -61,7 +61,7 @@ export function useCreatePrototype() {
       > = await response.json();
 
       if (!response.ok && result.error) {
-        logger.debug("error", "Create prototype request failed", result.error);
+        logger.debug("error", "Create prototype request failed", { ...result.error });
       }
 
       return result;
@@ -73,7 +73,7 @@ export function useCreatePrototype() {
       return {
         data: null,
         error: {
-          error: "UNKNOWN",
+          error: "DATABASE_ERROR",
           message:
             error instanceof Error ? error.message : "Failed to create prototype",
         },

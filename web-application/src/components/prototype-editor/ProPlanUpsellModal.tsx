@@ -44,7 +44,7 @@ export default function ProPlanUpsellModal({
 
   // Determine which tier to suggest based on current plan
   const getSuggestedUpgrade = () => {
-    switch (userPlan) {
+    switch (userPlan as string) {
       case "free":
         return {
           tier: ProductKeys.PLUS_SUBSCRIPTION,

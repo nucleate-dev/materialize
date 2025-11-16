@@ -7,6 +7,8 @@ import { getSubscriptionInfo } from './subscriptionChecks.js';
 type ConsumeCreditsResponse =
   Database['public']['Functions']['consume_credits']['Returns'];
 
+type ConsumeCreditsItem = ConsumeCreditsResponse[number];
+
 function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -37,10 +39,10 @@ async function callConsumeCredits(
   userId: string,
   prototypeId: string | null,
   creditsUsed: number,
-): Promise<ConsumeCreditsResponse | null> {
+): Promise<ConsumeCreditsItem | null> {
   const { data, error } = await supabaseClient.rpc('consume_credits', {
     p_user_id: userId,
-    p_prototype_id: prototypeId,
+    p_prototype_id: prototypeId ?? '',
     p_credits: creditsUsed,
   });
 
@@ -150,11 +152,15 @@ export async function recordCreditUsage(
     );
 
     if (!rpcResult || !rpcResult.success) {
-      log2.error(rpcResult?.error ?? 'consume_credits RPC returned failure', {
-        functionName: 'recordCreditUsage',
-        userId,
-        creditsRequested: creditsUsed,
-      });
+      log2.error(
+        new Error(rpcResult?.error ?? 'consume_credits RPC returned failure'),
+        'consume_credits RPC returned failure',
+        {
+          functionName: 'recordCreditUsage',
+          userId,
+          creditsRequested: creditsUsed,
+        },
+      );
       const { error: insertError } = await supabaseClient.from('api_usage').insert({
         user_id: userId,
         prototype_id: prototypeId,

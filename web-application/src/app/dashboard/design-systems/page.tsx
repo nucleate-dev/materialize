@@ -41,7 +41,7 @@ export default function DesignSystemsPage() {
 
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

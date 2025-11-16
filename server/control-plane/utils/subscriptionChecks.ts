@@ -316,7 +316,7 @@ export async function getRemainingCredits(
 
     // Get the credit limit for this plan
     let creditLimit = 0;
-    switch (subscriptionInfo.userPlan) {
+    switch (subscriptionInfo.userPlan as string) {
       case ProductKeys.FREE_SUBSCRIPTION:
         creditLimit = CreditLimits.FREE;
         break;

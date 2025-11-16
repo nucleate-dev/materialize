@@ -4,11 +4,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
-import "@xterm/xterm/css/xterm.css";
 import { Loader2, Terminal as TerminalIcon, Trash2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import "@xterm/xterm/css/xterm.css";
+
+// Import xterm types
+import type { Terminal } from "@xterm/xterm";
+import type { FitAddon } from "@xterm/addon-fit";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT ||
@@ -57,80 +59,102 @@ export default function TerminalPage() {
 
   // Initialize terminals on mount
   useEffect(() => {
-    const initTerminal = (
-      terminalRef: React.RefObject<HTMLDivElement>,
-      xtermRef: React.MutableRefObject<Terminal | null>,
-      fitAddonRef: React.MutableRefObject<FitAddon | null>,
-    ) => {
-      if (!terminalRef.current) return null;
+    let devTerm: Terminal | null = null;
+    let buildTerm: Terminal | null = null;
+    let testTerm: Terminal | null = null;
 
-      const term = new Terminal({
-        cursorBlink: true,
-        fontSize: 12,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: {
-          background: "#1e1e1e",
-          foreground: "#d4d4d4",
-        },
-        cols: 80,
-        rows: 15,
-      });
+    const initializeTerminals = async () => {
+      // Dynamically import xterm modules
+      const [{ Terminal: XTerminal }, { FitAddon: XFitAddon }] = await Promise.all([
+        import("@xterm/xterm"),
+        import("@xterm/addon-fit"),
+      ]);
 
-      const fitAddon = new FitAddon();
-      term.loadAddon(fitAddon);
-      term.open(terminalRef.current);
+      const initTerminal = (
+        terminalRef: React.RefObject<HTMLDivElement>,
+        xtermRef: React.MutableRefObject<Terminal | null>,
+        fitAddonRef: React.MutableRefObject<FitAddon | null>,
+      ) => {
+        if (!terminalRef.current) return null;
 
-      // Use setTimeout to allow the terminal to fully render before fitting
-      setTimeout(() => {
-        try {
-          fitAddon.fit();
-        } catch (err) {
-          console.error("Failed to fit terminal:", err);
-        }
-      }, 0);
+        const term = new XTerminal({
+          cursorBlink: true,
+          fontSize: 12,
+          fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+          theme: {
+            background: "#1e1e1e",
+            foreground: "#d4d4d4",
+          },
+          cols: 80,
+          rows: 15,
+        });
 
-      xtermRef.current = term;
-      fitAddonRef.current = fitAddon;
+        const fitAddon = new XFitAddon();
+        term.loadAddon(fitAddon);
+        term.open(terminalRef.current);
 
-      return term;
-    };
-
-    // Initialize all three terminals
-    const devTerm = initTerminal(
-      devServerTerminal as React.RefObject<HTMLDivElement>,
-      devServerXterm,
-      devServerFitAddon,
-    );
-    const buildTerm = initTerminal(
-      buildTerminal as React.RefObject<HTMLDivElement>,
-      buildXterm,
-      buildFitAddon,
-    );
-    const testTerm = initTerminal(
-      testTerminal as React.RefObject<HTMLDivElement>,
-      testXterm,
-      testFitAddon,
-    );
-
-    // Handle window resize
-    const handleResize = () => {
-      [devServerFitAddon, buildFitAddon, testFitAddon].forEach(
-        (fitAddonRef) => {
-          if (fitAddonRef.current) {
-            try {
-              fitAddonRef.current.fit();
-            } catch (err) {
-              console.error("Failed to fit terminal on resize:", err);
-            }
+        // Use setTimeout to allow the terminal to fully render before fitting
+        setTimeout(() => {
+          try {
+            fitAddon.fit();
+          } catch (err) {
+            console.error("Failed to fit terminal:", err);
           }
-        },
+        }, 0);
+
+        xtermRef.current = term;
+        fitAddonRef.current = fitAddon;
+
+        return term;
+      };
+
+      // Initialize all three terminals
+      devTerm = initTerminal(
+        devServerTerminal as React.RefObject<HTMLDivElement>,
+        devServerXterm,
+        devServerFitAddon,
       );
+      buildTerm = initTerminal(
+        buildTerminal as React.RefObject<HTMLDivElement>,
+        buildXterm,
+        buildFitAddon,
+      );
+      testTerm = initTerminal(
+        testTerminal as React.RefObject<HTMLDivElement>,
+        testXterm,
+        testFitAddon,
+      );
+
+      // Handle window resize
+      const handleResize = () => {
+        [devServerFitAddon, buildFitAddon, testFitAddon].forEach(
+          (fitAddonRef) => {
+            if (fitAddonRef.current) {
+              try {
+                fitAddonRef.current.fit();
+              } catch (err) {
+                console.error("Failed to fit terminal on resize:", err);
+              }
+            }
+          },
+        );
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+      };
     };
 
-    window.addEventListener("resize", handleResize);
+    let cleanup: (() => void) | undefined;
+
+    initializeTerminals().then((cleanupFn) => {
+      cleanup = cleanupFn;
+    });
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      cleanup?.();
       devTerm?.dispose();
       buildTerm?.dispose();
       testTerm?.dispose();

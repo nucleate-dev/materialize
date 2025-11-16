@@ -163,10 +163,14 @@ export async function trackChatUsage(
     const payload = data?.[0];
 
     if (!payload || !payload.success) {
-      log2.error(payload?.error ?? 'consume_credits returned failure', {
-        functionName: 'trackChatUsage',
-        userId,
-      });
+      log2.error(
+        new Error(payload?.error ?? 'consume_credits returned failure'),
+        'consume_credits returned failure',
+        {
+          functionName: 'trackChatUsage',
+          userId,
+        },
+      );
       await insertFallbackUsage();
       return {
         totalRemainingCredits: 0,

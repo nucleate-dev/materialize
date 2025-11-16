@@ -2139,7 +2139,7 @@ export default function ClaudeCodePanel({
         {!isCurrentSessionMostRecent && (
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-md px-4">
             <div className="bg-yellow-500/90 text-yellow-950 dark:bg-yellow-600/90 dark:text-yellow-50 px-4 py-2 rounded-lg shadow-lg border border-yellow-600 text-sm font-medium text-center">
-              You're viewing an older conversation. Only the most recent session can receive new messages.
+              You&apos;re viewing an older conversation. Only the most recent session can receive new messages.
             </div>
           </div>
         )}

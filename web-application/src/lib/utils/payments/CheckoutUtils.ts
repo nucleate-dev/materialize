@@ -81,7 +81,7 @@ export async function handleRedirectToPaymentsPage(
   );
 
   const requestBody: CheckoutRequestBody = {
-    productID: productID as "free" | "plus" | "pro" | "max" | "team",
+    productID: productID as "free" | "plus" | "pro" | "max",
   };
 
   const response = await fetch(

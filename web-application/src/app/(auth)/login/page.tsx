@@ -3,9 +3,10 @@
 import PremiumHeader from "@/components/prototype-editor/PremiumHeader";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import LoginForm from "./LoginForm";
 
-export default function Login() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
   const registerHref = redirectParam ? `/register?redirect=${redirectParam}` : "/register";
@@ -49,5 +50,13 @@ export default function Login() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

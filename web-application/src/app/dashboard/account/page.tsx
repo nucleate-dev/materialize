@@ -167,7 +167,7 @@ function AccountSettings() {
 
   // Calculate credit limit based on subscription plan
   const getCreditLimit = () => {
-    switch (userPlan) {
+    switch (userPlan as string) {
       case "free":
         return CreditLimits.FREE;
       case "plus":
@@ -187,7 +187,7 @@ function AccountSettings() {
 
   // Convert userPlan to ProductKeys format
   const getCurrentSubscription = () => {
-    switch (userPlan) {
+    switch (userPlan as string) {
       case "pro":
         return ProductKeys.PRO_SUBSCRIPTION;
       case "plus":

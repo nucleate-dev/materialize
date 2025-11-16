@@ -71,6 +71,7 @@ const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
+  custom: "Custom",
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

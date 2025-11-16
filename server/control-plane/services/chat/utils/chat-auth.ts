@@ -9,7 +9,9 @@ export interface ChatAuthResult {
   userTier: string;
   paywallResult: {
     exceeded: boolean;
-    current: number;
+    remaining: number;
+    granted: number;
+    used: number;
     limit: number;
     plan: string;
     currentPeriodStart: Date;

@@ -160,10 +160,14 @@ export async function trackApiUsageBuildWorker(
     const payload = data?.[0];
 
     if (!payload || !payload.success) {
-      log2.error(payload?.error ?? "consume_credits RPC returned failure", {
-        functionName: "trackApiUsageBuildWorker",
-        userId,
-      });
+      log2.error(
+        new Error(payload?.error ?? "consume_credits RPC returned failure"),
+        "consume_credits RPC returned failure",
+        {
+          functionName: "trackApiUsageBuildWorker",
+          userId,
+        },
+      );
       await insertFallbackUsage();
       return {
         totalRemainingCredits: 0,

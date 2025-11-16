@@ -46,6 +46,7 @@ const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
   tamagui: "Tamagui",
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
+  custom: "Custom",
 };
 
 export default function DashboardPage() {
