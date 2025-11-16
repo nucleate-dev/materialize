@@ -57,30 +57,37 @@ export async function recordCreditUsage(
       creditsUsed,
     );
 
-    if (!rpcResult) {
-      log2.error('consume_credits returned no data', {
-        functionName: 'recordCreditUsage',
-        userId,
-      });
-      return {
-        success: false,
-        creditsUsed,
-        totalRemainingCredits: 0,
-        error: 'Unable to record credit usage',
-      };
-    }
-
-    if (!rpcResult.success) {
-      log2.error(rpcResult.error ?? 'Unknown error from consume_credits', {
+    if (!rpcResult || !rpcResult.success) {
+      log2.error(rpcResult?.error ?? 'consume_credits RPC returned failure', {
         functionName: 'recordCreditUsage',
         userId,
         creditsRequested: creditsUsed,
       });
+      const { error: insertError } = await supabaseClient.from('api_usage').insert({
+        user_id: userId,
+        prototype_id: prototypeId,
+        credits_used: creditsUsed,
+        credit_grant_id: null,
+      });
+
+      if (insertError) {
+        log2.error(insertError, 'Fallback api_usage insert failed', {
+          functionName: 'recordCreditUsage',
+          userId,
+        });
+        return {
+          success: false,
+          creditsUsed,
+          totalRemainingCredits: 0,
+          error: insertError.message,
+        };
+      }
+
       return {
-        success: false,
+        success: true,
         creditsUsed,
-        totalRemainingCredits: rpcResult.total_remaining ?? 0,
-        error: rpcResult.error ?? 'Credit consumption failed',
+        totalRemainingCredits: 0,
+        error: rpcResult?.error,
       };
     }
 
@@ -88,6 +95,7 @@ export async function recordCreditUsage(
       success: true,
       creditsUsed,
       totalRemainingCredits: rpcResult.total_remaining ?? 0,
+      error: rpcResult.error ?? undefined,
     };
   } catch (error) {
     log2.error(error, 'Exception in recordCreditUsage:', {
@@ -95,8 +103,32 @@ export async function recordCreditUsage(
       userId,
       creditsUsed,
     });
+    const insertFallback = await supabaseClient
+      .from('api_usage')
+      .insert({
+        user_id: userId,
+        prototype_id: prototypeId,
+        credits_used: creditsUsed,
+        credit_grant_id: null,
+      });
+
+    if (insertFallback.error) {
+      log2.error(insertFallback.error, 'Fallback api_usage insert failed', {
+        functionName: 'recordCreditUsage',
+        userId,
+      });
+      return {
+        success: false,
+        creditsUsed,
+        totalRemainingCredits: 0,
+        error:
+          insertFallback.error?.message ??
+          (error instanceof Error ? error.message : 'Unknown error'),
+      };
+    }
+
     return {
-      success: false,
+      success: true,
       creditsUsed,
       totalRemainingCredits: 0,
       error: error instanceof Error ? error.message : 'Unknown error',

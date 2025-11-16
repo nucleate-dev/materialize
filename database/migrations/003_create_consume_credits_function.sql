@@ -57,6 +57,7 @@ SET search_path = public
 AS $$
 DECLARE
   credits_needed NUMERIC := COALESCE(p_credits, 0);
+  overage_amount NUMERIC := 0;
   grant_row RECORD;
   grant_remaining NUMERIC;
   allocation NUMERIC;
@@ -151,14 +152,14 @@ BEGIN
   END LOOP;
 
   IF credits_needed > 0 THEN
-    RETURN QUERY
-    SELECT
-      false,
-      total_available,
-      consumed,
-      balances,
-      format('Insufficient credits: need %s, have %s', p_credits, total_available);
-    RETURN;
+    overage_amount := credits_needed;
+    consumed := consumed || jsonb_build_object(
+      'grant_id', NULL,
+      'credits', credits_needed,
+      'overage', true
+    );
+    -- Credits accounted for via consumed JSON, ensure we don't double insert below
+    credits_needed := 0;
   END IF;
 
   -- Insert usage rows now that we know the consumption plan
@@ -172,13 +173,22 @@ BEGIN
     VALUES (p_user_id, p_prototype_id, grant_row.credits_to_use, grant_row.grant_id);
   END LOOP;
 
+  IF credits_needed > 0 THEN
+    -- credits_needed reset to 0 above when overage entry added; this branch only runs if logic changes
+    INSERT INTO api_usage (user_id, prototype_id, credits_used, credit_grant_id)
+    VALUES (p_user_id, p_prototype_id, credits_needed, NULL);
+  END IF;
+
   RETURN QUERY
   SELECT
     true,
-    GREATEST(total_available - p_credits, 0),
+    total_available - p_credits,
     consumed,
     balances,
-    NULL::TEXT;
+    CASE
+      WHEN overage_amount > 0 THEN format('Overage recorded: %s credits beyond available balance', overage_amount)
+      ELSE NULL::TEXT
+    END;
 END;
 $$;
 

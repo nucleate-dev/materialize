@@ -22,6 +22,22 @@ export async function trackApiUsageBuildWorker(
     function: "trackCodeUsage",
   });
 
+  const insertFallbackUsage = async () => {
+    const { error: insertError } = await supabase.from("api_usage").insert({
+      user_id: userId,
+      prototype_id: prototypeId || null,
+      credits_used: creditsUsed,
+      credit_grant_id: null,
+    });
+
+    if (insertError) {
+      log2.error(insertError, "Fallback api_usage insert failed", {
+        functionName: "trackApiUsageBuildWorker",
+        userId,
+      });
+    }
+  };
+
   try {
     const { data, error: rpcError } = await supabase.rpc("consume_credits", {
       p_user_id: userId,
@@ -34,18 +50,23 @@ export async function trackApiUsageBuildWorker(
         functionName: "trackApiUsageBuildWorker",
         userId,
       });
-      throw new Error(rpcError.message);
+      await insertFallbackUsage();
+      return {
+        totalRemainingCredits: 0,
+      };
     }
 
     const payload = data?.[0];
 
     if (!payload || !payload.success) {
-      const rpcMessage = payload?.error ?? "Insufficient credits";
-      log2.error(rpcMessage, "consume_credits RPC returned failure", {
+      log2.error(payload?.error ?? "consume_credits RPC returned failure", {
         functionName: "trackApiUsageBuildWorker",
         userId,
       });
-      throw new Error(rpcMessage);
+      await insertFallbackUsage();
+      return {
+        totalRemainingCredits: 0,
+      };
     }
 
     return {
@@ -57,6 +78,9 @@ export async function trackApiUsageBuildWorker(
       functionName: "trackApiUsageBuildWorker",
       userId,
     });
-    throw error;
+    await insertFallbackUsage();
+    return {
+      totalRemainingCredits: 0,
+    };
   }
 }

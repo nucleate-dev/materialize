@@ -81,6 +81,7 @@ Also updated:
 Updated `trackChatUsage()`:
 - Added optional `creditsUsed` parameter (default 1.0)
 - Calls the transactional `consume_credits` RPC so all grant locking, deduction, and `api_usage` inserts happen inside the database
+- If the RPC ever fails, inserts a fallback `api_usage` row with `credit_grant_id = NULL` so overages are still tracked
 - Returns the aggregate `totalRemainingCredits` plus grant metadata for future UI hooks
 
 **Build Worker Usage Tracking**
@@ -89,7 +90,7 @@ Updated `trackChatUsage()`:
 Updated `trackApiUsageBuildWorker()`:
 - Added optional `creditsUsed` parameter (default 1.0)
 - Shares the exact RPC path as chat (no ad-hoc queries in the worker)
-- Returns `totalRemainingCredits` so the UI can update immediately
+- Includes the same fallback insert logic to ensure every usage event is recorded
 
 ### 7. Generic Credit Usage Utility ✅
 **Location:** `server/control-plane/utils/creditUsage.ts` (NEW FILE)
@@ -97,6 +98,7 @@ Updated `trackApiUsageBuildWorker()`:
 Created reusable utility functions:
 - **`recordCreditUsage()`** - Generic function to record any credit usage by delegating to the `consume_credits` RPC
 - **`recordSingleCreditUsage()`** - Convenience function for 1.0 credit operations
+- All helpers fall back to inserting a usage row with `credit_grant_id = NULL` if the RPC fails, ensuring overages are still captured for later reconciliation.
 
 ---
 
