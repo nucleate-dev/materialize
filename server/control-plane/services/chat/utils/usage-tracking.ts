@@ -1,7 +1,7 @@
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../types/supabase.js';
-import { CreditLimits, ProductKeys } from '../../../../../web-application/src/GlobalConstants.js';
+import { CreditLimits, ProductKeys } from '../../../types/PublicAPITypes.js';
 
 export interface UsageTrackingResult {
   totalRemainingCredits: number;

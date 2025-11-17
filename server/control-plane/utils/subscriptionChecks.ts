@@ -5,7 +5,7 @@ import { SystemLogger } from '../loggers/SystemLogger.js';
 import {
   CreditLimits,
   ProductKeys,
-} from '../../../web-application/src/GlobalConstants.js';
+} from '../types/PublicAPITypes.js';
 
 /**
  * Helper function to get the start and end of the current month

@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import type { Database } from "../../types/supabase.js";
-import { ProductKeys } from "../../../../web-application/src/GlobalConstants.js";
+import { ProductKeys } from "../../types/constants.js";
 
 const FREE_TIER_CREDITS = 15;
 

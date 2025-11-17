@@ -4,7 +4,7 @@ import { SystemLogger } from '../loggers/SystemLogger.js';
 import {
   CreditLimits,
   ProductKeys,
-} from '../../../web-application/src/GlobalConstants.js';
+} from '../types/PublicAPITypes.js';
 import { getSubscriptionInfo } from './subscriptionChecks.js';
 
 type ConsumeCreditsResponse =
