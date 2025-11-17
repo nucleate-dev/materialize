@@ -29,6 +29,14 @@ import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import {
+  fetchUserCreditGrantBalances,
+  fetchOverageCredits,
+  formatGrantType,
+  formatBillingPeriod,
+  calculateUsagePercentage,
+  CreditGrantBalance,
+} from "@/lib/utils/credits/CreditUtils";
+import {
   AlertCircle,
   Calendar,
   CreditCard,
@@ -55,6 +63,8 @@ function AccountSettings() {
   const [email, setEmail] = useState<string>("");
   const [memberSince, setMemberSince] = useState<Date>(new Date());
   const [creditsUsed, setCreditsUsed] = useState<number>(0);
+  const [creditGrants, setCreditGrants] = useState<CreditGrantBalance[]>([]);
+  const [overageCredits, setOverageCredits] = useState<number>(0);
   const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
   const [isProcessingUpgrade, setIsProcessingUpgrade] =
     useState<boolean>(false);
@@ -119,31 +129,20 @@ function AccountSettings() {
           return;
         }
 
-        const nowIso = new Date().toISOString();
-        const { data: balances, error: balancesError } = await supabase
-          .from("credit_grant_balances")
-          .select("credits_granted, credits_remaining")
-          .eq("user_id", user.user.id)
-          .gt("expires_at", nowIso);
+        // Fetch individual credit grant balances and overage credits
+        const [grants, overage] = await Promise.all([
+          fetchUserCreditGrantBalances(supabase, user.user.id),
+          fetchOverageCredits(supabase, user.user.id),
+        ]);
 
-        if (balancesError) {
-          logger.debug("error", "Error fetching credits:", {
-            error: balancesError.message,
-          });
-          setCreditsUsed(0);
-          return;
-        }
+        setCreditGrants(grants);
+        setOverageCredits(overage);
 
-        const totalGranted = balances?.reduce(
-          (sum, balance) => sum + (balance.credits_granted || 0),
+        // Calculate total credits used across all grants
+        const totalUsed = grants.reduce(
+          (sum, grant) => sum + grant.credits_used,
           0,
-        ) || 0;
-        const totalRemaining =
-          balances?.reduce(
-            (sum, balance) => sum + (balance.credits_remaining || 0),
-            0,
-          ) || 0;
-        const totalUsed = totalGranted - totalRemaining;
+        );
 
         setCreditsUsed(totalUsed);
       } catch (error) {
@@ -453,54 +452,205 @@ function AccountSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Credits Used</span>
-              <span className="text-sm text-muted-foreground">
-                {loadingUsageCount
-                  ? "Loading..."
-                  : `${creditsUsed} / ${creditLimit}`}
-              </span>
-            </div>
-            <Progress value={getUsagePercentage()} className="h-2" />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span>{creditLimit} credits</span>
-            </div>
-          </div>
+          {/* For free tier, show simplified view */}
+          {userPlan === ProductKeys.FREE_SUBSCRIPTION ? (
+            <>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Credits Used</span>
+                  <span className="text-sm text-muted-foreground">
+                    {loadingUsageCount
+                      ? "Loading..."
+                      : `${creditsUsed} / ${creditLimit}`}
+                  </span>
+                </div>
+                <Progress value={getUsagePercentage()} className="h-2" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0</span>
+                  <span>{creditLimit} credits</span>
+                </div>
+              </div>
 
-          <Separator />
+              <Separator />
 
-          <div className="grid gap-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Current period:</span>
-              <span className="font-medium">
-                {currentPeriodStart?.toLocaleDateString()} -{" "}
-                {currentPeriodEnd?.toLocaleDateString()}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Credits remaining:</span>
-              <span className="font-medium">
-                {loadingUsageCount
-                  ? "..."
-                  : Math.max(0, creditLimit - creditsUsed)}
-              </span>
-            </div>
-          </div>
+              <div className="grid gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current period:</span>
+                  <span className="font-medium">
+                    {currentPeriodStart?.toLocaleDateString()} -{" "}
+                    {currentPeriodEnd?.toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Credits remaining:
+                  </span>
+                  <span className="font-medium">
+                    {loadingUsageCount
+                      ? "..."
+                      : Math.max(0, creditLimit - creditsUsed)}
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* For paid users, show individual credit grants */}
+              {loadingUsageCount ? (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  Loading credit grants...
+                </div>
+              ) : creditGrants.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  No active credit grants found
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {creditGrants.map((grant, index) => {
+                    const usagePercentage = calculateUsagePercentage(
+                      grant.credits_used,
+                      grant.credits_granted,
+                    );
+                    const billingPeriod = formatBillingPeriod(
+                      grant.billing_period_start,
+                      grant.billing_period_end,
+                    );
+
+                    return (
+                      <div key={grant.id} className="space-y-3">
+                        {index > 0 && <Separator />}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <span className="text-sm font-medium">
+                                {formatGrantType(grant.grant_type)}
+                              </span>
+                              {billingPeriod && (
+                                <p className="text-xs text-muted-foreground">
+                                  {billingPeriod}
+                                </p>
+                              )}
+                              {grant.grant_reason && (
+                                <p className="text-xs text-muted-foreground">
+                                  {grant.grant_reason}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {grant.credits_used.toFixed(1)} /{" "}
+                              {grant.credits_granted.toFixed(1)}
+                            </span>
+                          </div>
+                          <Progress value={usagePercentage} className="h-2" />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>
+                              {grant.credits_remaining.toFixed(1)} remaining
+                            </span>
+                            <span>
+                              Expires{" "}
+                              {new Date(grant.expires_at).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Overage section - show if there are overage credits */}
+              {overageCredits > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                            Overage Credits
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            Usage beyond available credits
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                          -{overageCredits.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-md">
+                        <p className="text-xs text-orange-800 dark:text-orange-200">
+                          These credits will be deducted from your next credit
+                          grant
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              {/* Summary section */}
+              <div className="grid gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Total credits used:
+                  </span>
+                  <span className="font-medium">
+                    {creditsUsed.toFixed(1)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {overageCredits > 0
+                      ? "Effective credits remaining:"
+                      : "Total credits remaining:"}
+                  </span>
+                  <span
+                    className={`font-medium ${
+                      overageCredits > 0
+                        ? "text-orange-600 dark:text-orange-400"
+                        : ""
+                    }`}
+                  >
+                    {(
+                      creditGrants.reduce(
+                        (sum, grant) => sum + grant.credits_remaining,
+                        0,
+                      ) - overageCredits
+                    ).toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           {(() => {
+            // Calculate total remaining credits across all grants (accounting for overage)
+            const totalRemainingCredits =
+              userPlan === ProductKeys.FREE_SUBSCRIPTION
+                ? Math.max(0, creditLimit - creditsUsed)
+                : creditGrants.reduce(
+                    (sum, grant) => sum + grant.credits_remaining,
+                    0,
+                  ) - overageCredits;
+
             const usagePercentage = getUsagePercentage();
 
             if (userPlan === "free") {
-              if (usagePercentage >= 100) {
+              if (totalRemainingCredits <= 0) {
                 return (
                   <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
                     <AlertCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800 dark:text-red-200">
-                      {`You've exceeded your free plan limit (${creditsUsed.toFixed(1)}/
-                      ${creditLimit} credits). Upgrade plan to continue using
-                      the service this period.`}
+                      {`You've exceeded your free plan limit (${creditsUsed.toFixed(1)}/${creditLimit} credits). Upgrade your plan to receive more credits.`}
                     </AlertDescription>
                   </Alert>
                 );
@@ -514,17 +664,33 @@ function AccountSettings() {
                   </Alert>
                 );
               }
-            } else if (userPlan === "pro" && usagePercentage >= 100) {
-              return (
-                <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
-                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                    {
-                      "You've exceeded your included usage. You'll now be charged per message."
-                    }
-                  </AlertDescription>
-                </Alert>
-              );
+            } else {
+              // For paid users, show overage alert if present
+              if (overageCredits > 0 && totalRemainingCredits > 0) {
+                return (
+                  <Alert className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-800 dark:text-orange-200">
+                      You have {overageCredits.toFixed(1)} overage credits that
+                      will be deducted from your next credit grant.
+                    </AlertDescription>
+                  </Alert>
+                );
+              }
+              // Show alert only when all credits are exhausted (including overage)
+              if (totalRemainingCredits <= 0) {
+                return (
+                  <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800 dark:text-red-200">
+                      You&apos;ve used all available credits
+                      {overageCredits > 0 &&
+                        ` and have ${overageCredits.toFixed(1)} in overage`}
+                      . Upgrade your plan to receive more credits.
+                    </AlertDescription>
+                  </Alert>
+                );
+              }
             }
 
             return null;
