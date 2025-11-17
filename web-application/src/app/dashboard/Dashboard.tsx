@@ -41,11 +41,10 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
   "stylesheets",
 ];
 
-const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
-  tamagui: 'Tamagui',
+const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
-  custom: "Custom",
+  custom: "Custom"
 };
 
 export default function DashboardPage() {
