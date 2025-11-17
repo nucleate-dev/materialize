@@ -32,6 +32,7 @@ import {
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
+import { hasRemainingCredits } from "./utils/credit-checks.js";
 /**
  * FILE TRACKING STRATEGY
  *
@@ -403,6 +404,80 @@ export class CodeService {
       providedSessionId: session_id,
       hasDesignSystem: !!this.sessionState.designSystemRules,
     });
+
+    // ------------------------------------------------------------------------------------------------
+    // Paywall check: Verify user has remaining credits before starting chat
+    // ------------------------------------------------------------------------------------------------
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabaseClient.auth.getUser();
+
+      if (userError || !user) {
+        this.logger.error(
+          userError || new Error("No user found"),
+          "Unable to verify user for credit check",
+          { prototypeId },
+        );
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Authentication required",
+            details: "Unable to verify user credentials",
+          },
+        });
+        return;
+      }
+
+      const creditCheck = await hasRemainingCredits(
+        this.supabaseClient,
+        user.id,
+        this.logger,
+      );
+
+      if (!creditCheck.hasCredits) {
+        this.logger.warn("User has no remaining credits", {
+          userId: user.id,
+          prototypeId,
+          remaining: creditCheck.remaining,
+          used: creditCheck.used,
+          granted: creditCheck.granted,
+          plan: creditCheck.plan,
+        });
+
+        this.sendMessage(socket, {
+          type: ChatEvent.ERROR,
+          error: {
+            message: "Credit limit exceeded",
+            details: `You have used all ${creditCheck.granted} credits for your ${creditCheck.plan} plan. Please upgrade your plan to continue.`,
+          },
+        });
+        return;
+      }
+
+      this.logger.info("Credit check passed", {
+        userId: user.id,
+        prototypeId,
+        remaining: creditCheck.remaining,
+        plan: creditCheck.plan,
+      });
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error during credit check",
+        { prototypeId },
+      );
+      // On error, deny access to be safe
+      this.sendMessage(socket, {
+        type: ChatEvent.ERROR,
+        error: {
+          message: "Unable to verify credits",
+          details: "An error occurred while checking your credit balance",
+        },
+      });
+      return;
+    }
 
     // Notify control plane that chat is starting
     await this.notifyOrchestrationStartChat(prototypeId);
