@@ -216,7 +216,7 @@ export default function PrototypeSettingsModal({
                 disabled={isSubmitting}
                 className="cursor-pointer"
               >
-                Delete Prototype
+                Delete Project
               </Button>
               <Button
                 type="submit"
@@ -233,9 +233,9 @@ export default function PrototypeSettingsModal({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Prototype</AlertDialogTitle>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this prototype? This action cannot
+              Are you sure you want to delete this project? This action cannot
               be undone and will permanently remove all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
