@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -19,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -1388,28 +1388,35 @@ export default function ClaudeCodePanel({
 
   // Send a query to Claude
   const sendQuery = async () => {
-    if (!ws || !isConnected) {
-      addMessage("error", "Not connected to Claude Code. Click the Reconnect button to establish a connection.");
-      return;
-    }
-
     const trimmedInput = inputValue.trim();
     if (!trimmedInput && uploadedImages.length === 0) {
       return;
     }
 
+    // If not connected, auto-reconnect
+    if (!ws || !isConnected) {
+      logger.debug("log", "Not connected, attempting to reconnect", {
+        hasWs: !!ws,
+        isConnected,
+      });
+
+      connect(); // Initiate reconnection (async, will complete in background)
+    }
+
     // Check if dev server is ready
     const isDevServerReady = currentRenderStatus === "Connected";
 
-    // If dev server isn't ready and we already have a queued message, prevent queueing another
-    if (!isDevServerReady && queuedMessage) {
+    // If already have a queued message, prevent queueing another
+    if (queuedMessage) {
       addMessage("system", "Please wait for the current message to be sent");
       return;
     }
 
-    // If dev server isn't ready, queue the message
-    if (!isDevServerReady) {
-      logger.debug("log", "Dev server not ready, queueing message", {
+    // If not connected or dev server isn't ready, queue the message
+    if (!isConnected || !isDevServerReady) {
+      logger.debug("log", "Queueing message", {
+        isConnected,
+        isDevServerReady,
         currentRenderStatus,
         message: trimmedInput,
       });
@@ -1438,7 +1445,7 @@ export default function ClaudeCodePanel({
         clearTimeout(queueTimeoutRef.current);
       }
       queueTimeoutRef.current = setTimeout(() => {
-        logger.debug("error", "Queued message timeout - dev server took too long", {
+        logger.debug("error", "Queued message timeout", {
           message: trimmedInput,
         });
 
@@ -1453,14 +1460,17 @@ export default function ClaudeCodePanel({
 
         addMessage(
           "error",
-          "Dev server took too long to start. Please try sending your message again."
+          "Connection or dev server took too long. Please try sending your message again."
         );
 
         setQueuedMessage(null);
       }, 120000); // 2 minutes
 
       // Show system message about queuing
-      addMessage("system", `Message queued - waiting for dev server to start (status: ${currentRenderStatus})`);
+      const waitingFor = [];
+      if (!isConnected) waitingFor.push("connection");
+      if (!isDevServerReady) waitingFor.push("dev server");
+      addMessage("system", `Message queued - waiting for ${waitingFor.join(" and ")}`);
       return;
     }
 
@@ -1990,8 +2000,8 @@ export default function ClaudeCodePanel({
                     <div className="py-1">
                       <div
                         className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${message.status === "error"
-                            ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                            : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                          ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                          : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                           }`}
                       >
                         {message.status === "running" && (
@@ -2196,7 +2206,7 @@ export default function ClaudeCodePanel({
               !isCurrentSessionMostRecent
                 ? "Cannot send messages to old sessions"
                 : isConnected
-                  ? "Ask Claude Code anything..."
+                  ? "Ask anything..."
                   : "Connect to start chatting"
             }
             disabled={!isConnected || isProcessing || !isCurrentSessionMostRecent}
