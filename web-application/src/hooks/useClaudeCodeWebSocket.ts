@@ -17,6 +17,7 @@ interface UseClaudeCodeWebSocketProps {
 interface UseClaudeCodeWebSocketReturn {
   ws: WebSocket | null;
   isConnected: boolean;
+  isConnecting: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
   sendMessage: (type: string, data: unknown) => void;
@@ -36,17 +37,20 @@ export function useClaudeCodeWebSocket({
   const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const authTokenRef = useRef<string | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const connect = useCallback(async () => {
     try {
+      setIsConnecting(true);
       authTokenRef.current = null;
 
       // Get authentication token
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) {
         logger.debug("error", "Not authenticated. Please log in.");
+        setIsConnecting(false);
         return;
       }
 
@@ -61,6 +65,7 @@ export function useClaudeCodeWebSocket({
 
       if (!finalTunnelUrlBase) {
         logger.debug("error", "Base tunnel URL not available");
+        setIsConnecting(false);
         return;
       }
 
@@ -71,6 +76,7 @@ export function useClaudeCodeWebSocket({
 
       websocket.onopen = () => {
         setIsConnected(true);
+        setIsConnecting(false);
         logger.debug("log", "Claude Code WebSocket connected");
       };
 
@@ -90,6 +96,7 @@ export function useClaudeCodeWebSocket({
       websocket.onclose = (event) => {
         authTokenRef.current = null;
         setIsConnected(false);
+        setIsConnecting(false);
         setWs(null);
         logger.debug("log", "Claude Code WebSocket closed", {
           code: event.code,
@@ -98,12 +105,14 @@ export function useClaudeCodeWebSocket({
       };
 
       websocket.onerror = (error) => {
+        setIsConnecting(false);
         logger.debug("error", "Claude Code WebSocket error", { error });
       };
 
       setWs(websocket);
     } catch (error) {
       authTokenRef.current = null;
+      setIsConnecting(false);
       logger.debug("error", "Failed to connect to Claude Code WebSocket", {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -197,9 +206,28 @@ export function useClaudeCodeWebSocket({
     };
   }, [autoConnect, prototypeId, baseTunnelUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-reconnect when baseTunnelUrl becomes available (transitions from null to valid)
+  // This fixes the race condition where the component loads before baseTunnelUrl is fetched
+  const prevBaseTunnelUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    const wasNull = prevBaseTunnelUrlRef.current === null;
+    const isNowValid = baseTunnelUrl !== null;
+
+    // If baseTunnelUrl just became available and we're not already connected, connect
+    if (wasNull && isNowValid && !isConnected && prototypeId) {
+      logger.debug("log", "baseTunnelUrl became available, auto-connecting", {
+        baseTunnelUrl,
+      });
+      connect();
+    }
+
+    prevBaseTunnelUrlRef.current = baseTunnelUrl;
+  }, [baseTunnelUrl, isConnected, prototypeId, connect, logger]);
+
   return {
     ws,
     isConnected,
+    isConnecting,
     connect,
     disconnect,
     sendMessage,

@@ -77,6 +77,7 @@ interface ClaudeCodePanelProps {
   // External WebSocket management (optional)
   externalWS?: WebSocket | null;
   externalWSConnected?: boolean;
+  externalWSConnecting?: boolean;
   onConnect?: () => Promise<void>;
   onDisconnect?: () => void;
   onRegisterMessageHandler?: (
@@ -119,6 +120,7 @@ export default function ClaudeCodePanel({
   currentRenderStatus,
   externalWS,
   externalWSConnected,
+  externalWSConnecting,
   onConnect,
   onDisconnect,
   onRegisterMessageHandler,
@@ -132,12 +134,16 @@ export default function ClaudeCodePanel({
   // Internal WebSocket state (only used if no external WS provided)
   const [internalWS, setInternalWS] = useState<WebSocket | null>(null);
   const [internalConnected, setInternalConnected] = useState(false);
+  const [internalConnecting, setInternalConnecting] = useState(false);
 
   // Use external or internal WebSocket
   const ws = usingExternalWS ? externalWS : internalWS;
   const isConnected = usingExternalWS
     ? externalWSConnected ?? false
     : internalConnected;
+  const isConnecting = usingExternalWS
+    ? externalWSConnecting ?? false
+    : internalConnecting;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -778,11 +784,13 @@ export default function ClaudeCodePanel({
   // Internal WebSocket connection (only used if no external WS provided)
   const connectInternal = async () => {
     try {
+      setInternalConnecting(true);
       authTokenRef.current = null;
 
       // Get authentication token
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) {
+        setInternalConnecting(false);
         addMessage("error", "Not authenticated. Please log in.");
         return;
       }
@@ -792,6 +800,7 @@ export default function ClaudeCodePanel({
       // Get server endpoint
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
       if (!serverEndpoint) {
+        setInternalConnecting(false);
         addMessage("error", "Server endpoint not configured");
         return;
       }
@@ -812,6 +821,7 @@ export default function ClaudeCodePanel({
 
       websocket.onopen = () => {
         setInternalConnected(true);
+        setInternalConnecting(false);
       };
 
       websocket.onmessage = (event) => {
@@ -826,36 +836,34 @@ export default function ClaudeCodePanel({
       websocket.onclose = (event) => {
         authTokenRef.current = null;
         setInternalConnected(false);
+        setInternalConnecting(false);
         const closeReason = event.reason || "No reason provided";
         logger.debug("error", "WebSocket closed", {
           code: event.code,
           reason: closeReason,
           wasClean: event.wasClean,
         });
-        addMessage(
-          "system",
-          `Disconnected from Claude Code (code: ${event.code})`,
-        );
-        if (event.code === 1006) {
-          addMessage(
-            "error",
-            "Connection failed. Check server logs or authentication.",
-          );
-        }
+        // Don't show automatic disconnection messages - users will see an error
+        // only when they try to send a message and the connection is down
       };
 
       websocket.onerror = (error) => {
+        setInternalConnecting(false);
         logger.debug("error", "WebSocket connection error", { error });
-        addMessage("error", "WebSocket connection error");
+        // Don't show automatic error messages - users will see an error
+        // only when they try to send a message and the connection is down
       };
 
       setInternalWS(websocket);
     } catch (error) {
       authTokenRef.current = null;
-      addMessage(
-        "error",
-        `Failed to connect: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      setInternalConnecting(false);
+      // Don't show automatic error messages - users will see an error
+      // only when they try to send a message and the connection is down
+      logger.debug("error", "Failed to establish WebSocket connection", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     }
   };
 
@@ -865,6 +873,7 @@ export default function ClaudeCodePanel({
       internalWS.close();
       setInternalWS(null);
       setInternalConnected(false);
+      setInternalConnecting(false);
       authTokenRef.current = null;
       sessionIdRef.current = null;
     }
@@ -1380,7 +1389,7 @@ export default function ClaudeCodePanel({
   // Send a query to Claude
   const sendQuery = async () => {
     if (!ws || !isConnected) {
-      addMessage("error", "Not connected");
+      addMessage("error", "Not connected to Claude Code. Click the Reconnect button to establish a connection.");
       return;
     }
 
@@ -1841,17 +1850,30 @@ export default function ClaudeCodePanel({
                 <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
                   isConnected
                     ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400"
+                    : isConnecting
+                      ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                      : "bg-red-500/10 text-red-700 dark:text-red-400"
                 }`}>
                   <div
-                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
-                      }`}
+                    className={`w-2 h-2 rounded-full ${
+                      isConnected
+                        ? "bg-green-500"
+                        : isConnecting
+                          ? "bg-blue-500 animate-pulse"
+                          : "bg-red-500"
+                    }`}
                   />
-                  <span>{isConnected ? "Connected" : "Disconnected"}</span>
+                  <span>
+                    {isConnected ? "Connected" : isConnecting ? "Connecting..." : "Disconnected"}
+                  </span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                {isConnected ? "WebSocket connection active" : "WebSocket disconnected"}
+                {isConnected
+                  ? "WebSocket connection active"
+                  : isConnecting
+                    ? "Establishing WebSocket connection..."
+                    : "WebSocket disconnected"}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

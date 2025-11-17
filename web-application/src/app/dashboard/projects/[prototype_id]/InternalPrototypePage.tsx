@@ -154,6 +154,7 @@ export default function InternalPrototypePage() {
   const {
     ws: claudeCodeWS,
     isConnected: claudeCodeWSConnected,
+    isConnecting: claudeCodeWSConnecting,
     connect: connectClaudeCodeWS,
     disconnect: disconnectClaudeCodeWS,
     sendSyncFiles,
@@ -161,7 +162,7 @@ export default function InternalPrototypePage() {
     prototypeId,
     baseTunnelUrl,
     onMessage: handleClaudeCodeMessage,
-    autoConnect: false, // ClaudeCodePanel controls when to connect
+    autoConnect: false, // Hook will auto-connect when baseTunnelUrl becomes available
   });
 
   // Handler for when files are saved in CodeEditor
@@ -849,6 +850,7 @@ export default function InternalPrototypePage() {
               // Pass external WebSocket management
               externalWS={claudeCodeWS}
               externalWSConnected={claudeCodeWSConnected}
+              externalWSConnecting={claudeCodeWSConnecting}
               onConnect={connectClaudeCodeWS}
               onDisconnect={disconnectClaudeCodeWS}
               onRegisterMessageHandler={(
