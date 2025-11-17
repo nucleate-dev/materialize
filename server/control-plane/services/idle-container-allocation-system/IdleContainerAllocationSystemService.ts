@@ -489,7 +489,31 @@ export class IdleContainerAllocationSystemService {
             environment: [
               {
                 name: 'AWS_REGION',
-                value: process.env.AWS_REGION!,
+                value: 'us-east-2',
+              },
+              {
+                name: 'PORT',
+                value: '3002',
+              },
+              {
+                name: 'NODE_ENV',
+                value: process.env.NODE_ENV!,
+              },
+              {
+                name: 'MATERIALIZE_SERVER_ENDPOINT',
+                value: 'https://api.materializeui.com',
+              },
+              {
+                name: 'S3_BUCKET',
+                value: 'materialize-sites',
+              },
+              {
+                name: 'SUPABASE_URL',
+                value: process.env.SUPABASE_URL!,
+              },
+              {
+                name: 'SUPABASE_ANON_KEY',
+                value: process.env.SUPABASE_ANON_KEY,
               },
             ],
           },
