@@ -450,7 +450,7 @@ export class CodeService {
           type: ChatEvent.ERROR,
           error: {
             message: "Credit limit exceeded",
-            details: `You have used all ${creditCheck.granted} credits for your ${creditCheck.plan} plan. Please upgrade your plan to continue.`,
+            details: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
           },
         });
         return;

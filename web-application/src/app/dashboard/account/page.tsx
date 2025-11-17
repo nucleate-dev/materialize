@@ -75,10 +75,10 @@ function AccountSettings() {
       setEmail(user.user.email || "");
       setName(
         user.user.user_metadata?.full_name ||
-        user.user.user_metadata?.first_name +
-        " " +
-        user.user.user_metadata?.last_name ||
-        "",
+          user.user.user_metadata?.first_name +
+            " " +
+            user.user.user_metadata?.last_name ||
+          "",
       );
       setMemberSince(new Date(user.user.created_at));
     }
@@ -157,12 +157,7 @@ function AccountSettings() {
     }
 
     fetchCreditsUsed();
-  }, [
-    user.user?.id,
-    loadingSubscriptionData,
-    logger,
-    userPlan,
-  ]);
+  }, [user.user?.id, loadingSubscriptionData, logger, userPlan]);
 
   // Calculate credit limit based on subscription plan
   const getCreditLimit = () => {
@@ -251,7 +246,10 @@ function AccountSettings() {
   const getUpgradeOption = () => {
     switch (currentSubscription) {
       case ProductKeys.FREE_SUBSCRIPTION:
-        return { tier: ProductKeys.PLUS_SUBSCRIPTION, label: "Upgrade to Plus" };
+        return {
+          tier: ProductKeys.PLUS_SUBSCRIPTION,
+          label: "Upgrade to Plus",
+        };
       case ProductKeys.PLUS_SUBSCRIPTION:
         return { tier: ProductKeys.PRO_SUBSCRIPTION, label: "Upgrade to Pro" };
       case ProductKeys.PRO_SUBSCRIPTION:
@@ -603,9 +601,7 @@ function AccountSettings() {
                   <span className="text-muted-foreground">
                     Total credits used:
                   </span>
-                  <span className="font-medium">
-                    {creditsUsed.toFixed(1)}
-                  </span>
+                  <span className="font-medium">{creditsUsed.toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">

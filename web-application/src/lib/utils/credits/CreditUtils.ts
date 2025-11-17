@@ -110,3 +110,29 @@ export function calculateUsagePercentage(
   if (creditsGranted === 0) return 0;
   return Math.min((creditsUsed / creditsGranted) * 100, 100);
 }
+
+/**
+ * Fetches overage credits (credits used without a grant)
+ * These are api_usage rows with null credit_grant_id and is_free_tier=false
+ */
+export async function fetchOverageCredits(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<number> {
+  const { data: overageRows, error } = await supabase
+    .from("api_usage")
+    .select("credits_used")
+    .eq("user_id", userId)
+    .is("credit_grant_id", null)
+    .eq("is_free_tier", false);
+
+  if (error) {
+    // Return 0 on error - caller should handle logging
+    return 0;
+  }
+
+  const totalOverage =
+    overageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
+
+  return totalOverage;
+}
