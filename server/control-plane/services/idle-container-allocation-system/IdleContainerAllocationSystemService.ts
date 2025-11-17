@@ -513,7 +513,11 @@ export class IdleContainerAllocationSystemService {
               },
               {
                 name: 'SUPABASE_ANON_KEY',
-                value: process.env.SUPABASE_ANON_KEY,
+                value: process.env.SUPABASE_ANON_KEY!,
+              },
+              {
+                name: 'ANTHROPIC_API_KEY',
+                value: process.env.ANTHROPIC_API_KEY!,
               },
             ],
           },
