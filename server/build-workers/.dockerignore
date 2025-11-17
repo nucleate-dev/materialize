@@ -1,0 +1,32 @@
+# Environment files - exclude all .env files to prevent dev secrets in production
+.env
+.env.*
+
+# Node modules - will be installed fresh via npm install
+node_modules
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Testing artifacts
+coverage
+.nyc_output
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts that will be regenerated
+dist
