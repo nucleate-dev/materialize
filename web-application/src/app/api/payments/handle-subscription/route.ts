@@ -178,10 +178,52 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   ).toISOString();
   const expiresAt = billingPeriodEnd;
 
-  const { data: grantRows, error: creditGrantError } = await supabase
+  // Check if grant already exists for this subscription + billing period
+  const { data: existingGrant, error: existingGrantError } = await supabase
     .from("credit_grants")
-    .upsert(
-      {
+    .select("id")
+    .eq("subscription_id", subscription.id)
+    .eq("billing_period_start", billingPeriodStart)
+    .maybeSingle();
+
+  if (existingGrantError) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.CREDIT_GRANT_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: existingGrantError,
+        context: "check_existing_grant",
+      },
+    });
+    console.error("Error checking existing credit grant:", existingGrantError);
+    return;
+  }
+
+  let grantRows;
+  let creditGrantError;
+
+  if (existingGrant) {
+    // Update existing grant
+    const { data: updatedGrant, error: updateError } = await supabase
+      .from("credit_grants")
+      .update({
+        credits_granted: creditsToGrant,
+        grant_reason: "subscription_renewal",
+        grant_type: "subscription",
+        billing_period_end: billingPeriodEnd,
+        expires_at: expiresAt,
+      })
+      .eq("id", existingGrant.id)
+      .select();
+
+    grantRows = updatedGrant;
+    creditGrantError = updateError;
+  } else {
+    // Create new grant
+    const { data: newGrant, error: insertError } = await supabase
+      .from("credit_grants")
+      .insert({
         user_id: userId,
         credits_granted: creditsToGrant,
         subscription_id: subscription.id,
@@ -190,12 +232,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         billing_period_start: billingPeriodStart,
         billing_period_end: billingPeriodEnd,
         expires_at: expiresAt,
-      },
-      {
-        onConflict: "subscription_id,billing_period_start",
-      },
-    )
-    .select();
+      })
+      .select();
+
+    grantRows = newGrant;
+    creditGrantError = insertError;
+  }
 
   if (creditGrantError || !grantRows || grantRows.length === 0) {
     posthog.capture({
