@@ -1,12 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import type { Database } from "../../types/supabase.js";
-import { CreditLimits, ProductKeys } from "../../../../web-application/src/GlobalConstants.js";
+import { ProductKeys } from "../../../../web-application/src/GlobalConstants.js";
 
 export interface UsageTrackingResult {
   totalRemainingCredits: number;
   grantBalances?: unknown;
 }
+
+const FREE_TIER_CREDITS = 15;
 
 function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   const now = new Date();
@@ -98,7 +100,7 @@ async function trackFreeTierUsage(
   const totalUsed =
     usageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
   return {
-    totalRemainingCredits: Math.max(CreditLimits.FREE - totalUsed, 0),
+    totalRemainingCredits: Math.max(FREE_TIER_CREDITS - totalUsed, 0),
   };
 }
 

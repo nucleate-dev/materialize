@@ -2,7 +2,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import type { SubscriptionInfo } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
-import { CreditLimits, ProductKeys } from '../../../web-application/src/GlobalConstants.js';
+import {
+  CreditLimits,
+  ProductKeys,
+} from '../../../web-application/src/GlobalConstants.js';
 
 /**
  * Helper function to get the start and end of the current month
@@ -304,14 +307,16 @@ export async function getRemainingCredits(
       });
     }
 
-    const totalGranted = balances?.reduce(
-      (sum, balance) => sum + (balance.credits_granted || 0),
-      0,
-    ) || 0;
-    const totalRemaining = balances?.reduce(
-      (sum, balance) => sum + (balance.credits_remaining || 0),
-      0,
-    ) || 0;
+    const totalGranted =
+      balances?.reduce(
+        (sum, balance) => sum + (balance.credits_granted || 0),
+        0,
+      ) || 0;
+    const totalRemaining =
+      balances?.reduce(
+        (sum, balance) => sum + (balance.credits_remaining || 0),
+        0,
+      ) || 0;
     const totalUsed = totalGranted - totalRemaining;
 
     // Get the credit limit for this plan

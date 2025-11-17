@@ -17,10 +17,10 @@ export const ProductKeys = Object.freeze({
  */
 export const CreditLimits = Object.freeze({
   FREE: 15,
-  PLUS: 50,
-  PRO: 100,
-  MAX: 500,
-  TEAM: 100,
+  PLUS: 100,
+  PRO: 250,
+  MAX: 1000,
+  TEAM: 10000,
 });
 
 export const SubscriptionStatuses = Object.freeze({

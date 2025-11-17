@@ -1,13 +1,18 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
-import { CreditLimits, ProductKeys } from '../../../web-application/src/GlobalConstants.js';
+import {
+  CreditLimits,
+  ProductKeys,
+} from '../../../web-application/src/GlobalConstants.js';
 import { getSubscriptionInfo } from './subscriptionChecks.js';
 
 type ConsumeCreditsResponse =
   Database['public']['Functions']['consume_credits']['Returns'];
 
 type ConsumeCreditsItem = ConsumeCreditsResponse[number];
+
+const FREE_TIER_CREDITS = 15;
 
 function getCurrentMonthPeriod(): { startOfMonth: Date; endOfMonth: Date } {
   const now = new Date();
@@ -108,7 +113,7 @@ async function recordFreeTierUsage(
 
   const totalUsed =
     usageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
-  const totalRemaining = Math.max(CreditLimits.FREE - totalUsed, 0);
+  const totalRemaining = Math.max(FREE_TIER_CREDITS - totalUsed, 0);
 
   return {
     success: true,
@@ -161,13 +166,15 @@ export async function recordCreditUsage(
           creditsRequested: creditsUsed,
         },
       );
-      const { error: insertError } = await supabaseClient.from('api_usage').insert({
-        user_id: userId,
-        prototype_id: prototypeId,
-        credits_used: creditsUsed,
-        credit_grant_id: null,
-        is_free_tier: false,
-      });
+      const { error: insertError } = await supabaseClient
+        .from('api_usage')
+        .insert({
+          user_id: userId,
+          prototype_id: prototypeId,
+          credits_used: creditsUsed,
+          credit_grant_id: null,
+          is_free_tier: false,
+        });
 
       if (insertError) {
         log2.error(insertError, 'Fallback api_usage insert failed', {
@@ -202,15 +209,13 @@ export async function recordCreditUsage(
       userId,
       creditsUsed,
     });
-    const insertFallback = await supabaseClient
-      .from('api_usage')
-      .insert({
-        user_id: userId,
-        prototype_id: prototypeId,
-        credits_used: creditsUsed,
-        credit_grant_id: null,
-        is_free_tier: false,
-      });
+    const insertFallback = await supabaseClient.from('api_usage').insert({
+      user_id: userId,
+      prototype_id: prototypeId,
+      credits_used: creditsUsed,
+      credit_grant_id: null,
+      is_free_tier: false,
+    });
 
     if (insertFallback.error) {
       log2.error(insertFallback.error, 'Fallback api_usage insert failed', {
@@ -245,11 +250,5 @@ export async function recordSingleCreditUsage(
   prototypeId: string | null,
   log2: SystemLogger,
 ): Promise<RecordCreditUsageResult> {
-  return recordCreditUsage(
-    jwtToken,
-    userId,
-    1.0,
-    prototypeId,
-    log2,
-  );
+  return recordCreditUsage(jwtToken, userId, 1.0, prototypeId, log2);
 }
