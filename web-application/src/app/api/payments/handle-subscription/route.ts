@@ -1,4 +1,8 @@
-import { ProductKeys, SubscriptionStatuses, CreditLimits } from "@/GlobalConstants";
+import {
+  ProductKeys,
+  SubscriptionStatuses,
+  CreditLimits,
+} from "@/GlobalConstants";
 import {
   triggerSubscriptionFreeTrialWillEndEmail,
   triggerSubscriptionPaymentFailedEmail,
@@ -207,14 +211,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const newGrant = grantRows[0];
     let remainingCredits = newGrant.credits_granted;
 
-      if (remainingCredits > 0) {
-        const { data: overageRows, error: overageFetchError } = await supabase
-          .from("api_usage")
-          .select("id, credits_used, prototype_id")
-          .eq("user_id", userId)
-          .eq("is_free_tier", false)
-          .is("credit_grant_id", null)
-          .order("created_at", { ascending: true });
+    if (remainingCredits > 0) {
+      const { data: overageRows, error: overageFetchError } = await supabase
+        .from("api_usage")
+        .select("id, credits_used, prototype_id")
+        .eq("user_id", userId)
+        .eq("is_free_tier", false)
+        .is("credit_grant_id", null)
+        .order("created_at", { ascending: true });
 
       if (overageFetchError) {
         posthog.capture({
@@ -249,7 +253,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                   context: "assign_zero_overage",
                 },
               });
-              console.error("Error assigning zero-credit usage to grant:", assignZeroError);
+              console.error(
+                "Error assigning zero-credit usage to grant:",
+                assignZeroError,
+              );
             }
             continue;
           }
@@ -270,7 +277,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                   context: "assign_full_overage",
                 },
               });
-              console.error("Error assigning overage usage to grant:", assignError);
+              console.error(
+                "Error assigning overage usage to grant:",
+                assignError,
+              );
               break;
             }
 
@@ -294,7 +304,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                   context: "reduce_overage_row",
                 },
               });
-              console.error("Error reducing overage usage row:", residualUpdateError);
+              console.error(
+                "Error reducing overage usage row:",
+                residualUpdateError,
+              );
               break;
             }
 
@@ -318,7 +331,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
                   context: "insert_partial_overage",
                 },
               });
-              console.error("Error inserting partial overage coverage row:", partialInsertError);
+              console.error(
+                "Error inserting partial overage coverage row:",
+                partialInsertError,
+              );
               break;
             }
 
