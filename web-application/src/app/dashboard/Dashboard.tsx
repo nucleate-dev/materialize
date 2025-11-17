@@ -18,11 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { useUser } from "@/hooks/useUser";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { useCreatePrototype } from "@/hooks/useCreatePrototype";
 import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline";
 import { useAtom } from "jotai";
@@ -42,6 +42,7 @@ const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
 ];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
+  tamagui: 'Tamagui',
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
   custom: "Custom",
