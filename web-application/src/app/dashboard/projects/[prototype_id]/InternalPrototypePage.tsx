@@ -1079,7 +1079,7 @@ export default function InternalPrototypePage() {
                 </p>
                 {userPlan !== "pro" && !isPublic && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    Upgrade to Pro to make projects private
+                    Upgrade plan to make projects private
                   </p>
                 )}
               </div>

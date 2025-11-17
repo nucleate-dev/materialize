@@ -204,7 +204,7 @@ export default function PrototypeSettingsModal({
               </Select>
               {userPlan !== "pro" && (
                 <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to change project visibility settings.
+                  Upgrade plan to change project visibility settings.
                 </p>
               )}
             </div>

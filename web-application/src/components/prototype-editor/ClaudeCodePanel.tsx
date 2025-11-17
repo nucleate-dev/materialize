@@ -1843,40 +1843,6 @@ export default function ClaudeCodePanel({
               Stop
             </Button>
           )}
-          {/* Connection Status Badge */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
-                  isConnected
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                    : isConnecting
-                      ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                      : "bg-red-500/10 text-red-700 dark:text-red-400"
-                }`}>
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      isConnected
-                        ? "bg-green-500"
-                        : isConnecting
-                          ? "bg-blue-500 animate-pulse"
-                          : "bg-red-500"
-                    }`}
-                  />
-                  <span>
-                    {isConnected ? "Connected" : isConnecting ? "Connecting..." : "Disconnected"}
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isConnected
-                  ? "WebSocket connection active"
-                  : isConnecting
-                    ? "Establishing WebSocket connection..."
-                    : "WebSocket disconnected"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
           <Button
             size="sm"
             variant="outline"

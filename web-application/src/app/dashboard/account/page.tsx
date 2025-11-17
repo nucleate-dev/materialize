@@ -499,7 +499,7 @@ function AccountSettings() {
                     <AlertCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800 dark:text-red-200">
                       {`You've exceeded your free plan limit (${creditsUsed.toFixed(1)}/
-                      ${creditLimit} credits). Upgrade to Pro to continue using
+                      ${creditLimit} credits). Upgrade plan to continue using
                       the service this period.`}
                     </AlertDescription>
                   </Alert>

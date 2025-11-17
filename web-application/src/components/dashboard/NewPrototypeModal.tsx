@@ -62,13 +62,11 @@ type FolderOption = {
 };
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "tamagui",
   "nativewind",
   "stylesheets",
 ];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
-  tamagui: "Tamagui",
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
   custom: "Custom",
@@ -414,7 +412,7 @@ export default function NewPrototypeModal({
                       handleCheckout(ProductKeys.PRO_SUBSCRIPTION, router)
                     }
                   >
-                    Upgrade to Pro
+                    Upgrade Plan
                   </Button>
                 </div>
               </div>
@@ -476,7 +474,7 @@ export default function NewPrototypeModal({
               </Select>
               {userPlan !== "pro" && (
                 <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to set project visibility to Self.
+                  Upgrade plan to set project visibility to Self.
                 </p>
               )}
             </div>

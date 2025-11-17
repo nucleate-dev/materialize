@@ -271,7 +271,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     if (userPlan === "free") {
       return {
         disabled: true,
-        tooltip: "Upgrade to Pro to save files",
+        tooltip: "Upgrade plan to save files",
       };
     }
 
@@ -311,7 +311,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const handleCreateFile = () => {
     // Prevent file creation for free users
     if (userPlan === "free") {
-      setNewFileError("Upgrade to Pro to create files");
+      setNewFileError("Upgrade plan to create files");
       return;
     }
 
@@ -439,7 +439,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const handleUploadFiles = async () => {
     if (userPlan === "free") {
-      setUploadError("Upgrade to Pro to upload files");
+      setUploadError("Upgrade plan to upload files");
       return;
     }
 
@@ -971,7 +971,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       <TooltipContent side="bottom">
                         <p>
                           {userPlan === "free"
-                            ? "Upgrade to Pro to manage files"
+                            ? "Upgrade plan to manage files"
                             : "Create or upload files"}
                         </p>
                       </TooltipContent>
@@ -1009,7 +1009,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        <p>{userPlan === "free" ? "Upgrade to Pro to delete files" : `Delete ${fileSystem.state.selectedFile}`}</p>
+                        <p>{userPlan === "free" ? "Upgrade plan to delete files" : `Delete ${fileSystem.state.selectedFile}`}</p>
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -1029,7 +1029,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                     Read-only mode
                   </p>
                   <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Upgrade to Pro to edit and save files
+                    Upgrade plan to edit and save files
                   </p>
                 </div>
                 <Button
@@ -1037,7 +1037,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   variant="outline"
                   className="ml-4 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50"
                 >
-                  Upgrade to Pro
+                  Upgrade plan
                 </Button>
               </AlertDescription>
             </Alert>

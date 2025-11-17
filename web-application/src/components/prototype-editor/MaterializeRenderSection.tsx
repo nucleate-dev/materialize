@@ -699,7 +699,7 @@ const MaterializeRenderSection = forwardRef<
 
       if (userPlan !== "pro") {
         alert(
-          "Exporting files is a Pro member feature. Upgrade to Pro to export your project.",
+          "Upgrade plan to export your project.",
         );
         return;
       }
