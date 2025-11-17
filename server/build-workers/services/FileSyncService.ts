@@ -78,8 +78,130 @@ export class FileSyncService {
   }
 
   /**
+   * Syncs ALL files from the work directory to Supabase.
+   * This performs a full sync, uploading all files regardless of changes.
+   * Recommended for simplicity and reliability.
+   */
+  public async syncAllFilesToSupabase(
+    prototypeId: string,
+  ): Promise<SyncResult> {
+    const result: SyncResult = {
+      success: true,
+      filesUpdated: 0,
+      filesDeleted: 0,
+      assetsUpdated: 0,
+      assetsDeleted: 0,
+      errors: [],
+    };
+
+    try {
+      this.logger.info("Starting full directory sync", {
+        prototypeId,
+        workDir: this.workDir,
+      });
+
+      // Recursively scan the work directory for all files
+      const allFiles = await this.scanDirectory(this.workDir);
+
+      this.logger.info("Scanned directory for files", {
+        prototypeId,
+        fileCount: allFiles.length,
+      });
+
+      if (allFiles.length === 0) {
+        this.logger.info("No files found in work directory", {
+          prototypeId,
+        });
+        return result;
+      }
+
+      // Separate files into text and binary
+      const modifiedFiles = allFiles;
+      const deletedFiles: string[] = []; // No deletions in full sync
+
+      // Process all files
+      await this.processChangedFiles(
+        modifiedFiles,
+        deletedFiles,
+        prototypeId,
+        result,
+      );
+
+      // Set success to false if any individual file operations failed
+      if (result.errors.length > 0) {
+        result.success = false;
+      }
+
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(new Error(message), "Full directory sync failed", {
+        prototypeId,
+      });
+      result.errors.push(`Sync failed: ${message}`);
+      result.success = false;
+      return result;
+    }
+  }
+
+  /**
+   * Recursively scans a directory and returns all file paths (relative to workDir).
+   * Excludes common directories that shouldn't be synced.
+   */
+  private async scanDirectory(
+    dirPath: string,
+    relativePath = "",
+  ): Promise<string[]> {
+    const files: string[] = [];
+
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const entryPath = path.join(dirPath, entry.name);
+        const entryRelativePath = relativePath
+          ? path.join(relativePath, entry.name)
+          : entry.name;
+
+        // Skip common directories and files that shouldn't be synced
+        const skipPatterns = [
+          "node_modules",
+          ".git",
+          ".next",
+          "dist",
+          "build",
+          ".cache",
+          "tmp",
+          ".DS_Store",
+        ];
+
+        if (skipPatterns.some((pattern) => entryRelativePath.includes(pattern))) {
+          continue;
+        }
+
+        if (entry.isDirectory()) {
+          // Recursively scan subdirectories
+          const subFiles = await this.scanDirectory(entryPath, entryRelativePath);
+          files.push(...subFiles);
+        } else if (entry.isFile()) {
+          // Add file to list
+          files.push(entryRelativePath);
+        }
+      }
+    } catch (error) {
+      this.logger.warn("Error scanning directory", {
+        path: dirPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return files;
+  }
+
+  /**
    * Syncs all changed files from the tracked file list to Supabase.
    * Uses file paths tracked by the file system watcher in CodeService.
+   * Legacy incremental sync strategy.
    */
   public async syncFilesToSupabase(
     prototypeId: string,
