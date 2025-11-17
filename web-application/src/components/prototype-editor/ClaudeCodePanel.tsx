@@ -1545,18 +1545,20 @@ export default function ClaudeCodePanel({
     setHasReceivedResponse(false); // Reset for new query
 
     // Send message in the format expected by CodeService
-    ws.send(
-      JSON.stringify({
-        type: "query",
-        data: {
-          content,
-          token, // Include JWT token for Supabase authentication
-          session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
-          chat_session_id: chatSessionId, // Pass database chat session ID for message persistence
-          custom_design_system_id: prototype?.custom_design_system,
-        },
-      }),
-    );
+    if (ws) {
+      ws.send(
+        JSON.stringify({
+          type: "query",
+          data: {
+            content,
+            token, // Include JWT token for Supabase authentication
+            session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
+            chat_session_id: chatSessionId, // Pass database chat session ID for message persistence
+            custom_design_system_id: prototype?.custom_design_system,
+          },
+        }),
+      );
+    }
   };
 
   // Interrupt current query
