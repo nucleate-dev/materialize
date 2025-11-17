@@ -37,13 +37,11 @@ type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
 type DesignStyle = Database["public"]["Enums"]["design_style"];
 
 const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "tamagui",
   "nativewind",
   "stylesheets",
 ];
 
 const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
-  tamagui: "Tamagui",
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
   custom: "Custom",
