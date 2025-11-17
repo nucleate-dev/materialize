@@ -162,7 +162,6 @@ export default function InternalPrototypePage() {
     prototypeId,
     baseTunnelUrl,
     onMessage: handleClaudeCodeMessage,
-    autoConnect: false, // Hook will auto-connect when baseTunnelUrl becomes available
   });
 
   // Handler for when files are saved in CodeEditor

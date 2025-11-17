@@ -11,7 +11,6 @@ interface UseClaudeCodeWebSocketProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
   onMessage?: (message: ClaudeCodeMessage) => void;
-  autoConnect?: boolean;
 }
 
 interface UseClaudeCodeWebSocketReturn {
@@ -32,7 +31,6 @@ export function useClaudeCodeWebSocket({
   prototypeId,
   baseTunnelUrl,
   onMessage,
-  autoConnect = false,
 }: UseClaudeCodeWebSocketProps): UseClaudeCodeWebSocketReturn {
   const logger = useProductLogger();
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -195,18 +193,14 @@ export function useClaudeCodeWebSocket({
     [ws, isConnected, sendMessage, logger],
   );
 
-  // Auto-connect on mount if enabled
+  // Cleanup on unmount
   useEffect(() => {
-    if (autoConnect && prototypeId && baseTunnelUrl) {
-      connect();
-    }
-
     return () => {
       disconnect();
     };
-  }, [autoConnect, prototypeId, baseTunnelUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-reconnect when baseTunnelUrl becomes available (transitions from null to valid)
+  // Auto-connect when baseTunnelUrl becomes available (transitions from null to valid)
   // This fixes the race condition where the component loads before baseTunnelUrl is fetched
   const prevBaseTunnelUrlRef = useRef<string | null>(null);
   useEffect(() => {
