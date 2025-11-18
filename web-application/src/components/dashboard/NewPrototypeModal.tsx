@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
@@ -409,7 +408,7 @@ export default function NewPrototypeModal({
                     size="sm"
                     className="border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
                     onClick={() =>
-                      handleCheckout(ProductKeys.PRO_SUBSCRIPTION, router)
+                      handleCheckout("pro", router)
                     }
                   >
                     Upgrade Plan

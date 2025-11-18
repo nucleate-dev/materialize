@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { CreditLimits, ProductKeys } from "@/GlobalConstants";
+import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -91,7 +91,7 @@ function AccountSettings() {
 
       setLoadingUsageCount(true);
       try {
-        if (userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+        if (userPlan === "free") {
           const now = new Date();
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
           const endOfMonth = new Date(
@@ -178,34 +178,17 @@ function AccountSettings() {
   };
 
   const creditLimit = getCreditLimit();
-
-  // Convert userPlan to ProductKeys format
-  const getCurrentSubscription = () => {
-    switch (userPlan as string) {
-      case "pro":
-        return ProductKeys.PRO_SUBSCRIPTION;
-      case "plus":
-        return ProductKeys.PLUS_SUBSCRIPTION;
-      case "max":
-        return ProductKeys.MAX_SUBSCRIPTION;
-      case "team":
-        return ProductKeys.TEAM_SUBSCRIPTION;
-      default:
-        return ProductKeys.FREE_SUBSCRIPTION;
-    }
-  };
-
-  const currentSubscription = getCurrentSubscription();
+  const currentSubscription = (userPlan as string) || "free";
 
   const getPlanBadgeVariant = (plan: string) => {
     switch (plan.toLowerCase()) {
-      case ProductKeys.MAX_SUBSCRIPTION.toLowerCase():
+      case "max":
         return "default"; // Highest tier gets primary badge
-      case ProductKeys.PRO_SUBSCRIPTION.toLowerCase():
+      case "pro":
         return "default";
-      case ProductKeys.PLUS_SUBSCRIPTION.toLowerCase():
+      case "plus":
         return "secondary";
-      case ProductKeys.TEAM_SUBSCRIPTION.toLowerCase():
+      case "team":
         return "secondary";
       default:
         return "outline"; // Free tier
@@ -245,15 +228,15 @@ function AccountSettings() {
   // Get the next tier upgrade option
   const getUpgradeOption = () => {
     switch (currentSubscription) {
-      case ProductKeys.FREE_SUBSCRIPTION:
+      case "free":
         return {
-          tier: ProductKeys.PLUS_SUBSCRIPTION,
+          tier: "plus",
           label: "Upgrade to Plus",
         };
-      case ProductKeys.PLUS_SUBSCRIPTION:
-        return { tier: ProductKeys.PRO_SUBSCRIPTION, label: "Upgrade to Pro" };
-      case ProductKeys.PRO_SUBSCRIPTION:
-        return { tier: ProductKeys.MAX_SUBSCRIPTION, label: "Upgrade to Max" };
+      case "plus":
+        return { tier: "pro", label: "Upgrade to Pro" };
+      case "pro":
+        return { tier: "max", label: "Upgrade to Max" };
       default:
         return null;
     }
@@ -302,10 +285,10 @@ function AccountSettings() {
                   variant={getPlanBadgeVariant(currentSubscription)}
                   className="capitalize"
                 >
-                  {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && (
+                  {currentSubscription === "pro" && (
                     <Crown className="w-3 h-3 mr-1" />
                   )}
-                  {currentSubscription.replace("_subscription", "")}
+                  {currentSubscription}
                 </Badge>
               </div>
               <p className="text-muted-foreground flex items-center">
@@ -341,10 +324,10 @@ function AccountSettings() {
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div className="space-y-1">
               <p className="font-medium capitalize">
-                {currentSubscription.replace("_subscription", "")} Plan
+                {currentSubscription} Plan
               </p>
               <p className="text-sm text-muted-foreground">
-                {currentSubscription === ProductKeys.FREE_SUBSCRIPTION
+                {currentSubscription === "free"
                   ? "Free forever with basic features"
                   : `${creditLimit} credits per billing cycle`}
               </p>
@@ -353,14 +336,14 @@ function AccountSettings() {
               variant={getPlanBadgeVariant(currentSubscription)}
               className="capitalize"
             >
-              {currentSubscription === ProductKeys.PRO_SUBSCRIPTION && (
+              {currentSubscription === "pro" && (
                 <Crown className="w-3 h-3 mr-1" />
               )}
               Active
             </Badge>
           </div>
 
-          {currentSubscription !== ProductKeys.FREE_SUBSCRIPTION && (
+          {currentSubscription !== "free" && (
             <>
               <Separator />
 
@@ -418,7 +401,7 @@ function AccountSettings() {
               </Button>
             )}
 
-            {currentSubscription !== ProductKeys.FREE_SUBSCRIPTION && (
+            {currentSubscription !== "free" && (
               <Button
                 onClick={() => {
                   handleRedirectToStripeCustomerPortal(
@@ -451,7 +434,7 @@ function AccountSettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* For free tier, show simplified view */}
-          {userPlan === ProductKeys.FREE_SUBSCRIPTION ? (
+          {userPlan === "free" ? (
             <>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -631,7 +614,7 @@ function AccountSettings() {
           {(() => {
             // Calculate total remaining credits across all grants (accounting for overage)
             const totalRemainingCredits =
-              userPlan === ProductKeys.FREE_SUBSCRIPTION
+              userPlan === "free"
                 ? Math.max(0, creditLimit - creditsUsed)
                 : creditGrants.reduce(
                     (sum, grant) => sum + grant.credits_remaining,

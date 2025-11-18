@@ -1,5 +1,4 @@
 import { supabase } from "@/ClientConstants";
-import { ProductKeys } from "@/GlobalConstants";
 import type {
   APIResponse,
   CheckoutErrorResponse,
@@ -41,14 +40,14 @@ export async function handleCheckout(
 
   if (session.session) {
     // User is logged in, create the Stripe checkout session
-    if (productID === ProductKeys.FREE_SUBSCRIPTION) {
+    if (productID === "free") {
       router.push("/dashboard");
     } else {
       handleRedirectToPaymentsPage(productID, session.session.access_token);
     }
   } else {
     // Store product ID in local storage or URL and redirect to login
-    if (productID !== ProductKeys.FREE_SUBSCRIPTION) {
+    if (productID !== "free") {
       localStorage.setItem("checkout_intent", productID);
     }
     router.push("/login");
