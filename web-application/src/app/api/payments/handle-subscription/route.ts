@@ -202,38 +202,7 @@ async function handleCreditPackPurchase(
     return;
   }
 
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 90); // 90 days from now
-
-  // Insert credit grant
-  const { error: creditGrantError } = await supabase
-    .from("credit_grants")
-    .insert({
-      user_id: userId,
-      credits_granted: creditAmount,
-      subscription_id: null,
-      grant_reason: "one_time_credit_pack",
-      grant_type: "one_time",
-      billing_period_start: null,
-      billing_period_end: null,
-      expires_at: expiresAt.toISOString(),
-    });
-
-  if (creditGrantError) {
-    posthog.capture({
-      distinctId: userId,
-      event: ExceptionEvents.CREDIT_GRANT_ERROR,
-      properties: {
-        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-        error: creditGrantError,
-        context: "credit_pack_purchase",
-      },
-    });
-    console.error("Error granting credits for credit pack:", creditGrantError);
-    return;
-  }
-
-  // Record the payment
+  // Record the payment first so retries cannot re-grant credits
   const { error: paymentError } = await supabase.from("payments").insert({
     invoice_id: source.id,
     user_id: userId,
@@ -261,6 +230,37 @@ async function handleCreditPackPurchase(
       },
     });
     console.error("Error recording payment for credit pack:", paymentError);
+    return;
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 90); // 90 days from now
+
+  // Insert credit grant only after payment was recorded
+  const { error: creditGrantError } = await supabase
+    .from("credit_grants")
+    .insert({
+      user_id: userId,
+      credits_granted: creditAmount,
+      subscription_id: null,
+      grant_reason: "one_time_credit_pack",
+      grant_type: "one_time",
+      billing_period_start: null,
+      billing_period_end: null,
+      expires_at: expiresAt.toISOString(),
+    });
+
+  if (creditGrantError) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.CREDIT_GRANT_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: creditGrantError,
+        context: "credit_pack_purchase",
+      },
+    });
+    console.error("Error granting credits for credit pack:", creditGrantError);
     return;
   }
 
