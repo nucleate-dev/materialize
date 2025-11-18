@@ -15,16 +15,6 @@ import { getSubscriptionInfo } from '../utils/subscriptionChecks.js';
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-/**
- * Product Keys for subscription plans
- */
-const ProductKeys = Object.freeze({
-  FREE_SUBSCRIPTION: 'free',
-  PLUS_SUBSCRIPTION: 'plus',
-  PRO_SUBSCRIPTION: 'pro',
-  MAX_SUBSCRIPTION: 'max',
-});
-
 export class StripeManagementService {
   constructor() {}
 
@@ -106,7 +96,7 @@ export class StripeManagementService {
     const { productID } = request.body;
 
     // Handle free tier - no Stripe checkout needed
-    if (productID === ProductKeys.FREE_SUBSCRIPTION) {
+    if (productID === "free") {
       request.log2.info('Free tier selected - no Stripe checkout needed');
       return reply.status(HTTP_STATUS.BAD_REQUEST).send({
         data: null,
@@ -120,11 +110,11 @@ export class StripeManagementService {
 
     // Determine price ID based on product
     let priceID: string;
-    if (productID === ProductKeys.PLUS_SUBSCRIPTION) {
+    if (productID === "plus") {
       priceID = process.env.STRIPE_PLUS_PRICE_ID as string;
-    } else if (productID === ProductKeys.PRO_SUBSCRIPTION) {
+    } else if (productID === "pro") {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
-    } else if (productID === ProductKeys.MAX_SUBSCRIPTION) {
+    } else if (productID === "max") {
       priceID = process.env.STRIPE_MAX_PRICE_ID as string;
     } else {
       throw new Error('Invalid product ID');
