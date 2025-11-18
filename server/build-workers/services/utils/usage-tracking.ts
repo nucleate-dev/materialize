@@ -1,7 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import type { Database } from "../../types/supabase.js";
-import { ProductKeys } from "../../types/constants.js";
 
 export interface UsageTrackingResult {
   totalRemainingCredits: number;
@@ -43,11 +42,11 @@ async function fetchUserPlan(
       functionName: "fetchUserPlan",
       userId,
     });
-    return ProductKeys.FREE_SUBSCRIPTION;
+    return "free";
   }
 
   const planId = data?.[0]?.plan_id;
-  return planId ?? ProductKeys.FREE_SUBSCRIPTION;
+  return planId ?? "free";
 }
 
 async function trackFreeTierUsage(
@@ -120,7 +119,7 @@ export async function trackApiUsageBuildWorker(
   });
 
   const userPlan = await fetchUserPlan(supabase, userId, log2);
-  if (userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+  if (userPlan === "free") {
     return trackFreeTierUsage(supabase, userId, prototypeId, creditsUsed, log2);
   }
 
