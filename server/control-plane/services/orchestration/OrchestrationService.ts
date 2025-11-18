@@ -176,7 +176,7 @@ export class OrchestrationService {
 
     // Update active build state in cache
     const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
-    const currentTime = Date.now();
+    const currentTime = Math.floor(Date.now() / 1000);
 
     try {
       await this.cache.hset(activeBuildKey, {
@@ -234,7 +234,7 @@ export class OrchestrationService {
 
     // Update active build state in cache
     const activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
-    const currentTime = Date.now();
+    const currentTime = Math.floor(Date.now() / 1000);
 
     try {
       await this.cache.hset(activeBuildKey, {
