@@ -693,9 +693,9 @@ function AccountSettings() {
             <div className="border rounded-lg p-4 space-y-3">
               <div className="space-y-1">
                 <h4 className="font-semibold text-lg">100 Credits</h4>
-                <p className="text-2xl font-bold">$10</p>
+                <p className="text-2xl font-bold">$25</p>
                 <p className="text-sm text-muted-foreground">
-                  $0.10 per credit
+                  $0.25 per credit
                 </p>
               </div>
               <Button
@@ -715,9 +715,9 @@ function AccountSettings() {
               </Badge>
               <div className="space-y-1">
                 <h4 className="font-semibold text-lg">500 Credits</h4>
-                <p className="text-2xl font-bold">$40</p>
+                <p className="text-2xl font-bold">$110</p>
                 <p className="text-sm text-muted-foreground">
-                  $0.08 per credit
+                  $0.22 per credit
                 </p>
               </div>
               <Button
@@ -733,9 +733,9 @@ function AccountSettings() {
             <div className="border rounded-lg p-4 space-y-3">
               <div className="space-y-1">
                 <h4 className="font-semibold text-lg">1000 Credits</h4>
-                <p className="text-2xl font-bold">$70</p>
+                <p className="text-2xl font-bold">$200</p>
                 <p className="text-sm text-muted-foreground">
-                  $0.07 per credit
+                  $0.20 per credit
                 </p>
               </div>
               <Button
@@ -748,14 +748,6 @@ function AccountSettings() {
               </Button>
             </div>
           </div>
-
-          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 dark:text-blue-200">
-              Credit packs are valid for 90 days from purchase and can be used
-              alongside your subscription credits.
-            </AlertDescription>
-          </Alert>
         </CardContent>
       </Card>
     </div>

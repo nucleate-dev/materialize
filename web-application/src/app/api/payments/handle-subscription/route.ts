@@ -124,99 +124,40 @@ async function handleCheckoutSessionCompleted(
  * Handles a credit pack purchase (one-time payment).
  * Creates a credit grant for the purchased credits with a 90-day expiration.
  *
- * @param {Stripe.Invoice | Stripe.Checkout.Session} source - The Stripe object describing the purchase
+ * @param {Stripe.Checkout.Session} session - The Stripe checkout session describing the purchase
  * @param {number} creditAmount - The number of credits to grant
  *
  * @returns {Promise<void>}
  */
 async function handleCreditPackPurchase(
-  source: Stripe.Invoice | Stripe.Checkout.Session,
+  session: Stripe.Checkout.Session,
   creditAmount: number,
 ): Promise<void> {
-  const isInvoice = (candidate: unknown): candidate is Stripe.Invoice =>
-    typeof candidate === "object" &&
-    candidate !== null &&
-    (candidate as Stripe.Invoice).object === "invoice";
-
-  // Resolve the payment intent ID for both invoices and checkout sessions
-  const paymentIntentId = isInvoice(source)
-    ? typeof source.payment_intent === "string"
-      ? source.payment_intent
-      : source.payment_intent?.id ?? null
-    : typeof source.payment_intent === "string"
-      ? source.payment_intent
-      : source.payment_intent?.id ?? null;
-
-  let userId: string | null = null;
-  if (isInvoice(source)) {
-    if (!paymentIntentId) {
-      console.error("No checkout session found for credit pack purchase");
-      posthog.capture({
-        distinctId: "unknown",
-        event: ExceptionEvents.CREDIT_GRANT_ERROR,
-        properties: {
-          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-          error: "No checkout session found for credit pack purchase",
-          context: "credit_pack_purchase",
-        },
-      });
-      return;
-    }
-    const sessions = await stripe.checkout.sessions.list({
-      payment_intent: paymentIntentId,
-      limit: 1,
+  if (!session.metadata?.user_id) {
+    console.error("Could not find user_id for credit pack purchase");
+    posthog.capture({
+      distinctId: "unknown",
+      event: ExceptionEvents.CREDIT_GRANT_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: "Could not find user_id for credit pack purchase",
+        context: "credit_pack_purchase",
+      },
     });
-    const session = sessions.data[0];
-    if (!session || !session.metadata?.user_id) {
-      console.error("Could not find user_id for credit pack purchase");
-      posthog.capture({
-        distinctId: "unknown",
-        event: ExceptionEvents.CREDIT_GRANT_ERROR,
-        properties: {
-          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-          error: "Could not find user_id for credit pack purchase",
-          context: "credit_pack_purchase",
-        },
-      });
-      return;
-    }
-    userId = session.metadata.user_id;
-  } else {
-    if (!source.metadata?.user_id) {
-      console.error("Could not find user_id for credit pack purchase");
-      posthog.capture({
-        distinctId: "unknown",
-        event: ExceptionEvents.CREDIT_GRANT_ERROR,
-        properties: {
-          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
-          error: "Could not find user_id for credit pack purchase",
-          context: "credit_pack_purchase",
-        },
-      });
-      return;
-    }
-    userId = source.metadata.user_id;
-  }
-
-  if (!userId) {
     return;
   }
 
+  const userId = session.metadata.user_id;
+
   // Record the payment first so retries cannot re-grant credits
   const { error: paymentError } = await supabase.from("payments").insert({
-    invoice_id: source.id,
+    invoice_id: session.id,
     user_id: userId,
     subscription_id: null,
-    stripe_customer_id: isInvoice(source)
-      ? getCustomerIdFromInvoice(source)
-      : getCustomerIdFromCheckoutSession(source),
-    amount: isInvoice(source) ? source.amount_paid : source.amount_total ?? 0,
-    currency: isInvoice(source) ? source.currency : source.currency ?? "usd",
-    status: isInvoice(source)
-      ? source.status
-      : source.payment_status === "paid"
-        ? "paid"
-        : source.payment_status,
+    stripe_customer_id: getCustomerIdFromCheckoutSession(session),
+    amount: session.amount_total ?? 0,
+    currency: session.currency ?? "usd",
+    status: session.payment_status === "paid" ? "paid" : session.payment_status,
   });
 
   if (paymentError) {
@@ -297,20 +238,8 @@ async function handleCreditPackPurchase(
  * @returns {Promise<void>} - The function does not return any value, but logs relevant information in case of errors.
  */
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  // Check if this is a one-time payment (credit pack) first
-  const lineItems = invoice.lines.data;
-  if (lineItems.length > 0) {
-    const priceId = lineItems[0].price?.id;
-    const creditPackAmount = priceId ? getCreditPackAmount(priceId) : null;
-
-    if (creditPackAmount !== null) {
-      // This is a credit pack purchase
-      await handleCreditPackPurchase(invoice, creditPackAmount);
-      return;
-    }
-  }
-
-  // Otherwise, handle as a subscription
+  // Credit packs are now handled via checkout.session.completed event
+  // This function only handles subscription invoices
   let subscription = invoice.parent?.subscription_details?.subscription;
   if (typeof subscription === "string") {
     subscription = await stripe.subscriptions.retrieve(subscription);
