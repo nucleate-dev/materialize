@@ -187,7 +187,7 @@ function AccountSettings() {
       case "pro":
         return "default";
       case "plus":
-        return "secondary";
+        return "default";
       case "team":
         return "secondary";
       default:
@@ -234,9 +234,7 @@ function AccountSettings() {
           label: "Upgrade to Plus",
         };
       case "plus":
-        return { tier: "pro", label: "Upgrade to Pro" };
       case "pro":
-        return { tier: "max", label: "Upgrade to Max" };
       default:
         return null;
     }
