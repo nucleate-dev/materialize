@@ -34,22 +34,25 @@ import { FileSyncService } from "./FileSyncService.js";
 import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 /**
- * FILE TRACKING STRATEGY
+ * FILE SYNC STRATEGY
  *
- * This service uses hook-based tracking to capture file changes during Claude Code sessions.
- * The PostToolUse hook tracks Write, Edit, and NotebookEdit tool executions and extracts
- * file paths from tool inputs/responses.
+ * This service supports two file sync strategies:
  *
- * Why hook-based tracking over file system watching?
- * - Synchronous execution during tool use - no race conditions
- * - Guaranteed to capture every file modification tool execution
- * - No timing dependencies or watcher initialization delays
- * - Works reliably across all platforms and file systems
+ * 1. FULL_SYNC (default, recommended):
+ *    - Syncs ALL files from workDir to Supabase after each query
+ *    - Simple, reliable, guarantees complete state sync
+ *    - No tracking overhead during query execution
+ *    - Slightly higher network usage but negligible for typical projects
  *
- * File system watching had reliability issues due to race conditions between
- * watcher initialization and Claude's first file writes.
+ * 2. INCREMENTAL_SYNC (legacy):
+ *    - Uses hook-based tracking to capture only modified files
+ *    - PostToolUse hook tracks Write, Edit, and NotebookEdit tool executions
+ *    - Lower network usage but adds complexity
+ *    - Risk of missing files if tracking fails
+ *
+ * Set ENABLE_FULL_SYNC to false to use incremental sync strategy.
  */
-const ENABLE_HOOK_BASED_TRACKING = true;
+const ENABLE_FULL_SYNC = true;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -450,7 +453,7 @@ export class CodeService {
           type: ChatEvent.ERROR,
           error: {
             message: "Credit limit exceeded",
-            details: `You have used all ${creditCheck.granted} credits for your ${creditCheck.plan} plan. Please upgrade your plan to continue.`,
+            details: `You have used all ${creditCheck.granted} credits available. Please upgrade your plan to continue.`,
           },
         });
         return;
@@ -658,8 +661,8 @@ export class CodeService {
                   ): Promise<HookJSONOutput> => {
                     try {
                       if (input.hook_event_name === "PostToolUse") {
-                        // Track file changes from file-modifying tools
-                        if (ENABLE_HOOK_BASED_TRACKING) {
+                        // Track file changes from file-modifying tools (only for incremental sync)
+                        if (!ENABLE_FULL_SYNC) {
                           const fileModifyingTools = [
                             "Write",
                             "Edit",
@@ -693,7 +696,7 @@ export class CodeService {
                               this.sessionState.trackedFiles.add(relativePath);
 
                               this.logger.info(
-                                "File tracked for sync (hook-based)",
+                                "File tracked for sync (incremental)",
                                 {
                                   tool: input.tool_name,
                                   filePath: relativePath,
@@ -882,15 +885,33 @@ export class CodeService {
       // Sync file changes to Supabase before notifying orchestration
       // This ensures all Claude Code edits are persisted before the session ends
       try {
-        this.logger.info("Syncing file changes to Supabase", {
-          prototypeId,
-          trackedFilesCount: this.sessionState.trackedFiles.size,
-          trackedFiles: Array.from(this.sessionState.trackedFiles),
-        });
-        const syncResult = await this.fileSyncService.syncFilesToSupabase(
-          prototypeId,
-          this.sessionState.trackedFiles,
-        );
+        let syncResult: Awaited<
+          ReturnType<typeof this.fileSyncService.syncFilesToSupabase>
+        >;
+
+        if (ENABLE_FULL_SYNC) {
+          // Full sync strategy: Upload ALL files from workDir
+          this.logger.info("Syncing all files to Supabase (full sync)", {
+            prototypeId,
+          });
+          syncResult = await this.fileSyncService.syncAllFilesToSupabase(
+            prototypeId,
+          );
+        } else {
+          // Incremental sync strategy: Upload only tracked files
+          this.logger.info(
+            "Syncing file changes to Supabase (incremental sync)",
+            {
+              prototypeId,
+              trackedFilesCount: this.sessionState.trackedFiles.size,
+              trackedFiles: Array.from(this.sessionState.trackedFiles),
+            },
+          );
+          syncResult = await this.fileSyncService.syncFilesToSupabase(
+            prototypeId,
+            this.sessionState.trackedFiles,
+          );
+        }
 
         if (syncResult.success) {
           this.logger.info("File sync completed successfully", {
