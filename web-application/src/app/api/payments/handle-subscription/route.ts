@@ -978,7 +978,5 @@ function getCreditsForPlan(
       return CreditLimits.MAX;
     case "team":
       return CreditLimits.TEAM;
-    default:
-      return CreditLimits.FREE;
   }
 }
