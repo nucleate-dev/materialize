@@ -5,6 +5,7 @@ import {
   query,
   SDKAssistantMessage,
   SDKUserMessage,
+  SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
 import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
@@ -605,7 +606,7 @@ export class CodeService {
             preset: "claude_code" as const,
             append: systemPromptAppend,
           },
-          settingSources: ["user"],
+          settingSources: ["user"] as SettingSource[],
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           // Add hooks to stream tool usage to WebSocket clients
