@@ -104,6 +104,12 @@ interface Message {
   imageUrls?: string[]; // Signed URLs for historical images
 }
 
+interface Todo {
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+  activeForm: string;
+}
+
 interface UploadedImage {
   id: string;
   base64: string;
@@ -141,6 +147,7 @@ export default function ClaudeCodePanel({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null); // prototype_chat_sessions.id
   const [allChatSessions, setAllChatSessions] = useState<Array<PrototypeChatSession>>([]);
+  const [currentTodos, setCurrentTodos] = useState<Todo[]>([]); // Track current todo list
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -853,7 +860,11 @@ export default function ClaudeCodePanel({
           const toolCallId = rawToolCallId || `tool-${Date.now()}`;
           const toolInput = (tool_input ?? {}) as ToolInput;
 
-          if (isThinkingTool(toolName)) {
+          // Special handling for TodoWrite - update todo list instead of adding tool message
+          if (toolName === "TodoWrite" && toolInput.todos && Array.isArray(toolInput.todos)) {
+            setCurrentTodos(toolInput.todos as Todo[]);
+            // Don't add a tool message - todos are rendered separately
+          } else if (isThinkingTool(toolName)) {
             setMessages((prev) =>
               prev.filter(msg =>
                 !(msg.type === "tool" && !msg.isComplete && msg.toolName && isReadOnlyTool(msg.toolName))
@@ -1562,6 +1573,7 @@ export default function ClaudeCodePanel({
       setSessionId(null);
       sessionIdRef.current = null;
       setMessages([]);
+      setCurrentTodos([]); // Clear todos when resetting session
 
       // Update the sessions list
       setAllChatSessions((prev) => [newSession, ...prev.filter((s) => s.id !== chatSessionId)]);
@@ -1600,8 +1612,9 @@ export default function ClaudeCodePanel({
       setSessionId(selectedSession.session_id);
       sessionIdRef.current = selectedSession.session_id;
 
-      // Clear current messages and load historical messages for this session
+      // Clear current messages and todos, then load historical messages for this session
       setMessages([]);
+      setCurrentTodos([]); // Clear todos when switching sessions
       await loadHistoricalMessages(selectedSession.id);
 
       logger.debug("log", "Switched to chat session", {
@@ -1649,6 +1662,7 @@ export default function ClaudeCodePanel({
       setSessionId(null);
       sessionIdRef.current = null;
       setMessages([]);
+      setCurrentTodos([]); // Clear todos when creating new session
 
       // Add new session to the list
       setAllChatSessions((prev) => [newSession, ...prev]);
@@ -1790,6 +1804,48 @@ export default function ClaudeCodePanel({
             </div>
           ) : (
             <>
+              {/* Todo List - only show if there are todos */}
+              {currentTodos.length > 0 && (
+                <div className="mb-4 rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="text-sm font-medium">Tasks</div>
+                    <div className="text-xs text-muted-foreground">
+                      {currentTodos.filter(t => t.status === "completed").length} of {currentTodos.length} completed
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {currentTodos.map((todo, index) => (
+                      <div
+                        key={`todo-${index}`}
+                        className={`flex items-start gap-2 text-sm transition-opacity duration-500 ${
+                          todo.status === "completed" ? "opacity-40" : "opacity-100"
+                        }`}
+                      >
+                        {/* Status icon */}
+                        <div className="flex-shrink-0 mt-0.5">
+                          {todo.status === "completed" && (
+                            <CheckIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          )}
+                          {todo.status === "in_progress" && (
+                            <div
+                              className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
+                              style={{ animationDuration: "0.8s" }}
+                            />
+                          )}
+                          {todo.status === "pending" && (
+                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                          )}
+                        </div>
+                        {/* Todo text */}
+                        <div className={`flex-1 ${todo.status === "completed" ? "line-through" : ""}`}>
+                          {todo.status === "in_progress" ? todo.activeForm : todo.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {messages.map((message) => (
                 <div key={message.id}>
                   {/* User messages - keep bubble style */}
