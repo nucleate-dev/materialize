@@ -31,8 +31,8 @@ import {
 } from "../utils/shared-utils.js";
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
-import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
+import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 /**
  * FILE SYNC STRATEGY
  *
@@ -264,7 +264,14 @@ export class CodeService {
     data: ChatQueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, content, token, session_id, chat_session_id, current_viewing_path } = data;
+    const {
+      prompt,
+      content,
+      token,
+      session_id,
+      chat_session_id,
+      current_viewing_path,
+    } = data;
     const options = (data.options ?? {}) as Options;
 
     // Support both old format (prompt) and new format (content)
@@ -569,12 +576,14 @@ export class CodeService {
 
         // Append custom design system rules if available
         if (this.sessionState.designSystemRules) {
-          systemPromptAppend += "\n\n## Custom Design System Rules:\n" + this.sessionState.designSystemRules;
+          systemPromptAppend +=
+            "\n\n## Custom Design System Rules:\n" +
+            this.sessionState.designSystemRules;
         }
 
         // Append current viewing path context if available
         if (current_viewing_path) {
-          systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`
+          systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`;
         }
 
         const queryOptions = {
@@ -894,9 +903,8 @@ export class CodeService {
           this.logger.info("Syncing all files to Supabase (full sync)", {
             prototypeId,
           });
-          syncResult = await this.fileSyncService.syncAllFilesToSupabase(
-            prototypeId,
-          );
+          syncResult =
+            await this.fileSyncService.syncAllFilesToSupabase(prototypeId);
         } else {
           // Incremental sync strategy: Upload only tracked files
           this.logger.info(
@@ -1527,7 +1535,7 @@ export class CodeService {
           eventType,
         });
       } else {
-        this.logger.debug("Persisted message", {
+        this.logger.consoleLogDevOnly("debug", "Persisted message", {
           chatSessionId: this.sessionState.chatSessionId,
           role,
           messageType,
@@ -1603,7 +1611,7 @@ export class CodeService {
             file_size: processed.buffer.length,
           });
 
-          this.logger.debug("Uploaded chat image", {
+          this.logger.consoleLogDevOnly("debug", "Uploaded chat image", {
             storagePath,
             mediaType: processed.mediaType,
             fileSize: processed.buffer.length,
@@ -1716,7 +1724,7 @@ export class CodeService {
       watcher.on("add", (filePath) => {
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
-        this.logger.debug("File watcher: file added", {
+        this.logger.consoleLogDevOnly("debug", "File watcher: file added", {
           path: relativePath,
           totalTracked: this.sessionState.trackedFiles.size,
         });
@@ -1725,7 +1733,7 @@ export class CodeService {
       watcher.on("change", (filePath) => {
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
-        this.logger.debug("File watcher: file changed", {
+        this.logger.consoleLogDevOnly("debug", "File watcher: file changed", {
           path: relativePath,
           totalTracked: this.sessionState.trackedFiles.size,
         });
@@ -1735,7 +1743,7 @@ export class CodeService {
       watcher.on("unlink", (filePath) => {
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
-        this.logger.debug("File watcher: file deleted", {
+        this.logger.consoleLogDevOnly("debug", "File watcher: file deleted", {
           path: relativePath,
           totalTracked: this.sessionState.trackedFiles.size,
         });
