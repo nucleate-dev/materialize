@@ -196,9 +196,34 @@ export function useClaudeCodeWebSocket({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      disconnect();
+      // Close WebSocket directly to avoid stale closure issues
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+
+      // Access ws from the closure - this will have the latest value
+      if (ws) {
+        logger.debug("log", "Cleaning up WebSocket on unmount");
+        ws.close(1000, "Component unmounting");
+      }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ws, logger]); // Include dependencies to avoid stale closures
+
+  // Handle page refresh/navigation - close WebSocket before page unloads
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        logger.debug("log", "Closing WebSocket before page unload");
+        ws.close(1000, "Page unloading");
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [ws, logger]);
 
   // Auto-connect when baseTunnelUrl becomes available (transitions from null to valid)
   // This fixes the race condition where the component loads before baseTunnelUrl is fetched
