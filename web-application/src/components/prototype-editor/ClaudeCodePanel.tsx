@@ -2093,7 +2093,7 @@ export default function ClaudeCodePanel({
             size="icon"
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
-            disabled={!isConnected || isProcessing || !isCurrentSessionMostRecent}
+            disabled={isProcessing || !isCurrentSessionMostRecent}
             title={!isCurrentSessionMostRecent ? "Cannot add images to old sessions" : "Add images"}
           >
             <PhotoIcon className="w-5 h-5" />
@@ -2107,18 +2107,16 @@ export default function ClaudeCodePanel({
             placeholder={
               !isCurrentSessionMostRecent
                 ? "Cannot send messages to old sessions"
-                : isConnected
-                  ? "Ask anything..."
-                  : "Connect to start chatting"
+                : "Ask anything..."
             }
-            disabled={!isConnected || isProcessing || !isCurrentSessionMostRecent}
+            disabled={isProcessing || !isCurrentSessionMostRecent}
             className="flex-1 resize-none overflow-y-auto"
             rows={1}
             style={{ minHeight: 'auto' }}
           />
           <Button
             onClick={sendQuery}
-            disabled={!isConnected || (!inputValue.trim() && uploadedImages.length === 0) || isProcessing || !isCurrentSessionMostRecent}
+            disabled={(!inputValue.trim() && uploadedImages.length === 0) || isProcessing || !isCurrentSessionMostRecent}
           >
             {isProcessing ? "..." : "Send"}
           </Button>
