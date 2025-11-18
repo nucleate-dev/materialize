@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-18T03:55:36.489Z
+// Last synced: 2025-11-18T05:02:13.860Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -14,18 +14,6 @@ import type { Database } from '../types/supabase.js';
 // ============================================================================
 // PRODUCT AND SUBSCRIPTION CONSTANTS
 // ============================================================================
-
-/**
- * Product/Plan identifiers used across the application
- * These match the plan_id values in the subscriptions table
- */
-export const ProductKeys = Object.freeze({
-  FREE_SUBSCRIPTION: 'free',
-  PLUS_SUBSCRIPTION: 'plus',
-  PRO_SUBSCRIPTION: 'pro',
-  MAX_SUBSCRIPTION: 'max',
-  TEAM_SUBSCRIPTION: 'team',
-});
 
 /**
  * Credit limits per subscription plan (per billing period)

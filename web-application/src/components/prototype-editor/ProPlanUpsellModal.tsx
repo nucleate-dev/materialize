@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CreditLimits, ProductKeys } from "@/GlobalConstants";
+import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
@@ -47,25 +47,25 @@ export default function ProPlanUpsellModal({
     switch (userPlan as string) {
       case "free":
         return {
-          tier: ProductKeys.PLUS_SUBSCRIPTION,
+          tier: "plus",
           name: "Plus",
           price: "$20/month",
         };
       case "plus":
         return {
-          tier: ProductKeys.PRO_SUBSCRIPTION,
+          tier: "pro",
           name: "Pro",
           price: "$50/month",
         };
       case "pro":
         return {
-          tier: ProductKeys.MAX_SUBSCRIPTION,
+          tier: "max",
           name: "Max",
           price: "$200/month",
         };
       default:
         return {
-          tier: ProductKeys.PLUS_SUBSCRIPTION,
+          tier: "plus",
           name: "Plus",
           price: "$20/month",
         };

@@ -857,7 +857,7 @@ export type Database = {
       chat_role: "user" | "assistant" | "system"
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
-      subscription_plan_type: "free" | "team" | "pro"
+      subscription_plan_type: "free" | "team" | "pro" | "plus" | "max"
       subscription_status: "active" | "past_due" | "canceled"
       tunnel_status: "creating" | "idle" | "allocated"
       visibility_level: "SELF" | "TEAM_SUBSET" | "TEAM" | "PUBLIC"
@@ -991,7 +991,7 @@ export const Constants = {
       chat_role: ["user", "assistant", "system"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
-      subscription_plan_type: ["free", "team", "pro"],
+      subscription_plan_type: ["free", "team", "pro", "plus", "max"],
       subscription_status: ["active", "past_due", "canceled"],
       tunnel_status: ["creating", "idle", "allocated"],
       visibility_level: ["SELF", "TEAM_SUBSET", "TEAM", "PUBLIC"],

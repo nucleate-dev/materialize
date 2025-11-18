@@ -1,7 +1,6 @@
 "use client";
 
 import Loader from "../../components/dashboard/Loader";
-import { ProductKeys } from "@/GlobalConstants";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { PricingCard } from "@/components/PricingCard";
 import Link from "next/link";
@@ -26,7 +25,7 @@ function Paywall() {
   const pricingTiers = [
     {
       name: "Free",
-      productID: ProductKeys.FREE_SUBSCRIPTION,
+      productID: "free",
       price: "$0",
       period: "/month",
       description: "Perfect for getting started with prototyping",
@@ -42,7 +41,7 @@ function Paywall() {
     },
     {
       name: "Pro",
-      productID: ProductKeys.PRO_SUBSCRIPTION,
+      productID: "pro",
       price: "$20",
       period: "/month",
       description: "Ideal for professional developers and teams",

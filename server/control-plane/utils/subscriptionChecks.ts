@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import type { SubscriptionInfo } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
-import { CreditLimits, ProductKeys } from '../types/PublicAPITypes.js';
+import { CreditLimits } from '../types/PublicAPITypes.js';
 
 /**
  * Helper function to get the start and end of the current month
@@ -273,7 +273,7 @@ export async function getRemainingCredits(
   try {
     const subscriptionInfo = await getSubscriptionInfo(jwtToken, userId, log2);
 
-    if (subscriptionInfo.userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+    if (subscriptionInfo.userPlan === "free") {
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabaseClient,
         userId,
@@ -319,19 +319,19 @@ export async function getRemainingCredits(
     // Get the credit limit for this plan
     let creditLimit = 0;
     switch (subscriptionInfo.userPlan as string) {
-      case ProductKeys.FREE_SUBSCRIPTION:
+      case "free":
         creditLimit = CreditLimits.FREE;
         break;
-      case ProductKeys.PLUS_SUBSCRIPTION:
+      case "plus":
         creditLimit = CreditLimits.PLUS;
         break;
-      case ProductKeys.PRO_SUBSCRIPTION:
+      case "pro":
         creditLimit = CreditLimits.PRO;
         break;
-      case ProductKeys.MAX_SUBSCRIPTION:
+      case "max":
         creditLimit = CreditLimits.MAX;
         break;
-      case ProductKeys.TEAM_SUBSCRIPTION:
+      case "team":
         creditLimit = CreditLimits.TEAM;
         break;
       default:
@@ -358,7 +358,7 @@ export async function getRemainingCredits(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: ProductKeys.FREE_SUBSCRIPTION,
+      plan: "free",
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
       stripeCustomerId: '',
@@ -408,7 +408,7 @@ export async function hasExceededCreditLimit(
       granted: 0,
       used: 0,
       limit: CreditLimits.FREE,
-      plan: ProductKeys.FREE_SUBSCRIPTION,
+      plan: "free",
       currentPeriodStart: startOfMonth,
       currentPeriodEnd: endOfMonth,
       stripeCustomerId: '',
