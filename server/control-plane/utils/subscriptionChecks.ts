@@ -2,10 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
 import type { SubscriptionInfo } from '../types/InternalTypes.js';
 import { SystemLogger } from '../loggers/SystemLogger.js';
-import {
-  CreditLimits,
-  ProductKeys,
-} from '../types/PublicAPITypes.js';
+import { CreditLimits, ProductKeys } from '../types/PublicAPITypes.js';
 
 /**
  * Helper function to get the start and end of the current month

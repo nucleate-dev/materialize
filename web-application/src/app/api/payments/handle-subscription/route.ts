@@ -1,8 +1,4 @@
-import {
-  ProductKeys,
-  SubscriptionStatuses,
-  CreditLimits,
-} from "@/GlobalConstants";
+import { SubscriptionStatuses } from "@/GlobalConstants";
 import {
   triggerSubscriptionFreeTrialWillEndEmail,
   triggerSubscriptionPaymentFailedEmail,
@@ -12,6 +8,8 @@ import {
   LoggingEventSource,
   SuccessEvents,
 } from "@/LoggingEvents";
+import { Database } from "@/lib/types/supabase";
+import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { PostHog } from "posthog-node";
@@ -946,35 +944,39 @@ function getCustomerIdFromSubscription(
   }
 }
 
-function getPlanKey(priceID: string) {
+function getPlanKey(
+  priceID: string,
+): Database["public"]["Enums"]["subscription_plan_type"] {
   switch (priceID) {
     case process.env.STRIPE_PLUS_PRICE_ID:
-      return ProductKeys.PLUS_SUBSCRIPTION;
+      return "plus";
     case process.env.STRIPE_PRO_PRICE_ID:
-      return ProductKeys.PRO_SUBSCRIPTION;
+      return "pro";
     case process.env.STRIPE_MAX_PRICE_ID:
-      return ProductKeys.MAX_SUBSCRIPTION;
+      return "max";
     case process.env.STRIPE_TEAM_PRICE_ID:
-      return ProductKeys.TEAM_SUBSCRIPTION;
+      return "team";
     default:
-      return ProductKeys.FREE_SUBSCRIPTION;
+      return "free";
   }
 }
 
 /**
  * Get the number of credits to grant based on the subscription plan
  */
-function getCreditsForPlan(planKey: string): number {
+function getCreditsForPlan(
+  planKey: Database["public"]["Enums"]["subscription_plan_type"],
+): number {
   switch (planKey) {
-    case ProductKeys.FREE_SUBSCRIPTION:
+    case "free":
       return CreditLimits.FREE;
-    case ProductKeys.PLUS_SUBSCRIPTION:
+    case "plus":
       return CreditLimits.PLUS;
-    case ProductKeys.PRO_SUBSCRIPTION:
+    case "pro":
       return CreditLimits.PRO;
-    case ProductKeys.MAX_SUBSCRIPTION:
+    case "max":
       return CreditLimits.MAX;
-    case ProductKeys.TEAM_SUBSCRIPTION:
+    case "team":
       return CreditLimits.TEAM;
     default:
       return CreditLimits.FREE;
