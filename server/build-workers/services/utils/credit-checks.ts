@@ -1,7 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
 import type { Database } from "../../types/supabase.js";
-import { ProductKeys } from "../../types/constants.js";
 
 const FREE_TIER_CREDITS = 15;
 
@@ -44,11 +43,11 @@ async function fetchUserPlan(
       functionName: "fetchUserPlan",
       userId,
     });
-    return ProductKeys.FREE_SUBSCRIPTION;
+    return "free";
   }
 
   const planId = data?.[0]?.plan_id;
-  return planId ?? ProductKeys.FREE_SUBSCRIPTION;
+  return planId ?? "free";
 }
 
 /**
@@ -149,7 +148,7 @@ export async function hasRemainingCredits(
   try {
     const userPlan = await fetchUserPlan(supabase, userId, log2);
 
-    if (userPlan === ProductKeys.FREE_SUBSCRIPTION) {
+    if (userPlan === "free") {
       const freeCreditInfo = await calculateFreeTierCreditInfo(
         supabase,
         userId,
@@ -193,7 +192,7 @@ export async function hasRemainingCredits(
       remaining: 0,
       granted: 0,
       used: 0,
-      plan: ProductKeys.FREE_SUBSCRIPTION,
+      plan: "free",
     };
   }
 }
