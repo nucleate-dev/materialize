@@ -44,6 +44,7 @@ import {
   Mail,
   MessageSquare,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -672,6 +673,89 @@ function AccountSettings() {
 
             return null;
           })()}
+        </CardContent>
+      </Card>
+
+      {/* Credit Packs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Sparkles className="w-5 h-5" />
+            <span>Buy Credit Packs</span>
+          </CardTitle>
+          <CardDescription>
+            Purchase additional credits that never expire for 90 days
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* 100 Credits Pack */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="space-y-1">
+                <h4 className="font-semibold text-lg">100 Credits</h4>
+                <p className="text-2xl font-bold">$10</p>
+                <p className="text-sm text-muted-foreground">
+                  $0.10 per credit
+                </p>
+              </div>
+              <Button
+                onClick={() => handleUpgradeClick("credit_pack_100")}
+                className="w-full"
+                variant="outline"
+                disabled={isProcessingUpgrade}
+              >
+                {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+              </Button>
+            </div>
+
+            {/* 500 Credits Pack */}
+            <div className="border rounded-lg p-4 space-y-3 border-primary relative">
+              <Badge className="absolute -top-2 left-1/2 -translate-x-1/2">
+                Best Value
+              </Badge>
+              <div className="space-y-1">
+                <h4 className="font-semibold text-lg">500 Credits</h4>
+                <p className="text-2xl font-bold">$40</p>
+                <p className="text-sm text-muted-foreground">
+                  $0.08 per credit
+                </p>
+              </div>
+              <Button
+                onClick={() => handleUpgradeClick("credit_pack_500")}
+                className="w-full"
+                disabled={isProcessingUpgrade}
+              >
+                {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+              </Button>
+            </div>
+
+            {/* 1000 Credits Pack */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="space-y-1">
+                <h4 className="font-semibold text-lg">1000 Credits</h4>
+                <p className="text-2xl font-bold">$70</p>
+                <p className="text-sm text-muted-foreground">
+                  $0.07 per credit
+                </p>
+              </div>
+              <Button
+                onClick={() => handleUpgradeClick("credit_pack_1000")}
+                className="w-full"
+                variant="outline"
+                disabled={isProcessingUpgrade}
+              >
+                {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+              </Button>
+            </div>
+          </div>
+
+          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              Credit packs are valid for 90 days from purchase and can be used
+              alongside your subscription credits.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     </div>

@@ -33,7 +33,7 @@ export class StripeManagementService {
             properties: {
               productID: {
                 type: 'string',
-                enum: ['free', 'plus', 'pro', 'max'],
+                enum: ['free', 'plus', 'pro', 'max', 'credit_pack_100', 'credit_pack_500', 'credit_pack_1000'],
               },
             },
           },
@@ -110,18 +110,29 @@ export class StripeManagementService {
 
     // Determine price ID based on product
     let priceID: string;
+    let mode: 'subscription' | 'payment' = 'subscription';
+
     if (productID === "plus") {
       priceID = process.env.STRIPE_PLUS_PRICE_ID as string;
     } else if (productID === "pro") {
       priceID = process.env.STRIPE_PRO_PRICE_ID as string;
     } else if (productID === "max") {
       priceID = process.env.STRIPE_MAX_PRICE_ID as string;
+    } else if (productID === "credit_pack_100") {
+      priceID = process.env.STRIPE_CREDIT_PACK_100_PRICE_ID as string;
+      mode = 'payment';
+    } else if (productID === "credit_pack_500") {
+      priceID = process.env.STRIPE_CREDIT_PACK_500_PRICE_ID as string;
+      mode = 'payment';
+    } else if (productID === "credit_pack_1000") {
+      priceID = process.env.STRIPE_CREDIT_PACK_1000_PRICE_ID as string;
+      mode = 'payment';
     } else {
       throw new Error('Invalid product ID');
     }
 
     try {
-      const session = await stripe.checkout.sessions.create({
+      const sessionConfig: Stripe.Checkout.SessionCreateParams = {
         payment_method_types: ['card', 'us_bank_account'],
         line_items: [
           {
@@ -129,15 +140,25 @@ export class StripeManagementService {
             quantity: 1,
           },
         ],
-        mode: 'subscription',
-        success_url: `${process.env.SITE_BASE_URL}/dashboard`,
-        cancel_url: `${process.env.SITE_BASE_URL}`,
-        subscription_data: {
+        mode,
+        success_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
+        cancel_url: `${process.env.SITE_BASE_URL}/dashboard/account`,
+      };
+
+      if (mode === 'subscription') {
+        sessionConfig.subscription_data = {
           metadata: {
             user_id: user.id,
           },
-        },
-      });
+        };
+      } else {
+        // For one-time payments (credit packs)
+        sessionConfig.metadata = {
+          user_id: user.id,
+        };
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
 
       return reply.status(HTTP_STATUS.OK).send({
         data: {

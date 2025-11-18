@@ -80,7 +80,7 @@ export async function handleRedirectToPaymentsPage(
   );
 
   const requestBody: CheckoutRequestBody = {
-    productID: productID as "free" | "plus" | "pro" | "max",
+    productID: productID as "free" | "plus" | "pro" | "max" | "credit_pack_100" | "credit_pack_500" | "credit_pack_1000",
   };
 
   const response = await fetch(

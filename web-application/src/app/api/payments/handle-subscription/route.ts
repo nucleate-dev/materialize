@@ -37,6 +37,7 @@ const supabase = createClient(
  *  - `customer.subscription.updated`: Triggered when a subscription is updated. Calls `handleSubscriptionUpdated`.
  *  - `customer.subscription.trial_will_end`: Triggered when a subscription trial is about to end. Calls `handleSubscriptionTrialWillEnd`.
  *  - `customer.subscription.deleted`: Triggered when a subscription is canceled or deleted. Calls `handleSubscriptionDeleted`.
+ *  - `checkout.session.completed`: Triggered when a Checkout Session finishes. Used here for one-time credit pack purchases.
  *
  * If the request method is not `POST`, it returns a `405 Method Not Allowed` response.
  *
@@ -86,11 +87,191 @@ export async function POST(req: NextRequest) {
     case "customer.subscription.deleted":
       await handleSubscriptionDeleted(event.data.object);
       break;
+    case "checkout.session.completed":
+      await handleCheckoutSessionCompleted(event.data.object);
+      break;
     default:
       break;
   }
   // await posthog.shutdown();
   return NextResponse.json({ message: "Stripe event received successfully" });
+}
+
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (session.mode !== "payment") {
+    return;
+  }
+
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+    limit: 1,
+  });
+  const priceId = lineItems.data[0]?.price?.id;
+  if (!priceId) {
+    return;
+  }
+
+  const creditPackAmount = getCreditPackAmount(priceId);
+  if (creditPackAmount === null) {
+    return;
+  }
+
+  await handleCreditPackPurchase(session, creditPackAmount);
+}
+
+/**
+ * Handles a credit pack purchase (one-time payment).
+ * Creates a credit grant for the purchased credits with a 90-day expiration.
+ *
+ * @param {Stripe.Invoice | Stripe.Checkout.Session} source - The Stripe object describing the purchase
+ * @param {number} creditAmount - The number of credits to grant
+ *
+ * @returns {Promise<void>}
+ */
+async function handleCreditPackPurchase(
+  source: Stripe.Invoice | Stripe.Checkout.Session,
+  creditAmount: number,
+): Promise<void> {
+  const isInvoice = (candidate: unknown): candidate is Stripe.Invoice =>
+    typeof candidate === "object" &&
+    candidate !== null &&
+    (candidate as Stripe.Invoice).object === "invoice";
+
+  // Resolve the payment intent ID for both invoices and checkout sessions
+  const paymentIntentId = isInvoice(source)
+    ? typeof source.payment_intent === "string"
+      ? source.payment_intent
+      : source.payment_intent?.id ?? null
+    : typeof source.payment_intent === "string"
+      ? source.payment_intent
+      : source.payment_intent?.id ?? null;
+
+  let userId: string | null = null;
+  if (isInvoice(source)) {
+    if (!paymentIntentId) {
+      console.error("No checkout session found for credit pack purchase");
+      posthog.capture({
+        distinctId: "unknown",
+        event: ExceptionEvents.CREDIT_GRANT_ERROR,
+        properties: {
+          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+          error: "No checkout session found for credit pack purchase",
+          context: "credit_pack_purchase",
+        },
+      });
+      return;
+    }
+    const sessions = await stripe.checkout.sessions.list({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    });
+    const session = sessions.data[0];
+    if (!session || !session.metadata?.user_id) {
+      console.error("Could not find user_id for credit pack purchase");
+      posthog.capture({
+        distinctId: "unknown",
+        event: ExceptionEvents.CREDIT_GRANT_ERROR,
+        properties: {
+          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+          error: "Could not find user_id for credit pack purchase",
+          context: "credit_pack_purchase",
+        },
+      });
+      return;
+    }
+    userId = session.metadata.user_id;
+  } else {
+    if (!source.metadata?.user_id) {
+      console.error("Could not find user_id for credit pack purchase");
+      posthog.capture({
+        distinctId: "unknown",
+        event: ExceptionEvents.CREDIT_GRANT_ERROR,
+        properties: {
+          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+          error: "Could not find user_id for credit pack purchase",
+          context: "credit_pack_purchase",
+        },
+      });
+      return;
+    }
+    userId = source.metadata.user_id;
+  }
+
+  if (!userId) {
+    return;
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 90); // 90 days from now
+
+  // Insert credit grant
+  const { error: creditGrantError } = await supabase
+    .from("credit_grants")
+    .insert({
+      user_id: userId,
+      credits_granted: creditAmount,
+      subscription_id: null,
+      grant_reason: "one_time_credit_pack",
+      grant_type: "one_time",
+      billing_period_start: null,
+      billing_period_end: null,
+      expires_at: expiresAt.toISOString(),
+    });
+
+  if (creditGrantError) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.CREDIT_GRANT_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: creditGrantError,
+        context: "credit_pack_purchase",
+      },
+    });
+    console.error("Error granting credits for credit pack:", creditGrantError);
+    return;
+  }
+
+  // Record the payment
+  const { error: paymentError } = await supabase.from("payments").insert({
+    invoice_id: source.id,
+    user_id: userId,
+    subscription_id: null,
+    stripe_customer_id: isInvoice(source)
+      ? getCustomerIdFromInvoice(source)
+      : getCustomerIdFromCheckoutSession(source),
+    amount: isInvoice(source) ? source.amount_paid : source.amount_total ?? 0,
+    currency: isInvoice(source) ? source.currency : source.currency ?? "usd",
+    status: isInvoice(source)
+      ? source.status
+      : source.payment_status === "paid"
+        ? "paid"
+        : source.payment_status,
+  });
+
+  if (paymentError) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.PAYMENT_UPDATE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error: paymentError,
+        context: "credit_pack_purchase",
+      },
+    });
+    console.error("Error recording payment for credit pack:", paymentError);
+    return;
+  }
+
+  posthog.capture({
+    distinctId: userId,
+    event: SuccessEvents.HANDLED_STRIPE_SUBSCRIPTION_INVOICE_PAID,
+    properties: {
+      source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+      credit_pack_amount: creditAmount,
+    },
+  });
 }
 
 /**
@@ -116,6 +297,20 @@ export async function POST(req: NextRequest) {
  * @returns {Promise<void>} - The function does not return any value, but logs relevant information in case of errors.
  */
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  // Check if this is a one-time payment (credit pack) first
+  const lineItems = invoice.lines.data;
+  if (lineItems.length > 0) {
+    const priceId = lineItems[0].price?.id;
+    const creditPackAmount = priceId ? getCreditPackAmount(priceId) : null;
+
+    if (creditPackAmount !== null) {
+      // This is a credit pack purchase
+      await handleCreditPackPurchase(invoice, creditPackAmount);
+      return;
+    }
+  }
+
+  // Otherwise, handle as a subscription
   let subscription = invoice.parent?.subscription_details?.subscription;
   if (typeof subscription === "string") {
     subscription = await stripe.subscriptions.retrieve(subscription);
@@ -933,6 +1128,15 @@ function getCustomerIdFromInvoice(invoice: Stripe.Invoice): string | null {
   }
 }
 
+function getCustomerIdFromCheckoutSession(
+  session: Stripe.Checkout.Session,
+): string | null {
+  if (typeof session.customer === "string") {
+    return session.customer;
+  }
+  return session.customer?.id ?? null;
+}
+
 function getCustomerIdFromSubscription(
   subscription: Stripe.Subscription,
 ): string | null {
@@ -978,5 +1182,22 @@ function getCreditsForPlan(
       return CreditLimits.MAX;
     case "team":
       return CreditLimits.TEAM;
+  }
+}
+
+/**
+ * Check if a price ID is for a credit pack (one-time purchase)
+ * and return the number of credits if it is
+ */
+function getCreditPackAmount(priceID: string): number | null {
+  switch (priceID) {
+    case process.env.STRIPE_CREDIT_PACK_100_PRICE_ID:
+      return 100;
+    case process.env.STRIPE_CREDIT_PACK_500_PRICE_ID:
+      return 500;
+    case process.env.STRIPE_CREDIT_PACK_1000_PRICE_ID:
+      return 1000;
+    default:
+      return null;
   }
 }
