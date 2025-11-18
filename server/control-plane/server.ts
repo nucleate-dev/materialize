@@ -17,7 +17,6 @@ import { SystemLogger, genRequestIds } from './loggers/SystemLogger.js';
 import { CleanupService } from './services/CleanupService.js';
 import { DevelopmentServerService } from './services/DevelopmentServerService.js';
 import { StripeManagementService } from './services/StripeManagementService.js';
-import { ChatService } from './services/chat/ChatService.js';
 import { DispatcherService } from './services/dispatcher/DispatcherService.js';
 import { IdleContainerAllocationSystemService } from './services/idle-container-allocation-system/IdleContainerAllocationSystemService.js';
 import { OrchestrationService } from './services/orchestration/OrchestrationService.js';
@@ -124,7 +123,6 @@ let idleContainerAllocationSystemService: IdleContainerAllocationSystemService;
 let stripeManagementService: StripeManagementService;
 let prototypeManagementService: PrototypeManagementService;
 let developmentServerService: DevelopmentServerService;
-let chatService: ChatService;
 let orchestrationService: OrchestrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
@@ -209,10 +207,6 @@ const start = async (): Promise<void> => {
       dispatcherService,
     );
     developmentServerService.registerRoutes(fastify);
-
-    // Create chat service and register routes
-    chatService = new ChatService(fastify, dispatcherService);
-    chatService.registerRoutes(fastify);
 
     // Create orchestration service and register routes
     orchestrationService = new OrchestrationService(

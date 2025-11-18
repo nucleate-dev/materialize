@@ -1,26 +1,9 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
-import { FileManagerInterface } from '../services/chat/utils/file-manager.js';
-import { DispatcherService } from '../services/dispatcher/DispatcherService.js';
-import type {
-  BuildStatus,
-  PrototypeAssetInput,
-  PrototypeFileInput,
-} from './PublicAPITypes.js';
+import type { BuildStatus, PrototypeFileInput } from './PublicAPITypes.js';
 import type { Database } from './supabase.js';
 
 // ============================================================================
 // CORE DOMAIN TYPES
 // ============================================================================
-
-export interface ChatExecutionOperation {
-  id: string;
-  type: 'create' | 'modify' | 'delete' | 'move';
-  title: string;
-  description: string;
-  filePath: string;
-  newFilePath?: string;
-}
 
 export type Framework = 'expo_react_native' | 'react';
 
@@ -214,46 +197,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   imageUrl?: string;
-}
-
-// Model Configuration
-export const MODEL_CONFIGS = {
-  google: 'gemini-2.5-flash',
-  'google-pro': 'gemini-2.5-pro',
-  anthropic: 'claude-sonnet-4-20250514',
-  openai: 'gpt-5',
-  'openai-mini': 'gpt-5-nano',
-} as const;
-
-export type ModelProvider = keyof typeof MODEL_CONFIGS;
-
-export interface ChatEngineConfig {
-  supabaseUrl: string;
-  supabaseServiceKey: string;
-  googleAiApiKey: string;
-  anthropicApiKey: string;
-  openAiApiKey?: string;
-  dispatcherService: DispatcherService;
-  modelProvider?: ModelProvider;
-}
-
-export interface ChatEngineParams {
-  messages: ChatMessage[];
-  userMessage: string;
-  originalUserMessage: string;
-  fileManager: FileManagerInterface;
-  inputFiles: Record<string, PrototypeFileInput> | null;
-  inputAssets: Record<string, PrototypeAssetInput> | null;
-  imageUrl: string | null;
-  prototype_id: string;
-  token: string;
-  chat_session_id: string;
-  controller: ReadableStreamDefaultController<Uint8Array>;
-  encoder: TextEncoder;
-  log2: SystemLogger;
-  supabase: SupabaseClient;
-  currentViewingPath: string | null;
-  modelProvider?: ModelProvider;
 }
 
 // Event tracking for persistence

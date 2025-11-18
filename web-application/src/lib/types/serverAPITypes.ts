@@ -5,11 +5,39 @@
 // To update these types, modify the source file and run:
 // npm run build (in the control-plane directory)
 //
-// Last synced: 2025-11-16T05:46:45.989Z
+// Last synced: 2025-11-18T03:55:36.489Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
 import type { Database } from '../types/supabase.js';
+
+// ============================================================================
+// PRODUCT AND SUBSCRIPTION CONSTANTS
+// ============================================================================
+
+/**
+ * Product/Plan identifiers used across the application
+ * These match the plan_id values in the subscriptions table
+ */
+export const ProductKeys = Object.freeze({
+  FREE_SUBSCRIPTION: 'free',
+  PLUS_SUBSCRIPTION: 'plus',
+  PRO_SUBSCRIPTION: 'pro',
+  MAX_SUBSCRIPTION: 'max',
+  TEAM_SUBSCRIPTION: 'team',
+});
+
+/**
+ * Credit limits per subscription plan (per billing period)
+ * Credits reset at the start of each billing period and do not roll over
+ */
+export const CreditLimits = Object.freeze({
+  FREE: 15,
+  PLUS: 100,
+  PRO: 250,
+  MAX: 1000,
+  TEAM: 10000,
+});
 
 // ============================================================================
 // GENERIC API RESPONSE TYPE
@@ -335,169 +363,6 @@ export interface EndChatRequestBody {
 export interface EndChatResponse {
   success: boolean;
   message?: string;
-}
-
-// ============================================================================
-// /chat ENDPOINT
-// ============================================================================
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-// Enhanced chat context for storing rich interaction data
-export interface EnhancedChatContext {
-  conversations: Array<{
-    timestamp: string;
-    userMessage: string;
-    executionPlan?: string[];
-    assistantResponse: string;
-    fileChanges?: Record<string, PrototypeFileInput>;
-    completedSteps?: number[];
-    toolCalls?: Array<{
-      toolName: string;
-      input: unknown;
-      output: unknown;
-    }>;
-  }>;
-}
-
-export interface ChatRequestBody {
-  messages: ChatMessage[];
-  inputFiles: Record<string, PrototypeFileInput> | null;
-  inputAssets: Record<string, PrototypeAssetInput> | null;
-  chat_session_id: string;
-  prototype_id: string;
-  imageUrl?: string | null; // Storage path or signed URL for the uploaded image (will be converted to base64 for LLM)
-  currentViewingPath?: string | null;
-  modelProvider?: 'google' | 'anthropic' | 'openai' | 'openai-mini';
-}
-
-// Streaming response types for different event types
-export interface ChatStreamEventBase {
-  type: string;
-}
-
-export interface ChatStreamPlanningEvent extends ChatStreamEventBase {
-  type: 'planning';
-  content: string;
-  updatedFiles: Record<string, PrototypeFileInput>;
-  messageId?: string;
-}
-
-export interface ChatStreamExecutionStartEvent extends ChatStreamEventBase {
-  type: 'execution_start';
-  operations: {
-    id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
-    title: string;
-    description: string;
-    filePath: string;
-    newFilePath?: string;
-  }[];
-}
-
-export interface ChatStreamStepStartEvent extends ChatStreamEventBase {
-  type: 'step_start';
-  stepIndex: number;
-  operation: {
-    id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
-    title: string;
-    description: string;
-    filePath: string;
-    newFilePath?: string;
-  };
-}
-
-export interface ChatStreamStepCompleteEvent extends ChatStreamEventBase {
-  type: 'step_complete';
-  stepIndex: number;
-  operation: {
-    id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
-    title: string;
-    description: string;
-    filePath: string;
-    newFilePath?: string;
-  };
-  result: {
-    content: string;
-    updatedFiles: Record<string, PrototypeFileInput>;
-    hasResult: boolean;
-  };
-  success: boolean;
-}
-
-export interface ChatStreamStepErrorEvent extends ChatStreamEventBase {
-  type: 'step_error';
-  stepIndex: number;
-  operation: {
-    id: string;
-    type: 'create' | 'modify' | 'delete' | 'move';
-    title: string;
-    description: string;
-    filePath: string;
-    newFilePath?: string;
-  };
-  error: string;
-}
-
-export interface ChatStreamExecutionCompleteEvent extends ChatStreamEventBase {
-  type: 'execution_complete';
-  updatedFiles: Record<string, PrototypeFileInput>;
-}
-
-export interface ChatStreamDispatchStartEvent extends ChatStreamEventBase {
-  type: 'dispatch_start';
-  message: string;
-}
-
-export interface ChatStreamViewingUrlEvent extends ChatStreamEventBase {
-  type: 'viewing_url';
-  viewing_url: string;
-}
-
-export interface ChatStreamDispatchCompleteEvent extends ChatStreamEventBase {
-  type: 'dispatch_complete';
-  success: boolean;
-  message: string;
-  error?: string;
-}
-
-export interface ChatStreamUsageUpdateEvent extends ChatStreamEventBase {
-  type: 'usage_update';
-  creditsRemaining: number;
-}
-
-export interface ChatStreamErrorEvent extends ChatStreamEventBase {
-  type: 'error';
-  error: string;
-}
-
-export type ChatStreamEvent =
-  | ChatStreamPlanningEvent
-  | ChatStreamExecutionStartEvent
-  | ChatStreamStepStartEvent
-  | ChatStreamStepCompleteEvent
-  | ChatStreamStepErrorEvent
-  | ChatStreamExecutionCompleteEvent
-  | ChatStreamDispatchStartEvent
-  | ChatStreamViewingUrlEvent
-  | ChatStreamDispatchCompleteEvent
-  | ChatStreamUsageUpdateEvent
-  | ChatStreamErrorEvent;
-
-// Error response for non-streaming scenarios
-export interface ChatErrorResponse {
-  error: string;
-  usage?: {
-    current: number;
-    limit: number;
-    tier: string;
-  };
-  details?: unknown;
 }
 
 // ============================================================================
