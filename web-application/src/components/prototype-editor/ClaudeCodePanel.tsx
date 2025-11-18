@@ -642,65 +642,67 @@ export default function ClaudeCodePanel({
     const isDevServerReady = currentRenderStatus === "Connected";
 
     if (queuedMessage && isDevServerReady && isConnected && !isProcessing) {
-      logger.debug("log", "Dev server ready, auto-sending queued message", {
-        message: queuedMessage,
-        currentRenderStatus,
-      });
-
-      // Clear the timeout since we're sending the message now
-      if (queueTimeoutRef.current) {
-        clearTimeout(queueTimeoutRef.current);
-        queueTimeoutRef.current = null;
-      }
-
-      // Update the queued message to show it's being sent
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.isQueued
-            ? { ...msg, isQueued: false }
-            : msg
-        )
-      );
-
-      // Send the message
-      const content = queuedMessage;
-      setQueuedMessage(null);
-      setIsProcessing(true);
-      setHasReceivedResponse(false);
-
-      // Clear chat intent from localStorage
-      clearChatIntent();
-
-      // Refresh JWT token before sending queued message
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        if (session.session?.access_token) {
-          authTokenRef.current = session.session.access_token;
-        }
-      } catch (error) {
-        logger.debug("warn", "Failed to refresh token for queued message", {
-          error,
+      (async () => {
+        logger.debug("log", "Dev server ready, auto-sending queued message", {
+          message: queuedMessage,
+          currentRenderStatus,
         });
-        // Continue with existing token if refresh fails
-      }
 
-      // Send message via WebSocket
-      if (ws) {
-        const messageContent = [{ type: "text", text: content }];
-        ws.send(
-          JSON.stringify({
-            type: "query",
-            data: {
-              content: messageContent,
-              token: authTokenRef.current,
-              session_id: sessionIdRef.current,
-              chat_session_id: chatSessionId,
-              custom_design_system_id: prototype?.custom_design_system,
-              current_viewing_path: currentViewingPath,
-            },
-          })
+        // Clear the timeout since we're sending the message now
+        if (queueTimeoutRef.current) {
+          clearTimeout(queueTimeoutRef.current);
+          queueTimeoutRef.current = null;
+        }
+
+        // Update the queued message to show it's being sent
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.isQueued
+              ? { ...msg, isQueued: false }
+              : msg
+          )
         );
-      }
+
+        // Send the message
+        const content = queuedMessage;
+        setQueuedMessage(null);
+        setIsProcessing(true);
+        setHasReceivedResponse(false);
+
+        // Clear chat intent from localStorage
+        clearChatIntent();
+
+        // Refresh JWT token before sending queued message
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session.session?.access_token) {
+            authTokenRef.current = session.session.access_token;
+          }
+        } catch (error) {
+          logger.debug("warn", "Failed to refresh token for queued message", {
+            error,
+          });
+          // Continue with existing token if refresh fails
+        }
+
+        // Send message via WebSocket
+        if (ws) {
+          const messageContent = [{ type: "text", text: content }];
+          ws.send(
+            JSON.stringify({
+              type: "query",
+              data: {
+                content: messageContent,
+                token: authTokenRef.current,
+                session_id: sessionIdRef.current,
+                chat_session_id: chatSessionId,
+                custom_design_system_id: prototype?.custom_design_system,
+                current_viewing_path: currentViewingPath,
+              },
+            })
+          );
+        }
+      })();
     }
   }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, chatSessionId, prototype, currentViewingPath]);
 
