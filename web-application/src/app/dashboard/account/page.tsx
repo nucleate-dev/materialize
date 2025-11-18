@@ -676,80 +676,82 @@ function AccountSettings() {
         </CardContent>
       </Card>
 
-      {/* Credit Packs */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Sparkles className="w-5 h-5" />
-            <span>Buy Credit Packs</span>
-          </CardTitle>
-          <CardDescription>
-            Purchase additional credits that never expire for 90 days
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            {/* 100 Credits Pack */}
-            <div className="border rounded-lg p-4 space-y-3">
-              <div className="space-y-1">
-                <h4 className="font-semibold text-lg">100 Credits</h4>
-                <p className="text-2xl font-bold">$25</p>
-                <p className="text-sm text-muted-foreground">
-                  $0.25 per credit
-                </p>
+      {/* Credit Packs - Only show for paid subscribers */}
+      {userPlan !== "free" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Sparkles className="w-5 h-5" />
+              <span>Buy Credit Packs</span>
+            </CardTitle>
+            <CardDescription>
+              Purchase additional credits that never expire for 90 days
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* 100 Credits Pack */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-lg">100 Credits</h4>
+                  <p className="text-2xl font-bold">$25</p>
+                  <p className="text-sm text-muted-foreground">
+                    $0.25 per credit
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleUpgradeClick("credit_pack_100")}
+                  className="w-full"
+                  variant="outline"
+                  disabled={isProcessingUpgrade}
+                >
+                  {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+                </Button>
               </div>
-              <Button
-                onClick={() => handleUpgradeClick("credit_pack_100")}
-                className="w-full"
-                variant="outline"
-                disabled={isProcessingUpgrade}
-              >
-                {isProcessingUpgrade ? "Processing..." : "Buy Now"}
-              </Button>
-            </div>
 
-            {/* 500 Credits Pack */}
-            <div className="border rounded-lg p-4 space-y-3 border-primary relative">
-              <Badge className="absolute -top-2 left-1/2 -translate-x-1/2">
-                Best Value
-              </Badge>
-              <div className="space-y-1">
-                <h4 className="font-semibold text-lg">500 Credits</h4>
-                <p className="text-2xl font-bold">$110</p>
-                <p className="text-sm text-muted-foreground">
-                  $0.22 per credit
-                </p>
+              {/* 500 Credits Pack */}
+              <div className="border rounded-lg p-4 space-y-3 border-primary relative">
+                <Badge className="absolute -top-2 left-1/2 -translate-x-1/2">
+                  Best Value
+                </Badge>
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-lg">500 Credits</h4>
+                  <p className="text-2xl font-bold">$110</p>
+                  <p className="text-sm text-muted-foreground">
+                    $0.22 per credit
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleUpgradeClick("credit_pack_500")}
+                  className="w-full"
+                  disabled={isProcessingUpgrade}
+                >
+                  {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+                </Button>
               </div>
-              <Button
-                onClick={() => handleUpgradeClick("credit_pack_500")}
-                className="w-full"
-                disabled={isProcessingUpgrade}
-              >
-                {isProcessingUpgrade ? "Processing..." : "Buy Now"}
-              </Button>
-            </div>
 
-            {/* 1000 Credits Pack */}
-            <div className="border rounded-lg p-4 space-y-3">
-              <div className="space-y-1">
-                <h4 className="font-semibold text-lg">1000 Credits</h4>
-                <p className="text-2xl font-bold">$200</p>
-                <p className="text-sm text-muted-foreground">
-                  $0.20 per credit
-                </p>
+              {/* 1000 Credits Pack */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-lg">1000 Credits</h4>
+                  <p className="text-2xl font-bold">$200</p>
+                  <p className="text-sm text-muted-foreground">
+                    $0.20 per credit
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleUpgradeClick("credit_pack_1000")}
+                  className="w-full"
+                  variant="outline"
+                  disabled={isProcessingUpgrade}
+                >
+                  {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+                </Button>
               </div>
-              <Button
-                onClick={() => handleUpgradeClick("credit_pack_1000")}
-                className="w-full"
-                variant="outline"
-                disabled={isProcessingUpgrade}
-              >
-                {isProcessingUpgrade ? "Processing..." : "Buy Now"}
-              </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
