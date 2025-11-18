@@ -75,17 +75,17 @@ interface ClaudeCodePanelProps {
   onFileSyncComplete?: () => void;
   currentRenderStatus?: RenderStatus;
   currentViewingPath?: string;
-  // External WebSocket management (optional)
-  externalWS?: WebSocket | null;
-  externalWSConnected?: boolean;
-  externalWSConnecting?: boolean;
-  onConnect?: () => Promise<void>;
-  onDisconnect?: () => void;
-  onRegisterMessageHandler?: (
+  // External WebSocket management (required - InternalPrototypePage manages connection)
+  externalWS: WebSocket | null;
+  externalWSConnected: boolean;
+  externalWSConnecting: boolean;
+  onConnect: () => Promise<void>;
+  onDisconnect: () => void;
+  onRegisterMessageHandler: (
     id: string,
     handler: (msg: ChatServerMessage) => void,
   ) => void;
-  onUnregisterMessageHandler?: (id: string) => void;
+  onUnregisterMessageHandler: (id: string) => void;
 }
 
 interface Message {
@@ -130,22 +130,10 @@ export default function ClaudeCodePanel({
 }: ClaudeCodePanelProps) {
   const logger = useProductLogger();
 
-  // Determine if using external WebSocket management
-  const usingExternalWS = !!externalWS;
-
-  // Internal WebSocket state (only used if no external WS provided)
-  const [internalWS, setInternalWS] = useState<WebSocket | null>(null);
-  const [internalConnected, setInternalConnected] = useState(false);
-  const [internalConnecting, setInternalConnecting] = useState(false);
-
-  // Use external or internal WebSocket
-  const ws = usingExternalWS ? externalWS : internalWS;
-  const isConnected = usingExternalWS
-    ? externalWSConnected ?? false
-    : internalConnected;
-  const isConnecting = usingExternalWS
-    ? externalWSConnecting ?? false
-    : internalConnecting;
+  // Always use external WebSocket (InternalPrototypePage is the source of truth)
+  const ws = externalWS;
+  const isConnected = externalWSConnected;
+  const isConnecting = externalWSConnecting;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -683,6 +671,19 @@ export default function ClaudeCodePanel({
       // Clear chat intent from localStorage
       clearChatIntent();
 
+      // Refresh JWT token before sending queued message
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session?.access_token) {
+          authTokenRef.current = session.session.access_token;
+        }
+      } catch (error) {
+        logger.debug("warn", "Failed to refresh token for queued message", {
+          error,
+        });
+        // Continue with existing token if refresh fails
+      }
+
       // Send message via WebSocket
       if (ws) {
         const messageContent = [{ type: "text", text: content }];
@@ -703,12 +704,8 @@ export default function ClaudeCodePanel({
     }
   }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, chatSessionId, prototype, currentViewingPath]);
 
-  // Auto-connect when component mounts (only if using internal WebSocket)
-  useEffect(() => {
-    if (!usingExternalWS && !isConnected && prototypeId) {
-      connect();
-    }
-  }, [prototypeId, usingExternalWS]); // eslint-disable-line react-hooks/exhaustive-deps
+  // WebSocket connection is managed by parent component (InternalPrototypePage)
+  // via the useClaudeCodeWebSocket hook
 
   // Auto-scroll to bottom when new messages arrive (only if already near bottom)
   useEffect(() => {
@@ -771,123 +768,19 @@ export default function ClaudeCodePanel({
     }
   };
 
-  // Register message handler with parent if using external WS
+  // Register message handler with parent for external WS
   useEffect(() => {
-    if (usingExternalWS && onRegisterMessageHandler && onUnregisterMessageHandler) {
-      const handlerId = `claude-code-panel-${Date.now()}`;
-      onRegisterMessageHandler(handlerId, handleServerMessage);
+    const handlerId = `claude-code-panel-${Date.now()}`;
+    onRegisterMessageHandler(handlerId, handleServerMessage);
 
-      return () => {
-        onUnregisterMessageHandler(handlerId);
-      };
-    }
-  }, [usingExternalWS, onRegisterMessageHandler, onUnregisterMessageHandler]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      onUnregisterMessageHandler(handlerId);
+    };
+  }, [onRegisterMessageHandler, onUnregisterMessageHandler]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Connect to WebSocket
-  // Internal WebSocket connection (only used if no external WS provided)
-  const connectInternal = async () => {
-    try {
-      setInternalConnecting(true);
-      authTokenRef.current = null;
-
-      // Get authentication token
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.access_token) {
-        setInternalConnecting(false);
-        addMessage("error", "Not authenticated. Please log in.");
-        return;
-      }
-
-      const token = session.session.access_token;
-
-      // Get server endpoint
-      const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-      if (!serverEndpoint) {
-        setInternalConnecting(false);
-        addMessage("error", "Server endpoint not configured");
-        return;
-      }
-
-      authTokenRef.current = token;
-      const finalTunnelUrlBase = (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
-      const wsUrl = `${finalTunnelUrlBase}/code/ws/${prototypeId}`;
-      logger.debug("log", "WebSocket URL", { wsUrl, finalTunnelUrlBase, prototypeId });
-
-      logger.debug("log", "Attempting WebSocket connection", {
-        serverEndpoint,
-        prototypeId,
-        hasToken: !!token,
-        tokenLength: token?.length,
-      });
-
-      const websocket = new WebSocket(wsUrl);
-
-      websocket.onopen = () => {
-        setInternalConnected(true);
-        setInternalConnecting(false);
-      };
-
-      websocket.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data) as ChatServerMessage;
-          handleServerMessage(message);
-        } catch (error) {
-          logger.debug("error", "Failed to parse WebSocket message", { error });
-        }
-      };
-
-      websocket.onclose = (event) => {
-        authTokenRef.current = null;
-        setInternalConnected(false);
-        setInternalConnecting(false);
-        const closeReason = event.reason || "No reason provided";
-        logger.debug("error", "WebSocket closed", {
-          code: event.code,
-          reason: closeReason,
-          wasClean: event.wasClean,
-        });
-        // Don't show automatic disconnection messages - users will see an error
-        // only when they try to send a message and the connection is down
-      };
-
-      websocket.onerror = (error) => {
-        setInternalConnecting(false);
-        logger.debug("error", "WebSocket connection error", { error });
-        // Don't show automatic error messages - users will see an error
-        // only when they try to send a message and the connection is down
-      };
-
-      setInternalWS(websocket);
-    } catch (error) {
-      authTokenRef.current = null;
-      setInternalConnecting(false);
-      // Don't show automatic error messages - users will see an error
-      // only when they try to send a message and the connection is down
-      logger.debug("error", "Failed to establish WebSocket connection", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    }
-  };
-
-  // Internal disconnect (only used if no external WS provided)
-  const disconnectInternal = () => {
-    if (internalWS) {
-      internalWS.close();
-      setInternalWS(null);
-      setInternalConnected(false);
-      setInternalConnecting(false);
-      authTokenRef.current = null;
-      sessionIdRef.current = null;
-    }
-  };
-
-  // Use external or internal connect/disconnect
-  const connect = usingExternalWS && onConnect ? onConnect : connectInternal;
-  // Disconnect function available but currently unused - kept for potential future use
-  const _disconnect = usingExternalWS && onDisconnect ? onDisconnect : disconnectInternal;
-  // Suppress unused var warning
-  void _disconnect;
+  // Connection is managed by parent component via external props
+  const connect = onConnect;
+  const disconnect = onDisconnect;
 
   // Handle messages from server
   const handleServerMessage = (message: ChatServerMessage) => {
