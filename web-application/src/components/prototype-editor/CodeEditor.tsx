@@ -43,8 +43,10 @@ import type {
   UpdateFilesRequestBody,
   UpdateFilesSuccessResponse,
 } from "@/lib/types/serverAPITypes";
+import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import Editor from "@monaco-editor/react";
 import { FileText, Plus, Save, Trash2, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 interface CodeEditorProps {
@@ -105,6 +107,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onFilesSaved,
 }) => {
   const logger = useProductLogger();
+  const router = useRouter();
   const { userPlan } = useSubscriptionAccess();
 
   // Extract values from fileSystem
@@ -1036,6 +1039,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                   size="sm"
                   variant="outline"
                   className="ml-4 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                  onClick={() => handleCheckout("plus", router)}
                 >
                   Upgrade plan
                 </Button>

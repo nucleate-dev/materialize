@@ -408,7 +408,7 @@ export default function NewPrototypeModal({
                     size="sm"
                     className="border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
                     onClick={() =>
-                      handleCheckout("pro", router)
+                      handleCheckout("plus", router)
                     }
                   >
                     Upgrade Plan
