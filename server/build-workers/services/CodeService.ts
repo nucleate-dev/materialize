@@ -1412,10 +1412,15 @@ export class CodeService {
       );
       this.logger.info("Notified control plane of chat start", { prototypeId });
     } catch (error) {
+      const axiosError = axios.isAxiosError(error) ? error : null;
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to notify control plane of chat start",
-        { prototypeId },
+        {
+          prototypeId,
+          statusCode: axiosError?.response?.status,
+          responseBody: axiosError?.response?.data,
+        },
       );
       // Don't throw - we want the chat to proceed even if notification fails
     }
@@ -1469,11 +1474,16 @@ export class CodeService {
         });
         return; // Success - exit the function
       } catch (error) {
+        const axiosError = axios.isAxiosError(error) ? error : null;
         lastError = error instanceof Error ? error : new Error(String(error));
         this.logger.error(
           lastError,
           `Failed to notify control plane of chat end (attempt ${attempt}/${maxRetries})`,
-          { prototypeId },
+          {
+            prototypeId,
+            statusCode: axiosError?.response?.status,
+            responseBody: axiosError?.response?.data,
+          },
         );
 
         // Wait before retrying (exponential backoff)
