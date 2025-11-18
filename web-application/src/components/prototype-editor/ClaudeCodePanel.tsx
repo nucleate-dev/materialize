@@ -1840,7 +1840,9 @@ export default function ClaudeCodePanel({
         </div>
         <div className="flex gap-2">
           {/* Reconnect Button - shown when disconnected */}
-          {!isConnected && (
+          {!isConnected &&
+           baseTunnelUrl &&
+           currentRenderStatus !== "Starting Dev Server.." && (
             <Button
               size="sm"
               variant="default"
