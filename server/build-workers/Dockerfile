@@ -56,6 +56,49 @@ RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \
     echo 'export PS1="$ "' >> /etc/bash.bashrc && \
     echo '# Keep shell alive' >> /etc/bash.bashrc
 
+# Create Claude Code settings directory and configure permissions
+RUN mkdir -p /root/.claude && \
+    echo '{\n\
+  "permissions": {\n\
+    "allow": [\n\
+      "Read(/tmp/materialize-dev-server/.env)",\n\
+      "Edit(/tmp/materialize-dev-server/.env)",\n\
+      "Write(/tmp/materialize-dev-server/.env)"\n\
+    ],\n\
+    "deny": [\n\
+      "Read(./.env)",\n\
+      "Read(./.env.*)",\n\
+      "Read(./secrets/**)",\n\
+      "Read(./**/.env)",\n\
+      "Read(./**/.env.*)",\n\
+      "Read(/tmp/**/.env)",\n\
+      "Read(/tmp/**/.env.*)",\n\
+      "Edit(/tmp/**/.env)",\n\
+      "Edit(/tmp/**/.env.*)",\n\
+      "Write(/tmp/**/.env)",\n\
+      "Write(/tmp/**/.env.*)",\n\
+      "Read(./build-workers/**)",\n\
+      "Read(./control-plane/**)",\n\
+      "Edit(./build-workers/**)",\n\
+      "Edit(./control-plane/**)",\n\
+      "Write(./build-workers/**)",\n\
+      "Write(./control-plane/**)",\n\
+      "Bash(cd */build-workers*)",\n\
+      "Bash(cd */control-plane*)",\n\
+      "Bash(ps*)",\n\
+      "Bash(top*)",\n\
+      "Bash(htop*)",\n\
+      "Bash(pgrep*)",\n\
+      "Bash(pkill*)",\n\
+      "Bash(kill*)",\n\
+      "Bash(killall*)"\n\
+    ]\n\
+  },\n\
+  "env": {\n\
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "true"\n\
+  }\n\
+}' > /root/.claude/settings.json
+
 # Expose app port
 EXPOSE 3002
 

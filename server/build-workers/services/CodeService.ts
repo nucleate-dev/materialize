@@ -605,6 +605,7 @@ export class CodeService {
             preset: "claude_code" as const,
             append: systemPromptAppend,
           },
+          settingSources: ["user"],
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           // Add hooks to stream tool usage to WebSocket clients
