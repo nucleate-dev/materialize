@@ -958,16 +958,16 @@ export default function ClaudeCodePanel({
           updates.push(`${assetsDeleted} asset${assetsDeleted > 1 ? "s" : ""} deleted`);
         }
 
-        if (updates.length > 0) {
-          addMessage("system", `Files synced: ${updates.join(", ")}`);
-        }
+        // if (updates.length > 0) {
+        //   addMessage("system", `Files synced: ${updates.join(", ")}`);
+        // }
 
-        if (errorCount > 0) {
-          addMessage(
-            "system",
-            `⚠️ ${errorCount} sync error${errorCount > 1 ? "s" : ""} occurred`,
-          );
-        }
+        // if (errorCount > 0) {
+        //   addMessage(
+        //     "system",
+        //     `⚠️ ${errorCount} sync error${errorCount > 1 ? "s" : ""} occurred`,
+        //   );
+        // }
 
         if (onFileSyncComplete) {
           onFileSyncComplete();
@@ -985,9 +985,9 @@ export default function ClaudeCodePanel({
           if (assetsCount > 0) {
             parts.push(`${assetsCount} asset${assetsCount > 1 ? "s" : ""}`);
           }
-          if (parts.length > 0) {
-            addMessage("system", `Sync complete: ${parts.join(", ")}`);
-          }
+          // if (parts.length > 0) {
+          //   addMessage("system", `Sync complete: ${parts.join(", ")}`);
+          // }
         }
 
         if (onFileSyncComplete) {
@@ -1736,16 +1736,16 @@ export default function ClaudeCodePanel({
         <div className="flex gap-2">
           {/* Reconnect Button - shown when disconnected */}
           {!isConnected &&
-           baseTunnelUrl &&
-           currentRenderStatus !== "Starting Dev Server.." && (
-            <Button
-              size="sm"
-              variant="default"
-              onClick={connect}
-            >
-              Reconnect
-            </Button>
-          )}
+            baseTunnelUrl &&
+            currentRenderStatus !== "Starting Dev Server.." && (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={connect}
+              >
+                Reconnect
+              </Button>
+            )}
           {isProcessing && (
             <Button
               size="sm"
