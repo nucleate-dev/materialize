@@ -261,7 +261,7 @@ export class CodeService {
     data: ChatQueryData,
     prototypeId: string,
   ): Promise<void> {
-    const { prompt, content, token, session_id, chat_session_id } = data;
+    const { prompt, content, token, session_id, chat_session_id, current_viewing_path } = data;
     const options = (data.options ?? {}) as Options;
 
     // Support both old format (prompt) and new format (content)
@@ -561,12 +561,18 @@ export class CodeService {
         }
 
         // Query Claude with session resumption if available
-        // Build system prompt with optional design system rules
-        const systemPromptAppend = this.sessionState.designSystemRules
-          ? SYSTEM_PROMPT +
-            "\n\n## Custom Design System Rules:\n" +
-            this.sessionState.designSystemRules
-          : SYSTEM_PROMPT;
+        // Build system prompt with optional design system rules and viewing path context
+        let systemPromptAppend = SYSTEM_PROMPT;
+
+        // Append custom design system rules if available
+        if (this.sessionState.designSystemRules) {
+          systemPromptAppend += "\n\n## Custom Design System Rules:\n" + this.sessionState.designSystemRules;
+        }
+
+        // Append current viewing path context if available
+        if (current_viewing_path) {
+          systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`
+        }
 
         const queryOptions = {
           ...options,

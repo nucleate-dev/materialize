@@ -74,6 +74,7 @@ interface ClaudeCodePanelProps {
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
   onFileSyncComplete?: () => void;
   currentRenderStatus?: RenderStatus;
+  currentViewingPath?: string;
   // External WebSocket management (optional)
   externalWS?: WebSocket | null;
   externalWSConnected?: boolean;
@@ -118,6 +119,7 @@ export default function ClaudeCodePanel({
   onPrototypeUpdate,
   onFileSyncComplete,
   currentRenderStatus,
+  currentViewingPath,
   externalWS,
   externalWSConnected,
   externalWSConnecting,
@@ -693,12 +695,13 @@ export default function ClaudeCodePanel({
               session_id: sessionIdRef.current,
               chat_session_id: chatSessionId,
               custom_design_system_id: prototype?.custom_design_system,
+              current_viewing_path: currentViewingPath,
             },
           })
         );
       }
     }
-  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, chatSessionId, prototype]);
+  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, chatSessionId, prototype, currentViewingPath]);
 
   // Auto-connect when component mounts (only if using internal WebSocket)
   useEffect(() => {
@@ -1554,6 +1557,7 @@ export default function ClaudeCodePanel({
           session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
           chat_session_id: chatSessionId, // Pass database chat session ID for message persistence
           custom_design_system_id: prototype?.custom_design_system,
+          current_viewing_path: currentViewingPath, // Pass current viewing route/path for context
         },
       }),
     );

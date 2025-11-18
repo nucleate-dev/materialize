@@ -125,7 +125,7 @@ export default function InternalPrototypePage() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Current viewing path tracking
-  const [, setCurrentViewingPath] = useState<string>("/");
+  const [currentViewingPath, setCurrentViewingPath] = useState<string>("/");
 
   // Resizable divider state
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
@@ -841,6 +841,7 @@ export default function InternalPrototypePage() {
               canEditPrototype={canEditPrototype}
               onPrototypeUpdate={setPrototype}
               currentRenderStatus={currentRenderStatus}
+              currentViewingPath={currentViewingPath}
               onFileSyncComplete={() => {
                 // Reload files and assets from database when Claude Code finishes syncing
                 fileSystem.loadFilesFromDatabase(prototypeId);
