@@ -1842,8 +1842,8 @@ export default function ClaudeCodePanel({
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="max-w-none cursor-default">
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <div className="max-w-none cursor-default break-words">
+                            <div className="prose prose-sm dark:prose-invert max-w-none break-words">
                               <ReactMarkdown
                                 components={{
                                   // Customize code blocks - inline vs block
@@ -1879,7 +1879,7 @@ export default function ClaudeCodePanel({
                                     );
                                   },
                                   // Customize paragraphs
-                                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                  p: ({ children }) => <p className="mb-2 last:mb-0 break-words">{children}</p>,
                                   // Customize lists
                                   ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
                                   ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
