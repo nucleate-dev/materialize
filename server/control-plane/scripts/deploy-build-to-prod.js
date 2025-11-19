@@ -16,6 +16,10 @@ async function main() {
   const infraDest = path.join(distDir, 'infra', 'ec2');
   const outZip = path.join(projectRoot, 'control-plane-dist.zip');
 
+  console.log('🧹 Cleaning previous build artifacts...');
+  fs.rmSync(distDir, { recursive: true, force: true });
+  fs.rmSync(outZip, { force: true });
+
   console.log('🚀 Building project...');
   execSync('npm run build', {
     cwd: projectRoot,
