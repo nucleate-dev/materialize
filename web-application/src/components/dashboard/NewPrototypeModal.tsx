@@ -60,15 +60,12 @@ type FolderOption = {
   folder_context: Database["public"]["Tables"]["folders"]["Row"]["folder_context"];
 };
 
-const DESIGN_STYLE_OPTIONS: DesignStyle[] = [
-  "nativewind",
-  "stylesheets",
-];
+const DESIGN_STYLE_OPTIONS: DesignStyle[] = ["nativewind", "stylesheets"];
 
 const DESIGN_STYLE_LABELS: Partial<Record<DesignStyle, string>> = {
   nativewind: "NativeWind",
   stylesheets: "React Native StyleSheet",
-  custom: "Custom"
+  custom: "Custom",
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -97,15 +94,18 @@ export default function NewPrototypeModal({
   const { userPlan } = useSubscriptionAccess();
   const [visibility, setVisibility] = useState<
     Database["public"]["Enums"]["visibility_level"]
-  >(userPlan === "pro" ? "SELF" : "PUBLIC");
+  >(userPlan === "free" ? "PUBLIC" : "SELF");
   const [prototypeCount, setPrototypeCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
-  const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
+  const [customDesignSystemId, setCustomDesignSystemId] = useState<
+    string | null
+  >(null);
   const [designSystems, setDesignSystems] = useState<DesignSystemRow[]>([]);
   const [isLoadingDesignSystems, setIsLoadingDesignSystems] = useState(false);
-  const [hasManualDesignSelection, setHasManualDesignSelection] = useState(false);
+  const [hasManualDesignSelection, setHasManualDesignSelection] =
+    useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Fetch user's projects and prototype count
@@ -188,7 +188,7 @@ export default function NewPrototypeModal({
           });
           return;
         }
-        setDesignSystems(data as DesignSystemRow[] || []);
+        setDesignSystems((data as DesignSystemRow[]) || []);
       } catch (error) {
         logger.debug("error", "Error fetching design systems:", {
           error: error instanceof Error ? error.message : String(error),
@@ -236,8 +236,8 @@ export default function NewPrototypeModal({
       const folder = folders.find((p) => p.id === selectedFolder);
       if (folder && isRecord(folder.folder_context)) {
         const context = folder.folder_context as Record<string, unknown>;
-        const defaultDesignSystem =
-          (context["defaultDesignSystem"] ?? context["default_design_system"]) as unknown;
+        const defaultDesignSystem = (context["defaultDesignSystem"] ??
+          context["default_design_system"]) as unknown;
 
         if (isRecord(defaultDesignSystem)) {
           const styleCandidate = defaultDesignSystem?.["design_style"];
@@ -247,7 +247,10 @@ export default function NewPrototypeModal({
             setDesignStyle(styleCandidate);
           }
 
-          if (typeof customCandidate === "string" || typeof customCandidate === "number") {
+          if (
+            typeof customCandidate === "string" ||
+            typeof customCandidate === "number"
+          ) {
             setCustomDesignSystemId(String(customCandidate));
           } else {
             setCustomDesignSystemId(null);
@@ -275,11 +278,7 @@ export default function NewPrototypeModal({
         setCustomDesignSystemId(null);
       }
     }
-  }, [
-    open,
-    designSystems,
-    customDesignSystemId,
-  ]);
+  }, [open, designSystems, customDesignSystemId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,7 +286,7 @@ export default function NewPrototypeModal({
     if (!name.trim() || !user) return;
 
     // Check prototype limit for FREE users
-    if (userPlan !== "pro" && prototypeCount >= 5) {
+    if (userPlan === "free" && prototypeCount >= 5) {
       return;
     }
 
@@ -332,7 +331,7 @@ export default function NewPrototypeModal({
         // Reset form
         setName("");
         setSelectedFolder(null);
-        setVisibility(userPlan === "pro" ? "SELF" : "PUBLIC");
+        setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
         setDesignStyle("nativewind");
         setCustomDesignSystemId(null);
         setHasManualDesignSelection(false);
@@ -371,7 +370,7 @@ export default function NewPrototypeModal({
             <DialogTitle className="text-2xl font-bold text-foreground">
               Create New Project
             </DialogTitle>
-            {userPlan !== "pro" && (
+            {userPlan === "free" && (
               <div className="text-sm text-muted-foreground">
                 {isLoadingCount ? (
                   <div className="flex items-center gap-2">
@@ -399,17 +398,15 @@ export default function NewPrototypeModal({
                     Project Limit Reached
                   </h4>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-                    FREE users can create up to 5 projects. You&apos;ve
-                    reached your limit.
+                    FREE users can create up to 5 projects. You&apos;ve reached
+                    your limit.
                   </p>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
-                    onClick={() =>
-                      handleCheckout("plus", router)
-                    }
+                    onClick={() => handleCheckout("plus", router)}
                   >
                     Upgrade Plan
                   </Button>
@@ -420,7 +417,7 @@ export default function NewPrototypeModal({
 
           <form
             onSubmit={handleSubmit}
-            className={`space-y-6 ${userPlan !== "pro" && prototypeCount >= 5 ? "opacity-50" : ""}`}
+            className={`space-y-6 ${userPlan === "free" && prototypeCount >= 5 ? "opacity-50" : ""}`}
           >
             <div className="space-y-2">
               <Label htmlFor="prototype-name" className="text-sm font-semibold">
@@ -432,10 +429,11 @@ export default function NewPrototypeModal({
                 placeholder="e.g. E-commerce Mobile App ✨"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className={`h-12 text-lg ${touched && !name.trim()
-                  ? "border-destructive focus-visible:ring-destructive"
-                  : "focus-visible:ring-primary"
-                  }`}
+                className={`h-12 text-lg ${
+                  touched && !name.trim()
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : "focus-visible:ring-primary"
+                }`}
                 autoFocus
                 maxLength={64}
               />
@@ -461,7 +459,7 @@ export default function NewPrototypeModal({
                     value as Database["public"]["Enums"]["visibility_level"],
                   )
                 }
-                disabled={userPlan !== "pro" || isCreating}
+                disabled={userPlan === "free" || isCreating}
               >
                 <SelectTrigger id="prototype-visibility" className="h-12">
                   <SelectValue />
@@ -485,16 +483,22 @@ export default function NewPrototypeModal({
                   variant="ghost"
                   className="flex items-center justify-between w-full p-0 h-auto font-semibold text-sm hover:bg-transparent"
                 >
-                  <span className="text-muted-foreground">Advanced Options</span>
+                  <span className="text-muted-foreground">
+                    Advanced Options
+                  </span>
                   <ChevronDownIcon
-                    className={`w-4 h-4 text-muted-foreground transition-transform ${showAdvanced ? "rotate-180" : ""
-                      }`}
+                    className={`w-4 h-4 text-muted-foreground transition-transform ${
+                      showAdvanced ? "rotate-180" : ""
+                    }`}
                   />
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="project-select" className="text-sm font-semibold">
+                  <Label
+                    htmlFor="project-select"
+                    className="text-sm font-semibold"
+                  >
                     Folder
                   </Label>
                   <Select
@@ -532,7 +536,10 @@ export default function NewPrototypeModal({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="design-style" className="text-sm font-semibold">
+                  <Label
+                    htmlFor="design-style"
+                    className="text-sm font-semibold"
+                  >
                     Design Style
                   </Label>
                   <Select
@@ -564,7 +571,10 @@ export default function NewPrototypeModal({
                       htmlFor="custom-design-system"
                       className="text-sm font-semibold"
                     >
-                      Custom Design System <span className="text-muted-foreground font-normal">(Optional)</span>
+                      Custom Design System{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (Optional)
+                      </span>
                     </Label>
                     <Select
                       value={customDesignSystemId ?? "none"}
@@ -578,7 +588,9 @@ export default function NewPrototypeModal({
                         <SelectValue placeholder="No custom design system" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No custom design system</SelectItem>
+                        <SelectItem value="none">
+                          No custom design system
+                        </SelectItem>
                         {designSystems.map((system) => (
                           <SelectItem key={system.id} value={String(system.id)}>
                             {system.name}
@@ -592,7 +604,8 @@ export default function NewPrototypeModal({
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Apply custom design rules on top of the selected design style
+                      Apply custom design rules on top of the selected design
+                      style
                     </p>
                   </div>
                 )}
@@ -604,7 +617,7 @@ export default function NewPrototypeModal({
               disabled={
                 isCreating ||
                 !name.trim() ||
-                (userPlan !== "pro" && prototypeCount >= 5)
+                (userPlan === "free" && prototypeCount >= 5)
               }
               className="w-full h-12"
             >
