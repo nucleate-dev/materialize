@@ -1804,47 +1804,6 @@ export default function ClaudeCodePanel({
             </div>
           ) : (
             <>
-              {/* Todo List - only show if there are todos */}
-              {currentTodos.length > 0 && (
-                <div className="mb-4 rounded-lg border border-border bg-card p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="text-sm font-medium">Tasks</div>
-                    <div className="text-xs text-muted-foreground">
-                      {currentTodos.filter(t => t.status === "completed").length} of {currentTodos.length} completed
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {currentTodos.map((todo, index) => (
-                      <div
-                        key={`todo-${index}`}
-                        className={`flex items-start gap-2 text-sm transition-opacity duration-500 ${
-                          todo.status === "completed" ? "opacity-40" : "opacity-100"
-                        }`}
-                      >
-                        {/* Status icon */}
-                        <div className="flex-shrink-0 mt-0.5">
-                          {todo.status === "completed" && (
-                            <CheckIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-                          )}
-                          {todo.status === "in_progress" && (
-                            <div
-                              className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
-                              style={{ animationDuration: "0.8s" }}
-                            />
-                          )}
-                          {todo.status === "pending" && (
-                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
-                          )}
-                        </div>
-                        {/* Todo text */}
-                        <div className={`flex-1 ${todo.status === "completed" ? "line-through" : ""}`}>
-                          {todo.status === "in_progress" ? todo.activeForm : todo.content}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {messages.map((message) => (
                 <div key={message.id}>
@@ -1957,18 +1916,23 @@ export default function ClaudeCodePanel({
                   {message.type === "tool" && (
                     <div className="py-1">
                       <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${message.status === "error"
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all ${message.status === "error"
                           ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                          : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                          : message.status === "running"
+                            ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 animate-pulse"
+                            : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                           }`}
                       >
                         {message.status === "running" && (
-                          <span
-                            className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse"
-                            style={{
-                              filter: "drop-shadow(0 0 2px currentColor) drop-shadow(0 0 4px currentColor)",
-                            }}
-                          />
+                          <div className="relative flex items-center justify-center">
+                            <div
+                              className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"
+                              style={{ animationDuration: "0.8s" }}
+                            />
+                          </div>
+                        )}
+                        {message.status === "success" && (
+                          <CheckIcon className="w-3 h-3" />
                         )}
                         {message.status === "error" && (
                           <span className="inline-block">✗</span>
@@ -2100,6 +2064,50 @@ export default function ClaudeCodePanel({
           </div>
         )}
       </ScrollArea>
+
+      {/* Floating TODO Panel - shown above input when there are active todos */}
+      {currentTodos.length > 0 && currentTodos.some(t => t.status !== "completed") && isCurrentSessionMostRecent && (
+        <div className="px-3 pt-3 pb-1 border-t bg-background/95 backdrop-blur-sm">
+          <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="text-xs font-semibold">Tasks</div>
+              <div className="text-xs text-muted-foreground">
+                {currentTodos.filter(t => t.status === "completed").length} of {currentTodos.length} completed
+              </div>
+            </div>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              {currentTodos.map((todo, index) => (
+                <div
+                  key={`todo-${index}`}
+                  className={`flex items-start gap-2 text-xs transition-opacity duration-500 ${
+                    todo.status === "completed" ? "opacity-40" : "opacity-100"
+                  }`}
+                >
+                  {/* Status icon */}
+                  <div className="flex-shrink-0 mt-0.5">
+                    {todo.status === "completed" && (
+                      <CheckIcon className="w-3 h-3 text-green-600 dark:text-green-400" />
+                    )}
+                    {todo.status === "in_progress" && (
+                      <div
+                        className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
+                        style={{ animationDuration: "0.8s" }}
+                      />
+                    )}
+                    {todo.status === "pending" && (
+                      <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />
+                    )}
+                  </div>
+                  {/* Todo text */}
+                  <div className={`flex-1 ${todo.status === "completed" ? "line-through" : ""}`}>
+                    {todo.status === "in_progress" ? todo.activeForm : todo.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Input */}
       <div className="p-3 border-t">
