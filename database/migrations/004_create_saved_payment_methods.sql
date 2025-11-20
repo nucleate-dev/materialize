@@ -33,7 +33,8 @@ CREATE POLICY IF NOT EXISTS "Users can insert their payment methods"
 CREATE POLICY IF NOT EXISTS "Users can update their payment methods"
   ON public.saved_payment_methods
   FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY IF NOT EXISTS "Users can delete their payment methods"
   ON public.saved_payment_methods
