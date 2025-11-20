@@ -171,6 +171,7 @@ const start = async (): Promise<void> => {
 
     // Create cleanup service with cache and ECS client
     cleanupService = new CleanupService(cacheClient, ecsClient);
+    cleanupService.registerRoutes(fastify);
 
     // Create idle container allocation system service
     idleContainerAllocationSystemService =

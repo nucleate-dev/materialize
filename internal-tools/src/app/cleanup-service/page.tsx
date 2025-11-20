@@ -21,13 +21,20 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import { takePrototypeScreenshot } from "@/lib/cleanup-api";
+import {
+  forceCleanupPrototype,
+  takePrototypeScreenshot,
+} from "@/lib/cleanup-api";
 
 export default function CleanupServicePage() {
   const [prototypeId, setPrototypeId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [cleanupPrototypeId, setCleanupPrototypeId] = useState("");
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const [cleanupSuccess, setCleanupSuccess] = useState<string | null>(null);
 
   const handleTakeScreenshot = async () => {
     if (!prototypeId.trim()) {
@@ -39,6 +46,7 @@ export default function CleanupServicePage() {
       setLoading(true);
       setError(null);
       setSuccess(null);
+      setCleanupSuccess(null);
 
       const result = await takePrototypeScreenshot(prototypeId.trim());
 
@@ -52,9 +60,39 @@ export default function CleanupServicePage() {
     }
   };
 
+  const handleForceCleanup = async () => {
+    if (!cleanupPrototypeId.trim()) {
+      setCleanupError("Please enter a prototype ID");
+      return;
+    }
+
+    try {
+      setCleanupLoading(true);
+      setCleanupError(null);
+      setCleanupSuccess(null);
+      setSuccess(null);
+
+      const result = await forceCleanupPrototype(cleanupPrototypeId.trim());
+
+      setCleanupSuccess(result.message);
+    } catch (err) {
+      setCleanupError(
+        err instanceof Error ? err.message : "Failed to cleanup prototype"
+      );
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   const handlePrototypeInputKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleTakeScreenshot();
+    }
+  };
+
+  const handleCleanupInputKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleForceCleanup();
     }
   };
 
@@ -74,11 +112,18 @@ export default function CleanupServicePage() {
           </Alert>
         )}
 
+        {cleanupError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{cleanupError}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Success Alert */}
-        {success && (
+        {(success || cleanupSuccess) && (
           <Alert className="border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/50 dark:text-green-400">
             <CheckCircle className="h-4 w-4" />
-            <AlertDescription>{success}</AlertDescription>
+            <AlertDescription>{success || cleanupSuccess}</AlertDescription>
           </Alert>
         )}
 
@@ -129,6 +174,61 @@ export default function CleanupServicePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Force Prototype Cleanup */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Force Prototype Cleanup</CardTitle>
+            <CardDescription>
+              Force terminate prototype infrastructure, clear tunnels/DNS, and
+              capture a final screenshot.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="cleanupPrototypeId">Prototype ID</Label>
+                <Input
+                  id="cleanupPrototypeId"
+                  placeholder="Enter prototype ID"
+                  value={cleanupPrototypeId}
+                  onChange={(e) => setCleanupPrototypeId(e.target.value)}
+                  onKeyPress={handleCleanupInputKeyPress}
+                  disabled={cleanupLoading}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={handleForceCleanup}
+                  disabled={cleanupLoading || !cleanupPrototypeId.trim()}
+                >
+                  {cleanupLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Cleaning Prototype...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Force Cleanup
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">What happens:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                <li>• Sends kill requests up to 3 times until acknowledged.</li>
+                <li>• Terminates the Fargate task and cleans tunnels/DNS.</li>
+                <li>• Removes cache entries and captures a final screenshot.</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Screenshot Testing */}
         <Card>

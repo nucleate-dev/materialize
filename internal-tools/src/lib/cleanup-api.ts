@@ -10,6 +10,12 @@ export interface TakeScreenshotResponse {
   prototype_id: string;
 }
 
+export interface ForceCleanupResponse {
+  success: boolean;
+  message: string;
+  prototype_id: string;
+}
+
 export interface ApiError {
   error: string;
   message: string;
@@ -61,6 +67,19 @@ export async function takePrototypeScreenshot(
   return makeAuthenticatedRequest<TakeScreenshotResponse>(
     "POST",
     "/internal/cleanup/take-prototype-screenshot",
+    { prototype_id: prototypeId }
+  );
+}
+
+/**
+ * Force cleanup a specific prototype build
+ */
+export async function forceCleanupPrototype(
+  prototypeId: string
+): Promise<ForceCleanupResponse> {
+  return makeAuthenticatedRequest<ForceCleanupResponse>(
+    "POST",
+    "/internal/cleanup/force-prototype",
     { prototype_id: prototypeId }
   );
 }
