@@ -144,8 +144,8 @@ export default function ClaudeCodePanel({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [chatSessionId, setChatSessionId] = useState<string | null>(null); // prototype_chat_sessions.id
+  const [aiChatSessionId, setAiChatSessionId] = useState<string | null>(null);
+  const [prototypeChatSessionId, setPrototypeChatSessionId] = useState<string | null>(null); // prototype_chat_sessions.id
   const [allChatSessions, setAllChatSessions] = useState<Array<PrototypeChatSession>>([]);
   const [currentTodos, setCurrentTodos] = useState<Todo[]>([]); // Track current todo list
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -164,7 +164,7 @@ export default function ClaudeCodePanel({
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent = allChatSessions.length === 0 ||
-    (chatSessionId && allChatSessions[0]?.id === chatSessionId);
+    (prototypeChatSessionId && allChatSessions[0]?.id === prototypeChatSessionId);
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -524,8 +524,8 @@ export default function ClaudeCodePanel({
         if (existingSessions && existingSessions.length > 0) {
           // Use most recently updated session
           const mostRecentSession = existingSessions[0] as PrototypeChatSession;
-          setChatSessionId(mostRecentSession.id);
-          setSessionId(mostRecentSession.session_id);
+          setPrototypeChatSessionId(mostRecentSession.id);
+          setAiChatSessionId(mostRecentSession.session_id);
           sessionIdRef.current = mostRecentSession.session_id;
 
           logger.debug("log", "Using most recent chat session", {
@@ -561,8 +561,8 @@ export default function ClaudeCodePanel({
             return;
           }
 
-          setChatSessionId(newSession.id);
-          setSessionId(null);
+          setPrototypeChatSessionId(newSession.id);
+          setAiChatSessionId(null);
           sessionIdRef.current = null;
           setAllChatSessions([newSession]);
 
@@ -701,8 +701,8 @@ export default function ClaudeCodePanel({
               data: {
                 content: messageContent,
                 token: authTokenRef.current,
-                session_id: sessionIdRef.current,
-                chat_session_id: chatSessionId,
+                ai_chat_session_id: sessionIdRef.current,
+                prototype_chat_session_id: prototypeChatSessionId,
                 custom_design_system_id: prototype?.custom_design_system,
                 current_viewing_path: currentViewingPath,
               },
@@ -711,7 +711,7 @@ export default function ClaudeCodePanel({
         }
       })();
     }
-  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, chatSessionId, prototype, currentViewingPath]);
+  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, prototypeChatSessionId, prototype, currentViewingPath]);
 
   // WebSocket connection is managed by parent component (InternalPrototypePage)
   // via the useClaudeCodeWebSocket hook
@@ -796,18 +796,6 @@ export default function ClaudeCodePanel({
     logger.debug("log", "Server message received", { message });
 
     switch (message.type) {
-      case ChatEvent.AUTHENTICATED: {
-        const userId = message.userId;
-        if (userId) {
-          setSessionId(userId);
-          addMessage(
-            "system",
-            `Authenticated as user: ${userId.slice(0, 8)}...`,
-          );
-        }
-        break;
-      }
-
       case ChatEvent.MESSAGE_RECEIVED:
       case ChatEvent.READY:
         break;
@@ -844,7 +832,7 @@ export default function ClaudeCodePanel({
       case ChatEvent.SESSION_RESET:
         setMessages([]);
         sessionIdRef.current = null;
-        setSessionId(null);
+        setAiChatSessionId(null);
         addMessage("system", message.data.message);
         break;
 
@@ -1032,24 +1020,24 @@ export default function ClaudeCodePanel({
     if (data.type === "system" && data.subtype === "init") {
       const newSessionId = data.session_id;
       sessionIdRef.current = newSessionId;
-      setSessionId(newSessionId);
+      setAiChatSessionId(newSessionId);
 
       // If we have a chat session without a session_id, upsert it
-      if (chatSessionId && !sessionId) {
+      if (prototypeChatSessionId) {
         supabase
           .from("prototype_chat_sessions")
           .update({ session_id: newSessionId })
-          .eq("id", chatSessionId)
+          .eq("id", prototypeChatSessionId)
           .then(({ error }) => {
             if (error) {
               logger.debug("error", "Failed to update session_id in database", {
                 error,
-                chatSessionId,
+                chatSessionId: prototypeChatSessionId,
                 newSessionId,
               });
             } else {
               logger.debug("log", "Updated session_id in database", {
-                chatSessionId,
+                chatSessionId: prototypeChatSessionId,
                 newSessionId,
               });
             }
@@ -1461,8 +1449,8 @@ export default function ClaudeCodePanel({
           data: {
             content,
             token, // Include JWT token for Supabase authentication
-            session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
-            chat_session_id: chatSessionId, // Pass database chat session ID for message persistence
+            ai_chat_session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
+            prototype_chat_session_id: prototypeChatSessionId, // Pass database chat session ID for message persistence
             custom_design_system_id: prototype?.custom_design_system,
           },
         }),
@@ -1486,7 +1474,7 @@ export default function ClaudeCodePanel({
 
   // Reset session - delete current chat session and create a new one
   const resetSession = async () => {
-    if (!chatSessionId) {
+    if (!prototypeChatSessionId) {
       addMessage("error", "No active chat session");
       return;
     }
@@ -1502,7 +1490,7 @@ export default function ClaudeCodePanel({
       // Delete chat images from storage before deleting session
       try {
         // List all images in the chat session folder
-        const chatImagePrefix = `${prototypeId}/chat/${chatSessionId}/`;
+        const chatImagePrefix = `${prototypeId}/chat/${prototypeChatSessionId}/`;
         const { data: imageList, error: listError } = await supabase.storage
           .from("prototype-assets")
           .list(chatImagePrefix);
@@ -1539,7 +1527,7 @@ export default function ClaudeCodePanel({
       const { error: deleteError } = await supabase
         .from("prototype_chat_sessions")
         .delete()
-        .eq("id", chatSessionId);
+        .eq("id", prototypeChatSessionId);
 
       if (deleteError) {
         logger.debug("error", "Failed to delete chat session", {
@@ -1569,17 +1557,17 @@ export default function ClaudeCodePanel({
       }
 
       // Update state with new session
-      setChatSessionId(newSession.id);
-      setSessionId(null);
+      setPrototypeChatSessionId(newSession.id);
+      setAiChatSessionId(null);
       sessionIdRef.current = null;
       setMessages([]);
       setCurrentTodos([]); // Clear todos when resetting session
 
       // Update the sessions list
-      setAllChatSessions((prev) => [newSession, ...prev.filter((s) => s.id !== chatSessionId)]);
+      setAllChatSessions((prev) => [newSession, ...prev.filter((s) => s.id !== prototypeChatSessionId)]);
 
       logger.debug("log", "Reset session - created new chat session", {
-        oldChatSessionId: chatSessionId,
+        oldChatSessionId: prototypeChatSessionId,
         newChatSessionId: newSession.id,
       });
 
@@ -1608,8 +1596,8 @@ export default function ClaudeCodePanel({
       }
 
       // Update current session state
-      setChatSessionId(selectedSession.id);
-      setSessionId(selectedSession.session_id);
+      setPrototypeChatSessionId(selectedSession.id);
+      setAiChatSessionId(selectedSession.session_id);
       sessionIdRef.current = selectedSession.session_id;
 
       // Clear current messages and todos, then load historical messages for this session
@@ -1658,8 +1646,8 @@ export default function ClaudeCodePanel({
       }
 
       // Update state with new session
-      setChatSessionId(newSession.id);
-      setSessionId(null);
+      setPrototypeChatSessionId(newSession.id);
+      setAiChatSessionId(null);
       sessionIdRef.current = null;
       setMessages([]);
       setCurrentTodos([]); // Clear todos when creating new session
@@ -1698,7 +1686,7 @@ export default function ClaudeCodePanel({
           {/* Session Selector */}
           {allChatSessions.length > 0 && (
             <Select
-              value={chatSessionId ? String(chatSessionId) : undefined}
+              value={prototypeChatSessionId ? String(prototypeChatSessionId) : undefined}
               onValueChange={(value) => switchChatSession(value)}
             >
               <SelectTrigger className="w-[180px] h-8 text-xs">
@@ -1773,7 +1761,7 @@ export default function ClaudeCodePanel({
             size="sm"
             variant="outline"
             onClick={() => setShowResetConfirmation(true)}
-            disabled={!chatSessionId || isProcessing}
+            disabled={!prototypeChatSessionId || isProcessing}
           >
             Reset
           </Button>
@@ -2079,9 +2067,8 @@ export default function ClaudeCodePanel({
               {currentTodos.map((todo, index) => (
                 <div
                   key={`todo-${index}`}
-                  className={`flex items-start gap-2 text-xs transition-opacity duration-500 ${
-                    todo.status === "completed" ? "opacity-40" : "opacity-100"
-                  }`}
+                  className={`flex items-start gap-2 text-xs transition-opacity duration-500 ${todo.status === "completed" ? "opacity-40" : "opacity-100"
+                    }`}
                 >
                   {/* Status icon */}
                   <div className="flex-shrink-0 mt-0.5">

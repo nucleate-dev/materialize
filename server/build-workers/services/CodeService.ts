@@ -58,7 +58,7 @@ const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface CodeSessionState {
   sessionId: string | null;
-  chatSessionId: string | null; // ID from prototype_chat_sessions table
+  prototypeChatSessionId: string | null; // ID from prototype_chat_sessions table
   isActive: boolean;
   createdAt: number;
   lastActiveAt: number;
@@ -93,7 +93,7 @@ export class CodeService {
   private supabaseClient: SupabaseClient<Database>;
   private sessionState: CodeSessionState = {
     sessionId: null,
-    chatSessionId: null,
+    prototypeChatSessionId: null,
     isActive: false,
     createdAt: 0,
     lastActiveAt: 0,
@@ -178,11 +178,9 @@ export class CodeService {
       if (socket.readyState === WebSocket.OPEN) {
         try {
           socket.ping();
-        } catch (error) {
+        } catch {
           this.logger.warn(
-            error instanceof Error ? error : new Error(String(error)),
             "Failed to send ping on Claude Code WebSocket connection",
-            { connectionId, prototypeId },
           );
           this.cleanupConnection(connectionId);
         }
@@ -300,11 +298,26 @@ export class CodeService {
       prompt,
       content,
       token,
-      session_id,
-      chat_session_id,
+      ai_chat_session_id,
+      prototype_chat_session_id,
       current_viewing_path,
     } = data;
     const options = (data.options ?? {}) as Options;
+
+    // Log all incoming parameters for debugging
+    this.logger.info("handleQuery received parameters", {
+      prototypeId,
+      session_id: ai_chat_session_id,
+      chat_session_id: prototype_chat_session_id,
+      current_viewing_path,
+      custom_design_system_id: data.custom_design_system_id,
+      hasPrompt: !!prompt,
+      hasContent: !!content,
+      contentLength: content?.length,
+      hasToken: !!token,
+      hasOptions: !!data.options,
+      options: data.options,
+    });
 
     // Support both old format (prompt) and new format (content)
     if (!prompt && !content) {
@@ -357,24 +370,24 @@ export class CodeService {
 
     // Use the chat_session_id provided by the client for message persistence
     // The client manages chat sessions and always provides the correct ID
-    if (chat_session_id) {
-      this.sessionState.chatSessionId = chat_session_id;
+    if (prototype_chat_session_id) {
+      this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
       this.logger.info("Using chat session ID from client", {
-        chatSessionId: chat_session_id,
-        claudeCodeSessionId: session_id,
+        chatSessionId: prototype_chat_session_id,
+        claudeCodeSessionId: ai_chat_session_id,
         prototypeId,
       });
     } else {
       this.logger.warn("No chat_session_id provided by client", {
         prototypeId,
-        session_id,
+        session_id: ai_chat_session_id,
       });
-      this.sessionState.chatSessionId = null;
+      this.sessionState.prototypeChatSessionId = null;
     }
 
     // If client explicitly passes null session_id, it wants to start a NEW session
     // Clear internal session state to force Claude to create a fresh session
-    if (session_id === null) {
+    if (ai_chat_session_id === null) {
       this.logger.info(
         "Client requested new session - clearing internal state",
         {
@@ -443,7 +456,7 @@ export class CodeService {
       hasContent: !!content,
       contentLength: content?.length,
       hasToken: !!token,
-      providedSessionId: session_id,
+      providedSessionId: ai_chat_session_id,
       hasDesignSystem: !!this.sessionState.designSystemRules,
     });
 
@@ -795,15 +808,15 @@ export class CodeService {
             ],
           },
           // Resume existing session if provided by client, otherwise use internal session state
-          ...(session_id && {
-            resume: session_id,
+          ...(ai_chat_session_id && {
+            resume: ai_chat_session_id,
           }),
         };
 
         this.logger.info("Querying Claude Agent SDK", {
           hasResume: !!queryOptions.resume,
           resumeSessionId: queryOptions.resume,
-          providedSessionId: session_id,
+          providedSessionId: ai_chat_session_id,
           internalSessionId: this.sessionState.sessionId,
           model: queryOptions.model,
           cwd: this.workDir,
@@ -872,10 +885,13 @@ export class CodeService {
         }
 
         // Process and upload images to storage after successful query
-        if (imagesFromContent.length > 0 && this.sessionState.chatSessionId) {
+        if (
+          imagesFromContent.length > 0 &&
+          this.sessionState.prototypeChatSessionId
+        ) {
           await this.uploadChatImages(
             prototypeId,
-            this.sessionState.chatSessionId,
+            this.sessionState.prototypeChatSessionId,
             imagesFromContent,
           );
         }
@@ -1150,7 +1166,7 @@ export class CodeService {
 
     this.sessionState = {
       sessionId: null,
-      chatSessionId: null,
+      prototypeChatSessionId: null,
       isActive: false,
       createdAt: 0,
       lastActiveAt: 0,
@@ -1549,7 +1565,7 @@ export class CodeService {
     eventType?: string | null,
     eventData?: unknown,
   ): Promise<void> {
-    if (!this.sessionState.chatSessionId) {
+    if (!this.sessionState.prototypeChatSessionId) {
       this.logger.warn("Cannot persist message - no chat session ID", {
         role,
         messageType,
@@ -1562,7 +1578,7 @@ export class CodeService {
       const { error } = await this.supabaseClient
         .from("prototype_chat_messages")
         .insert({
-          chat_session_id: this.sessionState.chatSessionId,
+          chat_session_id: this.sessionState.prototypeChatSessionId,
           role,
           content,
           message_type: messageType,
@@ -1572,14 +1588,14 @@ export class CodeService {
 
       if (error) {
         this.logger.error(error, "Failed to persist message", {
-          chatSessionId: this.sessionState.chatSessionId,
+          chatSessionId: this.sessionState.prototypeChatSessionId,
           role,
           messageType,
           eventType,
         });
       } else {
         this.logger.consoleLogDevOnly("debug", "Persisted message", {
-          chatSessionId: this.sessionState.chatSessionId,
+          chatSessionId: this.sessionState.prototypeChatSessionId,
           role,
           messageType,
           eventType,
@@ -1591,7 +1607,7 @@ export class CodeService {
         error instanceof Error ? error : new Error(String(error)),
         "Error in persistMessage",
         {
-          chatSessionId: this.sessionState.chatSessionId,
+          chatSessionId: this.sessionState.prototypeChatSessionId,
           role,
           messageType,
         },
@@ -1879,7 +1895,7 @@ export class CodeService {
     this.activeConnections.clear();
     this.sessionState = {
       sessionId: null,
-      chatSessionId: null,
+      prototypeChatSessionId: null,
       isActive: false,
       createdAt: 0,
       lastActiveAt: 0,

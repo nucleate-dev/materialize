@@ -47,8 +47,8 @@ export interface ChatQueryData {
   content?: ChatContentBlock[];
   options?: Record<string, unknown>;
   token?: string;
-  session_id?: string | null; // Claude SDK session ID for resuming conversations
-  chat_session_id?: string | null; // Database primary key from prototype_chat_sessions table
+  ai_chat_session_id?: string | null; // Claude SDK session ID for resuming conversations
+  prototype_chat_session_id?: string | null; // Database primary key from prototype_chat_sessions table
   custom_design_system_id?: string | null; // ID of custom design system to use
   current_viewing_path?: string; // Current route/path the user is viewing in the preview
 }
