@@ -54,6 +54,7 @@ import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
  * Set ENABLE_FULL_SYNC to false to use incremental sync strategy.
  */
 const ENABLE_FULL_SYNC = true;
+const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -79,6 +80,11 @@ interface ToolResponseWithFilePath {
   [key: string]: unknown;
 }
 
+interface ChatConnection {
+  socket: WebSocket;
+  heartbeat?: NodeJS.Timeout;
+}
+
 export class CodeService {
   private readonly workDir: string;
   private readonly logger: SystemLogger;
@@ -97,7 +103,7 @@ export class CodeService {
     designSystemId: null,
     designSystemRules: null,
   };
-  private activeConnections = new Map<string, WebSocket>();
+  private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
 
   constructor(
@@ -168,7 +174,24 @@ export class CodeService {
       connectionId,
     });
 
-    this.activeConnections.set(connectionId, socket);
+    const heartbeat = setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.ping();
+        } catch (error) {
+          this.logger.warn(
+            error instanceof Error ? error : new Error(String(error)),
+            "Failed to send ping on Claude Code WebSocket connection",
+            { connectionId, prototypeId },
+          );
+          this.cleanupConnection(connectionId);
+        }
+      } else {
+        this.cleanupConnection(connectionId);
+      }
+    }, CHAT_HEARTBEAT_INTERVAL_MS);
+
+    this.activeConnections.set(connectionId, { socket, heartbeat });
 
     // Send initial connection confirmation
     this.sendMessage(socket, {
@@ -224,7 +247,7 @@ export class CodeService {
         code,
         reason: reason.toString(),
       });
-      this.activeConnections.delete(connectionId);
+      this.cleanupConnection(connectionId);
     });
 
     socket.on("error", (error: Error) => {
@@ -232,8 +255,16 @@ export class CodeService {
         prototypeId,
         connectionId,
       });
-      this.activeConnections.delete(connectionId);
+      this.cleanupConnection(connectionId);
     });
+  }
+
+  private cleanupConnection(connectionId: string): void {
+    const connection = this.activeConnections.get(connectionId);
+    if (connection?.heartbeat) {
+      clearInterval(connection.heartbeat);
+    }
+    this.activeConnections.delete(connectionId);
   }
 
   private async handleClientMessage(
@@ -1832,9 +1863,12 @@ export class CodeService {
     }
 
     // Close all active connections
-    for (const [connectionId, socket] of this.activeConnections.entries()) {
+    for (const [connectionId, connection] of this.activeConnections.entries()) {
       try {
-        socket.close(1000, "Server shutting down");
+        if (connection.heartbeat) {
+          clearInterval(connection.heartbeat);
+        }
+        connection.socket.close(1000, "Server shutting down");
       } catch {
         this.logger.warn("Failed to close WebSocket connection", {
           connectionId,
