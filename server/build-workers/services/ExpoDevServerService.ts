@@ -774,18 +774,8 @@ export class ExpoDevServerService {
 
       const cleanup = listenerDisposer;
 
-      // Create .gitignore file first to prevent tracking unwanted files
-      const gitignoreContent = `node_modules/
-dist/
-.expo/
-.next/
-build/
-*.log
-.DS_Store
-`;
-      const gitignoreCommand = `cat > .gitignore << 'EOF'
-${gitignoreContent}EOF
-`;
+      const gitignoreCommand =
+        'printf "node_modules/\\ndist/\\n.expo/\\n.next/\\nbuild/\\n*.log\\n.DS_Store\\n" > .gitignore';
 
       // Combine gitignore creation, git init, and initial commit in one command
       const command = `cd ${projectDir} && ${gitignoreCommand} && git init && git add . && git commit -m "Initial commit"; echo "GIT_INIT_DONE"\n`;
