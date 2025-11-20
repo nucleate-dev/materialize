@@ -289,6 +289,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
+  await saveDefaultPaymentMethod(invoice, subscription);
+
   // Grant credits to the user with expiration date
   const planKey = getPlanKey(subscription.items.data[0].price.id);
   const creditsToGrant = getCreditsForPlan(planKey);
@@ -982,6 +984,237 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     });
     return;
   }
+}
+
+async function saveDefaultPaymentMethod(
+  invoice: Stripe.Invoice,
+  subscription: Stripe.Subscription,
+): Promise<void> {
+  const userId = subscription.metadata?.user_id;
+  if (!userId) {
+    return;
+  }
+
+  try {
+    const paymentMethodResult = await getPaymentMethodForInvoice(
+      invoice,
+      subscription,
+    );
+
+    if (!paymentMethodResult) {
+      return;
+    }
+
+    const { paymentMethod, isDefault } = paymentMethodResult;
+    const paymentMethodDetails = getPaymentMethodDisplayDetails(paymentMethod);
+
+    if (!paymentMethodDetails) {
+      return;
+    }
+
+    if (isDefault) {
+      const { error: unsetDefaultError } = await supabase
+        .from("saved_payment_methods")
+        .update({
+          is_default: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .neq("stripe_payment_method_id", paymentMethod.id);
+
+      if (unsetDefaultError) {
+        posthog.capture({
+          distinctId: userId,
+          event: ExceptionEvents.PAYMENT_METHOD_SAVE_ERROR,
+          properties: {
+            source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+            error: unsetDefaultError,
+            context: "unset_previous_default",
+          },
+        });
+      }
+    }
+
+    const { error: saveMethodError } = await supabase
+      .from("saved_payment_methods")
+      .upsert(
+        {
+          user_id: userId,
+          stripe_payment_method_id: paymentMethod.id,
+          type: paymentMethod.type,
+          last4: paymentMethodDetails.last4,
+          brand: paymentMethodDetails.brand,
+          is_default: isDefault,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "stripe_payment_method_id" },
+      );
+
+    if (saveMethodError) {
+      posthog.capture({
+        distinctId: userId,
+        event: ExceptionEvents.PAYMENT_METHOD_SAVE_ERROR,
+        properties: {
+          source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+          error: saveMethodError,
+          context: "upsert_payment_method",
+        },
+      });
+    }
+  } catch (error) {
+    posthog.capture({
+      distinctId: userId,
+      event: ExceptionEvents.PAYMENT_METHOD_SAVE_ERROR,
+      properties: {
+        source: LoggingEventSource.API_PAYMENTS_HANDLE_SUBSCRIPTION,
+        error,
+        context: "unexpected_error",
+      },
+    });
+  }
+}
+
+async function getPaymentMethodForInvoice(
+  invoice: Stripe.Invoice,
+  subscription: Stripe.Subscription,
+): Promise<{
+  paymentMethod: Stripe.PaymentMethod;
+  isDefault: boolean;
+} | null> {
+  const subscriptionDefaultPaymentMethodId =
+    getPaymentMethodIdFromSubscription(subscription);
+  const invoiceDefaultPaymentMethodId = getPaymentMethodIdFromInvoice(invoice);
+
+  let paymentMethodId =
+    invoiceDefaultPaymentMethodId ?? subscriptionDefaultPaymentMethodId;
+  let paymentMethod: Stripe.PaymentMethod | null = null;
+
+  if (invoice.default_payment_method) {
+    if (typeof invoice.default_payment_method === "string") {
+      paymentMethodId = invoice.default_payment_method;
+    } else {
+      paymentMethod = invoice.default_payment_method;
+      paymentMethodId = invoice.default_payment_method.id;
+    }
+  }
+
+  if (!paymentMethod && invoice.payment_intent) {
+    const paymentIntent: Stripe.PaymentIntent | null =
+      typeof invoice.payment_intent === "string"
+        ? await stripe.paymentIntents.retrieve(invoice.payment_intent)
+        : (invoice.payment_intent as Stripe.PaymentIntent);
+
+    const paymentMethodFromIntent = getPaymentMethodFromPaymentIntent(
+      paymentIntent,
+    );
+
+    paymentMethod = paymentMethodFromIntent.paymentMethod ?? paymentMethod;
+    paymentMethodId =
+      paymentMethodFromIntent.paymentMethodId ?? paymentMethodId;
+  }
+
+  if (!paymentMethod && paymentMethodId) {
+    paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+  }
+
+  if (!paymentMethod) {
+    return null;
+  }
+
+  const candidateDefaultIds = [
+    subscriptionDefaultPaymentMethodId,
+    invoiceDefaultPaymentMethodId,
+  ].filter(Boolean) as string[];
+
+  const isDefault =
+    candidateDefaultIds.includes(paymentMethod.id) ||
+    (!subscriptionDefaultPaymentMethodId && !invoiceDefaultPaymentMethodId);
+
+  return { paymentMethod, isDefault };
+}
+
+function getPaymentMethodFromPaymentIntent(
+  paymentIntent: Stripe.PaymentIntent | null,
+): {
+  paymentMethod: Stripe.PaymentMethod | null;
+  paymentMethodId: string | null;
+} {
+  if (!paymentIntent) {
+    return { paymentMethod: null, paymentMethodId: null };
+  }
+
+  if (typeof paymentIntent.payment_method === "string") {
+    return {
+      paymentMethod: null,
+      paymentMethodId: paymentIntent.payment_method,
+    };
+  }
+
+  if (paymentIntent.payment_method) {
+    return {
+      paymentMethod: paymentIntent.payment_method,
+      paymentMethodId: paymentIntent.payment_method.id,
+    };
+  }
+
+  return { paymentMethod: null, paymentMethodId: null };
+}
+
+function getPaymentMethodDisplayDetails(
+  paymentMethod: Stripe.PaymentMethod,
+): {
+  brand: string | null;
+  last4: string | null;
+} | null {
+  if (paymentMethod.type === "card") {
+    return {
+      brand: paymentMethod.card?.brand ?? null,
+      last4: paymentMethod.card?.last4 ?? null,
+    };
+  }
+
+  if (paymentMethod.type === "us_bank_account") {
+    return {
+      brand: paymentMethod.us_bank_account?.bank_name ?? null,
+      last4: paymentMethod.us_bank_account?.last4 ?? null,
+    };
+  }
+
+  return null;
+}
+
+function getPaymentMethodIdFromInvoice(
+  invoice: Stripe.Invoice,
+): string | null {
+  if (invoice.default_payment_method) {
+    return typeof invoice.default_payment_method === "string"
+      ? invoice.default_payment_method
+      : invoice.default_payment_method.id;
+  }
+
+  if (
+    invoice.payment_intent &&
+    typeof invoice.payment_intent !== "string" &&
+    invoice.payment_intent.payment_method
+  ) {
+    return typeof invoice.payment_intent.payment_method === "string"
+      ? invoice.payment_intent.payment_method
+      : invoice.payment_intent.payment_method.id;
+  }
+
+  return null;
+}
+
+function getPaymentMethodIdFromSubscription(
+  subscription: Stripe.Subscription,
+): string | null {
+  if (!subscription.default_payment_method) {
+    return null;
+  }
+
+  return typeof subscription.default_payment_method === "string"
+    ? subscription.default_payment_method
+    : subscription.default_payment_method.id;
 }
 
 /**

@@ -442,6 +442,50 @@ export type Database = {
           },
         ]
       }
+      saved_payment_methods: {
+        Row: {
+          brand: string | null
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          last4: string
+          stripe_payment_method_id: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          last4: string
+          stripe_payment_method_id: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          last4?: string
+          stripe_payment_method_id?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_payment_methods_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          },
+        ]
+      }
       prototype_assets: {
         Row: {
           created_at: string | null
