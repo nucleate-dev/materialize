@@ -178,9 +178,14 @@ export class CodeService {
       if (socket.readyState === WebSocket.OPEN) {
         try {
           socket.ping();
-        } catch {
+        } catch (error) {
           this.logger.warn(
             "Failed to send ping on Claude Code WebSocket connection",
+            {
+              connectionId,
+              prototypeId,
+              error: error instanceof Error ? error.message : String(error),
+            },
           );
           this.cleanupConnection(connectionId);
         }
