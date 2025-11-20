@@ -161,6 +161,7 @@ export default function ClaudeCodePanel({
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isCorruptedSession, setIsCorruptedSession] = useState(false);
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent = allChatSessions.length === 0 ||
@@ -362,6 +363,19 @@ export default function ClaudeCodePanel({
   // Helper function to load historical messages (extracted to be reusable)
   const loadHistoricalMessages = useCallback(async (chatSessionId: string) => {
     try {
+      // Fetch the chat session to check if it's corrupted
+      const { data: chatSession, error: sessionError } = await supabase
+        .from("prototype_chat_sessions")
+        .select("session_id")
+        .eq("id", chatSessionId)
+        .single();
+
+      if (sessionError) {
+        logger.debug("error", "Failed to fetch chat session", {
+          error: sessionError,
+        });
+      }
+
       const { data: historicalMessages, error: messagesError } = await supabase
         .from("prototype_chat_messages")
         .select("*")
@@ -373,6 +387,21 @@ export default function ClaudeCodePanel({
           error: messagesError,
         });
         return;
+      }
+
+      // Check if session is corrupted (has messages but no session_id)
+      const hasMessages = historicalMessages && historicalMessages.length > 0;
+      const hasNullSessionId = !chatSession?.session_id;
+      const isCorrupted = hasMessages && hasNullSessionId;
+
+      if (isCorrupted) {
+        logger.debug("warn", "Detected corrupted chat session", {
+          chatSessionId,
+          messageCount: historicalMessages?.length,
+        });
+        setIsCorruptedSession(true);
+      } else {
+        setIsCorruptedSession(false);
       }
 
       if (historicalMessages && historicalMessages.length > 0) {
@@ -488,9 +517,20 @@ export default function ClaudeCodePanel({
           }
         }
 
+        // Add corruption warning message if session is corrupted
+        if (isCorrupted) {
+          uiMessages.push({
+            id: `corruption-warning-${Date.now()}`,
+            type: "system",
+            content: "Chat session has been corrupted. Materialize AI won't be able to see previous messages before this point.",
+            timestamp: Date.now(),
+          });
+        }
+
         setMessages(uiMessages);
         logger.debug("log", "Loaded historical messages", {
           count: uiMessages.length,
+          isCorrupted,
         });
       }
     } catch (error) {
@@ -701,7 +741,8 @@ export default function ClaudeCodePanel({
               data: {
                 content: messageContent,
                 token: authTokenRef.current,
-                ai_chat_session_id: sessionIdRef.current,
+                // Force new session if corrupted, otherwise use existing session
+                ai_chat_session_id: isCorruptedSession ? null : sessionIdRef.current,
                 prototype_chat_session_id: prototypeChatSessionId,
                 custom_design_system_id: prototype?.custom_design_system,
                 current_viewing_path: currentViewingPath,
@@ -711,7 +752,7 @@ export default function ClaudeCodePanel({
         }
       })();
     }
-  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, prototypeChatSessionId, prototype, currentViewingPath]);
+  }, [queuedMessage, currentRenderStatus, isConnected, isProcessing, ws, logger, prototypeChatSessionId, prototype, currentViewingPath, isCorruptedSession]);
 
   // WebSocket connection is managed by parent component (InternalPrototypePage)
   // via the useClaudeCodeWebSocket hook
@@ -1040,6 +1081,13 @@ export default function ClaudeCodePanel({
                 chatSessionId: prototypeChatSessionId,
                 newSessionId,
               });
+              // Clear corruption flag after successfully recovering the session
+              if (isCorruptedSession) {
+                setIsCorruptedSession(false);
+                logger.debug("log", "Cleared corruption flag after session recovery", {
+                  newSessionId,
+                });
+              }
             }
           });
       }
@@ -1449,7 +1497,8 @@ export default function ClaudeCodePanel({
           data: {
             content,
             token, // Include JWT token for Supabase authentication
-            ai_chat_session_id: sessionIdRef.current, // Pass Claude SDK session_id for resumption
+            // Force new session if corrupted, otherwise use existing session
+            ai_chat_session_id: isCorruptedSession ? null : sessionIdRef.current, // Pass Claude SDK session_id for resumption
             prototype_chat_session_id: prototypeChatSessionId, // Pass database chat session ID for message persistence
             custom_design_system_id: prototype?.custom_design_system,
           },
@@ -1562,6 +1611,7 @@ export default function ClaudeCodePanel({
       sessionIdRef.current = null;
       setMessages([]);
       setCurrentTodos([]); // Clear todos when resetting session
+      setIsCorruptedSession(false); // Clear corruption flag when resetting
 
       // Update the sessions list
       setAllChatSessions((prev) => [newSession, ...prev.filter((s) => s.id !== prototypeChatSessionId)]);
@@ -1651,6 +1701,7 @@ export default function ClaudeCodePanel({
       sessionIdRef.current = null;
       setMessages([]);
       setCurrentTodos([]); // Clear todos when creating new session
+      setIsCorruptedSession(false); // Clear corruption flag for new session
 
       // Add new session to the list
       setAllChatSessions((prev) => [newSession, ...prev]);
