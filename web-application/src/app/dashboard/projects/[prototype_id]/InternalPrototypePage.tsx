@@ -54,7 +54,9 @@ import { Database } from "@/lib/types/supabase";
 import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentIcon,
+  CodeBracketIcon,
   DevicePhoneMobileIcon,
+  FolderIcon,
 } from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
 import { useParams, useRouter } from "next/navigation";
@@ -121,6 +123,9 @@ export default function InternalPrototypePage() {
   // Mobile-specific state
   const [activePanel, setActivePanel] = useState<"chat" | "preview">("preview");
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileCodeView, setMobileCodeView] = useState<"filetree" | "editor">(
+    "editor",
+  );
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
@@ -922,40 +927,100 @@ export default function InternalPrototypePage() {
               isCloningPrototype={isCloningPrototype}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
-                  <div
-                    className={`${isMobile
-                      ? "w-full max-h-[200px] border-b"
-                      : "w-1/4 min-w-[200px] max-w-[280px] border-r"
-                      } border-border`}
-                  >
-                    <div className="h-full overflow-auto">
-                      <FileTree
-                        files={fileSystem.state.files}
-                        assets={Object.fromEntries(
-                          Object.entries(fileSystem.state.assets).map(
-                            ([key, asset]) => [
-                              key,
-                              {
-                                ...asset,
-                                storage_url: asset.storage_url || "",
-                              },
-                            ],
-                          ),
+                  {isMobile ? (
+                    <>
+                      <div className="bg-background border-b border-border p-2">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            variant={
+                              mobileCodeView === "filetree" ? "default" : "ghost"
+                            }
+                            size="sm"
+                            className="flex items-center gap-2"
+                            onClick={() => setMobileCodeView("filetree")}
+                          >
+                            <FolderIcon className="h-4 w-4" />
+                            File Tree
+                          </Button>
+                          <Button
+                            variant={
+                              mobileCodeView === "editor" ? "default" : "ghost"
+                            }
+                            size="sm"
+                            className="flex items-center gap-2"
+                            onClick={() => setMobileCodeView("editor")}
+                          >
+                            <CodeBracketIcon className="h-4 w-4" />
+                            Code Editor
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                        {mobileCodeView === "filetree" ? (
+                          <div className="h-full overflow-auto border-b border-border">
+                            <FileTree
+                              files={fileSystem.state.files}
+                              assets={Object.fromEntries(
+                                Object.entries(fileSystem.state.assets).map(
+                                  ([key, asset]) => [
+                                    key,
+                                    {
+                                      ...asset,
+                                      storage_url: asset.storage_url || "",
+                                    },
+                                  ],
+                                ),
+                              )}
+                              selectedFile={fileSystem.state.selectedFile}
+                              onFileSelect={fileSystem.selectFile}
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-full">
+                            <CodeEditor
+                              fileSystem={fileSystem}
+                              prototypeId={prototypeId}
+                              onViewingUrlUpdate={setViewingUrl}
+                              currentRenderStatus={currentRenderStatus}
+                              onFilesSaved={handleFilesSaved}
+                            />
+                          </div>
                         )}
-                        selectedFile={fileSystem.state.selectedFile}
-                        onFileSelect={fileSystem.selectFile}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex-1 h-full">
-                    <CodeEditor
-                      fileSystem={fileSystem}
-                      prototypeId={prototypeId}
-                      onViewingUrlUpdate={setViewingUrl}
-                      currentRenderStatus={currentRenderStatus}
-                      onFilesSaved={handleFilesSaved}
-                    />
-                  </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border">
+                        <div className="h-full overflow-auto">
+                          <FileTree
+                            files={fileSystem.state.files}
+                            assets={Object.fromEntries(
+                              Object.entries(fileSystem.state.assets).map(
+                                ([key, asset]) => [
+                                  key,
+                                  {
+                                    ...asset,
+                                    storage_url: asset.storage_url || "",
+                                  },
+                                ],
+                              ),
+                            )}
+                            selectedFile={fileSystem.state.selectedFile}
+                            onFileSelect={fileSystem.selectFile}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1 h-full">
+                        <CodeEditor
+                          fileSystem={fileSystem}
+                          prototypeId={prototypeId}
+                          onViewingUrlUpdate={setViewingUrl}
+                          currentRenderStatus={currentRenderStatus}
+                          onFilesSaved={handleFilesSaved}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               }
               mobileHint={undefined}
