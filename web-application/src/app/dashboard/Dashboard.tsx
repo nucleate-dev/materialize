@@ -11,6 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,6 +32,7 @@ import { setChatIntent } from "@/lib/utils/chatIntentUtils";
 import { SwatchIcon } from "@heroicons/react/24/outline";
 import { useAtom } from "jotai";
 import {
+  ChevronDown,
   Lightbulb,
   Loader2, Send, Sparkles
 } from "lucide-react";
@@ -60,6 +66,7 @@ export default function DashboardPage() {
   const [customDesignSystemId, setCustomDesignSystemId] = useState<string | null>(null);
   const [, setIsLoadingDesignSystems] = useState(false);
   const [designStyle, setDesignStyle] = useState<DesignStyle>("nativewind");
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Handle redirect after login
   useEffect(() => {
@@ -170,25 +177,26 @@ export default function DashboardPage() {
                 Describe the mobile app, screen, or flow you want to build.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit}>
-                <div className="grid w-full gap-4">
-                  <Textarea
-                    value={prompt}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                      setPrompt(e.target.value)
-                    }
-                    placeholder="e.g., A simple to-do list app with a clean interface."
-                    className="min-h-[120px] text-base"
-                    rows={4}
-                    disabled={isLoading}
-                  />
-                  <div className="flex justify-between items-center gap-4">
+          <CardContent>
+            <form onSubmit={handleSubmit}>
+              <div className="grid w-full gap-4">
+                <Textarea
+                  value={prompt}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setPrompt(e.target.value)
+                  }
+                  placeholder="e.g., A simple to-do list app with a clean interface."
+                  className="min-h-[120px] text-base"
+                  rows={4}
+                  disabled={isLoading}
+                />
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="text-sm text-muted-foreground flex items-center">
                       <Lightbulb className="w-4 h-4 mr-2" />
                       <span>{prompt.length} / 500</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="hidden md:flex flex-wrap items-center justify-end gap-2">
                       <Select
                         value={designStyle}
                         onValueChange={(value) => {
@@ -232,27 +240,99 @@ export default function DashboardPage() {
                           </SelectContent>
                         </Select>
                       )}
-                      <Button
-                        type="submit"
-                        disabled={!prompt.trim() || isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Building...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="mr-2 h-4 w-4" />
-                            Create App
-                          </>
-                        )}
-                      </Button>
                     </div>
                   </div>
+
+                  <div className="md:hidden">
+                    <Collapsible
+                      open={showAdvancedOptions}
+                      onOpenChange={setShowAdvancedOptions}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex w-full items-center justify-between text-sm font-medium"
+                        >
+                          <span className="text-muted-foreground">Advanced options</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              showAdvancedOptions ? "rotate-180" : ""
+                            }`}
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-3 pt-3">
+                        <Select
+                          value={designStyle}
+                          onValueChange={(value) => {
+                            setDesignStyle(value as DesignStyle);
+                          }}
+                          disabled={isLoading}
+                        >
+                          <SelectTrigger className="h-10 w-full">
+                            <div className="flex items-center gap-2">
+                              <SwatchIcon className="w-4 h-4 text-primary" />
+                              <SelectValue placeholder="Choose a design style" />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DESIGN_STYLE_OPTIONS.map((style) => (
+                              <SelectItem key={style} value={style}>
+                                {DESIGN_STYLE_LABELS[style]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {designSystems.length > 0 && (
+                          <Select
+                            value={customDesignSystemId ?? "none"}
+                            onValueChange={(value) => {
+                              const systemValue = value === "none" ? null : value;
+                              setCustomDesignSystemId(systemValue);
+                            }}
+                            disabled={isLoading}
+                          >
+                            <SelectTrigger className="h-10 w-full pr-3">
+                              <SelectValue placeholder="Design System (Optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No design system</SelectItem>
+                              {designSystems.map((system) => (
+                                <SelectItem key={system.id} value={String(system.id)}>
+                                  {system.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+
+                  <div className="flex justify-center md:justify-end">
+                    <Button
+                      type="submit"
+                      disabled={!prompt.trim() || isLoading}
+                      className="w-full md:w-auto"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Building...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          Create App
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </form>
-            </CardContent>
+              </div>
+            </form>
+          </CardContent>
           </Card>
 
           {/* Example Prompts Section */}
