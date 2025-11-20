@@ -811,16 +811,21 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Terminal resize handler
-    const handleTerminalResizeStart = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+    const startTerminalResize = (
+      startClientY: number,
+      getClientY: (event: MouseEvent | TouchEvent) => number | null,
+      moveEvent: "mousemove" | "touchmove",
+      endEvents: Array<"mouseup" | "touchend" | "touchcancel">,
+    ) => {
       setIsResizingTerminal(true);
 
-      const startY = e.clientY;
       const startHeight = terminalHeight;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const deltaY = startY - moveEvent.clientY; // Inverted because terminal grows upward
+      const handleMove = (event: MouseEvent | TouchEvent) => {
+        const clientY = getClientY(event);
+        if (clientY === null) return;
+
+        const deltaY = startClientY - clientY; // Inverted because terminal grows upward
         // Allow terminal to grow up to 90% of viewport height
         const maxHeight = window.innerHeight * 0.9;
         const newHeight = Math.max(
@@ -830,18 +835,58 @@ const MaterializeRenderSection = forwardRef<
         setTerminalHeight(newHeight);
       };
 
-      const handleMouseUp = () => {
+      const handleEnd = () => {
         setIsResizingTerminal(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
+        document.removeEventListener(moveEvent, handleMove as EventListener);
+        endEvents.forEach((endEvent) =>
+          document.removeEventListener(endEvent, handleEnd),
+        );
+        if (moveEvent === "mousemove") {
+          document.body.style.cursor = "";
+        }
         document.body.style.userSelect = "";
       };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "ns-resize";
+      document.addEventListener(moveEvent, handleMove as EventListener, {
+        passive: false,
+      });
+      endEvents.forEach((endEvent) =>
+        document.addEventListener(endEvent, handleEnd),
+      );
+      if (moveEvent === "mousemove") {
+        document.body.style.cursor = "ns-resize";
+      }
       document.body.style.userSelect = "none";
+    };
+
+    const handleTerminalResizeStart = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startTerminalResize(
+        e.clientY,
+        (event) => (event as MouseEvent).clientY,
+        "mousemove",
+        ["mouseup"],
+      );
+    };
+
+    const handleTerminalResizeTouchStart = (e: React.TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      startTerminalResize(
+        touch.clientY,
+        (event) => {
+          const touchEvent = event as TouchEvent;
+          const currentTouch =
+            touchEvent.touches[0] ?? touchEvent.changedTouches[0];
+          return currentTouch?.clientY ?? null;
+        },
+        "touchmove",
+        ["touchend", "touchcancel"],
+      );
     };
 
     // Handle iframe loading events
@@ -1507,6 +1552,7 @@ const MaterializeRenderSection = forwardRef<
             <div
               className="absolute top-0 left-0 right-0 h-8 bg-muted border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-muted/80 transition-colors group"
               onMouseDown={handleTerminalResizeStart}
+              onTouchStart={handleTerminalResizeTouchStart}
             >
               <div className="flex items-center gap-2">
                 <TerminalIcon className="w-4 h-4 text-muted-foreground" />
