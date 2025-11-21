@@ -107,7 +107,7 @@ RUN mkdir -p /root/.claude && \
 
 ENV TERMINAL_USER=materialize-user
 
-COPY server/build-workers/entrypoint.sh /usr/local/bin/worker-entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/worker-entrypoint.sh
 RUN chmod +x /usr/local/bin/worker-entrypoint.sh
 
 # Expose app port

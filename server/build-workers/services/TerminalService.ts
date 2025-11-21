@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { existsSync, mkdirSync, readFileSync } from "fs";
-import { IPty, spawn as spawnPty } from "node-pty";
+import { IPty, IPtyForkOptions, spawn as spawnPty } from "node-pty";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import WebSocket from "ws";
@@ -296,8 +296,9 @@ export class TerminalService {
       };
 
       if (this.terminalUserIdentity) {
-        spawnOptions.uid = this.terminalUserIdentity.uid;
-        spawnOptions.gid = this.terminalUserIdentity.gid;
+        const unixOptions = spawnOptions as IPtyForkOptions;
+        unixOptions.uid = this.terminalUserIdentity.uid;
+        unixOptions.gid = this.terminalUserIdentity.gid;
       }
 
       pty = spawnPty(command, args, spawnOptions);
