@@ -14,6 +14,7 @@ export enum ChatEvent {
   TOOL_COMPLETE = "tool_complete",
   FILE_SYNC_COMPLETE = "file_sync_complete",
   SYNC_COMPLETE = "sync_complete",
+  HISTORY_REQUEST = "history_request",
 }
 
 export enum ChatClientEvent {
@@ -21,6 +22,7 @@ export enum ChatClientEvent {
   INTERRUPT = "interrupt",
   RESET_SESSION = "reset_session",
   SYNC_FILES = "sync_files",
+  HISTORY_RESPONSE = "history_response",
 }
 
 export enum ChatSystemEventSubtype {
@@ -78,11 +80,28 @@ export interface SyncFilesMessage {
   data: SyncFilesRequest;
 }
 
+export interface HistoricalMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+}
+
+export interface HistoryResponseData {
+  historical_messages: HistoricalMessage[];
+  original_query: ChatQueryData;
+}
+
+export interface HistoryResponseMessage {
+  type: ChatClientEvent.HISTORY_RESPONSE;
+  data: HistoryResponseData;
+}
+
 export type ChatClientMessage =
   | QueryMessage
   | InterruptMessage
   | ResetSessionMessage
-  | SyncFilesMessage;
+  | SyncFilesMessage
+  | HistoryResponseMessage;
 
 export interface SystemConnectionMessage {
   type: ChatEvent.SYSTEM;
@@ -193,6 +212,15 @@ export interface ReadyMessage {
   type: ChatEvent.READY;
 }
 
+export interface HistoryRequestMessage {
+  type: ChatEvent.HISTORY_REQUEST;
+  data: {
+    message: string;
+    requested_message_count: number;
+    original_query: ChatQueryData;
+  };
+}
+
 export type ChatServerMessage =
   | SystemConnectionMessage
   | ErrorMessage
@@ -208,4 +236,5 @@ export type ChatServerMessage =
   | SyncCompleteMessage
   | AuthenticatedMessage
   | MessageReceivedMessage
-  | ReadyMessage;
+  | ReadyMessage
+  | HistoryRequestMessage;

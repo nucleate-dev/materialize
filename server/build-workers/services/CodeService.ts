@@ -24,6 +24,7 @@ import {
   ChatQueryData,
   ChatServerMessage,
   ChatSystemEventSubtype,
+  HistoryResponseData,
   SyncFilesRequest,
 } from "../types/ChatTypes.js";
 import { Database } from "../types/supabase.js";
@@ -59,6 +60,7 @@ import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
  */
 const ENABLE_FULL_SYNC = true;
 const CHAT_HEARTBEAT_INTERVAL_MS = 15000;
+const HISTORY_MESSAGE_REQUEST_COUNT = 6;
 
 interface CodeSessionState {
   sessionId: string | null;
@@ -381,6 +383,10 @@ export class CodeService {
 
       case ChatClientEvent.SYNC_FILES:
         await this.handleSyncFiles(socket, message.data);
+        break;
+
+      case ChatClientEvent.HISTORY_RESPONSE:
+        await this.handleHistoryResponse(socket, message.data, prototypeId);
         break;
     }
   }
@@ -725,6 +731,15 @@ export class CodeService {
         // Append current viewing path context if available
         if (current_viewing_path) {
           systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`;
+        }
+
+        // Append history context if provided (from handleQueryWithHistory)
+        const historyContext = (options as Record<string, unknown>)?.__historyContext as string | undefined;
+        if (historyContext) {
+          systemPromptAppend += historyContext;
+          this.logger.info("Injected history context into system prompt", {
+            contextLength: historyContext.length,
+          });
         }
 
         const sanitizeInputPreview = (input: unknown): unknown => {
@@ -1189,6 +1204,25 @@ export class CodeService {
         const isValidSessionId =
           ai_chat_session_id &&
           this.validAiChatSessionIds.has(ai_chat_session_id);
+
+        // If client sent a session ID but it's invalid, request historical messages
+        if (!isValidSessionId && ai_chat_session_id !== null && ai_chat_session_id !== undefined) {
+          this.logger.info("Invalid session ID detected - requesting history from client", {
+            providedSessionId: ai_chat_session_id,
+            validSessionCount: this.validAiChatSessionIds.size,
+          });
+
+          this.sendMessage(socket, {
+            type: ChatEvent.HISTORY_REQUEST,
+            data: {
+              message: "Session invalid - please provide recent conversation history",
+              requested_message_count: HISTORY_MESSAGE_REQUEST_COUNT,
+              original_query: data,
+            },
+          });
+          return; // Don't process query yet - wait for history response
+        }
+
         if (isValidSessionId) {
           queryOptions.resume = ai_chat_session_id;
         }
@@ -1525,6 +1559,81 @@ export class CodeService {
       // The method includes retry logic to ensure delivery.
       await this.notifyOrchestrationEndChat(prototypeId);
     }
+  }
+
+  private async handleHistoryResponse(
+    socket: WebSocket,
+    data: HistoryResponseData,
+    prototypeId: string,
+  ): Promise<void> {
+    const { historical_messages, original_query } = data;
+
+    this.logger.info("Received history response from client", {
+      messageCount: historical_messages.length,
+      prototypeId,
+    });
+
+    // Format historical messages for system prompt
+    let historyContext = "";
+    if (historical_messages.length > 0) {
+      const formattedMessages = historical_messages
+        .map((msg: { role: string; content: string }) => {
+          const role = msg.role === "user" ? "User" : "Assistant";
+          return `${role}: ${msg.content}`;
+        })
+        .join("\n\n");
+
+      historyContext = `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
+
+      this.logger.info("Formatted history context", {
+        contextLength: historyContext.length,
+        messageCount: historical_messages.length,
+      });
+    } else {
+      this.logger.info("No historical messages provided - starting fresh session");
+    }
+
+    // Now process the original query with history context appended to system prompt
+    // We need to temporarily store the history context and process the query
+    // The easiest way is to modify the original_query data to include this in the system prompt append
+
+    // Since we can't easily modify the handleQuery internals, we'll process the query here
+    // with the history context added to the system prompt
+    await this.handleQueryWithHistory(socket, original_query, prototypeId, historyContext);
+  }
+
+  private async handleQueryWithHistory(
+    socket: WebSocket,
+    data: ChatQueryData,
+    prototypeId: string,
+    historyContext: string,
+  ): Promise<void> {
+    const options = (data.options ?? {}) as Options;
+
+    this.logger.info("Processing query with history context", {
+      prototypeId,
+      hasHistoryContext: historyContext.length > 0,
+      historyContextLength: historyContext.length,
+    });
+
+    // For queries with history, we always start a fresh session (don't try to resume)
+    // The history context provides continuity instead of session resumption
+
+    // Call the original handleQuery but with ai_chat_session_id set to null
+    // to force a new session, and we need to inject the history context
+    const modifiedData = {
+      ...data,
+      ai_chat_session_id: null, // Force new session
+    };
+
+    // Store the history context temporarily so handleQuery can access it
+    // We'll use a simple approach: add it as a special option
+    const modifiedOptions = {
+      ...options,
+      __historyContext: historyContext, // Internal flag
+    };
+
+    await this.handleQuery(socket, { ...modifiedData, options: modifiedOptions }, prototypeId);
   }
 
   private async handleInterrupt(socket: WebSocket): Promise<void> {

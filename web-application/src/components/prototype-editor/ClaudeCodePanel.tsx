@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
-import { ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
+import { ChatClientEvent, ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
 import {
@@ -142,6 +142,7 @@ export default function ClaudeCodePanel({
   const isConnecting = externalWSConnecting;
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiChatSessionId, setAiChatSessionId] = useState<string | null>(null);
@@ -828,6 +829,10 @@ export default function ClaudeCodePanel({
     };
   }, [onRegisterMessageHandler, onUnregisterMessageHandler]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Connection is managed by parent component via external props
   const connect = onConnect;
   const disconnect = onDisconnect;
@@ -1043,6 +1048,47 @@ export default function ClaudeCodePanel({
       case ChatEvent.INFO:
         addMessage("system", message.message);
         break;
+
+      case ChatEvent.HISTORY_REQUEST: {
+        // Server is requesting historical messages
+        const { requested_message_count, original_query } = message.data;
+
+        logger.debug("log", "Server requested conversation history", {
+          requestedCount: requested_message_count,
+        });
+
+        // Extract last N user/assistant text messages (no tools, no system)
+        const recentMessages = messagesRef.current
+          .filter((msg) =>
+            (msg.type === "user" || msg.type === "assistant") && !msg.isQueued,
+          )
+          .slice(-requested_message_count)
+          .map((msg) => ({
+            role: msg.type,
+            content: msg.content,
+            timestamp: msg.timestamp,
+          }));
+
+        logger.debug("log", "Sending history response", {
+          requestedCount: requested_message_count,
+          foundCount: recentMessages.length,
+          messages: recentMessages,
+        });
+
+        // Send history back to server
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: ChatClientEvent.HISTORY_RESPONSE,
+              data: {
+                historical_messages: recentMessages,
+                original_query: original_query,
+              },
+            }),
+          );
+        }
+        break;
+      }
 
       default: {
         const unknownMessage = message as { type: string; };
@@ -1838,7 +1884,7 @@ export default function ClaudeCodePanel({
                                   <span>Queued - waiting for dev server...</span>
                                 </div>
                               )}
-                              <pre className="whitespace-pre-wrap text-sm font-sans">
+                              <pre className="whitespace-pre-wrap break-words break-all text-sm font-sans">
                                 {message.content}
                               </pre>
                               {/* Display historical images if available */}
@@ -1876,7 +1922,7 @@ export default function ClaudeCodePanel({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="max-w-none cursor-default break-words">
-                            <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                            <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:break-all prose-code:whitespace-pre-wrap prose-code:break-words prose-code:break-all">
                               <ReactMarkdown
                                 components={{
                                   // Customize code blocks - inline vs block
@@ -1894,7 +1940,7 @@ export default function ClaudeCodePanel({
                                     if (isInline) {
                                       return (
                                         <code
-                                          className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono before:content-none after:content-none"
+                                          className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono before:content-none after:content-none whitespace-pre-wrap break-words break-all"
                                           {...props}
                                         >
                                           {content}
@@ -1904,7 +1950,7 @@ export default function ClaudeCodePanel({
                                     // Block code
                                     return (
                                       <code
-                                        className={`block bg-muted p-3 rounded my-2 overflow-x-auto font-mono text-sm ${className || ""}`}
+                                        className={`block bg-muted p-3 rounded my-2 font-mono text-sm whitespace-pre-wrap break-words break-all ${className || ""}`}
                                         {...props}
                                       >
                                         {content}
