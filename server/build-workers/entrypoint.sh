@@ -14,6 +14,11 @@ mkdir -p "${WORK_DIR}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${WORK_DIR}"
 chmod 770 "${WORK_DIR}"
 
+NPM_CACHE="${NPM_CONFIG_CACHE:-${WORK_DIR}/.npm-cache}"
+mkdir -p "${NPM_CACHE}"
+chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${NPM_CACHE}"
+chmod 770 "${NPM_CACHE}"
+
 if command -v setfacl >/dev/null 2>&1; then
   setfacl -m "u:${TERMINAL_USER}:rwx" "${WORK_DIR}" || true
   setfacl -d -m "u:${TERMINAL_USER}:rwx" "${WORK_DIR}" || true
