@@ -10,6 +10,7 @@ RUN apt-get clean && \
     apt-get update -o Acquire::Check-Valid-Until=false && \
     apt-get install -y --no-install-recommends \
     build-essential \
+    acl \
     python3 \
     python3-dev \
     curl \
@@ -50,6 +51,11 @@ RUN npm run build
 
 # Create log directory and build workspace
 RUN mkdir -p /tmp/logs /tmp/materialize-dev-server
+
+# Create unprivileged terminal user
+RUN groupadd --system materialize-user && \
+    useradd --system --gid materialize-user --shell /bin/bash --home-dir /tmp/materialize-dev-server materialize-user && \
+    chown -R materialize-user:materialize-user /tmp/materialize-dev-server
 
 # Keep a minimal bashrc to prevent PTY exit
 RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \
@@ -99,8 +105,14 @@ RUN mkdir -p /root/.claude && \
   }\n\
 }' > /root/.claude/settings.json
 
+ENV TERMINAL_USER=materialize-user
+
+COPY server/build-workers/entrypoint.sh /usr/local/bin/worker-entrypoint.sh
+RUN chmod +x /usr/local/bin/worker-entrypoint.sh
+
 # Expose app port
 EXPOSE 3002
 
 # Run Fastify server
+ENTRYPOINT ["/usr/local/bin/worker-entrypoint.sh"]
 CMD ["npm", "start"]

@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 import { IPty, spawn as spawnPty } from "node-pty";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -57,6 +57,13 @@ export interface TerminalSession {
   clients: Map<string, TerminalClient>;
 }
 
+interface TerminalUserIdentity {
+  username: string;
+  uid: number;
+  gid: number;
+  homeDir: string;
+}
+
 export class TerminalService {
   private readonly workDir: string;
   private readonly allowedRoot: string;
@@ -65,6 +72,7 @@ export class TerminalService {
   private logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
+  private readonly terminalUserIdentity: TerminalUserIdentity | null;
 
   constructor(
     fastifyApp: FastifyInstance,
@@ -81,6 +89,24 @@ export class TerminalService {
       : this.allowedRoot;
     this.fastifyApp = fastifyApp;
     this.logger = logger;
+    const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
+    this.terminalUserIdentity = this.resolveTerminalUserIdentity(
+      terminalUsername,
+      process.env.TERMINAL_GROUP,
+    );
+    if (this.terminalUserIdentity) {
+      this.logger.info("Terminal sessions configured to drop privileges", {
+        username: this.terminalUserIdentity.username,
+        uid: this.terminalUserIdentity.uid,
+        gid: this.terminalUserIdentity.gid,
+        homeDir: this.terminalUserIdentity.homeDir,
+      });
+    } else {
+      this.logger.warn(
+        "Falling back to root for terminal sessions (terminal user not found)",
+        { terminalUsername },
+      );
+    }
 
     if (!this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)) {
       this.logger.warn("WorkDir is outside the allowed root for terminals", {
@@ -256,17 +282,33 @@ export class TerminalService {
         args: ["-i"],
       });
     }
-    const env = this.normalizeEnv(options.env);
+    const envBase: NodeJS.ProcessEnv = {
+      ...process.env,
+      HOME: this.terminalUserIdentity?.homeDir ?? this.workDir,
+      USER: this.terminalUserIdentity?.username ?? process.env.USER ?? "root",
+      LOGNAME:
+        this.terminalUserIdentity?.username ?? process.env.LOGNAME ?? "root",
+      PWD: cwd,
+      WORK_DIR: this.workDir,
+    };
+    const env = this.normalizeEnv(options.env, envBase);
 
     let pty: IPty;
     try {
-      pty = spawnPty(command, args, {
+      const spawnOptions: Parameters<typeof spawnPty>[2] = {
         name: "xterm-color",
         cols,
         rows,
         cwd,
         env,
-      });
+      };
+
+      if (this.terminalUserIdentity) {
+        spawnOptions.uid = this.terminalUserIdentity.uid;
+        spawnOptions.gid = this.terminalUserIdentity.gid;
+      }
+
+      pty = spawnPty(command, args, spawnOptions);
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -605,8 +647,11 @@ export class TerminalService {
     }
   }
 
-  private normalizeEnv(env?: Record<string, string>): NodeJS.ProcessEnv {
-    const merged: NodeJS.ProcessEnv = { ...process.env };
+  private normalizeEnv(
+    env?: Record<string, string>,
+    baseEnv?: NodeJS.ProcessEnv,
+  ): NodeJS.ProcessEnv {
+    const merged: NodeJS.ProcessEnv = { ...(baseEnv ?? process.env) };
     if (env) {
       for (const [key, value] of Object.entries(env)) {
         merged[key] = value;
@@ -1105,6 +1150,81 @@ export class TerminalService {
         { sessionId: session.id, eventType, error: JSON.stringify(error) },
       );
       this.removeClient(session, client.id);
+    }
+  }
+
+  private resolveTerminalUserIdentity(
+    username: string,
+    groupOverride?: string,
+  ): TerminalUserIdentity | null {
+    try {
+      const passwdContent = readFileSync("/etc/passwd", "utf8");
+      const userEntry = passwdContent
+        .split("\n")
+        .find((line) => line.startsWith(`${username}:`));
+
+      if (!userEntry) {
+        this.logger.warn("Terminal user not found in /etc/passwd", {
+          username,
+        });
+        return null;
+      }
+
+      const [name, , uidRaw, gidRaw, , homeDirRaw] = userEntry.split(":");
+      const uid = Number(uidRaw);
+      let gid = Number(gidRaw);
+      const homeDir = homeDirRaw || this.allowedRoot;
+
+      if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
+        this.logger.warn("Invalid UID/GID for terminal user", {
+          username,
+          uidRaw,
+          gidRaw,
+        });
+        return null;
+      }
+
+      if (groupOverride) {
+        const gidFromGroup = this.lookupGroupId(groupOverride);
+        if (gidFromGroup !== null) {
+          gid = gidFromGroup;
+        } else {
+          this.logger.warn("Failed to resolve override group for terminal user", {
+            groupOverride,
+          });
+        }
+      }
+
+      return {
+        username: name,
+        uid,
+        gid,
+        homeDir,
+      };
+    } catch (error) {
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to resolve terminal user identity",
+        { username, groupOverride },
+      );
+      return null;
+    }
+  }
+
+  private lookupGroupId(groupName: string): number | null {
+    try {
+      const groupContent = readFileSync("/etc/group", "utf8");
+      const groupEntry = groupContent
+        .split("\n")
+        .find((line) => line.startsWith(`${groupName}:`));
+      if (!groupEntry) {
+        return null;
+      }
+      const [, , gidRaw] = groupEntry.split(":");
+      const gid = Number(gidRaw);
+      return Number.isFinite(gid) ? gid : null;
+    } catch {
+      return null;
     }
   }
 }
