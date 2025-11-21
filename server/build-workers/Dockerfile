@@ -57,6 +57,12 @@ RUN groupadd --system materialize-user && \
     useradd --system --gid materialize-user --shell /bin/bash --home-dir /tmp/materialize-dev-server materialize-user && \
     chown -R materialize-user:materialize-user /tmp/materialize-dev-server
 
+# Set default ACLs so all new files created by root are automatically accessible to materialize-user
+# This ensures Metro bundler (running as materialize-user) can read files created by CodeService (running as root)
+RUN setfacl -R -m u:materialize-user:rwX /tmp/materialize-dev-server && \
+    setfacl -R -d -m u:materialize-user:rwX /tmp/materialize-dev-server && \
+    setfacl -R -d -m g:materialize-user:rwX /tmp/materialize-dev-server
+
 # Keep a minimal bashrc to prevent PTY exit
 RUN echo '# Minimal bashrc for PTY sessions' > /etc/bash.bashrc && \
     echo 'export PS1="$ "' >> /etc/bash.bashrc && \
