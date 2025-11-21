@@ -282,15 +282,7 @@ export class TerminalService {
         args: ["-i"],
       });
     }
-    const envBase: NodeJS.ProcessEnv = {
-      ...process.env,
-      HOME: this.terminalUserIdentity?.homeDir ?? this.workDir,
-      USER: this.terminalUserIdentity?.username ?? process.env.USER ?? "root",
-      LOGNAME:
-        this.terminalUserIdentity?.username ?? process.env.LOGNAME ?? "root",
-      PWD: cwd,
-      WORK_DIR: this.workDir,
-    };
+    const envBase = this.buildBaseEnvironment(cwd);
     const env = this.normalizeEnv(options.env, envBase);
 
     let pty: IPty;
@@ -658,6 +650,46 @@ export class TerminalService {
       }
     }
     return merged;
+  }
+
+  private buildBaseEnvironment(cwd: string): NodeJS.ProcessEnv {
+    const safeKeys = [
+      "PATH",
+      "NODE_ENV",
+      "TERM",
+      "LANG",
+      "LC_ALL",
+      "LC_CTYPE",
+      "LC_MESSAGES",
+      "SHELL",
+      "EXPO_NO_TELEMETRY",
+      "CHOKIDAR_USEPOLLING",
+      "CHOKIDAR_INTERVAL",
+      "WATCHPACK_POLLING",
+      "NPM_CONFIG_CACHE",
+      "TZ",
+    ];
+
+    const env: NodeJS.ProcessEnv = {};
+    for (const key of safeKeys) {
+      if (process.env[key] !== undefined) {
+        env[key] = process.env[key];
+      }
+    }
+
+    const username = this.terminalUserIdentity?.username ?? process.env.USER ?? "root";
+
+    env.PATH =
+      env.PATH ??
+      "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    env.TERM = env.TERM ?? "xterm-256color";
+    env.HOME = this.terminalUserIdentity?.homeDir ?? this.workDir;
+    env.USER = username;
+    env.LOGNAME = username;
+    env.PWD = cwd;
+    env.WORK_DIR = this.workDir;
+
+    return env;
   }
 
   private killSessionProcess(session: TerminalSession): void {
