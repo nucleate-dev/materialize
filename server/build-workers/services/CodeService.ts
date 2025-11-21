@@ -105,6 +105,7 @@ export class CodeService {
   };
   private activeConnections = new Map<string, ChatConnection>();
   private orchestrationToken: string | null = null;
+  private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
 
   constructor(
     fastifyApp: FastifyInstance,
@@ -812,16 +813,19 @@ export class CodeService {
               },
             ],
           },
-          // Resume existing session if provided by client, otherwise use internal session state
-          ...(ai_chat_session_id && {
-            resume: ai_chat_session_id,
-          }),
         };
+
+        // Only resume if the provided session ID is valid (exists in our set of known session IDs)
+        const isValidSessionId = ai_chat_session_id && this.validAiChatSessionIds.has(ai_chat_session_id);
+        if (isValidSessionId) {
+          queryOptions.resume = ai_chat_session_id;
+        }
 
         this.logger.info("Querying Claude Agent SDK", {
           hasResume: !!queryOptions.resume,
           resumeSessionId: queryOptions.resume,
           providedSessionId: ai_chat_session_id,
+          isValidSessionId,
           internalSessionId: this.sessionState.sessionId,
           model: queryOptions.model,
           cwd: this.workDir,
@@ -848,6 +852,9 @@ export class CodeService {
               this.sessionState.createdAt = Date.now();
             }
             this.sessionState.lastActiveAt = Date.now();
+
+            // Add this session ID to our set of valid session IDs
+            this.validAiChatSessionIds.add(msg.session_id);
 
             this.logger.info("Claude Code session initialized", {
               sessionId: msg.session_id,
@@ -1168,6 +1175,9 @@ export class CodeService {
     if (this.sessionState.abortController) {
       this.sessionState.abortController.abort();
     }
+
+    // Clear valid session IDs since we're resetting
+    this.validAiChatSessionIds.clear();
 
     this.sessionState = {
       sessionId: null,
@@ -1898,6 +1908,7 @@ export class CodeService {
     }
 
     this.activeConnections.clear();
+    this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
     this.sessionState = {
       sessionId: null,
       prototypeChatSessionId: null,
