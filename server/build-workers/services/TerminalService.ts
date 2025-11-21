@@ -388,6 +388,7 @@ export class TerminalService {
     this.sessionInputBuffers.set(session.id, newBuffer);
 
     if (error) {
+      this.abortCurrentLine(session);
       this.logger.warn("Terminal input blocked by policy", {
         sessionId,
         reason: error.message,
@@ -415,6 +416,20 @@ export class TerminalService {
         },
       );
       throw error;
+    }
+  }
+
+  private abortCurrentLine(session: TerminalSession): void {
+    if (!session.pty) {
+      return;
+    }
+    try {
+      session.pty.write("\u0003");
+    } catch (error) {
+      this.logger.warn("Failed to abort terminal line after validation error", {
+        sessionId: session.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -687,6 +702,7 @@ export class TerminalService {
     env.LOGNAME = username;
     env.PWD = cwd;
     env.WORK_DIR = this.workDir;
+    env.NPM_CONFIG_CACHE = path.join(this.workDir, ".npm-cache");
 
     return env;
   }

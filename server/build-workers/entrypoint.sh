@@ -14,7 +14,7 @@ mkdir -p "${WORK_DIR}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${WORK_DIR}"
 chmod 770 "${WORK_DIR}"
 
-NPM_CACHE="${NPM_CONFIG_CACHE:-${WORK_DIR}/.npm-cache}"
+NPM_CACHE="${WORK_DIR}/.npm-cache"
 mkdir -p "${NPM_CACHE}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${NPM_CACHE}"
 chmod 770 "${NPM_CACHE}"
