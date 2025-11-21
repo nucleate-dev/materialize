@@ -1063,33 +1063,12 @@ export default function ClaudeCodePanel({
       sessionIdRef.current = newSessionId;
       setAiChatSessionId(newSessionId);
 
-      // If we have a chat session without a session_id, upsert it
-      if (prototypeChatSessionId) {
-        supabase
-          .from("prototype_chat_sessions")
-          .update({ session_id: newSessionId })
-          .eq("id", prototypeChatSessionId)
-          .then(({ error }) => {
-            if (error) {
-              logger.debug("error", "Failed to update session_id in database", {
-                error,
-                chatSessionId: prototypeChatSessionId,
-                newSessionId,
-              });
-            } else {
-              logger.debug("log", "Updated session_id in database", {
-                chatSessionId: prototypeChatSessionId,
-                newSessionId,
-              });
-              // Clear corruption flag after successfully recovering the session
-              if (isCorruptedSession) {
-                setIsCorruptedSession(false);
-                logger.debug("log", "Cleared corruption flag after session recovery", {
-                  newSessionId,
-                });
-              }
-            }
-          });
+      // Clear corruption flag after receiving a fresh session
+      if (isCorruptedSession) {
+        setIsCorruptedSession(false);
+        logger.debug("log", "Cleared corruption flag after session recovery", {
+          newSessionId,
+        });
       }
 
       // Don't add system message to chat - it's just internal state

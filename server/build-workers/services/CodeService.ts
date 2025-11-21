@@ -1233,6 +1233,49 @@ export class CodeService {
               isNewSession,
               previousSessionId,
             });
+
+            // Persist the newly created Claude session ID to the prototype chat session row
+            if (this.sessionState.prototypeChatSessionId) {
+              try {
+                const { error } = await this.supabaseClient
+                  .from("prototype_chat_sessions")
+                  .update({ session_id: msg.session_id })
+                  .eq("id", this.sessionState.prototypeChatSessionId);
+
+                if (error) {
+                  this.logger.error(
+                    error,
+                    "Failed to update session_id in prototype_chat_sessions",
+                    {
+                      chatSessionId: this.sessionState.prototypeChatSessionId,
+                      claudeSessionId: msg.session_id,
+                    },
+                  );
+                } else {
+                  this.logger.info(
+                    "Updated prototype_chat_sessions with new Claude session_id",
+                    {
+                      chatSessionId: this.sessionState.prototypeChatSessionId,
+                      claudeSessionId: msg.session_id,
+                    },
+                  );
+                }
+              } catch (error) {
+                this.logger.error(
+                  error instanceof Error ? error : new Error(String(error)),
+                  "Exception while updating session_id in prototype_chat_sessions",
+                  {
+                    chatSessionId: this.sessionState.prototypeChatSessionId,
+                    claudeSessionId: msg.session_id,
+                  },
+                );
+              }
+            } else {
+              this.logger.warn(
+                "Cannot persist Claude session_id because prototypeChatSessionId is missing",
+                { claudeSessionId: msg.session_id },
+              );
+            }
           }
 
           // Track assistant text content for persistence
