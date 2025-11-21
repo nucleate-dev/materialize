@@ -355,7 +355,12 @@ export class ExpoDevServerService {
         this.terminalUserIdentity,
         log2,
       );
-      await writeProjectFiles(files, assetsWithContent, projectDir);
+      await writeProjectFiles(
+        files,
+        assetsWithContent,
+        projectDir,
+        this.terminalUserIdentity,
+      );
 
       // Install dependencies for new project
       try {
@@ -976,7 +981,12 @@ export class ExpoDevServerService {
         );
       }
 
-      await writeProjectFiles(files, assets, buildDir);
+      await writeProjectFiles(
+        files,
+        assets,
+        buildDir,
+        this.terminalUserIdentity,
+      );
       logger.log("Project files written", true, `Build directory: ${buildDir}`);
 
       // Get the build terminal session for installing dependencies
@@ -1344,7 +1354,12 @@ export class ExpoDevServerService {
       }
 
       // 3) Write incoming files to disk
-      await writeProjectFiles(files, assets, actualProjectDir);
+      await writeProjectFiles(
+        files,
+        assets,
+        actualProjectDir,
+        this.terminalUserIdentity,
+      );
       log2.info("Successfully wrote files to project directory", {
         projectDir: actualProjectDir,
       });

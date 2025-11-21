@@ -35,6 +35,10 @@ import {
   PrototypeFileInput,
   writeProjectFiles,
 } from "../utils/shared-utils.js";
+import {
+  resolveTerminalUserIdentity,
+  TerminalUserIdentity,
+} from "../utils/TerminalUserUtils.js";
 import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
@@ -172,6 +176,7 @@ export class CodeService {
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
+  private readonly terminalUserIdentity: TerminalUserIdentity | null;
   private supabaseClient: SupabaseClient<Database>;
   private sessionState: CodeSessionState = {
     sessionId: null,
@@ -201,6 +206,11 @@ export class CodeService {
     this.logger = logger.child({ service: "CodeService" });
     this.supabaseClient = supabaseClient;
     this.fileSyncService = new FileSyncService(workDir, supabaseClient, logger);
+    this.terminalUserIdentity = resolveTerminalUserIdentity(
+      this.logger,
+      process.env.TERMINAL_USER ?? "materialize-user",
+      process.env.TERMINAL_GROUP,
+    );
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
@@ -1689,7 +1699,12 @@ export class CodeService {
       });
 
       // Write files and assets to disk
-      await writeProjectFiles(files, assetsWithContent, this.workDir);
+      await writeProjectFiles(
+        files,
+        assetsWithContent,
+        this.workDir,
+        this.terminalUserIdentity,
+      );
 
       this.logger.info("File sync completed successfully", {
         filesCount: files.length,
