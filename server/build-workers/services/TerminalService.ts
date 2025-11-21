@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { IPty, IPtyForkOptions, spawn as spawnPty } from "node-pty";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -17,6 +17,10 @@ import {
   TerminalSessionType,
 } from "../types/BuildWorkerTypes.js";
 import { TerminalCommandValidator } from "./TerminalCommandValidationUtils.js";
+import {
+  TerminalUserIdentity,
+  resolveTerminalUserIdentity,
+} from "../utils/TerminalUserUtils.js";
 // import type { fastifyWebsocket } from "@fastify/websocket";
 
 const TERMINAL_BUFFER_LIMIT = 5000;
@@ -57,13 +61,6 @@ export interface TerminalSession {
   clients: Map<string, TerminalClient>;
 }
 
-interface TerminalUserIdentity {
-  username: string;
-  uid: number;
-  gid: number;
-  homeDir: string;
-}
-
 export class TerminalService {
   private readonly workDir: string;
   private readonly allowedRoot: string;
@@ -90,7 +87,8 @@ export class TerminalService {
     this.fastifyApp = fastifyApp;
     this.logger = logger;
     const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
-    this.terminalUserIdentity = this.resolveTerminalUserIdentity(
+    this.terminalUserIdentity = resolveTerminalUserIdentity(
+      this.logger,
       terminalUsername,
       process.env.TERMINAL_GROUP,
     );
@@ -1186,78 +1184,4 @@ export class TerminalService {
     }
   }
 
-  private resolveTerminalUserIdentity(
-    username: string,
-    groupOverride?: string,
-  ): TerminalUserIdentity | null {
-    try {
-      const passwdContent = readFileSync("/etc/passwd", "utf8");
-      const userEntry = passwdContent
-        .split("\n")
-        .find((line) => line.startsWith(`${username}:`));
-
-      if (!userEntry) {
-        this.logger.warn("Terminal user not found in /etc/passwd", {
-          username,
-        });
-        return null;
-      }
-
-      const [name, , uidRaw, gidRaw, , homeDirRaw] = userEntry.split(":");
-      const uid = Number(uidRaw);
-      let gid = Number(gidRaw);
-      const homeDir = homeDirRaw || this.allowedRoot;
-
-      if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
-        this.logger.warn("Invalid UID/GID for terminal user", {
-          username,
-          uidRaw,
-          gidRaw,
-        });
-        return null;
-      }
-
-      if (groupOverride) {
-        const gidFromGroup = this.lookupGroupId(groupOverride);
-        if (gidFromGroup !== null) {
-          gid = gidFromGroup;
-        } else {
-          this.logger.warn("Failed to resolve override group for terminal user", {
-            groupOverride,
-          });
-        }
-      }
-
-      return {
-        username: name,
-        uid,
-        gid,
-        homeDir,
-      };
-    } catch (error) {
-      this.logger.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Failed to resolve terminal user identity",
-        { username, groupOverride },
-      );
-      return null;
-    }
-  }
-
-  private lookupGroupId(groupName: string): number | null {
-    try {
-      const groupContent = readFileSync("/etc/group", "utf8");
-      const groupEntry = groupContent
-        .split("\n")
-        .find((line) => line.startsWith(`${groupName}:`));
-      if (!groupEntry) {
-        return null;
-      }
-      const [, , gidRaw] = groupEntry.split(":");
-      const gid = Number(gidRaw);
-      return Number.isFinite(gid) ? gid : null;
-    } catch {
-      return null;
-    }
-  }
 }

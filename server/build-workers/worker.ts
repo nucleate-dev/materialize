@@ -116,6 +116,7 @@ const expoDevServerService = new ExpoDevServerService(
   WORK_DIR,
   defaultS3Client,
   terminalService,
+  baseLogger,
 );
 const sandboxService = new SandboxService(
   app,

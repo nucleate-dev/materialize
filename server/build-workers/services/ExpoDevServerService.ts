@@ -30,6 +30,11 @@ import {
 } from "../utils/shared-utils.js";
 import { getSupabaseClient } from "../worker.js";
 import { TerminalService } from "./TerminalService.js";
+import {
+  ensureWorkspacePermissions,
+  resolveTerminalUserIdentity,
+  TerminalUserIdentity,
+} from "../utils/TerminalUserUtils.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -109,18 +114,27 @@ export class ExpoDevServerService {
   private state = new DevServerState();
   private readonly workDir: string;
   private readonly defaultPort: number = 19006;
+  private readonly logger: SystemLogger;
   private s3: S3Client | undefined;
   private readonly terminalService: TerminalService;
+  private readonly terminalUserIdentity: TerminalUserIdentity | null;
 
   constructor(
     workDir: string = "/tmp/expo-dev",
     s3Instance: S3Client | undefined,
     terminalService: TerminalService,
+    logger: SystemLogger,
   ) {
     this.workDir = workDir;
     this.s3 = s3Instance;
     this.terminalService = terminalService;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
+    this.logger = logger;
+    this.terminalUserIdentity = resolveTerminalUserIdentity(
+      this.logger,
+      process.env.TERMINAL_USER ?? "materialize-user",
+      process.env.TERMINAL_GROUP,
+    );
   }
 
   public getState(): DevServerState {
@@ -334,8 +348,13 @@ export class ExpoDevServerService {
           "Directory removal failed (expected for new projects)",
         );
       }
-      // Create new directory and write all files
+      // Create new directory and set permissions for terminal user
       await fs.mkdir(projectDir, { recursive: true });
+      await ensureWorkspacePermissions(
+        projectDir,
+        this.terminalUserIdentity,
+        log2,
+      );
       await writeProjectFiles(files, assetsWithContent, projectDir);
 
       // Install dependencies for new project
