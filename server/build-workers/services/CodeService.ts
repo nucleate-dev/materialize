@@ -1,7 +1,10 @@
 import {
+  CanUseTool,
   HookInput,
   HookJSONOutput,
   Options,
+  PermissionMode,
+  PermissionResult,
   query,
   SDKAssistantMessage,
   SDKUserMessage,
@@ -11,6 +14,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
 import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
+import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
@@ -80,6 +84,81 @@ interface ToolResponseWithFilePath {
   [key: string]: unknown;
 }
 
+type ToolName =
+  | "Bash"
+  | "BashOutput"
+  | "Read"
+  | "Write"
+  | "Edit"
+  | "NotebookEdit"
+  | "Glob"
+  | "Grep"
+  | string;
+
+interface BashToolInput {
+  command?: string;
+  timeout?: number;
+  description?: string;
+  run_in_background?: boolean;
+  [key: string]: unknown;
+}
+
+interface BashOutputToolInput {
+  bash_id?: string;
+  filter?: string;
+  [key: string]: unknown;
+}
+
+interface FileReadToolInput {
+  file_path?: string;
+  offset?: number;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+interface FileWriteToolInput {
+  file_path?: string;
+  content?: string;
+  [key: string]: unknown;
+}
+
+interface FileEditToolInput {
+  file_path?: string;
+  old_string?: string;
+  new_string?: string;
+  replace_all?: boolean;
+  [key: string]: unknown;
+}
+
+interface NotebookEditToolInput {
+  notebook_path?: string;
+  [key: string]: unknown;
+}
+
+interface GlobToolInput {
+  pattern?: string;
+  path?: string;
+  [key: string]: unknown;
+}
+
+interface GrepToolInput {
+  pattern?: string;
+  path?: string;
+  paths?: string[];
+  [key: string]: unknown;
+}
+
+type ToolInput =
+  | BashToolInput
+  | BashOutputToolInput
+  | FileReadToolInput
+  | FileWriteToolInput
+  | FileEditToolInput
+  | NotebookEditToolInput
+  | GlobToolInput
+  | GrepToolInput
+  | Record<string, unknown>;
+
 interface ChatConnection {
   socket: WebSocket;
   heartbeat?: NodeJS.Timeout;
@@ -87,6 +166,7 @@ interface ChatConnection {
 
 export class CodeService {
   private readonly workDir: string;
+  private readonly allowedRoot: string;
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
@@ -114,6 +194,7 @@ export class CodeService {
     supabaseClient: SupabaseClient<Database>,
   ) {
     this.workDir = workDir;
+    this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
     this.supabaseClient = supabaseClient;
@@ -121,7 +202,16 @@ export class CodeService {
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
+      allowedRoot: this.allowedRoot,
     });
+
+    const normalizedWorkDir = path.resolve(this.workDir);
+    if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
+      this.logger.warn("WorkDir is outside the allowed root for Claude Code", {
+        workDir: normalizedWorkDir,
+        allowedRoot: this.allowedRoot,
+      });
+    }
   }
 
   public setOrchestrationToken(token: string): void {
@@ -637,6 +727,284 @@ export class CodeService {
           systemPromptAppend += `\n\n## Current Viewing Context:\nThe user is currently viewing the route: ${current_viewing_path}\n(Note: This context may or may not be relevant to the user's query)`;
         }
 
+        const sanitizeInputPreview = (input: unknown): unknown => {
+          if (input === null || input === undefined) {
+            return input;
+          }
+
+          if (typeof input === "string") {
+            return input.length > 200 ? `${input.slice(0, 200)}...` : input;
+          }
+
+          if (Array.isArray(input)) {
+            return input
+              .slice(0, 5)
+              .map((value) => sanitizeInputPreview(value));
+          }
+
+          if (typeof input === "object") {
+            return Object.entries(input as Record<string, unknown>)
+              .slice(0, 5)
+              .reduce<Record<string, unknown>>((acc, [key, value]) => {
+                acc[key] = sanitizeInputPreview(value);
+                return acc;
+              }, {});
+          }
+
+          return input;
+        };
+
+        const canUseTool: CanUseTool = async (
+          toolName: ToolName,
+          input: ToolInput,
+          _options,
+        ): Promise<PermissionResult> => {
+          const inputPreview = sanitizeInputPreview(input);
+          const deny = (reason: string, message?: string): PermissionResult => {
+            this.logger.warn("Tool denied by policy", {
+              tool: toolName,
+              reason,
+              inputPreview,
+            });
+            return {
+              behavior: "deny" as const,
+              message: message ?? reason ?? "Tool denied by policy",
+            };
+          };
+
+          const validatePath = (
+            rawPath: unknown,
+          ): { ok: boolean; resolvedPath?: string; reason?: string } => {
+            if (typeof rawPath !== "string" || rawPath.trim() === "") {
+              return {
+                ok: false,
+                reason: "File path must be a non-empty string",
+              };
+            }
+
+            const { resolvedPath, withinRoot } =
+              this.normalizePathToAllowedRoot(rawPath);
+
+            if (!withinRoot) {
+              return {
+                ok: false,
+                resolvedPath,
+                reason: `Path must stay within ${this.allowedRoot}`,
+              };
+            }
+
+            if (resolvedPath && this.isSensitiveSystemPath(resolvedPath)) {
+              return {
+                ok: false,
+                resolvedPath,
+                reason: "Access to system paths is blocked",
+              };
+            }
+
+            return { ok: true, resolvedPath };
+          };
+
+          switch (toolName) {
+            case "Bash": {
+              const bashInput = input as BashToolInput;
+              const command =
+                typeof bashInput.command === "string"
+                  ? bashInput.command.trim()
+                  : "";
+
+              if (!command) {
+                return deny("Bash commands are disabled for safety");
+              }
+
+              if (
+                bashInput &&
+                typeof bashInput === "object" &&
+                "run_in_background" in bashInput &&
+                Boolean(bashInput.run_in_background)
+              ) {
+                return deny("Background bash commands are not permitted");
+              }
+
+              const blockedTokens = [
+                "|",
+                ";",
+                "&&",
+                "||",
+                "`",
+                "$(",
+                "${",
+                "<",
+                ">",
+                "\n",
+              ];
+              if (blockedTokens.some((token) => command.includes(token))) {
+                return deny("Complex bash commands are blocked");
+              }
+
+              const tokens = command.split(/\s+/).filter(Boolean);
+              if (tokens.length === 0) {
+                return deny("Empty bash command is not permitted");
+              }
+
+              const [executable, ...args] = tokens;
+
+              if (executable === "pwd") {
+                if (args.length > 0) {
+                  return deny("pwd with arguments is not allowed");
+                }
+                return {
+                  behavior: "allow" as const,
+                  updatedInput: { ...input, command: "pwd" },
+                };
+              }
+
+              if (executable === "ls") {
+                if (args.length > 1) {
+                  return deny("ls with multiple arguments is blocked");
+                }
+
+                if (args.length === 1) {
+                  if (args[0].startsWith("-")) {
+                    return deny("ls flags are not permitted");
+                  }
+
+                  const validation = validatePath(args[0]);
+                  if (!validation.ok || !validation.resolvedPath) {
+                    return deny(
+                      validation.reason ?? "ls path is not permitted",
+                    );
+                  }
+
+                  return {
+                    behavior: "allow" as const,
+                    updatedInput: {
+                      ...input,
+                      command: `ls ${validation.resolvedPath}`,
+                    },
+                  };
+                }
+
+                return {
+                  behavior: "allow" as const,
+                  updatedInput: { ...input, command: "ls" },
+                };
+              }
+
+              return deny("Bash commands are restricted to a safe whitelist");
+            }
+
+            case "BashOutput": {
+              return deny("BashOutput is disabled because Bash is restricted");
+            }
+
+            case "Read":
+            case "Write":
+            case "Edit":
+            case "NotebookEdit": {
+              const filePath =
+                (input as ToolInputWithFilePath)?.file_path ??
+                (input as ToolInputWithFilePath)?.notebook_path;
+
+              const validation = validatePath(filePath);
+              if (!validation.ok || !validation.resolvedPath) {
+                return deny(
+                  validation.reason ??
+                    "Access to this file path is not permitted",
+                );
+              }
+
+              const updatedInput: ToolInput = {
+                ...input,
+              };
+
+              if ((input as ToolInputWithFilePath)?.file_path !== undefined) {
+                updatedInput.file_path = validation.resolvedPath;
+              }
+
+              if (
+                (input as ToolInputWithFilePath)?.notebook_path !== undefined
+              ) {
+                updatedInput.notebook_path = validation.resolvedPath;
+              }
+
+              return { behavior: "allow" as const, updatedInput };
+            }
+
+            case "Glob": {
+              const globInput = input as GlobToolInput;
+              if (
+                typeof globInput.pattern === "string" &&
+                globInput.pattern.includes("..")
+              ) {
+                return deny("Glob patterns cannot escape the workspace");
+              }
+
+              const basePath =
+                typeof globInput.path === "string"
+                  ? globInput.path
+                  : this.allowedRoot;
+              const validation = validatePath(basePath);
+
+              if (!validation.ok || !validation.resolvedPath) {
+                return deny(
+                  validation.reason ??
+                    "Glob path is outside the allowed workspace",
+                );
+              }
+
+              const updatedInput: ToolInput = {
+                ...input,
+                path: validation.resolvedPath,
+              };
+
+              return { behavior: "allow" as const, updatedInput };
+            }
+
+            case "Grep": {
+              const grepInput = input as GrepToolInput;
+              const candidatePaths: string[] = [];
+              if (typeof grepInput.path === "string") {
+                candidatePaths.push(grepInput.path);
+              }
+
+              if (Array.isArray(grepInput.paths)) {
+                candidatePaths.push(...grepInput.paths);
+              }
+
+              const resolvedPaths: string[] = [];
+
+              for (const candidate of candidatePaths) {
+                const validation = validatePath(candidate);
+                if (!validation.ok || !validation.resolvedPath) {
+                  return deny(
+                    validation.reason ?? "Grep path is not permitted",
+                  );
+                }
+                resolvedPaths.push(validation.resolvedPath);
+              }
+
+              const updatedInput: ToolInput = { ...input };
+
+              if (candidatePaths.length > 0) {
+                if (typeof grepInput.path === "string") {
+                  updatedInput.path = resolvedPaths[0];
+                }
+
+                if (Array.isArray(grepInput.paths)) {
+                  updatedInput.paths = resolvedPaths;
+                }
+              } else {
+                updatedInput.path = this.allowedRoot;
+              }
+
+              return { behavior: "allow" as const, updatedInput };
+            }
+
+            default:
+              return { behavior: "allow" as const, updatedInput: { ...input } };
+          }
+        };
+
         const queryOptions = {
           ...options,
           includePartialMessages: false,
@@ -657,8 +1025,10 @@ export class CodeService {
             append: systemPromptAppend,
           },
           settingSources: ["user"] as SettingSource[],
+          permissionMode: "default" as PermissionMode,
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
+          canUseTool,
           // Add hooks to stream tool usage to WebSocket clients
           hooks: {
             PreToolUse: [
@@ -816,7 +1186,9 @@ export class CodeService {
         };
 
         // Only resume if the provided session ID is valid (exists in our set of known session IDs)
-        const isValidSessionId = ai_chat_session_id && this.validAiChatSessionIds.has(ai_chat_session_id);
+        const isValidSessionId =
+          ai_chat_session_id &&
+          this.validAiChatSessionIds.has(ai_chat_session_id);
         if (isValidSessionId) {
           queryOptions.resume = ai_chat_session_id;
         }
@@ -1883,6 +2255,46 @@ export class CodeService {
       return absolutePath.slice(this.workDir.length + 1);
     }
     return absolutePath;
+  }
+
+  private isPathInsideAllowedRoot(resolvedPath: string): boolean {
+    const normalizedPath = path.resolve(resolvedPath);
+    const allowedWithSep = this.allowedRoot.endsWith(path.sep)
+      ? this.allowedRoot
+      : `${this.allowedRoot}${path.sep}`;
+    return (
+      normalizedPath === this.allowedRoot ||
+      normalizedPath.startsWith(allowedWithSep)
+    );
+  }
+
+  private normalizePathToAllowedRoot(rawPath: string): {
+    resolvedPath: string;
+    withinRoot: boolean;
+  } {
+    const resolvedPath = path.isAbsolute(rawPath)
+      ? path.resolve(rawPath)
+      : path.resolve(this.allowedRoot, rawPath);
+
+    return {
+      resolvedPath,
+      withinRoot: this.isPathInsideAllowedRoot(resolvedPath),
+    };
+  }
+
+  private isSensitiveSystemPath(resolvedPath: string): boolean {
+    const normalizedPath = path.resolve(resolvedPath);
+    const blockedRoots = ["/proc", "/sys", "/dev", "/run", "/var/run"];
+
+    return blockedRoots.some((blocked) => {
+      const blockedWithSep = blocked.endsWith(path.sep)
+        ? blocked
+        : `${blocked}${path.sep}`;
+
+      return (
+        normalizedPath === blocked || normalizedPath.startsWith(blockedWithSep)
+      );
+    });
   }
 
   public async shutdown(): Promise<void> {
