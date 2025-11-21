@@ -1006,17 +1006,16 @@ const MaterializeRenderSection = forwardRef<
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRestartDevServer();
+                      handleRefresh();
                     }}
                     className="ml-1 p-1 hover:bg-primary/10 rounded transition-colors"
-                    aria-label="Restart Dev Server"
-                    disabled={isRestartingDevServer}
+                    aria-label="Refresh Preview"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRestartingDevServer ? "animate-spin" : ""}`} />
+                    <RefreshCw className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Restart Dev Server</p>
+                  <p>Refresh Preview</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1501,11 +1500,15 @@ const MaterializeRenderSection = forwardRef<
                     </>
                   )}
                   <DropdownMenuItem
-                    onClick={handleRefresh}
-                    disabled={!viewing_url}
+                    onClick={handleRestartDevServer}
+                    disabled={!prototypeId || isRestartingDevServer}
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh Preview
+                    {isRestartingDevServer ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    {isRestartingDevServer ? "Restarting..." : "Restart Dev Server"}
                   </DropdownMenuItem>
                   {onResetToDefault && (
                     <>
