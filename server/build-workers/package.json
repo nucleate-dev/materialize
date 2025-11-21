@@ -22,14 +22,14 @@
     "gen:supabase:types": "supabase gen types typescript --project-id hfgjmwidcoszkmvejxhw --schema public > types/supabase.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
-    "@aws-sdk/client-s3": "^3.893.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.49",
+    "@aws-sdk/client-s3": "^3.937.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/websocket": "^11.2.0",
-    "@supabase/supabase-js": "^2.78.0",
+    "@supabase/supabase-js": "^2.84.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.5",
-    "fastify": "^5.6.1",
+    "fastify": "^5.6.2",
     "node-pty": "^1.0.0",
     "pino-pretty": "^13.1.1",
     "sharp": "^0.34.5",
@@ -43,7 +43,7 @@
     "@typescript-eslint/parser": "^8.45.0",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
-    "nodemon": "^3.1.0",
+    "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
