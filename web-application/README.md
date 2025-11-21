@@ -38,4 +38,4 @@ The flow ensures consistency between:
 
 - **S3 `default-app-raw-files/`**: Source of truth for default app files
 - **Supabase `prototype_files`**: Database storage for prototype file contents
-- **Local dev environment**: Working copy pulled from Supabase
+- **Local dev environment**: Working copy pulled from Supabase.
