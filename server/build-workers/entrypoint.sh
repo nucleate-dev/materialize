@@ -14,6 +14,12 @@ mkdir -p "${WORK_DIR}"
 chown -R "${TERMINAL_USER}:${TERMINAL_GROUP}" "${WORK_DIR}"
 chmod 770 "${WORK_DIR}"
 
+if command -v setfacl >/dev/null 2>&1; then
+  setfacl -m "u:${TERMINAL_USER}:rwx" "${WORK_DIR}" || true
+  setfacl -d -m "u:${TERMINAL_USER}:rwx" "${WORK_DIR}" || true
+  setfacl -d -m "o::---" "${WORK_DIR}" || true
+fi
+
 for path in "${SENSITIVE_PATHS[@]}"; do
   if [ -d "${path}" ]; then
     chmod 700 "${path}" || true
