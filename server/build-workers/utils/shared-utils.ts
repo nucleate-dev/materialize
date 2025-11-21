@@ -2,7 +2,6 @@ import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { TerminalSession } from "../services/TerminalService.js";
-import { TerminalUserIdentity } from "./TerminalUserUtils.js";
 
 export class InvalidProjectPathError extends Error {
   constructor(message: string) {
@@ -106,7 +105,6 @@ export async function writeProjectFiles(
   files: PrototypeFileInput[],
   assets: PrototypeAssetInputWithContent[],
   projectDir: string,
-  identity?: TerminalUserIdentity | null,
 ): Promise<void> {
   // Handle text files
   for (const file of files) {
@@ -114,9 +112,7 @@ export async function writeProjectFiles(
     const fileDir = path.dirname(filePath);
 
     await fs.mkdir(fileDir, { recursive: true });
-    await applyOwnership(fileDir, identity, true);
     await fs.writeFile(filePath, file.contents, "utf8");
-    await applyOwnership(filePath, identity);
   }
 
   // Handle binary assets
@@ -125,10 +121,8 @@ export async function writeProjectFiles(
     const fileDir = path.dirname(filePath);
 
     await fs.mkdir(fileDir, { recursive: true });
-    await applyOwnership(fileDir, identity, true);
     const binaryContent = Buffer.from(asset.contents, "base64");
     await fs.writeFile(filePath, binaryContent);
-    await applyOwnership(filePath, identity);
   }
 }
 
@@ -157,20 +151,4 @@ export function resolvePathWithinProject(
   }
 
   return resolvedTargetPath;
-}
-
-async function applyOwnership(
-  targetPath: string,
-  identity?: TerminalUserIdentity | null,
-  isDir = false,
-): Promise<void> {
-  if (!identity) {
-    return;
-  }
-  try {
-    await fs.chown(targetPath, identity.uid, identity.gid);
-    await fs.chmod(targetPath, isDir ? 0o770 : 0o660);
-  } catch {
-    // Ignore failures; default ACLs still offer coverage
-  }
 }

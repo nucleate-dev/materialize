@@ -1,10 +1,5 @@
-import { execFile } from "child_process";
 import { readFileSync } from "fs";
-import fs from "fs/promises";
-import { promisify } from "util";
 import { SystemLogger } from "../loggers/SystemLogger.js";
-
-const execFileAsync = promisify(execFile);
 
 export interface TerminalUserIdentity {
   username: string;
@@ -69,57 +64,6 @@ export function resolveTerminalUserIdentity(
       { username, groupOverride },
     );
     return null;
-  }
-}
-
-export async function ensureWorkspacePermissions(
-  dir: string,
-  identity: TerminalUserIdentity | null,
-  logger: SystemLogger,
-): Promise<void> {
-  if (!identity) {
-    logger.warn("Workspace permission enforcement skipped - missing identity", {
-      dir,
-    });
-    return;
-  }
-
-  try {
-    await fs.mkdir(dir, { recursive: true });
-    await fs.chown(dir, identity.uid, identity.gid);
-    await fs.chmod(dir, 0o770);
-  } catch (error) {
-    logger.warn("Failed to set workspace ownership", {
-      dir,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return;
-  }
-
-  await applyAcl(dir, identity.username, logger);
-}
-
-async function applyAcl(
-  dir: string,
-  username: string,
-  logger: SystemLogger,
-): Promise<void> {
-  await runAclCommand(["-m", `u:${username}:rwx`, dir], logger);
-  await runAclCommand(["-d", "-m", `u:${username}:rwx`, dir], logger);
-  await runAclCommand(["-d", "-m", "o::---", dir], logger);
-}
-
-async function runAclCommand(
-  args: string[],
-  logger: SystemLogger,
-): Promise<void> {
-  try {
-    await execFileAsync("setfacl", args);
-  } catch (error) {
-    logger.warn("Failed to apply ACL", {
-      args: args.join(" "),
-      error: error instanceof Error ? error.message : String(error),
-    });
   }
 }
 

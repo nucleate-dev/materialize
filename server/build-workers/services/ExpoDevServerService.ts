@@ -30,11 +30,6 @@ import {
 } from "../utils/shared-utils.js";
 import { getSupabaseClient } from "../worker.js";
 import { TerminalService } from "./TerminalService.js";
-import {
-  ensureWorkspacePermissions,
-  resolveTerminalUserIdentity,
-  TerminalUserIdentity,
-} from "../utils/TerminalUserUtils.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
 
@@ -117,7 +112,6 @@ export class ExpoDevServerService {
   private readonly logger: SystemLogger;
   private s3: S3Client | undefined;
   private readonly terminalService: TerminalService;
-  private readonly terminalUserIdentity: TerminalUserIdentity | null;
 
   constructor(
     workDir: string = "/tmp/expo-dev",
@@ -130,11 +124,6 @@ export class ExpoDevServerService {
     this.terminalService = terminalService;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
     this.logger = logger;
-    this.terminalUserIdentity = resolveTerminalUserIdentity(
-      this.logger,
-      process.env.TERMINAL_USER ?? "materialize-user",
-      process.env.TERMINAL_GROUP,
-    );
   }
 
   public getState(): DevServerState {
@@ -339,28 +328,17 @@ export class ExpoDevServerService {
       // Handle file scope (fixed path per instance)
       const projectDir = this.workDir;
 
-      // Remove existing directory if it exists
-      try {
-        await fs.rm(projectDir, { recursive: true, force: true });
-      } catch (error: unknown) {
-        log2.error(
-          error,
-          "Directory removal failed (expected for new projects)",
-        );
-      }
-      // Create new directory and set permissions for terminal user
+      // Ensure project directory exists before writing files
       await fs.mkdir(projectDir, { recursive: true });
-      await ensureWorkspacePermissions(
-        projectDir,
-        this.terminalUserIdentity,
-        log2,
-      );
-      await writeProjectFiles(
-        files,
-        assetsWithContent,
-        projectDir,
-        this.terminalUserIdentity,
-      );
+      try {
+        await this.cleanWorkspace(projectDir);
+      } catch (error) {
+        log2.warn("Failed to clean workspace directory", {
+          projectDir,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      await writeProjectFiles(files, assetsWithContent, projectDir);
 
       // Install dependencies for new project
       try {
@@ -830,16 +808,36 @@ export class ExpoDevServerService {
   }
 
   private async cleanup(log2: SystemLogger): Promise<void> {
-    if (this.state.projectDir) {
+    if (!this.state.projectDir) {
+      return;
+    }
+
+    try {
+      await this.cleanWorkspace(this.state.projectDir);
+      log2.info("Workspace cleaned");
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      log2.warn("Failed to clean workspace directory", {
+        projectDir: this.state.projectDir,
+        error: errorMessage,
+      });
+    }
+  }
+
+  private async cleanWorkspace(targetDir: string): Promise<void> {
+    const entries = await fs.readdir(targetDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === ".keep") {
+        continue;
+      }
+      const entryPath = path.join(targetDir, entry.name);
       try {
-        await fs.rm(this.state.projectDir, { recursive: true, force: true });
-        log2.info("Cleaned up project directory");
-      } catch (error: unknown) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        log2.warn("Failed to cleanup project directory", {
-          projectDir: this.state.projectDir,
-          error: errorMessage,
+        await fs.rm(entryPath, { recursive: true, force: true });
+      } catch (error) {
+        this.logger.warn("Failed to remove workspace entry", {
+          entry: entryPath,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -981,12 +979,7 @@ export class ExpoDevServerService {
         );
       }
 
-      await writeProjectFiles(
-        files,
-        assets,
-        buildDir,
-        this.terminalUserIdentity,
-      );
+      await writeProjectFiles(files, assets, buildDir);
       logger.log("Project files written", true, `Build directory: ${buildDir}`);
 
       // Get the build terminal session for installing dependencies
@@ -1354,12 +1347,7 @@ export class ExpoDevServerService {
       }
 
       // 3) Write incoming files to disk
-      await writeProjectFiles(
-        files,
-        assets,
-        actualProjectDir,
-        this.terminalUserIdentity,
-      );
+      await writeProjectFiles(files, assets, actualProjectDir);
       log2.info("Successfully wrote files to project directory", {
         projectDir: actualProjectDir,
       });
