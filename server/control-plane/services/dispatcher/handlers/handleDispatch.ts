@@ -393,14 +393,14 @@ export async function handleDispatchImpl(
           error: null,
         };
       } else {
-        log2.error(undefined, 'Build failed on fargate instance', {
+        log2.error(undefined, 'Dispatch request failed to Fargate instance', {
           fargateResponse,
         });
         return {
           data: null,
           error: {
-            error: 'Build Failed',
-            message: 'Build failed on fargate instance',
+            error: 'Dispatch Failed',
+            message: 'Dispatch request failed to Fargate instance',
           },
         };
       }
