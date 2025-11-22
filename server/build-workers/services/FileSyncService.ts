@@ -317,259 +317,405 @@ export class FileSyncService {
   }
 
   /**
-   * Process deleted files
+   * Process deleted files using bulk DELETE operations
    */
   private async processDeletions(
     deletedFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
+    if (deletedFiles.length === 0) {
+      return;
+    }
+
+    // Separate files by type
+    const textFilesToDelete: string[] = [];
+    const binaryFilesToDelete: string[] = [];
+
     for (const filePath of deletedFiles) {
+      if (this.isBinaryFile(filePath)) {
+        binaryFilesToDelete.push(filePath);
+      } else {
+        textFilesToDelete.push(filePath);
+      }
+    }
+
+    // Bulk delete text files from database
+    if (textFilesToDelete.length > 0) {
       try {
-        const isBinary = this.isBinaryFile(filePath);
+        const { error } = await this.supabaseClient
+          .from("prototype_files")
+          .delete()
+          .eq("prototype_id", prototypeId)
+          .in("name", textFilesToDelete);
 
-        if (isBinary) {
-          // Delete from storage bucket
-          try {
-            await this.supabaseClient.storage
-              .from("prototype-assets")
-              .remove([`${prototypeId}/${filePath}`]);
-          } catch (storageError) {
-            this.logger.warn("Failed to delete asset from storage", {
-              path: filePath,
-              error:
-                storageError instanceof Error
-                  ? storageError.message
-                  : String(storageError),
-            });
-          }
-
-          // Delete from prototype_assets table
-          const { error } = await this.supabaseClient
-            .from("prototype_assets")
-            .delete()
-            .match({ prototype_id: prototypeId, name: filePath });
-
-          if (error) {
-            this.logger.error(error, "Failed to delete asset from database", {
-              path: filePath,
-            });
-            result.errors.push(
-              `Failed to delete asset ${filePath}: ${error.message}`,
-            );
-          } else {
-            result.assetsDeleted++;
-          }
+        if (error) {
+          this.logger.error(error, "Failed to bulk delete text files", {
+            count: textFilesToDelete.length,
+          });
+          result.errors.push(
+            `Failed to bulk delete ${textFilesToDelete.length} text files: ${error.message}`,
+          );
         } else {
-          // Delete from prototype_files table
-          const { error } = await this.supabaseClient
-            .from("prototype_files")
-            .delete()
-            .match({ prototype_id: prototypeId, name: filePath });
-
-          if (error) {
-            this.logger.error(error, "Failed to delete file from database", {
-              path: filePath,
-            });
-            result.errors.push(
-              `Failed to delete file ${filePath}: ${error.message}`,
-            );
-          } else {
-            result.filesDeleted++;
-          }
+          result.filesDeleted += textFilesToDelete.length;
+          this.logger.info("Bulk deleted text files", {
+            count: textFilesToDelete.length,
+          });
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(
           new Error(message),
-          "Failed to process file deletion",
-          { path: filePath },
+          "Failed to bulk delete text files",
+          { count: textFilesToDelete.length },
         );
-        result.errors.push(`Failed to delete ${filePath}: ${message}`);
+        result.errors.push(
+          `Failed to bulk delete text files: ${message}`,
+        );
+      }
+    }
+
+    // Bulk delete binary assets
+    if (binaryFilesToDelete.length > 0) {
+      // Bulk delete from storage bucket
+      try {
+        const storagePaths = binaryFilesToDelete.map(
+          (filePath) => `${prototypeId}/${filePath}`,
+        );
+        const { error: storageError } = await this.supabaseClient.storage
+          .from("prototype-assets")
+          .remove(storagePaths);
+
+        if (storageError) {
+          this.logger.warn("Failed to bulk delete assets from storage", {
+            count: binaryFilesToDelete.length,
+            error: storageError.message,
+          });
+          // Don't fail the entire operation, continue to DB deletion
+        }
+      } catch (storageError) {
+        this.logger.warn("Error during bulk asset storage deletion", {
+          count: binaryFilesToDelete.length,
+          error:
+            storageError instanceof Error
+              ? storageError.message
+              : String(storageError),
+        });
+        // Continue to database deletion
+      }
+
+      // Bulk delete from database
+      try {
+        const { error } = await this.supabaseClient
+          .from("prototype_assets")
+          .delete()
+          .eq("prototype_id", prototypeId)
+          .in("name", binaryFilesToDelete);
+
+        if (error) {
+          this.logger.error(error, "Failed to bulk delete assets from database", {
+            count: binaryFilesToDelete.length,
+          });
+          result.errors.push(
+            `Failed to bulk delete ${binaryFilesToDelete.length} assets: ${error.message}`,
+          );
+        } else {
+          result.assetsDeleted += binaryFilesToDelete.length;
+          this.logger.info("Bulk deleted assets", {
+            count: binaryFilesToDelete.length,
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          new Error(message),
+          "Failed to bulk delete assets",
+          { count: binaryFilesToDelete.length },
+        );
+        result.errors.push(
+          `Failed to bulk delete assets: ${message}`,
+        );
       }
     }
   }
 
   /**
-   * Process text files with parallel upload (concurrency limit: 5)
+   * Process text files with bulk upsert operations
    */
   private async processTextFiles(
     textFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
-    const concurrency = 5;
-    const chunks = this.chunkArray(textFiles, concurrency);
+    // Use larger batch size for bulk operations (was 5 for individual upserts)
+    const BULK_UPSERT_BATCH_SIZE = 200;
+    const chunks = this.chunkArray(textFiles, BULK_UPSERT_BATCH_SIZE);
 
-    for (const chunk of chunks) {
-      await Promise.all(
-        chunk.map(async (filePath) => {
+    this.logger.info("Processing text files with bulk upsert", {
+      totalFiles: textFiles.length,
+      batches: chunks.length,
+      batchSize: BULK_UPSERT_BATCH_SIZE,
+    });
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+
+      try {
+        // Read all files in the batch concurrently
+        const fileDataPromises = chunk.map(async (filePath) => {
           try {
             const fullPath = path.join(this.workDir, filePath);
             const contents = await fs.readFile(fullPath, "utf8");
-
-            // Retry logic for upsert
-            let retries = 0;
-            while (retries > 0) {
-              const { error } = await this.supabaseClient
-                .from("prototype_files")
-                .upsert(
-                  {
-                    prototype_id: prototypeId,
-                    name: filePath,
-                    contents: contents,
-                    updated_at: new Date().toISOString(),
-                  },
-                  {
-                    onConflict: "prototype_id,name",
-                  },
-                );
-
-              if (!error) {
-                result.filesUpdated++;
-                break;
-              }
-
-              const attempt = 4 - retries;
-              this.logger.error(error, "Failed to upsert file to database", {
-                path: filePath,
-                attempt,
-                retriesRemaining: retries - 1,
-              });
-
-              retries--;
-              if (retries === 0) {
-                result.errors.push(
-                  `Failed to upsert file ${filePath}: ${error.message}`,
-                );
-              } else {
-                // Exponential backoff
-                await new Promise((resolve) =>
-                  setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
-                );
-              }
-            }
+            return {
+              prototype_id: prototypeId,
+              name: filePath,
+              contents: contents,
+              updated_at: new Date().toISOString(),
+            };
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);
             this.logger.error(
               new Error(message),
-              "Failed to process text file",
+              "Failed to read text file",
               { path: filePath },
             );
-            result.errors.push(`Failed to process ${filePath}: ${message}`);
+            result.errors.push(`Failed to read ${filePath}: ${message}`);
+            return null;
           }
-        }),
-      );
+        });
+
+        const fileData = (await Promise.all(fileDataPromises)).filter(
+          (data): data is NonNullable<typeof data> => data !== null,
+        );
+
+        if (fileData.length === 0) {
+          this.logger.warn("No valid files to upsert in batch", {
+            batchIndex: i + 1,
+          });
+          continue;
+        }
+
+        // Bulk upsert with retry logic
+        let retries = 3;
+        let success = false;
+
+        while (retries > 0 && !success) {
+          const { error } = await this.supabaseClient
+            .from("prototype_files")
+            .upsert(fileData, {
+              onConflict: "prototype_id,name",
+            });
+
+          if (!error) {
+            result.filesUpdated += fileData.length;
+            success = true;
+            this.logger.info("Bulk upserted text files", {
+              batchIndex: i + 1,
+              filesCount: fileData.length,
+            });
+          } else {
+            retries--;
+            const attempt = 4 - retries;
+            this.logger.error(error, "Failed to bulk upsert files to database", {
+              batchIndex: i + 1,
+              filesCount: fileData.length,
+              attempt,
+              retriesRemaining: retries,
+            });
+
+            if (retries === 0) {
+              result.errors.push(
+                `Failed to bulk upsert batch ${i + 1} (${fileData.length} files): ${error.message}`,
+              );
+            } else {
+              // Exponential backoff
+              await new Promise((resolve) =>
+                setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
+              );
+            }
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          new Error(message),
+          "Failed to process text file batch",
+          { batchIndex: i + 1 },
+        );
+        result.errors.push(
+          `Failed to process batch ${i + 1}: ${message}`,
+        );
+      }
+
+      // Small delay between batches to avoid overwhelming the database
+      if (i < chunks.length - 1) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+        );
+      }
     }
   }
 
   /**
-   * Process binary files with parallel upload (concurrency limit: 3)
+   * Process binary files with parallel upload and bulk metadata upsert
    */
   private async processBinaryFiles(
     binaryFiles: string[],
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
-    const concurrency = 3; // Lower for binary files (larger)
-    const chunks = this.chunkArray(binaryFiles, concurrency);
+    // Process in larger batches, with controlled concurrency for storage uploads
+    const BATCH_SIZE = 50; // Process 50 files at a time
+    const STORAGE_UPLOAD_CONCURRENCY = 10; // Upload 10 files concurrently
+    const chunks = this.chunkArray(binaryFiles, BATCH_SIZE);
 
-    for (const chunk of chunks) {
-      await Promise.all(
-        chunk.map(async (filePath) => {
-          try {
-            const fullPath = path.join(this.workDir, filePath);
-            const stats = await fs.stat(fullPath);
+    this.logger.info("Processing binary files with bulk operations", {
+      totalFiles: binaryFiles.length,
+      batches: chunks.length,
+      batchSize: BATCH_SIZE,
+      uploadConcurrency: STORAGE_UPLOAD_CONCURRENCY,
+    });
 
-            // Skip very large files (>10MB)
-            if (stats.size > 10 * 1024 * 1024) {
-              this.logger.warn("Skipping large binary file", {
-                path: filePath,
-                size: stats.size,
-              });
-              result.errors.push(
-                `Skipped ${filePath}: file too large (${Math.round(stats.size / 1024 / 1024)}MB)`,
-              );
-              return;
-            }
+    for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
+      const batch = chunks[batchIndex];
+      const successfulUploads: Array<{
+        prototype_id: string;
+        name: string;
+        storage_url: string;
+        updated_at: string;
+      }> = [];
 
-            const fileBuffer = await fs.readFile(fullPath);
+      // Upload files to storage with controlled concurrency
+      const uploadChunks = this.chunkArray(batch, STORAGE_UPLOAD_CONCURRENCY);
 
-            // Upload to storage bucket (with retry)
-            let uploadSuccess = false;
-            let retries = 3;
-            while (retries > 0 && !uploadSuccess) {
-              const { error: uploadError } = await this.supabaseClient.storage
-                .from("prototype-assets")
-                .upload(`${prototypeId}/${filePath}`, fileBuffer, {
-                  upsert: true,
-                  contentType: this.getContentType(filePath),
+      for (const uploadChunk of uploadChunks) {
+        await Promise.all(
+          uploadChunk.map(async (filePath) => {
+            try {
+              const fullPath = path.join(this.workDir, filePath);
+              const stats = await fs.stat(fullPath);
+
+              // Skip very large files (>10MB)
+              if (stats.size > 10 * 1024 * 1024) {
+                this.logger.warn("Skipping large binary file", {
+                  path: filePath,
+                  size: stats.size,
                 });
+                result.errors.push(
+                  `Skipped ${filePath}: file too large (${Math.round(stats.size / 1024 / 1024)}MB)`,
+                );
+                return;
+              }
 
-              if (!uploadError) {
-                uploadSuccess = true;
-              } else {
-                retries--;
-                if (retries === 0) {
-                  this.logger.error(
-                    uploadError,
-                    "Failed to upload asset to storage",
-                    { path: filePath },
-                  );
-                  result.errors.push(
-                    `Failed to upload asset ${filePath}: ${uploadError.message}`,
-                  );
-                  return;
+              const fileBuffer = await fs.readFile(fullPath);
+
+              // Upload to storage bucket (with retry)
+              let uploadSuccess = false;
+              let retries = 3;
+
+              while (retries > 0 && !uploadSuccess) {
+                const { error: uploadError } = await this.supabaseClient.storage
+                  .from("prototype-assets")
+                  .upload(`${prototypeId}/${filePath}`, fileBuffer, {
+                    upsert: true,
+                    contentType: this.getContentType(filePath),
+                  });
+
+                if (!uploadError) {
+                  uploadSuccess = true;
+                  // Add to successful uploads for bulk metadata upsert
+                  successfulUploads.push({
+                    prototype_id: prototypeId,
+                    name: filePath,
+                    storage_url: `${prototypeId}/${filePath}`,
+                    updated_at: new Date().toISOString(),
+                  });
                 } else {
-                  await new Promise((resolve) =>
-                    setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
-                  );
+                  retries--;
+                  if (retries === 0) {
+                    this.logger.error(
+                      uploadError,
+                      "Failed to upload asset to storage",
+                      { path: filePath },
+                    );
+                    result.errors.push(
+                      `Failed to upload asset ${filePath}: ${uploadError.message}`,
+                    );
+                  } else {
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
+                    );
+                  }
                 }
               }
-            }
-
-            // Update metadata in database
-            const storageUrl = `${prototypeId}/${filePath}`;
-
-            const { error: dbError } = await this.supabaseClient
-              .from("prototype_assets")
-              .upsert(
-                {
-                  prototype_id: prototypeId,
-                  name: filePath,
-                  storage_url: storageUrl,
-                  updated_at: new Date().toISOString(),
-                },
-                {
-                  onConflict: "prototype_id,name",
-                },
-              );
-
-            if (dbError) {
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
               this.logger.error(
-                dbError,
-                "Failed to upsert asset metadata to database",
+                new Error(message),
+                "Failed to process binary file",
                 { path: filePath },
               );
+              result.errors.push(`Failed to process ${filePath}: ${message}`);
+            }
+          }),
+        );
+      }
+
+      // Bulk upsert metadata for all successfully uploaded files in this batch
+      if (successfulUploads.length > 0) {
+        let retries = 3;
+        let success = false;
+
+        while (retries > 0 && !success) {
+          const { error: dbError } = await this.supabaseClient
+            .from("prototype_assets")
+            .upsert(successfulUploads, {
+              onConflict: "prototype_id,name",
+            });
+
+          if (!dbError) {
+            result.assetsUpdated += successfulUploads.length;
+            success = true;
+            this.logger.info("Bulk upserted asset metadata", {
+              batchIndex: batchIndex + 1,
+              assetsCount: successfulUploads.length,
+            });
+          } else {
+            retries--;
+            const attempt = 4 - retries;
+            this.logger.error(
+              dbError,
+              "Failed to bulk upsert asset metadata to database",
+              {
+                batchIndex: batchIndex + 1,
+                assetsCount: successfulUploads.length,
+                attempt,
+                retriesRemaining: retries,
+              },
+            );
+
+            if (retries === 0) {
               result.errors.push(
-                `Failed to upsert asset metadata ${filePath}: ${dbError.message}`,
+                `Failed to bulk upsert metadata for batch ${batchIndex + 1} (${successfulUploads.length} assets): ${dbError.message}`,
               );
             } else {
-              result.assetsUpdated++;
+              // Exponential backoff
+              await new Promise((resolve) =>
+                setTimeout(resolve, Math.pow(2, 3 - retries) * 100),
+              );
             }
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            this.logger.error(
-              new Error(message),
-              "Failed to process binary file",
-              { path: filePath },
-            );
-            result.errors.push(`Failed to process ${filePath}: ${message}`);
           }
-        }),
-      );
+        }
+      }
+
+      // Small delay between batches to avoid overwhelming storage/database
+      if (batchIndex < chunks.length - 1) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, BATCH_CONFIG.BATCH_DELAY_MS),
+        );
+      }
     }
   }
 
