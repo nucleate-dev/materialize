@@ -176,8 +176,10 @@ export class FileSyncService {
           "build",
           ".cache",
           "tmp",
+          ".npm-cache",
+          ".expo",
         ]);
-        const skipFiles = new Set([".DS_Store"]);
+        const skipFiles = new Set([".DS_Store", ".npmrc", ".yarnrc"]);
 
         const relativeSegments = entryRelativePath.split(path.sep);
         const isTopLevelSkip =
@@ -613,9 +615,7 @@ export class FileSyncService {
    * Downloads asset content from storage and converts to base64.
    * This is the exact logic extracted from ExpoDevServerService.startDevServer.
    */
-  public async fetchFilesAndAssetsFromSupabase(
-    prototypeId: string,
-  ): Promise<{
+  public async fetchFilesAndAssetsFromSupabase(prototypeId: string): Promise<{
     files: PrototypeFileInput[];
     assets: PrototypeAssetInputWithContent[];
     errors: string[];
@@ -628,11 +628,10 @@ export class FileSyncService {
       });
 
       // Fetch files from Supabase
-      const { data: filesData, error: filesError } =
-        await this.supabaseClient
-          .from("prototype_files")
-          .select("*")
-          .eq("prototype_id", prototypeId);
+      const { data: filesData, error: filesError } = await this.supabaseClient
+        .from("prototype_files")
+        .select("*")
+        .eq("prototype_id", prototypeId);
 
       if (filesError) {
         const errorMsg = `Failed to fetch files from Supabase: ${filesError.message}`;
@@ -649,11 +648,10 @@ export class FileSyncService {
       });
 
       // Fetch assets from Supabase
-      const { data: assetsData, error: assetsError } =
-        await this.supabaseClient
-          .from("prototype_assets")
-          .select("*")
-          .eq("prototype_id", prototypeId);
+      const { data: assetsData, error: assetsError } = await this.supabaseClient
+        .from("prototype_assets")
+        .select("*")
+        .eq("prototype_id", prototypeId);
 
       if (assetsError) {
         const errorMsg = `Failed to fetch assets from Supabase: ${assetsError.message}`;
