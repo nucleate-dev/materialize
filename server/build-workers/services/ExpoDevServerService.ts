@@ -224,8 +224,6 @@ export class ExpoDevServerService {
         };
       }
 
-      log2.info("Fetching files from Supabase", { prototype_id });
-
       // Fetch files from Supabase
       const { data: filesData, error: filesError } = await supabase
         .from("prototype_files")
@@ -252,9 +250,6 @@ export class ExpoDevServerService {
       }
 
       const files: PrototypeFileInput[] = filesData || [];
-      log2.info("Fetched files from Supabase", {
-        fileCount: files.length,
-      });
 
       // Fetch assets from Supabase
       const { data: assetsData, error: assetsError } = await supabase
@@ -280,10 +275,6 @@ export class ExpoDevServerService {
           build_warnings: [],
         };
       }
-
-      log2.info("Fetched assets from Supabase", {
-        assetCount: assetsData?.length || 0,
-      });
 
       // Download assets from Supabase storage and convert to base64
       const assetsWithContent: PrototypeAssetInputWithContent[] =
@@ -321,10 +312,6 @@ export class ExpoDevServerService {
             (r): r is PrototypeAssetInputWithContent => r !== null,
           ),
         );
-
-      log2.info("Downloaded assets from Supabase storage", {
-        downloadedCount: assetsWithContent.length,
-      });
 
       // Handle file scope (fixed path per instance)
       const projectDir = this.workDir;
