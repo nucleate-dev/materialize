@@ -21,10 +21,12 @@ interface SyncResult {
 // Batch configuration for fetching files and assets
 const BATCH_CONFIG = {
   // Supabase query batch size (rows per query)
-  FILE_FETCH_BATCH_SIZE: 1000,
+  FILE_FETCH_BATCH_SIZE: 500,
+  FILE_UPSERT_BATCH_SIZE: 200,
   ASSET_METADATA_FETCH_BATCH_SIZE: 500,
   // Asset download concurrency (parallel downloads)
   ASSET_DOWNLOAD_CONCURRENCY: 10,
+  ASSET_UPLOAD_CONCURRENCY: 10,
   // Delay between batches (ms) to avoid rate limiting
   BATCH_DELAY_MS: 100,
 } as const;
@@ -369,9 +371,7 @@ export class FileSyncService {
           "Failed to bulk delete text files",
           { count: textFilesToDelete.length },
         );
-        result.errors.push(
-          `Failed to bulk delete text files: ${message}`,
-        );
+        result.errors.push(`Failed to bulk delete text files: ${message}`);
       }
     }
 
@@ -413,9 +413,13 @@ export class FileSyncService {
           .in("name", binaryFilesToDelete);
 
         if (error) {
-          this.logger.error(error, "Failed to bulk delete assets from database", {
-            count: binaryFilesToDelete.length,
-          });
+          this.logger.error(
+            error,
+            "Failed to bulk delete assets from database",
+            {
+              count: binaryFilesToDelete.length,
+            },
+          );
           result.errors.push(
             `Failed to bulk delete ${binaryFilesToDelete.length} assets: ${error.message}`,
           );
@@ -427,14 +431,10 @@ export class FileSyncService {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          new Error(message),
-          "Failed to bulk delete assets",
-          { count: binaryFilesToDelete.length },
-        );
-        result.errors.push(
-          `Failed to bulk delete assets: ${message}`,
-        );
+        this.logger.error(new Error(message), "Failed to bulk delete assets", {
+          count: binaryFilesToDelete.length,
+        });
+        result.errors.push(`Failed to bulk delete assets: ${message}`);
       }
     }
   }
@@ -447,15 +447,22 @@ export class FileSyncService {
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
+    // TODO: currently single file fail will cause entire batch to fail, we should handle this better
     // Use larger batch size for bulk operations (was 5 for individual upserts)
-    const BULK_UPSERT_BATCH_SIZE = 200;
-    const chunks = this.chunkArray(textFiles, BULK_UPSERT_BATCH_SIZE);
+    const chunks = this.chunkArray(
+      textFiles,
+      BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE,
+    );
 
-    this.logger.info("Processing text files with bulk upsert", {
-      totalFiles: textFiles.length,
-      batches: chunks.length,
-      batchSize: BULK_UPSERT_BATCH_SIZE,
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Processing text files with bulk upsert",
+      {
+        totalFiles: textFiles.length,
+        batches: chunks.length,
+        batchSize: BATCH_CONFIG.FILE_UPSERT_BATCH_SIZE,
+      },
+    );
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -475,11 +482,9 @@ export class FileSyncService {
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);
-            this.logger.error(
-              new Error(message),
-              "Failed to read text file",
-              { path: filePath },
-            );
+            this.logger.error(new Error(message), "Failed to read text file", {
+              path: filePath,
+            });
             result.errors.push(`Failed to read ${filePath}: ${message}`);
             return null;
           }
@@ -517,12 +522,16 @@ export class FileSyncService {
           } else {
             retries--;
             const attempt = 4 - retries;
-            this.logger.error(error, "Failed to bulk upsert files to database", {
-              batchIndex: i + 1,
-              filesCount: fileData.length,
-              attempt,
-              retriesRemaining: retries,
-            });
+            this.logger.error(
+              error,
+              "Failed to bulk upsert files to database",
+              {
+                batchIndex: i + 1,
+                filesCount: fileData.length,
+                attempt,
+                retriesRemaining: retries,
+              },
+            );
 
             if (retries === 0) {
               result.errors.push(
@@ -543,9 +552,7 @@ export class FileSyncService {
           "Failed to process text file batch",
           { batchIndex: i + 1 },
         );
-        result.errors.push(
-          `Failed to process batch ${i + 1}: ${message}`,
-        );
+        result.errors.push(`Failed to process batch ${i + 1}: ${message}`);
       }
 
       // Small delay between batches to avoid overwhelming the database
@@ -565,17 +572,21 @@ export class FileSyncService {
     prototypeId: string,
     result: SyncResult,
   ): Promise<void> {
+    // TODO: currently single asset fail will cause entire batch to fail, we should handle this better
     // Process in larger batches, with controlled concurrency for storage uploads
     const BATCH_SIZE = 50; // Process 50 files at a time
-    const STORAGE_UPLOAD_CONCURRENCY = 10; // Upload 10 files concurrently
     const chunks = this.chunkArray(binaryFiles, BATCH_SIZE);
 
-    this.logger.info("Processing binary files with bulk operations", {
-      totalFiles: binaryFiles.length,
-      batches: chunks.length,
-      batchSize: BATCH_SIZE,
-      uploadConcurrency: STORAGE_UPLOAD_CONCURRENCY,
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Processing binary files with bulk operations",
+      {
+        totalFiles: binaryFiles.length,
+        batches: chunks.length,
+        batchSize: BATCH_SIZE,
+        uploadConcurrency: BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY,
+      },
+    );
 
     for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
       const batch = chunks[batchIndex];
@@ -587,7 +598,10 @@ export class FileSyncService {
       }> = [];
 
       // Upload files to storage with controlled concurrency
-      const uploadChunks = this.chunkArray(batch, STORAGE_UPLOAD_CONCURRENCY);
+      const uploadChunks = this.chunkArray(
+        batch,
+        BATCH_CONFIG.ASSET_UPLOAD_CONCURRENCY,
+      );
 
       for (const uploadChunk of uploadChunks) {
         await Promise.all(
@@ -768,14 +782,18 @@ export class FileSyncService {
     const errors: string[] = [];
 
     try {
-      this.logger.info("Starting batched fetch from Supabase", {
-        prototype_id: prototypeId,
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Starting batched fetch from Supabase",
+        {
+          prototype_id: prototypeId,
+        },
+      );
 
       // Fetch files in batches using pagination
       const files = await this.fetchFilesInBatches(prototypeId, errors);
 
-      this.logger.info("Fetched all files from Supabase", {
+      this.logger.consoleLogDevOnly("info", "Fetched all files from Supabase", {
         fileCount: files.length,
       });
 
@@ -785,9 +803,13 @@ export class FileSyncService {
         errors,
       );
 
-      this.logger.info("Fetched asset metadata from Supabase", {
-        assetCount: assetMetadata.length,
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Fetched asset metadata from Supabase",
+        {
+          assetCount: assetMetadata.length,
+        },
+      );
 
       // Download assets with controlled concurrency
       const assetsWithContent = await this.downloadAssetsInBatches(
@@ -795,10 +817,14 @@ export class FileSyncService {
         errors,
       );
 
-      this.logger.info("Downloaded all assets from Supabase storage", {
-        downloadedCount: assetsWithContent.length,
-        failedCount: assetMetadata.length - assetsWithContent.length,
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Downloaded all assets from Supabase storage",
+        {
+          downloadedCount: assetsWithContent.length,
+          failedCount: assetMetadata.length - assetsWithContent.length,
+        },
+      );
 
       return { files, assets: assetsWithContent, errors };
     } catch (error) {
