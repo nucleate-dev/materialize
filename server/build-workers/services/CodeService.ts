@@ -1010,6 +1010,7 @@ export class CodeService {
 
         // Buffer for assistant message text (to persist at the end)
         let assistantMessageBuffer = "";
+        let tokenUsageLogged = false;
 
         for await (const msg of response) {
           // Capture session ID from init message
@@ -1086,6 +1087,30 @@ export class CodeService {
                   assistantMessageBuffer += content.text;
                 }
               }
+            }
+          }
+
+          // Log token usage once when the final result message arrives
+          if (msg.type === "result" && !tokenUsageLogged) {
+            try {
+              const { usage, subtype } = msg;
+              const inputTokens = usage?.input_tokens ?? 0;
+              const outputTokens = usage?.output_tokens ?? 0;
+
+              this.logger.metricTokenUsage(
+                queryOptions.model ?? "unknown",
+                inputTokens,
+                outputTokens,
+                { intent: "claude_code_sdk", outcome: subtype },
+              );
+              tokenUsageLogged = true;
+            } catch (logError) {
+              this.logger.error(
+                logError instanceof Error
+                  ? logError
+                  : new Error(String(logError)),
+                "Failed to log token usage",
+              );
             }
           }
 
@@ -1512,6 +1537,7 @@ export class CodeService {
       fileWatcher: null,
       designSystemId: null,
       designSystemRules: null,
+      modifiedFilesThisQuery: new Set<string>(),
     };
 
     this.sendMessage(socket, {
@@ -2548,6 +2574,7 @@ export class CodeService {
       fileWatcher: null,
       designSystemId: null,
       designSystemRules: null,
+      modifiedFilesThisQuery: new Set<string>(),
     };
 
     this.logger.info("CodeService shutdown complete");

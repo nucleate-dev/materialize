@@ -245,4 +245,5 @@ export type ChatServerMessage =
   | AuthenticatedMessage
   | MessageReceivedMessage
   | ReadyMessage
+  | ModifiedFilesMessage
   | HistoryRequestMessage;
