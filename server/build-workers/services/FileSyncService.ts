@@ -163,8 +163,8 @@ export class FileSyncService {
           ? path.join(relativePath, entry.name)
           : entry.name;
 
-        // Skip common directories and files that shouldn't be synced
-        const skipPatterns = [
+        // Skip common top-level directories and special files only at root
+        const skipRootDirs = new Set([
           "node_modules",
           ".git",
           ".next",
@@ -172,12 +172,15 @@ export class FileSyncService {
           "build",
           ".cache",
           "tmp",
-          ".DS_Store",
-        ];
+        ]);
+        const skipFiles = new Set([".DS_Store"]);
 
-        if (skipPatterns.some((pattern) => entryRelativePath.includes(pattern))) {
-          continue;
-        }
+        const relativeSegments = entryRelativePath.split(path.sep);
+        const isTopLevelSkip =
+          relativeSegments.length > 0 && skipRootDirs.has(relativeSegments[0]);
+        const isSkippedFile = skipFiles.has(entry.name);
+
+        if (isTopLevelSkip || isSkippedFile) continue;
 
         if (entry.isDirectory()) {
           // Recursively scan subdirectories
