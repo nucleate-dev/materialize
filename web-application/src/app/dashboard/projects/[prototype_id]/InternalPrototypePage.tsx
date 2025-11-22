@@ -343,6 +343,8 @@ export default function InternalPrototypePage() {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
+  // USE EFFECT PURPOSE: to fetch prototype and start dev server
+  // DO NOT SPLIT THIS USEEFFECT HOOK. Race conditions will fuck up the badge status.
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
 
@@ -476,6 +478,7 @@ export default function InternalPrototypePage() {
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
+      // Set new debounced timer -- THIS IS NECESSARY TO PREVENT MULTIPLE REQUESTS FROM BEING SENT TO THE SERVER ON PAGE LOAD
       debounceTimer = setTimeout(() => {
         fetchPrototypeAndStartDevServer();
       }, 500);
@@ -495,6 +498,7 @@ export default function InternalPrototypePage() {
     baseTunnelUrl,
   ]);
 
+  // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
   useEffect(() => {
     let pollTimer: NodeJS.Timeout | null = null;
 
@@ -1217,14 +1221,14 @@ export default function InternalPrototypePage() {
 
 const getIntervalForStatus = (status: RenderStatus): number => {
   switch (status) {
-    case "Connected":
+    case "Connected":  // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
       return 45000;
-    case "Starting Dev Server..":
+    case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
       return 25000;
     case "Static build":
       return 150000;
     case "Connecting..":
-    case "Updating..":
+    case "Updating..": // Connecting and Updating the dev server is obviously active. poll every minute though just in case
       return 60000;
     case "Disconnected":
       return 30000;
