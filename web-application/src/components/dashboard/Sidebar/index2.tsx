@@ -69,13 +69,13 @@ const DashboardSidebarContent = () => {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#0B0C0E] text-[#8A8F98]">
+    <div className="flex flex-col h-full bg-white dark:bg-[#0B0C0E] text-gray-600 dark:text-[#8A8F98]">
       {/* --- Header --- */}
-      <SidebarHeader className="h-14 border-b border-white/5 flex items-center justify-center px-4 bg-[#0B0C0E]">
+      <SidebarHeader className="h-14 border-b border-gray-200 dark:border-white/5 flex items-center justify-center px-4 bg-white dark:bg-[#0B0C0E]">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-4">
             <Link href="/dashboard" className="flex items-center justify-center">
-              <div className="p-1.5 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors">
+              <div className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
                 <FlaskConical className="w-5 h-5" />
               </div>
             </Link>
@@ -83,15 +83,15 @@ const DashboardSidebarContent = () => {
         ) : (
           <div className="flex w-full items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-3 group">
-              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/10 group-hover:border-white/20 transition-all">
-                <FlaskConical className="w-4 h-4 text-white" />
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-gray-200 to-gray-100 dark:from-white/10 dark:to-white/5 border border-gray-200 dark:border-white/10 group-hover:border-gray-300 dark:group-hover:border-white/20 transition-all">
+                <FlaskConical className="w-4 h-4 text-gray-900 dark:text-white" />
               </div>
-              <span className="font-medium text-white tracking-tight text-[15px]">
+              <span className="font-medium text-gray-900 dark:text-white tracking-tight text-[15px]">
                 Materialize
               </span>
             </Link>
             <SidebarTrigger
-              className="text-[#8A8F98] hover:text-white hover:bg-white/5 w-8 h-8"
+              className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 w-8 h-8"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             />
           </div>
@@ -99,7 +99,7 @@ const DashboardSidebarContent = () => {
       </SidebarHeader>
 
       {/* --- Main Content --- */}
-      <SidebarContent className="bg-[#0B0C0E] px-2 py-4 gap-4">
+      <SidebarContent className="bg-white dark:bg-[#0B0C0E] px-2 py-4 gap-4">
 
         {/* Primary Action: New Chat */}
         <SidebarGroup className="p-0">
@@ -114,12 +114,12 @@ const DashboardSidebarContent = () => {
                     "transition-all duration-200 border border-transparent",
                     // Active/Main State
                     !isCollapsed
-                      ? "bg-white text-black hover:bg-white/90 hover:text-black shadow-[0_0_15px_-3px_rgba(255,255,255,0.2)] justify-start px-3 py-5"
-                      : "bg-white/10 text-white hover:bg-white/20 justify-center aspect-square",
+                      ? "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 shadow-[0_0_15px_-3px_rgba(0,0,0,0.2)] dark:shadow-[0_0_15px_-3px_rgba(255,255,255,0.2)] justify-start px-3 py-5"
+                      : "bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-white/20 justify-center aspect-square",
                   )}
                 >
                   <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                    <Plus className={cn("w-4 h-4", !isCollapsed ? "text-black" : "text-white")} />
+                    <Plus className={cn("w-4 h-4", !isCollapsed ? "text-white dark:text-black" : "text-gray-900 dark:text-white")} />
                     {!isCollapsed && <span>New Chat</span>}
                   </Link>
                 </SidebarMenuButton>
@@ -132,7 +132,7 @@ const DashboardSidebarContent = () => {
         <SidebarGroup className="p-0 mt-2">
           {/* Optional Label for Expanded State */}
           {!isCollapsed && (
-            <div className="px-2 mb-2 text-[11px] font-medium uppercase tracking-wider text-[#8A8F98]/50">
+            <div className="px-2 mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-[#8A8F98]/50">
               Workspace
             </div>
           )}
@@ -148,12 +148,12 @@ const DashboardSidebarContent = () => {
                       "h-9 transition-all duration-200 font-medium text-sm",
                       isCollapsed ? "justify-center" : "px-3",
                       item.active
-                        ? "bg-[#1A1B1E] text-white shadow-sm border border-white/5"
-                        : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                        ? "bg-gray-100 dark:bg-[#1A1B1E] text-gray-900 dark:text-white shadow-sm border border-gray-200 dark:border-white/5"
+                        : "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={cn("w-4 h-4", item.active ? "text-purple-400" : "text-current opacity-70")} />
+                      <item.icon className={cn("w-4 h-4", item.active ? "text-indigo-600 dark:text-purple-400" : "text-current opacity-70")} />
                       {!isCollapsed && <span>{item.label}</span>}
                     </Link>
                   </SidebarMenuButton>
@@ -165,7 +165,7 @@ const DashboardSidebarContent = () => {
       </SidebarContent>
 
       {/* --- Footer --- */}
-      <SidebarFooter className="bg-[#0B0C0E] border-t border-white/5 p-2">
+      <SidebarFooter className="bg-white dark:bg-[#0B0C0E] border-t border-gray-200 dark:border-white/5 p-2">
         <SidebarMenu className="gap-1">
 
           {/* Mode Toggle */}
@@ -182,7 +182,7 @@ const DashboardSidebarContent = () => {
               isActive={pathname?.includes("account")}
               tooltip={isCollapsed ? "Settings" : undefined}
               className={cn(
-                "h-9 text-[#8A8F98] hover:text-white hover:bg-white/5",
+                "h-9 text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5",
                 isCollapsed ? "justify-center" : "px-3"
               )}
             >
@@ -199,7 +199,7 @@ const DashboardSidebarContent = () => {
               onClick={logout}
               tooltip={isCollapsed ? "Logout" : undefined}
               className={cn(
-                "h-9 text-[#8A8F98] hover:text-red-400 hover:bg-red-500/10 transition-colors",
+                "h-9 text-gray-600 dark:text-[#8A8F98] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors",
                 isCollapsed ? "justify-center" : "px-3"
               )}
             >
@@ -217,7 +217,7 @@ const DashboardSidebar = () => {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-white/5 bg-[#0B0C0E]"
+      className="border-r border-gray-200 dark:border-white/5 bg-white dark:bg-[#0B0C0E]"
     >
       <DashboardSidebarContent />
     </Sidebar>

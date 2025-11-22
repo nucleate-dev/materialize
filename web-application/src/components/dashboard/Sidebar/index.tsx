@@ -68,7 +68,7 @@ const DashboardSidebarContent = () => {
 
   return (
     <>
-      <SidebarHeader className="border-b">
+      <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-2 py-2">
             <Link href="/dashboard" className="p-2">
@@ -85,7 +85,7 @@ const DashboardSidebarContent = () => {
               <div className="relative flex items-center gap-3 px-3 py-2">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
-                <span className="relative text-xl font-bold text-foreground transition-transform duration-300 group-hover:scale-105">
+                <span className="relative text-xl font-bold text-gray-900 dark:text-foreground transition-transform duration-300 group-hover:scale-105">
                   Materialize
                 </span>
               </div>

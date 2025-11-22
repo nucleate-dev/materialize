@@ -66,7 +66,7 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
       onClick={handleEdit}
     >
       {/* --- Thumbnail Area --- */}
-      <div className="relative aspect-[4/3] w-full rounded-xl border border-black/10 dark:border-white/10 bg-gray-100 dark:bg-[#141517] overflow-hidden transition-all duration-300 group-hover:border-black/20 dark:group-hover:border-white/20 group-hover:shadow-[0_0_20px_-10px_rgba(0,0,0,0.1)] dark:group-hover:shadow-[0_0_20px_-10px_rgba(255,255,255,0.1)]">
+      <div className="relative aspect-[9/16] w-full rounded-xl border border-black/10 dark:border-white/10 bg-gray-100 dark:bg-[#141517] overflow-hidden transition-all duration-300 group-hover:border-black/20 dark:group-hover:border-white/20 group-hover:shadow-[0_0_20px_-10px_rgba(0,0,0,0.1)] dark:group-hover:shadow-[0_0_20px_-10px_rgba(255,255,255,0.1)]">
 
         {/* Loading State */}
         {loading && (
