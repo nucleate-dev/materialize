@@ -13,6 +13,7 @@ import {
 import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
 import chokidar, { FSWatcher } from "chokidar";
+import { execSync } from "child_process";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import fs from "fs";
 import path from "path";
@@ -191,6 +192,7 @@ export class CodeService {
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
   private readonly sharedFileMode = 0o664;
   private readonly sharedDirMode = 0o775;
+  private materializeUserGid: number | null = null;
 
   constructor(
     fastifyApp: FastifyInstance,
@@ -204,6 +206,33 @@ export class CodeService {
     this.logger = logger.child({ service: "CodeService" });
     this.supabaseClient = supabaseClient;
     this.fileSyncService = new FileSyncService(workDir, supabaseClient, logger);
+
+    // Get the GID for materialize-user to set group ownership on created files
+    try {
+      // Use 'id' command to get GID of materialize-user
+      const gidOutput = execSync("id -g materialize-user", {
+        encoding: "utf-8",
+      }).trim();
+      const gid = parseInt(gidOutput, 10);
+
+      if (!isNaN(gid)) {
+        this.materializeUserGid = gid;
+        this.logger.info("Found materialize-user GID", {
+          gid,
+        });
+      } else {
+        this.logger.warn("Could not parse materialize-user GID", {
+          gidOutput,
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        "Could not get materialize-user GID - group ownership will not be set",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    }
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
@@ -966,31 +995,35 @@ export class CodeService {
                   ): Promise<HookJSONOutput> => {
                     try {
                       if (input.hook_event_name === "PostToolUse") {
-                        // Track file changes from file-modifying tools (only for incremental sync)
-                        if (!ENABLE_FULL_SYNC) {
-                          const fileModifyingTools = [
-                            "Write",
-                            "Edit",
-                            "NotebookEdit",
-                          ];
-                          if (fileModifyingTools.includes(input.tool_name)) {
-                            const toolInput =
-                              input.tool_input as ToolInputWithFilePath;
-                            const toolResponse =
-                              input.tool_response as ToolResponseWithFilePath;
+                        // Apply shared permissions to files created/modified by file-modifying tools
+                        const fileModifyingTools = [
+                          "Write",
+                          "Edit",
+                          "NotebookEdit",
+                        ];
+                        if (fileModifyingTools.includes(input.tool_name)) {
+                          const toolInput =
+                            input.tool_input as ToolInputWithFilePath;
+                          const toolResponse =
+                            input.tool_response as ToolResponseWithFilePath;
 
-                            // Extract file path from tool input or response
-                            let filePath: string | null = null;
+                          // Extract file path from tool input or response
+                          let filePath: string | null = null;
 
-                            if (toolInput?.file_path) {
-                              filePath = toolInput.file_path;
-                            } else if (toolInput?.notebook_path) {
-                              filePath = toolInput.notebook_path;
-                            } else if (toolResponse?.file_path) {
-                              filePath = toolResponse.file_path;
-                            }
+                          if (toolInput?.file_path) {
+                            filePath = toolInput.file_path;
+                          } else if (toolInput?.notebook_path) {
+                            filePath = toolInput.notebook_path;
+                          } else if (toolResponse?.file_path) {
+                            filePath = toolResponse.file_path;
+                          }
 
-                            if (filePath) {
+                          if (filePath) {
+                            // Apply shared permissions and group ownership
+                            this.applySharedPermissions(filePath, "file");
+
+                            // Track file changes (only for incremental sync)
+                            if (!ENABLE_FULL_SYNC) {
                               // Convert to relative path from workDir
                               const relativePath = filePath.startsWith(
                                 this.workDir,
@@ -2577,6 +2610,24 @@ export class CodeService {
 
       if (targetMode !== currentMode) {
         fs.chmodSync(resolvedPath, targetMode);
+      }
+
+      // Change group ownership to materialize-user so group permissions apply
+      if (this.materializeUserGid !== null) {
+        try {
+          // chownSync(path, uid, gid) - use -1 for uid to keep current owner
+          fs.chownSync(resolvedPath, -1, this.materializeUserGid);
+          this.logger.consoleLogDevOnly("debug", "Set group ownership", {
+            path: resolvedPath,
+            gid: this.materializeUserGid,
+          });
+        } catch (chownError) {
+          this.logger.warn("Failed to set group ownership", {
+            path: resolvedPath,
+            gid: this.materializeUserGid,
+            error: chownError instanceof Error ? chownError.message : String(chownError),
+          });
+        }
       }
     } catch (error) {
       this.logger.warn("Failed to enforce shared permissions", {

@@ -195,6 +195,7 @@ export class TerminalCommandValidator {
         "yarn",
         "pnpm",
         "expo",
+        "cat",
       ]);
 
       if (!allowedCommands.has(command)) {
@@ -382,8 +383,7 @@ export class TerminalCommandValidator {
               outputToWrite: "",
               newBuffer: "",
               error: throwValidationError(
-                validation.reason ??
-                  "Terminal input rejected by safety policy",
+                validation.reason ?? "Terminal input rejected by safety policy",
               ),
             };
           }
