@@ -11,7 +11,7 @@ import { PublicApiService } from "./services/PublicApiService.js";
 import { SandboxService } from "./services/SandboxService.js";
 import { TerminalService } from "./services/TerminalService.js";
 import { CodeService } from "./services/CodeService.js";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClientService } from "./services/SupabaseClientService.js";
 
 // Load environment variables
 dotenv.config();
@@ -45,42 +45,9 @@ export function getWorkerContext(): { userId?: string; prototypeId?: string } {
   return workerContext;
 }
 
-// Store Supabase client instance (set by /allocate endpoint)
-let supabaseClient: SupabaseClient = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!,
-);
-export function setSupabaseClient(client: SupabaseClient): void {
-  supabaseClient = client;
-}
-export function getSupabaseClient(): SupabaseClient | null {
-  return supabaseClient;
-}
-/**
- * Creates a Supabase client with user JWT authentication
- * @param jwtToken - The user's JWT token from the Authorization header
- * @returns Authenticated Supabase client
- */
-export function createAuthenticatedSupabaseClient(
-  jwtToken: string,
-): SupabaseClient {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Supabase configuration missing. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.",
-    );
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
-    },
-  });
-}
+// Initialize Supabase client service (single source of truth)
+export const supabaseClientService =
+  SupabaseClientService.getInstance(baseLogger);
 
 // Initialize default S3 client (uses EC2 IAM role credentials)
 // This will be replaced with scoped credentials when /allocate is called
@@ -117,6 +84,7 @@ const expoDevServerService = new ExpoDevServerService(
   defaultS3Client,
   terminalService,
   baseLogger,
+  supabaseClientService,
 );
 const sandboxService = new SandboxService(
   app,
@@ -128,13 +96,19 @@ const cloudflareTunnelManagementService = new CloudflareTunnelManagementService(
   WORK_DIR,
   baseLogger,
 );
-const codeService = new CodeService(app, WORK_DIR, baseLogger, supabaseClient);
+const codeService = new CodeService(
+  app,
+  WORK_DIR,
+  baseLogger,
+  supabaseClientService,
+);
 const publicApiService = new PublicApiService(
   expoDevServerService,
   sandboxService,
   cloudflareTunnelManagementService,
   codeService,
   WORK_DIR,
+  supabaseClientService,
 );
 
 app.addHook("onRequest", async (req) => {

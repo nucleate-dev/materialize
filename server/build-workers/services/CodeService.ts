@@ -35,8 +35,8 @@ import {
   PrototypeFileInput,
   writeProjectFiles,
 } from "../utils/shared-utils.js";
-import { getSupabaseClient } from "../worker.js";
 import { FileSyncService } from "./FileSyncService.js";
+import { SupabaseClientService } from "./SupabaseClientService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 /**
@@ -173,7 +173,7 @@ export class CodeService {
   private readonly logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly fileSyncService: FileSyncService;
-  private supabaseClient: SupabaseClient<Database>;
+  private readonly supabaseClientService: SupabaseClientService;
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -195,14 +195,18 @@ export class CodeService {
     fastifyApp: FastifyInstance,
     workDir: string,
     logger: SystemLogger,
-    supabaseClient: SupabaseClient<Database>,
+    supabaseClientService: SupabaseClientService,
   ) {
     this.workDir = workDir;
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
     this.fastifyApp = fastifyApp;
     this.logger = logger.child({ service: "CodeService" });
-    this.supabaseClient = supabaseClient;
-    this.fileSyncService = new FileSyncService(workDir, supabaseClient, logger);
+    this.supabaseClientService = supabaseClientService;
+    this.fileSyncService = new FileSyncService(
+      workDir,
+      supabaseClientService.getClient(),
+      logger,
+    );
 
     this.logger.info("CodeService initialized", {
       workDir: this.workDir,
@@ -444,14 +448,12 @@ export class CodeService {
     // Refresh Supabase client with JWT token if provided
     if (token) {
       try {
-        const { createAuthenticatedSupabaseClient } = await import(
-          "../worker.js"
+        // Refresh the Supabase client with the authenticated token
+        this.supabaseClientService.refreshClientWithToken(token);
+        // Update the FileSyncService's Supabase client reference
+        this.fileSyncService.setSupabaseClient(
+          this.supabaseClientService.getClient(),
         );
-        const authenticatedClient = createAuthenticatedSupabaseClient(token);
-        // Update the FileSyncService's Supabase client with the authenticated one
-        this.fileSyncService.setSupabaseClient(authenticatedClient);
-        // Update the CodeService's Supabase client for message persistence
-        this.supabaseClient = authenticatedClient;
         this.logger.info("Refreshed Supabase client with JWT token", {
           prototypeId,
         });
@@ -517,7 +519,8 @@ export class CodeService {
       } else {
         // Fetch new design system
         try {
-          const { data: designSystem, error } = await this.supabaseClient
+          const { data: designSystem, error } = await this.supabaseClientService
+            .getClient()
             .from("design_systems")
             .select("rules")
             .eq("id", custom_design_system_id)
@@ -571,7 +574,7 @@ export class CodeService {
       const {
         data: { user },
         error: userError,
-      } = await this.supabaseClient.auth.getUser();
+      } = await this.supabaseClientService.getClient().auth.getUser();
 
       if (userError || !user) {
         this.logger.error(
@@ -590,7 +593,7 @@ export class CodeService {
       }
 
       const creditCheck = await hasRemainingCredits(
-        this.supabaseClient,
+        this.supabaseClientService.getClient(),
         user.id,
         this.logger,
       );
@@ -1037,7 +1040,8 @@ export class CodeService {
             // Persist the newly created Claude session ID to the prototype chat session row
             if (this.sessionState.prototypeChatSessionId) {
               try {
-                const { error } = await this.supabaseClient
+                const { error } = await this.supabaseClientService
+                  .getClient()
                   .from("prototype_chat_sessions")
                   .update({ session_id: msg.session_id })
                   .eq("id", this.sessionState.prototypeChatSessionId);
@@ -1315,7 +1319,7 @@ export class CodeService {
         const {
           data: { user },
           error: userError,
-        } = await this.supabaseClient.auth.getUser();
+        } = await this.supabaseClientService.getClient().auth.getUser();
 
         if (userError || !user) {
           this.logger.warn(
@@ -1334,7 +1338,7 @@ export class CodeService {
           });
 
           const { totalRemainingCredits } = await trackApiUsageBuildWorker(
-            this.supabaseClient,
+            this.supabaseClientService.getClient(),
             user.id,
             prototypeId,
             this.logger,
@@ -1587,10 +1591,8 @@ export class CodeService {
       let supabase: SupabaseClient<Database>;
       if (token) {
         try {
-          const { createAuthenticatedSupabaseClient } = await import(
-            "../worker.js"
-          );
-          supabase = createAuthenticatedSupabaseClient(token);
+          this.supabaseClientService.refreshClientWithToken(token);
+          supabase = this.supabaseClientService.getClient();
           this.logger.info(
             "Using JWT-authenticated Supabase client for file sync",
             {
@@ -1614,19 +1616,7 @@ export class CodeService {
           return;
         }
       } else {
-        const globalClient = getSupabaseClient();
-        if (!globalClient) {
-          const errorMsg = "Supabase client not initialized";
-          this.logger.error(new Error(errorMsg), errorMsg);
-          this.sendMessage(socket, {
-            type: ChatEvent.ERROR,
-            error: {
-              message: errorMsg,
-            },
-          });
-          return;
-        }
-        supabase = globalClient;
+        supabase = this.supabaseClientService.getClient();
       }
 
       // Fetch text files from prototype_files table
@@ -1938,7 +1928,8 @@ export class CodeService {
     }
 
     try {
-      const { error } = await this.supabaseClient
+      const { error } = await this.supabaseClientService
+        .getClient()
         .from("prototype_chat_messages")
         .insert({
           chat_session_id: this.sessionState.prototypeChatSessionId,
@@ -2016,8 +2007,9 @@ export class CodeService {
           const storagePath = `${prototypeId}/chat/${chatSessionId}/${filename}`;
 
           // Upload to Supabase Storage
-          const { error: uploadError } = await this.supabaseClient.storage
-            .from("prototype-assets")
+          const { error: uploadError } = await this.supabaseClientService
+            .getClient()
+            .storage.from("prototype-assets")
             .upload(storagePath, processed.buffer, {
               contentType: processed.mediaType,
               upsert: false,
@@ -2051,13 +2043,15 @@ export class CodeService {
       // Update the user message in database with image metadata
       if (uploadedImageMetadata.length > 0) {
         // Find the most recent user message for this chat session
-        const { data: messages, error: fetchError } = await this.supabaseClient
-          .from("prototype_chat_messages")
-          .select("id")
-          .eq("chat_session_id", chatSessionId)
-          .eq("role", "user")
-          .order("created_at", { ascending: false })
-          .limit(1);
+        const { data: messages, error: fetchError } =
+          await this.supabaseClientService
+            .getClient()
+            .from("prototype_chat_messages")
+            .select("id")
+            .eq("chat_session_id", chatSessionId)
+            .eq("role", "user")
+            .order("created_at", { ascending: false })
+            .limit(1);
 
         if (fetchError) {
           throw fetchError;
@@ -2067,7 +2061,8 @@ export class CodeService {
           const messageId = messages[0].id;
 
           // Update the message with image metadata
-          const { error: updateError } = await this.supabaseClient
+          const { error: updateError } = await this.supabaseClientService
+            .getClient()
             .from("prototype_chat_messages")
             .update({
               event_data: JSON.stringify({ images: uploadedImageMetadata }),

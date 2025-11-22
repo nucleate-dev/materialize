@@ -27,6 +27,7 @@ import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementS
 import { CodeService } from "./CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
 import { SandboxService } from "./SandboxService.js";
+import { SupabaseClientService } from "./SupabaseClientService.js";
 
 export class PublicApiService {
   private readonly expoDevServerService: ExpoDevServerService;
@@ -34,6 +35,7 @@ export class PublicApiService {
   private readonly cloudflareTunnelManagementService: CloudflareTunnelManagementService;
   private readonly codeService: CodeService;
   private readonly workDir: string;
+  private readonly supabaseClientService: SupabaseClientService;
 
   constructor(
     expoDevServerService: ExpoDevServerService,
@@ -41,12 +43,14 @@ export class PublicApiService {
     cloudflareTunnelManagementService: CloudflareTunnelManagementService,
     codeService: CodeService,
     workDir: string,
+    supabaseClientService: SupabaseClientService,
   ) {
     this.expoDevServerService = expoDevServerService;
     this.sandboxService = sandboxService;
     this.cloudflareTunnelManagementService = cloudflareTunnelManagementService;
     this.codeService = codeService;
     this.workDir = workDir;
+    this.supabaseClientService = supabaseClientService;
   }
 
   public registerRoutes(app: FastifyInstance): void {
@@ -99,12 +103,8 @@ export class PublicApiService {
       orchestration_token,
     } = request.body;
 
-    // Import functions dynamically to avoid circular dependency
-    const {
-      setWorkerContext,
-      createAuthenticatedSupabaseClient,
-      setSupabaseClient,
-    } = await import("../worker.js");
+    // Import setWorkerContext dynamically to avoid circular dependency
+    const { setWorkerContext } = await import("../worker.js");
 
     // Set worker context so all future requests include userId and prototypeId in logs
     setWorkerContext(userId, prototypeId);
@@ -141,8 +141,7 @@ export class PublicApiService {
 
     // Create authenticated Supabase client - fail allocation if this fails
     try {
-      const authenticatedSupabase = createAuthenticatedSupabaseClient(jwtToken);
-      setSupabaseClient(authenticatedSupabase);
+      this.supabaseClientService.refreshClientWithToken(jwtToken);
       request.log2.info("Initialized authenticated Supabase client for worker");
     } catch (supabaseError) {
       const errorMessage =
