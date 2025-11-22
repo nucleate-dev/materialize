@@ -213,8 +213,13 @@ export class ExpoDevServerService {
 
       // Use FileSyncService to fetch files and assets
       const fileSyncService = new FileSyncService(this.workDir, supabase, log2);
-      const { files, assets: assetsWithContent, errors: fetchErrors } =
-        await fileSyncService.fetchFilesAndAssetsFromSupabase(prototype_id);
+      const {
+        files,
+        assets: assetsWithContent,
+        errors: fetchErrors,
+      } = await fileSyncService.fetchAllFilesAndAssetsFromSupabaseForInitialSync(
+        prototype_id,
+      );
 
       if (fetchErrors.length > 0) {
         const errorMsg = fetchErrors.join("; ");
