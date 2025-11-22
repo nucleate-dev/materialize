@@ -1,51 +1,19 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import { ChatClientEvent, ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  InformationCircleIcon,
-  PencilIcon,
-  PhotoIcon,
-  PlusIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import type React from "react";
+import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
-type PrototypeChatSession = Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
+export type PrototypeChatSession = Database["public"]["Tables"]["prototype_chat_sessions"]["Row"];
 
-type RenderStatus =
+export type RenderStatus =
   | "Static build"
   | "Connecting.."
   | "Updating.."
@@ -88,7 +56,7 @@ interface ClaudeCodePanelProps {
   onUnregisterMessageHandler: (id: string) => void;
 }
 
-interface Message {
+export interface Message {
   id: string;
   type: "user" | "assistant" | "system" | "error" | "tool" | "thinking";
   content: string;
@@ -104,13 +72,13 @@ interface Message {
   imageUrls?: string[]; // Signed URLs for historical images
 }
 
-interface Todo {
+export interface Todo {
   content: string;
   status: "pending" | "in_progress" | "completed";
   activeForm: string;
 }
 
-interface UploadedImage {
+export interface UploadedImage {
   id: string;
   base64: string;
   mediaType: string;
@@ -149,24 +117,24 @@ export default function ClaudeCodePanel({
   const [prototypeChatSessionId, setPrototypeChatSessionId] = useState<string | null>(null); // prototype_chat_sessions.id
   const [allChatSessions, setAllChatSessions] = useState<Array<PrototypeChatSession>>([]);
   const [currentTodos, setCurrentTodos] = useState<Todo[]>([]); // Track current todo list
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const authTokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set());
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const hasProcessedChatIntent = useRef(false);
   const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isCorruptedSession, setIsCorruptedSession] = useState(false);
 
   // Helper to check if current session is the most recent
   const isCurrentSessionMostRecent = allChatSessions.length === 0 ||
-    (prototypeChatSessionId && allChatSessions[0]?.id === prototypeChatSessionId);
+    Boolean(prototypeChatSessionId && allChatSessions[0]?.id === prototypeChatSessionId);
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -1020,6 +988,16 @@ export default function ClaudeCodePanel({
         break;
       }
 
+      case ChatEvent.MODIFIED_FILES: {
+        const files =
+          (Array.isArray(message.data?.files) ? message.data.files : []) as string[];
+        if (files.length > 0) {
+          const sanitized = files.map((filePath) => sanitizeFilePath(filePath));
+          addMessage("system", `Files modified: ${sanitized.join(", ")}`);
+        }
+        break;
+      }
+
       case ChatEvent.SYNC_COMPLETE: {
         const { success, filesCount, assetsCount } = message.data;
         if (success) {
@@ -1753,623 +1731,53 @@ export default function ClaudeCodePanel({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background border rounded-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2 flex-1">
-          <span className="text-sm font-medium truncate max-w-[150px]">{prototypeTitle}</span>
-
-          {/* Session Selector */}
-          {allChatSessions.length > 0 && (
-            <Select
-              value={prototypeChatSessionId ? String(prototypeChatSessionId) : undefined}
-              onValueChange={(value) => switchChatSession(value)}
-            >
-              <SelectTrigger className="w-[180px] h-8 text-xs">
-                <SelectValue placeholder="Select session" />
-              </SelectTrigger>
-              <SelectContent>
-                {allChatSessions.map((session) => {
-                  const date = new Date(session.created_at ?? new Date());
-                  const dateStr = date.toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-                  });
-                  const timeStr = date.toLocaleTimeString(undefined, {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  });
-                  const label = `${dateStr} at ${timeStr}`;
-
-                  return (
-                    <SelectItem key={session.id} value={String(session.id)}>
-                      {label}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          )}
-
-          {/* New Chat Button */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={createNewChatSession}
-                  disabled={!isConnected}
-                  className="h-8 px-2"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New chat</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <div className="flex gap-2">
-          {/* Reconnect Button - shown when disconnected */}
-          {!isConnected &&
-            baseTunnelUrl &&
-            currentRenderStatus !== "Starting Dev Server.." && (
-              <Button
-                size="sm"
-                variant="default"
-                onClick={connect}
-              >
-                Reconnect
-              </Button>
-            )}
-          {isProcessing && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={interruptQuery}
-            >
-              Stop
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowResetConfirmation(true)}
-            disabled={!prototypeChatSessionId || isProcessing}
-          >
-            Reset
-          </Button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setShowSettingsModal(true)}
-                  variant="outline"
-                  size="sm"
-                  aria-label="Project settings"
-                >
-                  <InformationCircleIcon className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Project info</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4 relative" ref={scrollAreaRef}>
-        <div className="space-y-3">
-          {messages.length === 0 ? (
-            <div className="text-center text-muted-foreground text-sm py-8">
-
-            </div>
-          ) : (
-            <>
-
-              {messages.map((message) => (
-                <div key={message.id}>
-                  {/* User messages - keep bubble style */}
-                  {message.type === "user" && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex justify-end">
-                            <div className={`max-w-[80%] rounded-lg p-3 ${message.isQueued ? 'bg-primary/50 text-primary-foreground border-2 border-primary border-dashed' : 'bg-primary text-primary-foreground'}`}>
-                              {message.isQueued && (
-                                <div className="flex items-center gap-2 mb-2 text-xs opacity-90">
-                                  <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
-                                  <span>Queued - waiting for dev server...</span>
-                                </div>
-                              )}
-                              <pre className="whitespace-pre-wrap break-words break-all text-sm font-sans">
-                                {message.content}
-                              </pre>
-                              {/* Display historical images if available */}
-                              {message.imageUrls && message.imageUrls.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {message.imageUrls.map((imageUrl, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="relative group rounded-lg overflow-hidden border border-primary-foreground/20"
-                                    >
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={imageUrl}
-                                        alt={`Uploaded image ${idx + 1}`}
-                                        className="max-h-40 max-w-full object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                                        onClick={() => window.open(imageUrl, '_blank')}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {getRelativeTime(message.timestamp)}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-
-                  {/* Assistant messages - no bubble, just content */}
-                  {message.type === "assistant" && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="max-w-none cursor-default break-words">
-                            <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-pre:whitespace-pre-wrap prose-pre:break-words prose-pre:break-all prose-code:whitespace-pre-wrap prose-code:break-words prose-code:break-all">
-                              <ReactMarkdown
-                                components={{
-                                  // Customize code blocks - inline vs block
-                                  code: ({ className, children, ...props }) => {
-                                    // Check if it's inline code by looking at the node structure
-                                    const isInline = !className?.includes('language-');
-
-                                    // Clean up children to remove any extra backticks
-                                    let content = children;
-                                    if (typeof content === 'string') {
-                                      // Remove leading/trailing backticks that might be in the content
-                                      content = content.replace(/^`+|`+$/g, '');
-                                    }
-
-                                    if (isInline) {
-                                      return (
-                                        <code
-                                          className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono before:content-none after:content-none whitespace-pre-wrap break-words break-all"
-                                          {...props}
-                                        >
-                                          {content}
-                                        </code>
-                                      );
-                                    }
-                                    // Block code
-                                    return (
-                                      <code
-                                        className={`block bg-muted p-3 rounded my-2 font-mono text-sm whitespace-pre-wrap break-words break-all ${className || ""}`}
-                                        {...props}
-                                      >
-                                        {content}
-                                      </code>
-                                    );
-                                  },
-                                  // Customize paragraphs
-                                  p: ({ children }) => <p className="mb-2 last:mb-0 break-words">{children}</p>,
-                                  // Customize lists
-                                  ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
-                                  ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
-                                }}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {getRelativeTime(message.timestamp)}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-
-                  {/* Tool messages - sleek inline style, always blue */}
-                  {message.type === "tool" && (
-                    <div className="py-1">
-                      <div
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all ${message.status === "error"
-                          ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                          : message.status === "running"
-                            ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 animate-pulse"
-                            : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                          }`}
-                      >
-                        {message.status === "running" && (
-                          <div className="relative flex items-center justify-center">
-                            <div
-                              className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"
-                              style={{ animationDuration: "0.8s" }}
-                            />
-                          </div>
-                        )}
-                        {message.status === "success" && (
-                          <CheckIcon className="w-3 h-3" />
-                        )}
-                        {message.status === "error" && (
-                          <span className="inline-block">✗</span>
-                        )}
-                        <span>{message.content}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Thinking messages - collapsible low-opacity thoughts */}
-                  {message.type === "thinking" && (
-                    <div className="py-2 opacity-60">
-                      <div
-                        className="flex items-start gap-2 cursor-pointer"
-                        onClick={() => message.toolCallId && toggleThinkingExpanded(message.toolCallId)}
-                      >
-                        <div className="flex-shrink-0 mt-0.5">
-                          {message.toolCallId && expandedThinking.has(message.toolCallId) ? (
-                            <span className="text-xs">▼</span>
-                          ) : (
-                            <span className="text-xs">▶</span>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium italic text-muted-foreground">
-                              {message.status === "running" ? "Thinking: " : "Thought: "}
-                              {message.content}
-                            </span>
-                            {message.status === "running" && (
-                              <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
-                            )}
-                          </div>
-
-                          {/* Expandable thinking details */}
-                          {message.toolCallId && expandedThinking.has(message.toolCallId) && message.toolInput && (
-                            <div className="mt-2 p-3 bg-muted/30 rounded text-xs">
-                              {message.toolInput.prompt && (
-                                <div className="whitespace-pre-wrap font-mono text-muted-foreground">
-                                  {sanitizeFilePath(message.toolInput.prompt)}
-                                </div>
-                              )}
-                              {message.toolInput.subagent_type && (
-                                <div className="mt-2 text-xs">
-                                  <span className="font-semibold">Agent: </span>
-                                  <span className="text-muted-foreground">{message.toolInput.subagent_type}</span>
-                                </div>
-                              )}
-                              {message.toolInput.model && (
-                                <div className="text-xs">
-                                  <span className="font-semibold">Model: </span>
-                                  <span className="text-muted-foreground">{message.toolInput.model}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* System messages - subtle */}
-                  {message.type === "system" && (
-                    <div className="text-xs text-muted-foreground py-1">
-                      {message.content}
-                    </div>
-                  )}
-
-                  {/* Error messages */}
-                  {message.type === "error" && (
-                    <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-sm">
-                      {message.content}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Show "Thinking..." indicator when processing but no response received yet */}
-              {isProcessing && isConnected && !hasReceivedResponse && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-3 px-3 py-2">
-                    <div className="relative flex items-center justify-center">
-                      <div
-                        className="w-2 h-2 bg-primary rounded-full animate-pulse"
-                        style={{
-                          filter:
-                            "drop-shadow(0 0 4px hsl(var(--primary) / 0.8)) drop-shadow(0 0 8px hsl(var(--primary) / 0.5))",
-                        }}
-                      ></div>
-                      <div
-                        className="absolute inset-0 w-2 h-2 bg-primary rounded-full animate-ping opacity-50"
-                        style={{
-                          filter:
-                            "drop-shadow(0 0 6px hsl(var(--primary) / 0.9))",
-                        }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium shimmer-text">
-                      Thinking...
-                    </span>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Jump to bottom button */}
-        {showScrollToBottom && isCurrentSessionMostRecent && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={scrollToBottom}
-              className="shadow-lg border"
-            >
-              <ChevronDownIcon className="w-4 h-4 mr-1" />
-              Jump to bottom
-            </Button>
-          </div>
-        )}
-
-        {/* Old session warning banner */}
-        {!isCurrentSessionMostRecent && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-md px-4">
-            <div className="bg-yellow-500/90 text-yellow-950 dark:bg-yellow-600/90 dark:text-yellow-50 px-4 py-2 rounded-lg shadow-lg border border-yellow-600 text-sm font-medium text-center">
-              You&apos;re viewing an older conversation. Only the most recent session can receive new messages.
-            </div>
-          </div>
-        )}
-      </ScrollArea>
-
-      {/* Floating TODO Panel - shown above input when there are active todos */}
-      {currentTodos.length > 0 && currentTodos.some(t => t.status !== "completed") && isCurrentSessionMostRecent && (
-        <div className="px-3 pt-3 pb-1 border-t bg-background/95 backdrop-blur-sm">
-          <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="text-xs font-semibold">Tasks</div>
-              <div className="text-xs text-muted-foreground">
-                {currentTodos.filter(t => t.status === "completed").length} of {currentTodos.length} completed
-              </div>
-            </div>
-            <div className="space-y-1.5 max-h-32 overflow-y-auto">
-              {currentTodos.map((todo, index) => (
-                <div
-                  key={`todo-${index}`}
-                  className={`flex items-start gap-2 text-xs transition-opacity duration-500 ${todo.status === "completed" ? "opacity-40" : "opacity-100"
-                    }`}
-                >
-                  {/* Status icon */}
-                  <div className="flex-shrink-0 mt-0.5">
-                    {todo.status === "completed" && (
-                      <CheckIcon className="w-3 h-3 text-green-600 dark:text-green-400" />
-                    )}
-                    {todo.status === "in_progress" && (
-                      <div
-                        className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
-                        style={{ animationDuration: "0.8s" }}
-                      />
-                    )}
-                    {todo.status === "pending" && (
-                      <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />
-                    )}
-                  </div>
-                  {/* Todo text */}
-                  <div className={`flex-1 ${todo.status === "completed" ? "line-through" : ""}`}>
-                    {todo.status === "in_progress" ? todo.activeForm : todo.content}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="p-3 border-t">
-        {/* Image previews */}
-        {uploadedImages.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {uploadedImages.map((image) => (
-              <div
-                key={image.id}
-                className="relative group rounded-lg overflow-hidden border border-border"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`data:${image.mediaType};base64,${image.base64}`}
-                  alt={image.name}
-                  className="h-20 w-20 object-cover"
-                />
-                <button
-                  onClick={() => removeImage(image.id)}
-                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Remove image"
-                >
-                  <XMarkIcon className="w-3 h-3" />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 truncate">
-                  {image.name}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleImageSelect}
-            className="hidden"
-          />
-
-          {/* Image upload button */}
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing || !isCurrentSessionMostRecent}
-            title={!isCurrentSessionMostRecent ? "Cannot add images to old sessions" : "Add images"}
-          >
-            <PhotoIcon className="w-5 h-5" />
-          </Button>
-
-          <Textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder={
-              !isCurrentSessionMostRecent
-                ? "Cannot send messages to old sessions"
-                : "Ask anything..."
-            }
-            disabled={isProcessing || !isCurrentSessionMostRecent}
-            className="flex-1 resize-none overflow-y-auto"
-            rows={1}
-            style={{ minHeight: 'auto' }}
-          />
-          <Button
-            onClick={sendQuery}
-            disabled={(!inputValue.trim() && uploadedImages.length === 0) || isProcessing || !isCurrentSessionMostRecent}
-          >
-            {isProcessing ? "..." : "Send"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Prototype Settings Modal */}
-      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Project Info</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Name Editing */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Name</label>
-              {isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedTitle}
-                    onChange={(event) => setEditedTitle(event.target.value)}
-                    className="flex-1"
-                    autoFocus
-                    disabled={isUpdatingTitle}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleSaveTitle();
-                      } else if (event.key === "Escape") {
-                        handleCancelTitleEdit();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="icon"
-                    onClick={handleSaveTitle}
-                    disabled={isUpdatingTitle || !editedTitle.trim()}
-                    className="h-9 w-9"
-                  >
-                    {isUpdatingTitle ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <CheckIcon className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={handleCancelTitleEdit}
-                    disabled={isUpdatingTitle}
-                    className="h-9 w-9"
-                  >
-                    <XMarkIcon className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <p className="text-sm flex-1">{prototypeTitle}</p>
-                  {canEditName && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleStartTitleEdit}
-                      className="h-8 w-8"
-                      title="Edit prototype name"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Visibility Status */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Visibility</label>
-              <div>
-                <Badge variant="outline" className="uppercase tracking-wide">
-                  {visibilityLabel}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Created Date */}
-            {createdAtLabel && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Created</label>
-                <p className="text-sm text-muted-foreground">
-                  {createdAtLabel}
-                </p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reset Confirmation Modal */}
-      <Dialog open={showResetConfirmation} onOpenChange={setShowResetConfirmation}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reset Session?</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This will permanently delete all messages in the current conversation and start a fresh session. This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowResetConfirmation(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  setShowResetConfirmation(false);
-                  resetSession();
-                }}
-              >
-                Reset Session
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+    <ClaudeCodePanelUI
+      prototypeTitle={prototypeTitle}
+      visibilityLabel={visibilityLabel}
+      createdAtLabel={createdAtLabel}
+      canEditName={canEditName}
+      isEditingTitle={isEditingTitle}
+      editedTitle={editedTitle}
+      isUpdatingTitle={isUpdatingTitle}
+      showSettingsModal={showSettingsModal}
+      setShowSettingsModal={setShowSettingsModal}
+      showResetConfirmation={showResetConfirmation}
+      setShowResetConfirmation={setShowResetConfirmation}
+      allChatSessions={allChatSessions}
+      prototypeChatSessionId={prototypeChatSessionId}
+      isConnected={isConnected}
+      isProcessing={isProcessing}
+      baseTunnelUrl={baseTunnelUrl}
+      currentRenderStatus={currentRenderStatus}
+      messages={messages}
+      expandedThinking={expandedThinking}
+      currentTodos={currentTodos}
+      uploadedImages={uploadedImages}
+      inputValue={inputValue}
+      hasReceivedResponse={hasReceivedResponse}
+      showScrollToBottom={showScrollToBottom}
+      isCurrentSessionMostRecent={isCurrentSessionMostRecent}
+      scrollAreaRef={scrollAreaRef}
+      fileInputRef={fileInputRef}
+      textareaRef={textareaRef}
+      handleStartTitleEdit={handleStartTitleEdit}
+      handleCancelTitleEdit={handleCancelTitleEdit}
+      handleSaveTitle={handleSaveTitle}
+      setEditedTitle={setEditedTitle}
+      switchChatSession={switchChatSession}
+      createNewChatSession={createNewChatSession}
+      connect={connect}
+      interruptQuery={interruptQuery}
+      toggleThinkingExpanded={toggleThinkingExpanded}
+      getRelativeTime={getRelativeTime}
+      sanitizeFilePath={sanitizeFilePath}
+      removeImage={removeImage}
+      handleImageSelect={handleImageSelect}
+      setInputValue={setInputValue}
+      handleKeyPress={handleKeyPress}
+      sendQuery={sendQuery}
+      resetSession={resetSession}
+      scrollToBottom={scrollToBottom}
+    />
   );
 }

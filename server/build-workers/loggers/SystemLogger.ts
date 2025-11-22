@@ -153,6 +153,42 @@ export class SystemLogger {
     this.info(`event:${name}`, { event: name, ...fields });
   }
 
+  /**
+   * Emit LLM token usage metrics to CloudWatch via EMF.
+   * WARNING: Only use low-cardinality dimensions (model, intent) to avoid high costs.
+   * DO NOT add userId or prototypeId as dimensions - they're already in log context for searching.
+   */
+  metricTokenUsage(
+    modelName: string,
+    inputTokens: number,
+    outputTokens: number,
+    extraDims: Record<string, string> = {},
+  ): void {
+    // Also log as structured data for CloudWatch Logs Insights queries
+    this.info("LLM token usage", {
+      model: modelName,
+      inputTokens,
+      outputTokens,
+      ...extraDims,
+    });
+
+    // Emit EMF metrics for CloudWatch dashboards/alarms
+    this.emitEMF(
+      [
+        { Name: "LLM_InputTokens", Unit: "Count" },
+        { Name: "LLM_OutputTokens", Unit: "Count" },
+      ],
+      {
+        LLM_InputTokens: inputTokens,
+        LLM_OutputTokens: outputTokens,
+      },
+      {
+        model: modelName,
+        ...extraDims,
+      },
+    );
+  }
+
   consoleLogDevOnly(
     level: LogLevel,
     message: string,

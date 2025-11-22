@@ -1,12 +1,22 @@
 "use client";
 
+import { cn } from "@/lib/classNames"; // Assuming you have a standard cn utility
 import { Database } from "@/lib/types/supabase";
 import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  FolderIcon,
-  FolderOpenIcon,
-} from "@heroicons/react/24/outline";
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  File,
+  FileCode,
+  FileJson,
+  FileText,
+  Film,
+  Folder,
+  FolderOpen,
+  Image,
+  Music,
+  Type,
+} from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 interface FileNode {
@@ -35,7 +45,7 @@ const FileTree: React.FC<FileTreeProps> = ({
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set([""]),
-  ); // Root is expanded by default
+  );
 
   // Convert flat files object to tree structure
   const fileTree = useMemo(() => {
@@ -46,7 +56,6 @@ const FileTree: React.FC<FileTreeProps> = ({
       children: [],
     };
 
-    // Helper function to create folder structure and add items
     const addItemToTree = (
       itemPath: string,
       itemType: "file" | "asset",
@@ -55,14 +64,11 @@ const FileTree: React.FC<FileTreeProps> = ({
       const parts = itemPath.split("/");
       let currentNode = root;
 
-      // Create folder structure
       for (let i = 0; i < parts.length - 1; i++) {
         const folderName = parts[i];
         const folderPath = parts.slice(0, i + 1).join("/");
 
-        if (!currentNode.children) {
-          currentNode.children = [];
-        }
+        if (!currentNode.children) currentNode.children = [];
 
         let folderNode = currentNode.children.find(
           (child) => child.name === folderName && child.type === "folder",
@@ -77,15 +83,11 @@ const FileTree: React.FC<FileTreeProps> = ({
           };
           currentNode.children.push(folderNode);
         }
-
         currentNode = folderNode;
       }
 
-      // Add the item (file or asset)
       const itemName = parts[parts.length - 1];
-      if (!currentNode.children) {
-        currentNode.children = [];
-      }
+      if (!currentNode.children) currentNode.children = [];
 
       currentNode.children.push({
         name: itemName,
@@ -95,24 +97,19 @@ const FileTree: React.FC<FileTreeProps> = ({
       });
     };
 
-    // Add all files
     Object.keys(files).forEach((filePath) => {
       addItemToTree(filePath, "file", files[filePath].contents || undefined);
     });
 
-    // Add all assets
     Object.keys(assets).forEach((assetPath) => {
       addItemToTree(assetPath, "asset");
     });
 
-    // Sort children: folders first, then files and assets, all alphabetically
     const sortChildren = (node: FileNode) => {
       if (node.children) {
         node.children.sort((a, b) => {
-          // Folders always come first
           if (a.type === "folder" && b.type !== "folder") return -1;
           if (a.type !== "folder" && b.type === "folder") return 1;
-          // Then sort alphabetically within each type
           return a.name.localeCompare(b.name);
         });
         node.children.forEach(sortChildren);
@@ -135,14 +132,15 @@ const FileTree: React.FC<FileTreeProps> = ({
     });
   };
 
+  // --- Icon Logic (Lucide) ---
   const getFileIcon = (
     fileName: string,
     nodeType: "file" | "asset" = "file",
   ) => {
     const ext = fileName.split(".").pop()?.toLowerCase();
+    const className = "w-4 h-4";
 
     if (nodeType === "asset") {
-      // Asset-specific icons
       switch (ext) {
         case "png":
         case "jpg":
@@ -151,80 +149,92 @@ const FileTree: React.FC<FileTreeProps> = ({
         case "svg":
         case "webp":
         case "ico":
-          return "🖼️";
+          return <Image className={className} />;
         case "mp3":
         case "wav":
         case "ogg":
         case "m4a":
-          return "🎵";
+          return <Music className={className} />;
         case "mp4":
         case "mov":
         case "avi":
         case "webm":
-          return "🎬";
+          return <Film className={className} />;
         case "pdf":
-          return "📑";
+          return <FileText className={className} />;
         case "zip":
         case "tar":
         case "gz":
-          return "📦";
+          return <Archive className={className} />;
         case "ttf":
         case "otf":
         case "woff":
         case "woff2":
-          return "🔤";
+          return <Type className={className} />;
         default:
-          return "📎"; // Generic asset icon
+          return <File className={className} />;
       }
     }
 
-    // File-specific icons
     switch (ext) {
       case "js":
       case "jsx":
-        return "📄";
       case "ts":
       case "tsx":
-        return "🔷";
+        return <FileCode className={className} />;
       case "json":
-        return "📋";
+        return <FileJson className={className} />;
       case "md":
-        return "📝";
+      case "txt":
+        return <FileText className={className} />;
       case "css":
-        return "🎨";
       case "html":
-        return "🌐";
+        return <FileCode className={className} />; // Or generic code
       default:
-        return "📄";
+        return <File className={className} />;
     }
   };
 
   const renderNode = (node: FileNode, depth: number = 0) => {
     const isExpanded = expandedFolders.has(node.path);
     const isSelected = selectedFile === node.path;
+    const paddingLeft = depth * 12 + 12;
 
     if (node.type === "folder") {
       return (
         <div key={node.path}>
           <div
-            className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200`}
-            style={{ paddingLeft: `${depth * 16 + 8}px` }}
+            className={cn(
+              "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-colors duration-200 group select-none",
+              // Folder Hover State
+              "hover:bg-white/5",
+              // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
+              isExpanded ? "text-white" : "text-[#8A8F98] hover:text-white"
+            )}
+            style={{ paddingLeft: `${paddingLeft}px` }}
             onClick={() => toggleFolder(node.path)}
           >
-            {isExpanded ? (
-              <ChevronDownIcon className="h-4 w-4 text-body dark:text-bodydark mr-1" />
-            ) : (
-              <ChevronRightIcon className="h-4 w-4 text-body dark:text-bodydark mr-1" />
-            )}
-            {isExpanded ? (
-              <FolderOpenIcon className="h-4 w-4 text-primary mr-2" />
-            ) : (
-              <FolderIcon className="h-4 w-4 text-primary mr-2" />
-            )}
-            <span className="text-sm font-medium text-black dark:text-white">
+            <span className="mr-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+              {isExpanded ? (
+                <ChevronDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5" />
+              )}
+            </span>
+
+            <span className="mr-2 text-indigo-400/80 group-hover:text-indigo-400 transition-colors">
+              {isExpanded ? (
+                <FolderOpen className="w-4 h-4" />
+              ) : (
+                <Folder className="w-4 h-4" />
+              )}
+            </span>
+
+            <span className="text-xs font-medium tracking-tight truncate">
               {node.name}
             </span>
           </div>
+
           {isExpanded && node.children && (
             <div>
               {node.children.map((child) => renderNode(child, depth + 1))}
@@ -233,33 +243,33 @@ const FileTree: React.FC<FileTreeProps> = ({
         </div>
       );
     } else {
-      // Handle both files and assets
+      // --- File / Asset Node ---
       return (
         <div
           key={node.path}
-          className={`flex items-center py-2 px-2 hover:bg-white/40 dark:hover:bg-boxdark/40 cursor-pointer rounded-md mx-1 transition-all duration-200 ${
-            isSelected
-              ? "bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20"
-              : ""
-          }`}
-          style={{ paddingLeft: `${depth * 16 + 24}px` }}
           onClick={() => onFileSelect(node.path)}
+          className={cn(
+            "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-all duration-200 select-none",
+            isSelected
+              ? "bg-indigo-500/10 text-indigo-300"
+              : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+          )}
+          style={{ paddingLeft: `${paddingLeft + 18}px` }} // +18 to align with folder text, skipping arrows
         >
-          <span className="mr-2 text-sm">
+          <span className={cn(
+            "mr-2 transition-colors",
+            isSelected ? "text-indigo-400" : "text-white/30 group-hover:text-white/60"
+          )}>
             {getFileIcon(node.name, node.type === "asset" ? "asset" : "file")}
           </span>
-          <span
-            className={`text-sm ${
-              isSelected
-                ? "text-primary dark:text-primary font-semibold"
-                : "text-black dark:text-white font-medium"
-            } ${node.type === "asset" ? "italic" : ""}`}
-          >
+
+          <span className="text-xs font-medium truncate tracking-tight">
             {node.name}
           </span>
+
           {node.type === "asset" && (
-            <span className="ml-1 text-xs text-body/60 dark:text-bodydark/60">
-              (asset)
+            <span className="ml-2 text-[10px] uppercase tracking-wider text-white/20">
+              Asset
             </span>
           )}
         </div>
@@ -268,23 +278,29 @@ const FileTree: React.FC<FileTreeProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-transparent">
-      <div className="flex items-center justify-between p-3 bg-white/40 dark:bg-boxdark/40 border-b border-white/20 dark:border-strokedark/30">
-        <h3 className="text-sm font-semibold text-black dark:text-white">
-          Project Files
+    <div className="h-full flex flex-col bg-[#0B0C0E] border-r border-white/5">
+      {/* --- Header --- */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.02]">
+        <h3 className="text-xs font-semibold text-white/90 uppercase tracking-widest">
+          Explorer
         </h3>
-        <span className="text-xs text-body dark:text-bodydark font-medium">
-          {Object.keys(files).length} files, {Object.keys(assets).length} assets
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-white/30 font-mono">
+            {Object.keys(files).length + Object.keys(assets).length} items
+          </span>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
+
+      {/* --- Tree Content --- */}
+      <div className="flex-1 overflow-y-auto py-2 px-2 custom-scrollbar">
         {fileTree.length > 0 ? (
-          <div className="py-2">
-            {fileTree.map((node) => renderNode(node, 0))}
-          </div>
+          fileTree.map((node) => renderNode(node, 0))
         ) : (
-          <div className="p-4 text-center text-body dark:text-bodydark text-sm">
-            No files to display
+          <div className="flex flex-col items-center justify-center h-40 text-center px-4">
+            <FolderOpen className="w-8 h-8 text-white/10 mb-2" />
+            <p className="text-xs text-white/30">
+              No files in this project
+            </p>
           </div>
         )}
       </div>

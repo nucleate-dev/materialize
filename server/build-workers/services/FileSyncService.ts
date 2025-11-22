@@ -184,7 +184,10 @@ export class FileSyncService {
 
         if (entry.isDirectory()) {
           // Recursively scan subdirectories
-          const subFiles = await this.scanDirectory(entryPath, entryRelativePath);
+          const subFiles = await this.scanDirectory(
+            entryPath,
+            entryRelativePath,
+          );
           files.push(...subFiles);
         } else if (entry.isFile()) {
           // Add file to list
@@ -403,7 +406,7 @@ export class FileSyncService {
             const contents = await fs.readFile(fullPath, "utf8");
 
             // Retry logic for upsert
-            let retries = 3;
+            let retries = 0;
             while (retries > 0) {
               const { error } = await this.supabaseClient
                 .from("prototype_files")
@@ -424,11 +427,15 @@ export class FileSyncService {
                 break;
               }
 
+              const attempt = 4 - retries;
+              this.logger.error(error, "Failed to upsert file to database", {
+                path: filePath,
+                attempt,
+                retriesRemaining: retries - 1,
+              });
+
               retries--;
               if (retries === 0) {
-                this.logger.error(error, "Failed to upsert file to database", {
-                  path: filePath,
-                });
                 result.errors.push(
                   `Failed to upsert file ${filePath}: ${error.message}`,
                 );

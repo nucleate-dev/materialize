@@ -72,6 +72,7 @@ interface CodeSessionState {
   lastActiveAt: number;
   abortController: AbortController | null;
   trackedFiles: Set<string>; // Track files that were modified during the session
+  modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   fileWatcher: FSWatcher | null; // File system watcher for tracking changes
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
@@ -183,6 +184,7 @@ export class CodeService {
     lastActiveAt: 0,
     abortController: null,
     trackedFiles: new Set<string>(),
+    modifiedFilesThisQuery: new Set<string>(),
     fileWatcher: null,
     designSystemId: null,
     designSystemRules: null,
@@ -1022,17 +1024,11 @@ export class CodeService {
                             // Apply shared permissions and group ownership
                             this.applySharedPermissions(filePath, "file");
 
-                            // Track file changes (only for incremental sync)
+                            const relativePath = this.getRelativePath(filePath);
+
+                            // Track for incremental sync (legacy mode)
                             if (!ENABLE_FULL_SYNC) {
-                              // Convert to relative path from workDir
-                              const relativePath = filePath.startsWith(
-                                this.workDir,
-                              )
-                                ? filePath.slice(this.workDir.length + 1)
-                                : filePath;
-
                               this.sessionState.trackedFiles.add(relativePath);
-
                               this.logger.info(
                                 "File tracked for sync (incremental)",
                                 {
@@ -1043,6 +1039,11 @@ export class CodeService {
                                 },
                               );
                             }
+
+                            // Track for query-level reporting
+                            this.sessionState.modifiedFilesThisQuery.add(
+                              relativePath,
+                            );
                           }
                         }
 
@@ -1145,6 +1146,7 @@ export class CodeService {
 
         // Buffer for assistant message text (to persist at the end)
         let assistantMessageBuffer = "";
+        let tokenUsageLogged = false;
 
         for await (const msg of response) {
           // Capture session ID from init message
@@ -1221,6 +1223,30 @@ export class CodeService {
                   assistantMessageBuffer += content.text;
                 }
               }
+            }
+          }
+
+          // Log token usage once when the final result message arrives
+          if (msg.type === "result" && !tokenUsageLogged) {
+            try {
+              const { usage, subtype } = msg;
+              const inputTokens = usage?.input_tokens ?? 0;
+              const outputTokens = usage?.output_tokens ?? 0;
+
+              this.logger.metricTokenUsage(
+                queryOptions.model ?? "unknown",
+                inputTokens,
+                outputTokens,
+                { intent: "claude_code_sdk", outcome: subtype },
+              );
+              tokenUsageLogged = true;
+            } catch (logError) {
+              this.logger.error(
+                logError instanceof Error
+                  ? logError
+                  : new Error(String(logError)),
+                "Failed to log token usage",
+              );
             }
           }
 
@@ -1394,6 +1420,28 @@ export class CodeService {
           },
         });
       }
+
+      // Emit list of files modified by tools during this query
+      const modifiedFiles = Array.from(
+        this.sessionState.modifiedFilesThisQuery,
+      );
+      if (modifiedFiles.length > 0) {
+        try {
+          this.sendMessage(socket, {
+            type: ChatEvent.MODIFIED_FILES,
+            data: { files: modifiedFiles },
+          });
+        } catch (modifiedFilesError) {
+          this.logger.error(
+            modifiedFilesError instanceof Error
+              ? modifiedFilesError
+              : new Error(String(modifiedFilesError)),
+            "Failed to send modified files event",
+            { prototypeId },
+          );
+        }
+      }
+      this.sessionState.modifiedFilesThisQuery.clear();
 
       // ------------------------------------------------------------------------------------------------
       // Track API usage
@@ -1625,6 +1673,7 @@ export class CodeService {
       fileWatcher: null,
       designSystemId: null,
       designSystemRules: null,
+      modifiedFilesThisQuery: new Set<string>(),
     };
 
     this.sendMessage(socket, {
@@ -2714,6 +2763,7 @@ export class CodeService {
       fileWatcher: null,
       designSystemId: null,
       designSystemRules: null,
+      modifiedFilesThisQuery: new Set<string>(),
     };
 
     this.logger.info("CodeService shutdown complete");
