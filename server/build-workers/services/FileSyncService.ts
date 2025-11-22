@@ -135,12 +135,19 @@ export class FileSyncService {
       const deletedFiles: string[] = []; // No deletions in full sync
 
       // Process all files
-      await this.processChangedFiles(
-        modifiedFiles,
-        deletedFiles,
-        prototypeId,
-        result,
-      );
+      // Separate modified files by type
+      const textFiles: string[] = [];
+      const binaryFiles: string[] = [];
+      for (const filePath of modifiedFiles) {
+        if (this.isBinaryFile(filePath)) {
+          binaryFiles.push(filePath);
+        } else {
+          textFiles.push(filePath);
+        }
+      }
+      await this.processDeletions(deletedFiles, prototypeId, result);
+      await this.processTextFiles(textFiles, prototypeId, result);
+      await this.processBinaryFiles(binaryFiles, prototypeId, result);
 
       // Set success to false if any individual file operations failed
       if (result.errors.length > 0) {
@@ -275,12 +282,21 @@ export class FileSyncService {
       }
 
       // Process each changed file
-      await this.processChangedFiles(
-        modifiedFiles,
-        deletedFiles,
-        prototypeId,
-        result,
-      );
+      // Separate modified files by type
+      const textFiles: string[] = [];
+      const binaryFiles: string[] = [];
+      for (const filePath of modifiedFiles) {
+        if (this.isBinaryFile(filePath)) {
+          binaryFiles.push(filePath);
+        } else {
+          textFiles.push(filePath);
+        }
+      }
+
+      // Process files (parallel with concurrency limit)
+      await this.processDeletions(deletedFiles, prototypeId, result);
+      await this.processTextFiles(textFiles, prototypeId, result);
+      await this.processBinaryFiles(binaryFiles, prototypeId, result);
 
       // Set success to false if any individual file operations failed
       if (result.errors.length > 0) {
@@ -297,37 +313,6 @@ export class FileSyncService {
       result.success = false;
       return result;
     }
-  }
-
-  /**
-   * Process all changed files and sync to Supabase
-   */
-  private async processChangedFiles(
-    modifiedFiles: string[],
-    deletedFiles: string[],
-    prototypeId: string,
-    result: SyncResult,
-  ): Promise<void> {
-    // Separate modified files by type
-    const textFiles: string[] = [];
-    const binaryFiles: string[] = [];
-
-    for (const filePath of modifiedFiles) {
-      if (this.isBinaryFile(filePath)) {
-        binaryFiles.push(filePath);
-      } else {
-        textFiles.push(filePath);
-      }
-    }
-
-    // Process deletions first
-    await this.processDeletions(deletedFiles, prototypeId, result);
-
-    // Process text files (parallel with concurrency limit)
-    await this.processTextFiles(textFiles, prototypeId, result);
-
-    // Process binary assets (parallel with concurrency limit)
-    await this.processBinaryFiles(binaryFiles, prototypeId, result);
   }
 
   /**
@@ -751,7 +736,9 @@ export class FileSyncService {
   private async fetchAssetMetadataInBatches(
     prototypeId: string,
     errors: string[],
-  ): Promise<Array<{ prototype_id: string; name: string; storage_url: string }>> {
+  ): Promise<
+    Array<{ prototype_id: string; name: string; storage_url: string }>
+  > {
     const allAssets: Array<{
       prototype_id: string;
       name: string;
@@ -821,7 +808,11 @@ export class FileSyncService {
    * Downloads assets from Supabase storage with controlled concurrency
    */
   private async downloadAssetsInBatches(
-    assetMetadata: Array<{ prototype_id: string; name: string; storage_url: string }>,
+    assetMetadata: Array<{
+      prototype_id: string;
+      name: string;
+      storage_url: string;
+    }>,
     errors: string[],
   ): Promise<PrototypeAssetInputWithContent[]> {
     const allAssetsWithContent: PrototypeAssetInputWithContent[] = [];
@@ -856,9 +847,7 @@ export class FileSyncService {
               }
 
               const arrayBuffer = await data.arrayBuffer();
-              const base64Content = Buffer.from(arrayBuffer).toString(
-                "base64",
-              );
+              const base64Content = Buffer.from(arrayBuffer).toString("base64");
 
               return {
                 ...asset,
