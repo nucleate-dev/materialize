@@ -5,6 +5,7 @@ import { SystemLogger } from "../loggers/SystemLogger.js";
 import { Database } from "../types/supabase.js";
 import {
   PrototypeFileInput,
+  PrototypeAssetInput,
   PrototypeAssetInputWithContent,
 } from "../types/BuildWorkerTypes.js";
 
@@ -736,14 +737,8 @@ export class FileSyncService {
   private async fetchAssetMetadataInBatches(
     prototypeId: string,
     errors: string[],
-  ): Promise<
-    Array<{ prototype_id: string; name: string; storage_url: string }>
-  > {
-    const allAssets: Array<{
-      prototype_id: string;
-      name: string;
-      storage_url: string;
-    }> = [];
+  ): Promise<PrototypeAssetInput[]> {
+    const allAssets: PrototypeAssetInput[] = [];
     let offset = 0;
     let hasMore = true;
 
@@ -808,11 +803,7 @@ export class FileSyncService {
    * Downloads assets from Supabase storage with controlled concurrency
    */
   private async downloadAssetsInBatches(
-    assetMetadata: Array<{
-      prototype_id: string;
-      name: string;
-      storage_url: string;
-    }>,
+    assetMetadata: PrototypeAssetInput[],
     errors: string[],
   ): Promise<PrototypeAssetInputWithContent[]> {
     const allAssetsWithContent: PrototypeAssetInputWithContent[] = [];
