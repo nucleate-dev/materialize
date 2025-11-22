@@ -37,6 +37,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
 import { sidebarOpenAtom } from "@/lib/atoms/sidebar";
+import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import {
@@ -51,14 +52,18 @@ import {
   type StartDevServerSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
-import {
-  ChatBubbleLeftRightIcon,
-  ClipboardDocumentIcon,
-  CodeBracketIcon,
-  DevicePhoneMobileIcon,
-  FolderIcon,
-} from "@heroicons/react/24/outline";
 import { useSetAtom } from "jotai";
+import {
+  Code2,
+  Copy,
+  Folder,
+  Globe,
+  Loader2,
+  Lock,
+  MessageSquare,
+  Share2,
+  Smartphone
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -338,8 +343,6 @@ export default function InternalPrototypePage() {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // USE EFFECT PURPOSE: to fetch prototype and start dev server
-  // DO NOT SPLIT THIS USEEFFECT HOOK. Race conditions will fuck up the badge status.
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
 
@@ -457,7 +460,6 @@ export default function InternalPrototypePage() {
         > = await response.json();
         if (!result.data || !result.data.viewing_url) return;
 
-        // Update viewing URL and terminal URL if provided
         setViewingUrl(result.data.viewing_url);
         if (result.data.terminal_url) {
           setBaseTunnelUrl(result.data.terminal_url);
@@ -471,18 +473,14 @@ export default function InternalPrototypePage() {
     }
 
     if (prototypeId && shouldTriggerInitialFetch) {
-      // Clear existing timer
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
-
-      // Set new debounced timer -- THIS IS NECESSARY TO PREVENT MULTIPLE REQUESTS FROM BEING SENT TO THE SERVER ON PAGE LOAD
       debounceTimer = setTimeout(() => {
         fetchPrototypeAndStartDevServer();
       }, 500);
     }
 
-    // Cleanup function
     return () => {
       if (debounceTimer) {
         clearTimeout(debounceTimer);
@@ -497,7 +495,6 @@ export default function InternalPrototypePage() {
     baseTunnelUrl,
   ]);
 
-  // USE EFFECT PURPOSE: to poll the fetch viewing url endpoint in case build status changes
   useEffect(() => {
     let pollTimer: NodeJS.Timeout | null = null;
 
@@ -540,11 +537,10 @@ export default function InternalPrototypePage() {
             return;
           }
           if (
-            data.data.viewing_url !== viewingUrl // this is important because otherwise we want to maintain the badge status from elsewhere
+            data.data.viewing_url !== viewingUrl
           ) {
             setViewingUrl(data.data.viewing_url);
 
-            // Determine new status based on response
             let newStatus: RenderStatus;
             if (data.data.source === "editable_instance") {
               newStatus = "Connecting..";
@@ -555,12 +551,11 @@ export default function InternalPrototypePage() {
               return;
             }
             setCurrentRenderStatus(newStatus);
-            // Reset timer with new interval for the new status
             const newInterval = getIntervalForStatus(newStatus);
             if (pollTimer && newInterval !== pollInterval) {
               clearInterval(pollTimer);
               pollTimer = setInterval(doPoll, newInterval);
-              pollInterval = newInterval; // Update the local variable
+              pollInterval = newInterval;
             }
           }
           if (
@@ -576,13 +571,11 @@ export default function InternalPrototypePage() {
         }
       };
 
-      // Start polling with the determined interval
       pollTimer = setInterval(doPoll, pollInterval);
     }
 
     pollFetchViewingUrl();
 
-    // Cleanup function
     return () => {
       if (pollTimer) {
         clearInterval(pollTimer);
@@ -699,7 +692,6 @@ export default function InternalPrototypePage() {
       > = await response.json();
 
       if (result.data) {
-        // Navigate to the new prototype
         window.location.href = `/dashboard/projects/${result.data.prototype_id}`;
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
         setShowCloneUpsellModal(true);
@@ -723,7 +715,6 @@ export default function InternalPrototypePage() {
 
     setIsCopying(true);
     try {
-      // If not public, make it public first
       if (!isPublic) {
         await supabase
           .from("prototypes")
@@ -738,7 +729,6 @@ export default function InternalPrototypePage() {
 
       await navigator.clipboard.writeText(window.location.href);
 
-      // Close modal after successful copy
       setTimeout(() => {
         setShowShareModal(false);
       }, 1000);
@@ -754,8 +744,6 @@ export default function InternalPrototypePage() {
 
   const handleVisibilityToggle = async (checked: boolean) => {
     if (!prototype) return;
-
-    // Prevent free users from making prototypes private
     if (!checked && userPlan !== "pro") {
       return;
     }
@@ -789,27 +777,33 @@ export default function InternalPrototypePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#0B0C0E] text-white">
       {/* Mobile Panel Toggle */}
       {isMobile && (
-        <div className="bg-background border-b border-border p-2">
+        <div className="bg-[#141517] border-b border-white/5 p-2">
           <div className="flex items-center justify-center space-x-2">
             <Button
               variant={activePanel === "chat" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActivePanel("chat")}
-              className="flex items-center gap-2"
+              className={cn(
+                "flex items-center gap-2 transition-all",
+                activePanel === "chat" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white hover:bg-white/10"
+              )}
             >
-              <ChatBubbleLeftRightIcon className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4" />
               Chat
             </Button>
             <Button
               variant={activePanel === "preview" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActivePanel("preview")}
-              className="flex items-center gap-2"
+              className={cn(
+                "flex items-center gap-2 transition-all",
+                activePanel === "preview" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white hover:bg-white/10"
+              )}
             >
-              <DevicePhoneMobileIcon className="w-4 h-4" />
+              <Smartphone className="w-4 h-4" />
               Preview
             </Button>
           </div>
@@ -829,7 +823,7 @@ export default function InternalPrototypePage() {
           className={`${isMobile
             ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
             : "flex"
-            } flex-col relative z-10 bg-background overflow-hidden`}
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? { height: "100%" }
@@ -847,11 +841,9 @@ export default function InternalPrototypePage() {
               currentRenderStatus={currentRenderStatus}
               currentViewingPath={currentViewingPath}
               onFileSyncComplete={() => {
-                // Reload files and assets from database when Claude Code finishes syncing
                 fileSystem.loadFilesFromDatabase(prototypeId);
                 fileSystem.loadAssetsFromDatabase(prototypeId);
               }}
-              // Pass external WebSocket management
               externalWS={claudeCodeWS}
               externalWSConnected={claudeCodeWSConnected}
               externalWSConnecting={claudeCodeWSConnecting}
@@ -873,12 +865,12 @@ export default function InternalPrototypePage() {
         {/* Draggable Divider - Only show on desktop */}
         {!isMobile && (
           <div
-            className="relative w-1 cursor-col-resize hover:bg-primary/50 transition-colors group flex-shrink-0"
+            className="relative w-[1px] cursor-col-resize hover:bg-indigo-500/50 transition-colors group flex-shrink-0 bg-white/5"
             onMouseDown={handleDividerMouseDown}
             style={{ zIndex: 20 }}
           >
-            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-primary/20" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-12 bg-border group-hover:bg-primary rounded-full transition-colors" />
+            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-indigo-500/0" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-transparent group-hover:bg-indigo-500 rounded-full transition-colors opacity-0 group-hover:opacity-100" />
           </div>
         )}
 
@@ -887,7 +879,7 @@ export default function InternalPrototypePage() {
           className={`${isMobile
             ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
             : "flex"
-            } flex-col relative z-10 bg-background overflow-hidden`}
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? {}
@@ -929,17 +921,20 @@ export default function InternalPrototypePage() {
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (
                     <>
-                      <div className="bg-background border-b border-border p-2">
+                      <div className="bg-[#141517] border-b border-white/5 p-2">
                         <div className="flex items-center justify-center gap-2">
                           <Button
                             variant={
                               mobileCodeView === "filetree" ? "default" : "ghost"
                             }
                             size="sm"
-                            className="flex items-center gap-2"
+                            className={cn(
+                              "flex items-center gap-2",
+                              mobileCodeView === "filetree" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white"
+                            )}
                             onClick={() => setMobileCodeView("filetree")}
                           >
-                            <FolderIcon className="h-4 w-4" />
+                            <Folder className="h-4 w-4" />
                             File Tree
                           </Button>
                           <Button
@@ -947,17 +942,20 @@ export default function InternalPrototypePage() {
                               mobileCodeView === "editor" ? "default" : "ghost"
                             }
                             size="sm"
-                            className="flex items-center gap-2"
+                            className={cn(
+                              "flex items-center gap-2",
+                              mobileCodeView === "editor" ? "bg-white text-black" : "text-[#8A8F98] hover:text-white"
+                            )}
                             onClick={() => setMobileCodeView("editor")}
                           >
-                            <CodeBracketIcon className="h-4 w-4" />
+                            <Code2 className="h-4 w-4" />
                             Code Editor
                           </Button>
                         </div>
                       </div>
                       <div className="flex-1 min-h-0">
                         {mobileCodeView === "filetree" ? (
-                          <div className="h-full overflow-auto border-b border-border">
+                          <div className="h-full overflow-auto border-b border-white/5 bg-[#0B0C0E]">
                             <FileTree
                               files={fileSystem.state.files}
                               assets={Object.fromEntries(
@@ -976,7 +974,7 @@ export default function InternalPrototypePage() {
                             />
                           </div>
                         ) : (
-                          <div className="h-full">
+                          <div className="h-full bg-[#0B0C0E]">
                             <CodeEditor
                               fileSystem={fileSystem}
                               prototypeId={prototypeId}
@@ -990,7 +988,7 @@ export default function InternalPrototypePage() {
                     </>
                   ) : (
                     <>
-                      <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-border">
+                      <div className="w-1/4 min-w-[200px] max-w-[280px] border-r border-white/5 bg-[#0B0C0E]">
                         <div className="h-full overflow-auto">
                           <FileTree
                             files={fileSystem.state.files}
@@ -1010,7 +1008,7 @@ export default function InternalPrototypePage() {
                           />
                         </div>
                       </div>
-                      <div className="flex-1 h-full">
+                      <div className="flex-1 h-full bg-[#0B0C0E]">
                         <CodeEditor
                           fileSystem={fileSystem}
                           prototypeId={prototypeId}
@@ -1034,17 +1032,17 @@ export default function InternalPrototypePage() {
         open={isDesignSystemDialogOpen}
         onOpenChange={handleDesignSystemDialogOpenChange}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-[#141517] border border-white/10 text-white">
           <AlertDialogHeader>
             <AlertDialogTitle>Change design system</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-[#8A8F98]">
               Changing the design system can modify component structures and
               styling. This may require additional clean up in your prototype.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
+              <p className="text-xs font-medium uppercase text-[#8A8F98] tracking-wide">
                 Design Style
               </p>
               <Select
@@ -1054,12 +1052,12 @@ export default function InternalPrototypePage() {
                   setDialogDesignStyle(nextStyle);
                 }}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 bg-[#0B0C0E] border-white/10 text-white">
                   <SelectValue placeholder="Choose a design style" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#141517] border-white/10 text-white">
                   {DESIGN_STYLE_OPTIONS.map((style) => (
-                    <SelectItem key={style} value={style}>
+                    <SelectItem key={style} value={style} className="focus:bg-white/10 focus:text-white cursor-pointer">
                       {DESIGN_STYLE_LABELS[style]}
                     </SelectItem>
                   ))}
@@ -1068,15 +1066,15 @@ export default function InternalPrototypePage() {
             </div>
             {hasCustomDesignSystems && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
+                <p className="text-xs font-medium uppercase text-[#8A8F98] tracking-wide">
                   Custom Design System{" "}
-                  <span className="text-muted-foreground font-normal lowercase">
+                  <span className="text-[#8A8F98]/70 font-normal lowercase">
                     (Optional)
                   </span>
                 </p>
                 {isLoadingDesignSystems ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                  <div className="flex items-center gap-2 text-xs text-[#8A8F98]">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
                     Loading design systems...
                   </div>
                 ) : (
@@ -1089,21 +1087,21 @@ export default function InternalPrototypePage() {
                         )
                       }
                     >
-                      <SelectTrigger className="h-10">
+                      <SelectTrigger className="h-10 bg-[#0B0C0E] border-white/10 text-white">
                         <SelectValue placeholder="No custom design system" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
+                      <SelectContent className="bg-[#141517] border-white/10 text-white">
+                        <SelectItem value="none" className="focus:bg-white/10 focus:text-white cursor-pointer">
                           No custom design system
                         </SelectItem>
                         {designSystems.map((system) => (
-                          <SelectItem key={system.id} value={String(system.id)}>
+                          <SelectItem key={system.id} value={String(system.id)} className="focus:bg-white/10 focus:text-white cursor-pointer">
                             {system.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-[#8A8F98]">
                       Apply custom design rules on top of the selected design
                       style
                     </p>
@@ -1113,12 +1111,13 @@ export default function InternalPrototypePage() {
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdatingDesignSystem}>
+            <AlertDialogCancel disabled={isUpdatingDesignSystem} className="border-white/10 text-white hover:bg-white/5 hover:text-white">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDesignSystemChange}
               disabled={dialogConfirmDisabled}
+              className="bg-white text-black hover:bg-white/90"
             >
               {isUpdatingDesignSystem ? "Updating..." : "Confirm change"}
             </AlertDialogAction>
@@ -1128,23 +1127,28 @@ export default function InternalPrototypePage() {
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white">
           <DialogHeader>
-            <DialogTitle>Share Project</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-indigo-500" /> Share Project
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 pt-2">
             {/* Visibility Toggle */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-[#0B0C0E] border border-white/5 rounded-lg">
               <div>
-                <p className="font-medium text-sm">Make Public</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-2">
+                  {isPublic ? <Globe className="w-3.5 h-3.5 text-indigo-400" /> : <Lock className="w-3.5 h-3.5 text-gray-500" />}
+                  <p className="font-medium text-sm">Make Public</p>
+                </div>
+                <p className="text-xs text-[#8A8F98] mt-1 ml-5">
                   {isPublic
                     ? "Anyone with the link can view"
                     : "Only you can view"}
                 </p>
                 {userPlan !== "pro" && !isPublic && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    Upgrade plan to make projects private
+                  <p className="text-xs text-amber-500/80 mt-1 ml-5">
+                    Upgrade to Pro to restrict access
                   </p>
                 )}
               </div>
@@ -1161,13 +1165,13 @@ export default function InternalPrototypePage() {
                   disabled={userPlan !== "pro" && !isPublic}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:cursor-not-allowed"></div>
+                <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
             {/* Share Link */}
             <div className="space-y-2">
-              <p className="text-sm font-medium">Share Link</p>
+              <p className="text-sm font-medium text-[#8A8F98]">Share Link</p>
               <div className="flex items-center gap-2">
                 <Input
                   value={window.location.href.replace(
@@ -1175,25 +1179,25 @@ export default function InternalPrototypePage() {
                     "project",
                   )}
                   readOnly
-                  className="flex-1 bg-gray-50 dark:bg-gray-800"
+                  className="flex-1 bg-[#0B0C0E] border-white/10 text-white/80 h-9 text-xs"
                 />
                 <Button
                   onClick={handleCopyLink}
                   disabled={isCopying}
-                  className="flex items-center gap-2"
+                  size="sm"
+                  className="flex items-center gap-2 bg-white text-black hover:bg-white/90 h-9"
                 >
                   {isCopying ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <ClipboardDocumentIcon className="w-4 h-4" />
+                    <Copy className="w-3.5 h-3.5" />
                   )}
                   {isCopying ? "Copying..." : "Copy"}
                 </Button>
               </div>
               {!isPublic && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  ⚠️ Copying the link will automatically make this project
-                  public
+                <p className="text-xs text-amber-500/80">
+                  ⚠️ Copying the link will automatically make this project public
                 </p>
               )}
             </div>
@@ -1213,16 +1217,16 @@ export default function InternalPrototypePage() {
 
 const getIntervalForStatus = (status: RenderStatus): number => {
   switch (status) {
-    case "Connected": // viewing url is ngrok, must poll at a slower rate (every 45 sec) in case build server is cleaned up
+    case "Connected":
       return 45000;
-    case "Starting Dev Server..": // possible user refreshes page, then viewing url will only be returned via polling bc initial request is lost and response will never be received, so poll every 15 seconds
+    case "Starting Dev Server..":
       return 25000;
     case "Static build":
       return 150000;
     case "Connecting..":
-    case "Updating..": // Connecting and Updating the dev server is obviously active. poll every minute though just in case
+    case "Updating..":
       return 60000;
-    case "Disconnected": // disconnected then we probably want to refresh, poll every 30 seconds
+    case "Disconnected":
       return 30000;
     default:
       return 60000;

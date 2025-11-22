@@ -29,6 +29,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SHOW_WHITEBOARDS } from "@/GlobalConstants";
+import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
@@ -85,7 +86,7 @@ function AppSidebar() {
       href: "/dashboard/folders",
       icon: Folder,
       label: "Folders",
-      active: pathname?.includes("projects"),
+      active: pathname?.includes("projects"), // Kept logic as per original
     },
     ...(SHOW_WHITEBOARDS
       ? [
@@ -100,44 +101,65 @@ function AppSidebar() {
   ];
 
   return (
-    <Sidebar>
-      <SidebarHeader>
+    <Sidebar className="border-r border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-[#0B0C0E]">
+      <SidebarHeader className="pb-4">
         <div className="flex items-center gap-3 px-2 py-2">
-          <Link href="/" className="group">
-            <div className="relative flex items-center gap-3 px-3 py-2">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110" />
-              <span className="relative text-xl font-bold text-foreground transition-transform duration-300 group-hover:scale-105">
+          <Link href="/" className="group block w-full">
+            <div className="relative flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-300 hover:bg-white/5">
+              {/* Glow Effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+              <div className="relative p-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 group-hover:border-indigo-500/50 transition-colors">
+                <FlaskConical className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+
+              <span className="relative text-lg font-bold text-gray-900 dark:text-white tracking-tight">
                 Materialize
               </span>
             </div>
           </Link>
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/"}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/"}
+                  className="bg-white dark:bg-[#141517] border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-white shadow-sm transition-all"
+                >
                   <Link href="/">
-                    <Sparkles className="w-5 h-5" />
-                    <span>New chat +</span>
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <span className="font-medium">New chat +</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarSeparator />
+
+        <div className="px-4 py-2">
+          <SidebarSeparator className="bg-gray-200 dark:bg-white/5" />
+        </div>
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={item.active}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={item.active}
+                    className={cn(
+                      "text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white transition-colors",
+                      item.active && "bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white font-medium"
+                    )}
+                  >
                     <Link href={item.href}>
-                      <item.icon className="w-5 h-5" />
+                      <item.icon className={cn("w-4 h-4", item.active ? "text-indigo-500" : "opacity-70")} />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -147,7 +169,8 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+
+      <SidebarFooter className="pt-4 border-t border-gray-200 dark:border-white/5">
         <SidebarMenu>
           <SidebarMenuItem>
             <HorizontalModeToggle sidebarExpanded={true} />
@@ -155,16 +178,23 @@ function AppSidebar() {
           {isAuthenticated && (
             <>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname?.includes("account")}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname?.includes("account")}
+                  className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white"
+                >
                   <Link href="/dashboard/account">
-                    <Settings className="w-5 h-5" />
+                    <Settings className="w-4 h-4" />
                     <span>Settings</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={logout}>
-                  <LogOut className="w-5 h-5" />
+                <SidebarMenuButton
+                  onClick={logout}
+                  className="text-gray-600 dark:text-[#8A8F98] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
+                >
+                  <LogOut className="w-4 h-4" />
                   <span>Logout</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -172,9 +202,9 @@ function AppSidebar() {
           )}
           {!isAuthenticated && (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton asChild className="text-gray-600 dark:text-[#8A8F98] hover:text-gray-900 dark:hover:text-white">
                 <Link href="/login">
-                  <LogOut className="w-5 h-5 rotate-180" />
+                  <LogOut className="w-4 h-4 rotate-180" />
                   <span>Login</span>
                 </Link>
               </SidebarMenuButton>
@@ -293,24 +323,30 @@ export default function PrototypePage() {
   };
 
   if (isLoading) {
-    return <Loader />;
+    return (
+      <div className="h-screen bg-white dark:bg-[#0B0C0E]">
+        <Loader />
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-destructive rounded-full flex items-center justify-center mx-auto mb-4">
-              <SparklesIcon className="w-8 h-8 text-destructive-foreground" />
+      <div className="h-screen bg-gray-50 dark:bg-[#0B0C0E] flex items-center justify-center p-4">
+        <Card className="max-w-md mx-auto bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
+          <CardHeader className="text-center pb-2">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-100 dark:border-red-500/20">
+              <SparklesIcon className="w-8 h-8 text-red-500" />
             </div>
-            <CardTitle className="text-2xl">
+            <CardTitle className="text-2xl font-medium text-gray-900 dark:text-white">
               Couldn&apos;t Load Project
             </CardTitle>
-            <CardDescription>{error}</CardDescription>
+            <CardDescription className="text-gray-500 dark:text-[#8A8F98] mt-2">
+              {error}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="text-center">
-            <Button asChild>
+          <CardContent className="text-center pt-6">
+            <Button asChild className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 rounded-full px-6">
               <Link href="/dashboard">Back to Dashboard</Link>
             </Button>
           </CardContent>
@@ -321,20 +357,22 @@ export default function PrototypePage() {
 
   if (!prototype) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <EyeIcon className="w-8 h-8 text-muted-foreground" />
+      <div className="h-screen bg-gray-50 dark:bg-[#0B0C0E] flex items-center justify-center p-4">
+        <Card className="max-w-md mx-auto bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
+          <CardHeader className="text-center pb-2">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200 dark:border-white/10">
+              <EyeIcon className="w-8 h-8 text-gray-400 dark:text-[#8A8F98]" />
             </div>
-            <CardTitle className="text-2xl">Prototype Not Found</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-2xl font-medium text-gray-900 dark:text-white">
+              Prototype Not Found
+            </CardTitle>
+            <CardDescription className="text-gray-500 dark:text-[#8A8F98] mt-2">
               The prototype you&apos;re looking for doesn&apos;t exist or you
               don&apos;t have permission to view it.
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-center">
-            <Button asChild>
+          <CardContent className="text-center pt-6">
+            <Button asChild className="bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 rounded-full px-6">
               <Link href="/dashboard">Back to Dashboard</Link>
             </Button>
           </CardContent>
@@ -345,37 +383,39 @@ export default function PrototypePage() {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <AppSidebar />
-      <main className="flex flex-1 flex-col h-screen overflow-hidden">
-        {/* Header with Sidebar Trigger */}
-        <div className="flex items-center gap-4 p-4 border-b">
-          <SidebarTrigger />
-          <div className="flex-1">
-            <PublicPrototypeHeader
-              prototype={prototype}
-              onUpdatePrototype={handleUpdatePrototype}
+      <div className="flex w-full h-screen bg-white dark:bg-[#0B0C0E]">
+        <AppSidebar />
+        <main className="flex flex-1 flex-col h-screen overflow-hidden bg-white dark:bg-[#0B0C0E]">
+          {/* Header with Sidebar Trigger */}
+          <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
+            <SidebarTrigger className="text-gray-500 dark:text-[#8A8F98] hover:bg-gray-100 dark:hover:bg-white/10" />
+            <div className="flex-1">
+              <PublicPrototypeHeader
+                prototype={prototype}
+                onUpdatePrototype={handleUpdatePrototype}
+              />
+            </div>
+          </div>
+
+          {/* Main Content - ExpoSnackViewer */}
+          <div className="flex-1 relative">
+            <MaterializeRenderSection
+              viewing_url={viewingUrl ?? ""}
+              prototypeId={prototypeId}
+              currentRenderStatus={renderStatus}
+              onRenderStatusChange={setRenderStatus}
+              isPreviewView={isPreviewView}
+              onPreviewViewChange={setIsPreviewView}
+              publicView={true}
+              codeView={
+                <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-[#8A8F98] bg-gray-50 dark:bg-[#0B0C0E]">
+                  Code view is unavailable in the public prototype viewer.
+                </div>
+              }
             />
           </div>
-        </div>
-
-        {/* Main Content - ExpoSnackViewer */}
-        <div className="flex-1">
-          <MaterializeRenderSection
-            viewing_url={viewingUrl ?? ""}
-            prototypeId={prototypeId}
-            currentRenderStatus={renderStatus}
-            onRenderStatusChange={setRenderStatus}
-            isPreviewView={isPreviewView}
-            onPreviewViewChange={setIsPreviewView}
-            publicView={true}
-            codeView={
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Code view is unavailable in the public prototype viewer.
-              </div>
-            }
-          />
-        </div>
-      </main>
+        </main>
+      </div>
     </SidebarProvider>
   );
 }

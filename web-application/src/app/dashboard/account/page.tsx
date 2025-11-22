@@ -1,53 +1,69 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { CreditLimits } from "@/lib/types/serverAPITypes";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { useUser } from "@/hooks/useUser";
+import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
+import { CreditLimits } from "@/lib/types/serverAPITypes";
+import {
+  CreditGrantBalance,
+  fetchOverageCredits,
+  fetchUserCreditGrantBalances,
+  formatGrantType
+} from "@/lib/utils/credits/CreditUtils";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { handleRedirectToStripeCustomerPortal } from "@/lib/utils/payments/SubscriptionManagementUtils";
-import {
-  fetchUserCreditGrantBalances,
-  fetchOverageCredits,
-  formatGrantType,
-  formatBillingPeriod,
-  calculateUsagePercentage,
-  CreditGrantBalance,
-} from "@/lib/utils/credits/CreditUtils";
 import {
   AlertCircle,
   Calendar,
   CreditCard,
   Crown,
-  Mail,
-  MessageSquare,
+  Loader2, MessageSquare,
   Settings,
   Sparkles,
+  Zap
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+// --- Visual Background ---
+const GridBackground = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
+    <div className="absolute inset-0 bg-gray-50 dark:bg-[#0B0C0E]" />
+    <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] bg-purple-500/10 dark:bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
+    <div className="absolute bottom-[10%] right-[-10%] w-[30%] h-[30%] bg-blue-500/10 dark:bg-blue-500/5 blur-[100px] rounded-full mix-blend-screen" />
+    <div
+      className="absolute inset-0 opacity-[0.04] dark:opacity-[0.02] text-gray-400 dark:text-white"
+      style={{
+        backgroundImage: `linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)`,
+        backgroundSize: '40px 40px'
+      }}
+    />
+  </div>
+);
+
+// --- Styled Components ---
+const SectionCard = ({ children, className }: { children: React.ReactNode; className?: string; }) => (
+  <div className={cn("bg-white dark:bg-[#141517] border border-black/5 dark:border-white/5 rounded-xl overflow-hidden shadow-sm dark:shadow-none", className)}>
+    {children}
+  </div>
+);
+
+const SectionHeader = ({ title, description, icon: Icon }: { title: string; description?: string; icon?: React.ComponentType<{ className?: string }>; }) => (
+  <div className="px-6 py-5 border-b border-black/5 dark:border-white/5 flex items-start justify-between">
+    <div className="space-y-1">
+      <h3 className="text-base font-medium text-gray-900 dark:text-white flex items-center gap-2">
+        {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-[#8A8F98]" />}
+        {title}
+      </h3>
+      {description && <p className="text-sm text-gray-600 dark:text-[#8A8F98]">{description}</p>}
+    </div>
+  </div>
+);
 
 function AccountSettings() {
   const logger = useProductLogger();
@@ -67,25 +83,20 @@ function AccountSettings() {
   const [creditGrants, setCreditGrants] = useState<CreditGrantBalance[]>([]);
   const [overageCredits, setOverageCredits] = useState<number>(0);
   const [loadingUsageCount, setLoadingUsageCount] = useState<boolean>(true);
-  const [isProcessingUpgrade, setIsProcessingUpgrade] =
-    useState<boolean>(false);
+  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState<boolean>(false);
 
   useEffect(() => {
-    // Set user info from Supabase Auth user
     if (user.user) {
       setEmail(user.user.email || "");
       setName(
         user.user.user_metadata?.full_name ||
-          user.user.user_metadata?.first_name +
-            " " +
-            user.user.user_metadata?.last_name ||
-          "",
+        user.user.user_metadata?.first_name + " " + user.user.user_metadata?.last_name ||
+        "",
       );
       setMemberSince(new Date(user.user.created_at));
     }
   }, [user.user]);
 
-  // Fetch credits used from all unexpired grants
   useEffect(() => {
     async function fetchCreditsUsed() {
       if (!user.user?.id || loadingSubscriptionData) return;
@@ -95,15 +106,7 @@ function AccountSettings() {
         if (userPlan === "free") {
           const now = new Date();
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfMonth = new Date(
-            now.getFullYear(),
-            now.getMonth() + 1,
-            0,
-            23,
-            59,
-            59,
-            999,
-          );
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
           const { data: freeUsageRows, error: freeUsageError } = await supabase
             .from("api_usage")
             .select("credits_used")
@@ -113,24 +116,16 @@ function AccountSettings() {
             .lte("created_at", endOfMonth.toISOString());
 
           if (freeUsageError) {
-            logger.debug("error", "Error fetching credits:", {
-              error: freeUsageError.message,
-            });
+            logger.debug("error", "Error fetching credits:", { error: freeUsageError.message });
             setCreditsUsed(0);
             return;
           }
 
-          const totalUsed =
-            freeUsageRows?.reduce(
-              (sum, row) => sum + (row.credits_used || 0),
-              0,
-            ) ?? 0;
-
+          const totalUsed = freeUsageRows?.reduce((sum, row) => sum + (row.credits_used || 0), 0) ?? 0;
           setCreditsUsed(totalUsed);
           return;
         }
 
-        // Fetch individual credit grant balances and overage credits
         const [grants, overage] = await Promise.all([
           fetchUserCreditGrantBalances(supabase, user.user.id),
           fetchOverageCredits(supabase, user.user.id),
@@ -138,18 +133,11 @@ function AccountSettings() {
 
         setCreditGrants(grants);
         setOverageCredits(overage);
-
-        // Calculate total credits used across all grants
-        const totalUsed = grants.reduce(
-          (sum, grant) => sum + grant.credits_used,
-          0,
-        );
-
+        const totalUsed = grants.reduce((sum, grant) => sum + grant.credits_used, 0);
         setCreditsUsed(totalUsed);
       } catch (error) {
         logger.debug("error", "Error fetching credits:", {
           error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
         });
         setCreditsUsed(0);
       } finally {
@@ -160,39 +148,31 @@ function AccountSettings() {
     fetchCreditsUsed();
   }, [user.user?.id, loadingSubscriptionData, logger, userPlan]);
 
-  // Calculate credit limit based on subscription plan
   const getCreditLimit = () => {
     switch (userPlan as string) {
-      case "free":
-        return CreditLimits.FREE;
-      case "plus":
-        return CreditLimits.PLUS;
-      case "pro":
-        return CreditLimits.PRO;
-      case "max":
-        return CreditLimits.MAX;
-      case "team":
-        return CreditLimits.TEAM;
-      default:
-        return CreditLimits.FREE;
+      case "free": return CreditLimits.FREE;
+      case "plus": return CreditLimits.PLUS;
+      case "pro": return CreditLimits.PRO;
+      case "max": return CreditLimits.MAX;
+      case "team": return CreditLimits.TEAM;
+      default: return CreditLimits.FREE;
     }
   };
 
   const creditLimit = getCreditLimit();
   const currentSubscription = (userPlan as string) || "free";
 
-  const getPlanBadgeVariant = (plan: string) => {
+  const getPlanBadgeColor = (plan: string) => {
     switch (plan.toLowerCase()) {
       case "max":
-        return "default"; // Highest tier gets primary badge
       case "pro":
-        return "default";
+        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
       case "plus":
-        return "default";
+        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
       case "team":
-        return "secondary";
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
       default:
-        return "outline"; // Free tier
+        return "bg-white/5 text-white/60 border-white/10";
     }
   };
 
@@ -201,557 +181,256 @@ function AccountSettings() {
   };
 
   const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
   const handleUpgradeClick = async (targetPlan: string) => {
     try {
       setIsProcessingUpgrade(true);
       await handleCheckout(targetPlan, router);
-      // Keep processing state for 2 seconds to account for Stripe redirect delay
-      setTimeout(() => {
-        setIsProcessingUpgrade(false);
-      }, 2000);
+      setTimeout(() => setIsProcessingUpgrade(false), 2000);
     } catch (error) {
       logger.debug("error", "Error starting checkout:", {
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
       setIsProcessingUpgrade(false);
     }
   };
 
-  // Get the next tier upgrade option
   const getUpgradeOption = () => {
     switch (currentSubscription) {
-      case "free":
-        return {
-          tier: "plus",
-          label: "Upgrade to Plus",
-        };
+      case "free": return { tier: "plus", label: "Upgrade to Plus" };
       case "plus":
       case "pro":
-      default:
-        return null;
+      default: return null;
     }
   };
 
   const upgradeOption = getUpgradeOption();
 
   return (
-    <div className="container mx-auto py-6 space-y-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+    <div className="relative min-h-screen text-gray-900 dark:text-white font-sans">
+      <GridBackground />
+
+      <div className="container mx-auto px-6 py-12 max-w-5xl">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-3xl font-medium tracking-tight text-gray-900 dark:text-white mb-2">
             Account Settings
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your account information and subscription
+          <p className="text-gray-600 dark:text-[#8A8F98] text-lg">
+            Manage your profile, subscription, and usage.
           </p>
         </div>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Account</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
 
-      {/* Profile Header Card */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="pt-6">
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-20 w-20">
-              <AvatarFallback className="text-lg font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                {getInitials(name || "U")}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-3">
-                <h2 className="text-2xl font-semibold">{name || "User"}</h2>
-                <Badge
-                  variant={getPlanBadgeVariant(currentSubscription)}
-                  className="capitalize"
-                >
-                  {currentSubscription === "pro" && (
-                    <Crown className="w-3 h-3 mr-1" />
-                  )}
-                  {currentSubscription}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground flex items-center">
-                <Mail className="w-4 h-4 mr-2" />
-                {email}
-              </p>
-              <p className="text-sm text-muted-foreground flex items-center">
-                <Calendar className="w-4 h-4 mr-2" />
-                Member since{" "}
-                {memberSince?.toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-      {/* Subscription Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <CreditCard className="w-5 h-5" />
-            <span>Subscription Management</span>
-          </CardTitle>
-          <CardDescription>
-            Manage your subscription, billing, and payment methods
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div className="space-y-1">
-              <p className="font-medium capitalize">
-                {currentSubscription} Plan
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {currentSubscription === "free"
-                  ? "Free forever with basic features"
-                  : `${creditLimit} credits per billing cycle`}
-              </p>
-            </div>
-            <Badge
-              variant={getPlanBadgeVariant(currentSubscription)}
-              className="capitalize"
-            >
-              {currentSubscription === "pro" && (
-                <Crown className="w-3 h-3 mr-1" />
-              )}
-              Active
-            </Badge>
-          </div>
+          {/* Left Column: Profile & Plan */}
+          <div className="space-y-8 lg:col-span-2">
 
-          {currentSubscription !== "free" && (
-            <>
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="font-medium">Billing Information</h4>
-                <div className="grid gap-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Current period ends:
-                    </span>
-                    <span className="font-medium">
-                      {currentPeriodEnd?.toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Member since:</span>
-                    <span className="font-medium">
-                      {memberSince?.toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          <Separator />
-
-          <div className="space-y-3">
-            {upgradeOption && (
-              <Button
-                onClick={() => handleUpgradeClick(upgradeOption.tier)}
-                className="w-full"
-                size="lg"
-                disabled={isProcessingUpgrade}
-              >
-                {isProcessingUpgrade ? (
-                  <>
-                    <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Crown className="w-4 h-4 mr-2" />
-                    {upgradeOption.label}
-                  </>
-                )}
-              </Button>
-            )}
-
-            {currentSubscription !== "free" && (
-              <Button
-                onClick={() => {
-                  handleRedirectToStripeCustomerPortal(
-                    user.user?.id ?? "",
-                    router,
-                  );
-                }}
-                className="w-full"
-                size="lg"
-                variant={upgradeOption ? "outline" : "default"}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Manage Subscription & Billing
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Usage Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <MessageSquare className="w-5 h-5" />
-            <span>Usage Statistics</span>
-          </CardTitle>
-          <CardDescription>
-            Track your message usage for the current billing period
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* For free tier, show simplified view */}
-          {userPlan === "free" ? (
-            <>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Credits Used</span>
-                  <span className="text-sm text-muted-foreground">
-                    {loadingUsageCount
-                      ? "Loading..."
-                      : `${creditsUsed} / ${creditLimit}`}
-                  </span>
-                </div>
-                <Progress value={getUsagePercentage()} className="h-2" />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0</span>
-                  <span>{creditLimit} credits</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Current period:</span>
-                  <span className="font-medium">
-                    {currentPeriodStart?.toLocaleDateString()} -{" "}
-                    {currentPeriodEnd?.toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Credits remaining:
-                  </span>
-                  <span className="font-medium">
-                    {loadingUsageCount
-                      ? "..."
-                      : Math.max(0, creditLimit - creditsUsed)}
-                  </span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* For paid users, show individual credit grants */}
-              {loadingUsageCount ? (
-                <div className="text-center text-sm text-muted-foreground py-4">
-                  Loading credit grants...
-                </div>
-              ) : creditGrants.length === 0 ? (
-                <div className="text-center text-sm text-muted-foreground py-4">
-                  No active credit grants found
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {creditGrants.map((grant, index) => {
-                    const usagePercentage = calculateUsagePercentage(
-                      grant.credits_used,
-                      grant.credits_granted,
-                    );
-                    const billingPeriod = formatBillingPeriod(
-                      grant.billing_period_start,
-                      grant.billing_period_end,
-                    );
-
-                    return (
-                      <div key={grant.id} className="space-y-3">
-                        {index > 0 && <Separator />}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                              <span className="text-sm font-medium">
-                                {formatGrantType(grant.grant_type)}
-                              </span>
-                              {billingPeriod && (
-                                <p className="text-xs text-muted-foreground">
-                                  {billingPeriod}
-                                </p>
-                              )}
-                              {grant.grant_reason && (
-                                <p className="text-xs text-muted-foreground">
-                                  {grant.grant_reason}
-                                </p>
-                              )}
-                            </div>
-                            <span className="text-sm text-muted-foreground">
-                              {grant.credits_used.toFixed(1)} /{" "}
-                              {grant.credits_granted.toFixed(1)}
-                            </span>
-                          </div>
-                          <Progress value={usagePercentage} className="h-2" />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>
-                              {grant.credits_remaining.toFixed(1)} remaining
-                            </span>
-                            <span>
-                              Expires{" "}
-                              {new Date(grant.expires_at).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                },
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Overage section - show if there are overage credits */}
-              {overageCredits > 0 && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                            Overage Credits
-                          </span>
-                          <p className="text-xs text-muted-foreground">
-                            Usage beyond available credits
-                          </p>
-                        </div>
-                        <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                          -{overageCredits.toFixed(1)}
-                        </span>
-                      </div>
-                      <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-md">
-                        <p className="text-xs text-orange-800 dark:text-orange-200">
-                          These credits will be deducted from your next credit
-                          grant
-                        </p>
-                      </div>
+            {/* Profile Section */}
+            <SectionCard>
+              <div className="p-6 flex items-center gap-6">
+                <Avatar className="h-16 w-16 border border-black/10 dark:border-white/10">
+                  <AvatarFallback className="bg-gray-100 dark:bg-[#1A1B1E] text-gray-900 dark:text-white font-medium text-lg">
+                    {getInitials(name || "U")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-medium text-gray-900 dark:text-white">{name || "User"}</h2>
+                    <div className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider flex items-center gap-1", getPlanBadgeColor(currentSubscription))}>
+                      {currentSubscription === "pro" && <Crown className="w-3 h-3" />}
+                      {currentSubscription}
                     </div>
                   </div>
-                </>
-              )}
-
-              <Separator />
-
-              {/* Summary section */}
-              <div className="grid gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Total credits used:
-                  </span>
-                  <span className="font-medium">{creditsUsed.toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {overageCredits > 0
-                      ? "Effective credits remaining:"
-                      : "Total credits remaining:"}
-                  </span>
-                  <span
-                    className={`font-medium ${
-                      overageCredits > 0
-                        ? "text-orange-600 dark:text-orange-400"
-                        : ""
-                    }`}
-                  >
-                    {(
-                      creditGrants.reduce(
-                        (sum, grant) => sum + grant.credits_remaining,
-                        0,
-                      ) - overageCredits
-                    ).toFixed(1)}
-                  </span>
+                  <p className="text-gray-600 dark:text-[#8A8F98] text-sm">{email}</p>
                 </div>
               </div>
-            </>
+              <div className="bg-gray-50 dark:bg-[#1A1B1E]/50 px-6 py-3 border-t border-black/5 dark:border-white/5 flex items-center text-xs text-gray-600 dark:text-[#8A8F98]">
+                <Calendar className="w-3.5 h-3.5 mr-2 opacity-70" />
+                Member since {memberSince?.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+              </div>
+            </SectionCard>
+
+            {/* Subscription Management */}
+            <SectionCard>
+              <SectionHeader title="Subscription" description="Manage your plan and billing details" icon={CreditCard} />
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                  <div className="space-y-1">
+                    <p className="font-medium text-gray-900 dark:text-white capitalize">{currentSubscription} Plan</p>
+                    <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
+                      {currentSubscription === "free" ? "Free forever" : `${creditLimit} credits / month`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    Active
+                  </div>
+                </div>
+
+                {currentSubscription !== "free" && (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="p-3 rounded bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                      <p className="text-gray-600 dark:text-[#8A8F98] mb-1 text-xs">Current Period Ends</p>
+                      <p className="text-gray-900 dark:text-white font-medium">
+                        {currentPeriodEnd?.toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded bg-gray-50 dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                      <p className="text-gray-600 dark:text-[#8A8F98] mb-1 text-xs">Billing Cycle</p>
+                      <p className="text-gray-900 dark:text-white font-medium">Monthly</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  {upgradeOption && (
+                    <Button
+                      onClick={() => handleUpgradeClick(upgradeOption.tier)}
+                      className="flex-1 bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90"
+                      disabled={isProcessingUpgrade}
+                    >
+                      {isProcessingUpgrade ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
+                      {upgradeOption.label}
+                    </Button>
+                  )}
+
+                  {currentSubscription !== "free" && (
+                    <Button
+                      onClick={() => handleRedirectToStripeCustomerPortal(user.user?.id ?? "", router)}
+                      variant="outline"
+                      className="flex-1 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Manage Billing
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* Usage Stats */}
+            <SectionCard>
+              <SectionHeader title="Usage Statistics" description="Track your AI generation usage" icon={MessageSquare} />
+              <div className="p-6 space-y-6">
+
+                {/* Main Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-900 dark:text-white">Credits Used</span>
+                    <span className="text-gray-600 dark:text-[#8A8F98]">{creditsUsed.toFixed(1)} / {creditLimit}</span>
+                  </div>
+                  <Progress value={getUsagePercentage()} className="h-2 bg-black/10 dark:bg-white/10"
+                  // indicatorClassName={getUsagePercentage() > 90 ? "bg-red-500" : "bg-purple-500"}
+                  />
+                </div>
+
+                {/* Overage Alert */}
+                {overageCredits > 0 && (
+                  <div className="flex items-start gap-3 p-3 rounded bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-200 text-sm">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium mb-0.5">Overage Limit Reached</p>
+                      <p className="text-orange-600/90 dark:text-orange-200/70 text-xs">
+                        You have {overageCredits.toFixed(1)} overage credits that will be deducted from your next grant.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grant Details (For Paid Users) */}
+                {userPlan !== "free" && !loadingUsageCount && creditGrants.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t border-black/5 dark:border-white/5">
+                    <p className="text-xs font-medium text-gray-600 dark:text-[#8A8F98] uppercase tracking-wider">Active Grants</p>
+                    {creditGrants.map((grant) => (
+                      <div key={grant.id} className="text-sm flex justify-between items-center">
+                        <div>
+                          <div className="text-gray-900 dark:text-white">{formatGrantType(grant.grant_type)}</div>
+                          <div className="text-gray-600 dark:text-[#8A8F98] text-xs">Expires {new Date(grant.expires_at).toLocaleDateString()}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-gray-900 dark:text-white">{grant.credits_remaining.toFixed(1)} remaining</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Right Column: Top Ups (Only Paid) */}
+          {userPlan !== "free" && (
+            <div className="space-y-8">
+              <div className="sticky top-8">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
+                  Top Up Credits
+                </h3>
+                <div className="space-y-4">
+                  {[
+                    { credits: 100, price: 25, id: "credit_pack_100" },
+                    { credits: 500, price: 110, id: "credit_pack_500", bestValue: true },
+                    { credits: 1000, price: 200, id: "credit_pack_1000" }
+                  ].map((pack) => (
+                    <div
+                      key={pack.id}
+                      className={cn(
+                        "relative p-5 rounded-xl border transition-all duration-200 group cursor-pointer",
+                        pack.bestValue
+                          ? "bg-white dark:bg-[#1A1B1E] border-purple-500/50 shadow-[0_0_20px_-5px_rgba(168,85,247,0.15)]"
+                          : "bg-white dark:bg-[#141517] border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 shadow-sm dark:shadow-none"
+                      )}
+                      onClick={() => handleUpgradeClick(pack.id)}
+                    >
+                      {pack.bestValue && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full border border-purple-400">
+                          Best Value
+                        </div>
+                      )}
+                      <div className="flex justify-between items-baseline mb-2">
+                        <h4 className="text-gray-900 dark:text-white font-medium">{pack.credits} Credits</h4>
+                        <span className="text-xl font-semibold text-gray-900 dark:text-white">${pack.price}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-[#8A8F98] mb-4">
+                        <span>Never expires</span>
+                        <span>${(pack.price / pack.credits).toFixed(2)} / credit</span>
+                      </div>
+                      <Button
+                        className={cn("w-full h-8 text-xs", pack.bestValue ? "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90" : "bg-black/5 dark:bg-white/5 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10")}
+                        disabled={isProcessingUpgrade}
+                      >
+                        {isProcessingUpgrade ? <Loader2 className="w-3 h-3 animate-spin" /> : "Purchase"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
-          {(() => {
-            // Calculate total remaining credits across all grants (accounting for overage)
-            const totalRemainingCredits =
-              userPlan === "free"
-                ? Math.max(0, creditLimit - creditsUsed)
-                : creditGrants.reduce(
-                    (sum, grant) => sum + grant.credits_remaining,
-                    0,
-                  ) - overageCredits;
-
-            const usagePercentage = getUsagePercentage();
-
-            if (userPlan === "free") {
-              if (totalRemainingCredits <= 0) {
-                return (
-                  <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800 dark:text-red-200">
-                      {`You've exceeded your free plan limit (${creditsUsed.toFixed(1)}/${creditLimit} credits). Upgrade your plan to receive more credits.`}
-                    </AlertDescription>
-                  </Alert>
-                );
-              } else if (usagePercentage > 80) {
-                return (
-                  <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                      {`You've used ${Math.round(usagePercentage)}% of your monthly message limit.`}
-                    </AlertDescription>
-                  </Alert>
-                );
-              }
-            } else {
-              // For paid users, show overage alert if present
-              if (overageCredits > 0 && totalRemainingCredits > 0) {
-                return (
-                  <Alert className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
-                    <AlertDescription className="text-orange-800 dark:text-orange-200">
-                      You have {overageCredits.toFixed(1)} overage credits that
-                      will be deducted from your next credit grant.
-                    </AlertDescription>
-                  </Alert>
-                );
-              }
-              // Show alert only when all credits are exhausted (including overage)
-              if (totalRemainingCredits <= 0) {
-                return (
-                  <Alert className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800 dark:text-red-200">
-                      You&apos;ve used all available credits
-                      {overageCredits > 0 &&
-                        ` and have ${overageCredits.toFixed(1)} in overage`}
-                      . Upgrade your plan to receive more credits.
-                    </AlertDescription>
-                  </Alert>
-                );
-              }
-            }
-
-            return null;
-          })()}
-        </CardContent>
-      </Card>
-
-      {/* Credit Packs - Only show for paid subscribers */}
-      {userPlan !== "free" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Sparkles className="w-5 h-5" />
-              <span>Buy Credit Packs</span>
-            </CardTitle>
-            <CardDescription>
-              Purchase additional credits that never expire for 90 days
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* 100 Credits Pack */}
-              <div className="border rounded-lg p-4 space-y-3">
-                <div className="space-y-1">
-                  <h4 className="font-semibold text-lg">100 Credits</h4>
-                  <p className="text-2xl font-bold">$25</p>
-                  <p className="text-sm text-muted-foreground">
-                    $0.25 per credit
-                  </p>
+          {/* Right Column Spacer for Free Plan layout balance */}
+          {userPlan === "free" && (
+            <div className="hidden lg:block">
+              <div className="bg-gradient-to-b from-purple-500/10 to-blue-500/5 border border-black/10 dark:border-white/10 rounded-xl p-6 text-center space-y-4 shadow-sm dark:shadow-none">
+                <div className="w-12 h-12 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center text-purple-500 dark:text-purple-400">
+                  <Sparkles className="w-6 h-6" />
                 </div>
-                <Button
-                  onClick={() => handleUpgradeClick("credit_pack_100")}
-                  className="w-full"
-                  variant="outline"
-                  disabled={isProcessingUpgrade}
-                >
-                  {isProcessingUpgrade ? "Processing..." : "Buy Now"}
-                </Button>
-              </div>
-
-              {/* 500 Credits Pack */}
-              <div className="border rounded-lg p-4 space-y-3 border-primary relative">
-                <Badge className="absolute -top-2 left-1/2 -translate-x-1/2">
-                  Best Value
-                </Badge>
-                <div className="space-y-1">
-                  <h4 className="font-semibold text-lg">500 Credits</h4>
-                  <p className="text-2xl font-bold">$110</p>
-                  <p className="text-sm text-muted-foreground">
-                    $0.22 per credit
-                  </p>
-                </div>
-                <Button
-                  onClick={() => handleUpgradeClick("credit_pack_500")}
-                  className="w-full"
-                  disabled={isProcessingUpgrade}
-                >
-                  {isProcessingUpgrade ? "Processing..." : "Buy Now"}
-                </Button>
-              </div>
-
-              {/* 1000 Credits Pack */}
-              <div className="border rounded-lg p-4 space-y-3">
-                <div className="space-y-1">
-                  <h4 className="font-semibold text-lg">1000 Credits</h4>
-                  <p className="text-2xl font-bold">$200</p>
-                  <p className="text-sm text-muted-foreground">
-                    $0.20 per credit
-                  </p>
-                </div>
-                <Button
-                  onClick={() => handleUpgradeClick("credit_pack_1000")}
-                  className="w-full"
-                  variant="outline"
-                  disabled={isProcessingUpgrade}
-                >
-                  {isProcessingUpgrade ? "Processing..." : "Buy Now"}
+                <h3 className="text-gray-900 dark:text-white font-medium">Unlock Full Power</h3>
+                <p className="text-gray-600 dark:text-[#8A8F98] text-sm">
+                  Upgrade to Pro to access advanced export features, unlimited projects, and priority support.
+                </p>
+                <Button onClick={() => handleUpgradeClick("plus")} className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90">
+                  Upgrade Now
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+
+        </div>
+      </div>
     </div>
   );
 }

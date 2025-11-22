@@ -5,23 +5,38 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import FolderThumbnail from "@/components/dashboard/FolderThumbnail";
 import NewFolderModal from "@/components/dashboard/NewFolderModal";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-type Folder = Database["public"]["Tables"]["folders"]["Row"];
+type FolderRow = Database["public"]["Tables"]["folders"]["Row"];
+
+// --- Visual Background Component (Consistent with Dashboard) ---
+const GridBackground = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
+    <div className="absolute inset-0 bg-[#0B0C0E]" />
+    <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
+    <div
+      className="absolute inset-0 opacity-[0.02]"
+      style={{
+        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
+        backgroundSize: '40px 40px'
+      }}
+    />
+  </div>
+);
 
 export default function FoldersPage() {
   const { user } = useUser();
   const router = useRouter();
   const logger = useProductLogger();
   const [modalOpen, setModalOpen] = useState(false);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<FolderRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchFolders = useCallback(async () => {
     if (!user?.id) {
@@ -63,75 +78,107 @@ export default function FoldersPage() {
   const handleCloseModal = () => setModalOpen(false);
 
   const handleFolderCreated = (folderId: string) => {
-    fetchFolders(); // Refetch folders after creation
+    fetchFolders();
     router.push(`/dashboard/folders/${folderId}`);
   };
 
+  // Filter folders client-side for instant feedback
+  const filteredFolders = folders.filter(f =>
+    f.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-      {/* Page Header */}
-      <Card className="mb-8">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
-                All Folders
-              </h1>
-              <p className="text-sm sm:text-base text-body dark:text-bodydark">
-                Create and manage your folders, which hold your projects.
-              </p>
-            </div>
+    <div className="relative min-h-screen text-foreground font-sans">
+      <GridBackground />
 
-            {/* New Project Button */}
-            <div className="flex-shrink-0">
-              <Button
-                onClick={handleOpenModal}
-                size="lg"
-                className="w-full sm:w-auto"
-              >
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                <span className="hidden sm:inline">New Folder</span>
-                <span className="sm:hidden">New</span>
-              </Button>
-            </div>
+      <div className="container mx-auto px-6 py-12 max-w-7xl">
+
+        {/* --- Header Section --- */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-medium tracking-tight">
+              Folders
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-2xl">
+              Organize your projects and prototypes.
+            </p>
           </div>
-        </CardHeader>
-      </Card>
 
-      {/* Modal for new project */}
+          <div className="flex items-center gap-3">
+            {/* Search Bar (Visual Polish) */}
+            <div className="hidden md:flex relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within:text-muted-foreground transition-colors" />
+              <input
+                type="text"
+                placeholder="Filter..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-64 bg-accent/50 border border-border rounded-full pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-border focus:bg-accent transition-all"
+              />
+            </div>
+
+            {/* Primary Action */}
+            <Button
+              onClick={handleOpenModal}
+              className="h-9 px-4 rounded-full font-medium text-sm transition-all"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Folder
+            </Button>
+          </div>
+        </div>
+
+        {/* --- Content Area --- */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin mb-4 text-muted-foreground/50" />
+            <p className="text-sm font-medium animate-pulse">Loading your workspace...</p>
+          </div>
+        ) : (
+          <>
+            {filteredFolders.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredFolders.map((folder) => (
+                  <div key={folder.id} className="group">
+                    {/*
+                       Note: Assuming FolderThumbnail is a separate component.
+                       We wrap it here to ensure layout stability, but styling
+                       of the inner card depends on that component.
+                    */}
+                    <FolderThumbnail
+                      folderName={folder.name}
+                      thumbnailUrl={folder.thumbnail_url}
+                      lastModified={
+                        folder.updated_at
+                          ? new Date(folder.updated_at).toLocaleDateString()
+                          : new Date(folder.created_at!).toLocaleDateString()
+                      }
+                      onClick={() => router.push(`/dashboard/folders/${folder.id}`)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-dashed border-border rounded-2xl bg-accent/20 py-24">
+                <EmptyState
+                  type="folders"
+                  onButtonClick={handleOpenModal}
+                // You might need to pass explicit styles to EmptyState if it doesn't adapt automatically,
+                // but usually standard Tailwind classes work fine inside dark containers.
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Modal */}
       <NewFolderModal
         open={modalOpen}
         onClose={handleCloseModal}
         user={user}
         onCreated={handleFolderCreated}
       />
-
-      {/* Folders Grid */}
-      {isLoading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {folders.length > 0 ? (
-            folders.map((folder) => (
-              <FolderThumbnail
-                key={folder.id}
-                folderName={folder.name}
-                thumbnailUrl={folder.thumbnail_url}
-                lastModified={
-                  folder.updated_at
-                    ? new Date(folder.updated_at).toLocaleDateString()
-                    : new Date(folder.created_at!).toLocaleDateString()
-                }
-                onClick={() => router.push(`/dashboard/folders/${folder.id}`)}
-              />
-            ))
-          ) : (
-            <EmptyState type="folders" onButtonClick={handleOpenModal} />
-          )}
-        </div>
-      )}
     </div>
   );
 }

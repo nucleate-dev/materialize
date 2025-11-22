@@ -15,7 +15,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,9 +29,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { Check, Copy, Plus, Trash } from "lucide-react";
+import { Check, Copy, Loader2, Paintbrush, Plus, Search, Trash } from "lucide-react";
 
 type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
+
+// --- Visual Background (Consistent) ---
+const GridBackground = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
+    <div className="absolute inset-0 bg-[#0B0C0E]" />
+    <div className="absolute top-[10%] right-[-5%] w-[40%] h-[40%] bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
+    <div
+      className="absolute inset-0 opacity-[0.02]"
+      style={{
+        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
+        backgroundSize: '40px 40px'
+      }}
+    />
+  </div>
+);
 
 export default function DesignSystemsPage() {
   const { user } = useUser();
@@ -49,6 +63,7 @@ export default function DesignSystemsPage() {
   const [deleteTarget, setDeleteTarget] = useState<DesignSystemRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(""); // Added for UI polish
   const [formValues, setFormValues] = useState({
     name: "",
     description: "",
@@ -190,7 +205,6 @@ export default function DesignSystemsPage() {
     }
   };
 
-
   const handleDeleteDesignSystem = async () => {
     if (!deleteTarget) {
       return;
@@ -236,150 +250,161 @@ export default function DesignSystemsPage() {
     }
   };
 
-  const shouldShowEmptyState = !isLoading && designSystems.length === 0;
-
-  const emptyStateContent = (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="rounded-2xl border border-dashed border-border/60 bg-muted/40 px-10 py-12">
-        <h2 className="text-2xl font-semibold mb-3">No design systems yet</h2>
-        <p className="text-muted-foreground max-w-md">
-          Create a design system to capture your preferred components, tokens, and prompts. Once saved, it will appear here and can be reused across prototypes.
-        </p>
-      </div>
-    </div>
+  const filteredSystems = designSystems.filter(s =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const shouldShowEmptyState = !isLoading && designSystems.length === 0;
+
   return (
-    <>
-      <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-        {/* Page Header */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
-                  Design Systems
-                </CardTitle>
-                <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
-                  {shouldShowEmptyState
-                    ? "Centralize the design rules you want Materialize to follow when generating UI."
-                    : "Review the custom design systems available to your projects."}
-                </CardDescription>
-              </div>
+    <div className="relative min-h-screen text-foreground font-sans">
+      <GridBackground />
 
-              {/* Create Design System Button */}
-              <div className="flex-shrink-0">
-                <Button
-                  onClick={handleOpenCreateDialog}
-                  size="lg"
-                  className="w-full sm:w-auto gap-2"
-                  disabled={!canMutate || isSaving || isLoading}
-                >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">New Design System</span>
-                  <span className="sm:hidden">New</span>
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
+      <div className="container mx-auto px-6 py-12 max-w-7xl">
 
+        {/* --- Header --- */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-medium tracking-tight">
+              Design Systems
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-2xl">
+              Centralize your tokens, components, and design rules.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Search (Visual) */}
+            {!shouldShowEmptyState && (
+              <div className="hidden md:flex relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                <input
+                  type="text"
+                  placeholder="Filter systems..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 w-56 bg-accent/50 border border-border rounded-full pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-border focus:bg-accent transition-all"
+                />
+              </div>
+            )}
+
+            <Button
+              onClick={handleOpenCreateDialog}
+              className="h-9 px-5 rounded-full font-semibold text-sm transition-all gap-2"
+              disabled={!canMutate || isSaving || isLoading}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New System</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* --- Content Grid --- */}
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary"></div>
+          <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin mb-4 text-muted-foreground/50" />
+            <p className="text-sm font-medium animate-pulse">Loading design systems...</p>
           </div>
         ) : shouldShowEmptyState ? (
-          emptyStateContent
+          <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl bg-accent/20">
+            <div className="p-4 bg-accent rounded-full mb-4">
+              <Paintbrush className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-medium mb-2">No design systems yet</h2>
+            <p className="text-muted-foreground max-w-md text-center mb-6">
+              Create a design system to capture your preferred components, tokens, and prompts.
+            </p>
+            <Button onClick={handleOpenCreateDialog} variant="outline">
+              Create your first system
+            </Button>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {designSystems.map((system) => {
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {filteredSystems.map((system) => {
               const hasRules = Boolean(system.design_rules?.trim());
 
               return (
-                <Card
+                <div
                   key={system.id}
-                  className="flex flex-col border-border/60 bg-background/80 backdrop-blur cursor-pointer hover:border-primary/50 transition-colors"
+                  className="group relative flex flex-col bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-border/80 hover:shadow-2xl cursor-pointer"
                   onClick={() => router.push(`/dashboard/design-systems/${system.id}`)}
                 >
-                  <CardHeader className="space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1 flex-1">
-                        <CardTitle className="text-xl font-semibold text-foreground">
+                  {/* Card Header */}
+                  <div className="p-6 border-b border-border bg-accent/20">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <h3 className="text-lg font-medium group-hover:text-primary transition-colors">
                           {system.name}
-                        </CardTitle>
+                        </h3>
                         {system.description && (
                           <p className="text-sm text-muted-foreground">{system.description}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center">
                         {canMutate && (
                           <Button
-                            variant="destructive"
-                            size="sm"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenDeleteDialog(system);
                             }}
                             disabled={isDeleting || isSaving}
-                            className="flex items-center gap-1"
                           >
-                            <Trash className="h-4 w-4" /> Delete
+                            <Trash className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col gap-4">
+                  </div>
 
-                    <div className="flex-1">
-                      <h3 className="mb-2 text-sm font-semibold text-foreground">Design Rules</h3>
-                      {hasRules ? (
-                        <ScrollArea className="max-h-56 rounded-md border border-border/60 bg-muted/40 p-3">
-                          <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
-                            {system.design_rules}
-                          </pre>
-                        </ScrollArea>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No custom rules provided.
-                        </p>
-                      )}
-                    </div>
-
-                    {hasRules && (
-                      <div className="flex justify-end">
+                  {/* Card Content (Rules Preview) */}
+                  <div className="flex-1 p-6 bg-accent/10">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rules Snippet</span>
+                      {hasRules && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCopyRules(system)}
-                          className="gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyRules(system);
+                          }}
+                          className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent"
                         >
                           {copiedId === system.id ? (
                             <>
-                              <Check className="h-4 w-4" /> Copied
+                              <Check className="h-3 w-3 mr-1.5" /> Copied
                             </>
                           ) : (
                             <>
-                              <Copy className="h-4 w-4" /> Copy rules
+                              <Copy className="h-3 w-3 mr-1.5" /> Copy
                             </>
                           )}
                         </Button>
+                      )}
+                    </div>
+
+                    <ScrollArea className="h-32 w-full rounded-lg border border-border bg-background">
+                      <div className="p-3 font-mono text-xs text-muted-foreground whitespace-pre-wrap">
+                        {hasRules ? system.design_rules : <span className="italic opacity-50">No custom rules defined.</span>}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                    </ScrollArea>
+                  </div>
+                </div>
               );
             })}
           </div>
         )}
       </div>
 
+      {/* --- Modals (Styled) --- */}
       <Dialog
         open={isCreateDialogOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            handleCloseDialogs();
-          }
+          if (!open) handleCloseDialogs();
         }}
       >
         <DialogContent className="sm:max-w-lg">
@@ -405,7 +430,7 @@ export default function DesignSystemsPage() {
                   id="design-system-description"
                   value={formValues.description}
                   onChange={handleFieldChange("description")}
-                  placeholder="Short summary of the design system"
+                  placeholder="Short summary..."
                   disabled={isSaving}
                 />
               </div>
@@ -415,9 +440,10 @@ export default function DesignSystemsPage() {
                   id="design-system-rules"
                   value={formValues.design_rules}
                   onChange={handleFieldChange("design_rules")}
-                  placeholder="Instructions, tokens, component choices, or prompts Materialize should follow"
+                  placeholder="Instructions, tokens, or prompts..."
                   rows={8}
                   disabled={isSaving}
+                  className="resize-none font-mono text-sm"
                 />
               </div>
             </div>
@@ -425,11 +451,11 @@ export default function DesignSystemsPage() {
               <p className="text-sm text-destructive">{formError}</p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialogs} disabled={isSaving}>
+              <Button type="button" variant="ghost" onClick={handleCloseDialogs} disabled={isSaving}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Create"}
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create"}
               </Button>
             </DialogFooter>
           </form>
@@ -439,25 +465,18 @@ export default function DesignSystemsPage() {
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            handleCloseDeleteDialog();
-          }
+          if (!open) handleCloseDeleteDialog();
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete design system</AlertDialogTitle>
+            <AlertDialogTitle>Delete design system?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. Deleting a design system will remove it from your account.
+              This action cannot be undone. It will permanently delete <span className="font-medium">{deleteTarget?.name}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {deleteTarget && (
-            <p className="text-sm text-muted-foreground">
-              Request to delete <span className="font-medium text-foreground">{deleteTarget.name}</span>.
-            </p>
-          )}
           {deleteError && (
-            <p className="text-sm text-destructive">{deleteError}</p>
+            <p className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">{deleteError}</p>
           )}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCloseDeleteDialog} disabled={isDeleting}>
@@ -468,11 +487,11 @@ export default function DesignSystemsPage() {
               disabled={isDeleting || !deleteTarget}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

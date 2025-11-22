@@ -1,15 +1,7 @@
 "use client";
 
 import ErrorModal from "@/components/ErrorModal";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +10,7 @@ import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
 import { login, signInWithOAuth } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { Provider } from "@supabase/supabase-js";
 import { useAtom } from "jotai";
+import { Loader2, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -136,11 +129,12 @@ export default function LoginForm() {
   // Show loading while checking authentication
   if (userIsLoading) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center">Loading...</div>
-        </CardContent>
-      </Card>
+      <div className="w-full max-w-md mx-auto flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-4 text-[#8A8F98]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/20" />
+          <p className="text-sm">Checking authentication...</p>
+        </div>
+      </div>
     );
   }
 
@@ -153,7 +147,7 @@ export default function LoginForm() {
   }
 
   return (
-    <>
+    <div className="relative w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       <ErrorModal
         show={showErrorModal}
         onClose={() => {
@@ -161,24 +155,35 @@ export default function LoginForm() {
         }}
         errorMessage={errorMessage}
       />
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Login
-          </CardTitle>
-          <CardDescription className="text-center">
+
+      {/* Premium Card Container */}
+      <div className="bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-white/5 bg-white/[0.01]">
+          <div className="mx-auto w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-inner">
+            <Lock className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-2xl font-medium tracking-tight text-white">
+            Welcome back
+          </h2>
+          <p className="text-[#8A8F98] text-sm">
             Enter your credentials to access your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Email Field */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-xs font-medium text-[#8A8F98]">Email</Label>
                 {lastLoginMethod === "email" && (
-                  <Badge variant="secondary" className="text-xs">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     Last used
-                  </Badge>
+                  </span>
                 )}
               </div>
               <Input
@@ -191,10 +196,13 @@ export default function LoginForm() {
                 value={email}
                 onChange={handleChange}
                 disabled={isLoading}
+                className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+
+            {/* Password Field */}
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium text-[#8A8F98]">Password</Label>
               <Input
                 id="password"
                 name="password"
@@ -205,19 +213,25 @@ export default function LoginForm() {
                 value={password}
                 onChange={handleChange}
                 disabled={isLoading}
+                className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
+
+            <Button
+              type="submit"
+              className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-2"
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign in"}
             </Button>
           </form>
 
-          <div className="relative">
+          <div className="relative py-2">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
+              <Separator className="w-full bg-white/5" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
+              <span className="bg-[#141517] px-2 text-[#8A8F98]">
                 Or
               </span>
             </div>
@@ -233,12 +247,9 @@ export default function LoginForm() {
                 showOnlyLogo={false}
               />
               {lastLoginMethod === "google" && (
-                <Badge
-                  variant="secondary"
-                  className="absolute top-1/2 right-3 -translate-y-1/2 text-xs"
-                >
+                <span className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 pointer-events-none">
                   Last used
-                </Badge>
+                </span>
               )}
             </div>
           </div>
@@ -246,13 +257,13 @@ export default function LoginForm() {
           <div className="text-center text-sm">
             <Link
               href="/forgot_password"
-              className="text-primary hover:underline"
+              className="text-white/60 hover:text-white transition-colors text-xs"
             >
               Forgot your password?
             </Link>
           </div>
-        </CardContent>
-      </Card>
-    </>
+        </div>
+      </div>
+    </div>
   );
 }

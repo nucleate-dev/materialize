@@ -12,13 +12,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import { Database } from "@/lib/types/supabase";
-import { ArrowLeft, Loader2, Trash } from "lucide-react";
+import { ArrowLeft, Code2, Loader2, Save, Trash, Type } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 
@@ -29,6 +28,21 @@ interface DesignSystemDetailPageProps {
     "design-system-id": string;
   }>;
 }
+
+// --- Visual Background ---
+const GridBackground = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none select-none -z-10">
+    <div className="absolute inset-0 bg-[#0B0C0E]" />
+    <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] bg-purple-500/5 blur-[120px] rounded-full mix-blend-screen" />
+    <div
+      className="absolute inset-0 opacity-[0.02]"
+      style={{
+        backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
+        backgroundSize: '40px 40px'
+      }}
+    />
+  </div>
+);
 
 export default function DesignSystemDetailPage({ params }: DesignSystemDetailPageProps) {
   const { user } = useUser();
@@ -179,120 +193,135 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
 
   if (isLoading || !designSystem) {
     return (
-      <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <div className="relative min-h-screen flex items-center justify-center">
+        <GridBackground />
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
+          <p className="text-sm font-medium">Loading system...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-        {/* Page Header */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => router.push("/dashboard/design-systems")}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <CardTitle className="text-xl sm:text-2xl md:text-title-xl2 font-bold text-black dark:text-white mb-2">
-                    {designSystem.name}
-                  </CardTitle>
-                  <CardDescription className="text-sm sm:text-base text-body dark:text-bodydark">
-                    Edit your design system details
-                  </CardDescription>
-                </div>
-              </div>
+    <div className="relative min-h-screen text-foreground font-sans">
+      <GridBackground />
 
-              {/* Action Buttons */}
-              <div className="flex gap-2 flex-shrink-0">
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  disabled={isDeleting || isSaving}
-                  className="gap-2"
-                >
-                  <Trash className="h-4 w-4" />
-                  <span className="hidden sm:inline">Delete</span>
-                </Button>
-                <Button
-                  size="lg"
-                  onClick={handleSave}
-                  disabled={!hasChanges || isSaving}
-                >
-                  {isSaving ? "Saving..." : "Save changes"}
-                </Button>
+      <div className="container mx-auto px-6 py-12 max-w-5xl">
+
+        {/* --- Header --- */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/dashboard/design-systems")}
+              className="h-10 w-10 rounded-full"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-medium tracking-tight">
+                  {designSystem.name}
+                </h1>
+                {hasChanges && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border border-yellow-500/20 uppercase tracking-wider">
+                    Unsaved
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Design System Editor
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              disabled={isDeleting || isSaving}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Delete</span>
+            </Button>
+
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || isSaving}
+              className="h-9 px-6 rounded-full font-medium transition-all shadow-lg"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* --- Editor Layout --- */}
+        <div className="grid gap-8 max-w-4xl mx-auto">
+
+          {/* Configuration Panel */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-accent/20 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Type className="w-4 h-4" />
+              Metadata
+            </div>
+            <div className="p-6 grid gap-6">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">System Name</label>
+                <Input
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  placeholder="e.g. Studio Aurora"
+                  disabled={isSaving}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Description</label>
+                <Input
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Short summary of the design system"
+                  disabled={isSaving}
+                />
               </div>
             </div>
-          </CardHeader>
-        </Card>
+          </div>
 
-        {/* Main Content */}
-        <div className="grid gap-6">
-          {/* Name Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Name</CardTitle>
-              <CardDescription>
-                The name of your design system
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Input
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                placeholder="e.g. Studio Aurora"
-                disabled={isSaving}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Description Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Description</CardTitle>
-              <CardDescription>
-                A short summary of the design system (optional)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Input
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                placeholder="Short summary of the design system"
-                disabled={isSaving}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Design Rules Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Design Rules</CardTitle>
-              <CardDescription>
-                Instructions, tokens, component choices, or prompts Materialize should follow
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          {/* Code Editor Panel */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[600px]">
+            <div className="px-6 py-4 border-b border-border bg-accent/20 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Code2 className="w-4 h-4" />
+                Design Rules
+              </div>
+              <div className="text-xs text-muted-foreground/60">
+                Markdown & Tokens supported
+              </div>
+            </div>
+            <div className="flex-1 relative">
               <Textarea
                 value={editedDesignRules}
                 onChange={(e) => setEditedDesignRules(e.target.value)}
-                placeholder="Instructions, tokens, component choices, or prompts Materialize should follow"
-                rows={12}
+                placeholder="// Enter instructions, tokens, or specific rules for the AI to follow..."
                 disabled={isSaving}
-                className="font-mono"
+                className="absolute inset-0 w-full h-full p-6 border-none focus:ring-0 resize-none font-mono text-sm leading-relaxed rounded-none"
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -308,16 +337,13 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete design system</AlertDialogTitle>
+            <AlertDialogTitle>Delete design system?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. Deleting a design system will remove it from your account.
+              This action cannot be undone. It will permanently delete <span className="font-medium">{designSystem.name}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Request to delete <span className="font-medium text-foreground">{designSystem.name}</span>.
-          </p>
           {deleteError && (
-            <p className="text-sm text-destructive">{deleteError}</p>
+            <p className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">{deleteError}</p>
           )}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
@@ -328,11 +354,11 @@ export default function DesignSystemDetailPage({ params }: DesignSystemDetailPag
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

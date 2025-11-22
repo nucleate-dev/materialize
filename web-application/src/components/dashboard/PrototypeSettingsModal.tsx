@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { cn } from "@/lib/classNames"; // Assuming this utility exists based on context
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
@@ -37,6 +38,7 @@ import type {
   DeletePrototypeSuccessResponse,
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
+import { AlertTriangle, FileText, Globe, Lock, Settings, Sparkles, Trash2, Type } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface PrototypeSettingsModalProps {
@@ -94,14 +96,13 @@ export default function PrototypeSettingsModal({
 
       if (error) throw error;
 
-      // Pass the updated prototype data back to parent for optimistic update
       if (data) {
         onUpdated(data);
+        onClose();
       }
     } catch (error) {
       logger.debug("error", "Error updating prototype:", {
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
     } finally {
       setIsSubmitting(false);
@@ -114,7 +115,6 @@ export default function PrototypeSettingsModal({
     setIsSubmitting(true);
     setShowDeleteDialog(false);
     try {
-      // Get the current session to get the JWT token
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -123,7 +123,6 @@ export default function PrototypeSettingsModal({
         return;
       }
 
-      // Make DELETE request to the new API endpoint
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_ENDPOINT!}/prototype/${prototype.id}`,
         {
@@ -142,16 +141,14 @@ export default function PrototypeSettingsModal({
         throw new Error(errorMessage);
       }
 
-      // Success - notify parent to remove from list and close modal
       if (onDeleted) {
         onDeleted();
       }
+      onClose();
     } catch (error) {
       logger.debug("error", "Error deleting prototype:", {
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
-      // You could add a toast notification here to show the error to the user
     } finally {
       setIsSubmitting(false);
     }
@@ -159,94 +156,169 @@ export default function PrototypeSettingsModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Prototype settings</DialogTitle>
+      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 shadow-2xl">
+
+        {/* Header */}
+        <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]">
+          <DialogTitle className="flex items-center gap-2 text-xl font-medium tracking-tight text-gray-900 dark:text-white">
+            <Settings className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+            Project Settings
+          </DialogTitle>
+          <p className="text-sm text-gray-600 dark:text-[#8A8F98]">
+            Manage configuration for <span className="font-mono text-gray-800 dark:text-white/80">{prototype?.name}</span>
+          </p>
         </DialogHeader>
+
         {prototype && (
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="prototype-name">Name</Label>
-              <Input
-                id="prototype-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isSubmitting}
-              />
+          <form onSubmit={handleSave}>
+            <div className="p-6 space-y-6">
+
+              {/* Name Input */}
+              <div className="space-y-2">
+                <Label htmlFor="prototype-name" className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2">
+                  <Type className="w-3.5 h-3.5" /> Project Name
+                </Label>
+                <Input
+                  id="prototype-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isSubmitting}
+                  className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                  placeholder="e.g. My Awesome App"
+                />
+              </div>
+
+              {/* Description Input */}
+              <div className="space-y-2">
+                <Label htmlFor="prototype-description" className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5" /> Description
+                </Label>
+                <Textarea
+                  id="prototype-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={isSubmitting}
+                  className="min-h-[100px] resize-none bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                  placeholder="Describe what this project does..."
+                />
+              </div>
+
+              {/* Visibility Select */}
+              <div className="space-y-3">
+                <Label htmlFor="prototype-visibility" className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-white/40 flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5" /> Visibility
+                </Label>
+
+                <div className={cn(
+                  "relative rounded-lg transition-opacity",
+                  userPlan !== "pro" ? "opacity-100" : ""
+                )}>
+                  <Select
+                    value={visibility}
+                    onValueChange={(v) =>
+                      setVisibility(
+                        v as Database["public"]["Enums"]["visibility_level"],
+                      )
+                    }
+                    disabled={isSubmitting || userPlan !== "pro"}
+                  >
+                    <SelectTrigger
+                      id="prototype-visibility"
+                      className="bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:ring-indigo-500/20"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+                      <SelectItem value="SELF" className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          <span>Private (Only You)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="PUBLIC" className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10">
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                          <span>Public (Shareable Link)</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Pro Plan Lock Overlay / Message */}
+                  {userPlan !== "pro" && (
+                    <div className="mt-2 flex items-start gap-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400">
+                      <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs leading-relaxed">
+                        Upgrade to <span className="font-semibold">Pro</span> to make projects public and share them with the world.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="prototype-description">Description</Label>
-              <Textarea
-                id="prototype-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="prototype-visibility">Visibility</Label>
-              <Select
-                value={visibility}
-                onValueChange={(v) =>
-                  setVisibility(
-                    v as Database["public"]["Enums"]["visibility_level"],
-                  )
-                }
-                disabled={isSubmitting || userPlan !== "pro"}
-              >
-                <SelectTrigger id="prototype-visibility">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SELF">Private</SelectItem>
-                  <SelectItem value="PUBLIC">Public</SelectItem>
-                </SelectContent>
-              </Select>
-              {userPlan !== "pro" && (
-                <p className="text-xs text-muted-foreground">
-                  Upgrade plan to change project visibility settings.
-                </p>
-              )}
-            </div>
-            <DialogFooter className="flex justify-between">
+
+            {/* Footer Actions */}
+            <DialogFooter className="p-6 border-t border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02] flex items-center justify-between gap-4">
               <Button
                 type="button"
-                variant="destructive"
+                variant="ghost"
                 onClick={() => setShowDeleteDialog(true)}
                 disabled={isSubmitting}
-                className="cursor-pointer"
+                className="text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
               >
+                <Trash2 className="w-4 h-4 mr-2" />
                 Delete Project
               </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className={isSubmitting ? "" : "cursor-pointer"}
-              >
-                Save
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 shadow-lg font-medium"
+                >
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         )}
       </DialogContent>
 
+      {/* Delete Alert Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this project? This action cannot
-              be undone and will permanently remove all associated data.
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-500">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Project
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600 dark:text-[#8A8F98]">
+              Are you sure you want to delete <span className="font-medium text-gray-900 dark:text-white">{prototype?.name}</span>?
+              <br className="mb-2" />
+              This action cannot be undone and will permanently remove all associated files and data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              disabled={isSubmitting}
+              className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isSubmitting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-500/10 dark:text-red-500 dark:hover:bg-red-500/20 dark:border dark:border-red-500/20"
             >
-              {isSubmitting ? "Deleting..." : "Delete"}
+              {isSubmitting ? "Deleting..." : "Yes, Delete Project"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

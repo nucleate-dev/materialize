@@ -2,23 +2,18 @@
 
 import ErrorModal from "@/components/ErrorModal";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { redirectAfterLoginAtom } from "@/lib/atoms/sidebar";
+import { cn } from "@/lib/classNames";
 import {
   isValidEmailInput,
   isValidPassword,
 } from "@/lib/utils/auth/AuthFormValidationUtils";
 import { signInWithOAuth, signUp } from "@/lib/utils/auth/SupabaseAuthUtils";
 import { useAtom } from "jotai";
+import { Loader2, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { OAuthSignInButton } from "../AuthComponents";
@@ -153,7 +148,7 @@ export default function RegistrationForm() {
   }
 
   return (
-    <>
+    <div className="relative w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       <ErrorModal
         show={showErrorModal}
         onClose={() => {
@@ -161,20 +156,31 @@ export default function RegistrationForm() {
         }}
         errorMessage={errorMessage}
       />
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Register
-          </CardTitle>
-          <CardDescription className="text-center">
-            Enter your details to create your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col space-y-4 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-y-0">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
+
+      {/* Premium Container */}
+      <div className="bg-[#141517] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="px-8 pt-8 pb-6 text-center space-y-2 border-b border-white/5 bg-white/[0.01]">
+          <div className="mx-auto w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4 shadow-inner">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-2xl font-medium tracking-tight text-white">
+            Create an account
+          </h2>
+          <p className="text-[#8A8F98] text-sm">
+            Enter your details to get started with Materialize
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="firstName" className="text-xs font-medium text-[#8A8F98]">First Name</Label>
                 <Input
                   id="firstName"
                   name="firstName"
@@ -184,10 +190,11 @@ export default function RegistrationForm() {
                   value={firstName}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="lastName" className="text-xs font-medium text-[#8A8F98]">Last Name</Label>
                 <Input
                   id="lastName"
                   name="lastName"
@@ -197,11 +204,14 @@ export default function RegistrationForm() {
                   value={lastName}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
+
+            {/* Email */}
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium text-[#8A8F98]">Email address</Label>
               <Input
                 id="email"
                 name="email"
@@ -211,13 +221,19 @@ export default function RegistrationForm() {
                 value={email}
                 onChange={handleChange}
                 disabled={isLoading}
+                className={cn(
+                  "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
+                  emailError && "border-red-500/50 focus:border-red-500/50"
+                )}
               />
               {emailError && (
-                <p className="text-sm text-destructive">{emailError}</p>
+                <p className="text-xs text-red-400 mt-1">{emailError}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+
+            {/* Password */}
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium text-[#8A8F98]">Password</Label>
               <Input
                 id="password"
                 name="password"
@@ -227,13 +243,19 @@ export default function RegistrationForm() {
                 value={password}
                 onChange={handleChange}
                 disabled={isLoading}
+                className={cn(
+                  "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
+                  passwordError && "border-red-500/50 focus:border-red-500/50"
+                )}
               />
               {passwordError && (
-                <p className="text-sm text-destructive">{passwordError}</p>
+                <p className="text-xs text-red-400 mt-1">{passwordError}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+
+            {/* Confirm Password */}
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" className="text-xs font-medium text-[#8A8F98]">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -243,25 +265,39 @@ export default function RegistrationForm() {
                 value={confirmPassword}
                 onChange={handleChange}
                 disabled={isLoading}
+                className={cn(
+                  "bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 focus:ring-0 placeholder:text-white/20 h-10",
+                  confirmPasswordError && "border-red-500/50 focus:border-red-500/50"
+                )}
               />
               {confirmPasswordError && (
-                <p className="text-sm text-destructive">
+                <p className="text-xs text-red-400 mt-1">
                   {confirmPasswordError}
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !isFormValid}>
-              {isLoading ? "Creating account..." : "Create account"}
+
+            <Button
+              type="submit"
+              className="w-full h-10 bg-white text-black hover:bg-white/90 font-medium mt-2"
+              disabled={isLoading || !isFormValid}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating account...
+                </>
+              ) : "Create account"}
             </Button>
           </form>
 
-          <div className="relative">
+          <div className="relative py-2">
             <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
+              <Separator className="w-full bg-white/5" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or
+              <span className="bg-[#141517] px-2 text-[#8A8F98]">
+                Or continue with
               </span>
             </div>
           </div>
@@ -269,7 +305,6 @@ export default function RegistrationForm() {
           <div className="grid grid-cols-1 gap-2">
             <OAuthSignInButton
               onClick={async () => {
-                // Store redirect parameter if present
                 const redirectParam = searchParams.get("redirect");
                 if (redirectParam) {
                   const decodedRedirect = decodeURIComponent(redirectParam);
@@ -280,8 +315,8 @@ export default function RegistrationForm() {
               provider="google"
             />
           </div>
-        </CardContent>
-      </Card>
-    </>
+        </div>
+      </div>
+    </div>
   );
 }

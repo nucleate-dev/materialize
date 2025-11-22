@@ -32,14 +32,18 @@ import {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import {
-  CheckIcon,
-  DocumentDuplicateIcon,
-  EllipsisVerticalIcon,
-  InformationCircleIcon,
-  PencilIcon,
-  ShareIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+  Check,
+  Copy,
+  FileCode,
+  Globe,
+  Info,
+  Loader2,
+  Lock,
+  MoreVertical,
+  Pencil,
+  Share2,
+  X
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -285,45 +289,46 @@ export default function PublicPrototypeHeader({
 
   return (
     <>
-      <div className="flex-shrink-0 bg-background">
-        <div className="px-4 sm:px-6">
+      <div className="flex-shrink-0 bg-transparent">
+        <div className="px-2">
           <div className="flex items-center justify-between gap-3">
             {/* Left side - Prototype info */}
-            <div className="flex items-center gap-3 flex-1 min-w-0 pl-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0 pl-1">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 sm:gap-3 mb-1">
-                  <h1 className="text-base sm:text-xl font-bold text-foreground truncate">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate tracking-tight">
                     {prototype.name}
                   </h1>
+
+                  {/* Info Button / Modal */}
                   <Dialog open={showInfoModal} onOpenChange={(open) => {
                     setShowInfoModal(open);
                     if (!open) {
-                      // Reset edit state when closing modal
                       setIsEditing(false);
                       setEditedName("");
                     }
                   }}>
                     <DialogTrigger asChild>
                       <Button
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="h-7 w-7 sm:h-8 sm:w-8 p-0 ml-1 flex-shrink-0"
+                        className="h-6 w-6 text-gray-400 hover:text-indigo-500 dark:text-[#8A8F98] dark:hover:text-white transition-colors"
                       >
-                        <InformationCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                        <Info className="w-4 h-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white shadow-2xl">
                       <DialogHeader>
                         <DialogTitle>Project Information</DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="text-gray-500 dark:text-[#8A8F98]">
                           Details about this project
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4 py-4">
+                      <div className="space-y-5 py-4">
                         {/* Project Name - Editable for owner */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                               Name
                             </span>
                             {user && prototype.owner_id === user.id && !isEditing && (
@@ -331,9 +336,9 @@ export default function PublicPrototypeHeader({
                                 size="sm"
                                 variant="ghost"
                                 onClick={handleStartEdit}
-                                className="h-7 px-2 text-xs"
+                                className="h-6 px-2 text-xs text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
                               >
-                                <PencilIcon className="w-3 h-3 mr-1" />
+                                <Pencil className="w-3 h-3 mr-1" />
                                 Edit
                               </Button>
                             )}
@@ -343,92 +348,75 @@ export default function PublicPrototypeHeader({
                               <Input
                                 value={editedName}
                                 onChange={(e) => setEditedName(e.target.value)}
-                                className="text-sm flex-1"
+                                className="text-sm flex-1 bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10"
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    handleSaveEdit();
-                                  } else if (e.key === "Escape") {
-                                    handleCancelEdit();
-                                  }
+                                  if (e.key === "Enter") handleSaveEdit();
+                                  else if (e.key === "Escape") handleCancelEdit();
                                 }}
                                 autoFocus
                                 disabled={isUpdating}
                               />
                               <Button
-                                size="sm"
+                                size="icon"
                                 onClick={handleSaveEdit}
                                 disabled={isUpdating || !editedName.trim()}
-                                className="h-8 w-8 p-0 flex-shrink-0"
+                                className="h-9 w-9 bg-emerald-500 hover:bg-emerald-600 text-white"
                               >
                                 {isUpdating ? (
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                  <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
-                                  <CheckIcon className="w-4 h-4" />
+                                  <Check className="w-4 h-4" />
                                 )}
                               </Button>
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
                                 onClick={handleCancelEdit}
                                 disabled={isUpdating}
-                                className="h-8 w-8 p-0 flex-shrink-0"
+                                className="h-9 w-9 border-gray-200 dark:border-white/10"
                               >
-                                <XMarkIcon className="w-4 h-4" />
+                                <X className="w-4 h-4" />
                               </Button>
                             </div>
                           ) : (
-                            <p className="text-sm text-foreground font-medium">
+                            <p className="text-sm font-medium p-2 bg-gray-50 dark:bg-[#0B0C0E] border border-gray-200 dark:border-white/5 rounded-md">
                               {prototype.name}
                             </p>
                           )}
                         </div>
 
+                        {/* Files Count */}
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-muted-foreground">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                             Files
                           </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {fileCount} files
+                          <Badge variant="secondary" className="bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/20">
+                            <FileCode className="w-3 h-3 mr-1" /> {fileCount} files
                           </Badge>
                         </div>
+
+                        {/* Visibility */}
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-muted-foreground">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                             Visibility
                           </span>
-                          {user && prototype.owner_id === user.id ? (
-                            <Badge
-                              variant="outline"
-                              className="text-xs cursor-pointer hover:bg-muted"
-                              onClick={handleVisibilityClick}
-                            >
-                              {prototype.visibility === "SELF"
-                                ? "Private"
-                                : "Public"}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs">
-                              {prototype.visibility === "SELF"
-                                ? "Private"
-                                : "Public"}
-                            </Badge>
-                          )}
+                          <Badge
+                            variant="outline"
+                            className={`text-xs border-gray-200 dark:border-white/10 ${user && prototype.owner_id === user.id ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5' : ''}`}
+                            onClick={user && prototype.owner_id === user.id ? handleVisibilityClick : undefined}
+                          >
+                            {prototype.visibility === "SELF" ? <Lock className="w-3 h-3 mr-1 text-gray-400" /> : <Globe className="w-3 h-3 mr-1 text-indigo-400" />}
+                            {prototype.visibility === "SELF" ? "Private" : "Public"}
+                          </Badge>
                         </div>
-                        {prototype.created_at && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              Created
-                            </span>
-                            <span className="text-sm">
-                              {new Date(prototype.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
+
+                        {/* Description */}
                         {prototype.description && (
-                          <div className="pt-2 border-t">
-                            <span className="text-sm font-medium text-muted-foreground">
+                          <div className="pt-4 border-t border-gray-100 dark:border-white/5 space-y-2">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                               Description
                             </span>
-                            <p className="text-sm text-foreground mt-2">
+                            <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-[#0B0C0E] p-3 rounded-md border border-gray-200 dark:border-white/5">
                               {prototype.description}
                             </p>
                           </div>
@@ -448,56 +436,52 @@ export default function PublicPrototypeHeader({
                   onClick={handleClonePrototype}
                   disabled={isCloning}
                   size="sm"
-                  className="text-sm"
+                  className="bg-white dark:bg-white text-gray-900 dark:text-black border border-gray-200 dark:border-transparent hover:bg-gray-50 dark:hover:bg-white/90 shadow-sm"
                 >
                   {isCloning ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />
                       Cloning...
                     </>
                   ) : (
                     <>
-                      <DocumentDuplicateIcon className="w-4 h-4 mr-2" />
-                      Clone Project
+                      <Copy className="w-3.5 h-3.5 mr-2" />
+                      Clone
                     </>
                   )}
                 </Button>
 
-                <Button variant="outline" size="sm" onClick={handleShare}>
-                  <ShareIcon className="w-4 h-4" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShare}
+                  className="border-gray-200 dark:border-white/10 bg-transparent hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white"
+                >
+                  <Share2 className="w-4 h-4" />
                 </Button>
               </div>
 
               {/* Mobile dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="sm:hidden">
-                    <EllipsisVerticalIcon className="w-4 h-4" />
+                  <Button variant="ghost" size="icon" className="sm:hidden text-gray-500 dark:text-[#8A8F98]">
+                    <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
                   <DropdownMenuItem
                     onClick={handleClonePrototype}
                     disabled={isCloning}
-                    className="flex items-center gap-2"
+                    className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
                   >
-                    {isCloning ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        Cloning...
-                      </>
-                    ) : (
-                      <>
-                        <DocumentDuplicateIcon className="w-4 h-4" />
-                        Clone Project
-                      </>
-                    )}
+                    {isCloning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-2" />}
+                    Clone Project
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleShare}
-                    className="flex items-center gap-2"
+                    className="cursor-pointer focus:bg-gray-100 dark:focus:bg-white/10"
                   >
-                    <ShareIcon className="w-4 h-4" />
+                    <Share2 className="w-4 h-4 mr-2" />
                     Share
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -509,10 +493,12 @@ export default function PublicPrototypeHeader({
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
           <DialogHeader>
-            <DialogTitle>Share Project</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-indigo-500" /> Share Project
+            </DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-[#8A8F98]">
               Anyone with this link can view this project
             </DialogDescription>
           </DialogHeader>
@@ -521,22 +507,22 @@ export default function PublicPrototypeHeader({
               <Input
                 readOnly
                 value={`${typeof window !== "undefined" ? window.location.origin : ""}/project/${prototype.id}`}
-                className="flex-1 text-sm"
+                className="flex-1 text-sm bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300"
                 onClick={(e) => e.currentTarget.select()}
               />
               <Button
                 size="sm"
                 onClick={handleCopyLink}
-                className="flex-shrink-0"
+                className="flex-shrink-0 bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90"
               >
                 {linkCopied ? (
                   <>
-                    <CheckIcon className="w-4 h-4 mr-2" />
-                    Copied!
+                    <Check className="w-4 h-4 mr-2" />
+                    Copied
                   </>
                 ) : (
                   <>
-                    <DocumentDuplicateIcon className="w-4 h-4 mr-2" />
+                    <Copy className="w-4 h-4 mr-2" />
                     Copy
                   </>
                 )}
@@ -551,43 +537,46 @@ export default function PublicPrototypeHeader({
         open={showVisibilityModal}
         onOpenChange={setShowVisibilityModal}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
           <DialogHeader>
             <DialogTitle>Change Visibility</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-gray-500 dark:text-[#8A8F98]">
               Choose who can view this project
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
             <Button
               variant="outline"
-              className="w-full justify-start text-left h-auto py-4 px-4"
+              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
               onClick={() => handleVisibilityChange("PUBLIC")}
               disabled={isUpdatingVisibility}
             >
-              <div className="flex flex-col items-start">
-                <div className="font-medium">Public</div>
-                <div className="text-sm text-muted-foreground">
+              <div className="flex flex-col items-start gap-1">
+                <div className="font-medium flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-indigo-500" /> Public
+                </div>
+                <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
                   Anyone with the link can view
                 </div>
               </div>
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start text-left h-auto py-4 px-4"
+              className="w-full justify-start text-left h-auto py-4 px-4 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 bg-transparent"
               onClick={() => handleVisibilityChange("SELF")}
               disabled={isUpdatingVisibility}
             >
-              <div className="flex flex-col items-start">
-                <div className="font-medium">
+              <div className="flex flex-col items-start gap-1">
+                <div className="font-medium flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-gray-500" />
                   Private
                   {userPlan !== "pro" && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
+                    <Badge variant="secondary" className="ml-2 text-[10px] h-5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
                       Pro
                     </Badge>
                   )}
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-gray-500 dark:text-[#8A8F98]">
                   Only you can view
                 </div>
               </div>

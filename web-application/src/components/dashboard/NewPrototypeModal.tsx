@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import type {
   APIResponse,
@@ -33,14 +34,16 @@ import type {
 } from "@/lib/types/serverAPITypes";
 import { Database } from "@/lib/types/supabase";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
-import {
-  ChevronDownIcon,
-  FolderIcon,
-  RocketLaunchIcon,
-  SparklesIcon,
-  SwatchIcon,
-} from "@heroicons/react/24/outline";
 import { User } from "@supabase/supabase-js";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Folder,
+  Loader2,
+  Palette,
+  Rocket,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -269,7 +272,6 @@ export default function NewPrototypeModal({
       return;
     }
 
-    // Validate that the selected custom design system still exists
     if (customDesignSystemId && designSystems.length > 0) {
       const selectedExists = designSystems.some(
         (system) => String(system.id) === customDesignSystemId,
@@ -285,7 +287,6 @@ export default function NewPrototypeModal({
     setTouched(true);
     if (!name.trim() || !user) return;
 
-    // Check prototype limit for FREE users
     if (userPlan === "free" && prototypeCount >= 5) {
       return;
     }
@@ -296,16 +297,10 @@ export default function NewPrototypeModal({
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
-      if (!token) {
-        logger.debug("error", "No authentication token available");
-        return;
-      }
+      if (!token) return;
 
       const serverEndpoint = process.env.NEXT_PUBLIC_SERVER_ENDPOINT;
-      if (!serverEndpoint) {
-        logger.debug("error", "Server endpoint not configured");
-        return;
-      }
+      if (!serverEndpoint) return;
 
       const response = await fetch(`${serverEndpoint}/prototype/create`, {
         method: "POST",
@@ -328,7 +323,6 @@ export default function NewPrototypeModal({
       > = await response.json();
 
       if (result.data) {
-        // Reset form
         setName("");
         setSelectedFolder(null);
         setVisibility(userPlan === "free" ? "PUBLIC" : "SELF");
@@ -339,7 +333,6 @@ export default function NewPrototypeModal({
         onCreated(result.data.prototype_id);
         onClose();
       } else if (result.error?.error === "PROTOTYPE_LIMIT_REACHED") {
-        // Show upsell modal
         onClose();
         setShowUpsellModal(true);
       } else {
@@ -350,7 +343,6 @@ export default function NewPrototypeModal({
     } catch (error) {
       logger.debug("error", "Error creating prototype:", {
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
     } finally {
       setIsCreating(false);
@@ -360,27 +352,25 @@ export default function NewPrototypeModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="text-center space-y-4">
+        <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white shadow-2xl">
+          <DialogHeader className="text-center space-y-3 pb-2">
             <div className="flex items-center justify-center">
-              <div className="p-3 bg-muted rounded-lg">
-                <SparklesIcon className="w-6 h-6 text-primary" />
+              <div className="p-2.5 bg-[#0B0C0E] border border-white/10 rounded-xl shadow-inner">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
             </div>
-            <DialogTitle className="text-2xl font-bold text-foreground">
+            <DialogTitle className="text-xl font-medium tracking-tight text-white">
               Create New Project
             </DialogTitle>
             {userPlan === "free" && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs font-medium text-[#8A8F98] uppercase tracking-wider">
                 {isLoadingCount ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    Loading...
-                  </div>
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Check Limits
+                  </span>
                 ) : (
                   <span>
-                    Projects: {prototypeCount}/5{" "}
-                    {prototypeCount >= 5 && "(Limit reached)"}
+                    {prototypeCount}/5 Free Projects Used
                   </span>
                 )}
               </div>
@@ -388,27 +378,23 @@ export default function NewPrototypeModal({
           </DialogHeader>
 
           {userPlan === "free" && prototypeCount >= 5 && (
-            <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-3">
-                <div className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5">
-                  ⚠️
-                </div>
+                <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5" />
                 <div className="flex-1">
-                  <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                    Project Limit Reached
+                  <h4 className="text-sm font-medium text-yellow-200 mb-1">
+                    Limit Reached
                   </h4>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-                    FREE users can create up to 5 projects. You&apos;ve reached
-                    your limit.
+                  <p className="text-xs text-yellow-200/70 mb-3 leading-relaxed">
+                    Free plans include 5 projects. Upgrade to Pro for unlimited projects.
                   </p>
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
-                    className="border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                    className="h-7 text-xs bg-yellow-500 text-black hover:bg-yellow-400 border-0"
                     onClick={() => handleCheckout("plus", router)}
                   >
-                    Upgrade Plan
+                    Upgrade Now
                   </Button>
                 </div>
               </div>
@@ -417,88 +403,77 @@ export default function NewPrototypeModal({
 
           <form
             onSubmit={handleSubmit}
-            className={`space-y-6 ${userPlan === "free" && prototypeCount >= 5 ? "opacity-50" : ""}`}
+            className={cn("space-y-5", userPlan === "free" && prototypeCount >= 5 && "opacity-50 pointer-events-none")}
           >
+            {/* Project Name Input */}
             <div className="space-y-2">
-              <Label htmlFor="prototype-name" className="text-sm font-semibold">
-                Project Name <span className="text-destructive">*</span>
+              <Label htmlFor="prototype-name" className="text-xs font-medium text-[#8A8F98]">
+                Project Name
               </Label>
               <Input
                 id="prototype-name"
                 type="text"
-                placeholder="e.g. E-commerce Mobile App ✨"
+                placeholder="e.g. Fitness Tracker App"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className={`h-12 text-lg ${
-                  touched && !name.trim()
-                    ? "border-destructive focus-visible:ring-destructive"
-                    : "focus-visible:ring-primary"
-                }`}
+                className={cn(
+                  "h-11 bg-[#0B0C0E] border-white/10 text-white focus:border-white/20 placeholder:text-white/20 transition-all",
+                  touched && !name.trim() && "border-red-500/50 focus-visible:ring-red-500/20"
+                )}
                 autoFocus
                 maxLength={64}
               />
               {touched && !name.trim() && (
-                <div className="flex items-center gap-2 text-destructive text-sm font-medium">
-                  <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                  <span>Project name is required</span>
-                </div>
+                <p className="text-xs text-red-400">Name is required</p>
               )}
             </div>
 
+            {/* Visibility Select */}
             <div className="space-y-2">
-              <Label
-                htmlFor="prototype-visibility"
-                className="text-sm font-semibold"
-              >
-                Visibility
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="prototype-visibility" className="text-xs font-medium text-[#8A8F98]">
+                  Visibility
+                </Label>
+                {userPlan !== "pro" && (
+                  <span className="text-[10px] text-[#8A8F98] bg-white/5 px-1.5 py-0.5 rounded">Upgrade for Private</span>
+                )}
+              </div>
               <Select
                 value={visibility}
                 onValueChange={(value) =>
-                  setVisibility(
-                    value as Database["public"]["Enums"]["visibility_level"],
-                  )
+                  setVisibility(value as Database["public"]["Enums"]["visibility_level"])
                 }
                 disabled={userPlan === "free" || isCreating}
               >
-                <SelectTrigger id="prototype-visibility" className="h-12">
+                <SelectTrigger id="prototype-visibility" className="h-11 bg-[#0B0C0E] border-white/10 text-white focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PUBLIC">Public</SelectItem>
-                  <SelectItem value="SELF">Self</SelectItem>
+                <SelectContent className="bg-[#141517] border-white/10 text-white">
+                  <SelectItem value="PUBLIC" className="focus:bg-white/10 focus:text-white cursor-pointer">Public</SelectItem>
+                  <SelectItem value="SELF" className="focus:bg-white/10 focus:text-white cursor-pointer">Private (Self)</SelectItem>
                 </SelectContent>
               </Select>
-              {userPlan !== "pro" && (
-                <p className="text-xs text-muted-foreground">
-                  Upgrade plan to set project visibility to Self.
-                </p>
-              )}
             </div>
 
-            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+            {/* Advanced Options Collapsible */}
+            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="border-t border-white/5 pt-4">
               <CollapsibleTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="flex items-center justify-between w-full p-0 h-auto font-semibold text-sm hover:bg-transparent"
+                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-[#8A8F98] hover:text-white hover:bg-transparent transition-colors"
                 >
-                  <span className="text-muted-foreground">
-                    Advanced Options
-                  </span>
-                  <ChevronDownIcon
-                    className={`w-4 h-4 text-muted-foreground transition-transform ${
-                      showAdvanced ? "rotate-180" : ""
-                    }`}
+                  <span>Advanced Options</span>
+                  <ChevronDown
+                    className={cn("w-3 h-3 transition-transform duration-200", showAdvanced && "rotate-180")}
                   />
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4 pt-4">
+
+              <CollapsibleContent className="space-y-4 pt-4 animate-in slide-in-from-top-2">
+                {/* Folder Select */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="project-select"
-                    className="text-sm font-semibold"
-                  >
+                  <Label htmlFor="project-select" className="text-xs font-medium text-[#8A8F98]">
                     Folder
                   </Label>
                   <Select
@@ -509,24 +484,23 @@ export default function NewPrototypeModal({
                       setHasManualDesignSelection(false);
                     }}
                   >
-                    <SelectTrigger className="h-12">
-                      <div className="flex items-center gap-2">
-                        <FolderIcon className="w-4 h-4 text-primary" />
-                        <SelectValue placeholder="Select a folder (optional)" />
+                    <SelectTrigger className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0">
+                      <div className="flex items-center gap-2 truncate">
+                        <Folder className="w-3.5 h-3.5 text-white/50" />
+                        <SelectValue placeholder="Select folder..." />
                       </div>
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No folder</SelectItem>
+                    <SelectContent className="bg-[#141517] border-white/10 text-white">
+                      <SelectItem value="none" className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">No folder</SelectItem>
                       {isLoadingFolders ? (
-                        <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
-                          <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                          Loading folders...
+                        <div className="px-2 py-2 text-xs text-white/50 flex items-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Loading...
                         </div>
                       ) : (
                         folders.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
+                          <SelectItem key={project.id} value={project.id} className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">
                             <div className="flex items-center gap-2">
-                              <FolderIcon className="w-4 h-4 text-primary" />
+                              <Folder className="w-3.5 h-3.5 text-white/50" />
                               {project.name}
                             </div>
                           </SelectItem>
@@ -535,78 +509,60 @@ export default function NewPrototypeModal({
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Design Style */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="design-style"
-                    className="text-sm font-semibold"
-                  >
-                    Design Style
+                  <Label htmlFor="design-style" className="text-xs font-medium text-[#8A8F98]">
+                    Style
                   </Label>
                   <Select
                     value={designStyle}
                     onValueChange={(value) => {
-                      const nextStyle = value as DesignStyle;
-                      setDesignStyle(nextStyle);
+                      setDesignStyle(value as DesignStyle);
                       setHasManualDesignSelection(true);
                     }}
                   >
-                    <SelectTrigger id="design-style" className="h-12">
+                    <SelectTrigger id="design-style" className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0">
                       <div className="flex items-center gap-2">
-                        <SwatchIcon className="w-4 h-4 text-primary" />
-                        <SelectValue placeholder="Choose a design style" />
+                        <Palette className="w-3.5 h-3.5 text-white/50" />
+                        <SelectValue />
                       </div>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-[#141517] border-white/10 text-white">
                       {DESIGN_STYLE_OPTIONS.map((style) => (
-                        <SelectItem key={style} value={style}>
+                        <SelectItem key={style} value={style} className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">
                           {DESIGN_STYLE_LABELS[style]}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Custom Design System */}
                 {designSystems.length > 0 && (
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="custom-design-system"
-                      className="text-sm font-semibold"
-                    >
-                      Custom Design System{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (Optional)
-                      </span>
+                    <Label htmlFor="custom-design-system" className="text-xs font-medium text-[#8A8F98]">
+                      Design System
                     </Label>
                     <Select
                       value={customDesignSystemId ?? "none"}
                       onValueChange={(value) => {
-                        const systemValue = value === "none" ? null : value;
-                        setCustomDesignSystemId(systemValue);
+                        setCustomDesignSystemId(value === "none" ? null : value);
                         setHasManualDesignSelection(true);
                       }}
                     >
-                      <SelectTrigger id="custom-design-system" className="h-12">
-                        <SelectValue placeholder="No custom design system" />
+                      <SelectTrigger id="custom-design-system" className="h-10 bg-[#0B0C0E] border-white/10 text-white text-sm focus:ring-0">
+                        <SelectValue placeholder="None" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
-                          No custom design system
-                        </SelectItem>
+                      <SelectContent className="bg-[#141517] border-white/10 text-white">
+                        <SelectItem value="none" className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">None</SelectItem>
                         {designSystems.map((system) => (
-                          <SelectItem key={system.id} value={String(system.id)}>
+                          <SelectItem key={system.id} value={String(system.id)} className="focus:bg-white/10 focus:text-white cursor-pointer text-sm">
                             {system.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {isLoadingDesignSystems && (
-                      <p className="text-xs text-muted-foreground">
-                        Loading design systems...
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Apply custom design rules on top of the selected design
-                      style
-                    </p>
                   </div>
                 )}
               </CollapsibleContent>
@@ -614,21 +570,17 @@ export default function NewPrototypeModal({
 
             <Button
               type="submit"
-              disabled={
-                isCreating ||
-                !name.trim() ||
-                (userPlan === "free" && prototypeCount >= 5)
-              }
-              className="w-full h-12"
+              disabled={isCreating || !name.trim() || (userPlan === "free" && prototypeCount >= 5)}
+              className="w-full h-11 bg-white text-black hover:bg-white/90 font-medium rounded-lg"
             >
               {isCreating ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2"></div>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Creating...
                 </>
               ) : (
                 <>
-                  <RocketLaunchIcon className="w-5 h-5 mr-2" />
+                  <Rocket className="w-4 h-4 mr-2" />
                   Create Project
                 </>
               )}

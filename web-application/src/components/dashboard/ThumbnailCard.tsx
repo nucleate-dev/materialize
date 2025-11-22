@@ -1,15 +1,18 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/classNames";
 import {
   ArrowUpRight,
   Calendar,
   Eye,
+  FileBox,
+  Folder,
+  Layout,
+  Loader2,
   MoreHorizontal,
   Pencil,
-  Rocket,
+  Smartphone
 } from "lucide-react";
 import React from "react";
 
@@ -18,11 +21,11 @@ export interface ThumbnailCardProps {
   thumbnailUrl: string | null;
   lastModified?: string;
   type: "folder" | "prototype" | "canvas";
-  onClick?: () => void; // Keep for backward compatibility (will default to edit)
+  onClick?: () => void;
   onView?: () => void;
   onEdit?: () => void;
   onSettings?: () => void;
-  loading?: boolean; // New prop for loading state
+  loading?: boolean;
 }
 
 const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
@@ -36,140 +39,138 @@ const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
   onSettings,
   loading = false,
 }) => {
-  // Handle backward compatibility - if onClick is provided but not onEdit, use onClick as onEdit
+  // Logic to handle backward compatibility
   const handleEdit = onEdit || onClick;
 
-  const getTypeLabel = () => {
+  // Map types to Icons and Colors for a richer visual
+  const getTypeConfig = () => {
     switch (type) {
       case "folder":
-        return "Folder";
+        return { label: "Folder", icon: Folder, color: "text-blue-400", bg: "bg-blue-400/10" };
       case "prototype":
-        return "Project";
+        return { label: "Project", icon: Smartphone, color: "text-emerald-400", bg: "bg-emerald-400/10" };
       case "canvas":
-        return "Canvas";
+        return { label: "Canvas", icon: Layout, color: "text-orange-400", bg: "bg-orange-400/10" };
       default:
-        return "Item";
+        return { label: "Item", icon: FileBox, color: "text-gray-400", bg: "bg-gray-400/10" };
     }
   };
 
-  const getEditIcon = () => {
-    return type === "folder" ? ArrowUpRight : Pencil;
-  };
-
-  const getEditLabel = () => {
-    return type === "folder" ? "Open" : "Edit";
-  };
-
-  const EditIcon = getEditIcon();
+  const { label: typeLabel, icon: TypeIcon, color: typeColor } = getTypeConfig();
+  const EditIcon = type === "folder" ? ArrowUpRight : Pencil;
+  const editLabel = type === "folder" ? "Open" : "Edit";
 
   return (
     <div
-      className="group cursor-pointer transition-all duration-300 hover:scale-105"
+      className="group relative flex flex-col gap-3 cursor-pointer select-none"
       onClick={handleEdit}
     >
-      <Card className="bg-background/80 backdrop-blur-sm border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group-hover:border-primary/50 cursor-pointer">
-        {/* Image Container */}
-        <div className="relative aspect-[4/5] bg-muted overflow-hidden flex items-center justify-center">
-          {/* Settings button */}
-          {onSettings && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="absolute bottom-2 right-2 z-10 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSettings();
-              }}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          )}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center text-muted-foreground">
-              <div className="w-8 h-8 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin mb-3"></div>
-              <span className="text-sm font-medium">Loading preview...</span>
-            </div>
-          ) : thumbnailUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={thumbnailUrl}
-                alt={name}
-                className="object-cover transition-all duration-300 group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center text-muted-foreground">
-              <Rocket className="w-12 h-12 mb-3" />
-              <span className="text-sm font-medium">No preview</span>
-            </div>
-          )}
+      {/* --- Thumbnail Area --- */}
+      <div className="relative aspect-[4/3] w-full rounded-xl border border-black/10 dark:border-white/10 bg-gray-100 dark:bg-[#141517] overflow-hidden transition-all duration-300 group-hover:border-black/20 dark:group-hover:border-white/20 group-hover:shadow-[0_0_20px_-10px_rgba(0,0,0,0.1)] dark:group-hover:shadow-[0_0_20px_-10px_rgba(255,255,255,0.1)]">
 
-          {/* Hover Overlay */}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex cursor-pointer group-hover:pointer-events-auto">
-            {/* Left Half - View (or full width if only View) */}
+        {/* Loading State */}
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#141517] z-20">
+            <Loader2 className="w-6 h-6 text-black/20 dark:text-white/20 animate-spin mb-2" />
+            <span className="text-xs text-black/40 dark:text-white/40 font-medium">Loading...</span>
+          </div>
+        )}
+
+        {/* Image / Placeholder */}
+        {thumbnailUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbnailUrl}
+              alt={name}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-white/0 dark:bg-black/0 transition-colors duration-300 group-hover:bg-white/40 dark:group-hover:bg-black/40" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-black/5 dark:from-white/5 to-transparent flex items-center justify-center">
+            <TypeIcon className="w-12 h-12 text-black/5 dark:text-white/5 group-hover:text-black/10 dark:group-hover:text-white/10 transition-colors duration-300" />
+          </div>
+        )}
+
+        {/* Settings Button (Top Right) */}
+        {onSettings && (
+          <div
+            className="absolute top-2 right-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSettings();
+            }}
+          >
+            <div className="p-1.5 rounded-md bg-white/50 dark:bg-black/50 backdrop-blur-md text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white hover:bg-white/70 dark:hover:bg-black/70 border border-black/10 dark:border-white/10 transition-all">
+              <MoreHorizontal className="w-4 h-4" />
+            </div>
+          </div>
+        )}
+
+        {/* --- Interaction Overlay (Bottom) --- */}
+        <div className="absolute inset-0 flex items-end justify-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
+          <div className="flex items-center gap-2 w-full pointer-events-auto">
+
+            {/* View Button */}
             {onView && (
-              <div
-                className={`${handleEdit ? "flex-1" : "w-full"} flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors duration-200`}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 h-8 bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-black dark:text-white backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg text-xs font-medium transition-all transform translate-y-2 group-hover:translate-y-0 duration-300"
                 onClick={(e) => {
                   e.stopPropagation();
                   onView();
                 }}
               >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-0"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View
-                </Button>
-              </div>
+                <Eye className="w-3.5 h-3.5 mr-2 opacity-70" />
+                View
+              </Button>
             )}
 
-            {/* Right Half - Edit (or full width if only Edit) */}
+            {/* Edit/Main Button */}
             {handleEdit && (
-              <div
-                className={`${onView ? "flex-1" : "w-full"} flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors duration-200`}
+              <Button
+                size="sm"
+                className={cn(
+                  "flex-1 h-8 text-xs font-medium rounded-lg shadow-lg transition-all transform translate-y-2 group-hover:translate-y-0 duration-300 delay-75",
+                  // Primary style logic
+                  "bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 border-0"
+                )}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEdit();
                 }}
               >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75"
-                >
-                  <EditIcon className="w-4 h-4 mr-2" />
-                  {getEditLabel()}
-                </Button>
-              </div>
+                <EditIcon className="w-3.5 h-3.5 mr-2" />
+                {editLabel}
+              </Button>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Info Section */}
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="font-semibold text-foreground leading-tight group-hover:text-primary transition-colors duration-300 flex-1 mr-3">
-              {name}
-            </h3>
-            <Badge variant="outline" className="flex-shrink-0 text-xs">
-              {getTypeLabel()}
-            </Badge>
+      {/* --- Info Section --- */}
+      <div className="flex flex-col px-1 space-y-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-medium text-sm text-black/90 dark:text-white/90 truncate group-hover:text-black dark:group-hover:text-white transition-colors">
+            {name}
+          </h3>
+          {/* Type Indicator (Pill) */}
+          <div className={cn("flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5", typeColor)}>
+            <TypeIcon className="w-3 h-3" />
+            <span className="hidden xs:inline">{typeLabel}</span>
           </div>
+        </div>
 
-          {lastModified && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="w-4 h-4" />
-              <span>Modified {lastModified}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {/* Metadata */}
+        {lastModified && (
+          <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-[#8A8F98]">
+            <Calendar className="w-3 h-3 opacity-50" />
+            <span>{lastModified}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

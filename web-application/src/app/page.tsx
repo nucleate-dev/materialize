@@ -23,7 +23,7 @@ import { useState } from "react";
 const GridBackground = () => (
   <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
     <div className="absolute inset-0 bg-[#0B0C0E]" />
-    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-500/10 blur-[120px] rounded-full mix-blend-screen" />
+    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen" />
     <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[100px] rounded-full mix-blend-screen" />
     <div
       className="absolute inset-0 opacity-[0.03]"
@@ -38,7 +38,7 @@ const GridBackground = () => (
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-purple-500/30 overflow-hidden font-sans">
+    <main className="relative min-h-screen bg-[#0B0C0E] text-white selection:bg-indigo-500/30 overflow-hidden font-sans">
       <GridBackground />
 
       <div className="relative z-10">
@@ -120,8 +120,8 @@ function HeroSection() {
         {/* Hero Badge */}
         <div className="flex justify-center mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white/70 backdrop-blur-md hover:bg-white/10 transition-colors cursor-default">
-            <span className="flex h-2 w-2 rounded-full bg-purple-500 animate-pulse"></span>
-            Materialize for Agents 2.0
+            <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
+            Coming Soon
             <ArrowRightIcon className="w-3 h-3 text-white/40" />
           </div>
         </div>
@@ -141,7 +141,7 @@ function HeroSection() {
         {/* Input Interface (Linear "Ask" Style) */}
         <div className="max-w-3xl mx-auto relative group">
           {/* Glow Effect */}
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/30 to-blue-500/30 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
 
           <div className="relative bg-[#141517] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col transition-colors duration-200 focus-within:border-white/20 focus-within:bg-[#18191B]">
             <div className="px-4 pt-4">
@@ -223,7 +223,7 @@ function FeaturesBentoGrid() {
             {/* Visual Placeholder - abstract code lines */}
             <div className="absolute inset-0 flex items-center justify-center opacity-40 group-hover:opacity-60 transition-opacity duration-500">
               <div className="w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-              <CommandLineIcon className="w-32 h-32 text-purple-500/20" />
+              <CommandLineIcon className="w-32 h-32 text-indigo-500/20" />
             </div>
 
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
@@ -283,7 +283,7 @@ function FeaturesBentoGrid() {
 function GallerySection() {
   const galleryItems = [
     { title: "Onboarding Flow", category: "Multi-screen Flow", color: "bg-blue-500" },
-    { title: "Premium Paywall", category: "Component", color: "bg-purple-500" },
+    { title: "Premium Paywall", category: "Component", color: "bg-indigo-500" },
     { title: "Recipe App Home", category: "Screen", color: "bg-emerald-500" },
     { title: "Social Feed", category: "Screen", color: "bg-orange-500" },
     { title: "Auth Flow", category: "Multi-screen Flow", color: "bg-pink-500" },
@@ -395,12 +395,12 @@ function PricingSection() {
             <div
               key={index}
               className={`relative p-6 rounded-2xl flex flex-col ${plan.highlighted
-                  ? "bg-[#141517] border border-purple-500/50 shadow-[0_0_40px_-10px_rgba(168,85,247,0.15)]"
-                  : "bg-transparent border border-white/10"
+                ? "bg-[#141517] border border-indigo-500/50 shadow-[0_0_40px_-10px_rgba(99,102,241,0.15)]"
+                : "bg-transparent border border-white/10"
                 }`}
             >
               {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
                   Most Popular
                 </div>
               )}
@@ -418,8 +418,8 @@ function PricingSection() {
               <Button
                 onClick={() => handleGetStarted(plan.productKey)}
                 className={`w-full h-10 rounded-full text-sm font-medium transition-all mb-8 ${plan.highlighted
-                    ? "bg-white text-black hover:bg-white/90"
-                    : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+                  ? "bg-white text-black hover:bg-white/90"
+                  : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
                   }`}
               >
                 {plan.cta}

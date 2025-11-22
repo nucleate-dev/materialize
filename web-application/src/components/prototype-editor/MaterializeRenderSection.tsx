@@ -1,7 +1,6 @@
 "use client";
 
 import { supabase } from "@/ClientConstants";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,12 +38,11 @@ import { toast } from "sonner";
 import JSZip from "jszip";
 
 import { RenderStatus } from "@/app/dashboard/projects/[prototype_id]/InternalPrototypePage";
+import { cn } from "@/lib/classNames";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
 import {
   Check,
-  ChevronDown,
-  ChevronUp,
-  Code2,
+  ChevronDown, Code2,
   Copy,
   Download,
   Eye,
@@ -57,7 +55,8 @@ import {
   RotateCcw, Share2,
   Smartphone,
   Terminal as TerminalIcon,
-  X
+  X,
+  Zap
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -883,10 +882,8 @@ const MaterializeRenderSection = forwardRef<
         switch (status) {
           case "Static build":
             return {
-              className:
-                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2.5 h-2.5 bg-blue-500 rounded-full",
-              dotStyle: { boxShadow: "0 0 8px rgba(59, 130, 246, 0.6)" },
+              className: "bg-[#141517] border border-white/10 text-white/70 hover:bg-[#1A1B1E] hover:text-white transition-colors",
+              dotClassName: "w-2 h-2 bg-blue-500/50 border border-blue-500 rounded-full",
               text: "Static Build",
               animate: false,
             };
@@ -894,29 +891,22 @@ const MaterializeRenderSection = forwardRef<
           case "Connecting..":
           case "Starting Dev Server..":
             return {
-              className:
-                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName:
-                "w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse",
-              dotStyle: { boxShadow: "0 0 8px rgba(245, 158, 11, 0.6)" },
+              className: "bg-[#141517] border border-white/10 text-white/70",
+              dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
               text: status,
               animate: true,
             };
           case "Disconnected":
             return {
-              className:
-                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2.5 h-2.5 bg-red-500 rounded-full",
-              dotStyle: { boxShadow: "0 0 8px rgba(239, 68, 68, 0.6)" },
+              className: "bg-red-500/10 border border-red-500/20 text-red-400",
+              dotClassName: "w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]",
               text: "Disconnected",
               animate: false,
             };
           case "Connected":
             return {
-              className:
-                "h-10 gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary cursor-default shadow-sm",
-              dotClassName: "w-2.5 h-2.5 bg-green-500 rounded-full",
-              dotStyle: { boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)" },
+              className: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
+              dotClassName: "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]",
               text: "Connected",
               animate: false,
             };
@@ -928,10 +918,8 @@ const MaterializeRenderSection = forwardRef<
       const isConnected = currentRenderStatus === "Connected";
 
       return (
-        <div
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ${config.className}`}
-        >
-          <div className={config.dotClassName} style={config.dotStyle}></div>
+        <div className={cn("inline-flex items-center h-7 px-3 rounded-md text-xs font-medium select-none", config.className)}>
+          <div className={cn("mr-2", config.dotClassName)}></div>
           {config.text}
           {isStaticBuild && prototypeId && (
             <TooltipProvider delayDuration={200}>
@@ -942,10 +930,10 @@ const MaterializeRenderSection = forwardRef<
                       e.stopPropagation();
                       handleStartDevServer();
                     }}
-                    className="ml-1 p-1 hover:bg-primary/10 rounded transition-colors"
+                    className="ml-2 p-1 hover:bg-white/10 rounded-md transition-colors group"
                     aria-label="Start Dev Server"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <Zap className="w-3 h-3 text-white/50 group-hover:text-white" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -963,10 +951,10 @@ const MaterializeRenderSection = forwardRef<
                       e.stopPropagation();
                       handleRefresh();
                     }}
-                    className="ml-1 p-1 hover:bg-primary/10 rounded transition-colors"
+                    className="ml-2 p-1 hover:bg-white/10 rounded-md transition-colors group"
                     aria-label="Refresh Preview"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3 h-3 text-white/50 group-hover:text-white" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -981,16 +969,14 @@ const MaterializeRenderSection = forwardRef<
 
     // Connection loading overlay for iframe
     const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
-      <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-        <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-primary" />
-          <p className="text-foreground font-medium mb-1">
+      <div className="absolute inset-0 flex items-center justify-center bg-[#0B0C0E]/80 backdrop-blur-sm z-10">
+        <div className="text-center bg-[#141517] p-6 rounded-xl border border-white/10 shadow-2xl">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-white/40" />
+          <p className="text-white font-medium mb-1">
             Connecting to Preview
           </p>
-          <p className="text-muted-foreground text-sm">
-            {mode === "mobile"
-              ? "Loading mobile preview..."
-              : "Loading web preview..."}
+          <p className="text-[#8A8F98] text-sm">
+            {mode === "mobile" ? "Loading mobile preview..." : "Loading web preview..."}
           </p>
         </div>
       </div>
@@ -998,11 +984,13 @@ const MaterializeRenderSection = forwardRef<
 
     // Error overlay for iframe
     const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
-      <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-        <div className="text-center bg-card p-6 rounded-lg border border-border shadow-lg">
-          <div className="w-6 h-6 mx-auto mb-3 text-destructive">⚠️</div>
-          <p className="text-foreground font-medium mb-1">Connection Failed</p>
-          <p className="text-muted-foreground text-sm mb-3">
+      <div className="absolute inset-0 flex items-center justify-center bg-[#0B0C0E]/80 backdrop-blur-sm z-10">
+        <div className="text-center bg-[#141517] p-6 rounded-xl border border-red-500/20 shadow-2xl">
+          <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
+            <X className="w-4 h-4" />
+          </div>
+          <p className="text-white font-medium mb-1">Connection Failed</p>
+          <p className="text-[#8A8F98] text-sm mb-4">
             Unable to load {mode === "mobile" ? "mobile" : "web"} preview
           </p>
           <Button
@@ -1012,9 +1000,10 @@ const MaterializeRenderSection = forwardRef<
               setIsIframeLoading(true);
               setRefreshKey((prev) => prev + 1);
             }}
+            className="bg-white text-black hover:bg-white/90 h-8 px-4 text-xs"
           >
-            <RefreshCw className="w-3 h-3 mr-1" />
-            Retry
+            <RefreshCw className="w-3 h-3 mr-2" />
+            Retry Connection
           </Button>
         </div>
       </div>
@@ -1024,9 +1013,15 @@ const MaterializeRenderSection = forwardRef<
       if (!viewing_url) {
         return (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center bg-card p-8 rounded-lg border border-border">
-              <p className="text-foreground text-lg font-medium">
+            <div className="text-center bg-[#141517] p-8 rounded-xl border border-white/10">
+              <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Monitor className="w-6 h-6 text-white/20" />
+              </div>
+              <p className="text-white text-sm font-medium">
                 No preview URL provided
+              </p>
+              <p className="text-[#8A8F98] text-xs mt-1">
+                The server has not returned a viewing URL yet.
               </p>
             </div>
           </div>
@@ -1035,9 +1030,9 @@ const MaterializeRenderSection = forwardRef<
 
       if (previewMode === "mobile") {
         return (
-          <div className="w-full h-full overflow-auto">
+          <div className="w-full h-full overflow-auto bg-[#0B0C0E]">
             <div className="min-h-full flex items-center justify-center">
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-4 pt-4 relative">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-8 relative">
                 {mobileScreens.map((screen, index) => {
                   const iframeSrc = resolveIframeSrc(viewing_url, screen.path);
                   const isPrimaryScreen = index === 0;
@@ -1054,11 +1049,12 @@ const MaterializeRenderSection = forwardRef<
                           height: mobileSize.height + 16,
                         }}
                       >
+                        {/* URL Bar / Controls */}
                         {mobileScreens.length > 1 && (
-                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20">
+                          <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
                             {editingScreenId === screen.id ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border px-2 py-1 rounded-md shadow-lg">
+                              <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                                <div className="flex items-center gap-1 bg-[#1A1B1E] border border-white/10 px-1.5 py-1 rounded-lg shadow-xl">
                                   <Input
                                     value={tempPath}
                                     onChange={(e) =>
@@ -1067,33 +1063,33 @@ const MaterializeRenderSection = forwardRef<
                                     onKeyDown={(e) =>
                                       handlePathKeyDown(screen.id, e)
                                     }
-                                    className="h-6 w-32 text-xs text-center border-0 bg-transparent focus-visible:ring-1 focus-visible:ring-primary px-1"
+                                    className="h-7 w-40 text-xs text-center border-0 bg-transparent focus-visible:ring-0 text-white px-1"
                                     placeholder="/"
                                     autoFocus
                                   />
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-5 w-5 hover:bg-green-500/10"
+                                    className="h-6 w-6 hover:bg-emerald-500/20 hover:text-emerald-400 text-emerald-500/70"
                                     onClick={() =>
                                       handleConfirmPathChange(screen.id)
                                     }
                                     aria-label="Confirm path change"
                                   >
-                                    <Check className="w-3 h-3 text-green-600" />
+                                    <Check className="w-3.5 h-3.5" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-5 w-5 hover:bg-destructive/10"
+                                    className="h-6 w-6 hover:bg-red-500/20 hover:text-red-400 text-red-500/70"
                                     onClick={handleCancelEdit}
                                     aria-label="Cancel edit"
                                   >
-                                    <X className="w-3 h-3" />
+                                    <X className="w-3.5 h-3.5" />
                                   </Button>
                                 </div>
                                 {routeSuggestions.length > 0 && (
-                                  <div className="bg-background/95 backdrop-blur-sm border border-border rounded-md shadow-lg overflow-hidden">
+                                  <div className="bg-[#1A1B1E] border border-white/10 rounded-lg shadow-xl overflow-hidden w-full max-h-32 overflow-y-auto">
                                     {routeSuggestions.map((item) => (
                                       <button
                                         key={item.route}
@@ -1103,16 +1099,13 @@ const MaterializeRenderSection = forwardRef<
                                             item.route,
                                           )
                                         }
-                                        className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                                        className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-[#8A8F98] hover:bg-white/5 hover:text-white transition-colors"
                                       >
                                         <span>{item.route}</span>
                                         {item.group && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-[10px] px-1.5 py-0 h-4 opacity-50 border-muted-foreground/30"
-                                          >
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/5">
                                             {item.group}
-                                          </Badge>
+                                          </span>
                                         )}
                                       </button>
                                     ))}
@@ -1120,19 +1113,19 @@ const MaterializeRenderSection = forwardRef<
                                 )}
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1">
-                                <Badge
-                                  className="cursor-pointer hover:bg-primary/90 transition-colors"
+                              <div className="flex items-center gap-1.5">
+                                <div
+                                  className="px-3 py-1.5 bg-[#141517] border border-white/10 rounded-full text-xs font-mono text-[#8A8F98] hover:text-white hover:border-white/20 cursor-pointer transition-all shadow-sm"
                                   onClick={() =>
                                     handleBadgeClick(screen.id, screen.path)
                                   }
                                 >
                                   {screen.path || "/"}
-                                </Badge>
+                                </div>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-5 w-5 hover:bg-destructive/10"
+                                  className="h-6 w-6 bg-[#141517] border border-white/10 rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-[#8A8F98]"
                                   onClick={() =>
                                     handleRemoveMobileScreen(screen.id)
                                   }
@@ -1144,48 +1137,49 @@ const MaterializeRenderSection = forwardRef<
                             )}
                           </div>
                         )}
+
+                        {/* Phone Frame */}
                         <div
-                          className="relative bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 shadow-2xl"
+                          className="relative bg-[#0B0C0E] shadow-2xl"
                           style={{
                             width: mobileSize.width + 16,
                             height: mobileSize.height + 16,
                             borderRadius: "2.5rem",
-                            border: "1px solid #1f2937",
-                            boxShadow:
-                              "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0,0,0,0.5)",
                           }}
                         >
+                          {/* Dynamic Island / Notch area */}
                           <div
-                            className="absolute bg-black rounded-full"
+                            className="absolute bg-black z-20"
                             style={{
-                              width: mobileSize.width * 0.4,
+                              width: "35%",
                               height: "24px",
-                              top: "6px",
+                              top: "8px",
                               left: "50%",
                               transform: "translateX(-50%)",
                               borderRadius: "12px",
                             }}
                           ></div>
 
-                          <div className="absolute -left-[3px] top-[80px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
-                          <div className="absolute -left-[3px] top-[120px] w-[2px] h-[32px] bg-gray-600 rounded-l-lg"></div>
-                          <div className="absolute -left-[3px] top-[160px] w-[2px] h-[48px] bg-gray-600 rounded-l-lg"></div>
+                          {/* Buttons */}
+                          <div className="absolute -left-[2px] top-[80px] w-[2px] h-[24px] bg-[#333] rounded-l-md"></div>
+                          <div className="absolute -left-[2px] top-[120px] w-[2px] h-[40px] bg-[#333] rounded-l-md"></div>
+                          <div className="absolute -left-[2px] top-[170px] w-[2px] h-[40px] bg-[#333] rounded-l-md"></div>
+                          <div className="absolute -right-[2px] top-[140px] w-[2px] h-[60px] bg-[#333] rounded-r-md"></div>
 
-                          <div className="absolute -right-[3px] top-[140px] w-[2px] h-[48px] bg-gray-600 rounded-r-lg"></div>
-
+                          {/* Screen Content */}
                           <div
-                            className="absolute bg-black overflow-hidden"
+                            className="absolute bg-white overflow-hidden"
                             style={{
                               width: mobileSize.width,
                               height: mobileSize.height,
                               top: "8px",
                               left: "8px",
-                              borderRadius: "2.2rem",
-                              boxShadow:
-                                "inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
+                              borderRadius: "2rem",
                             }}
                           >
-                            <div className="relative w-full h-full">
+                            <div className="relative w-full h-full bg-white">
                               <iframe
                                 key={`mobile-${screen.id}-${refreshKey}`}
                                 ref={(c) => {
@@ -1216,20 +1210,13 @@ const MaterializeRenderSection = forwardRef<
                             </div>
                           </div>
 
+                          {/* Resize Handle */}
                           <div
-                            className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-60 hover:opacity-100 transition-opacity"
+                            className="absolute bottom-4 right-4 w-6 h-6 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity z-30"
                             onMouseDown={handleMouseDown}
                           >
-                            <div className="w-full h-full bg-gray-400 rounded-sm flex items-center justify-center">
-                              <svg
-                                width="8"
-                                height="8"
-                                viewBox="0 0 8 8"
-                                fill="currentColor"
-                              >
-                                <path d="M8 0v2L6 0h2zM8 4v2L6 4h2zM8 8v0L6 6h2zM4 8v0L2 6h2z" />
-                              </svg>
-                            </div>
+                            <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white/40 rounded-br"></div>
+                            <div className="absolute bottom-1 right-1 w-2 h-2 border-b-2 border-r-2 border-white/20 rounded-br"></div>
                           </div>
                         </div>
                       </div>
@@ -1243,19 +1230,26 @@ const MaterializeRenderSection = forwardRef<
       }
 
       return (
-        <div className="w-full h-full max-w-6xl mx-auto">
-          <div className="bg-card rounded-lg border border-border overflow-hidden h-full">
-            <div className="bg-muted px-6 py-4 border-b border-border flex items-center space-x-3">
-              <div className="flex space-x-2">
-                <div className="w-3 h-3 bg-destructive rounded-full"></div>
-                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+        <div className="w-full h-full px-4 pb-4 bg-[#0B0C0E]">
+          <div className="bg-[#141517] rounded-xl border border-white/10 overflow-hidden h-full shadow-sm flex flex-col">
+            {/* Browser Header */}
+            <div className="bg-[#141517] border-b border-white/5 px-4 py-2.5 flex items-center gap-4">
+              <div className="flex space-x-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
               </div>
-              <span className="text-sm text-foreground font-medium ml-3">
-                Web Preview
-              </span>
+              <div className="flex-1 flex justify-center">
+                <div className="h-6 px-4 rounded-md bg-[#0B0C0E] border border-white/5 flex items-center justify-center min-w-[200px] max-w-[400px]">
+                  <span className="text-[10px] text-[#8A8F98] font-mono truncate opacity-60">
+                    {viewing_url}
+                  </span>
+                </div>
+              </div>
+              <div className="w-10"></div> {/* Spacer for balance */}
             </div>
-            <div className="relative w-full h-full min-h-[500px]">
+
+            <div className="relative w-full h-full flex-1 bg-white">
               <iframe
                 key={`web-${refreshKey}`}
                 ref={(c) => {
@@ -1277,152 +1271,158 @@ const MaterializeRenderSection = forwardRef<
     };
 
     return (
-      <div className="flex flex-col h-full bg-background">
+      <div className="flex flex-col h-full bg-[#0B0C0E]">
         {/* Compact Responsive Toolbar */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm px-3 py-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
+        <div className="sticky top-0 z-30 bg-[#0B0C0E]/80 backdrop-blur-xl px-4 py-3 border-b border-white/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+
+            {/* Left: View Toggles */}
+            <div className="flex items-center gap-3 flex-wrap">
               {!publicView && (
                 <>
-                  <TooltipProvider delayDuration={200}>
-                    <div className="flex items-center bg-muted rounded-lg p-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant={isPreviewView ? "ghost" : "ghost"}
-                            size="sm"
-                            onClick={() => onPreviewViewChange(true)}
-                            className={`flex items-center gap-2 ${isPreviewView ? "bg-background shadow-sm hover:bg-background/80" : ""}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {isPreviewView && !isMobileLayout && "Preview"}
-                          </Button>
-                        </TooltipTrigger>
-                        {!isPreviewView && (
-                          <TooltipContent>Preview</TooltipContent>
-                        )}
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant={!isPreviewView ? "ghost" : "ghost"}
-                            size="sm"
-                            onClick={() => onPreviewViewChange(false)}
-                            className={`flex items-center gap-2 ${!isPreviewView ? "bg-background shadow-sm hover:bg-background/80" : ""}`}
-                          >
-                            <Code2 className="w-4 h-4" />
-                            {!isPreviewView && !isMobileLayout && "Code"}
-                          </Button>
-                        </TooltipTrigger>
-                        {isPreviewView && <TooltipContent>Code</TooltipContent>}
-                      </Tooltip>
-                    </div>
-                  </TooltipProvider>
+                  <div className="bg-[#141517] p-1 rounded-lg border border-white/5 flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onPreviewViewChange(true)}
+                      className={cn(
+                        "h-7 px-3 text-xs font-medium rounded-md transition-all",
+                        isPreviewView
+                          ? "bg-white text-black shadow-sm"
+                          : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1.5" />
+                      Preview
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onPreviewViewChange(false)}
+                      className={cn(
+                        "h-7 px-3 text-xs font-medium rounded-md transition-all",
+                        !isPreviewView
+                          ? "bg-white text-black shadow-sm"
+                          : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <Code2 className="w-3.5 h-3.5 mr-1.5" />
+                      Code
+                    </Button>
+                  </div>
+
+                  <div className="h-4 w-px bg-white/10 mx-1" />
+
                   <ConnectionStatusIndicator />
+
                   {currentRenderStatus === "Starting Dev Server.." && (
-                    <div className="flex items-center gap-2 bg-background/60 backdrop-blur-sm px-3 py-1.5 rounded-md border border-border/50">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                      <span className="text-xs font-medium text-foreground whitespace-nowrap">
-                        This can take about 1 minute
+                    <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-1.5 rounded-md border border-amber-500/20">
+                      <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                      <span className="text-xs font-medium text-amber-500 whitespace-nowrap">
+                        Booting up (~1m)
                       </span>
                     </div>
                   )}
                   {mobileHint && isMobileLayout && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-[#8A8F98] animate-pulse">
                       {mobileHint}
                     </span>
                   )}
                 </>
               )}
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
               {!publicView && !isPreviewView && (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="flex-shrink-0"
+                  className="h-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] transition-all"
                   title="Export project files"
                 >
                   {isExporting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Download className="w-4 h-4" />
+                    <Download className="w-3.5 h-3.5" />
                   )}
-                  <span className="ml-1.5 hidden md:inline">Export</span>
+                  <span className="ml-2 hidden md:inline text-xs font-medium">Export</span>
                 </Button>
               )}
               {!publicView && (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setIsQRModalOpen(true)}
-                  className="flex-shrink-0"
+                  className="h-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] transition-all"
                   title="View on Device"
                   disabled={!viewing_url}
                 >
-                  <QrCode className="w-4 h-4" />
-                  <span className="ml-1.5 hidden md:inline">
-                    View on Device
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span className="ml-2 hidden md:inline text-xs font-medium">
+                    Device
                   </span>
                 </Button>
               )}
               {!publicView && (
                 <Button
-                  variant={isTerminalOpen ? "default" : "secondary"}
+                  variant="ghost"
                   size="sm"
                   onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-                  className="flex-shrink-0"
+                  className={cn(
+                    "h-8 border transition-all",
+                    isTerminalOpen
+                      ? "bg-white text-black border-transparent hover:bg-white/90"
+                      : "bg-[#141517] border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E]"
+                  )}
                   title="Toggle Terminal"
                 >
-                  <TerminalIcon className="w-4 h-4" />
-                  <span className="ml-1.5 hidden md:inline">Terminal</span>
+                  <TerminalIcon className="w-3.5 h-3.5" />
+                  <span className="ml-2 hidden md:inline text-xs font-medium">Terminal</span>
                 </Button>
               )}
               {designSystemLabel && onDesignSystemClick && (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={onDesignSystemClick}
-                  className="hidden sm:flex items-center gap-2"
+                  className="h-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] hidden sm:flex items-center gap-2 transition-all"
                 >
-                  <Palette className="w-4 h-4" />
-                  {/* <Badge variant="outline" className="border-0 px-0">
-                    {designSystemLabel}
-                  </Badge> */}
+                  <Palette className="w-3.5 h-3.5" />
                 </Button>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-shrink-0"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] transition-all"
                     title="Actions"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 bg-[#141517] border-white/10 text-white">
                   <DropdownMenuItem
                     onClick={() => handleModeChange("mobile")}
-                    className={previewMode === "mobile" ? "bg-accent" : ""}
+                    className={cn("focus:bg-white/10 focus:text-white text-sm cursor-pointer", previewMode === "mobile" ? "bg-white/5 text-white" : "text-[#8A8F98]")}
                   >
-                    <Smartphone className="w-4 h-4 mr-2" />
+                    <Smartphone className="w-4 h-4 mr-2 opacity-70" />
                     Mobile View
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleModeChange("web")}
-                    className={previewMode === "web" ? "bg-accent" : ""}
+                    className={cn("focus:bg-white/10 focus:text-white text-sm cursor-pointer", previewMode === "web" ? "bg-white/5 text-white" : "text-[#8A8F98]")}
                   >
-                    <Monitor className="w-4 h-4 mr-2" />
+                    <Monitor className="w-4 h-4 mr-2 opacity-70" />
                     Web View
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="bg-white/10" />
                   {onShare && (
-                    <DropdownMenuItem onClick={onShare}>
-                      <Share2 className="w-4 h-4 mr-2" />
+                    <DropdownMenuItem onClick={onShare} className="focus:bg-white/10 focus:text-white text-[#8A8F98] text-sm cursor-pointer">
+                      <Share2 className="w-4 h-4 mr-2 opacity-70" />
                       Share
                     </DropdownMenuItem>
                   )}
@@ -1430,49 +1430,37 @@ const MaterializeRenderSection = forwardRef<
                     <DropdownMenuItem
                       onClick={onClone}
                       disabled={isCloningPrototype}
+                      className="focus:bg-white/10 focus:text-white text-[#8A8F98] text-sm cursor-pointer"
                     >
                       {isCloningPrototype ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
-                        <Copy className="w-4 h-4 mr-2" />
+                        <Copy className="w-4 h-4 mr-2 opacity-70" />
                       )}
                       {isCloningPrototype ? "Cloning..." : "Clone"}
                     </DropdownMenuItem>
                   )}
-                  {(onShare || onClone) && <DropdownMenuSeparator />}
-                  {designSystemLabel && onDesignSystemClick && (
-                    <>
-                      <DropdownMenuItem
-                        onClick={onDesignSystemClick}
-                        className="sm:hidden"
-                      >
-                        <Palette className="w-4 h-4 mr-2" />
-                        {/* <Badge variant="outline" className="border-0 px-0">
-                          {designSystemLabel}
-                        </Badge> */}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="sm:hidden" />
-                    </>
-                  )}
+                  <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={handleRestartDevServer}
                     disabled={!prototypeId || isRestartingDevServer}
+                    className="focus:bg-white/10 focus:text-white text-[#8A8F98] text-sm cursor-pointer"
                   >
                     {isRestartingDevServer ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
+                      <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
                     )}
                     {isRestartingDevServer ? "Restarting..." : "Restart Dev Server"}
                   </DropdownMenuItem>
                   {onResetToDefault && (
                     <>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator className="bg-white/10" />
                       <DropdownMenuItem
                         onClick={onResetToDefault}
-                        className="text-destructive focus:text-destructive"
+                        className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
                       >
-                        <RotateCcw className="w-4 h-4 mr-2" />
+                        <RotateCcw className="w-4 h-4 mr-2 opacity-70" />
                         Reset to Default
                       </DropdownMenuItem>
                     </>
@@ -1483,9 +1471,12 @@ const MaterializeRenderSection = forwardRef<
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Preview Area */}
         <div
-          className={`relative flex items-center justify-center bg-background ${isPreviewView ? "p-8" : "p-0"}`}
+          className={cn(
+            "relative flex items-center justify-center bg-[#0B0C0E] transition-all duration-300",
+            isPreviewView && "bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-100"
+          )}
           style={{
             height: isTerminalOpen
               ? `calc(100% - ${terminalHeight}px)`
@@ -1496,48 +1487,44 @@ const MaterializeRenderSection = forwardRef<
           {isPreviewView ? (
             renderPreviewContent()
           ) : (
-            <div className="h-full w-full overflow-hidden">{codeView}</div>
+            <div className="h-full w-full overflow-hidden bg-[#141517]">{codeView}</div>
           )}
         </div>
 
         {/* Terminal Panel */}
         {!publicView && isTerminalOpen && (
           <div
-            className="relative border-t border-border bg-background"
+            className="relative border-t border-white/10 bg-[#0B0C0E]"
             style={{ height: `${terminalHeight}px` }}
           >
             {/* Terminal Header with Resize Handle */}
             <div
-              className="absolute top-0 left-0 right-0 h-8 bg-muted border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-muted/80 transition-colors group"
+              className="absolute top-0 left-0 right-0 h-9 bg-[#141517] border-b border-white/5 flex items-center justify-between px-4 cursor-ns-resize hover:bg-[#1A1B1E] transition-colors group z-10"
               onMouseDown={handleTerminalResizeStart}
             >
               <div className="flex items-center gap-2">
-                <TerminalIcon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">
-                  Terminal
+                <TerminalIcon className="w-3.5 h-3.5 text-[#8A8F98]" />
+                <span className="text-xs font-medium text-[#8A8F98] group-hover:text-white transition-colors">
+                  Terminal Output
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] text-white/20 uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   Drag to resize
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 text-[#8A8F98] hover:text-white hover:bg-white/5 rounded"
                   onClick={() => setIsTerminalOpen(false)}
                 >
-                  {isTerminalOpen ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4" />
-                  )}
+                  <ChevronDown className="w-4 h-4" />
                 </Button>
               </div>
             </div>
 
             {/* Terminal Content */}
-            <div className="absolute top-8 left-0 right-0 bottom-0 p-2">
+            <div className="absolute top-9 left-0 right-0 bottom-0 bg-[#0B0C0E]">
               <Terminal className="w-full h-full" baseTunnelUrl={base_tunnel_url} />
             </div>
           </div>
@@ -1545,54 +1532,65 @@ const MaterializeRenderSection = forwardRef<
 
         {/* QR Code Modal */}
         <Dialog open={isQRModalOpen} onOpenChange={setIsQRModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-[#141517] border-white/10 text-white">
             <DialogHeader>
-              <DialogTitle>View on Device</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-white">View on Device</DialogTitle>
+              <DialogDescription className="text-[#8A8F98]">
                 {currentRenderStatus === "Connected"
-                  ? "Scan this QR code with your phone's camera to open the app in Expo Go"
-                  : "URL for viewing"}
+                  ? "Scan this QR code with your phone's camera to open in Expo Go"
+                  : "Public viewing URL"}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col items-center justify-center gap-4 py-4">
+            <div className="flex flex-col items-center justify-center gap-6 py-6">
               {viewing_url && currentRenderStatus === "Connected" ? (
                 <>
-                  <div className="bg-white p-6 rounded-lg">
+                  <div className="bg-white p-4 rounded-xl shadow-lg">
                     <QRCodeSVG
                       value={getExpoGoDeepLink()}
-                      size={256}
+                      size={200}
                       level="H"
                     />
                   </div>
-                  <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Make sure you have Expo Go installed on your device
+                  <div className="text-center space-y-2 w-full px-4">
+                    <p className="text-xs text-[#8A8F98]">
+                      Requires Expo Go installed on your device
                     </p>
-                    <p className="text-xs font-mono bg-muted px-3 py-2 rounded break-all">
-                      {getExpoGoDeepLink()}
-                    </p>
+                    <div className="flex items-center gap-2 bg-[#0B0C0E] p-2 rounded-lg border border-white/10">
+                      <p className="text-xs font-mono text-white/70 break-all flex-1 text-left line-clamp-1">
+                        {getExpoGoDeepLink()}
+                      </p>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-white/10" onClick={() => {
+                        navigator.clipboard.writeText(getExpoGoDeepLink());
+                        toast.success("Deep link copied");
+                      }}>
+                        <Copy className="w-3 h-3 text-white/50" />
+                      </Button>
+                    </div>
                   </div>
                 </>
               ) : (
-                <div className="text-center space-y-2 w-full">
-                  <p className="text-sm text-muted-foreground">
-                    Your viewing URL:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-mono bg-muted px-3 py-2 rounded break-all flex-1">
-                      {viewing_url}
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(viewing_url);
-                        toast.success("URL copied to clipboard!");
-                      }}
-                      title="Copy URL"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
+                <div className="text-center space-y-4 w-full">
+                  <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                    <Monitor className="w-6 h-6 text-white/20" />
+                  </div>
+                  <div className="w-full">
+                    <p className="text-sm text-[#8A8F98] mb-2">Viewing URL</p>
+                    <div className="flex items-center gap-2 bg-[#0B0C0E] p-1 rounded-lg border border-white/10">
+                      <div className="px-3 py-1.5 text-xs font-mono text-white/80 truncate flex-1">
+                        {viewing_url}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewing_url);
+                          toast.success("URL copied to clipboard!");
+                        }}
+                        className="h-7 px-3 hover:bg-white/10 text-white/70 hover:text-white"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
