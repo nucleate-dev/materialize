@@ -217,7 +217,9 @@ export class ExpoDevServerService {
         files,
         assets: assetsWithContent,
         errors: fetchErrors,
-      } = await fileSyncService.fetchFilesAndAssetsFromSupabase(prototype_id);
+      } = await fileSyncService.fetchAllFilesAndAssetsFromSupabaseForInitialSync(
+        prototype_id,
+      );
 
       if (fetchErrors.length > 0) {
         const errorMsg = fetchErrors.join("; ");
