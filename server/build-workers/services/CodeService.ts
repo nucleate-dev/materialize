@@ -1035,8 +1035,15 @@ export class CodeService {
                           }
 
                           if (filePath) {
-                            // Apply shared permissions and group ownership
+                            // Apply shared permissions and group ownership to the file
                             this.applySharedPermissions(filePath, "file");
+
+                            // Also apply shared permissions to parent directories
+                            // This ensures directories created by SDK also get group ownership
+                            const fileDir = path.dirname(filePath);
+                            if (fileDir !== this.workDir) {
+                              this.applySharedPermissionsRecursively(fileDir);
+                            }
 
                             const relativePath = this.getRelativePath(filePath);
 
@@ -2701,6 +2708,32 @@ export class CodeService {
         mode: mode.toString(8),
         error,
       });
+    }
+  }
+
+  /**
+   * Recursively applies shared permissions to a directory and all its parents
+   * up to (but not including) the workDir. This ensures that when Claude SDK
+   * creates nested directories, all of them get proper group ownership.
+   */
+  private applySharedPermissionsRecursively(targetPath: string): void {
+    const resolvedPath = path.resolve(targetPath);
+
+    // Stop if we've reached the workDir or gone outside allowed root
+    if (
+      !this.isPathInsideAllowedRoot(resolvedPath) ||
+      resolvedPath === this.allowedRoot
+    ) {
+      return;
+    }
+
+    // Apply permissions to this directory
+    this.applySharedPermissions(resolvedPath, "dir");
+
+    // Recursively apply to parent directory
+    const parentDir = path.dirname(resolvedPath);
+    if (parentDir !== resolvedPath && parentDir !== this.workDir) {
+      this.applySharedPermissionsRecursively(parentDir);
     }
   }
 
