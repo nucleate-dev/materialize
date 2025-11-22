@@ -1020,6 +1020,16 @@ export default function ClaudeCodePanel({
         break;
       }
 
+      case ChatEvent.MODIFIED_FILES: {
+        const files =
+          (Array.isArray(message.data?.files) ? message.data.files : []) as string[];
+        if (files.length > 0) {
+          const sanitized = files.map((filePath) => sanitizeFilePath(filePath));
+          addMessage("system", `Files modified: ${sanitized.join(", ")}`);
+        }
+        break;
+      }
+
       case ChatEvent.SYNC_COMPLETE: {
         const { success, filesCount, assetsCount } = message.data;
         if (success) {

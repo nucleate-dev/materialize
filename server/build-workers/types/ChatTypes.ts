@@ -15,6 +15,7 @@ export enum ChatEvent {
   FILE_SYNC_COMPLETE = "file_sync_complete",
   SYNC_COMPLETE = "sync_complete",
   HISTORY_REQUEST = "history_request",
+  MODIFIED_FILES = "modified_files",
 }
 
 export enum ChatClientEvent {
@@ -188,6 +189,13 @@ export interface FileSyncResultData {
 export interface FileSyncCompleteMessage {
   type: ChatEvent.FILE_SYNC_COMPLETE;
   data: FileSyncResultData;
+}
+
+export interface ModifiedFilesMessage {
+  type: ChatEvent.MODIFIED_FILES;
+  data: {
+    files: string[];
+  };
 }
 
 export interface SyncCompleteMessage {

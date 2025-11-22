@@ -70,6 +70,7 @@ interface CodeSessionState {
   lastActiveAt: number;
   abortController: AbortController | null;
   trackedFiles: Set<string>; // Track files that were modified during the session
+  modifiedFilesThisQuery: Set<string>; // Track files modified by tools for the current query
   fileWatcher: FSWatcher | null; // File system watcher for tracking changes
   designSystemId: string | null; // ID of currently loaded design system
   designSystemRules: string | null; // Cached design system rules
@@ -181,6 +182,7 @@ export class CodeService {
     lastActiveAt: 0,
     abortController: null,
     trackedFiles: new Set<string>(),
+    modifiedFilesThisQuery: new Set<string>(),
     fileWatcher: null,
     designSystemId: null,
     designSystemRules: null,
@@ -863,40 +865,34 @@ export class CodeService {
                   ): Promise<HookJSONOutput> => {
                     try {
                       if (input.hook_event_name === "PostToolUse") {
-                        // Track file changes from file-modifying tools (only for incremental sync)
-                        if (!ENABLE_FULL_SYNC) {
-                          const fileModifyingTools = [
-                            "Write",
-                            "Edit",
-                            "NotebookEdit",
-                          ];
-                          if (fileModifyingTools.includes(input.tool_name)) {
-                            const toolInput =
-                              input.tool_input as ToolInputWithFilePath;
-                            const toolResponse =
-                              input.tool_response as ToolResponseWithFilePath;
+                        const fileModifyingTools = [
+                          "Write",
+                          "Edit",
+                          "NotebookEdit",
+                        ];
+                        if (fileModifyingTools.includes(input.tool_name)) {
+                          const toolInput =
+                            input.tool_input as ToolInputWithFilePath;
+                          const toolResponse =
+                            input.tool_response as ToolResponseWithFilePath;
 
-                            // Extract file path from tool input or response
-                            let filePath: string | null = null;
+                          // Extract file path from tool input or response
+                          let filePath: string | null = null;
 
-                            if (toolInput?.file_path) {
-                              filePath = toolInput.file_path;
-                            } else if (toolInput?.notebook_path) {
-                              filePath = toolInput.notebook_path;
-                            } else if (toolResponse?.file_path) {
-                              filePath = toolResponse.file_path;
-                            }
+                          if (toolInput?.file_path) {
+                            filePath = toolInput.file_path;
+                          } else if (toolInput?.notebook_path) {
+                            filePath = toolInput.notebook_path;
+                          } else if (toolResponse?.file_path) {
+                            filePath = toolResponse.file_path;
+                          }
 
-                            if (filePath) {
-                              // Convert to relative path from workDir
-                              const relativePath = filePath.startsWith(
-                                this.workDir,
-                              )
-                                ? filePath.slice(this.workDir.length + 1)
-                                : filePath;
+                          if (filePath) {
+                            const relativePath = this.getRelativePath(filePath);
 
+                            // Track for incremental sync (legacy mode)
+                            if (!ENABLE_FULL_SYNC) {
                               this.sessionState.trackedFiles.add(relativePath);
-
                               this.logger.info(
                                 "File tracked for sync (incremental)",
                                 {
@@ -907,6 +903,11 @@ export class CodeService {
                                 },
                               );
                             }
+
+                            // Track for query-level reporting
+                            this.sessionState.modifiedFilesThisQuery.add(
+                              relativePath,
+                            );
                           }
                         }
 
@@ -1258,6 +1259,28 @@ export class CodeService {
           },
         });
       }
+
+      // Emit list of files modified by tools during this query
+      const modifiedFiles = Array.from(
+        this.sessionState.modifiedFilesThisQuery,
+      );
+      if (modifiedFiles.length > 0) {
+        try {
+          this.sendMessage(socket, {
+            type: ChatEvent.MODIFIED_FILES,
+            data: { files: modifiedFiles },
+          });
+        } catch (modifiedFilesError) {
+          this.logger.error(
+            modifiedFilesError instanceof Error
+              ? modifiedFilesError
+              : new Error(String(modifiedFilesError)),
+            "Failed to send modified files event",
+            { prototypeId },
+          );
+        }
+      }
+      this.sessionState.modifiedFilesThisQuery.clear();
 
       // ------------------------------------------------------------------------------------------------
       // Track API usage
