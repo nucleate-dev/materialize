@@ -172,6 +172,8 @@ export class FileSyncService {
           "build",
           ".cache",
           "tmp",
+          ".npm-cache",
+          ".expo",
         ]);
         const skipFiles = new Set([".DS_Store"]);
 
