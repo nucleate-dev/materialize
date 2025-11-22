@@ -2572,7 +2572,12 @@ export class CodeService {
     const mode = type === "dir" ? this.sharedDirMode : this.sharedFileMode;
 
     try {
-      fs.chmodSync(resolvedPath, mode);
+      const currentMode = fs.statSync(resolvedPath).mode & 0o777;
+      const targetMode = currentMode | mode;
+
+      if (targetMode !== currentMode) {
+        fs.chmodSync(resolvedPath, targetMode);
+      }
     } catch (error) {
       this.logger.warn("Failed to enforce shared permissions", {
         path: resolvedPath,
