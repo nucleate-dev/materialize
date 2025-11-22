@@ -3,6 +3,10 @@ import fs from "fs/promises";
 import path from "path";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { Database } from "../types/supabase.js";
+import {
+  PrototypeFileInput,
+  PrototypeAssetInputWithContent,
+} from "../types/BuildWorkerTypes.js";
 
 interface SyncResult {
   success: boolean;
@@ -602,6 +606,117 @@ export class FileSyncService {
       ".otf": "font/otf",
     };
     return contentTypes[ext] || "application/octet-stream";
+  }
+
+  /**
+   * Fetches all files and assets from Supabase for a given prototype.
+   * Downloads asset content from storage and converts to base64.
+   * This is the exact logic extracted from ExpoDevServerService.startDevServer.
+   */
+  public async fetchFilesAndAssetsFromSupabase(
+    prototypeId: string,
+  ): Promise<{
+    files: PrototypeFileInput[];
+    assets: PrototypeAssetInputWithContent[];
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+
+    try {
+      this.logger.info("Fetching files from Supabase", {
+        prototype_id: prototypeId,
+      });
+
+      // Fetch files from Supabase
+      const { data: filesData, error: filesError } =
+        await this.supabaseClient
+          .from("prototype_files")
+          .select("*")
+          .eq("prototype_id", prototypeId);
+
+      if (filesError) {
+        const errorMsg = `Failed to fetch files from Supabase: ${filesError.message}`;
+        this.logger.error(new Error(errorMsg), "Supabase file fetch failed", {
+          error: filesError,
+        });
+        errors.push(errorMsg);
+        return { files: [], assets: [], errors };
+      }
+
+      const files = filesData || [];
+      this.logger.info("Fetched files from Supabase", {
+        fileCount: files.length,
+      });
+
+      // Fetch assets from Supabase
+      const { data: assetsData, error: assetsError } =
+        await this.supabaseClient
+          .from("prototype_assets")
+          .select("*")
+          .eq("prototype_id", prototypeId);
+
+      if (assetsError) {
+        const errorMsg = `Failed to fetch assets from Supabase: ${assetsError.message}`;
+        this.logger.error(new Error(errorMsg), "Supabase asset fetch failed", {
+          error: assetsError,
+        });
+        errors.push(errorMsg);
+        return { files, assets: [], errors };
+      }
+
+      this.logger.info("Fetched assets from Supabase", {
+        assetCount: assetsData?.length || 0,
+      });
+
+      // Download assets from Supabase storage and convert to base64
+      const assetsWithContent = await Promise.all(
+        (assetsData || []).map(async (asset) => {
+          try {
+            const { data, error } = await this.supabaseClient.storage
+              .from("prototype-assets")
+              .download(`${asset.prototype_id}/${asset.name}`);
+
+            if (error || !data) {
+              this.logger.error(
+                error,
+                `Failed to download asset ${asset.name}: ${
+                  error?.message ?? "unknown error"
+                }`,
+              );
+              return null;
+            }
+
+            const arrayBuffer = await data.arrayBuffer();
+            const base64Content = Buffer.from(arrayBuffer).toString("base64");
+
+            return {
+              ...asset,
+              contents: base64Content,
+            };
+          } catch (err) {
+            this.logger.error(err, `Error downloading asset ${asset.name}`);
+            return null;
+          }
+        }),
+      ).then((results) =>
+        results.filter((r): r is PrototypeAssetInputWithContent => r !== null),
+      );
+
+      this.logger.info("Downloaded assets from Supabase storage", {
+        downloadedCount: assetsWithContent.length,
+      });
+
+      return { files, assets: assetsWithContent, errors };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        new Error(message),
+        "Failed to fetch files and assets from Supabase",
+        { prototypeId },
+      );
+      errors.push(`Fetch failed: ${message}`);
+      return { files: [], assets: [], errors };
+    }
   }
 
   /**

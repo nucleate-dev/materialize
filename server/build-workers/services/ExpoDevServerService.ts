@@ -224,107 +224,27 @@ export class ExpoDevServerService {
         };
       }
 
-      log2.info("Fetching files from Supabase", { prototype_id });
+      // Use FileSyncService to fetch files and assets
+      const fileSyncService = new FileSyncService(this.workDir, supabase, log2);
+      const {
+        files,
+        assets: assetsWithContent,
+        errors: fetchErrors,
+      } = await fileSyncService.fetchFilesAndAssetsFromSupabase(prototype_id);
 
-      // Fetch files from Supabase
-      const { data: filesData, error: filesError } = await supabase
-        .from("prototype_files")
-        .select("*")
-        .eq("prototype_id", prototype_id);
-
-      if (filesError) {
-        const errorMsg = `Failed to fetch files from Supabase: ${filesError.message}`;
-        log2.error(new Error(errorMsg), "Supabase file fetch failed", {
-          error: filesError,
-        });
+      if (fetchErrors.length > 0) {
+        const errorMsg = fetchErrors.join("; ");
         return {
           success: false,
           status: DevServerStatus.ERROR,
           error: errorMsg,
-          build_errors: [
-            {
-              message: errorMsg,
-              type: "build",
-            },
-          ],
+          build_errors: fetchErrors.map((msg) => ({
+            message: msg,
+            type: "build",
+          })),
           build_warnings: [],
         };
       }
-
-      const files: PrototypeFileInput[] = filesData || [];
-      log2.info("Fetched files from Supabase", {
-        fileCount: files.length,
-      });
-
-      // Fetch assets from Supabase
-      const { data: assetsData, error: assetsError } = await supabase
-        .from("prototype_assets")
-        .select("*")
-        .eq("prototype_id", prototype_id);
-
-      if (assetsError) {
-        const errorMsg = `Failed to fetch assets from Supabase: ${assetsError.message}`;
-        log2.error(new Error(errorMsg), "Supabase asset fetch failed", {
-          error: assetsError,
-        });
-        return {
-          success: false,
-          status: DevServerStatus.ERROR,
-          error: errorMsg,
-          build_errors: [
-            {
-              message: errorMsg,
-              type: "build",
-            },
-          ],
-          build_warnings: [],
-        };
-      }
-
-      log2.info("Fetched assets from Supabase", {
-        assetCount: assetsData?.length || 0,
-      });
-
-      // Download assets from Supabase storage and convert to base64
-      const assetsWithContent: PrototypeAssetInputWithContent[] =
-        await Promise.all(
-          (assetsData || []).map(async (asset) => {
-            try {
-              const { data, error } = await supabase.storage
-                .from("prototype-assets")
-                .download(`${asset.prototype_id}/${asset.name}`);
-
-              if (error || !data) {
-                log2.error(
-                  error,
-                  `Failed to download asset ${asset.name}: ${
-                    error?.message ?? "unknown error"
-                  }`,
-                );
-                return null;
-              }
-
-              const arrayBuffer = await data.arrayBuffer();
-              const base64Content = Buffer.from(arrayBuffer).toString("base64");
-
-              return {
-                ...asset,
-                contents: base64Content,
-              };
-            } catch (err) {
-              log2.error(err, `Error downloading asset ${asset.name}`);
-              return null;
-            }
-          }),
-        ).then((results) =>
-          results.filter(
-            (r): r is PrototypeAssetInputWithContent => r !== null,
-          ),
-        );
-
-      log2.info("Downloaded assets from Supabase storage", {
-        downloadedCount: assetsWithContent.length,
-      });
 
       // Handle file scope (fixed path per instance)
       const projectDir = this.workDir;
