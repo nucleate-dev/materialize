@@ -1984,11 +1984,10 @@ export class ExpoDevServerService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      log2.warn(
-        new Error(errorMessage),
-        "Supabase sync before Expo build failed",
-        { prototypeId },
-      );
+      log2.warn("Supabase sync before Expo build failed", {
+        prototypeId,
+        error: errorMessage,
+      });
       logger.log("Supabase sync before Expo build", false, "", errorMessage);
     }
   }
@@ -2014,28 +2013,29 @@ export class ExpoDevServerService {
       `Starting build in ${projectDir}`,
     );
 
-    const resolvedPrototypeId = prototypeId || this.state.prototypeId;
-    try {
-      await this.syncProjectFilesToSupabase(
-        resolvedPrototypeId,
-        projectDir,
-        log2,
-        logger,
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      log2.warn(
-        new Error(errorMessage),
-        "Proceeding with Expo build despite Supabase sync failure",
-        { prototypeId: resolvedPrototypeId },
-      );
-      logger.log(
-        "Supabase sync before Expo build",
-        false,
-        "",
-        `Skipped due to error: ${errorMessage}`,
-      );
+    const resolvedPrototypeId = prototypeId ?? this.state.prototypeId ?? null;
+    if (resolvedPrototypeId) {
+      try {
+        await this.syncProjectFilesToSupabase(
+          resolvedPrototypeId,
+          projectDir,
+          log2,
+          logger,
+        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log2.warn("Proceeding with Expo build despite Supabase sync failure", {
+          prototypeId: resolvedPrototypeId,
+          error: errorMessage,
+        });
+        logger.log(
+          "Supabase sync before Expo build",
+          false,
+          "",
+          `Skipped due to error: ${errorMessage}`,
+        );
+      }
     }
 
     try {
