@@ -1,0 +1,13 @@
+diff --git a/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs b/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+index d1893cb..c35106f 100755
+--- a/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
++++ b/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+@@ -6312,7 +6312,7 @@ var NodeFsOperations = {
+   },
+   mkdirSync(dirPath) {
+     if (!fs.existsSync(dirPath)) {
+-      fs.mkdirSync(dirPath, { recursive: true, mode: 448 });
++      fs.mkdirSync(dirPath, { recursive: true });
+     }
+   },
+   readdirSync(dirPath) {
