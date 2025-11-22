@@ -28,6 +28,7 @@ import {
   resolvePathWithinProject,
   writeProjectFiles,
 } from "../utils/shared-utils.js";
+import { FileSyncService } from "./FileSyncService.js";
 import { getSupabaseClient } from "../worker.js";
 import { TerminalService } from "./TerminalService.js";
 
@@ -998,7 +999,12 @@ export class ExpoDevServerService {
       );
 
       const buildStartTime = Date.now();
-      const outputPath = await this.buildExpoProject(log2, buildDir, logger);
+      const outputPath = await this.buildExpoProject(
+        log2,
+        buildDir,
+        logger,
+        prototype_id,
+      );
       const buildDuration = Date.now() - buildStartTime;
       logger.log(
         "Expo build completed",
@@ -1140,7 +1146,12 @@ export class ExpoDevServerService {
 
       // No need to install dependencies again since they should already be installed
       // when the dev server was started
-      const outputPath = await this.buildExpoProject(log2, buildDir, logger);
+      const outputPath = await this.buildExpoProject(
+        log2,
+        buildDir,
+        logger,
+        resolvedPrototypeId,
+      );
 
       // Log memory after expo build (likely peak memory usage)
       const memUsageAfterBuild = process.memoryUsage();
@@ -1919,6 +1930,69 @@ export class ExpoDevServerService {
     return uploadResult;
   }
 
+  private async syncProjectFilesToSupabase(
+    prototypeId: string | undefined,
+    projectDir: string,
+    log2: SystemLogger,
+    logger: {
+      log: (
+        step: string,
+        success?: boolean,
+        output?: string,
+        error?: string,
+      ) => void;
+    },
+  ): Promise<void> {
+    if (!prototypeId) {
+      const message = "Prototype ID missing, skipping Supabase sync";
+      log2.warn(message);
+      logger.log("Supabase sync before Expo build", false, "", message);
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      const message = "Supabase client not initialized, skipping sync";
+      log2.warn(message, { prototypeId });
+      logger.log("Supabase sync before Expo build", false, "", message);
+      return;
+    }
+
+    const fileSyncService = new FileSyncService(projectDir, supabase, log2);
+    log2.info("Syncing project files to Supabase before Expo build", {
+      prototypeId,
+      projectDir,
+    });
+
+    try {
+      const syncResult =
+        await fileSyncService.syncAllFilesToSupabase(prototypeId);
+      const summary = `Files updated: ${syncResult.filesUpdated}, assets updated: ${syncResult.assetsUpdated}, errors: ${syncResult.errors.length}`;
+      logger.log(
+        "Supabase sync before Expo build",
+        syncResult.success,
+        summary,
+        syncResult.errors.join("; "),
+      );
+
+      if (!syncResult.success) {
+        log2.warn("Supabase sync before Expo build completed with errors", {
+          prototypeId,
+          errors: syncResult.errors,
+        });
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      log2.warn(
+        new Error(errorMessage),
+        "Supabase sync before Expo build failed",
+        { prototypeId },
+      );
+      logger.log("Supabase sync before Expo build", false, "", errorMessage);
+    }
+  }
+
   private async buildExpoProject(
     log2: SystemLogger,
     projectDir: string,
@@ -1932,12 +2006,37 @@ export class ExpoDevServerService {
       getBuildLog: () => BuildLogEntry[];
       getElapsedTime: () => number;
     },
+    prototypeId?: string,
   ): Promise<string> {
     logger.log(
       "Building Expo project",
       true,
       `Starting build in ${projectDir}`,
     );
+
+    const resolvedPrototypeId = prototypeId || this.state.prototypeId;
+    try {
+      await this.syncProjectFilesToSupabase(
+        resolvedPrototypeId,
+        projectDir,
+        log2,
+        logger,
+      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      log2.warn(
+        new Error(errorMessage),
+        "Proceeding with Expo build despite Supabase sync failure",
+        { prototypeId: resolvedPrototypeId },
+      );
+      logger.log(
+        "Supabase sync before Expo build",
+        false,
+        "",
+        `Skipped due to error: ${errorMessage}`,
+      );
+    }
 
     try {
       const expoConfigPath = path.join(projectDir, "app.json");
