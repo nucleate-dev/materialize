@@ -175,7 +175,7 @@ export class FileSyncService {
           ".npm-cache",
           ".expo",
         ]);
-        const skipFiles = new Set([".DS_Store"]);
+        const skipFiles = new Set([".DS_Store", ".npmrc", ".yarnrc"]);
 
         const relativeSegments = entryRelativePath.split(path.sep);
         const isTopLevelSkip =
