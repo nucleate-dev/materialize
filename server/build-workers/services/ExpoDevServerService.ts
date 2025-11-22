@@ -29,7 +29,7 @@ import {
   writeProjectFiles,
 } from "../utils/shared-utils.js";
 import { FileSyncService } from "./FileSyncService.js";
-import { getSupabaseClient } from "../worker.js";
+import { SupabaseClientService } from "./SupabaseClientService.js";
 import { TerminalService } from "./TerminalService.js";
 
 const S3_BUCKET = process.env.S3_BUCKET || "materialize-sites";
@@ -113,18 +113,21 @@ export class ExpoDevServerService {
   private readonly logger: SystemLogger;
   private s3: S3Client | undefined;
   private readonly terminalService: TerminalService;
+  private readonly supabaseClientService: SupabaseClientService;
 
   constructor(
     workDir: string = "/tmp/expo-dev",
     s3Instance: S3Client | undefined,
     terminalService: TerminalService,
     logger: SystemLogger,
+    supabaseClientService: SupabaseClientService,
   ) {
     this.workDir = workDir;
     this.s3 = s3Instance;
     this.terminalService = terminalService;
     this.state.tunnelSubdomain = this.generateTunnelSubdomain();
     this.logger = logger;
+    this.supabaseClientService = supabaseClientService;
   }
 
   public getState(): DevServerState {
@@ -205,24 +208,8 @@ export class ExpoDevServerService {
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
 
-      // Fetch files and assets from Supabase
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        const errorMsg = "Supabase client not initialized";
-        log2.error(new Error(errorMsg), errorMsg);
-        return {
-          success: false,
-          status: DevServerStatus.ERROR,
-          error: errorMsg,
-          build_errors: [
-            {
-              message: errorMsg,
-              type: "build",
-            },
-          ],
-          build_warnings: [],
-        };
-      }
+      // Fetch files and assets from Supabase using the centralized client service
+      const supabase = this.supabaseClientService.getClient();
 
       // Use FileSyncService to fetch files and assets
       const fileSyncService = new FileSyncService(this.workDir, supabase, log2);
@@ -1867,14 +1854,7 @@ export class ExpoDevServerService {
       return;
     }
 
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      const message = "Supabase client not initialized, skipping sync";
-      log2.warn(message, { prototypeId });
-      logger.log("Supabase sync before Expo build", false, "", message);
-      return;
-    }
-
+    const supabase = this.supabaseClientService.getClient();
     const fileSyncService = new FileSyncService(projectDir, supabase, log2);
     log2.info("Syncing project files to Supabase before Expo build", {
       prototypeId,
