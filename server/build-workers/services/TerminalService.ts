@@ -65,7 +65,7 @@ export class TerminalService {
   private readonly workDir: string;
   private readonly allowedRoot: string;
   private readonly sessionInputBuffers = new Map<string, string>();
-  private readonly commandValidator: TerminalCommandValidator;
+  // private readonly commandValidator: TerminalCommandValidator;
   private logger: SystemLogger;
   private readonly fastifyApp: FastifyInstance;
   private readonly sessions = new Map<string, TerminalSession>();
@@ -77,13 +77,14 @@ export class TerminalService {
     logger: SystemLogger,
   ) {
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
-    this.commandValidator = new TerminalCommandValidator(this.allowedRoot);
+    // this.commandValidator = new TerminalCommandValidator(this.allowedRoot);
     const normalizedWorkDir = path.resolve(workDir);
-    this.workDir = this.commandValidator.isPathInsideAllowedRoot(
-      normalizedWorkDir,
-    )
-      ? normalizedWorkDir
-      : this.allowedRoot;
+    this.workDir = normalizedWorkDir;
+    // this.workDir = this.commandValidator.isPathInsideAllowedRoot(
+    //   normalizedWorkDir,
+    // )
+    //   ? normalizedWorkDir
+    //   : this.allowedRoot;
     this.fastifyApp = fastifyApp;
     this.logger = logger;
     const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
@@ -106,12 +107,12 @@ export class TerminalService {
       );
     }
 
-    if (!this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)) {
-      this.logger.warn("WorkDir is outside the allowed root for terminals", {
-        workDir: normalizedWorkDir,
-        allowedRoot: this.allowedRoot,
-      });
-    }
+    // if (!this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)) {
+    //   this.logger.warn("WorkDir is outside the allowed root for terminals", {
+    //     workDir: normalizedWorkDir,
+    //     allowedRoot: this.allowedRoot,
+    //   });
+    // }
 
     // Make sure work directory exists
     try {
@@ -240,17 +241,18 @@ export class TerminalService {
     const cols = options.cols ?? 80;
     const rows = options.rows ?? 24;
     const requestedCwd = options.cwd ?? this.workDir;
-    const { resolvedPath: normalizedCwd, withinRoot } =
-      this.commandValidator.normalizePathToAllowedRoot(requestedCwd);
-    const cwd = withinRoot ? normalizedCwd : this.allowedRoot;
-    if (!withinRoot) {
-      this.logger.warn("Requested terminal cwd outside allowed root; clamped", {
-        sessionId,
-        requestedCwd,
-        normalizedCwd,
-        allowedRoot: this.allowedRoot,
-      });
-    }
+    // const { resolvedPath: normalizedCwd, withinRoot } =
+    //   this.commandValidator.normalizePathToAllowedRoot(requestedCwd);
+    // const cwd = withinRoot ? normalizedCwd : this.allowedRoot;
+    const cwd = path.resolve(requestedCwd);
+    // if (!withinRoot) {
+    //   this.logger.warn("Requested terminal cwd outside allowed root; clamped", {
+    //     sessionId,
+    //     requestedCwd,
+    //     normalizedCwd,
+    //     allowedRoot: this.allowedRoot,
+    //   });
+    // }
     const defaultShell = process.env.SHELL ?? "/bin/bash";
     const requestedCommand = options.command ?? defaultShell;
     const command =
@@ -373,38 +375,38 @@ export class TerminalService {
       throw new Error(`Terminal session ${sessionId} is not running`);
     }
 
-    const currentBuffer = this.sessionInputBuffers.get(session.id) ?? "";
-    const { outputToWrite, newBuffer, error } =
-      this.commandValidator.processAndValidateInput(
-        session.id,
-        session.cwd,
-        input,
-        currentBuffer,
-        (newCwd) => {
-          session.cwd = newCwd;
-        },
-      );
+    // const currentBuffer = this.sessionInputBuffers.get(session.id) ?? "";
+    // const { outputToWrite, newBuffer, error } =
+    //   this.commandValidator.processAndValidateInput(
+    //     session.id,
+    //     session.cwd,
+    //     input,
+    //     currentBuffer,
+    //     (newCwd) => {
+    //       session.cwd = newCwd;
+    //     },
+    //   );
 
-    this.sessionInputBuffers.set(session.id, newBuffer);
+    // this.sessionInputBuffers.set(session.id, newBuffer);
 
-    if (error) {
-      this.abortCurrentLine(session);
-      this.logger.warn("Terminal input blocked by policy", {
-        sessionId,
-        reason: error.message,
-        inputPreview: input.slice(0, 200),
-      });
-      this.emitTerminalEvent(session, "error", { reason: error.message });
-      throw error;
-    }
+    // if (error) {
+    //   this.abortCurrentLine(session);
+    //   this.logger.warn("Terminal input blocked by policy", {
+    //     sessionId,
+    //     reason: error.message,
+    //     inputPreview: input.slice(0, 200),
+    //   });
+    //   this.emitTerminalEvent(session, "error", { reason: error.message });
+    //   throw error;
+    // }
 
-    if (outputToWrite.length === 0) {
-      return;
-    }
+    // if (outputToWrite.length === 0) {
+    //   return;
+    // }
 
     session.updatedAt = Date.now();
     try {
-      session.pty.write(outputToWrite);
+      session.pty.write(input);
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
