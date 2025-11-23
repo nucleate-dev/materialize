@@ -89,31 +89,35 @@ export class TerminalService {
     this.fastifyApp = fastifyApp;
     this.logger = logger;
 
-    if (LAUNCH_TERMINALS_AS_ROOT) {
-      this.terminalUserIdentity = null;
-      this.logger.warn(
-        "Terminal sessions will run as root (LAUNCH_TERMINALS_AS_ROOT=true)",
-      );
-    } else {
-      const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
-      this.terminalUserIdentity = resolveTerminalUserIdentity(
-        this.logger,
-        terminalUsername,
-        process.env.TERMINAL_GROUP,
-      );
-      if (this.terminalUserIdentity) {
-        this.logger.info("Terminal sessions configured to drop privileges", {
+    // Always resolve the terminal user identity for non-test terminals
+    const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
+    this.terminalUserIdentity = resolveTerminalUserIdentity(
+      this.logger,
+      terminalUsername,
+      process.env.TERMINAL_GROUP,
+    );
+    if (this.terminalUserIdentity) {
+      this.logger.info(
+        "Terminal sessions configured to drop privileges (except test terminal if LAUNCH_TERMINALS_AS_ROOT=true)",
+        {
           username: this.terminalUserIdentity.username,
           uid: this.terminalUserIdentity.uid,
           gid: this.terminalUserIdentity.gid,
           homeDir: this.terminalUserIdentity.homeDir,
-        });
-      } else {
-        this.logger.warn(
-          "Falling back to root for terminal sessions (terminal user not found)",
-          { terminalUsername },
-        );
-      }
+          testTerminalAsRoot: LAUNCH_TERMINALS_AS_ROOT,
+        },
+      );
+    } else {
+      this.logger.warn(
+        "Falling back to root for terminal sessions (terminal user not found)",
+        { terminalUsername },
+      );
+    }
+
+    if (LAUNCH_TERMINALS_AS_ROOT) {
+      this.logger.warn(
+        "Test terminal will run as root (LAUNCH_TERMINALS_AS_ROOT=true)",
+      );
     }
 
     // if (!this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)) {
@@ -304,10 +308,25 @@ export class TerminalService {
         env,
       };
 
-      if (this.terminalUserIdentity) {
+      // Only drop privileges if:
+      // 1. We have a valid terminal user identity AND
+      // 2. Either this is NOT the "test" terminal OR LAUNCH_TERMINALS_AS_ROOT is false
+      const shouldDropPrivileges =
+        this.terminalUserIdentity &&
+        (sessionId !== "test" || !LAUNCH_TERMINALS_AS_ROOT);
+
+      if (shouldDropPrivileges) {
         const unixOptions = spawnOptions as IPtyForkOptions;
         unixOptions.uid = this.terminalUserIdentity.uid;
         unixOptions.gid = this.terminalUserIdentity.gid;
+      } else if (sessionId === "test" && LAUNCH_TERMINALS_AS_ROOT) {
+        this.logger.info(
+          "Launching test terminal as root (LAUNCH_TERMINALS_AS_ROOT=true)",
+          {
+            sessionId,
+            type,
+          },
+        );
       }
 
       pty = spawnPty(command, args, spawnOptions);
