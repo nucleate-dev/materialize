@@ -162,10 +162,10 @@ export class SystemLogger {
     modelName: string,
     inputTokens: number,
     outputTokens: number,
+    costInUsd: number,
+    durationMs: number,
+    durationApiMs: number,
     extraDims: Record<string, string> = {},
-    costInUsd?: number,
-    durationMs?: number,
-    durationApiMs?: number,
   ): void {
     // Also log as structured data for CloudWatch Logs Insights queries
     const logData: Record<string, unknown> = {
@@ -210,14 +210,10 @@ export class SystemLogger {
       metricValues.LLM_DurationApiMs = durationApiMs;
     }
 
-    this.emitEMF(
-      metrics,
-      metricValues,
-      {
-        model: modelName,
-        ...extraDims,
-      },
-    );
+    this.emitEMF(metrics, metricValues, {
+      model: modelName,
+      ...extraDims,
+    });
   }
 
   consoleLogDevOnly(
