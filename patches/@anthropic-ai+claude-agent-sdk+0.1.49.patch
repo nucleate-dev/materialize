@@ -1,8 +1,8 @@
 diff --git a/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs b/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
-index d1893cb..f7afcdc 100755
+index d1893cb..35925df 100755
 --- a/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 +++ b/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
-@@ -6256,17 +6256,13 @@ var NodeFsOperations = {
+@@ -6256,18 +6256,13 @@ var NodeFsOperations = {
        const writeOptions = {
          encoding: options.encoding
        };
@@ -11,18 +11,19 @@ index d1893cb..f7afcdc 100755
 -      } else if (options.mode !== undefined) {
 -        writeOptions.mode = options.mode;
 -      }
-+      writeOptions.mode = 0o777;
        fs.writeFileSync(fsPath, data, writeOptions);
        return;
      }
      let fd;
      try {
 -      const mode = !fileExists ? options.mode ?? 384 : options.mode;
-+      const mode = 0o777;
-       fd = fs.openSync(fsPath, "w", mode);
+-      fd = fs.openSync(fsPath, "w", mode);
++      // const mode = !fileExists ? options.mode ?? 384 : options.mode;
++      fd = fs.openSync(fsPath, "w");
        fs.writeFileSync(fd, data, { encoding: options.encoding });
        fs.fsyncSync(fd);
-@@ -6278,8 +6274,7 @@ var NodeFsOperations = {
+     } finally {
+@@ -6278,8 +6273,7 @@ var NodeFsOperations = {
    },
    appendFileSync(path, data, options) {
      if (!fs.existsSync(path)) {
@@ -32,7 +33,7 @@ index d1893cb..f7afcdc 100755
        try {
          fs.appendFileSync(fd, data);
        } finally {
-@@ -6312,7 +6307,7 @@ var NodeFsOperations = {
+@@ -6312,7 +6306,7 @@ var NodeFsOperations = {
    },
    mkdirSync(dirPath) {
      if (!fs.existsSync(dirPath)) {
