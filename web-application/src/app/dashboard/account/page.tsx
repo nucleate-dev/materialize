@@ -53,7 +53,7 @@ const SectionCard = ({ children, className }: { children: React.ReactNode; class
   </div>
 );
 
-const SectionHeader = ({ title, description, icon: Icon }: { title: string; description?: string; icon?: React.ComponentType<{ className?: string }>; }) => (
+const SectionHeader = ({ title, description, icon: Icon }: { title: string; description?: string; icon?: React.ComponentType<{ className?: string; }>; }) => (
   <div className="px-6 py-5 border-b border-black/5 dark:border-white/5 flex items-start justify-between">
     <div className="space-y-1">
       <h3 className="text-base font-medium text-gray-900 dark:text-white flex items-center gap-2">
@@ -420,7 +420,7 @@ function AccountSettings() {
                 </div>
                 <h3 className="text-gray-900 dark:text-white font-medium">Unlock Full Power</h3>
                 <p className="text-gray-600 dark:text-[#8A8F98] text-sm">
-                  Upgrade to Pro to access advanced export features, unlimited projects, and priority support.
+                  Upgrade to Plus to access advanced export features, unlimited projects, and priority support.
                 </p>
                 <Button onClick={() => handleUpgradeClick("plus")} className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90">
                   Upgrade Now

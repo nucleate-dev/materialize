@@ -151,12 +151,12 @@ export default function ClaudeCodePanelUI({
   scrollToBottom,
 }: ClaudeCodePanelUIProps) {
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0B0C0E] border-l border-gray-200 dark:border-white/5">
+    <div className="flex flex-col h-full bg-background border-l border-border">
       {/* --- Header --- */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02] h-14 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/50 h-14 shrink-0">
         <div className="flex items-center gap-3 flex-1 overflow-hidden">
           <div className="flex items-center gap-2 overflow-hidden">
-            <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px]" title={prototypeTitle}>
+            <span className="text-sm font-medium text-foreground truncate max-w-[120px]" title={prototypeTitle}>
               {prototypeTitle}
             </span>
             <TooltipProvider>
@@ -166,7 +166,7 @@ export default function ClaudeCodePanelUI({
                     onClick={() => setShowSettingsModal(true)}
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 text-gray-500 hover:text-gray-900 dark:text-[#8A8F98] dark:hover:text-white"
+                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
                   >
                     <Info className="w-3.5 h-3.5" />
                   </Button>
@@ -183,10 +183,10 @@ export default function ClaudeCodePanelUI({
                 value={prototypeChatSessionId ? String(prototypeChatSessionId) : undefined}
                 onValueChange={(value) => switchChatSession(value)}
               >
-                <SelectTrigger className="w-[140px] h-7 text-xs bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 focus:ring-0 focus:ring-offset-0">
+                <SelectTrigger className="w-[140px] h-7 text-xs bg-background border-border text-foreground focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Session" />
                 </SelectTrigger>
-                <SelectContent className="dark:bg-[#141517] dark:border-white/10">
+                <SelectContent className="bg-background border-border">
                   {allChatSessions.map((session) => {
                     const date = new Date(session.created_at ?? new Date());
                     const isToday = date.toDateString() === new Date().toDateString();
@@ -212,7 +212,7 @@ export default function ClaudeCodePanelUI({
                   variant="ghost"
                   onClick={createNewChatSession}
                   disabled={!isConnected}
-                  className="h-7 w-7 text-gray-500 hover:text-indigo-600 dark:text-[#8A8F98] dark:hover:text-indigo-400"
+                  className="h-7 w-7 text-muted-foreground hover:text-indigo-600"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -231,7 +231,7 @@ export default function ClaudeCodePanelUI({
           )}
 
           {isProcessing && (
-            <Button size="sm" variant="destructive" onClick={interruptQuery} className="h-7 px-2 text-xs bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400 border border-red-200 dark:border-red-900/50">
+            <Button size="sm" variant="destructive" onClick={interruptQuery} className="h-7 px-2 text-xs bg-red-500/10 text-red-600 hover:bg-red-500/20 border border-red-200">
               <StopCircle className="w-3.5 h-3.5 mr-1.5" /> Stop
             </Button>
           )}
@@ -244,7 +244,7 @@ export default function ClaudeCodePanelUI({
                   variant="ghost"
                   onClick={() => setShowResetConfirmation(true)}
                   disabled={!prototypeChatSessionId || isProcessing}
-                  className="h-7 w-7 text-gray-500 hover:text-red-500 dark:text-[#8A8F98] dark:hover:text-red-400 transition-colors"
+                  className="h-7 w-7 text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
@@ -256,15 +256,15 @@ export default function ClaudeCodePanelUI({
       </div>
 
       {/* --- Messages Area --- */}
-      <ScrollArea className="flex-1 px-4 relative bg-gray-50 dark:bg-[#0B0C0E]" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 px-4 relative bg-accent/20" ref={scrollAreaRef}>
         <div className="py-6 space-y-6 max-w-3xl mx-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
                 <Sparkles className="w-8 h-8 text-indigo-500/50" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">How can I help you build?</h3>
-              <p className="text-sm text-gray-500 dark:text-[#8A8F98] max-w-xs">
+              <h3 className="text-lg font-medium text-foreground mb-2">How can I help you build?</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">
                 Ask me to create a screen, generate components, or refactor your code.
               </p>
             </div>
@@ -289,11 +289,11 @@ export default function ClaudeCodePanelUI({
                       <div className={cn(
                         "rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm border",
                         message.isQueued
-                          ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700/30 text-amber-900 dark:text-amber-100"
-                          : "bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
+                          ? "bg-amber-50 border-amber-200 text-amber-900"
+                          : "bg-background border-border text-foreground"
                       )}>
                         {message.isQueued && (
-                          <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-amber-200/50 dark:border-amber-700/30">
+                          <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-amber-200/50">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             <span>Queued - waiting for connection</span>
                           </div>
@@ -304,7 +304,7 @@ export default function ClaudeCodePanelUI({
                         {message.imageUrls && message.imageUrls.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-2">
                             {message.imageUrls.map((imageUrl, idx) => (
-                              <div key={idx} className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 group/img">
+                              <div key={idx} className="relative rounded-lg overflow-hidden border border-border group/img">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={imageUrl}
@@ -317,7 +317,7 @@ export default function ClaudeCodePanelUI({
                           </div>
                         )}
                       </div>
-                      <div className="text-[10px] text-gray-400 mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="text-[10px] text-muted-foreground mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                         {getRelativeTime(message.timestamp)}
                       </div>
                     </div>
@@ -327,10 +327,10 @@ export default function ClaudeCodePanelUI({
                   {message.type === "assistant" && (
                     <div className="w-full max-w-none px-1">
                       <div className="prose prose-sm prose-gray dark:prose-invert max-w-none break-words
-                        prose-pre:bg-gray-100 dark:prose-pre:bg-[#141517] 
-                        prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-white/10
-                        prose-code:text-indigo-600 dark:prose-code:text-indigo-400
-                        prose-code:bg-indigo-50 dark:prose-code:bg-indigo-900/20 prose-code:px-1 prose-code:rounded
+                        prose-pre:bg-accent/50
+                        prose-pre:border prose-pre:border-border
+                        prose-code:text-indigo-600
+                        prose-code:bg-indigo-50 prose-code:px-1 prose-code:rounded
                         prose-code:before:content-none prose-code:after:content-none"
                       >
                         <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -340,15 +340,15 @@ export default function ClaudeCodePanelUI({
 
                   {/* Tool Status */}
                   {message.type === "tool" && (
-                    <div className="flex items-center gap-2 px-3 py-2 my-1 rounded-md bg-gray-100 dark:bg-[#141517] border border-gray-200 dark:border-white/5 w-fit max-w-full">
+                    <div className="flex items-center gap-2 px-3 py-2 my-1 rounded-md bg-accent/50 border border-border w-fit max-w-full">
                       <div className={cn(
                         "w-1.5 h-1.5 rounded-full shrink-0",
                         message.status === "error" ? "bg-red-500" : message.status === "running" ? "bg-indigo-500 animate-pulse" : "bg-emerald-500"
                       )} />
-                      <code className="text-xs font-mono text-gray-600 dark:text-gray-400 truncate max-w-[200px] sm:max-w-md">
+                      <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px] sm:max-w-md">
                         {message.content}
                       </code>
-                      {message.status === "running" && <Loader2 className="w-3 h-3 text-gray-400 animate-spin ml-1" />}
+                      {message.status === "running" && <Loader2 className="w-3 h-3 text-muted-foreground animate-spin ml-1" />}
                       {message.status === "success" && <Check className="w-3 h-3 text-emerald-500 ml-1" />}
                       {message.status === "error" && <X className="w-3 h-3 text-red-500 ml-1" />}
                     </div>
@@ -359,12 +359,12 @@ export default function ClaudeCodePanelUI({
                     <div className="w-full my-1">
                       <div
                         onClick={() => message.toolCallId && toggleThinkingExpanded(message.toolCallId)}
-                        className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 rounded-md transition-colors w-fit select-none"
+                        className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-accent/50 rounded-md transition-colors w-fit select-none"
                       >
-                        <div className="text-gray-400">
+                        <div className="text-muted-foreground">
                           {message.toolCallId && expandedThinking.has(message.toolCallId) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-[#8A8F98]">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Terminal className="w-3.5 h-3.5" />
                           <span className="font-medium tracking-tight">
                             {message.status === "running" ? "Processing..." : "Thought process"}
@@ -373,11 +373,11 @@ export default function ClaudeCodePanelUI({
                       </div>
 
                       {message.toolCallId && expandedThinking.has(message.toolCallId) && (
-                        <div className="ml-2 pl-4 border-l border-gray-200 dark:border-white/10 mt-1 py-1">
-                          <div className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-[#141517] p-3 rounded-md border border-gray-200 dark:border-white/5">
+                        <div className="ml-2 pl-4 border-l border-border mt-1 py-1">
+                          <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed bg-accent/50 p-3 rounded-md border border-border">
                             {message.content}
                             {message.toolInput && (
-                              <div className="mt-3 pt-3 border-t border-dashed border-gray-200 dark:border-white/10">
+                              <div className="mt-3 pt-3 border-t border-dashed border-border">
                                 {message.toolInput.prompt && (
                                   <div className="mb-1"><span className="text-indigo-500">prompt:</span> {sanitizeFilePath(message.toolInput.prompt)}</div>
                                 )}
@@ -394,7 +394,7 @@ export default function ClaudeCodePanelUI({
 
                   {/* Error Toast Style */}
                   {message.type === "error" && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-800 dark:text-red-300 text-sm">
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
                       <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
                       <div>{message.content}</div>
                     </div>
@@ -410,7 +410,7 @@ export default function ClaudeCodePanelUI({
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></div>
                   </div>
-                  <span className="text-xs font-medium text-gray-400 dark:text-gray-500 animate-pulse">Thinking...</span>
+                  <span className="text-xs font-medium text-muted-foreground animate-pulse">Thinking...</span>
                 </div>
               )}
             </>
@@ -427,7 +427,7 @@ export default function ClaudeCodePanelUI({
               size="sm"
               variant="outline"
               onClick={scrollToBottom}
-              className="pointer-events-auto rounded-full h-8 px-4 bg-white dark:bg-[#141517] border-gray-200 dark:border-white/20 shadow-lg hover:shadow-xl text-xs font-medium"
+              className="pointer-events-auto rounded-full h-8 px-4 bg-background border-border shadow-lg hover:shadow-xl text-xs font-medium"
             >
               <ArrowDown className="w-3.5 h-3.5 mr-2" />
               Scroll to bottom
@@ -438,7 +438,7 @@ export default function ClaudeCodePanelUI({
         {/* History Banner */}
         {!isCurrentSessionMostRecent && (
           <div className="absolute bottom-6 left-0 right-0 z-20 px-6 flex justify-center">
-            <div className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-4 py-2 rounded-full border border-amber-200 dark:border-amber-500/20 backdrop-blur-md shadow-lg text-xs font-medium flex items-center gap-2">
+            <div className="bg-amber-100 text-amber-800 px-4 py-2 rounded-full border border-amber-200 backdrop-blur-md shadow-lg text-xs font-medium flex items-center gap-2">
               <Info className="w-3.5 h-3.5" />
               Viewing past session. Start a new chat to interact.
             </div>
@@ -448,11 +448,11 @@ export default function ClaudeCodePanelUI({
 
       {/* --- TODO / Active Task Panel --- */}
       {currentTodos.length > 0 && currentTodos.some((t) => t.status !== "completed") && isCurrentSessionMostRecent && (
-        <div className="px-4 pt-3 pb-1 bg-gray-50 dark:bg-[#0B0C0E] border-t border-gray-200 dark:border-white/5">
-          <div className="rounded-lg border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 p-3">
+        <div className="px-4 pt-3 pb-1 bg-accent/20 border-t border-border">
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">Current Tasks</span>
-              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Current Tasks</span>
+              <span className="text-[10px] text-muted-foreground font-mono">
                 {currentTodos.filter((t) => t.status === "completed").length}/{currentTodos.length}
               </span>
             </div>
@@ -467,12 +467,12 @@ export default function ClaudeCodePanelUI({
                     ) : todo.status === "in_progress" ? (
                       <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
                     ) : (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-border" />
                     )}
                   </div>
                   <span className={cn(
                     "leading-tight",
-                    todo.status === "completed" ? "line-through text-gray-400" : "text-gray-700 dark:text-gray-300"
+                    todo.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"
                   )}>
                     {todo.status === "in_progress" ? todo.activeForm : todo.content}
                   </span>
@@ -484,7 +484,7 @@ export default function ClaudeCodePanelUI({
       )}
 
       {/* --- Input Area --- */}
-      <div className="p-4 bg-white dark:bg-[#0B0C0E] border-t border-gray-200 dark:border-white/5">
+      <div className="p-4 bg-background border-t border-border">
         {/* Uploaded Images Preview */}
         {uploadedImages.length > 0 && (
           <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
@@ -494,11 +494,11 @@ export default function ClaudeCodePanelUI({
                 <img
                   src={`data:${image.mediaType};base64,${image.base64}`}
                   alt={image.name}
-                  className="h-14 w-14 object-cover rounded-md border border-gray-200 dark:border-white/10"
+                  className="h-14 w-14 object-cover rounded-md border border-border"
                 />
                 <button
                   onClick={() => removeImage(image.id)}
-                  className="absolute -top-1.5 -right-1.5 bg-white dark:bg-gray-800 text-gray-500 rounded-full p-0.5 border border-gray-200 dark:border-gray-700 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1.5 -right-1.5 bg-background text-muted-foreground rounded-full p-0.5 border border-border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -507,7 +507,7 @@ export default function ClaudeCodePanelUI({
           </div>
         )}
 
-        <div className="flex items-end gap-2 bg-gray-50 dark:bg-[#141517] p-2 rounded-xl border border-gray-200 dark:border-white/10 focus-within:ring-1 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50 transition-all shadow-sm">
+        <div className="flex items-end gap-2 bg-accent/50 p-2 rounded-xl border border-border focus-within:ring-1 focus-within:ring-indigo-500/30 focus-within:border-indigo-500/50 transition-all shadow-sm">
           <input
             ref={fileInputRef}
             type="file"
@@ -526,7 +526,7 @@ export default function ClaudeCodePanelUI({
                   variant="ghost"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isProcessing || !isCurrentSessionMostRecent}
-                  className="h-9 w-9 mb-0.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-white/5"
+                  className="h-9 w-9 mb-0.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
                 >
                   <Paperclip className="w-5 h-5" />
                 </Button>
@@ -542,7 +542,7 @@ export default function ClaudeCodePanelUI({
             onKeyDown={handleKeyPress}
             placeholder={!isCurrentSessionMostRecent ? "Session is read-only" : "Ask AI to edit code..."}
             disabled={isProcessing || !isCurrentSessionMostRecent}
-            className="flex-1 min-h-[44px] max-h-32 bg-transparent border-0 focus-visible:ring-0 p-2.5 text-sm resize-none placeholder:text-gray-400 dark:placeholder:text-gray-600 text-gray-900 dark:text-white"
+            className="flex-1 min-h-[44px] max-h-32 bg-transparent border-0 focus-visible:ring-0 p-2.5 text-sm resize-none placeholder:text-muted-foreground text-foreground"
             rows={1}
           />
 
@@ -553,7 +553,7 @@ export default function ClaudeCodePanelUI({
             className={cn(
               "h-9 w-9 mb-0.5 rounded-lg transition-all",
               isProcessing || (!inputValue.trim() && uploadedImages.length === 0)
-                ? "bg-gray-200 dark:bg-white/5 text-gray-400 dark:text-gray-600"
+                ? "bg-accent text-muted-foreground"
                 : "bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-md"
             )}
           >
@@ -562,7 +562,7 @@ export default function ClaudeCodePanelUI({
         </div>
 
         <div className="mt-2 text-center">
-          <p className="text-[10px] text-gray-400 dark:text-gray-600">
+          <p className="text-[10px] text-muted-foreground">
             AI can make mistakes. Please review generated code.
           </p>
         </div>
@@ -570,20 +570,20 @@ export default function ClaudeCodePanelUI({
 
       {/* --- Settings Modal --- */}
       <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
-          <DialogHeader className="border-b border-gray-100 dark:border-white/5 pb-4">
+        <DialogContent className="sm:max-w-md bg-background border-border text-foreground">
+          <DialogHeader className="border-b border-border pb-4">
             <DialogTitle>Project Details</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-5">
             {/* Name */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Project Name</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Project Name</label>
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">
                   <Input
                     value={editedTitle}
                     onChange={(event) => setEditedTitle(event.target.value)}
-                    className="flex-1 bg-gray-50 dark:bg-[#0B0C0E] border-gray-200 dark:border-white/10"
+                    className="flex-1 bg-accent/50 border-border"
                     autoFocus
                     disabled={isUpdatingTitle}
                     onKeyDown={(event) => {
@@ -594,15 +594,15 @@ export default function ClaudeCodePanelUI({
                   <Button size="icon" onClick={handleSaveTitle} disabled={isUpdatingTitle || !editedTitle.trim()} className="h-9 w-9 bg-emerald-500 hover:bg-emerald-600 text-white">
                     {isUpdatingTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   </Button>
-                  <Button size="icon" variant="outline" onClick={handleCancelTitleEdit} disabled={isUpdatingTitle} className="h-9 w-9 border-gray-200 dark:border-white/10">
+                  <Button size="icon" variant="outline" onClick={handleCancelTitleEdit} disabled={isUpdatingTitle} className="h-9 w-9 border-border">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-[#0B0C0E] border border-gray-200 dark:border-white/10">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-accent/50 border border-border">
                   <span className="text-sm font-medium">{prototypeTitle}</span>
                   {canEditName && (
-                    <Button variant="ghost" size="icon" onClick={handleStartTitleEdit} className="h-6 w-6 text-gray-400 hover:text-indigo-500">
+                    <Button variant="ghost" size="icon" onClick={handleStartTitleEdit} className="h-6 w-6 text-muted-foreground hover:text-indigo-500">
                       <Edit2 className="w-3.5 h-3.5" />
                     </Button>
                   )}
@@ -613,17 +613,17 @@ export default function ClaudeCodePanelUI({
             {/* Meta Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visibility</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Visibility</label>
                 <div className="flex">
-                  <Badge variant="outline" className="bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                  <Badge variant="outline" className="bg-accent/50 border-border text-foreground">
                     {visibilityLabel}
                   </Badge>
                 </div>
               </div>
               {createdAtLabel && (
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Created</label>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 font-mono">{createdAtLabel}</p>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Created</label>
+                  <p className="text-sm text-foreground font-mono">{createdAtLabel}</p>
                 </div>
               )}
             </div>
@@ -633,22 +633,22 @@ export default function ClaudeCodePanelUI({
 
       {/* --- Reset Confirmation --- */}
       <Dialog open={showResetConfirmation} onOpenChange={setShowResetConfirmation}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#141517] border-gray-200 dark:border-white/10 text-gray-900 dark:text-white">
+        <DialogContent className="sm:max-w-md bg-background border-border text-foreground">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+            <DialogTitle className="flex items-center gap-2 text-red-600">
               <CircleAlert className="w-5 h-5" /> Reset Session?
             </DialogTitle>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               This will clear the current conversation history and context. Your project files will not be deleted, but the AI will lose memory of previous messages in this session.
             </p>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowResetConfirmation(false)} className="border-gray-200 dark:border-white/10">
+            <Button variant="outline" onClick={() => setShowResetConfirmation(false)} className="border-border">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => { setShowResetConfirmation(false); resetSession(); }} className="bg-red-600 hover:bg-red-700 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30 dark:border dark:border-red-500/50">
+            <Button variant="destructive" onClick={() => { setShowResetConfirmation(false); resetSession(); }} className="bg-red-600 hover:bg-red-700">
               Reset Session
             </Button>
           </DialogFooter>

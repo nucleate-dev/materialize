@@ -386,7 +386,7 @@ export default function NewPrototypeModal({
                     Limit Reached
                   </h4>
                   <p className="text-xs text-yellow-200/70 mb-3 leading-relaxed">
-                    Free plans include 5 projects. Upgrade to Pro for unlimited projects.
+                    Free plans include 5 projects. Upgrade to Plus for unlimited projects.
                   </p>
                   <Button
                     type="button"
