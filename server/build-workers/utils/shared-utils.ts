@@ -1,7 +1,19 @@
 import fs from "fs/promises";
+import os from "os";
 import path from "path";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { TerminalSession } from "../services/TerminalService.js";
+import { Database } from "../types/supabase.js";
+
+// Claude session persistence constants
+export const CLAUDE_PROJECTS_DIR = path.join(
+  os.homedir(),
+  ".claude",
+  "projects",
+  "-tmp-materialize-dev-server",
+);
+export const SESSION_RECENCY_LOOKBACK_DAYS = 30;
 
 export class InvalidProjectPathError extends Error {
   constructor(message: string) {
@@ -151,4 +163,262 @@ export function resolvePathWithinProject(
   }
 
   return resolvedTargetPath;
+}
+
+/**
+ * Uploads all Claude session .jsonl files from the local directory to Supabase Storage.
+ * Called before building/deploying to preserve all session state.
+ *
+ * @param prototypeId - The prototype ID
+ * @param supabaseClient - Supabase client instance
+ * @param logger - Logger instance
+ * @returns Summary of upload results
+ */
+export async function uploadAllClaudeSessionsToSupabase(
+  prototypeId: string,
+  supabaseClient: SupabaseClient<Database>,
+  logger: SystemLogger,
+): Promise<{
+  success: boolean;
+  uploadedCount: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let uploadedCount = 0;
+
+  try {
+    // Ensure CLAUDE_PROJECTS_DIR exists
+    try {
+      await fs.access(CLAUDE_PROJECTS_DIR);
+    } catch {
+      logger.info("Claude projects directory does not exist, skipping session upload", {
+        prototypeId,
+        path: CLAUDE_PROJECTS_DIR,
+      });
+      return { success: true, uploadedCount: 0, errors: [] };
+    }
+
+    // Read all files in the directory
+    const files = await fs.readdir(CLAUDE_PROJECTS_DIR);
+    const sessionFiles = files.filter((file) => file.endsWith(".jsonl"));
+
+    if (sessionFiles.length === 0) {
+      logger.info("No Claude session files found to upload", { prototypeId });
+      return { success: true, uploadedCount: 0, errors: [] };
+    }
+
+    logger.info("Uploading Claude session files to Supabase", {
+      prototypeId,
+      sessionCount: sessionFiles.length,
+    });
+
+    // Upload all session files in parallel
+    const uploadPromises = sessionFiles.map(async (filename) => {
+      try {
+        const sessionFilePath = path.join(CLAUDE_PROJECTS_DIR, filename);
+        const fileBuffer = await fs.readFile(sessionFilePath);
+
+        // Storage path: prototype-id/session-id.jsonl
+        const storagePath = `${prototypeId}/${filename}`;
+
+        const { error } = await supabaseClient.storage
+          .from("claude-code-chat-sessions")
+          .upload(storagePath, fileBuffer, {
+            contentType: "application/x-jsonlines",
+            upsert: true, // Overwrite if exists
+          });
+
+        if (error) {
+          const errorMsg = `Failed to upload ${filename}: ${error.message}`;
+          errors.push(errorMsg);
+          logger.error(error, "Failed to upload session file", {
+            filename,
+            prototypeId,
+          });
+          return { success: false, filename };
+        } else {
+          logger.debug("Uploaded session file to Storage", {
+            filename,
+            size: fileBuffer.byteLength,
+          });
+          return { success: true, filename };
+        }
+      } catch (error) {
+        const errorMsg = `Error uploading ${filename}: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Error uploading session file",
+          { filename },
+        );
+        return { success: false, filename };
+      }
+    });
+
+    // Wait for all uploads to complete
+    const results = await Promise.all(uploadPromises);
+    uploadedCount = results.filter((r) => r.success).length;
+
+    logger.info("Claude session upload completed", {
+      prototypeId,
+      uploadedCount,
+      totalFiles: sessionFiles.length,
+      errorCount: errors.length,
+    });
+
+    return {
+      success: errors.length === 0,
+      uploadedCount,
+      errors,
+    };
+  } catch (error) {
+    const errorMsg = `Error scanning Claude sessions directory: ${error instanceof Error ? error.message : String(error)}`;
+    errors.push(errorMsg);
+    logger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Error scanning Claude sessions directory",
+      { prototypeId },
+    );
+    return { success: false, uploadedCount, errors };
+  }
+}
+
+/**
+ * Restores Claude session .jsonl files from Supabase Storage to the local directory.
+ * Called during worker allocation to restore session state.
+ *
+ * @param prototypeId - The prototype ID
+ * @param supabaseClient - Supabase client instance
+ * @param logger - Logger instance
+ * @returns List of restored session IDs
+ */
+export async function restoreClaudeSessionsFromSupabase(
+  prototypeId: string,
+  supabaseClient: SupabaseClient<Database>,
+  logger: SystemLogger,
+): Promise<{
+  success: boolean;
+  restoredSessionIds: string[];
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  const restoredSessionIds: string[] = [];
+
+  try {
+    logger.info("Restoring Claude sessions from Supabase Storage", {
+      prototypeId,
+    });
+
+    // Ensure CLAUDE_PROJECTS_DIR exists
+    await fs.mkdir(CLAUDE_PROJECTS_DIR, { recursive: true });
+
+    // List all .jsonl files in the prototype's storage folder
+    const { data: fileList, error: listError } = await supabaseClient.storage
+      .from("claude-code-chat-sessions")
+      .list(prototypeId, {
+        sortBy: { column: "created_at", order: "desc" },
+      });
+
+    if (listError) {
+      const errorMsg = `Failed to list session files: ${listError.message}`;
+      errors.push(errorMsg);
+      logger.error(listError, "Failed to list session files from Storage", {
+        prototypeId,
+      });
+      return { success: false, restoredSessionIds: [], errors };
+    }
+
+    if (!fileList || fileList.length === 0) {
+      logger.info("No Claude session files found to restore", { prototypeId });
+      return { success: true, restoredSessionIds: [], errors: [] };
+    }
+
+    const sessionFiles = fileList.filter((file) => file.name.endsWith(".jsonl"));
+
+    if (sessionFiles.length === 0) {
+      logger.info("No .jsonl session files found to restore", { prototypeId });
+      return { success: true, restoredSessionIds: [], errors: [] };
+    }
+
+    logger.info("Found Claude session files to restore", {
+      prototypeId,
+      sessionCount: sessionFiles.length,
+    });
+
+    // Download and restore all session files in parallel
+    const restorePromises = sessionFiles.map(async (file) => {
+      try {
+        const storagePath = `${prototypeId}/${file.name}`;
+        const { data: fileData, error: downloadError } =
+          await supabaseClient.storage
+            .from("claude-code-chat-sessions")
+            .download(storagePath);
+
+        if (downloadError || !fileData) {
+          const errorMsg = `Failed to download ${file.name}: ${downloadError?.message ?? "No data"}`;
+          errors.push(errorMsg);
+          logger.error(
+            downloadError,
+            "Failed to download session file from Storage",
+            { filename: file.name, prototypeId },
+          );
+          return { success: false, sessionId: null };
+        }
+
+        // Write to local filesystem
+        const localFilePath = path.join(CLAUDE_PROJECTS_DIR, file.name);
+        const arrayBuffer = await fileData.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        await fs.writeFile(localFilePath, buffer);
+
+        // Extract session ID from filename (remove .jsonl extension)
+        const sessionId = file.name.replace(/\.jsonl$/, "");
+
+        logger.debug("Restored Claude session file", {
+          sessionId,
+          filename: file.name,
+          filePath: localFilePath,
+        });
+
+        return { success: true, sessionId };
+      } catch (error) {
+        const errorMsg = `Error restoring ${file.name}: ${error instanceof Error ? error.message : String(error)}`;
+        errors.push(errorMsg);
+        logger.error(
+          error instanceof Error ? error : new Error(String(error)),
+          "Error restoring session file",
+          { filename: file.name },
+        );
+        return { success: false, sessionId: null };
+      }
+    });
+
+    // Wait for all downloads to complete
+    const results = await Promise.all(restorePromises);
+    restoredSessionIds.push(
+      ...results.filter((r) => r.success && r.sessionId).map((r) => r.sessionId!),
+    );
+
+    logger.info("Claude session restoration completed", {
+      prototypeId,
+      restoredCount: restoredSessionIds.length,
+      totalFiles: sessionFiles.length,
+      errorCount: errors.length,
+    });
+
+    return {
+      success: errors.length === 0,
+      restoredSessionIds,
+      errors,
+    };
+  } catch (error) {
+    const errorMsg = `Error restoring Claude sessions: ${error instanceof Error ? error.message : String(error)}`;
+    errors.push(errorMsg);
+    logger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Error restoring Claude sessions",
+      { prototypeId },
+    );
+    return { success: false, restoredSessionIds: [], errors };
+  }
 }

@@ -12,8 +12,8 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { SupabaseClient } from "@supabase/supabase-js";
 import axios from "axios";
-import chokidar, { FSWatcher } from "chokidar";
 import { execSync } from "child_process";
+import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
 import fs from "fs";
 import path from "path";
@@ -2059,6 +2059,20 @@ export class CodeService {
 
   public getSessionState(): CodeSessionState {
     return { ...this.sessionState };
+  }
+
+  /**
+   * Register previously created session IDs as valid for resumption.
+   * Called during worker allocation to restore sessions from previous instances.
+   */
+  public registerValidSessionIds(sessionIds: string[]): void {
+    for (const sessionId of sessionIds) {
+      this.validAiChatSessionIds.add(sessionId);
+    }
+    this.logger.info("Registered valid session IDs from restored sessions", {
+      count: sessionIds.length,
+      sessionIds,
+    });
   }
 
   /**

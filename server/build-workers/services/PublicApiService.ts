@@ -23,6 +23,7 @@ import {
 } from "../types/BuildWorkerTypes.js";
 import { PrototypeFileInput } from "../utils/shared-utils.js";
 import { baseLogger } from "../worker.js";
+import { SystemLogger } from "../loggers/SystemLogger.js";
 import { CloudflareTunnelManagementService } from "./CloudflareTunnelManagementService.js";
 import { CodeService } from "./CodeService.js";
 import { ExpoDevServerService } from "./ExpoDevServerService.js";
@@ -214,6 +215,9 @@ export class PublicApiService {
         this.codeService.setOrchestrationToken(orchestration_token);
         request.log2.info("Orchestration token received and stored in CodeService");
       }
+
+      // Restore Claude session files from Supabase for this prototype
+      await this.restoreClaudeSessions(prototypeId, request.log2);
 
       return reply.status(200).send({
         status: "ok",
@@ -1064,5 +1068,51 @@ export class PublicApiService {
 
     const ext = path.extname(fileName).toLowerCase();
     return binaryExtensions.includes(ext);
+  }
+
+  /**
+   * Restores Claude session .jsonl files from Supabase Storage to ~/.claude/projects/
+   */
+  private async restoreClaudeSessions(
+    prototypeId: string,
+    log2: SystemLogger,
+  ): Promise<void> {
+    try {
+      // Import utility function
+      const { restoreClaudeSessionsFromSupabase } = await import(
+        "../utils/shared-utils.js"
+      );
+
+      // Restore all session files from Storage
+      const result = await restoreClaudeSessionsFromSupabase(
+        prototypeId,
+        this.supabaseClientService.getClient(),
+        log2,
+      );
+
+      // Register restored session IDs with CodeService for validation
+      if (result.restoredSessionIds.length > 0) {
+        this.codeService.registerValidSessionIds(result.restoredSessionIds);
+        log2.info("Registered restored Claude sessions with CodeService", {
+          prototypeId,
+          restoredCount: result.restoredSessionIds.length,
+        });
+      }
+
+      // Log any errors but don't fail the allocation
+      if (result.errors.length > 0) {
+        log2.warn("Claude session restoration had errors", {
+          prototypeId,
+          errorCount: result.errors.length,
+          errors: result.errors,
+        });
+      }
+    } catch (error) {
+      log2.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Error restoring Claude sessions",
+        { prototypeId },
+      );
+    }
   }
 }
