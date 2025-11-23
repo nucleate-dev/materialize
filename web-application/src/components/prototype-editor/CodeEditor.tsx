@@ -672,7 +672,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           <div className="flex-1 h-full relative">
             {isAssetImage && imageUrl ? (
               // Image Preview
-              <div className="h-full flex items-center justify-center bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5 relative">
+              <div className="h-full flex items-center justify-center bg-opacity-5 relative">
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0B0C0E] via-transparent to-transparent opacity-50 pointer-events-none" />
 
                 <div className="relative flex flex-col items-center gap-6 max-w-full p-8">

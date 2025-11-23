@@ -1475,7 +1475,6 @@ const MaterializeRenderSection = forwardRef<
         <div
           className={cn(
             "relative flex items-center justify-center bg-background transition-all duration-300",
-            isPreviewView && "bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-100"
           )}
           style={{
             height: isTerminalOpen

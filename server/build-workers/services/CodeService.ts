@@ -39,9 +39,9 @@ import {
 import { FileSyncService } from "./FileSyncService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
-import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
+import { getToolDisplayName } from "./utils/message-handlers.js";
 import { ToolPermissionService } from "./utils/tool-permission-service.js";
-import { getToolDisplayName, sanitizeFilePath } from "./utils/message-handlers.js";
+import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 /**
  * FILE SYNC STRATEGY
  *

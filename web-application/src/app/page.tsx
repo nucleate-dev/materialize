@@ -221,7 +221,7 @@ function FeaturesBentoGrid() {
 
             {/* Visual Placeholder - abstract code lines */}
             <div className="absolute inset-0 flex items-center justify-center opacity-40 group-hover:opacity-60 transition-opacity duration-500">
-              <div className="w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+              <div className="w-full h-full opacity-20"></div>
               <CommandLineIcon className="w-32 h-32 text-indigo-500/20" />
             </div>
 

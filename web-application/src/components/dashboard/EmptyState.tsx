@@ -66,7 +66,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         <div className="absolute -inset-0.5 bg-gradient-to-b from-black/10 dark:from-white/20 to-transparent rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500" />
 
         <div className="relative w-16 h-16 bg-white dark:bg-[#141517] border border-black/10 dark:border-white/10 rounded-2xl flex items-center justify-center shadow-2xl">
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 rounded-2xl" />
+          <div className="absolute inset-0 opacity-20 rounded-2xl" />
           <IconComponent className={cn("w-6 h-6 relative z-10", content.iconColor)} />
         </div>
 
