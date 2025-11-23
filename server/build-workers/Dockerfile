@@ -34,6 +34,7 @@ ENV WATCHPACK_POLLING=true
 # Copy package files first for caching
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY patches ./patches
 
 # Setup npm cache (faster installs)
 RUN mkdir -p /tmp/npm-cache && chmod 777 /tmp/npm-cache
