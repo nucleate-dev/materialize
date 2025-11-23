@@ -25,7 +25,7 @@ import {
 
 const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
-const LAUNCH_TERMINALS_AS_ROOT = false;
+const LAUNCH_TERMINALS_AS_ROOT = true;
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
 
