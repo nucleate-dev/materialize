@@ -25,6 +25,7 @@ import {
 
 const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
+const LAUNCH_TERMINALS_AS_ROOT = false;
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
 
@@ -87,24 +88,32 @@ export class TerminalService {
     //   : this.allowedRoot;
     this.fastifyApp = fastifyApp;
     this.logger = logger;
-    const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
-    this.terminalUserIdentity = resolveTerminalUserIdentity(
-      this.logger,
-      terminalUsername,
-      process.env.TERMINAL_GROUP,
-    );
-    if (this.terminalUserIdentity) {
-      this.logger.info("Terminal sessions configured to drop privileges", {
-        username: this.terminalUserIdentity.username,
-        uid: this.terminalUserIdentity.uid,
-        gid: this.terminalUserIdentity.gid,
-        homeDir: this.terminalUserIdentity.homeDir,
-      });
-    } else {
+
+    if (LAUNCH_TERMINALS_AS_ROOT) {
+      this.terminalUserIdentity = null;
       this.logger.warn(
-        "Falling back to root for terminal sessions (terminal user not found)",
-        { terminalUsername },
+        "Terminal sessions will run as root (LAUNCH_TERMINALS_AS_ROOT=true)",
       );
+    } else {
+      const terminalUsername = process.env.TERMINAL_USER ?? "materialize-user";
+      this.terminalUserIdentity = resolveTerminalUserIdentity(
+        this.logger,
+        terminalUsername,
+        process.env.TERMINAL_GROUP,
+      );
+      if (this.terminalUserIdentity) {
+        this.logger.info("Terminal sessions configured to drop privileges", {
+          username: this.terminalUserIdentity.username,
+          uid: this.terminalUserIdentity.uid,
+          gid: this.terminalUserIdentity.gid,
+          homeDir: this.terminalUserIdentity.homeDir,
+        });
+      } else {
+        this.logger.warn(
+          "Falling back to root for terminal sessions (terminal user not found)",
+          { terminalUsername },
+        );
+      }
     }
 
     // if (!this.commandValidator.isPathInsideAllowedRoot(normalizedWorkDir)) {
