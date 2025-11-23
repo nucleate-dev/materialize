@@ -1251,7 +1251,7 @@ export class CodeService {
           // Log token usage once when the final result message arrives
           if (msg.type === "result" && !tokenUsageLogged) {
             try {
-              const { usage, subtype } = msg;
+              const { usage, subtype, total_cost_usd, duration_ms, duration_api_ms } = msg;
               const inputTokens = usage?.input_tokens ?? 0;
               const outputTokens = usage?.output_tokens ?? 0;
 
@@ -1260,6 +1260,9 @@ export class CodeService {
                 inputTokens,
                 outputTokens,
                 { intent: "claude_code_sdk", outcome: subtype },
+                total_cost_usd,
+                duration_ms,
+                duration_api_ms,
               );
               tokenUsageLogged = true;
             } catch (logError) {

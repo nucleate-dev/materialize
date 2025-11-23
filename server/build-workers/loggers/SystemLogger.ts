@@ -164,6 +164,8 @@ export class SystemLogger {
     outputTokens: number,
     extraDims: Record<string, string> = {},
     costInUsd?: number,
+    durationMs?: number,
+    durationApiMs?: number,
   ): void {
     // Also log as structured data for CloudWatch Logs Insights queries
     const logData: Record<string, unknown> = {
@@ -174,6 +176,12 @@ export class SystemLogger {
     };
     if (costInUsd !== undefined) {
       logData.costInUsd = costInUsd;
+    }
+    if (durationMs !== undefined) {
+      logData.durationMs = durationMs;
+    }
+    if (durationApiMs !== undefined) {
+      logData.durationApiMs = durationApiMs;
     }
     this.info("LLM token usage", logData);
 
@@ -190,6 +198,16 @@ export class SystemLogger {
     if (costInUsd !== undefined) {
       metrics.push({ Name: "LLM_CostInUsd" });
       metricValues.LLM_CostInUsd = costInUsd;
+    }
+
+    if (durationMs !== undefined) {
+      metrics.push({ Name: "LLM_DurationMs", Unit: "Milliseconds" });
+      metricValues.LLM_DurationMs = durationMs;
+    }
+
+    if (durationApiMs !== undefined) {
+      metrics.push({ Name: "LLM_DurationApiMs", Unit: "Milliseconds" });
+      metricValues.LLM_DurationApiMs = durationApiMs;
     }
 
     this.emitEMF(
