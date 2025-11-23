@@ -27,9 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/classNames"; // Assuming cn utility exists
 import {
-  ArrowDown,
-  Bot,
-  Check,
+  ArrowDown, Check,
   ChevronDown,
   ChevronRight,
   CircleAlert,
@@ -257,7 +255,7 @@ export default function ClaudeCodePanelUI({
 
       {/* --- Messages Area --- */}
       <ScrollArea className="flex-1 px-4 relative bg-accent/20" ref={scrollAreaRef}>
-        <div className="py-6 space-y-6 max-w-3xl mx-auto">
+        <div className="py-4 space-y-3 max-w-3xl mx-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center opacity-0 animate-in fade-in duration-700">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
@@ -271,17 +269,7 @@ export default function ClaudeCodePanelUI({
           ) : (
             <>
               {messages.map((message) => (
-                <div key={message.id} className={cn("group flex flex-col gap-1", message.type === "user" ? "items-end" : "items-start")}>
-
-                  {/* Avatar / Label */}
-                  {message.type !== "user" && message.type !== "system" && message.type !== "tool" && message.type !== "thinking" && (
-                    <div className="flex items-center gap-2 ml-1 mb-1">
-                      <div className="w-5 h-5 rounded bg-indigo-500/10 flex items-center justify-center">
-                        <Bot className="w-3 h-3 text-indigo-500" />
-                      </div>
-                      {/* <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Assistant</span> */}
-                    </div>
-                  )}
+                <div key={message.id} className={cn("group flex flex-col gap-0.5", message.type === "user" ? "items-end" : "items-start")}>
 
                   {/* User Message */}
                   {message.type === "user" && (
@@ -340,7 +328,7 @@ export default function ClaudeCodePanelUI({
 
                   {/* Tool Status */}
                   {message.type === "tool" && (
-                    <div className="flex items-center gap-2 px-3 py-2 my-1 rounded-md bg-accent/50 border border-border w-fit max-w-full">
+                    <div className="flex items-center gap-2 px-3 py-1.5 my-0.5 rounded-md bg-accent/50 border border-border w-fit max-w-full">
                       <div className={cn(
                         "w-1.5 h-1.5 rounded-full shrink-0",
                         message.status === "error" ? "bg-red-500" : message.status === "running" ? "bg-indigo-500 animate-pulse" : "bg-emerald-500"
@@ -356,10 +344,10 @@ export default function ClaudeCodePanelUI({
 
                   {/* Thinking Process (Collapsible) */}
                   {message.type === "thinking" && (
-                    <div className="w-full my-1">
+                    <div className="w-full my-0.5">
                       <div
                         onClick={() => message.toolCallId && toggleThinkingExpanded(message.toolCallId)}
-                        className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-accent/50 rounded-md transition-colors w-fit select-none"
+                        className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-accent/50 rounded-md transition-colors w-fit select-none"
                       >
                         <div className="text-muted-foreground">
                           {message.toolCallId && expandedThinking.has(message.toolCallId) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -373,8 +361,8 @@ export default function ClaudeCodePanelUI({
                       </div>
 
                       {message.toolCallId && expandedThinking.has(message.toolCallId) && (
-                        <div className="ml-2 pl-4 border-l border-border mt-1 py-1">
-                          <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed bg-accent/50 p-3 rounded-md border border-border">
+                        <div className="ml-2 pl-4 border-l border-border mt-0.5 py-0.5">
+                          <div className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed bg-accent/50 p-2.5 rounded-md border border-border">
                             {message.content}
                             {message.toolInput && (
                               <div className="mt-3 pt-3 border-t border-dashed border-border">
@@ -394,7 +382,7 @@ export default function ClaudeCodePanelUI({
 
                   {/* Error Toast Style */}
                   {message.type === "error" && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
                       <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
                       <div>{message.content}</div>
                     </div>
@@ -417,7 +405,7 @@ export default function ClaudeCodePanelUI({
           )}
 
           {/* Bottom Spacer */}
-          <div className="h-4" />
+          <div className="h-2" />
         </div>
 
         {/* Scroll To Bottom Fab */}
@@ -427,7 +415,7 @@ export default function ClaudeCodePanelUI({
               size="sm"
               variant="outline"
               onClick={scrollToBottom}
-              className="pointer-events-auto rounded-full h-8 px-4 bg-background border-border shadow-lg hover:shadow-xl text-xs font-medium"
+              className="pointer-events-auto rounded-full h-8 px-4 bg-background border-border shadow-lg hover:shadow-xl text-xs font-medium text-foreground"
             >
               <ArrowDown className="w-3.5 h-3.5 mr-2" />
               Scroll to bottom
@@ -559,12 +547,6 @@ export default function ClaudeCodePanelUI({
           >
             {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
           </Button>
-        </div>
-
-        <div className="mt-2 text-center">
-          <p className="text-[10px] text-muted-foreground">
-            AI can make mistakes. Please review generated code.
-          </p>
         </div>
       </div>
 

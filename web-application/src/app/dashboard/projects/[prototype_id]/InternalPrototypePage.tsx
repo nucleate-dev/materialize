@@ -869,7 +869,7 @@ export default function InternalPrototypePage() {
         {/* Draggable Divider - Only show on desktop */}
         {!isMobile && (
           <div
-            className="relative w-[1px] cursor-col-resize hover:bg-indigo-500/50 transition-colors group flex-shrink-0 bg-white/5"
+            className="relative w-[1px] cursor-col-resize hover:bg-indigo-500/50 transition-colors group flex-shrink-0 bg-border"
             onMouseDown={handleDividerMouseDown}
             style={{ zIndex: 20 }}
           >

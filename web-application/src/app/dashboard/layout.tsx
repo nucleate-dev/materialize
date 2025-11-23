@@ -43,7 +43,7 @@ function DashboardContent({ children }: { children: React.ReactNode; }) {
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
-          <div className="h-full p-4">{children}</div>
+          <div className="h-full">{children}</div>
         </div>
       </SidebarInset>
     </>
