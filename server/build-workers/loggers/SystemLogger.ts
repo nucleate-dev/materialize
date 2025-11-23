@@ -163,25 +163,38 @@ export class SystemLogger {
     inputTokens: number,
     outputTokens: number,
     extraDims: Record<string, string> = {},
+    costInUsd?: number,
   ): void {
     // Also log as structured data for CloudWatch Logs Insights queries
-    this.info("LLM token usage", {
+    const logData: Record<string, unknown> = {
       model: modelName,
       inputTokens,
       outputTokens,
       ...extraDims,
-    });
+    };
+    if (costInUsd !== undefined) {
+      logData.costInUsd = costInUsd;
+    }
+    this.info("LLM token usage", logData);
 
     // Emit EMF metrics for CloudWatch dashboards/alarms
+    const metrics: EMFMetric[] = [
+      { Name: "LLM_InputTokens", Unit: "Count" },
+      { Name: "LLM_OutputTokens", Unit: "Count" },
+    ];
+    const metricValues: Record<string, number> = {
+      LLM_InputTokens: inputTokens,
+      LLM_OutputTokens: outputTokens,
+    };
+
+    if (costInUsd !== undefined) {
+      metrics.push({ Name: "LLM_CostInUsd" });
+      metricValues.LLM_CostInUsd = costInUsd;
+    }
+
     this.emitEMF(
-      [
-        { Name: "LLM_InputTokens", Unit: "Count" },
-        { Name: "LLM_OutputTokens", Unit: "Count" },
-      ],
-      {
-        LLM_InputTokens: inputTokens,
-        LLM_OutputTokens: outputTokens,
-      },
+      metrics,
+      metricValues,
       {
         model: modelName,
         ...extraDims,
