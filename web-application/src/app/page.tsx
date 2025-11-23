@@ -362,20 +362,20 @@ function PricingSection() {
     },
     {
       name: "Pro",
-      price: "$50",
+      price: "$25",
       period: "per month",
       description: "For professionals",
-      features: ["Everything in Free", "Unlimited projects", "Priority support", "Team collaboration"],
+      features: ["Everything in Free", "Unlimited projects", "Unlimited folders", "View, edit, and export Code"],
       cta: "Upgrade to Pro",
       highlighted: true,
       productKey: "pro",
     },
     {
-      name: "Max",
-      price: "$200",
-      period: "per month",
+      name: "Enterprise",
+      price: "Custom",
+      period: "",
       description: "For large teams",
-      features: ["Everything in Pro", "Dedicated support", "SSO & Security", "Custom SLA"],
+      features: ["Everything in Pro", "Dedicated support", "Team collaboration", "SSO & Security", "Custom SLA"],
       cta: "Contact Sales",
       highlighted: false,
       productKey: "max",
@@ -412,7 +412,7 @@ function PricingSection() {
 
               <div className="mb-8 flex items-baseline gap-1">
                 <span className="text-4xl font-medium text-white">{plan.price}</span>
-                {plan.price !== "$0" && <span className="text-[#8A8F98] text-sm">/{plan.period}</span>}
+                {plan.price !== "$0" && <span className="text-[#8A8F98] text-sm">{plan.period !== "" && "/"}{plan.period}</span>}
               </div>
 
               <Button
