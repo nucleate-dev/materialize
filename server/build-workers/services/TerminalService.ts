@@ -16,7 +16,7 @@ import {
   TerminalResizeResponse,
   TerminalSessionType,
 } from "../types/BuildWorkerTypes.js";
-import { TerminalCommandValidator } from "./TerminalCommandValidationUtils.js";
+// import { TerminalCommandValidator } from "./TerminalCommandValidationUtils.js";
 import {
   TerminalUserIdentity,
   resolveTerminalUserIdentity,
