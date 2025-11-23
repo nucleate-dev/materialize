@@ -882,7 +882,7 @@ const MaterializeRenderSection = forwardRef<
         switch (status) {
           case "Static build":
             return {
-              className: "bg-[#141517] border border-white/10 text-white/70 hover:bg-[#1A1B1E] hover:text-white transition-colors",
+              className: "bg-accent border border-border text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-colors",
               dotClassName: "w-2 h-2 bg-blue-500/50 border border-blue-500 rounded-full",
               text: "Static Build",
               animate: false,
@@ -891,7 +891,7 @@ const MaterializeRenderSection = forwardRef<
           case "Connecting..":
           case "Starting Dev Server..":
             return {
-              className: "bg-[#141517] border border-white/10 text-white/70",
+              className: "bg-accent border border-border text-muted-foreground",
               dotClassName: "w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]",
               text: status,
               animate: true,
@@ -930,10 +930,10 @@ const MaterializeRenderSection = forwardRef<
                       e.stopPropagation();
                       handleStartDevServer();
                     }}
-                    className="ml-2 p-1 hover:bg-white/10 rounded-md transition-colors group"
+                    className="ml-2 p-1 hover:bg-accent rounded-md transition-colors group"
                     aria-label="Start Dev Server"
                   >
-                    <Zap className="w-3 h-3 text-white/50 group-hover:text-white" />
+                    <Zap className="w-3 h-3 text-muted-foreground group-hover:text-foreground" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -951,10 +951,10 @@ const MaterializeRenderSection = forwardRef<
                       e.stopPropagation();
                       handleRefresh();
                     }}
-                    className="ml-2 p-1 hover:bg-white/10 rounded-md transition-colors group"
+                    className="ml-2 p-1 hover:bg-accent rounded-md transition-colors group"
                     aria-label="Refresh Preview"
                   >
-                    <RefreshCw className="w-3 h-3 text-white/50 group-hover:text-white" />
+                    <RefreshCw className="w-3 h-3 text-muted-foreground group-hover:text-foreground" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -969,13 +969,13 @@ const MaterializeRenderSection = forwardRef<
 
     // Connection loading overlay for iframe
     const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
-      <div className="absolute inset-0 flex items-center justify-center bg-[#0B0C0E]/80 backdrop-blur-sm z-10">
-        <div className="text-center bg-[#141517] p-6 rounded-xl border border-white/10 shadow-2xl">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-white/40" />
-          <p className="text-white font-medium mb-1">
+      <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+        <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
+          <p className="text-foreground font-medium mb-1">
             Connecting to Preview
           </p>
-          <p className="text-[#8A8F98] text-sm">
+          <p className="text-muted-foreground text-sm">
             {mode === "mobile" ? "Loading mobile preview..." : "Loading web preview..."}
           </p>
         </div>
@@ -984,13 +984,13 @@ const MaterializeRenderSection = forwardRef<
 
     // Error overlay for iframe
     const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
-      <div className="absolute inset-0 flex items-center justify-center bg-[#0B0C0E]/80 backdrop-blur-sm z-10">
-        <div className="text-center bg-[#141517] p-6 rounded-xl border border-red-500/20 shadow-2xl">
+      <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+        <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
             <X className="w-4 h-4" />
           </div>
-          <p className="text-white font-medium mb-1">Connection Failed</p>
-          <p className="text-[#8A8F98] text-sm mb-4">
+          <p className="text-foreground font-medium mb-1">Connection Failed</p>
+          <p className="text-muted-foreground text-sm mb-4">
             Unable to load {mode === "mobile" ? "mobile" : "web"} preview
           </p>
           <Button
@@ -1013,14 +1013,14 @@ const MaterializeRenderSection = forwardRef<
       if (!viewing_url) {
         return (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center bg-[#141517] p-8 rounded-xl border border-white/10">
-              <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Monitor className="w-6 h-6 text-white/20" />
+            <div className="text-center bg-accent p-8 rounded-xl border border-border">
+              <div className="w-12 h-12 bg-accent/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Monitor className="w-6 h-6 text-muted-foreground" />
               </div>
-              <p className="text-white text-sm font-medium">
+              <p className="text-foreground text-sm font-medium">
                 No preview URL provided
               </p>
-              <p className="text-[#8A8F98] text-xs mt-1">
+              <p className="text-muted-foreground text-xs mt-1">
                 The server has not returned a viewing URL yet.
               </p>
             </div>
@@ -1030,7 +1030,7 @@ const MaterializeRenderSection = forwardRef<
 
       if (previewMode === "mobile") {
         return (
-          <div className="w-full h-full overflow-auto bg-[#0B0C0E]">
+          <div className="w-full h-full overflow-auto bg-background">
             <div className="min-h-full flex items-center justify-center">
               <div className="flex flex-wrap justify-center gap-x-8 gap-y-12 py-8 relative">
                 {mobileScreens.map((screen, index) => {
@@ -1054,7 +1054,7 @@ const MaterializeRenderSection = forwardRef<
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20">
                             {editingScreenId === screen.id ? (
                               <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
-                                <div className="flex items-center gap-1 bg-[#1A1B1E] border border-white/10 px-1.5 py-1 rounded-lg shadow-xl">
+                                <div className="flex items-center gap-1 bg-accent border border-border px-1.5 py-1 rounded-lg shadow-xl">
                                   <Input
                                     value={tempPath}
                                     onChange={(e) =>
@@ -1063,7 +1063,7 @@ const MaterializeRenderSection = forwardRef<
                                     onKeyDown={(e) =>
                                       handlePathKeyDown(screen.id, e)
                                     }
-                                    className="h-7 w-40 text-xs text-center border-0 bg-transparent focus-visible:ring-0 text-white px-1"
+                                    className="h-7 w-40 text-xs text-center border-0 bg-transparent focus-visible:ring-0 text-foreground px-1"
                                     placeholder="/"
                                     autoFocus
                                   />
@@ -1089,7 +1089,7 @@ const MaterializeRenderSection = forwardRef<
                                   </Button>
                                 </div>
                                 {routeSuggestions.length > 0 && (
-                                  <div className="bg-[#1A1B1E] border border-white/10 rounded-lg shadow-xl overflow-hidden w-full max-h-32 overflow-y-auto">
+                                  <div className="bg-accent border border-border rounded-lg shadow-xl overflow-hidden w-full max-h-32 overflow-y-auto">
                                     {routeSuggestions.map((item) => (
                                       <button
                                         key={item.route}
@@ -1099,11 +1099,11 @@ const MaterializeRenderSection = forwardRef<
                                             item.route,
                                           )
                                         }
-                                        className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-[#8A8F98] hover:bg-white/5 hover:text-white transition-colors"
+                                        className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
                                       >
                                         <span>{item.route}</span>
                                         {item.group && (
-                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/5">
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent/50 text-muted-foreground border border-border">
                                             {item.group}
                                           </span>
                                         )}
@@ -1115,7 +1115,7 @@ const MaterializeRenderSection = forwardRef<
                             ) : (
                               <div className="flex items-center gap-1.5">
                                 <div
-                                  className="px-3 py-1.5 bg-[#141517] border border-white/10 rounded-full text-xs font-mono text-[#8A8F98] hover:text-white hover:border-white/20 cursor-pointer transition-all shadow-sm"
+                                  className="px-3 py-1.5 bg-accent border border-border rounded-full text-xs font-mono text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer transition-all shadow-sm"
                                   onClick={() =>
                                     handleBadgeClick(screen.id, screen.path)
                                   }
@@ -1125,7 +1125,7 @@ const MaterializeRenderSection = forwardRef<
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 bg-[#141517] border border-white/10 rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-[#8A8F98]"
+                                  className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
                                   onClick={() =>
                                     handleRemoveMobileScreen(screen.id)
                                   }
@@ -1230,18 +1230,18 @@ const MaterializeRenderSection = forwardRef<
       }
 
       return (
-        <div className="w-full h-full px-4 pb-4 bg-[#0B0C0E]">
-          <div className="bg-[#141517] rounded-xl border border-white/10 overflow-hidden h-full shadow-sm flex flex-col">
+        <div className="w-full h-full px-4 pb-4 bg-background">
+          <div className="bg-accent rounded-xl border border-border overflow-hidden h-full shadow-sm flex flex-col">
             {/* Browser Header */}
-            <div className="bg-[#141517] border-b border-white/5 px-4 py-2.5 flex items-center gap-4">
+            <div className="bg-accent border-b border-border px-4 py-2.5 flex items-center gap-4">
               <div className="flex space-x-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/50"></div>
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/50"></div>
               </div>
               <div className="flex-1 flex justify-center">
-                <div className="h-6 px-4 rounded-md bg-[#0B0C0E] border border-white/5 flex items-center justify-center min-w-[200px] max-w-[400px]">
-                  <span className="text-[10px] text-[#8A8F98] font-mono truncate opacity-60">
+                <div className="h-6 px-4 rounded-md bg-background border border-border flex items-center justify-center min-w-[200px] max-w-[400px]">
+                  <span className="text-[10px] text-muted-foreground font-mono truncate opacity-60">
                     {viewing_url}
                   </span>
                 </div>
@@ -1271,16 +1271,16 @@ const MaterializeRenderSection = forwardRef<
     };
 
     return (
-      <div className="flex flex-col h-full bg-[#0B0C0E]">
+      <div className="flex flex-col h-full bg-background">
         {/* Compact Responsive Toolbar */}
-        <div className="sticky top-0 z-30 bg-[#0B0C0E]/80 backdrop-blur-xl px-4 py-3 border-b border-white/5">
+        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl px-4 py-3 border-b border-border">
           <div className="flex flex-wrap items-center justify-between gap-3">
 
             {/* Left: View Toggles */}
             <div className="flex items-center gap-3 flex-wrap">
               {!publicView && (
                 <>
-                  <div className="bg-[#141517] p-1 rounded-lg border border-white/5 flex items-center gap-1">
+                  <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1289,7 +1289,7 @@ const MaterializeRenderSection = forwardRef<
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         isPreviewView
                           ? "bg-white text-black shadow-sm"
-                          : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
                       )}
                     >
                       <Eye className="w-3.5 h-3.5 mr-1.5" />
@@ -1303,7 +1303,7 @@ const MaterializeRenderSection = forwardRef<
                         "h-7 px-3 text-xs font-medium rounded-md transition-all",
                         !isPreviewView
                           ? "bg-white text-black shadow-sm"
-                          : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
                       )}
                     >
                       <Code2 className="w-3.5 h-3.5 mr-1.5" />
@@ -1311,7 +1311,7 @@ const MaterializeRenderSection = forwardRef<
                     </Button>
                   </div>
 
-                  <div className="h-4 w-px bg-white/10 mx-1" />
+                  <div className="h-4 w-px bg-border mx-1" />
 
                   <ConnectionStatusIndicator />
 
@@ -1324,7 +1324,7 @@ const MaterializeRenderSection = forwardRef<
                     </div>
                   )}
                   {mobileHint && isMobileLayout && (
-                    <span className="text-xs text-[#8A8F98] animate-pulse">
+                    <span className="text-xs text-muted-foreground animate-pulse">
                       {mobileHint}
                     </span>
                   )}
