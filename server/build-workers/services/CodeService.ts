@@ -41,6 +41,7 @@ import { SupabaseClientService } from "./SupabaseClientService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 import { trackApiUsageBuildWorker } from "./utils/usage-tracking.js";
 import { ToolPermissionService } from "./utils/tool-permission-service.js";
+import { getToolDisplayName, sanitizeFilePath } from "./utils/message-handlers.js";
 /**
  * FILE SYNC STRATEGY
  *
@@ -813,10 +814,14 @@ export class CodeService {
                           );
                         }
 
-                        // Persist tool start to database
+                        // Persist tool start to database with friendly display name
+                        const displayName = getToolDisplayName(
+                          input.tool_name,
+                          normalizedToolInput as ToolInput,
+                        );
                         await this.persistMessage(
                           "assistant",
-                          `Tool: ${input.tool_name}`,
+                          displayName,
                           "tool_use",
                           "tool_start",
                           {
