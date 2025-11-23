@@ -497,7 +497,7 @@ export class IdleContainerAllocationSystemService {
               },
               {
                 name: 'NODE_ENV',
-                value: "development",
+                value: process.env.NODE_ENV!,
               },
               {
                 name: 'MATERIALIZE_SERVER_ENDPOINT',
