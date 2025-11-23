@@ -531,22 +531,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // --- RENDER ---
   return (
     <TooltipProvider>
-      <div className="h-full flex flex-col bg-[#0B0C0E] text-white">
+      <div className="h-full flex flex-col bg-background text-foreground">
 
         {/* Header Toolbar */}
         {fileSystem.state.selectedFile && (
-          <div className="flex items-center justify-between p-3 border-b border-white/5 bg-white/[0.02]">
+          <div className="flex items-center justify-between p-3 border-b border-border bg-accent/50">
 
             {/* Left: Filename */}
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded bg-white/5 border border-white/5">
+              <div className="p-1.5 rounded bg-accent border border-border">
                 {isAssetImage ? <FileImage className="w-3.5 h-3.5 text-indigo-400" /> : <Code2 className="w-3.5 h-3.5 text-indigo-400" />}
               </div>
-              <span className="text-sm font-medium tracking-tight text-white/90">
+              <span className="text-sm font-medium tracking-tight text-foreground">
                 {fileSystem.state.selectedFile}
               </span>
               {readOnly && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-white/10 text-white/50 rounded uppercase tracking-wider font-semibold">
+                <span className="px-1.5 py-0.5 text-[10px] bg-accent text-muted-foreground rounded uppercase tracking-wider font-semibold">
                   Read Only
                 </span>
               )}
@@ -554,7 +554,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
             {/* Right: Actions */}
             <div className="flex items-center gap-3">
-              <span className="hidden sm:inline-block text-[10px] text-white/20 uppercase tracking-widest font-semibold mr-2">
+              <span className="hidden sm:inline-block text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mr-2">
                 {isAssetImage ? "Image" : editorLanguage}
               </span>
 
@@ -568,7 +568,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                           variant="ghost"
                           size="sm"
                           className={cn(
-                            "h-7 w-7 p-0 text-[#8A8F98] hover:text-white hover:bg-white/10 transition-colors",
+                            "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
                             isSaving && "text-indigo-400 animate-pulse",
                             saveButtonState.disabled && "opacity-30 cursor-not-allowed hover:bg-transparent"
                           )}
@@ -578,7 +578,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                           <Save className="w-4 h-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-[#141517] border-white/10 text-xs">
+                      <TooltipContent side="bottom" className="bg-accent border-border text-xs">
                         <p>{saveButtonState.tooltip}</p>
                       </TooltipContent>
                     </Tooltip>
@@ -592,22 +592,22 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 text-[#8A8F98] hover:text-white hover:bg-white/10 transition-colors data-[state=open]:bg-white/10"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors data-[state=open]:bg-accent"
                             disabled={userPlan === "free"}
                           >
                             <Plus className={cn("w-4 h-4", userPlan === "free" && "opacity-30")} />
                           </Button>
                         </DropdownMenuTrigger>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-[#141517] border-white/10 text-xs">
+                      <TooltipContent side="bottom" className="bg-accent border-border text-xs">
                         <p>{userPlan === "free" ? "Upgrade to add files" : "Create or upload"}</p>
                       </TooltipContent>
                     </Tooltip>
-                    <DropdownMenuContent align="end" className="w-48 bg-[#141517] border border-white/10 text-white shadow-2xl">
+                    <DropdownMenuContent align="end" className="w-48 bg-accent border border-border text-foreground shadow-2xl">
                       <DropdownMenuItem
                         onSelect={() => setShowNewFileModal(true)}
                         disabled={userPlan === "free"}
-                        className="focus:bg-white/10 focus:text-white cursor-pointer"
+                        className="focus:bg-accent/80 focus:text-foreground cursor-pointer"
                       >
                         <FileCode className="mr-2 h-4 w-4 text-indigo-400" />
                         Create new file
@@ -615,7 +615,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                       <DropdownMenuItem
                         onSelect={() => setShowUploadModal(true)}
                         disabled={userPlan === "free"}
-                        className="focus:bg-white/10 focus:text-white cursor-pointer"
+                        className="focus:bg-accent/80 focus:text-foreground cursor-pointer"
                       >
                         <Upload className="mr-2 h-4 w-4 text-indigo-400" />
                         Upload files
@@ -630,14 +630,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-[#8A8F98] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
                           onClick={handleDeleteFile}
                           disabled={userPlan === "free"}
                         >
                           <Trash2 className={cn("w-4 h-4", userPlan === "free" && "opacity-30")} />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-[#141517] border-white/10 text-xs">
+                      <TooltipContent side="bottom" className="bg-accent border-border text-xs">
                         <p>Delete file</p>
                       </TooltipContent>
                     </Tooltip>
@@ -745,8 +745,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Upload Modal */}
         <Dialog open={showUploadModal} onOpenChange={(open) => { setShowUploadModal(open); if (!open) handleUploadModalClose(); }}>
-          <DialogContent className="sm:max-w-xl bg-[#141517] border border-white/10 text-white shadow-2xl p-0 overflow-hidden gap-0">
-            <DialogHeader className="p-6 border-b border-white/5 bg-white/[0.02]">
+          <DialogContent className="sm:max-w-xl bg-accent border border-border text-foreground shadow-2xl p-0 overflow-hidden gap-0">
+            <DialogHeader className="p-6 border-b border-border bg-accent/50">
               <DialogTitle className="text-lg font-medium flex items-center gap-2">
                 <Upload className="w-5 h-5 text-indigo-500" />
                 Upload Files
@@ -756,14 +756,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             <div className="p-6 space-y-6">
               {/* Type Selection */}
               <div className="space-y-3">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-white/40">Upload Type</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upload Type</Label>
                 <RadioGroup value={uploadType} onValueChange={(val: "files" | "folder") => { setUploadType(val); setUploadFiles([]); setUploadError(""); }} className="grid grid-cols-2 gap-4">
-                  <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'files' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-white/5 border-white/5 hover:bg-white/10")}>
-                    <RadioGroupItem value="files" id="type-files" className="border-white/20 text-indigo-500" />
+                  <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'files' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
+                    <RadioGroupItem value="files" id="type-files" className="border-border text-indigo-500" />
                     <Label htmlFor="type-files" className="cursor-pointer text-sm font-medium">Individual Files</Label>
                   </div>
-                  <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'folder' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-white/5 border-white/5 hover:bg-white/10")}>
-                    <RadioGroupItem value="folder" id="type-folder" className="border-white/20 text-indigo-500" />
+                  <div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer", uploadType === 'folder' ? "bg-indigo-500/10 border-indigo-500/50" : "bg-accent/50 border-border hover:bg-accent")}>
+                    <RadioGroupItem value="folder" id="type-folder" className="border-border text-indigo-500" />
                     <Label htmlFor="type-folder" className="cursor-pointer text-sm font-medium">Entire Folder</Label>
                   </div>
                 </RadioGroup>
@@ -772,14 +772,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               {/* Destination (if files) */}
               {uploadType === "files" && (
                 <div className="space-y-3">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-white/40">Destination</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Destination</Label>
                   <Select value={uploadTargetFolder} onValueChange={handleUploadFolderChange}>
-                    <SelectTrigger className="bg-[#0B0C0E] border-white/10 text-white focus:ring-indigo-500/50">
+                    <SelectTrigger className="bg-background border-border text-foreground focus:ring-indigo-500/50">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#141517] border-white/10 text-white">
+                    <SelectContent className="bg-accent border-border text-foreground">
                       {directoryOptions.map((dir) => (
-                        <SelectItem key={dir} value={dir} className="focus:bg-white/10 focus:text-white cursor-pointer">
+                        <SelectItem key={dir} value={dir} className="focus:bg-accent/80 focus:text-foreground cursor-pointer">
                           {dir === ROOT_FOLDER_VALUE ? "/" : dir}
                         </SelectItem>
                       ))}
@@ -790,14 +790,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
               {/* File Input */}
               <div className="space-y-3">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-white/40">Select Content</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Content</Label>
                 <div className="relative group">
                   <Input
                     id="fileUpload"
                     type="file"
                     {...(uploadType === "folder" ? { webkitdirectory: "", directory: "" } : { multiple: true })}
                     onChange={handleUploadFileSelection}
-                    className="cursor-pointer bg-[#0B0C0E] border-white/10 file:bg-white/10 file:text-white file:border-0 file:rounded-sm file:mr-4 file:px-2 file:text-xs hover:file:bg-white/20 text-white/70"
+                    className="cursor-pointer bg-background border-border file:bg-accent file:text-foreground file:border-0 file:rounded-sm file:mr-4 file:px-2 file:text-xs hover:file:bg-accent/80 text-foreground/70"
                   />
                 </div>
                 {uploadError && <p className="text-red-400 text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {uploadError}</p>}
@@ -812,8 +812,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               )}
             </div>
 
-            <DialogFooter className="p-6 bg-white/[0.02] border-t border-white/5">
-              <Button variant="ghost" onClick={() => setShowUploadModal(false)} className="text-white/50 hover:text-white hover:bg-white/5">Cancel</Button>
+            <DialogFooter className="p-6 bg-accent/50 border-t border-border">
+              <Button variant="ghost" onClick={() => setShowUploadModal(false)} className="text-muted-foreground hover:text-foreground hover:bg-accent">Cancel</Button>
               <Button
                 onClick={handleUploadFiles}
                 disabled={isUploading || uploadFiles.length === 0 || (uploadMode === "merge" && uploadConflicts.length > 0)}
@@ -827,7 +827,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* New File Modal */}
         <Dialog open={showNewFileModal} onOpenChange={(open) => { setShowNewFileModal(open); if (!open) handleModalClose(); }}>
-          <DialogContent className="sm:max-w-md bg-[#141517] border border-white/10 text-white shadow-2xl">
+          <DialogContent className="sm:max-w-md bg-accent border border-border text-foreground shadow-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileCode className="w-5 h-5 text-indigo-500" />
@@ -836,18 +836,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="fileName" className="text-xs text-white/60 uppercase tracking-wider font-semibold">Path & Name</Label>
+                <Label htmlFor="fileName" className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Path & Name</Label>
                 <Input
                   id="fileName"
                   value={newFileName}
                   onChange={(e) => { setNewFileName(e.target.value); setNewFileError(""); }}
                   placeholder="components/Button.tsx"
-                  className="bg-[#0B0C0E] border-white/10 text-white focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
+                  className="bg-background border-border text-foreground focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
                   autoFocus
                 />
                 {newFileError && <p className="text-red-400 text-xs">{newFileError}</p>}
               </div>
-              <div className="p-3 rounded bg-white/5 border border-white/5 text-xs text-white/50 space-y-1">
+              <div className="p-3 rounded bg-accent/50 border border-border text-xs text-muted-foreground space-y-1">
                 <p className="flex items-center gap-2"><Sparkles className="w-3 h-3 text-indigo-400" /> Tips:</p>
                 <ul className="list-disc list-inside pl-1 space-y-0.5 opacity-80">
                   <li>Use <code>.tsx</code> for React components</li>
@@ -856,7 +856,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               </div>
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowNewFileModal(false)} className="text-white/50 hover:text-white">Cancel</Button>
+              <Button variant="ghost" onClick={() => setShowNewFileModal(false)} className="text-muted-foreground hover:text-foreground">Cancel</Button>
               <Button onClick={handleCreateFile} className="bg-white text-black hover:bg-white/90 rounded-full font-semibold">Create File</Button>
             </DialogFooter>
           </DialogContent>
@@ -864,19 +864,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Delete Confirm */}
         <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-          <DialogContent className="sm:max-w-sm bg-[#141517] border border-white/10 text-white">
+          <DialogContent className="sm:max-w-sm bg-accent border border-border text-foreground">
             <DialogHeader>
               <DialogTitle className="text-red-400 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 Delete File?
               </DialogTitle>
             </DialogHeader>
-            <div className="py-4 text-sm text-white/70 leading-relaxed">
-              Are you sure you want to delete <span className="text-white font-mono bg-white/10 px-1 py-0.5 rounded">{fileSystem.state.selectedFile}</span>?
+            <div className="py-4 text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to delete <span className="text-foreground font-mono bg-accent px-1 py-0.5 rounded">{fileSystem.state.selectedFile}</span>?
               <br />This action cannot be undone.
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="text-white/50 hover:text-white">Cancel</Button>
+              <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="text-muted-foreground hover:text-foreground">Cancel</Button>
               <Button
                 variant="destructive"
                 onClick={async () => { if (fileSystem.state.selectedFile) await handleDeleteFileWithAPI(fileSystem.state.selectedFile); setShowDeleteConfirm(false); }}

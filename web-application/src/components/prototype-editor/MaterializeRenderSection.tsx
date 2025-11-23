@@ -1340,7 +1340,7 @@ const MaterializeRenderSection = forwardRef<
                   size="sm"
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="h-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] transition-all"
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Export project files"
                 >
                   {isExporting ? (
@@ -1356,7 +1356,7 @@ const MaterializeRenderSection = forwardRef<
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsQRModalOpen(true)}
-                  className="h-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] transition-all"
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="View on Device"
                   disabled={!viewing_url}
                 >
@@ -1375,7 +1375,7 @@ const MaterializeRenderSection = forwardRef<
                     "h-8 border transition-all",
                     isTerminalOpen
                       ? "bg-white text-black border-transparent hover:bg-white/90"
-                      : "bg-[#141517] border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E]"
+                      : "bg-accent border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80"
                   )}
                   title="Toggle Terminal"
                 >
@@ -1388,7 +1388,7 @@ const MaterializeRenderSection = forwardRef<
                   variant="ghost"
                   size="sm"
                   onClick={onDesignSystemClick}
-                  className="h-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] hidden sm:flex items-center gap-2 transition-all"
+                  className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 hidden sm:flex items-center gap-2 transition-all"
                 >
                   <Palette className="w-3.5 h-3.5" />
                 </Button>
@@ -1398,30 +1398,30 @@ const MaterializeRenderSection = forwardRef<
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 bg-[#141517] border border-white/10 text-[#8A8F98] hover:text-white hover:border-white/20 hover:bg-[#1A1B1E] transition-all"
+                    className="h-8 w-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                     title="Actions"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-[#141517] border-white/10 text-white">
+                <DropdownMenuContent align="end" className="w-48 bg-accent border-border text-foreground">
                   <DropdownMenuItem
                     onClick={() => handleModeChange("mobile")}
-                    className={cn("focus:bg-white/10 focus:text-white text-sm cursor-pointer", previewMode === "mobile" ? "bg-white/5 text-white" : "text-[#8A8F98]")}
+                    className={cn("focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer", previewMode === "mobile" ? "bg-accent/50 text-foreground" : "text-muted-foreground")}
                   >
                     <Smartphone className="w-4 h-4 mr-2 opacity-70" />
                     Mobile View
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleModeChange("web")}
-                    className={cn("focus:bg-white/10 focus:text-white text-sm cursor-pointer", previewMode === "web" ? "bg-white/5 text-white" : "text-[#8A8F98]")}
+                    className={cn("focus:bg-accent/80 focus:text-foreground text-sm cursor-pointer", previewMode === "web" ? "bg-accent/50 text-foreground" : "text-muted-foreground")}
                   >
                     <Monitor className="w-4 h-4 mr-2 opacity-70" />
                     Web View
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuSeparator className="bg-border" />
                   {onShare && (
-                    <DropdownMenuItem onClick={onShare} className="focus:bg-white/10 focus:text-white text-[#8A8F98] text-sm cursor-pointer">
+                    <DropdownMenuItem onClick={onShare} className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer">
                       <Share2 className="w-4 h-4 mr-2 opacity-70" />
                       Share
                     </DropdownMenuItem>
@@ -1430,7 +1430,7 @@ const MaterializeRenderSection = forwardRef<
                     <DropdownMenuItem
                       onClick={onClone}
                       disabled={isCloningPrototype}
-                      className="focus:bg-white/10 focus:text-white text-[#8A8F98] text-sm cursor-pointer"
+                      className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                     >
                       {isCloningPrototype ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1440,11 +1440,11 @@ const MaterializeRenderSection = forwardRef<
                       {isCloningPrototype ? "Cloning..." : "Clone"}
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem
                     onClick={handleRestartDevServer}
                     disabled={!prototypeId || isRestartingDevServer}
-                    className="focus:bg-white/10 focus:text-white text-[#8A8F98] text-sm cursor-pointer"
+                    className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                   >
                     {isRestartingDevServer ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1455,7 +1455,7 @@ const MaterializeRenderSection = forwardRef<
                   </DropdownMenuItem>
                   {onResetToDefault && (
                     <>
-                      <DropdownMenuSeparator className="bg-white/10" />
+                      <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem
                         onClick={onResetToDefault}
                         className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
@@ -1474,7 +1474,7 @@ const MaterializeRenderSection = forwardRef<
         {/* Preview Area */}
         <div
           className={cn(
-            "relative flex items-center justify-center bg-[#0B0C0E] transition-all duration-300",
+            "relative flex items-center justify-center bg-background transition-all duration-300",
             isPreviewView && "bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-100"
           )}
           style={{
@@ -1487,35 +1487,35 @@ const MaterializeRenderSection = forwardRef<
           {isPreviewView ? (
             renderPreviewContent()
           ) : (
-            <div className="h-full w-full overflow-hidden bg-[#141517]">{codeView}</div>
+            <div className="h-full w-full overflow-hidden bg-accent">{codeView}</div>
           )}
         </div>
 
         {/* Terminal Panel */}
         {!publicView && isTerminalOpen && (
           <div
-            className="relative border-t border-white/10 bg-[#0B0C0E]"
+            className="relative border-t border-border bg-background"
             style={{ height: `${terminalHeight}px` }}
           >
             {/* Terminal Header with Resize Handle */}
             <div
-              className="absolute top-0 left-0 right-0 h-9 bg-[#141517] border-b border-white/5 flex items-center justify-between px-4 cursor-ns-resize hover:bg-[#1A1B1E] transition-colors group z-10"
+              className="absolute top-0 left-0 right-0 h-9 bg-accent border-b border-border flex items-center justify-between px-4 cursor-ns-resize hover:bg-accent/80 transition-colors group z-10"
               onMouseDown={handleTerminalResizeStart}
             >
               <div className="flex items-center gap-2">
-                <TerminalIcon className="w-3.5 h-3.5 text-[#8A8F98]" />
-                <span className="text-xs font-medium text-[#8A8F98] group-hover:text-white transition-colors">
+                <TerminalIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
                   Terminal Output
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-[10px] text-white/20 uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   Drag to resize
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-[#8A8F98] hover:text-white hover:bg-white/5 rounded"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
                   onClick={() => setIsTerminalOpen(false)}
                 >
                   <ChevronDown className="w-4 h-4" />
@@ -1524,7 +1524,7 @@ const MaterializeRenderSection = forwardRef<
             </div>
 
             {/* Terminal Content */}
-            <div className="absolute top-9 left-0 right-0 bottom-0 bg-[#0B0C0E]">
+            <div className="absolute top-9 left-0 right-0 bottom-0 bg-background">
               <Terminal className="w-full h-full" baseTunnelUrl={base_tunnel_url} />
             </div>
           </div>
@@ -1532,10 +1532,10 @@ const MaterializeRenderSection = forwardRef<
 
         {/* QR Code Modal */}
         <Dialog open={isQRModalOpen} onOpenChange={setIsQRModalOpen}>
-          <DialogContent className="sm:max-w-md bg-[#141517] border-white/10 text-white">
+          <DialogContent className="sm:max-w-md bg-accent border-border text-foreground">
             <DialogHeader>
-              <DialogTitle className="text-white">View on Device</DialogTitle>
-              <DialogDescription className="text-[#8A8F98]">
+              <DialogTitle className="text-foreground">View on Device</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
                 {currentRenderStatus === "Connected"
                   ? "Scan this QR code with your phone's camera to open in Expo Go"
                   : "Public viewing URL"}
@@ -1552,31 +1552,31 @@ const MaterializeRenderSection = forwardRef<
                     />
                   </div>
                   <div className="text-center space-y-2 w-full px-4">
-                    <p className="text-xs text-[#8A8F98]">
+                    <p className="text-xs text-muted-foreground">
                       Requires Expo Go installed on your device
                     </p>
-                    <div className="flex items-center gap-2 bg-[#0B0C0E] p-2 rounded-lg border border-white/10">
-                      <p className="text-xs font-mono text-white/70 break-all flex-1 text-left line-clamp-1">
+                    <div className="flex items-center gap-2 bg-background p-2 rounded-lg border border-border">
+                      <p className="text-xs font-mono text-foreground/70 break-all flex-1 text-left line-clamp-1">
                         {getExpoGoDeepLink()}
                       </p>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-white/10" onClick={() => {
+                      <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-accent" onClick={() => {
                         navigator.clipboard.writeText(getExpoGoDeepLink());
                         toast.success("Deep link copied");
                       }}>
-                        <Copy className="w-3 h-3 text-white/50" />
+                        <Copy className="w-3 h-3 text-muted-foreground" />
                       </Button>
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="text-center space-y-4 w-full">
-                  <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                    <Monitor className="w-6 h-6 text-white/20" />
+                  <div className="w-12 h-12 bg-accent/50 rounded-full flex items-center justify-center mx-auto">
+                    <Monitor className="w-6 h-6 text-muted-foreground" />
                   </div>
                   <div className="w-full">
-                    <p className="text-sm text-[#8A8F98] mb-2">Viewing URL</p>
-                    <div className="flex items-center gap-2 bg-[#0B0C0E] p-1 rounded-lg border border-white/10">
-                      <div className="px-3 py-1.5 text-xs font-mono text-white/80 truncate flex-1">
+                    <p className="text-sm text-muted-foreground mb-2">Viewing URL</p>
+                    <div className="flex items-center gap-2 bg-background p-1 rounded-lg border border-border">
+                      <div className="px-3 py-1.5 text-xs font-mono text-foreground/80 truncate flex-1">
                         {viewing_url}
                       </div>
                       <Button
@@ -1586,7 +1586,7 @@ const MaterializeRenderSection = forwardRef<
                           navigator.clipboard.writeText(viewing_url);
                           toast.success("URL copied to clipboard!");
                         }}
-                        className="h-7 px-3 hover:bg-white/10 text-white/70 hover:text-white"
+                        className="h-7 px-3 hover:bg-accent text-muted-foreground hover:text-foreground"
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </Button>

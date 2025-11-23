@@ -207,9 +207,9 @@ const FileTree: React.FC<FileTreeProps> = ({
             className={cn(
               "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-colors duration-200 group select-none",
               // Folder Hover State
-              "hover:bg-white/5",
+              "hover:bg-accent",
               // Active State (if needed, usually folders aren't 'selected' in this view, but visual feedback helps)
-              isExpanded ? "text-white" : "text-[#8A8F98] hover:text-white"
+              isExpanded ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             style={{ paddingLeft: `${paddingLeft}px` }}
             onClick={() => toggleFolder(node.path)}
@@ -252,13 +252,13 @@ const FileTree: React.FC<FileTreeProps> = ({
             "flex items-center py-1.5 pr-2 my-0.5 rounded cursor-pointer transition-all duration-200 select-none",
             isSelected
               ? "bg-indigo-500/10 text-indigo-300"
-              : "text-[#8A8F98] hover:text-white hover:bg-white/5"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
           )}
           style={{ paddingLeft: `${paddingLeft + 18}px` }} // +18 to align with folder text, skipping arrows
         >
           <span className={cn(
             "mr-2 transition-colors",
-            isSelected ? "text-indigo-400" : "text-white/30 group-hover:text-white/60"
+            isSelected ? "text-indigo-400" : "text-muted-foreground/50 group-hover:text-muted-foreground"
           )}>
             {getFileIcon(node.name, node.type === "asset" ? "asset" : "file")}
           </span>
@@ -268,7 +268,7 @@ const FileTree: React.FC<FileTreeProps> = ({
           </span>
 
           {node.type === "asset" && (
-            <span className="ml-2 text-[10px] uppercase tracking-wider text-white/20">
+            <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/50">
               Asset
             </span>
           )}
@@ -278,14 +278,14 @@ const FileTree: React.FC<FileTreeProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0B0C0E] border-r border-white/5">
+    <div className="h-full flex flex-col bg-background border-r border-border">
       {/* --- Header --- */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.02]">
-        <h3 className="text-xs font-semibold text-white/90 uppercase tracking-widest">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/50">
+        <h3 className="text-xs font-semibold text-foreground uppercase tracking-widest">
           Explorer
         </h3>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-white/30 font-mono">
+          <span className="text-[10px] text-muted-foreground font-mono">
             {Object.keys(files).length + Object.keys(assets).length} items
           </span>
         </div>
@@ -297,8 +297,8 @@ const FileTree: React.FC<FileTreeProps> = ({
           fileTree.map((node) => renderNode(node, 0))
         ) : (
           <div className="flex flex-col items-center justify-center h-40 text-center px-4">
-            <FolderOpen className="w-8 h-8 text-white/10 mb-2" />
-            <p className="text-xs text-white/30">
+            <FolderOpen className="w-8 h-8 text-muted-foreground/20 mb-2" />
+            <p className="text-xs text-muted-foreground">
               No files in this project
             </p>
           </div>
