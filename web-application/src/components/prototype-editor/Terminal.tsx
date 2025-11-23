@@ -41,11 +41,16 @@ export default function Terminal({
 }: TerminalProps) {
   const [activeSession, setActiveSession] = useState<TerminalSession>("dev-server");
   const terminalRefsMap = useRef<Map<TerminalSession, HTMLDivElement>>(new Map());
-  const terminalInstancesMap = useRef<Map<TerminalSession, TerminalInstanceState>>(new Map());
+  const terminalInstancesMap = useRef<Map<TerminalSession, TerminalInstanceState>>(
+    new Map()
+  );
 
   // Initialize terminal instances for each session
   useEffect(() => {
-    const instancesToCleanup: Array<{ session: TerminalSession; instance: TerminalInstanceState; }> = [];
+    const instancesToCleanup: Array<{
+      session: TerminalSession;
+      instance: TerminalInstanceState;
+    }> = [];
     const instancesMap = terminalInstancesMap.current;
 
     TERMINAL_SESSIONS.forEach((session) => {
@@ -113,7 +118,12 @@ export default function Terminal({
 
       // Welcome message
       terminal.writeln("\x1b[1;32m┌─────────────────────────────────────────┐\x1b[0m");
-      terminal.writeln(`\x1b[1;32m│  \x1b[1;37mMaterialize Terminal - ${TERMINAL_SESSION_LABELS[session]}\x1b[1;32m${" ".repeat(Math.max(0, 13 - TERMINAL_SESSION_LABELS[session].length))}│\x1b[0m`);
+      terminal.writeln(
+        `\x1b[1;32m│  \x1b[1;37mMaterialize Terminal - ${TERMINAL_SESSION_LABELS[session]
+        }\x1b[1;32m${" ".repeat(
+          Math.max(0, 13 - TERMINAL_SESSION_LABELS[session].length)
+        )}│\x1b[0m`
+      );
       terminal.writeln("\x1b[1;32m└─────────────────────────────────────────┘\x1b[0m");
       terminal.writeln("");
       terminal.writeln("");
@@ -130,6 +140,28 @@ export default function Terminal({
       });
     };
   }, [onResize, baseTunnelUrl]);
+
+  useEffect(() => {
+    const instance = terminalInstancesMap.current.get(activeSession);
+
+    // requestAnimationFrame ensures the DOM has updated from 'hidden' to 'block'
+    // before we attempt to calculate the fit dimensions.
+    const frameId = requestAnimationFrame(() => {
+      if (instance) {
+        try {
+          instance.fitAddon.fit();
+          // Optional: Notify parent of new size if needed
+          if (onResize) {
+            onResize(instance.xterm.cols, instance.xterm.rows);
+          }
+        } catch (e) {
+          // fit() might fail if the element is still not visible for some reason
+        }
+      }
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [activeSession, onResize]);
 
   // Handle resize for all terminals
   useEffect(() => {
@@ -173,13 +205,20 @@ export default function Terminal({
       if (!instance) return;
 
       // Skip if already connected
-      if (instance.ws && (instance.ws.readyState === WebSocket.OPEN || instance.ws.readyState === WebSocket.CONNECTING)) {
+      if (
+        instance.ws &&
+        (instance.ws.readyState === WebSocket.OPEN ||
+          instance.ws.readyState === WebSocket.CONNECTING)
+      ) {
         return;
       }
-      const finalTunnelUrlBase = (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === 'true' ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT : null) || baseTunnelUrl;
+      const finalTunnelUrlBase =
+        (process.env.NEXT_PUBLIC_FARGATE_DEV_MODE === "true"
+          ? process.env.NEXT_PUBLIC_INTERNAL_BUILD_WORKERS_SERVER_ENDPOINT
+          : null) || baseTunnelUrl;
       // Construct the full WebSocket URL for this session
       const sessionPath = TERMINAL_SESSION_PATHS[session];
-      const fullTerminalUrl = finalTunnelUrlBase.endsWith('/')
+      const fullTerminalUrl = finalTunnelUrlBase.endsWith("/")
         ? `${finalTunnelUrlBase}${sessionPath.slice(1)}`
         : `${finalTunnelUrlBase}${sessionPath}`;
       // Create WebSocket connection
@@ -211,11 +250,13 @@ export default function Terminal({
             instance.xterm.write(message.data.chunk);
           } else if (message.event === "exit") {
             instance.xterm.writeln(
-              `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"}\x1b[0m`
+              `\r\n\x1b[33mProcess exited with code: ${message.data?.exitCode ?? "unknown"
+              }\x1b[0m`
             );
           } else if (message.event === "error") {
             instance.xterm.writeln(
-              `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"}\x1b[0m`
+              `\r\n\x1b[31mError: ${message.data?.error || "Terminal error occurred"
+              }\x1b[0m`
             );
           }
         } catch {
@@ -235,7 +276,10 @@ export default function Terminal({
 
       // Store cleanup function
       cleanupFunctions.push(() => {
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        if (
+          ws.readyState === WebSocket.OPEN ||
+          ws.readyState === WebSocket.CONNECTING
+        ) {
           ws.close();
         }
         instance.ws = null;
