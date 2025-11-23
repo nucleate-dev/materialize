@@ -360,14 +360,14 @@ function PricingSection() {
       productKey: "free",
     },
     {
-      name: "Pro",
+      name: "Plus",
       price: "$25",
       period: "per month",
       description: "For everyone",
       features: ["Everything in Free", "100 credits a month included", "Additional credit packs available", "Unlimited projects", "Unlimited folders", "View, edit, and export Code"],
-      cta: "Upgrade to Pro",
+      cta: "Upgrade to Plus",
       highlighted: true,
-      productKey: "pro",
+      productKey: "plus",
     },
     {
       name: "Enterprise",
