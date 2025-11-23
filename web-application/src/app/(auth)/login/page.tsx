@@ -27,10 +27,10 @@ function LoginContent() {
       <div className="relative z-10">
         <PremiumHeader />
 
-        <div className="flex items-center justify-center px-4 py-16 min-h-[calc(100vh-80px)]">
+        <div className="flex items-center justify-center px-4 py-8 md:py-16 min-h-[calc(100vh-80px)]">
           <div className="w-full max-w-md space-y-6">
             <div className="text-center space-y-2">
-              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">
                 <span className="bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-clip-text text-transparent">
                   Welcome back
                 </span>

@@ -129,12 +129,11 @@ function HeroSection() {
         {/* Hero Title */}
         <div className="text-center space-y-6 mb-12">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 pb-2">
-            Materialize is a purpose-built tool for<br className="hidden md:block" />
+            Materialize is a purpose-built tool for <br className="hidden md:block" />
             building products.
           </h1>
           <p className="text-lg md:text-xl text-[#8A8F98] max-w-2xl mx-auto font-normal leading-relaxed">
-            Meet the system for modern app development. <br className="hidden md:block" />
-            Streamline design to code with AI-powered precision.
+            Build apps, prototypes, flows, and screens fast.<br className="hidden md:block" /> Streamline design to code with AI and React Native.
           </p>
         </div>
 
@@ -166,19 +165,19 @@ function HeroSection() {
               </div>
             </div>
 
-            <div className="px-4 pb-3 flex items-center justify-between border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                <span className="text-xs text-white/30 uppercase tracking-wider font-semibold mr-2">Try:</span>
-                <button onClick={() => handlePresetClick('onboarding')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap">Onboarding</button>
-                <button onClick={() => handlePresetClick('paywall')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap">Paywall</button>
-                <button onClick={() => handlePresetClick('recipeApp')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap">Recipe App</button>
+            <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center gap-2 border-t border-white/5 mt-2 pt-2 bg-white/[0.02]">
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0 order-2 sm:order-1">
+                <span className="text-xs text-white/30 uppercase tracking-wider font-semibold shrink-0">Try:</span>
+                <button onClick={() => handlePresetClick('onboarding')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0">Onboarding</button>
+                <button onClick={() => handlePresetClick('paywall')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0">Paywall</button>
+                <button onClick={() => handlePresetClick('recipeApp')} className="text-xs text-white/60 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition-colors whitespace-nowrap shrink-0">Recipe App</button>
               </div>
 
               <Button
                 onClick={handleSend}
                 disabled={!prompt.trim() || isLoading}
                 size="sm"
-                className="h-7 px-3 rounded-md bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                className="h-7 px-3 rounded-md bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold shrink-0 w-full sm:w-auto order-1 sm:order-2"
               >
                 {isLoading ? "Generating..." : "Generate"}
               </Button>
@@ -355,7 +354,7 @@ function PricingSection() {
       price: "$0",
       period: "forever",
       description: "For trying out Materialize",
-      features: ["3 projects", "Unlimited components", "Community support"],
+      features: ["5 free projects", "15 free messages", "Fork projects for free"],
       cta: "Get Started",
       highlighted: false,
       productKey: "free",
@@ -364,8 +363,8 @@ function PricingSection() {
       name: "Pro",
       price: "$25",
       period: "per month",
-      description: "For professionals",
-      features: ["Everything in Free", "Unlimited projects", "Unlimited folders", "View, edit, and export Code"],
+      description: "For everyone",
+      features: ["Everything in Free", "100 credits a month included", "Additional credit packs available", "Unlimited projects", "Unlimited folders", "View, edit, and export Code"],
       cta: "Upgrade to Pro",
       highlighted: true,
       productKey: "pro",
