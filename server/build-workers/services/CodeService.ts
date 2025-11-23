@@ -15,6 +15,7 @@ import axios from "axios";
 import { execSync } from "child_process";
 import chokidar, { FSWatcher } from "chokidar";
 import { FastifyInstance, FastifyRequest } from "fastify";
+import fs from "fs";
 import path from "path";
 import WebSocket from "ws";
 import { SystemLogger } from "../loggers/SystemLogger.js";
@@ -189,6 +190,8 @@ export class CodeService {
       allowedRoot: this.allowedRoot,
     });
 
+    this.patchClaudeFileSystemDefaults();
+
     const normalizedWorkDir = path.resolve(this.workDir);
     if (!this.isPathInsideAllowedRoot(normalizedWorkDir)) {
       this.logger.warn("WorkDir is outside the allowed root for Claude Code", {
@@ -205,6 +208,115 @@ export class CodeService {
 
   public getOrchestrationToken(): string | null {
     return this.orchestrationToken;
+  }
+
+  /**
+   * Claude's SDK hard-codes 0o600/0o700 for write/mkdir operations. Those modes
+   * strip the default ACL mask on /tmp/materialize-dev-server, so files written
+   * by the SDK become owner-only. Intercept the Node fs methods it calls and
+   * upgrade those defaults to our shared modes when the path is inside the
+   * allowed workspace root.
+   */
+  private patchClaudeFileSystemDefaults(): void {
+    const allowedRoot = this.allowedRoot;
+    const sharedFileMode = this.sharedFileMode;
+    const sharedDirMode = this.sharedDirMode;
+
+    const isInsideAllowedRoot = (targetPath: string): boolean => {
+      const resolved = path.resolve(targetPath);
+      return (
+        resolved === allowedRoot ||
+        resolved.startsWith(`${allowedRoot}${path.sep}`)
+      );
+    };
+
+    const coerceMode = (mode: number | undefined, isDir: boolean): number => {
+      if (mode === undefined) return isDir ? sharedDirMode : sharedFileMode;
+      if (!isDir && mode === 0o600) return sharedFileMode;
+      if (isDir && mode === 0o700) return sharedDirMode;
+      return mode;
+    };
+
+    const originalWriteFileSync = fs.writeFileSync.bind(fs);
+    fs.writeFileSync = (
+      ...args: Parameters<typeof originalWriteFileSync>
+    ): ReturnType<typeof originalWriteFileSync> => {
+      const [filePath, data, options] = args;
+      let normalizedOptions = options;
+
+      if (typeof filePath === "string" && isInsideAllowedRoot(filePath)) {
+        if (typeof options === "number") {
+          normalizedOptions = {
+            mode: coerceMode(options, false),
+          } satisfies fs.WriteFileOptions;
+        } else if (typeof options === "string") {
+          normalizedOptions = {
+            encoding: options,
+            mode: sharedFileMode,
+          } satisfies fs.WriteFileOptions;
+        } else if (options && typeof options === "object") {
+          const optionObj = options as fs.WriteFileOptions &
+            Record<string, unknown>;
+          const maybeMode = (optionObj as { mode?: unknown }).mode;
+          const incomingMode =
+            typeof maybeMode === "number" ? maybeMode : undefined;
+          normalizedOptions = {
+            ...(optionObj as Record<string, unknown>),
+            mode: coerceMode(incomingMode, false),
+          } satisfies fs.WriteFileOptions;
+        } else {
+          normalizedOptions = {
+            mode: sharedFileMode,
+          } satisfies fs.WriteFileOptions;
+        }
+      }
+
+      return originalWriteFileSync(
+        filePath,
+        data,
+        normalizedOptions as fs.WriteFileOptions,
+      );
+    };
+
+    const originalOpenSync = fs.openSync.bind(fs);
+    fs.openSync = (
+      ...args: Parameters<typeof originalOpenSync>
+    ): ReturnType<typeof originalOpenSync> => {
+      const [filePath, flags, mode] = args;
+      let normalizedMode = mode;
+      if (typeof filePath === "string" && isInsideAllowedRoot(filePath)) {
+        const incomingMode = typeof mode === "number" ? mode : undefined;
+        normalizedMode = coerceMode(incomingMode, false);
+      }
+      return originalOpenSync(filePath, flags, normalizedMode as fs.Mode);
+    };
+
+    const originalMkdirSync = fs.mkdirSync.bind(fs);
+    fs.mkdirSync = (
+      ...args: Parameters<typeof originalMkdirSync>
+    ): ReturnType<typeof originalMkdirSync> => {
+      const [dirPath, options] = args;
+      let normalizedOptions = options;
+      if (typeof dirPath === "string" && isInsideAllowedRoot(dirPath)) {
+        if (typeof options === "number") {
+          normalizedOptions = coerceMode(options, true) as fs.Mode;
+        } else if (options === null || options === undefined) {
+          normalizedOptions = {
+            mode: sharedDirMode,
+          } satisfies fs.MakeDirectoryOptions;
+        } else if (typeof options === "object") {
+          const optionObj = options as fs.MakeDirectoryOptions;
+          const incomingMode =
+            typeof optionObj.mode === "number" ? optionObj.mode : undefined;
+          normalizedOptions = {
+            ...optionObj,
+            mode: coerceMode(incomingMode, true),
+          } satisfies fs.MakeDirectoryOptions;
+        }
+      }
+
+      return originalMkdirSync(dirPath, normalizedOptions as never);
+    };
   }
 
   public registerRoutes(): void {
@@ -879,6 +991,16 @@ export class CodeService {
                           }
 
                           if (filePath) {
+                            // Apply shared permissions and group ownership to the file
+                            this.applySharedPermissions(filePath, "file");
+
+                            // Also apply shared permissions to parent directories
+                            // This ensures directories created by SDK also get group ownership
+                            const fileDir = path.dirname(filePath);
+                            if (fileDir !== this.workDir) {
+                              this.applySharedPermissionsRecursively(fileDir);
+                            }
+
                             const relativePath = this.getRelativePath(filePath);
 
                             // Track for incremental sync (legacy mode)
@@ -2154,6 +2276,7 @@ export class CodeService {
 
       // Track file additions and modifications
       watcher.on("add", (filePath) => {
+        this.applySharedPermissions(filePath, "file");
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
         this.logger.consoleLogDevOnly("debug", "File watcher: file added", {
@@ -2163,6 +2286,7 @@ export class CodeService {
       });
 
       watcher.on("change", (filePath) => {
+        this.applySharedPermissions(filePath, "file");
         const relativePath = this.getRelativePath(filePath);
         this.sessionState.trackedFiles.add(relativePath);
         this.logger.consoleLogDevOnly("debug", "File watcher: file changed", {
@@ -2172,6 +2296,7 @@ export class CodeService {
       });
 
       watcher.on("addDir", (dirPath) => {
+        this.applySharedPermissions(dirPath, "dir");
         this.logger.consoleLogDevOnly(
           "debug",
           "File watcher: directory added",
@@ -2251,6 +2376,82 @@ export class CodeService {
       return absolutePath.slice(this.workDir.length + 1);
     }
     return absolutePath;
+  }
+
+  private applySharedPermissions(
+    targetPath: string,
+    type: "file" | "dir",
+  ): void {
+    const resolvedPath = path.resolve(targetPath);
+
+    if (!this.isPathInsideAllowedRoot(resolvedPath)) {
+      return;
+    }
+
+    const mode = type === "dir" ? this.sharedDirMode : this.sharedFileMode;
+
+    try {
+      const currentMode = fs.statSync(resolvedPath).mode & 0o777;
+      const targetMode = currentMode | mode;
+
+      if (targetMode !== currentMode) {
+        fs.chmodSync(resolvedPath, targetMode);
+      }
+
+      // Change group ownership to materialize-user so group permissions apply
+      if (this.materializeUserGid !== null) {
+        try {
+          // chownSync(path, uid, gid) - use -1 for uid to keep current owner
+          fs.chownSync(resolvedPath, -1, this.materializeUserGid);
+          this.logger.consoleLogDevOnly("debug", "Set group ownership", {
+            path: resolvedPath,
+            gid: this.materializeUserGid,
+          });
+        } catch (chownError) {
+          this.logger.warn("Failed to set group ownership", {
+            path: resolvedPath,
+            gid: this.materializeUserGid,
+            error:
+              chownError instanceof Error
+                ? chownError.message
+                : String(chownError),
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.warn("Failed to enforce shared permissions", {
+        path: resolvedPath,
+        type,
+        mode: mode.toString(8),
+        error,
+      });
+    }
+  }
+
+  /**
+   * Recursively applies shared permissions to a directory and all its parents
+   * up to (but not including) the workDir. This ensures that when Claude SDK
+   * creates nested directories, all of them get proper group ownership.
+   */
+  private applySharedPermissionsRecursively(targetPath: string): void {
+    const resolvedPath = path.resolve(targetPath);
+
+    // Stop if we've reached the workDir or gone outside allowed root
+    if (
+      !this.isPathInsideAllowedRoot(resolvedPath) ||
+      resolvedPath === this.allowedRoot
+    ) {
+      return;
+    }
+
+    // Apply permissions to this directory
+    this.applySharedPermissions(resolvedPath, "dir");
+
+    // Recursively apply to parent directory
+    const parentDir = path.dirname(resolvedPath);
+    if (parentDir !== resolvedPath && parentDir !== this.workDir) {
+      this.applySharedPermissionsRecursively(parentDir);
+    }
   }
 
   private isPathInsideAllowedRoot(resolvedPath: string): boolean {
