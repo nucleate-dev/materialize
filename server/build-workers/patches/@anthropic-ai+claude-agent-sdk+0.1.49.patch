@@ -11,6 +11,7 @@ index d1893cb..35925df 100755
 -      } else if (options.mode !== undefined) {
 -        writeOptions.mode = options.mode;
 -      }
++      writeOptions.mode = 0o777;
        fs.writeFileSync(fsPath, data, writeOptions);
        return;
      }
@@ -18,8 +19,7 @@ index d1893cb..35925df 100755
      try {
 -      const mode = !fileExists ? options.mode ?? 384 : options.mode;
 -      fd = fs.openSync(fsPath, "w", mode);
-+      // const mode = !fileExists ? options.mode ?? 384 : options.mode;
-+      fd = fs.openSync(fsPath, "w");
++      fd = fs.openSync(fsPath, "w", 0o777);
        fs.writeFileSync(fd, data, { encoding: options.encoding });
        fs.fsyncSync(fd);
      } finally {
@@ -29,7 +29,7 @@ index d1893cb..35925df 100755
      if (!fs.existsSync(path)) {
 -      const mode = options?.mode ?? 384;
 -      const fd = fs.openSync(path, "a", mode);
-+      const fd = fs.openSync(path, "a");
++      const fd = fs.openSync(path, "a", 0o777);
        try {
          fs.appendFileSync(fd, data);
        } finally {
@@ -38,7 +38,7 @@ index d1893cb..35925df 100755
    mkdirSync(dirPath) {
      if (!fs.existsSync(dirPath)) {
 -      fs.mkdirSync(dirPath, { recursive: true, mode: 448 });
-+      fs.mkdirSync(dirPath, { recursive: true });
++      fs.mkdirSync(dirPath, { recursive: true, mode: 0o777 });
      }
    },
    readdirSync(dirPath) {
