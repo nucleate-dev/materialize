@@ -32,8 +32,15 @@ import { usePathname } from "next/navigation";
 const DashboardSidebarContent = () => {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom);
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
+
+  // Handler to close mobile sidebar when a link is clicked
+  const handleMobileLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const menuItems = [
     {
@@ -71,7 +78,7 @@ const DashboardSidebarContent = () => {
       <SidebarHeader className="border-b border-gray-200 dark:border-sidebar-border">
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-2 py-2">
-            <Link href="/dashboard" className="p-2">
+            <Link href="/dashboard" className="p-2" onClick={handleMobileLinkClick}>
               <FlaskConical className="w-6 h-6 text-primary" />
             </Link>
             <SidebarTrigger
@@ -81,7 +88,7 @@ const DashboardSidebarContent = () => {
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3 px-2 py-2">
-            <Link href="/dashboard" className="group flex-1 min-w-0">
+            <Link href="/dashboard" className="group flex-1 min-w-0" onClick={handleMobileLinkClick}>
               <div className="relative flex items-center gap-3 px-3 py-2">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 dark:from-primary/30 dark:to-secondary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <FlaskConical className="relative w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
@@ -103,7 +110,7 @@ const DashboardSidebarContent = () => {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === "/dashboard"} size="lg" tooltip={isCollapsed ? "New chat +" : undefined} className={isCollapsed ? "justify-center" : ""}>
-                  <Link href="/dashboard">
+                  <Link href="/dashboard" onClick={handleMobileLinkClick}>
                     <Sparkles className="w-5 h-5" />
                     {!isCollapsed && <span>New chat +</span>}
                   </Link>
@@ -119,7 +126,7 @@ const DashboardSidebarContent = () => {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={item.active} size="lg" tooltip={isCollapsed ? item.label : undefined} className={isCollapsed ? "justify-center" : ""}>
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={handleMobileLinkClick}>
                       <item.icon className="w-5 h-5" />
                       {!isCollapsed && <span>{item.label}</span>}
                     </Link>
@@ -137,7 +144,7 @@ const DashboardSidebarContent = () => {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname?.includes("account")} size="lg" tooltip={isCollapsed ? "Settings" : undefined} className={isCollapsed ? "justify-center" : ""}>
-              <Link href="/dashboard/account">
+              <Link href="/dashboard/account" onClick={handleMobileLinkClick}>
                 <Settings className="w-5 h-5" />
                 {!isCollapsed && <span>Settings</span>}
               </Link>

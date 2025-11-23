@@ -1,7 +1,7 @@
+import { SupabaseClient } from "@supabase/supabase-js";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import { TerminalSession } from "../services/TerminalService.js";
 import { Database } from "../types/supabase.js";
@@ -191,10 +191,13 @@ export async function uploadAllClaudeSessionsToSupabase(
     try {
       await fs.access(CLAUDE_PROJECTS_DIR);
     } catch {
-      logger.info("Claude projects directory does not exist, skipping session upload", {
-        prototypeId,
-        path: CLAUDE_PROJECTS_DIR,
-      });
+      logger.info(
+        "Claude projects directory does not exist, skipping session upload",
+        {
+          prototypeId,
+          path: CLAUDE_PROJECTS_DIR,
+        },
+      );
       return { success: true, uploadedCount: 0, errors: [] };
     }
 
@@ -307,6 +310,7 @@ export async function restoreClaudeSessionsFromSupabase(
   try {
     logger.info("Restoring Claude sessions from Supabase Storage", {
       prototypeId,
+      CLAUDE_PROJECTS_DIR,
     });
 
     // Ensure CLAUDE_PROJECTS_DIR exists
@@ -333,7 +337,9 @@ export async function restoreClaudeSessionsFromSupabase(
       return { success: true, restoredSessionIds: [], errors: [] };
     }
 
-    const sessionFiles = fileList.filter((file) => file.name.endsWith(".jsonl"));
+    const sessionFiles = fileList.filter((file) =>
+      file.name.endsWith(".jsonl"),
+    );
 
     if (sessionFiles.length === 0) {
       logger.info("No .jsonl session files found to restore", { prototypeId });
@@ -396,7 +402,9 @@ export async function restoreClaudeSessionsFromSupabase(
     // Wait for all downloads to complete
     const results = await Promise.all(restorePromises);
     restoredSessionIds.push(
-      ...results.filter((r) => r.success && r.sessionId).map((r) => r.sessionId!),
+      ...results
+        .filter((r) => r.success && r.sessionId)
+        .map((r) => r.sessionId!),
     );
 
     logger.info("Claude session restoration completed", {
