@@ -86,14 +86,14 @@ interface ClaudeCodePanelUIProps {
   showScrollToBottom: boolean;
   isCurrentSessionMostRecent: boolean;
   scrollAreaRef:
-    | RefObject<HTMLDivElement | null>
-    | MutableRefObject<HTMLDivElement | null>;
+  | RefObject<HTMLDivElement | null>
+  | MutableRefObject<HTMLDivElement | null>;
   fileInputRef:
-    | RefObject<HTMLInputElement | null>
-    | MutableRefObject<HTMLInputElement | null>;
+  | RefObject<HTMLInputElement | null>
+  | MutableRefObject<HTMLInputElement | null>;
   textareaRef:
-    | RefObject<HTMLTextAreaElement | null>
-    | MutableRefObject<HTMLTextAreaElement | null>;
+  | RefObject<HTMLTextAreaElement | null>
+  | MutableRefObject<HTMLTextAreaElement | null>;
   handleStartTitleEdit: () => void;
   handleCancelTitleEdit: () => void;
   handleSaveTitle: () => void;
@@ -213,9 +213,9 @@ export default function ClaudeCodePanelUI({
                     const dateStr = isToday
                       ? "Today"
                       : date.toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        });
+                        month: "short",
+                        day: "numeric",
+                      });
                     const timeStr = date.toLocaleTimeString(undefined, {
                       hour: "numeric",
                       minute: "2-digit",
@@ -270,12 +270,7 @@ export default function ClaudeCodePanelUI({
             )}
 
           {isProcessing && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={interruptQuery}
-              className="h-7 px-2 text-xs bg-red-500/10 text-red-600 hover:bg-red-500/20 border border-red-200"
-            >
+            <Button size="sm" variant="destructive" onClick={interruptQuery} className="h-7 px-2 text-xs bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 border border-red-200 dark:border-red-800">
               <StopCircle className="w-3.5 h-3.5 mr-1.5" /> Stop
             </Button>
           )}
@@ -433,7 +428,7 @@ export default function ClaudeCodePanelUI({
                       >
                         <div className="text-muted-foreground">
                           {message.toolCallId &&
-                          expandedThinking.has(message.toolCallId) ? (
+                            expandedThinking.has(message.toolCallId) ? (
                             <ChevronDown className="w-3.5 h-3.5" />
                           ) : (
                             <ChevronRight className="w-3.5 h-3.5" />

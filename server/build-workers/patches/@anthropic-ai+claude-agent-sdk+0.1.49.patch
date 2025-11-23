@@ -1,5 +1,5 @@
 diff --git a/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs b/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
-index d1893cb..b23ac26 100755
+index d1893cb..cb7b7f0 100755
 --- a/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 +++ b/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 @@ -34,17 +34,17 @@ var __export = (target, all) => {
@@ -584,7 +584,7 @@ index d1893cb..b23ac26 100755
 -      } else if (options.mode !== undefined) {
 -        writeOptions.mode = options.mode;
 -      }
-+      writeOptions.mode = 777;
++      writeOptions.mode = 0o755;
        fs.writeFileSync(fsPath, data, writeOptions);
        return;
      }
@@ -592,7 +592,7 @@ index d1893cb..b23ac26 100755
      try {
 -      const mode = !fileExists ? options.mode ?? 384 : options.mode;
 -      fd = fs.openSync(fsPath, "w", mode);
-+      fd = fs.openSync(fsPath, "w", 777);
++      fd = fs.openSync(fsPath, "w", 0o755);
        fs.writeFileSync(fd, data, { encoding: options.encoding });
        fs.fsyncSync(fd);
      } finally {
@@ -611,7 +611,7 @@ index d1893cb..b23ac26 100755
    mkdirSync(dirPath) {
      if (!fs.existsSync(dirPath)) {
 -      fs.mkdirSync(dirPath, { recursive: true, mode: 448 });
-+      fs.mkdirSync(dirPath, { recursive: true, mode: 777 });
++      fs.mkdirSync(dirPath, { recursive: true, mode: 0o755 });
      }
    },
    readdirSync(dirPath) {
