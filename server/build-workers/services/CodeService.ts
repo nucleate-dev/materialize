@@ -789,6 +789,9 @@ export class CodeService {
 
     // CRITICAL: Wrap entire query processing in try-finally to ensure end-chat
     // notification is ALWAYS sent, regardless of success or failure
+    // Declare totalCostUsd here so it's accessible in the finally block
+    let totalCostUsd: number | undefined = undefined;
+
     try {
       try {
         // Create a new AbortController for this query
@@ -1251,15 +1254,18 @@ export class CodeService {
           // Log token usage once when the final result message arrives
           if (msg.type === "result" && !tokenUsageLogged) {
             try {
-              const { usage, subtype, total_cost_usd, duration_ms, duration_api_ms } = msg;
+              const { usage, total_cost_usd, duration_ms, duration_api_ms } =
+                msg;
               const inputTokens = usage?.input_tokens ?? 0;
               const outputTokens = usage?.output_tokens ?? 0;
+
+              // Store total_cost_usd for usage tracking in finally block
+              totalCostUsd = total_cost_usd;
 
               this.logger.metricTokenUsage(
                 queryOptions.model ?? "unknown",
                 inputTokens,
                 outputTokens,
-                { intent: "claude_code_sdk", outcome: subtype },
                 total_cost_usd,
                 duration_ms,
                 duration_api_ms,
@@ -1487,11 +1493,15 @@ export class CodeService {
             },
           );
         } else {
-          // TODO: Fetch user's billing period from subscription info
-          // For now, use current month as billing period
+          // Calculate credits used based on total cost: total_cost_usd / 0.12
+          const creditsUsed =
+            totalCostUsd !== undefined ? totalCostUsd / 0.12 : 1.0;
+
           this.logger.info("Tracking API usage", {
             userId: user.id,
             prototypeId,
+            totalCostUsd,
+            creditsUsed,
           });
 
           const { totalRemainingCredits } = await trackApiUsageBuildWorker(
@@ -1499,6 +1509,7 @@ export class CodeService {
             user.id,
             prototypeId,
             this.logger,
+            creditsUsed,
           );
 
           // Send updated credits to client
@@ -1512,6 +1523,8 @@ export class CodeService {
           this.logger.info("API usage tracked successfully", {
             userId: user.id,
             prototypeId,
+            totalCostUsd,
+            creditsUsed,
             totalRemainingCredits,
           });
         }

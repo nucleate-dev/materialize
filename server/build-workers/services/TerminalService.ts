@@ -669,7 +669,6 @@ export class TerminalService {
   private buildBaseEnvironment(cwd: string): NodeJS.ProcessEnv {
     const safeKeys = [
       "PATH",
-      "NODE_ENV",
       "TERM",
       "LANG",
       "LC_ALL",
@@ -691,7 +690,8 @@ export class TerminalService {
       }
     }
 
-    const username = this.terminalUserIdentity?.username ?? process.env.USER ?? "root";
+    const username =
+      this.terminalUserIdentity?.username ?? process.env.USER ?? "root";
 
     env.PATH =
       env.PATH ??
@@ -703,6 +703,7 @@ export class TerminalService {
     env.PWD = cwd;
     env.WORK_DIR = this.workDir;
     env.NPM_CONFIG_CACHE = path.join(this.workDir, ".npm-cache");
+    env.NODE_ENV = "development";
 
     return env;
   }
@@ -1199,5 +1200,4 @@ export class TerminalService {
       this.removeClient(session, client.id);
     }
   }
-
 }

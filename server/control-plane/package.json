@@ -15,7 +15,7 @@
     "lint:check": "eslint . --max-warnings 0",
     "sync-types": "node scripts/sync-types.js && node scripts/sync-build-worker-types.js",
     "prebuild": "npm run lint:check && npm run sync-types",
-    "deploy:prod": "AWS_PROFILE=materialize-deploy node scripts/deploy-build-to-prod.js",
+    "deploy:prod": "node scripts/deploy-build-to-prod.js",
     "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
