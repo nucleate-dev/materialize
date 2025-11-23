@@ -42,7 +42,7 @@ export default function Home() {
       <GridBackground />
 
       <div className="relative z-10">
-        <PremiumHeader />
+        <PremiumHeader forceDarkMode />
         {/* Ensure PremiumHeader handles transparent backgrounds well, or wrap it */}
 
         <HeroSection />
