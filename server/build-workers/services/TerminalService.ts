@@ -35,6 +35,10 @@ export interface TerminalEventPayload {
   [key: string]: unknown;
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export interface TerminalEvent {
   type: "output" | "exit" | "start" | "status" | "close" | "error";
   payload: TerminalEventPayload;
@@ -469,17 +473,21 @@ export class TerminalService {
     // 1. Create a unique sentinel
     const token = randomUUID().replace(/-/g, "");
     const startMarker = `__START_${token}__`;
-    const endMarker = `__END_${token}__`;
+    const endMarkerBase = `__END_${token}__`;
+    const endMarkerWithExitPrefix = `${endMarkerBase}:`;
 
     // 2. Wrap the command
     // We print a start marker to help chop off the command echo at the top,
     // and an end marker with the exit code at the bottom.
     // checks for shell (bash/sh/zsh) compatibility
-    const wrappedInput = `echo "${startMarker}"; ${input}; echo "${endMarker}:$?"`;
+    const wrappedInput = `printf "${startMarker}\\n"; ${input}; printf "${endMarkerWithExitPrefix}%s\\n" $?`;
 
     return new Promise((resolve, reject) => {
       let buffer = "";
       const timeout = options.timeout ?? 30000;
+      const endMarkerRegex = new RegExp(
+        `${escapeRegex(endMarkerWithExitPrefix)}(-?\\d+)`,
+      );
 
       // Cleanup function
       const cleanup = (): void => {
@@ -498,36 +506,26 @@ export class TerminalService {
         buffer += chunk;
 
         // Check for the End Marker
-        const endIdx = buffer.indexOf(endMarker);
-        if (endIdx !== -1) {
-          // We found the end!
+        const markerMatch = buffer.match(endMarkerRegex);
+        if (markerMatch && markerMatch.index !== undefined) {
+          cleanup();
+          const exitCode = parseInt(markerMatch[1], 10);
 
-          // Extract the rest of the line to get exit code: __END_XYZ__:0
-          const restOfLine = buffer.substring(endIdx + endMarker.length);
-          const match = restOfLine.match(/^:(\d+)/);
-
-          if (match) {
-            cleanup();
-
-            const exitCode = parseInt(match[1], 10);
-
-            // Clean up the output:
-            // 1. Remove the command echo and start marker
-            // 2. Remove the end marker and exit code
-            let cleanOutput = buffer.substring(0, endIdx);
-            const startIdx = cleanOutput.indexOf(startMarker);
-            if (startIdx !== -1) {
-              // +1 for newline usually following echo
-              cleanOutput = cleanOutput
-                .substring(startIdx + startMarker.length)
-                .trim();
-            }
-
-            resolve({
-              output: cleanOutput,
-              exitCode: exitCode,
-            });
+          // Clean up the output:
+          // 1. Remove the command echo and start marker
+          // 2. Remove everything from the end marker onward
+          let cleanOutput = buffer.substring(0, markerMatch.index);
+          const startIdx = cleanOutput.indexOf(startMarker);
+          if (startIdx !== -1) {
+            cleanOutput = cleanOutput
+              .substring(startIdx + startMarker.length)
+              .trim();
           }
+
+          resolve({
+            output: cleanOutput,
+            exitCode: exitCode,
+          });
         }
       });
 
