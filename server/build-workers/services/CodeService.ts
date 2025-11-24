@@ -235,12 +235,20 @@ export class CodeService {
         await this.expoDevServerService.killExpoProcess(this.logger);
         // Wait for terminal to settle after kill signal
         await new Promise((resolve) => setTimeout(resolve, 300));
-        // Send Enter to clear any partial command or buffer contamination
+        // Clear terminal buffer: send Ctrl+C, Ctrl+U, and Enter to ensure clean state
         try {
+          // Ctrl+C to interrupt any running command
+          await this.sandboxService.sendTerminalInput(terminal_id, "\x03");
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          // Ctrl+U to clear the input line
+          await this.sandboxService.sendTerminalInput(terminal_id, "\x15");
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          // Enter to execute empty line and get fresh prompt
           await this.sandboxService.sendTerminalInput(terminal_id, "\n");
+          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch {
           // Terminal might not exist yet, which is fine
-          this.logger.debug("Could not send Enter to terminal", {
+          this.logger.debug("Could not clear terminal buffer", {
             terminal_id,
           });
         }
