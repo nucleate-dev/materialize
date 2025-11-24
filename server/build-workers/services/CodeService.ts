@@ -235,7 +235,7 @@ export class CodeService {
         command.includes("npx") ||
         command.includes("expo")
       ) {
-        timeoutMs = 120000;
+        timeoutMs = 20000;
         terminal_id = "dev-server";
         // Kill Expo process before running npm/npx/expo commands
         await this.expoDevServerService.killExpoProcess(this.logger);
