@@ -45,26 +45,46 @@ export function createDevelopmentToolsMcpServer(
       // --- NPM Install Tool ---
       tool(
         "npm_install",
-        "Install node packages using npm. After installing packages, the dev server will automatically restart to pick up the new dependencies.",
+        "Install node packages using npm or npx expo. After installing packages, the dev server will automatically restart to pick up the new dependencies.",
         {
           packages: z
             .array(z.string())
             .optional()
             .describe(
-              "List of packages to install. If omitted, runs 'npm install' for all dependencies.",
+              "List of packages to install. If omitted, installs all dependencies (via npm install or expo install).",
             ),
           saveDev: z
             .boolean()
             .optional()
             .describe("If true, adds --save-dev flag"),
+          installer: z
+            .enum(["npm", "expo"])
+            .optional()
+            .describe(
+              "Choose the installer. Defaults to npm; 'expo' uses 'npx expo install'.",
+            ),
         },
-        async ({ packages, saveDev }) => {
-          const args = ["install"];
+        async ({ packages, saveDev, installer }) => {
+          const useExpo = installer === "expo";
+          if (useExpo && saveDev) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "`saveDev` is not supported when using expo install.",
+                },
+              ],
+            };
+          }
+
+          const command = useExpo ? "npx" : "npm";
+          const args = useExpo ? ["expo", "install"] : ["install"];
 
           if (saveDev) args.push("--save-dev");
           if (packages && packages.length > 0) args.push(...packages);
 
-          const result = await runCommand("npm", args);
+          const result = await runCommand(command, args);
 
           if (result.isError) {
             return {
