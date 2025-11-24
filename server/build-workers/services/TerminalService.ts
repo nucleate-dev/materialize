@@ -26,7 +26,8 @@ import {
 
 const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
-const LAUNCH_TERMINALS_AS_ROOT = true && process.env.NODE_ENV === "development";
+const LAUNCH_TEST_TERMINAL_AS_ROOT =
+  true && process.env.NODE_ENV === "development";
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
 
@@ -106,7 +107,7 @@ export class TerminalService {
           uid: this.terminalUserIdentity.uid,
           gid: this.terminalUserIdentity.gid,
           homeDir: this.terminalUserIdentity.homeDir,
-          testTerminalAsRoot: LAUNCH_TERMINALS_AS_ROOT,
+          testTerminalAsRoot: LAUNCH_TEST_TERMINAL_AS_ROOT,
         },
       );
     } else {
@@ -116,7 +117,7 @@ export class TerminalService {
       );
     }
 
-    if (LAUNCH_TERMINALS_AS_ROOT) {
+    if (LAUNCH_TEST_TERMINAL_AS_ROOT) {
       this.logger.warn(
         "Test terminal will run as root (LAUNCH_TERMINALS_AS_ROOT=true)",
       );
@@ -322,13 +323,13 @@ export class TerminalService {
       // 2. Either this is NOT the "test" terminal OR LAUNCH_TERMINALS_AS_ROOT is false
       const shouldDropPrivileges =
         this.terminalUserIdentity &&
-        (sessionId !== "test" || !LAUNCH_TERMINALS_AS_ROOT);
+        (sessionId !== "test" || !LAUNCH_TEST_TERMINAL_AS_ROOT);
 
       if (shouldDropPrivileges) {
         const unixOptions = spawnOptions as IPtyForkOptions;
         unixOptions.uid = this.terminalUserIdentity.uid;
         unixOptions.gid = this.terminalUserIdentity.gid;
-      } else if (sessionId === "test" && LAUNCH_TERMINALS_AS_ROOT) {
+      } else if (sessionId === "test" && LAUNCH_TEST_TERMINAL_AS_ROOT) {
         this.logger.info(
           "Launching test terminal as root (LAUNCH_TERMINALS_AS_ROOT=true)",
           {
