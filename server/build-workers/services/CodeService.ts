@@ -262,7 +262,7 @@ export class CodeService {
         args,
         cwd: this.workDir,
         session_id: terminal_id,
-        timeout_ms: 120000,
+        timeout_ms: 30000,
         strip_ansi: true,
       });
 
@@ -270,6 +270,18 @@ export class CodeService {
         return {
           stdout: response.stdout || "Command executed successfully",
           isError: false,
+        };
+      } else if (response.status === "timeout") {
+        this.logger.warn(
+          "Terminal command timed out in MCP executeSandboxCommand tool",
+          {
+            command,
+            args,
+          },
+        );
+        return {
+          stdout: response.stdout || "Command timed out",
+          isError: true,
         };
       }
       return {
