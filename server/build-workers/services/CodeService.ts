@@ -233,8 +233,17 @@ export class CodeService {
         terminal_id = "dev-server";
         // Kill Expo process before running npm/npx/expo commands
         await this.expoDevServerService.killExpoProcess(this.logger);
-        // Wait for terminal to settle after kill signal to prevent buffer contamination
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Wait for terminal to settle after kill signal
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        // Send Enter to clear any partial command or buffer contamination
+        try {
+          await this.sandboxService.sendTerminalInput(terminal_id, "\n");
+        } catch {
+          // Terminal might not exist yet, which is fine
+          this.logger.debug("Could not send Enter to terminal", {
+            terminal_id,
+          });
+        }
       }
       const { response } = await this.sandboxService.runCommandInternal({
         command,
@@ -1016,9 +1025,9 @@ export class CodeService {
           includePartialMessages: false,
           cwd: this.workDir,
           maxTurns: options?.maxTurns ?? 50,
+          disallowedTools: ["Write"],
           allowedTools: options?.allowedTools ?? [
             "Read",
-            "Write",
             "Edit",
             "Glob",
             "Grep",
@@ -1035,7 +1044,7 @@ export class CodeService {
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           canUseTool,
-          // Add MCP servers with development tools (git and npm install)
+          // Add MCP servers with development tools (git, npm install, and write)
           mcpServers: {
             "development-tools": createDevelopmentToolsMcpServer(
               async (command, args) => {
@@ -1047,6 +1056,58 @@ export class CodeService {
                   "Restarting dev server after npm install via MCP tool",
                 );
                 await this.expoDevServerService.restartDevServer(this.logger);
+              },
+              // Write file callback
+              async (filePath: string, content: string) => {
+                try {
+                  // Parse the file path to get directory and filename
+                  const resolvedPath = path.resolve(this.workDir, filePath);
+                  const relativePath = path.relative(
+                    this.workDir,
+                    path.dirname(resolvedPath),
+                  );
+                  const filename = path.basename(resolvedPath);
+
+                  this.logger.info("MCP Write tool: writing file", {
+                    filePath,
+                    resolvedPath,
+                    relativePath,
+                    filename,
+                  });
+
+                  // Use SandboxService's writeFile method
+                  const result = await this.sandboxService.writeFile(
+                    relativePath,
+                    filename,
+                    content,
+                  );
+
+                  if (result.success) {
+                    // Calculate bytes written
+                    const bytesWritten = Buffer.byteLength(content, "utf-8");
+                    return {
+                      success: true,
+                      bytesWritten,
+                    };
+                  } else {
+                    return {
+                      success: false,
+                      error: result.error,
+                    };
+                  }
+                } catch (error) {
+                  const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                  this.logger.error(
+                    error instanceof Error ? error : new Error(errorMessage),
+                    "MCP Write tool: failed to write file",
+                    { filePath },
+                  );
+                  return {
+                    success: false,
+                    error: errorMessage,
+                  };
+                }
               },
             ),
           },
@@ -1060,10 +1121,9 @@ export class CodeService {
                     toolUseID: string | undefined,
                     _options: { signal: AbortSignal },
                   ): Promise<HookJSONOutput> => {
-                    this.logger.consoleLogDevOnly(
-                      "debug",
-                      JSON.stringify(input),
-                    );
+                    this.logger.debug("PreToolUse Hook called: ", {
+                      input: JSON.stringify(input),
+                    });
                     try {
                       if (input.hook_event_name === "PreToolUse") {
                         const permission =

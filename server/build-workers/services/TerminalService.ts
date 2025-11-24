@@ -17,6 +17,7 @@ import {
   TerminalSessionType,
 } from "../types/BuildWorkerTypes.js";
 // import { TerminalCommandValidator } from "./TerminalCommandValidationUtils.js";
+import { randomUUID } from "crypto";
 import {
   TerminalUserIdentity,
   resolveTerminalUserIdentity,
@@ -447,6 +448,89 @@ export class TerminalService {
       );
       throw error;
     }
+  }
+
+  public async asyncSendInput(
+    sessionId: string,
+    input: string,
+    options: { timeout?: number } = {},
+  ): Promise<{ output: string; exitCode: number }> {
+    const session = this.requireSession(sessionId);
+
+    // 1. Create a unique sentinel
+    const token = randomUUID().replace(/-/g, "");
+    const startMarker = `__START_${token}__`;
+    const endMarker = `__END_${token}__`;
+
+    // 2. Wrap the command
+    // We print a start marker to help chop off the command echo at the top,
+    // and an end marker with the exit code at the bottom.
+    // checks for shell (bash/sh/zsh) compatibility
+    const wrappedInput = `echo "${startMarker}"; ${input}; echo "${endMarker}:$?"`;
+
+    return new Promise((resolve, reject) => {
+      let buffer = "";
+      const timeout = options.timeout ?? 30000;
+
+      // Cleanup function
+      const cleanup = (): void => {
+        clearTimeout(timeoutId);
+        dataDisposable.dispose();
+      };
+
+      // 3. Timeout Logic
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Command timed out`));
+      }, timeout);
+
+      // 4. Data Listener
+      const dataDisposable = session.pty.onData((chunk) => {
+        buffer += chunk;
+
+        // Check for the End Marker
+        const endIdx = buffer.indexOf(endMarker);
+        if (endIdx !== -1) {
+          // We found the end!
+
+          // Extract the rest of the line to get exit code: __END_XYZ__:0
+          const restOfLine = buffer.substring(endIdx + endMarker.length);
+          const match = restOfLine.match(/^:(\d+)/);
+
+          if (match) {
+            cleanup();
+
+            const exitCode = parseInt(match[1], 10);
+
+            // Clean up the output:
+            // 1. Remove the command echo and start marker
+            // 2. Remove the end marker and exit code
+            let cleanOutput = buffer.substring(0, endIdx);
+            const startIdx = cleanOutput.indexOf(startMarker);
+            if (startIdx !== -1) {
+              // +1 for newline usually following echo
+              cleanOutput = cleanOutput
+                .substring(startIdx + startMarker.length)
+                .trim();
+            }
+
+            resolve({
+              output: cleanOutput,
+              exitCode: exitCode,
+            });
+          }
+        }
+      });
+
+      // 5. Send the wrapped command
+      // Add \r to ensure it executes
+      try {
+        session.pty.write(wrappedInput + "\r");
+      } catch (err) {
+        cleanup();
+        reject(err);
+      }
+    });
   }
 
   private abortCurrentLine(session: TerminalSession): void {

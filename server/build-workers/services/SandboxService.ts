@@ -156,9 +156,7 @@ export class SandboxService {
     }
   }
 
-  public async runCommandInternal(
-    body: PublicRunCommandRequest,
-  ): Promise<{
+  public async runCommandInternal(body: PublicRunCommandRequest): Promise<{
     response: PublicRunCommandResponse;
     httpStatus: number;
   }> {
@@ -173,9 +171,6 @@ export class SandboxService {
     } = body;
 
     let httpStatus = 200;
-
-    // Generate unique completion marker (4-digit random number)
-    const completionMarker = `${Math.floor(1000 + Math.random() * 9000)}-command-complete`;
     const timeoutMs = timeout_ms || 120000;
 
     // Determine which session to use
@@ -218,80 +213,7 @@ export class SandboxService {
       }
     }
 
-    return new Promise((resolve) => {
-      let output = "";
-      let commandComplete = false;
-      let cleanup: (() => void) | null = null;
-      let checkInterval: NodeJS.Timeout | null = null;
-
-      const resolveWith = (response: PublicRunCommandResponse): void => {
-        resolve({ response, httpStatus });
-      };
-
-      // Set up timeout
-      const timeoutHandle = setTimeout(() => {
-        if (!commandComplete) {
-          commandComplete = true;
-          this.log2.warn("Command timed out", {
-            command,
-            sessionId,
-            timeoutMs,
-          });
-
-          if (checkInterval) {
-            clearInterval(checkInterval);
-            checkInterval = null;
-          }
-          cleanup?.();
-          cleanup = null;
-
-          // Cleanup temp session if needed
-          if (shouldCleanupSession) {
-            this.terminalService.closeSession(sessionId);
-          }
-
-          resolveWith({
-            status: "timeout",
-            stdout: output,
-          });
-        }
-      }, timeoutMs);
-
-      // Listen to terminal output
-      const processOutput = (chunk: string): void => {
-        output += chunk;
-      };
-
-      const listenerDisposer = this.terminalService.addOutputListener(
-        sessionId,
-        processOutput,
-      );
-
-      if (!listenerDisposer) {
-        clearTimeout(timeoutHandle);
-        this.log2.error(
-          new Error("Terminal session not found"),
-          "Failed to attach listener",
-          { sessionId },
-        );
-
-        // Cleanup temp session if needed
-        if (shouldCleanupSession) {
-          this.terminalService.closeSession(sessionId);
-        }
-
-        httpStatus = 404;
-        resolveWith({
-          status: "timeout",
-          stdout: "",
-        });
-        return;
-      }
-
-      cleanup = (): void => {
-        listenerDisposer();
-      };
-
+    try {
       // Build environment variables string
       let envString = "";
       if (env) {
@@ -300,110 +222,113 @@ export class SandboxService {
           .join(" ");
       }
 
-      // Build the full command with completion marker
+      // Build the full command
       const argsString = args && args.length > 0 ? " " + args.join(" ") : "";
       const cwdPrefix = cwd ? `cd ${cwd} && ` : "";
-      const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}; echo "${completionMarker}"\n`;
+      const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}`;
 
       this.log2.info("Executing command in terminal", {
-        command: fullCommand.trim(),
+        command: fullCommand,
         sessionId,
-        completionMarker,
+        timeoutMs,
       });
 
-      // Send command to terminal
-      try {
-        this.terminalService.sendInput(sessionId, fullCommand);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        clearTimeout(timeoutHandle);
-        cleanup?.();
-        cleanup = null;
-        this.log2.error(
-          new Error(errorMessage),
-          "Failed to send command to terminal",
-          { sessionId },
-        );
+      // Use asyncSendInput which handles command completion detection
+      const result = await this.terminalService.asyncSendInput(
+        sessionId,
+        fullCommand,
+        {
+          timeout: timeoutMs,
+        },
+      );
 
-        // Cleanup temp session if needed
-        if (shouldCleanupSession) {
-          this.terminalService.closeSession(sessionId);
-        }
+      let cleanOutput = result.output;
 
-        httpStatus = 500;
-        resolveWith({
-          status: "timeout",
-          stdout: "",
-        });
-        return;
+      // Strip ANSI sequences if requested
+      if (stripAnsi) {
+        cleanOutput = this.stripAnsiSequences(cleanOutput);
       }
 
-      // Poll for completion marker
-      checkInterval = setInterval(() => {
-        if (!commandComplete && output.includes(completionMarker)) {
-          // Extract output: everything after the command input and before the completion marker
-          // Find where the actual command output starts (after the echoed command)
-          const commandEchoPattern = fullCommand.trim().replace(/\n$/, "");
-          let outputStart = 0;
+      this.log2.info("Command completed successfully", {
+        command,
+        sessionId,
+        exitCode: result.exitCode,
+        outputLength: cleanOutput.length,
+      });
 
-          const commandEchoIndex = output.indexOf(commandEchoPattern);
-          if (commandEchoIndex !== -1) {
-            outputStart = commandEchoIndex + commandEchoPattern.length;
-            while (
-              outputStart < output.length &&
-              (output[outputStart] === "\n" || output[outputStart] === "\r")
-            ) {
-              outputStart++;
-            }
-          }
+      // Cleanup temp session if needed
+      if (shouldCleanupSession) {
+        this.terminalService.closeSession(sessionId);
+      }
 
-          // Find where the completion marker starts after the echoed command
-          const markerIndex = output.indexOf(completionMarker, outputStart);
-          if (markerIndex === -1) {
-            return;
-          }
-
-          commandComplete = true;
-          clearTimeout(timeoutHandle);
-          if (checkInterval) {
-            clearInterval(checkInterval);
-            checkInterval = null;
-          }
-          cleanup?.();
-          cleanup = null;
-
-          // Extract the output between command and marker
-          let cleanOutput = output.slice(outputStart, markerIndex).trim();
-
-          // Normalize newlines and remove trailing whitespace
-          cleanOutput = cleanOutput
-            .replace(/\r\n/g, "\n")
-            .replace(/\r/g, "\n")
-            .trim();
-
-          if (stripAnsi) {
-            cleanOutput = this.stripAnsiSequences(cleanOutput);
-          }
-
-          this.log2.info("Command completed successfully", {
-            command,
-            sessionId,
-            outputLength: cleanOutput.length,
-          });
-
-          // Cleanup temp session if needed
-          if (shouldCleanupSession) {
-            this.terminalService.closeSession(sessionId);
-          }
-
-          resolveWith({
+      // Return success or error based on exit code
+      if (result.exitCode === 0) {
+        return {
+          response: {
             status: "success",
             stdout: cleanOutput,
-          });
-        }
-      }, 100);
-    });
+          },
+          httpStatus,
+        };
+      } else {
+        return {
+          response: {
+            status: "timeout",
+            stdout: cleanOutput,
+            // exit_code: result.exitCode,
+          },
+          httpStatus,
+        };
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isTimeout = errorMessage.includes("timed out");
+
+      this.log2.error(
+        new Error(errorMessage),
+        isTimeout ? "Command timed out" : "Failed to execute command",
+        { sessionId, command, timeoutMs },
+      );
+
+      // Cleanup temp session if needed
+      if (shouldCleanupSession) {
+        this.terminalService.closeSession(sessionId);
+      }
+
+      if (isTimeout) {
+        return {
+          response: {
+            status: "timeout",
+            stdout: "",
+          },
+          httpStatus,
+        };
+      } else {
+        httpStatus = 500;
+        return {
+          response: {
+            status: "timeout",
+            stdout: errorMessage,
+          },
+          httpStatus,
+        };
+      }
+    }
+  }
+
+  /**
+   * Send input to a terminal session asynchronously
+   * @param sessionId - Terminal session ID
+   * @param input - Input to send to the terminal
+   * @param timeout - Optional timeout in milliseconds
+   */
+  public async sendTerminalInput(
+    sessionId: string,
+    input: string,
+    timeout?: number,
+  ): Promise<{ output: string; exitCode: number }> {
+    return this.terminalService.asyncSendInput(sessionId, input, { timeout });
   }
 
   private async runCommandRoute(

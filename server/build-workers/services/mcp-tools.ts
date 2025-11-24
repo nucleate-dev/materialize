@@ -10,9 +10,16 @@ export type CommandRunner = (
 // Define the signature for the dev server restart callback
 export type DevServerRestartCallback = () => Promise<void>;
 
+// Define the signature for the file writer callback
+export type FileWriter = (
+  filePath: string,
+  content: string,
+) => Promise<{ success: boolean; error?: string; bytesWritten?: number }>;
+
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
   restartDevServer?: DevServerRestartCallback,
+  writeFile?: FileWriter,
 ): ReturnType<typeof createSdkMcpServer> {
   return createSdkMcpServer({
     name: "development-tools",
@@ -122,6 +129,70 @@ export function createDevelopmentToolsMcpServer(
           }
 
           return { content: [{ type: "text", text: result.stdout }] };
+        },
+      ),
+
+      // --- SafeWrite File Tool ---
+      tool(
+        "SafeWrite",
+        "Write a file to the local filesystem with proper permissions and tracking. This will overwrite the file if it already exists. The file path must be an absolute path.",
+        {
+          file_path: z
+            .string()
+            .describe("The absolute path to the file to write"),
+          content: z.string().describe("The content to write to the file"),
+        },
+        async ({ file_path, content }) => {
+          if (!writeFile) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "Write operation is not available - file writer not configured",
+                },
+              ],
+            };
+          }
+
+          try {
+            const result = await writeFile(file_path, content);
+
+            if (result.success) {
+              const bytesWritten = result.bytesWritten ?? content.length;
+              const responseText = JSON.stringify({
+                message: "File written successfully",
+                bytes_written: bytesWritten,
+                file_path: file_path,
+              });
+
+              return {
+                content: [{ type: "text", text: responseText }],
+              };
+            } else {
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: "text",
+                    text: `Failed to write file: ${result.error ?? "Unknown error"}`,
+                  },
+                ],
+              };
+            }
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: `Error writing file: ${errorMessage}`,
+                },
+              ],
+            };
+          }
         },
       ),
     ],
