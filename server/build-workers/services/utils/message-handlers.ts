@@ -34,7 +34,7 @@ export function getToolDisplayName(
     return "Saved checkpoint";
   }
   if (normalized.includes("checkterminal")) {
-    return "Checking terminal for errors";
+    return "Checking for errors";
   }
   if (normalized.includes("bash") && toolInput?.description) {
     // For Bash commands, use the description if available
