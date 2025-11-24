@@ -229,11 +229,13 @@ export class CodeService {
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
       let terminal_id: string | undefined = undefined;
+      let timeoutMs = 30000;
       if (
         command.includes("npm") ||
         command.includes("npx") ||
         command.includes("expo")
       ) {
+        timeoutMs = 120000;
         terminal_id = "dev-server";
         // Kill Expo process before running npm/npx/expo commands
         await this.expoDevServerService.killExpoProcess(this.logger);
@@ -244,7 +246,7 @@ export class CodeService {
         args,
         cwd: this.workDir,
         session_id: terminal_id,
-        timeout_ms: 30000,
+        timeout_ms: timeoutMs,
         strip_ansi: true,
       });
 
