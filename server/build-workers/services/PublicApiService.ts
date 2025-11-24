@@ -440,6 +440,15 @@ export class PublicApiService {
     return { status: "success" } as PublicDevServerRestartResponse;
   }
 
+  /**
+   * Internal method to restart dev server (called by MCP tools, bypasses HTTP layer)
+   */
+  public async restartDevServerInternal(
+    logger: SystemLogger,
+  ): Promise<void> {
+    await this.expoDevServerService.restartDevServer(logger);
+  }
+
   private async stopDevServer(
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,

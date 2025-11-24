@@ -7,8 +7,12 @@ export type CommandRunner = (
   args: string[],
 ) => Promise<{ stdout: string; isError: boolean }>;
 
+// Define the signature for the dev server restart callback
+export type DevServerRestartCallback = () => Promise<void>;
+
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
+  restartDevServer?: DevServerRestartCallback,
 ): ReturnType<typeof createSdkMcpServer> {
   return createSdkMcpServer({
     name: "development-tools",
@@ -41,7 +45,7 @@ export function createDevelopmentToolsMcpServer(
       // --- NPM Install Tool ---
       tool(
         "npm_install",
-        "Install node packages using npm.",
+        "Install node packages using npm. After installing packages, the dev server will automatically restart to pick up the new dependencies.",
         {
           packages: z
             .array(z.string())
@@ -68,6 +72,35 @@ export function createDevelopmentToolsMcpServer(
               content: [{ type: "text", text: result.stdout }],
             };
           }
+
+          // After successful npm install, restart the dev server to pick up new dependencies
+          if (restartDevServer) {
+            try {
+              await restartDevServer();
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `${result.stdout}\n\n✓ Dev server restarted successfully to pick up new dependencies.`,
+                  },
+                ],
+              };
+            } catch (restartError) {
+              const errorMessage =
+                restartError instanceof Error
+                  ? restartError.message
+                  : String(restartError);
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `${result.stdout}\n\n⚠ Warning: Failed to restart dev server: ${errorMessage}\nYou may need to manually restart the dev server for changes to take effect.`,
+                  },
+                ],
+              };
+            }
+          }
+
           return { content: [{ type: "text", text: result.stdout }] };
         },
       ),

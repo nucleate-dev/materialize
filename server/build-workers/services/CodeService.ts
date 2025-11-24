@@ -120,6 +120,7 @@ export class CodeService {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
+  private publicApiService: any = null; // Will be set after construction to avoid circular dependency
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -213,6 +214,11 @@ export class CodeService {
 
   public getOrchestrationToken(): string | null {
     return this.orchestrationToken;
+  }
+
+  public setPublicApiService(publicApiService: any): void {
+    this.publicApiService = publicApiService;
+    this.logger.info("PublicApiService reference set for MCP tools");
   }
 
   private async executeSandboxCommand(
@@ -1025,6 +1031,17 @@ export class CodeService {
               async (command, args) => {
                 return this.executeSandboxCommand(command, args);
               },
+              // Restart dev server callback for npm install
+              this.publicApiService
+                ? async () => {
+                    this.logger.info(
+                      "Restarting dev server after npm install via MCP tool",
+                    );
+                    await this.publicApiService.restartDevServerInternal(
+                      this.logger,
+                    );
+                  }
+                : undefined,
             ),
           },
           // Add hooks to stream tool usage to WebSocket clients

@@ -112,6 +112,10 @@ const publicApiService = new PublicApiService(
   supabaseClientService,
 );
 
+// Set PublicApiService reference on CodeService for MCP tool callbacks
+// This must be done after PublicApiService is constructed to avoid circular dependency
+codeService.setPublicApiService(publicApiService);
+
 app.addHook("onRequest", async (req) => {
   const { requestId, traceId } = genRequestIds(
     req.headers as Record<string, string | string[] | undefined>,
