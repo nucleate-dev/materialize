@@ -113,7 +113,7 @@ export class FileSyncService {
     };
 
     try {
-      this.logger.info("Starting full directory sync", {
+      this.logger.consoleLogDevOnly("info", "Starting full directory sync", {
         prototypeId,
         workDir: this.workDir,
       });
@@ -121,13 +121,13 @@ export class FileSyncService {
       // Recursively scan the work directory for all files
       const allFiles = await this.scanDirectory(this.workDir);
 
-      this.logger.info("Scanned directory for files", {
+      this.logger.consoleLogDevOnly("info", "Scanned directory for files", {
         prototypeId,
         fileCount: allFiles.length,
       });
 
       if (allFiles.length === 0) {
-        this.logger.info("No files found in work directory", {
+        this.logger.warn("No files found in work directory", {
           prototypeId,
         });
         return result;
@@ -360,7 +360,7 @@ export class FileSyncService {
           );
         } else {
           result.filesDeleted += textFilesToDelete.length;
-          this.logger.info("Bulk deleted text files", {
+          this.logger.consoleLogDevOnly("info", "Bulk deleted text files", {
             count: textFilesToDelete.length,
           });
         }
@@ -425,7 +425,7 @@ export class FileSyncService {
           );
         } else {
           result.assetsDeleted += binaryFilesToDelete.length;
-          this.logger.info("Bulk deleted assets", {
+          this.logger.consoleLogDevOnly("info", "Bulk deleted assets", {
             count: binaryFilesToDelete.length,
           });
         }
@@ -515,7 +515,7 @@ export class FileSyncService {
           if (!error) {
             result.filesUpdated += fileData.length;
             success = true;
-            this.logger.info("Bulk upserted text files", {
+            this.logger.consoleLogDevOnly("info", "Bulk upserted text files", {
               batchIndex: i + 1,
               filesCount: fileData.length,
             });
@@ -692,10 +692,14 @@ export class FileSyncService {
           if (!dbError) {
             result.assetsUpdated += successfulUploads.length;
             success = true;
-            this.logger.info("Bulk upserted asset metadata", {
-              batchIndex: batchIndex + 1,
-              assetsCount: successfulUploads.length,
-            });
+            this.logger.consoleLogDevOnly(
+              "info",
+              "Bulk upserted asset metadata",
+              {
+                batchIndex: batchIndex + 1,
+                assetsCount: successfulUploads.length,
+              },
+            );
           } else {
             retries--;
             const attempt = 4 - retries;

@@ -143,7 +143,10 @@ export class PublicApiService {
     // Create authenticated Supabase client - fail allocation if this fails
     try {
       this.supabaseClientService.refreshClientWithToken(jwtToken);
-      request.log2.info("Initialized authenticated Supabase client for worker");
+      request.log2.consoleLogDevOnly(
+        "info",
+        "Initialized authenticated Supabase client for worker",
+      );
     } catch (supabaseError) {
       const errorMessage =
         supabaseError instanceof Error
@@ -170,9 +173,14 @@ export class PublicApiService {
           credentials: { accessKeyId, secretAccessKey, sessionToken },
         });
         this.expoDevServerService.setS3Client(scopedS3);
-        request.log2.info("Allocated worker to prototype for S3 access");
+        request.log2.consoleLogDevOnly(
+          "info",
+          "Allocated worker to prototype for S3 access",
+        );
       } else {
-        request.log2.info("No S3 credentials provided, skipping S3 client setup (dev mode)");
+        request.log2.info(
+          "No S3 credentials provided, skipping S3 client setup (dev mode)",
+        );
       }
 
       // If cloudflare tunnel token is provided, start the tunnel
@@ -181,7 +189,10 @@ export class PublicApiService {
       let tunnelMessage: string | undefined;
 
       if (cloudflare_tunnel_token) {
-        request.log2.info("Starting Cloudflare tunnel setup");
+        request.log2.consoleLogDevOnly(
+          "info",
+          "Starting Cloudflare tunnel setup",
+        );
         try {
           const result =
             await this.cloudflareTunnelManagementService.createTunnel(
@@ -213,10 +224,19 @@ export class PublicApiService {
       // Store orchestration token if provided
       if (orchestration_token) {
         this.codeService.setOrchestrationToken(orchestration_token);
-        request.log2.info("Orchestration token received and stored in CodeService");
+        request.log2.consoleLogDevOnly(
+          "info",
+          "Orchestration token received and stored in CodeService",
+        );
+      } else {
+        request.log2.error(
+          new Error("No orchestration token provided"),
+          "No orchestration token provided",
+        );
       }
 
       // Restore Claude session files from Supabase for this prototype
+      // TODO: move this to the file sync service initial sync functionality
       await this.restoreClaudeSessions(prototypeId, request.log2);
 
       return reply.status(200).send({
@@ -443,9 +463,7 @@ export class PublicApiService {
   /**
    * Internal method to restart dev server (called by MCP tools, bypasses HTTP layer)
    */
-  public async restartDevServerInternal(
-    logger: SystemLogger,
-  ): Promise<void> {
+  public async restartDevServerInternal(logger: SystemLogger): Promise<void> {
     await this.expoDevServerService.restartDevServer(logger);
   }
 
@@ -453,15 +471,6 @@ export class PublicApiService {
     request: FastifyRequest<{ Body: PublicDevServerStopRequest }>,
     reply: FastifyReply,
   ): Promise<PublicDevServerStopResponse> {
-    // Log memory usage for monitoring
-    const memUsage = process.memoryUsage();
-    request.log2.info("Memory usage at stopDevServer", {
-      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
-    });
-
     const devServerState = this.expoDevServerService.getState();
     if (devServerState.devServerStatus === DevServerStatus.STOPPED) {
       return {
@@ -493,8 +502,8 @@ export class PublicApiService {
     }
 
     try {
-      await this.cloudflareTunnelManagementService.killTunnel();
       request.log2.info("Requested Cloudflare tunnel shutdown");
+      await this.cloudflareTunnelManagementService.killTunnel();
     } catch (tunnelError) {
       request.log2.error(
         tunnelError instanceof Error
@@ -742,15 +751,6 @@ export class PublicApiService {
   // Start background build and deploy process
   private async startBackgroundBuildAndDeploy(): Promise<void> {
     try {
-      // Log memory at start of background build
-      const memUsage = process.memoryUsage();
-      baseLogger.info("Memory usage at background build start", {
-        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
-      });
-
       const buildErrors: CodeError[] = [];
       const buildWarnings: CodeWarning[] = [];
       const projectDir = this.workDir;
@@ -855,15 +855,6 @@ export class PublicApiService {
         );
       }
 
-      // Log memory after shutdown
-      const memUsageAfterShutdown = process.memoryUsage();
-      baseLogger.info("Memory usage after shutdown", {
-        heapUsed: `${Math.round(memUsageAfterShutdown.heapUsed / 1024 / 1024)}MB`,
-        heapTotal: `${Math.round(memUsageAfterShutdown.heapTotal / 1024 / 1024)}MB`,
-        rss: `${Math.round(memUsageAfterShutdown.rss / 1024 / 1024)}MB`,
-        external: `${Math.round(memUsageAfterShutdown.external / 1024 / 1024)}MB`,
-      });
-
       // Restore the built version after shutdown
       if (builtVersion) {
         this.expoDevServerService.getState().builtVersion = builtVersion;
@@ -871,15 +862,6 @@ export class PublicApiService {
 
       // Clear operation state on success
       this.expoDevServerService.getState().clearOperation();
-
-      // Log memory at end of background build
-      const memUsageEnd = process.memoryUsage();
-      baseLogger.info("Memory usage at end of background build", {
-        heapUsed: `${Math.round(memUsageEnd.heapUsed / 1024 / 1024)}MB`,
-        heapTotal: `${Math.round(memUsageEnd.heapTotal / 1024 / 1024)}MB`,
-        rss: `${Math.round(memUsageEnd.rss / 1024 / 1024)}MB`,
-        external: `${Math.round(memUsageEnd.external / 1024 / 1024)}MB`,
-      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1102,10 +1084,14 @@ export class PublicApiService {
       // Register restored session IDs with CodeService for validation
       if (result.restoredSessionIds.length > 0) {
         this.codeService.registerValidSessionIds(result.restoredSessionIds);
-        log2.info("Registered restored Claude sessions with CodeService", {
-          prototypeId,
-          restoredCount: result.restoredSessionIds.length,
-        });
+        log2.consoleLogDevOnly(
+          "info",
+          "Registered restored Claude sessions with CodeService",
+          {
+            prototypeId,
+            restoredCount: result.restoredSessionIds.length,
+          },
+        );
       }
 
       // Log any errors but don't fail the allocation

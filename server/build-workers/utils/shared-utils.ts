@@ -37,7 +37,10 @@ export async function installDependencies(
   log2: SystemLogger,
   terminalSession: TerminalSession,
 ): Promise<void> {
-  log2.info("Installing dependencies using terminal session");
+  log2.consoleLogDevOnly(
+    "info",
+    "Installing dependencies using terminal session",
+  );
 
   return new Promise((resolve, reject) => {
     let stdout = "";
@@ -64,7 +67,7 @@ export async function installDependencies(
       ) {
         installComplete = true;
         clearTimeout(timeout);
-        log2.info("Dependencies installed successfully");
+        log2.consoleLogDevOnly("info", "Dependencies installed successfully");
         cleanup();
         resolve();
       }
@@ -95,7 +98,7 @@ export async function installDependencies(
     // Build the command to run in the terminal
     const command = `cd ${projectDir} && NODE_OPTIONS="--max-old-space-size=2048" npm install --prefer-offline --no-audit --no-fund\n`;
 
-    log2.info("Sending npm install command to terminal", {
+    log2.consoleLogDevOnly("info", "Sending npm install command to terminal", {
       command: command.trim(),
       projectDir,
     });
@@ -191,7 +194,10 @@ export async function uploadAllClaudeSessionsToSupabase(
     try {
       await fs.access(CLAUDE_PROJECTS_DIR);
     } catch {
-      logger.info(
+      logger.error(
+        new Error(
+          "Claude projects directory does not exist, skipping session upload",
+        ),
         "Claude projects directory does not exist, skipping session upload",
         {
           prototypeId,
@@ -206,14 +212,22 @@ export async function uploadAllClaudeSessionsToSupabase(
     const sessionFiles = files.filter((file) => file.endsWith(".jsonl"));
 
     if (sessionFiles.length === 0) {
-      logger.info("No Claude session files found to upload", { prototypeId });
+      logger.consoleLogDevOnly(
+        "info",
+        "No Claude session files found to upload",
+        { prototypeId },
+      );
       return { success: true, uploadedCount: 0, errors: [] };
     }
 
-    logger.info("Uploading Claude session files to Supabase", {
-      prototypeId,
-      sessionCount: sessionFiles.length,
-    });
+    logger.consoleLogDevOnly(
+      "info",
+      "Uploading Claude session files to Supabase",
+      {
+        prototypeId,
+        sessionCount: sessionFiles.length,
+      },
+    );
 
     // Upload all session files in parallel
     const uploadPromises = sessionFiles.map(async (filename) => {
@@ -262,7 +276,7 @@ export async function uploadAllClaudeSessionsToSupabase(
     const results = await Promise.all(uploadPromises);
     uploadedCount = results.filter((r) => r.success).length;
 
-    logger.info("Claude session upload completed", {
+    logger.consoleLogDevOnly("info", "Claude session upload completed", {
       prototypeId,
       uploadedCount,
       totalFiles: sessionFiles.length,
@@ -308,10 +322,14 @@ export async function restoreClaudeSessionsFromSupabase(
   const restoredSessionIds: string[] = [];
 
   try {
-    logger.info("Restoring Claude sessions from Supabase Storage", {
-      prototypeId,
-      CLAUDE_PROJECTS_DIR,
-    });
+    logger.consoleLogDevOnly(
+      "info",
+      "Restoring Claude sessions from Supabase Storage",
+      {
+        prototypeId,
+        CLAUDE_PROJECTS_DIR,
+      },
+    );
 
     // Ensure CLAUDE_PROJECTS_DIR exists
     await fs.mkdir(CLAUDE_PROJECTS_DIR, { recursive: true });
@@ -333,7 +351,11 @@ export async function restoreClaudeSessionsFromSupabase(
     }
 
     if (!fileList || fileList.length === 0) {
-      logger.info("No Claude session files found to restore", { prototypeId });
+      logger.consoleLogDevOnly(
+        "info",
+        "No Claude session files found to restore",
+        { prototypeId },
+      );
       return { success: true, restoredSessionIds: [], errors: [] };
     }
 
@@ -342,11 +364,15 @@ export async function restoreClaudeSessionsFromSupabase(
     );
 
     if (sessionFiles.length === 0) {
-      logger.info("No .jsonl session files found to restore", { prototypeId });
+      logger.consoleLogDevOnly(
+        "info",
+        "No .jsonl session files found to restore",
+        { prototypeId },
+      );
       return { success: true, restoredSessionIds: [], errors: [] };
     }
 
-    logger.info("Found Claude session files to restore", {
+    logger.consoleLogDevOnly("info", "Found Claude session files to restore", {
       prototypeId,
       sessionCount: sessionFiles.length,
     });
@@ -407,7 +433,7 @@ export async function restoreClaudeSessionsFromSupabase(
         .map((r) => r.sessionId!),
     );
 
-    logger.info("Claude session restoration completed", {
+    logger.consoleLogDevOnly("info", "Claude session restoration completed", {
       prototypeId,
       restoredCount: restoredSessionIds.length,
       totalFiles: sessionFiles.length,

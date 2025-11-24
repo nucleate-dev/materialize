@@ -272,12 +272,17 @@ export class ExpoDevServerService {
 
       // Initialize git repository (no-op if .git already exists)
       try {
-        log2.info("Initializing git repository", { projectDir });
+        log2.consoleLogDevOnly("info", "Initializing git repository", {
+          projectDir,
+        });
         await this.initGitRepository(
           projectDir,
           this.terminalService.getSession("dev-server")!,
         );
-        log2.info("Git repository initialized successfully");
+        log2.consoleLogDevOnly(
+          "info",
+          "Git repository initialized successfully",
+        );
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -403,7 +408,11 @@ export class ExpoDevServerService {
     buildErrors: CodeError[] = [],
     buildWarnings: CodeWarning[] = [],
   ): Promise<void> {
-    log2.info("Starting Expo dev server using terminal session", { port });
+    log2.consoleLogDevOnly(
+      "info",
+      "Starting Expo dev server using terminal session",
+      { port },
+    );
 
     return new Promise((resolve, reject) => {
       const tunnelSubdomain = this.state.tunnelSubdomain!;
@@ -454,7 +463,7 @@ export class ExpoDevServerService {
           if (tunnelCandidates.length > 0) {
             this.state.tunnelUrl = tunnelCandidates[0];
             this.state.devServerStatus = DevServerStatus.RUNNING;
-            log2.info("Tunnel URL found", {
+            log2.consoleLogDevOnly("info", "Tunnel URL found", {
               tunnelUrl: this.state.tunnelUrl,
             });
             clearTimeout(timeout);
@@ -520,7 +529,7 @@ export class ExpoDevServerService {
       // Build the command to run in the terminal
       const command = `cd ${projectDir} && EXPO_NO_TELEMETRY=1 EXPO_TUNNEL_SUBDOMAIN=${tunnelSubdomain} npx expo start --web --tunnel --port ${port} --clear\n`;
 
-      log2.info("Sending Expo start command to terminal", {
+      log2.consoleLogDevOnly("info", "Sending Expo start command to terminal", {
         command: command.trim(),
         projectDir,
         tunnelSubdomain,
@@ -544,7 +553,10 @@ export class ExpoDevServerService {
   }
 
   public async killExpoProcess(log2: SystemLogger): Promise<void> {
-    log2.info("Stopping Expo dev server in terminal session");
+    log2.consoleLogDevOnly(
+      "info",
+      "Stopping Expo dev server in terminal session",
+    );
 
     try {
       // Get the dev-server terminal session
@@ -555,7 +567,7 @@ export class ExpoDevServerService {
       }
 
       // Send Ctrl+C to interrupt the running process
-      log2.info("Sending Ctrl+C to stop Expo process");
+      log2.consoleLogDevOnly("info", "Sending Ctrl+C to stop Expo process");
       try {
         this.terminalService.sendInput("dev-server", "\x03"); // Ctrl+C
       } catch (inputError) {
@@ -575,9 +587,13 @@ export class ExpoDevServerService {
       try {
         const killCommand = `lsof -ti:${port} | xargs -r kill -9`;
         execSync(killCommand, { stdio: "pipe", timeout: 5000 });
-        log2.info("Force killed any remaining processes on port", {
-          port,
-        });
+        log2.consoleLogDevOnly(
+          "info",
+          "Force killed any remaining processes on port",
+          {
+            port,
+          },
+        );
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -605,7 +621,10 @@ export class ExpoDevServerService {
       );
     }
 
-    log2.info("Restarting dev server after dependency changes");
+    log2.consoleLogDevOnly(
+      "info",
+      "Restarting dev server. First killing existing dev server",
+    );
 
     // Kill the current process
     this.state.currentOperation = OperationStatus.STOPPING;
@@ -620,14 +639,14 @@ export class ExpoDevServerService {
     this.state.currentOperation = OperationStatus.STARTING_DEV_SERVER;
     this.state.devServerStatus = DevServerStatus.STARTING;
     this.state.startTime = new Date();
-    log2.info("Restarting dev server for prototype", {
+    log2.consoleLogDevOnly("info", "Restarting dev server for prototype", {
       prototypeId,
     });
 
     try {
       await this.startExpoProcess(projectDir, port, log2);
       this.state.clearOperation();
-      log2.info("Dev server restarted successfully");
+      log2.consoleLogDevOnly("info", "Dev server restarted successfully");
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -724,7 +743,7 @@ export class ExpoDevServerService {
 
     try {
       await this.cleanWorkspace(this.state.projectDir);
-      log2.info("Workspace cleaned");
+      log2.consoleLogDevOnly("info", "Workspace cleaned");
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -755,7 +774,7 @@ export class ExpoDevServerService {
 
   // Graceful shutdown method
   public async shutdown(log2: SystemLogger): Promise<void> {
-    log2.info("Shutting down dev server service");
+    log2.consoleLogDevOnly("info", "Shutting down dev server service");
 
     this.state.setOperation(OperationStatus.STOPPING);
     await this.killExpoProcess(log2);
@@ -764,7 +783,7 @@ export class ExpoDevServerService {
     // Reset state which sets status to "stopped" and operation to "idle"
     this.state.reset();
 
-    log2.info("Dev server service shutdown completed");
+    log2.consoleLogDevOnly("info", "Dev server service shutdown completed");
   }
 
   // Builder Service Methods
@@ -1117,7 +1136,10 @@ export class ExpoDevServerService {
       this.state.currentOperation = OperationStatus.STOPPING;
       await this.killExpoProcess(log2);
       this.state.devServerStatus = DevServerStatus.STOPPED;
-      log2.info("Dev server stopped after build and deploy completion");
+      log2.consoleLogDevOnly(
+        "info",
+        "Dev server stopped after build and deploy completion",
+      );
     }
   }
 
@@ -1163,7 +1185,7 @@ export class ExpoDevServerService {
     // Use the state's project directory as the source of truth
     const actualProjectDir = this.state.projectDir;
 
-    log2.info("Updating project files", {
+    log2.consoleLogDevOnly("info", "Updating project files", {
       filesCount: files.length,
       assetsCount: assets.length,
       projectDirectory: actualProjectDir,
@@ -1230,7 +1252,10 @@ export class ExpoDevServerService {
         try {
           const packageJsonPath = path.join(actualProjectDir, "package.json");
           oldPackageJsonContent = await fs.readFile(packageJsonPath, "utf-8");
-          log2.info("Found existing package.json for diffing.");
+          log2.consoleLogDevOnly(
+            "info",
+            "Found existing package.json for diffing.",
+          );
         } catch (error) {
           log2.warn("Could not read old package.json, assuming new file.", {
             error,
@@ -1241,7 +1266,9 @@ export class ExpoDevServerService {
 
       // 2) Delete files that need to be removed
       if (deletedFiles.length > 0) {
-        log2.info("Deleting files", { files: deletedFiles });
+        log2.consoleLogDevOnly("info", "Deleting files", {
+          files: deletedFiles,
+        });
         for (const filePath of deletedFiles) {
           try {
             const fullPath = resolvePathWithinProject(
@@ -1268,12 +1295,19 @@ export class ExpoDevServerService {
 
       // 3) Write incoming files to disk
       await writeProjectFiles(files, assets, actualProjectDir);
-      log2.info("Successfully wrote files to project directory", {
-        projectDir: actualProjectDir,
-      });
+      log2.consoleLogDevOnly(
+        "info",
+        "Successfully wrote files to project directory",
+        {
+          projectDir: actualProjectDir,
+        },
+      );
 
       // 4) Monitor for Metro bundler errors after file updates
-      log2.info("Monitoring Metro output for compilation errors");
+      log2.consoleLogDevOnly(
+        "info",
+        "Monitoring Metro output for compilation errors",
+      );
       await this.monitorMetroForErrors(log2, buildErrors, buildWarnings, 8000);
 
       // 5) If package.json changed, diff dependencies and conditionally reinstall/restart
@@ -1287,26 +1321,30 @@ export class ExpoDevServerService {
         );
 
         if (dependenciesHaveChanged) {
-          log2.info(
+          log2.consoleLogDevOnly(
+            "info",
             "Dependency changes detected in package.json. Stopping dev server, reinstalling dependencies, and restarting.",
           );
           try {
             // Step 1: Stop the dev server
-            log2.info("Stopping dev server...");
+            log2.consoleLogDevOnly("info", "Stopping dev server...");
             await this.killExpoProcess(log2);
-            log2.info("Dev server stopped successfully");
+            log2.consoleLogDevOnly("info", "Dev server stopped successfully");
 
             // Step 2: Install dependencies in dev-server terminal
-            log2.info("Installing dependencies...");
+            log2.consoleLogDevOnly("info", "Installing dependencies...");
             await installDependencies(
               actualProjectDir,
               log2,
               this.terminalService.getSession("dev-server")!,
             );
-            log2.info("Dependencies reinstalled successfully");
+            log2.consoleLogDevOnly(
+              "info",
+              "Dependencies reinstalled successfully",
+            );
 
             // Step 3: Restart the dev server
-            log2.info("Starting dev server...");
+            log2.consoleLogDevOnly("info", "Starting dev server...");
             const port = this.state.port || this.defaultPort;
             this.state.devServerStatus = DevServerStatus.STARTING;
             this.state.startTime = new Date();
@@ -1317,7 +1355,8 @@ export class ExpoDevServerService {
               buildErrors,
               buildWarnings,
             );
-            log2.info(
+            log2.consoleLogDevOnly(
+              "info",
               "Dev server restarted successfully with new dependencies.",
             );
           } catch (error: unknown) {
@@ -1333,7 +1372,8 @@ export class ExpoDevServerService {
             });
           }
         } else {
-          log2.info(
+          log2.consoleLogDevOnly(
+            "info",
             "package.json was updated, but no dependency changes were found. Skipping reinstall and restart.",
           );
         }
@@ -1396,7 +1436,7 @@ export class ExpoDevServerService {
           resolved = true;
           const newErrors = buildErrors.length - originalErrorCount;
           const newWarnings = buildWarnings.length - originalWarningCount;
-          log2.info("Metro error monitoring completed", {
+          log2.consoleLogDevOnly("info", "Metro error monitoring completed", {
             newErrors,
             newWarnings,
           });
@@ -1798,11 +1838,15 @@ export class ExpoDevServerService {
 
       await this.s3.send(deleteCommand);
 
-      log2.info("Successfully deleted old versions", {
-        prototypeId,
-        currentVersion,
-        deletedCount: objectsToDelete.length,
-      });
+      log2.consoleLogDevOnly(
+        "info",
+        "Successfully deleted old versions in S3",
+        {
+          prototypeId,
+          currentVersion,
+          deletedCount: objectsToDelete.length,
+        },
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1861,10 +1905,14 @@ export class ExpoDevServerService {
 
     const supabase = this.supabaseClientService.getClient();
     const fileSyncService = new FileSyncService(projectDir, supabase, log2);
-    log2.info("Syncing project files to Supabase before Expo build", {
-      prototypeId,
-      projectDir,
-    });
+    log2.consoleLogDevOnly(
+      "info",
+      "Syncing project files to Supabase before Expo build",
+      {
+        prototypeId,
+        projectDir,
+      },
+    );
 
     try {
       const syncResult =
@@ -2006,7 +2054,7 @@ export class ExpoDevServerService {
       true,
       "Running: npx expo export --platform web",
     );
-    log2.info("Running Expo export command", {
+    log2.consoleLogDevOnly("info", "Running Expo export command", {
       command: "npx expo export --platform web",
       projectDir,
     });

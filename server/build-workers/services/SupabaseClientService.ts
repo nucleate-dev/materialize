@@ -25,7 +25,10 @@ export class SupabaseClientService {
 
     // Initialize with default anonymous client
     this.supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
-    this.logger.info("Initialized default Supabase client");
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Initialized default Supabase client",
+    );
   }
 
   /**
@@ -52,7 +55,7 @@ export class SupabaseClientService {
    */
   public setClient(client: SupabaseClient<Database>): void {
     this.supabaseClient = client;
-    this.logger.info("Updated Supabase client");
+    this.logger.consoleLogDevOnly("info", "Updated Supabase client");
   }
 
   /**
@@ -82,7 +85,10 @@ export class SupabaseClientService {
       },
     );
 
-    this.logger.info("Created authenticated Supabase client");
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Created authenticated Supabase client",
+    );
     return authenticatedClient;
   }
 
@@ -94,7 +100,10 @@ export class SupabaseClientService {
   public refreshClientWithToken(jwtToken: string): void {
     const authenticatedClient = this.createAuthenticatedClient(jwtToken);
     this.setClient(authenticatedClient);
-    this.logger.info("Refreshed Supabase client with JWT token");
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Refreshed Supabase client with JWT token",
+    );
   }
 
   /**
@@ -105,6 +114,6 @@ export class SupabaseClientService {
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
 
     this.supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
-    this.logger.info("Reset Supabase client to anonymous");
+    this.logger.consoleLogDevOnly("info", "Reset Supabase client to anonymous");
   }
 }

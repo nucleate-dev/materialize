@@ -98,7 +98,8 @@ export class TerminalService {
       process.env.TERMINAL_GROUP,
     );
     if (this.terminalUserIdentity) {
-      this.logger.info(
+      this.logger.consoleLogDevOnly(
+        "info",
         "Terminal sessions configured to drop privileges (except test terminal if LAUNCH_TERMINALS_AS_ROOT=true)",
         {
           username: this.terminalUserIdentity.username,
@@ -147,7 +148,10 @@ export class TerminalService {
 
     // Every build worker is instantiated with three pre-configured terminals.
     // These terminals live throughout the entire lifecycle of the container.
-    this.logger.info("Creating pre-configured terminal sessions");
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Creating pre-configured terminal sessions",
+    );
 
     try {
       // Use -i for interactive mode to keep bash alive
@@ -183,10 +187,14 @@ export class TerminalService {
       );
     }
 
-    this.logger.info("TerminalService initialization complete", {
-      sessionsCreated: this.sessions.size,
-      sessionIds: Array.from(this.sessions.keys()),
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "TerminalService initialization complete",
+      {
+        sessionsCreated: this.sessions.size,
+        sessionIds: Array.from(this.sessions.keys()),
+      },
+    );
   }
 
   public registerRoutes(): void {
@@ -1090,7 +1098,7 @@ export class TerminalService {
     req: FastifyRequest,
   ): void {
     const { sessionId } = req.params as { sessionId: string };
-    this.logger.info("handleWebSocketConnection", {
+    this.logger.consoleLogDevOnly("info", "handleWebSocketConnection", {
       sessionId,
     });
     // Attach the WebSocket to the session

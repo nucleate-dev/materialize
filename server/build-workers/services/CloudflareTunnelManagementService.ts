@@ -99,7 +99,10 @@ export class CloudflareTunnelManagementService {
       // Process stays alive because PTY is persistent in this service
       const tunnelCommand = `cloudflared tunnel --no-autoupdate run --token ${tunnelToken} &`;
       this.writeToPty(`${tunnelCommand}\n`);
-      this.logger.info("Cloudflare tunnel command dispatched");
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Cloudflare tunnel command dispatched",
+      );
 
       // Give the command a moment to start
       await this.delay(200);
@@ -159,7 +162,8 @@ export class CloudflareTunnelManagementService {
             const errorLines = outputBuffer.split("\n").filter((line) => {
               const normalized = line.toLowerCase();
               return (
-                (normalized.includes(" err ") || normalized.includes("fatal")) &&
+                (normalized.includes(" err ") ||
+                  normalized.includes("fatal")) &&
                 !normalized.includes("buffer size") &&
                 !normalized.includes("ping_group_range") &&
                 !normalized.includes("origincert") &&
@@ -197,6 +201,14 @@ export class CloudflareTunnelManagementService {
 
     if (tunnelStatus !== "connected") {
       this.tunnelRunning = false;
+      this.logger.error(
+        new Error("Cloudflare tunnel failed to connect"),
+        "Cloudflare tunnel failed to connect",
+        {
+          tunnelStatus,
+          tunnelMessage,
+        },
+      );
       await this.killTunnel().catch(() => {
         // best-effort cleanup
       });
@@ -292,7 +304,7 @@ export class CloudflareTunnelManagementService {
       // Wait a bit more for commands to execute
       await this.delay(200);
 
-      this.logger.info("Cloudflare tunnel PTY ready");
+      this.logger.consoleLogDevOnly("info", "Cloudflare tunnel PTY ready");
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
