@@ -235,28 +235,10 @@ export class CodeService {
         command.includes("expo")
       ) {
         terminal_id = "dev-server";
-        // Kill Expo process before running npm/npx/expo commands
+        // Kill Expo process before running npm/npx/expo commands and wait for terminal to settle
         await this.expoDevServerService.killExpoProcess(this.logger);
-        // Wait for terminal to settle after kill signal
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        // Clear terminal buffer: send Ctrl+C, Ctrl+U, and Enter to ensure clean state
-        try {
-          // Ctrl+C to interrupt any running command
-          await this.sandboxService.sendTerminalInput(terminal_id, "\x03");
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          // Ctrl+U to clear the input line
-          await this.sandboxService.sendTerminalInput(terminal_id, "\x15");
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          // Enter to execute empty line and get fresh prompt
-          await this.sandboxService.sendTerminalInput(terminal_id, "\n");
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        } catch {
-          // Terminal might not exist yet, which is fine
-          this.logger.debug("Could not clear terminal buffer", {
-            terminal_id,
-          });
-        }
       }
+      await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
@@ -265,6 +247,15 @@ export class CodeService {
         timeout_ms: 30000,
         strip_ansi: true,
       });
+      await this.clearExistingTerminalCommandsBeforeRunningCommand(terminal_id);
+
+      if (
+        command.includes("npm") ||
+        command.includes("npx") ||
+        command.includes("expo")
+      ) {
+        await this.expoDevServerService.startExpoProcessForMCPTool(this.logger);
+      }
 
       if (response.status === "success") {
         return {
@@ -281,7 +272,7 @@ export class CodeService {
         );
         return {
           stdout: response.stdout || "Command timed out",
-          isError: true,
+          isError: false,
         };
       }
       return {
@@ -295,6 +286,40 @@ export class CodeService {
         "MCP Tool execution failed",
       );
       return { stdout: `System Error: ${errorMsg}`, isError: true };
+    }
+  }
+
+  private async clearExistingTerminalCommandsBeforeRunningCommand(
+    terminal_id: string | undefined,
+  ): Promise<void> {
+    if (!terminal_id) {
+      return;
+    }
+    // Clear terminal buffer: send Ctrl+C, Ctrl+U, and Enter to ensure clean state
+    this.logger.consoleLogDevOnly("info", "Clearing terminal buffer", {
+      terminal_id,
+    });
+    try {
+      await this.sandboxService.sendTerminalInput(terminal_id, "\x03");
+      this.logger.consoleLogDevOnly("info", "Sent Ctrl+C to terminal", {
+        terminal_id,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await this.sandboxService.sendTerminalInput(terminal_id, "\x15");
+      this.logger.consoleLogDevOnly("info", "Sent Ctrl+U to terminal", {
+        terminal_id,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await this.sandboxService.sendTerminalInput(terminal_id, "\n");
+      this.logger.consoleLogDevOnly("info", "Sent Enter to terminal", {
+        terminal_id,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    } catch (error) {
+      this.logger.warn("Could not clear terminal buffer", {
+        terminal_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -1087,14 +1112,6 @@ export class CodeService {
             "development-tools": createDevelopmentToolsMcpServer(
               async (command, args) => {
                 return this.executeSandboxCommand(command, args);
-              },
-              // Restart dev server callback for npm install
-              async (): Promise<void> => {
-                this.logger.consoleLogDevOnly(
-                  "info",
-                  "Restarting dev server after npm install via MCP tool",
-                );
-                await this.expoDevServerService.restartDevServer(this.logger);
               },
               // Write file callback
               async (filePath: string, content: string) => {

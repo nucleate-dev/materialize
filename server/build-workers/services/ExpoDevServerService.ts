@@ -116,7 +116,7 @@ export class ExpoDevServerService {
   private readonly supabaseClientService: SupabaseClientService;
 
   constructor(
-    workDir: string = "/tmp/expo-dev",
+    workDir: string = "/tmp/materialize-dev-server",
     s3Instance: S3Client | undefined,
     terminalService: TerminalService,
     logger: SystemLogger,
@@ -399,6 +399,14 @@ export class ExpoDevServerService {
   private generateTunnelSubdomain(): string {
     const randomId = uuidv4().replace(/[^a-z0-9]/g, "");
     return `mat-${randomId.substring(0, 20)}`;
+  }
+
+  public async startExpoProcessForMCPTool(log2: SystemLogger): Promise<void> {
+    log2.consoleLogDevOnly(
+      "info",
+      "Starting Expo dev server using terminal session for MCP tool",
+    );
+    return this.startExpoProcess(this.workDir, this.defaultPort, log2);
   }
 
   private async startExpoProcess(
