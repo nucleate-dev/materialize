@@ -255,7 +255,8 @@ export class CodeService {
         command.includes("npx") ||
         command.includes("expo")
       ) {
-        await this.expoDevServerService.startExpoProcessForMCPTool(this.logger);
+        this.expoDevServerService.startExpoProcessForMCPTool(this.logger);
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait 2 seconds
       }
 
       if (response.status === "success") {
