@@ -6,8 +6,8 @@ import type { ChatServerMessage } from "@/lib/types/ChatTypes";
 import { ChatClientEvent, ChatEvent, ChatSystemEventSubtype } from "@/lib/types/ChatTypes";
 import { Database } from "@/lib/types/supabase";
 import { clearChatIntent, getChatIntent } from "@/lib/utils/chatIntentUtils";
-import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ClaudeCodePanelUI from "./ClaudeCodePanelUI";
 
 type Prototype = Database["public"]["Tables"]["prototypes"]["Row"];
@@ -218,6 +218,20 @@ export default function ClaudeCodePanel({
   // Helper function to get friendly tool display name
   const getToolDisplayName = (toolName: string, toolInput?: ToolInput): string => {
     const normalized = toolName.toLowerCase();
+
+    if (normalized.includes("npm_install")) {
+      return (
+        "Installing new packages: " +
+        ((toolInput?.packages as []) ?? []).map((p: string) => `${p} `)
+      );
+    }
+    if (normalized.includes("git")) {
+      return "Saved checkpoint";
+    }
+    if (normalized.includes("bash") && toolInput?.description) {
+      // For Bash commands, use the description if available
+      return toolInput.description as string;
+    }
 
     // For Bash commands, use the description if available
     if (normalized.includes('bash') && toolInput?.description) {

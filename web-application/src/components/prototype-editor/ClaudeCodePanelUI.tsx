@@ -379,8 +379,8 @@ export default function ClaudeCodePanelUI({
                         className="prose prose-sm prose-gray dark:prose-invert max-w-none break-words
                         prose-pre:bg-accent/50
                         prose-pre:border prose-pre:border-border
-                        prose-code:text-indigo-600
-                        prose-code:bg-indigo-50 prose-code:px-1 prose-code:rounded
+                        prose-code:text-indigo-600 dark:prose-code:text-indigo-400
+                        prose-code:bg-indigo-50 dark:prose-code:bg-indigo-950/50 prose-code:px-1 prose-code:rounded
                         prose-code:before:content-none prose-code:after:content-none"
                       >
                         <ReactMarkdown>{message.content}</ReactMarkdown>
