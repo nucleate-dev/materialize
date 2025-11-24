@@ -30,6 +30,9 @@ export function getToolDisplayName(
       ((toolInput?.packages as []) ?? []).map((p: string) => `${p} `)
     );
   }
+  if (normalized.includes("git")) {
+    return "Saved checkpoint";
+  }
   if (normalized.includes("bash") && toolInput?.description) {
     // For Bash commands, use the description if available
     return toolInput.description as string;
