@@ -103,6 +103,7 @@ const codeService = new CodeService(
   supabaseClientService,
   sandboxService,
   expoDevServerService,
+  terminalService,
 );
 const publicApiService = new PublicApiService(
   expoDevServerService,

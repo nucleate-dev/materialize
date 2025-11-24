@@ -16,10 +16,24 @@ export type FileWriter = (
   content: string,
 ) => Promise<{ success: boolean; error?: string; bytesWritten?: number }>;
 
+// Import TerminalService type
+export type TerminalServiceInstance = {
+  getSession: (sessionId: string) => {
+    id: string;
+    state: string;
+    buffer: Array<{
+      type: string;
+      payload: { [key: string]: unknown };
+      timestamp: number;
+    }>;
+  } | undefined;
+};
+
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
   restartDevServer?: DevServerRestartCallback,
   writeFile?: FileWriter,
+  terminalService?: TerminalServiceInstance,
 ): ReturnType<typeof createSdkMcpServer> {
   return createSdkMcpServer({
     name: "development-tools",
@@ -193,6 +207,85 @@ export function createDevelopmentToolsMcpServer(
               ],
             };
           }
+        },
+      ),
+
+      // --- CheckTerminal Tool ---
+      tool(
+        "checkTerminal",
+        "Check the dev-server terminal output to help debug errors. Returns the most recent terminal output as plain text.",
+        {
+          lines: z
+            .number()
+            .optional()
+            .describe("Number of recent output lines to retrieve (default: 20)"),
+        },
+        async ({ lines }) => {
+          if (!terminalService) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "Terminal service is not available - terminal monitoring not configured",
+                },
+              ],
+            };
+          }
+
+          const linesToRetrieve = lines ?? 20;
+          const session = terminalService.getSession("dev-server");
+
+          if (!session) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "Dev-server terminal session not found. The terminal may not have been started yet.",
+                },
+              ],
+            };
+          }
+
+          // Filter for output events and extract chunks
+          const outputEvents = session.buffer.filter(
+            (event) => event.type === "output",
+          );
+
+          if (outputEvents.length === 0) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Dev-server terminal (state: ${session.state}) has no output yet.`,
+                },
+              ],
+            };
+          }
+
+          // Concatenate all output chunks
+          let allOutput = "";
+          for (const event of outputEvents) {
+            const chunk = event.payload.chunk;
+            if (typeof chunk === "string") {
+              allOutput += chunk;
+            }
+          }
+
+          // Split by newlines and get last N lines
+          const allLines = allOutput.split("\n");
+          const lastNLines = allLines.slice(-linesToRetrieve);
+          const result = lastNLines.join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: result || "(Terminal output is empty)",
+              },
+            ],
+          };
         },
       ),
     ],

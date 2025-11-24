@@ -33,6 +33,9 @@ export function getToolDisplayName(
   if (normalized.includes("git")) {
     return "Saved checkpoint";
   }
+  if (normalized.includes("checkterminal")) {
+    return "Checking terminal for errors";
+  }
   if (normalized.includes("bash") && toolInput?.description) {
     // For Bash commands, use the description if available
     return toolInput.description as string;

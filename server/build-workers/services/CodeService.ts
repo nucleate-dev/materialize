@@ -42,6 +42,7 @@ import { FileSyncService } from "./FileSyncService.js";
 import { createDevelopmentToolsMcpServer } from "./mcp-tools.js";
 import { SandboxService } from "./SandboxService.js";
 import { SupabaseClientService } from "./SupabaseClientService.js";
+import { TerminalService } from "./TerminalService.js";
 import { hasRemainingCredits } from "./utils/credit-checks.js";
 import { getToolDisplayName } from "./utils/message-handlers.js";
 import { ToolPermissionService } from "./utils/tool-permission-service.js";
@@ -122,6 +123,7 @@ export class CodeService {
   private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
   private readonly expoDevServerService: ExpoDevServerService;
+  private readonly terminalService: TerminalService;
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -149,6 +151,7 @@ export class CodeService {
     supabaseClientService: SupabaseClientService,
     sandboxService: SandboxService,
     expoDevServerService: ExpoDevServerService,
+    terminalService: TerminalService,
   ) {
     this.workDir = workDir;
     this.allowedRoot = path.resolve("/tmp/materialize-dev-server");
@@ -157,6 +160,7 @@ export class CodeService {
     this.supabaseClientService = supabaseClientService;
     this.sandboxService = sandboxService;
     this.expoDevServerService = expoDevServerService;
+    this.terminalService = terminalService;
     this.fileSyncService = new FileSyncService(
       workDir,
       supabaseClientService.getClient(),
@@ -1052,7 +1056,7 @@ export class CodeService {
           // permissionMode: "bypassPermissions" as PermissionMode, // other options are 'default', 'acceptEdits', 'plan'
           abortController,
           canUseTool,
-          // Add MCP servers with development tools (git, npm install, and write)
+          // Add MCP servers with development tools (git, npm install, write, and checkTerminal)
           mcpServers: {
             "development-tools": createDevelopmentToolsMcpServer(
               async (command, args) => {
@@ -1117,6 +1121,8 @@ export class CodeService {
                   };
                 }
               },
+              // Terminal service for checkTerminal tool
+              this.terminalService,
             ),
           },
           // Add hooks to stream tool usage to WebSocket clients
