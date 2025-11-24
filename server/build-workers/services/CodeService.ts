@@ -1022,6 +1022,64 @@ export class CodeService {
                         const normalizedToolInput =
                           permission.updatedInput ?? input.tool_input;
 
+                        // CRITICAL: Pre-create directories for Write tool to ensure correct permissions
+                        // When Claude writes a file to a non-existent directory, the SDK creates the
+                        // directory with restrictive permissions. We intercept and create it ourselves
+                        // with proper shared permissions before the Write tool executes.
+                        if (input.tool_name === "Write") {
+                          const toolInput =
+                            normalizedToolInput as ToolInputWithFilePath;
+                          const filePath = toolInput?.file_path;
+
+                          if (filePath && typeof filePath === "string") {
+                            try {
+                              const resolvedFilePath = path.resolve(filePath);
+                              const parentDir = path.dirname(resolvedFilePath);
+
+                              // Check if directory needs to be created
+                              if (!fs.existsSync(parentDir)) {
+                                // Only create if within allowed root
+                                if (this.isPathInsideAllowedRoot(parentDir)) {
+                                  this.logger.info(
+                                    "Pre-creating directory for Write tool with correct permissions",
+                                    {
+                                      filePath: resolvedFilePath,
+                                      parentDir,
+                                    },
+                                  );
+
+                                  // Create directory recursively with shared permissions
+                                  fs.mkdirSync(parentDir, {
+                                    recursive: true,
+                                    mode: this.sharedDirMode,
+                                  });
+
+                                  // Apply shared permissions recursively to ensure all parent dirs
+                                  // get proper group ownership (mkdirSync mode doesn't set group)
+                                  this.applySharedPermissionsRecursively(parentDir);
+
+                                  this.logger.info(
+                                    "Successfully pre-created directory with shared permissions",
+                                    { parentDir },
+                                  );
+                                }
+                              }
+                            } catch (dirError) {
+                              // Log but don't fail - let the Write tool attempt and handle errors
+                              this.logger.warn(
+                                "Failed to pre-create directory in PreToolUse hook",
+                                {
+                                  filePath,
+                                  error:
+                                    dirError instanceof Error
+                                      ? dirError.message
+                                      : String(dirError),
+                                },
+                              );
+                            }
+                          }
+                        }
+
                         // Send tool start event to WebSocket client
                         if (socket.readyState === WebSocket.OPEN) {
                           socket.send(
