@@ -120,7 +120,7 @@ export class CodeService {
   private readonly supabaseClientService: SupabaseClientService;
   private readonly toolPermissionService: ToolPermissionService;
   private readonly sandboxService: SandboxService;
-  private publicApiService: any = null; // Will be set after construction to avoid circular dependency
+  private publicApiService: { restartDevServerInternal: (logger: SystemLogger) => Promise<void> } | null = null; // Will be set after construction to avoid circular dependency
   private sessionState: CodeSessionState = {
     sessionId: null,
     prototypeChatSessionId: null,
@@ -216,7 +216,7 @@ export class CodeService {
     return this.orchestrationToken;
   }
 
-  public setPublicApiService(publicApiService: any): void {
+  public setPublicApiService(publicApiService: { restartDevServerInternal: (logger: SystemLogger) => Promise<void> }): void {
     this.publicApiService = publicApiService;
     this.logger.info("PublicApiService reference set for MCP tools");
   }
@@ -1033,11 +1033,11 @@ export class CodeService {
               },
               // Restart dev server callback for npm install
               this.publicApiService
-                ? async () => {
+                ? async (): Promise<void> => {
                     this.logger.info(
                       "Restarting dev server after npm install via MCP tool",
                     );
-                    await this.publicApiService.restartDevServerInternal(
+                    await this.publicApiService!.restartDevServerInternal(
                       this.logger,
                     );
                   }
