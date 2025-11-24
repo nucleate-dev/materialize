@@ -181,7 +181,7 @@ export class CodeService {
 
       if (!isNaN(gid)) {
         this.materializeUserGid = gid;
-        this.logger.info("Found materialize-user GID", {
+        this.logger.consoleLogDevOnly("info", "Found materialize-user GID", {
           gid,
         });
       } else {
@@ -198,7 +198,7 @@ export class CodeService {
       );
     }
 
-    this.logger.info("CodeService initialized", {
+    this.logger.consoleLogDevOnly("info", "CodeService initialized", {
       workDir: this.workDir,
       allowedRoot: this.allowedRoot,
     });
@@ -216,7 +216,7 @@ export class CodeService {
 
   public setOrchestrationToken(token: string): void {
     this.orchestrationToken = token;
-    this.logger.info("Orchestration token set");
+    this.logger.consoleLogDevOnly("info", "Orchestration token set");
   }
 
   public getOrchestrationToken(): string | null {
@@ -229,46 +229,50 @@ export class CodeService {
   ): Promise<{ stdout: string; isError: boolean }> {
     try {
       let terminal_id: string | undefined = undefined;
+      let timeoutMs = 30000;
       if (
         command.includes("npm") ||
         command.includes("npx") ||
         command.includes("expo")
       ) {
+        timeoutMs = 120000;
         terminal_id = "dev-server";
         // Kill Expo process before running npm/npx/expo commands
         await this.expoDevServerService.killExpoProcess(this.logger);
-        // Wait for terminal to settle after kill signal
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        // Clear terminal buffer: send Ctrl+C, Ctrl+U, and Enter to ensure clean state
-        try {
-          // Ctrl+C to interrupt any running command
-          await this.sandboxService.sendTerminalInput(terminal_id, "\x03");
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          // Ctrl+U to clear the input line
-          await this.sandboxService.sendTerminalInput(terminal_id, "\x15");
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          // Enter to execute empty line and get fresh prompt
-          await this.sandboxService.sendTerminalInput(terminal_id, "\n");
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        } catch {
-          // Terminal might not exist yet, which is fine
-          this.logger.debug("Could not clear terminal buffer", {
-            terminal_id,
-          });
-        }
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // wait for expo process to be killed
       }
       const { response } = await this.sandboxService.runCommandInternal({
         command,
         args,
         cwd: this.workDir,
         session_id: terminal_id,
-        timeout_ms: 120000,
+        timeout_ms: timeoutMs,
         strip_ansi: true,
       });
+
+      if (
+        command.includes("npm") ||
+        command.includes("npx") ||
+        command.includes("expo")
+      ) {
+        await this.expoDevServerService.startExpoProcessForMCPTool(this.logger);
+      }
 
       if (response.status === "success") {
         return {
           stdout: response.stdout || "Command executed successfully",
+          isError: false,
+        };
+      } else if (response.status === "timeout") {
+        this.logger.warn(
+          "Terminal command timed out in MCP executeSandboxCommand tool",
+          {
+            command,
+            args,
+          },
+        );
+        return {
+          stdout: response.stdout || "Command timed out",
           isError: false,
         };
       }
@@ -538,10 +542,14 @@ export class CodeService {
     const { prototypeId } = req.params;
     const connectionId = `${prototypeId}-${Date.now()}`;
 
-    this.logger.info("Claude Code WebSocket connection established", {
-      prototypeId,
-      connectionId,
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Claude Code WebSocket connection established",
+      {
+        prototypeId,
+        connectionId,
+      },
+    );
 
     const heartbeat = setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) {
@@ -613,12 +621,16 @@ export class CodeService {
     });
 
     socket.on("close", (code: number, reason: Buffer) => {
-      this.logger.info("Claude Code WebSocket connection closed", {
-        prototypeId,
-        connectionId,
-        code,
-        reason: reason.toString(),
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Claude Code WebSocket connection closed",
+        {
+          prototypeId,
+          connectionId,
+          code,
+          reason: reason.toString(),
+        },
+      );
       this.cleanupConnection(connectionId);
     });
 
@@ -683,7 +695,7 @@ export class CodeService {
     const options = (data.options ?? {}) as Options;
 
     // Log all incoming parameters for debugging
-    this.logger.info("handleQuery received parameters", {
+    this.logger.consoleLogDevOnly("info", "handleQuery received parameters", {
       prototypeId,
       session_id: ai_chat_session_id,
       chat_session_id: prototype_chat_session_id,
@@ -724,9 +736,13 @@ export class CodeService {
         this.fileSyncService.setSupabaseClient(
           this.supabaseClientService.getClient(),
         );
-        this.logger.info("Refreshed Supabase client with JWT token", {
-          prototypeId,
-        });
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Refreshed Supabase client with JWT token",
+          {
+            prototypeId,
+          },
+        );
       } catch (error) {
         this.logger.error(
           error instanceof Error ? error : new Error(String(error)),
@@ -748,11 +764,15 @@ export class CodeService {
     // The client manages chat sessions and always provides the correct ID
     if (prototype_chat_session_id) {
       this.sessionState.prototypeChatSessionId = prototype_chat_session_id;
-      this.logger.info("Using chat session ID from client", {
-        chatSessionId: prototype_chat_session_id,
-        claudeCodeSessionId: ai_chat_session_id,
-        prototypeId,
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Using chat session ID from client",
+        {
+          chatSessionId: prototype_chat_session_id,
+          claudeCodeSessionId: ai_chat_session_id,
+          prototypeId,
+        },
+      );
     } else {
       this.logger.warn("No chat_session_id provided by client", {
         prototypeId,
@@ -764,7 +784,8 @@ export class CodeService {
     // If client explicitly passes null session_id, it wants to start a NEW session
     // Clear internal session state to force Claude to create a fresh session
     if (ai_chat_session_id === null) {
-      this.logger.info(
+      this.logger.consoleLogDevOnly(
+        "info",
         "Client requested new session - clearing internal state",
         {
           previousSessionId: this.sessionState.sessionId,
@@ -785,7 +806,7 @@ export class CodeService {
         // Clear design system
         this.sessionState.designSystemId = null;
         this.sessionState.designSystemRules = null;
-        this.logger.info("Design system cleared");
+        this.logger.consoleLogDevOnly("info", "Design system cleared");
       } else {
         // Fetch new design system
         try {
@@ -826,7 +847,7 @@ export class CodeService {
       }
     }
 
-    this.logger.info("Starting Claude Code query", {
+    this.logger.consoleLogDevOnly("info", "Starting Claude Code query", {
       prototypeId,
       hasSession: !!this.sessionState.sessionId,
       hasPrompt: !!prompt,
@@ -887,13 +908,6 @@ export class CodeService {
         });
         return;
       }
-
-      this.logger.info("Credit check passed", {
-        userId: user.id,
-        prototypeId,
-        remaining: creditCheck.remaining,
-        plan: creditCheck.plan,
-      });
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -1016,9 +1030,13 @@ export class CodeService {
           ?.__historyContext as string | undefined;
         if (historyContext) {
           systemPromptAppend += historyContext;
-          this.logger.info("Injected history context into system prompt", {
-            contextLength: historyContext.length,
-          });
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Injected history context into system prompt",
+            {
+              contextLength: historyContext.length,
+            },
+          );
         }
 
         const canUseTool: CanUseTool = async (
@@ -1062,13 +1080,6 @@ export class CodeService {
               async (command, args) => {
                 return this.executeSandboxCommand(command, args);
               },
-              // Restart dev server callback for npm install
-              async (): Promise<void> => {
-                this.logger.info(
-                  "Restarting dev server after npm install via MCP tool",
-                );
-                await this.expoDevServerService.restartDevServer(this.logger);
-              },
               // Write file callback
               async (filePath: string, content: string) => {
                 try {
@@ -1080,12 +1091,16 @@ export class CodeService {
                   );
                   const filename = path.basename(resolvedPath);
 
-                  this.logger.info("MCP Write tool: writing file", {
-                    filePath,
-                    resolvedPath,
-                    relativePath,
-                    filename,
-                  });
+                  this.logger.consoleLogDevOnly(
+                    "info",
+                    "MCP Write tool: writing file",
+                    {
+                      filePath,
+                      resolvedPath,
+                      relativePath,
+                      filename,
+                    },
+                  );
 
                   // Use SandboxService's writeFile method
                   const result = await this.sandboxService.writeFile(
@@ -1176,7 +1191,8 @@ export class CodeService {
                           const rawFilePath = toolInput?.file_path;
 
                           if (rawFilePath && typeof rawFilePath === "string") {
-                            this.logger.info(
+                            this.logger.consoleLogDevOnly(
+                              "info",
                               `Got rawFilePath: ${rawFilePath ?? ""}`,
                             );
                             try {
@@ -1193,7 +1209,8 @@ export class CodeService {
                               if (!fs.existsSync(parentDir)) {
                                 // Only create if within allowed root
                                 if (this.isPathInsideAllowedRoot(parentDir)) {
-                                  this.logger.info(
+                                  this.logger.consoleLogDevOnly(
+                                    "info",
                                     "Pre-creating directory for Write tool with correct permissions",
                                     {
                                       rawPath: rawFilePath,
@@ -1214,7 +1231,8 @@ export class CodeService {
                                     parentDir,
                                   );
 
-                                  this.logger.info(
+                                  this.logger.consoleLogDevOnly(
+                                    "info",
                                     "Successfully pre-created directory with shared permissions",
                                     { parentDir },
                                   );
@@ -1342,7 +1360,8 @@ export class CodeService {
                             // Track for incremental sync (legacy mode)
                             if (!ENABLE_FULL_SYNC) {
                               this.sessionState.trackedFiles.add(relativePath);
-                              this.logger.info(
+                              this.logger.consoleLogDevOnly(
+                                "info",
                                 "File tracked for sync (incremental)",
                                 {
                                   tool: input.tool_name,
@@ -1417,7 +1436,7 @@ export class CodeService {
           ai_chat_session_id !== null &&
           ai_chat_session_id !== undefined
         ) {
-          this.logger.info(
+          this.logger.warn(
             "Invalid session ID detected - requesting history from client",
             {
               providedSessionId: ai_chat_session_id,
@@ -1441,7 +1460,7 @@ export class CodeService {
           queryOptions.resume = ai_chat_session_id;
         }
 
-        this.logger.info("Querying Claude Agent SDK", {
+        this.logger.consoleLogDevOnly("info", "Querying Claude Agent SDK", {
           hasResume: !!queryOptions.resume,
           resumeSessionId: queryOptions.resume,
           providedSessionId: ai_chat_session_id,
@@ -1477,11 +1496,15 @@ export class CodeService {
             // Add this session ID to our set of valid session IDs
             this.validAiChatSessionIds.add(msg.session_id);
 
-            this.logger.info("Claude Code session initialized", {
-              sessionId: msg.session_id,
-              isNewSession,
-              previousSessionId,
-            });
+            this.logger.consoleLogDevOnly(
+              "info",
+              "Claude Code session initialized",
+              {
+                sessionId: msg.session_id,
+                isNewSession,
+                previousSessionId,
+              },
+            );
 
             // Persist the newly created Claude session ID to the prototype chat session row
             if (this.sessionState.prototypeChatSessionId) {
@@ -1502,7 +1525,8 @@ export class CodeService {
                     },
                   );
                 } else {
-                  this.logger.info(
+                  this.logger.consoleLogDevOnly(
+                    "info",
                     "Updated prototype_chat_sessions with new Claude session_id",
                     {
                       chatSessionId: this.sessionState.prototypeChatSessionId,
@@ -1656,14 +1680,19 @@ export class CodeService {
 
         if (ENABLE_FULL_SYNC) {
           // Full sync strategy: Upload ALL files from workDir
-          this.logger.info("Syncing all files to Supabase (full sync)", {
-            prototypeId,
-          });
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Syncing all files to Supabase (full sync)",
+            {
+              prototypeId,
+            },
+          );
           syncResult =
             await this.fileSyncService.syncAllFilesToSupabase(prototypeId);
         } else {
           // Incremental sync strategy: Upload only tracked files
-          this.logger.info(
+          this.logger.consoleLogDevOnly(
+            "info",
             "Syncing file changes to Supabase (incremental sync)",
             {
               prototypeId,
@@ -1678,13 +1707,17 @@ export class CodeService {
         }
 
         if (syncResult.success) {
-          this.logger.info("File sync completed successfully", {
-            prototypeId,
-            filesUpdated: syncResult.filesUpdated,
-            filesDeleted: syncResult.filesDeleted,
-            assetsUpdated: syncResult.assetsUpdated,
-            assetsDeleted: syncResult.assetsDeleted,
-          });
+          this.logger.consoleLogDevOnly(
+            "info",
+            "File sync completed successfully",
+            {
+              prototypeId,
+              filesUpdated: syncResult.filesUpdated,
+              filesDeleted: syncResult.filesDeleted,
+              assetsUpdated: syncResult.assetsUpdated,
+              assetsDeleted: syncResult.assetsDeleted,
+            },
+          );
 
           // Clear tracked files after successful sync
           this.sessionState.trackedFiles.clear();
@@ -1786,7 +1819,7 @@ export class CodeService {
           const creditsUsed =
             totalCostUsd !== undefined ? totalCostUsd / 0.12 : 1.0;
 
-          this.logger.info("Tracking API usage", {
+          this.logger.consoleLogDevOnly("info", "Tracking API usage", {
             userId: user.id,
             prototypeId,
             totalCostUsd,
@@ -1810,13 +1843,17 @@ export class CodeService {
             },
           });
 
-          this.logger.info("API usage tracked successfully", {
-            userId: user.id,
-            prototypeId,
-            totalCostUsd,
-            creditsUsed,
-            totalRemainingCredits,
-          });
+          this.logger.consoleLogDevOnly(
+            "info",
+            "API usage tracked successfully",
+            {
+              userId: user.id,
+              prototypeId,
+              totalCostUsd,
+              creditsUsed,
+              totalRemainingCredits,
+            },
+          );
         }
       } catch (usageError) {
         // Log but don't fail the session if usage tracking fails
@@ -1844,10 +1881,14 @@ export class CodeService {
   ): Promise<void> {
     const { historical_messages, original_query } = data;
 
-    this.logger.info("Received history response from client", {
-      messageCount: historical_messages.length,
-      prototypeId,
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Received history response from client",
+      {
+        messageCount: historical_messages.length,
+        prototypeId,
+      },
+    );
 
     // Format historical messages for system prompt
     let historyContext = "";
@@ -1861,12 +1902,13 @@ export class CodeService {
 
       historyContext = `\n\n## Previous Conversation Context:\n${formattedMessages}\n\n---\n\nThe above is context from a previous session. Continue the conversation naturally.`;
 
-      this.logger.info("Formatted history context", {
+      this.logger.consoleLogDevOnly("info", "Formatted history context", {
         contextLength: historyContext.length,
         messageCount: historical_messages.length,
       });
     } else {
-      this.logger.info(
+      this.logger.consoleLogDevOnly(
+        "info",
         "No historical messages provided - starting fresh session",
       );
     }
@@ -1893,11 +1935,15 @@ export class CodeService {
   ): Promise<void> {
     const options = (data.options ?? {}) as Options;
 
-    this.logger.info("Processing query with history context", {
-      prototypeId,
-      hasHistoryContext: historyContext.length > 0,
-      historyContextLength: historyContext.length,
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Processing query with history context",
+      {
+        prototypeId,
+        hasHistoryContext: historyContext.length > 0,
+        historyContextLength: historyContext.length,
+      },
+    );
 
     // For queries with history, we always start a fresh session (don't try to resume)
     // The history context provides continuity instead of session resumption
@@ -1924,7 +1970,7 @@ export class CodeService {
   }
 
   private async handleInterrupt(socket: WebSocket): Promise<void> {
-    this.logger.info("Interrupt requested", {
+    this.logger.consoleLogDevOnly("info", "Interrupt requested", {
       sessionId: this.sessionState.sessionId,
       hasAbortController: !!this.sessionState.abortController,
     });
@@ -1935,7 +1981,10 @@ export class CodeService {
         this.sessionState.abortController.abort();
         this.sessionState.abortController = null;
 
-        this.logger.info("Claude Code query interrupted successfully");
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Claude Code query interrupted successfully",
+        );
 
         // Persist interrupt event to database
         await this.persistMessage(
@@ -1978,7 +2027,7 @@ export class CodeService {
   }
 
   private async handleResetSession(socket: WebSocket): Promise<void> {
-    this.logger.info("Resetting Claude Code session", {
+    this.logger.consoleLogDevOnly("info", "Resetting Claude Code session", {
       oldSessionId: this.sessionState.sessionId,
     });
 
@@ -2012,12 +2061,11 @@ export class CodeService {
     });
   }
 
+  // TODO: seems like we should be using the existing fileSyncService to handle this
   private async handleSyncFiles(
     socket: WebSocket,
     data: SyncFilesRequest,
   ): Promise<void> {
-    this.logger.info("Sync files requested", { data });
-
     try {
       const syncData = data ?? {};
 
@@ -2029,6 +2077,10 @@ export class CodeService {
             message: "prototypeId is required for file sync",
           },
         });
+        this.logger.error(
+          new Error("prototypeId is required for file sync"),
+          "prototypeId is required for file sync",
+        );
         return;
       }
 
@@ -2039,7 +2091,7 @@ export class CodeService {
       // Determine if we're syncing all or specific files
       const syncAll = filenames.length === 0 && assetNames.length === 0;
 
-      this.logger.info("Starting file sync", {
+      this.logger.consoleLogDevOnly("info", "Starting file sync", {
         prototypeId,
         syncAll,
         filenamesCount: filenames.length,
@@ -2053,12 +2105,6 @@ export class CodeService {
         try {
           this.supabaseClientService.refreshClientWithToken(token);
           supabase = this.supabaseClientService.getClient();
-          this.logger.info(
-            "Using JWT-authenticated Supabase client for file sync",
-            {
-              prototypeId,
-            },
-          );
         } catch (error) {
           const errorMsg = "Failed to create authenticated Supabase client";
           this.logger.error(
@@ -2112,6 +2158,7 @@ export class CodeService {
       }));
 
       this.logger.info("Fetched files from Supabase", {
+        function: "handleSyncFiles",
         fileCount: files.length,
       });
 
@@ -2144,6 +2191,7 @@ export class CodeService {
 
       this.logger.info("Fetched assets from Supabase", {
         assetCount: assetsData?.length || 0,
+        function: "handleSyncFiles",
       });
 
       // Download assets from Supabase storage and convert to base64
@@ -2185,6 +2233,7 @@ export class CodeService {
 
       this.logger.info("Downloaded assets from Supabase storage", {
         downloadedCount: assetsWithContent.length,
+        function: "handleSyncFiles",
       });
 
       // Write files and assets to disk
@@ -2193,6 +2242,7 @@ export class CodeService {
       this.logger.info("File sync completed successfully", {
         filesCount: files.length,
         assetsCount: assetsWithContent.length,
+        function: "handleSyncFiles",
       });
 
       // Send success response
@@ -2270,7 +2320,11 @@ export class CodeService {
           timeout: 5000,
         },
       );
-      this.logger.info("Notified control plane of chat start", { prototypeId });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Notified control plane of chat start",
+        { prototypeId },
+      );
     } catch (error) {
       const axiosError = axios.isAxiosError(error) ? error : null;
       this.logger.error(
@@ -2328,10 +2382,14 @@ export class CodeService {
             timeout: 5000,
           },
         );
-        this.logger.info("Notified control plane of chat end", {
-          prototypeId,
-          attempt,
-        });
+        this.logger.consoleLogDevOnly(
+          "info",
+          "Notified control plane of chat end",
+          {
+            prototypeId,
+            attempt,
+          },
+        );
         return; // Success - exit the function
       } catch (error) {
         const axiosError = axios.isAxiosError(error) ? error : null;
@@ -2375,10 +2433,14 @@ export class CodeService {
     for (const sessionId of sessionIds) {
       this.validAiChatSessionIds.add(sessionId);
     }
-    this.logger.info("Registered valid session IDs from restored sessions", {
-      count: sessionIds.length,
-      sessionIds,
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Registered valid session IDs from restored sessions",
+      {
+        count: sessionIds.length,
+        sessionIds,
+      },
+    );
   }
 
   /**
@@ -2455,11 +2517,15 @@ export class CodeService {
     images: Array<{ base64: string; mediaType: string }>,
   ): Promise<void> {
     try {
-      this.logger.info("Uploading chat images to storage", {
-        prototypeId,
-        chatSessionId,
-        imageCount: images.length,
-      });
+      this.logger.consoleLogDevOnly(
+        "info",
+        "Uploading chat images to storage",
+        {
+          prototypeId,
+          chatSessionId,
+          imageCount: images.length,
+        },
+      );
 
       const uploadedImageMetadata: Array<{
         storage_path: string;
@@ -2547,14 +2613,18 @@ export class CodeService {
             throw updateError;
           }
 
-          this.logger.info("Updated user message with image metadata", {
-            messageId,
-            imageCount: uploadedImageMetadata.length,
-          });
+          this.logger.consoleLogDevOnly(
+            "info",
+            "Updated user message with image metadata",
+            {
+              messageId,
+              imageCount: uploadedImageMetadata.length,
+            },
+          );
         }
       }
 
-      this.logger.info("Chat images upload completed", {
+      this.logger.consoleLogDevOnly("info", "Chat images upload completed", {
         prototypeId,
         chatSessionId,
         successCount: uploadedImageMetadata.length,
@@ -2580,7 +2650,7 @@ export class CodeService {
       this.sessionState.fileWatcher.close();
     }
 
-    this.logger.info("Starting file system watcher", {
+    this.logger.consoleLogDevOnly("info", "Starting file system watcher", {
       workDir: this.workDir,
     });
 
@@ -2663,7 +2733,7 @@ export class CodeService {
 
       // Log when watcher is ready
       watcher.on("ready", () => {
-        this.logger.info("File system watcher ready", {
+        this.logger.consoleLogDevOnly("info", "File system watcher ready", {
           workDir: this.workDir,
         });
       });
@@ -2687,14 +2757,17 @@ export class CodeService {
     }
 
     try {
-      this.logger.info("Stopping file system watcher", {
+      this.logger.consoleLogDevOnly("info", "Stopping file system watcher", {
         trackedFilesCount: this.sessionState.trackedFiles.size,
       });
 
       await this.sessionState.fileWatcher.close();
       this.sessionState.fileWatcher = null;
 
-      this.logger.info("File system watcher stopped successfully");
+      this.logger.consoleLogDevOnly(
+        "info",
+        "File system watcher stopped successfully",
+      );
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),

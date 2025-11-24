@@ -135,7 +135,7 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(this.workDir, relativePath);
 
-      this.log2.info("Creating directory", {
+      this.log2.consoleLogDevOnly("info", "Creating directory", {
         path: relativePath,
         resolvedPath,
         recursive,
@@ -143,7 +143,9 @@ export class SandboxService {
 
       await fs.mkdir(resolvedPath, { recursive });
 
-      this.log2.info("Directory created successfully", { path: relativePath });
+      this.log2.consoleLogDevOnly("info", "Directory created successfully", {
+        path: relativePath,
+      });
       return { success: true };
     } catch (error: unknown) {
       const errorMessage =
@@ -180,7 +182,9 @@ export class SandboxService {
     if (session_id) {
       // Use existing session
       sessionId = session_id;
-      this.log2.info("Using existing terminal session", { sessionId });
+      this.log2.consoleLogDevOnly("info", "Using existing terminal session", {
+        sessionId,
+      });
     } else {
       // Create new temporary session
       sessionId = `temp-${Date.now()}`;
@@ -189,7 +193,11 @@ export class SandboxService {
           cwd: cwd || this.workDir,
         });
         shouldCleanupSession = true;
-        this.log2.info("Created temporary terminal session", { sessionId });
+        this.log2.consoleLogDevOnly(
+          "info",
+          "Created temporary terminal session",
+          { sessionId },
+        );
 
         // Give the PTY time to fully initialize before writing to it
         // This prevents "PTY exited immediately after spawn" errors
@@ -227,20 +235,21 @@ export class SandboxService {
       const cwdPrefix = cwd ? `cd ${cwd} && ` : "";
       const fullCommand = `${envString ? envString + " " : ""}${cwdPrefix}${command}${argsString}`;
 
-      this.log2.info("Executing command in terminal", {
+      this.log2.consoleLogDevOnly("info", "Executing command in terminal", {
         command: fullCommand,
         sessionId,
         timeoutMs,
       });
 
       // Use asyncSendInput which handles command completion detection
-      const result = await this.terminalService.asyncSendInput(
-        sessionId,
-        fullCommand,
-        {
-          timeout: timeoutMs,
-        },
-      );
+      const result =
+        await this.terminalService.asyncSendInputWithCompletionDetectionOrTimeout(
+          sessionId,
+          fullCommand,
+          {
+            timeout: timeoutMs,
+          },
+        );
 
       let cleanOutput = result.output;
 
@@ -249,7 +258,7 @@ export class SandboxService {
         cleanOutput = this.stripAnsiSequences(cleanOutput);
       }
 
-      this.log2.info("Command completed successfully", {
+      this.log2.consoleLogDevOnly("info", "Command completed successfully", {
         command,
         sessionId,
         exitCode: result.exitCode,
@@ -275,7 +284,6 @@ export class SandboxService {
           response: {
             status: "timeout",
             stdout: cleanOutput,
-            // exit_code: result.exitCode,
           },
           httpStatus,
         };
@@ -328,7 +336,11 @@ export class SandboxService {
     input: string,
     timeout?: number,
   ): Promise<{ output: string; exitCode: number }> {
-    return this.terminalService.asyncSendInput(sessionId, input, { timeout });
+    return this.terminalService.asyncSendInputWithCompletionDetectionOrTimeout(
+      sessionId,
+      input,
+      { timeout },
+    );
   }
 
   private async runCommandRoute(
@@ -352,7 +364,10 @@ export class SandboxService {
       // Security: Validate path is within workDir
       const resolvedPath = resolvePathWithinProject(this.workDir, relativePath);
 
-      this.log2.info("Reading file", { path: relativePath, resolvedPath });
+      this.log2.consoleLogDevOnly("info", "Reading file", {
+        path: relativePath,
+        resolvedPath,
+      });
 
       // Check file size first to prevent memory exhaustion
       const stats = await fs.stat(resolvedPath);
@@ -375,14 +390,14 @@ export class SandboxService {
       if (isBinary) {
         // Base64 encode binary files
         contents = buffer.toString("base64");
-        this.log2.info("File read successfully (binary)", {
+        this.log2.consoleLogDevOnly("info", "File read successfully (binary)", {
           path: relativePath,
           size: stats.size,
         });
       } else {
         // Return text files as UTF-8
         contents = buffer.toString("utf-8");
-        this.log2.info("File read successfully (text)", {
+        this.log2.consoleLogDevOnly("info", "File read successfully (text)", {
           path: relativePath,
           size: stats.size,
         });
@@ -427,7 +442,7 @@ export class SandboxService {
         fullRelativePath,
       );
 
-      this.log2.info("Writing file", {
+      this.log2.consoleLogDevOnly("info", "Writing file", {
         path: fullRelativePath,
         resolvedPath,
         contentLength: contents.length,
@@ -440,7 +455,9 @@ export class SandboxService {
       // Write file
       await fs.writeFile(resolvedPath, contents, "utf-8");
 
-      this.log2.info("File written successfully", { path: fullRelativePath });
+      this.log2.consoleLogDevOnly("info", "File written successfully", {
+        path: fullRelativePath,
+      });
       return { success: true };
     } catch (error: unknown) {
       const errorMessage =
@@ -492,7 +509,7 @@ export class SandboxService {
         resolvedPath = resolvePathWithinProject(this.workDir, repoName);
       }
 
-      this.log2.info("Cloning git repository", {
+      this.log2.consoleLogDevOnly("info", "Cloning git repository", {
         gitUrl,
         targetPath: resolvedPath,
       });
@@ -501,7 +518,7 @@ export class SandboxService {
       const result = await this.executeGitClone(gitUrl, resolvedPath);
 
       if (result.code === 0) {
-        this.log2.info("Git clone successful", {
+        this.log2.consoleLogDevOnly("info", "Git clone successful", {
           gitUrl,
           targetPath: resolvedPath,
         });

@@ -18,20 +18,21 @@ export type FileWriter = (
 
 // Import TerminalService type
 export type TerminalServiceInstance = {
-  getSession: (sessionId: string) => {
-    id: string;
-    state: string;
-    buffer: Array<{
-      type: string;
-      payload: { [key: string]: unknown };
-      timestamp: number;
-    }>;
-  } | undefined;
+  getSession: (sessionId: string) =>
+    | {
+        id: string;
+        state: string;
+        buffer: Array<{
+          type: string;
+          payload: { [key: string]: unknown };
+          timestamp: number;
+        }>;
+      }
+    | undefined;
 };
 
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
-  restartDevServer?: DevServerRestartCallback,
   writeFile?: FileWriter,
   terminalService?: TerminalServiceInstance,
 ): ReturnType<typeof createSdkMcpServer> {
@@ -114,34 +115,6 @@ export function createDevelopmentToolsMcpServer(
             };
           }
 
-          // After successful npm install, restart the dev server to pick up new dependencies
-          if (restartDevServer) {
-            try {
-              await restartDevServer();
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `${result.stdout}\n\n✓ Dev server restarted successfully to pick up new dependencies.`,
-                  },
-                ],
-              };
-            } catch (restartError) {
-              const errorMessage =
-                restartError instanceof Error
-                  ? restartError.message
-                  : String(restartError);
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `${result.stdout}\n\n⚠ Warning: Failed to restart dev server: ${errorMessage}\nYou may need to manually restart the dev server for changes to take effect.`,
-                  },
-                ],
-              };
-            }
-          }
-
           return { content: [{ type: "text", text: result.stdout }] };
         },
       ),
@@ -218,7 +191,9 @@ export function createDevelopmentToolsMcpServer(
           lines: z
             .number()
             .optional()
-            .describe("Number of recent output lines to retrieve (default: 20)"),
+            .describe(
+              "Number of recent output lines to retrieve (default: 20)",
+            ),
         },
         async ({ lines }) => {
           if (!terminalService) {
@@ -273,8 +248,13 @@ export function createDevelopmentToolsMcpServer(
             }
           }
 
+          // Strip ANSI escape sequences
+          const ANSI_REGEX =
+            /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><~])/g;
+          const cleanOutput = allOutput.replace(ANSI_REGEX, "");
+
           // Split by newlines and get last N lines
-          const allLines = allOutput.split("\n");
+          const allLines = cleanOutput.split("\n");
           const lastNLines = allLines.slice(-linesToRetrieve);
           const result = lastNLines.join("\n");
 

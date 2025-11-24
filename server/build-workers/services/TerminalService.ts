@@ -26,7 +26,8 @@ import {
 
 const TERMINAL_BUFFER_LIMIT = 5000;
 const HEARTBEAT_INTERVAL_MS = 15000;
-const LAUNCH_TERMINALS_AS_ROOT = true;
+const LAUNCH_TEST_TERMINAL_AS_ROOT =
+  true && process.env.NODE_ENV === "development";
 
 export type TerminalRuntimeState = "running" | "exited" | "closed";
 
@@ -98,14 +99,15 @@ export class TerminalService {
       process.env.TERMINAL_GROUP,
     );
     if (this.terminalUserIdentity) {
-      this.logger.info(
+      this.logger.consoleLogDevOnly(
+        "info",
         "Terminal sessions configured to drop privileges (except test terminal if LAUNCH_TERMINALS_AS_ROOT=true)",
         {
           username: this.terminalUserIdentity.username,
           uid: this.terminalUserIdentity.uid,
           gid: this.terminalUserIdentity.gid,
           homeDir: this.terminalUserIdentity.homeDir,
-          testTerminalAsRoot: LAUNCH_TERMINALS_AS_ROOT,
+          testTerminalAsRoot: LAUNCH_TEST_TERMINAL_AS_ROOT,
         },
       );
     } else {
@@ -115,7 +117,7 @@ export class TerminalService {
       );
     }
 
-    if (LAUNCH_TERMINALS_AS_ROOT) {
+    if (LAUNCH_TEST_TERMINAL_AS_ROOT) {
       this.logger.warn(
         "Test terminal will run as root (LAUNCH_TERMINALS_AS_ROOT=true)",
       );
@@ -147,7 +149,10 @@ export class TerminalService {
 
     // Every build worker is instantiated with three pre-configured terminals.
     // These terminals live throughout the entire lifecycle of the container.
-    this.logger.info("Creating pre-configured terminal sessions");
+    this.logger.consoleLogDevOnly(
+      "info",
+      "Creating pre-configured terminal sessions",
+    );
 
     try {
       // Use -i for interactive mode to keep bash alive
@@ -183,10 +188,14 @@ export class TerminalService {
       );
     }
 
-    this.logger.info("TerminalService initialization complete", {
-      sessionsCreated: this.sessions.size,
-      sessionIds: Array.from(this.sessions.keys()),
-    });
+    this.logger.consoleLogDevOnly(
+      "info",
+      "TerminalService initialization complete",
+      {
+        sessionsCreated: this.sessions.size,
+        sessionIds: Array.from(this.sessions.keys()),
+      },
+    );
   }
 
   public registerRoutes(): void {
@@ -314,13 +323,13 @@ export class TerminalService {
       // 2. Either this is NOT the "test" terminal OR LAUNCH_TERMINALS_AS_ROOT is false
       const shouldDropPrivileges =
         this.terminalUserIdentity &&
-        (sessionId !== "test" || !LAUNCH_TERMINALS_AS_ROOT);
+        (sessionId !== "test" || !LAUNCH_TEST_TERMINAL_AS_ROOT);
 
       if (shouldDropPrivileges) {
         const unixOptions = spawnOptions as IPtyForkOptions;
         unixOptions.uid = this.terminalUserIdentity.uid;
         unixOptions.gid = this.terminalUserIdentity.gid;
-      } else if (sessionId === "test" && LAUNCH_TERMINALS_AS_ROOT) {
+      } else if (sessionId === "test" && LAUNCH_TEST_TERMINAL_AS_ROOT) {
         this.logger.info(
           "Launching test terminal as root (LAUNCH_TERMINALS_AS_ROOT=true)",
           {
@@ -450,7 +459,7 @@ export class TerminalService {
     }
   }
 
-  public async asyncSendInput(
+  public async asyncSendInputWithCompletionDetectionOrTimeout(
     sessionId: string,
     input: string,
     options: { timeout?: number } = {},
@@ -1090,7 +1099,7 @@ export class TerminalService {
     req: FastifyRequest,
   ): void {
     const { sessionId } = req.params as { sessionId: string };
-    this.logger.info("handleWebSocketConnection", {
+    this.logger.consoleLogDevOnly("info", "handleWebSocketConnection", {
       sessionId,
     });
     // Attach the WebSocket to the session
