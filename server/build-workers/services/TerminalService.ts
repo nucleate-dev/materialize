@@ -450,7 +450,7 @@ export class TerminalService {
     }
   }
 
-  public async asyncSendInput(
+  public async asyncSendInputWithCompletionDetectionOrTimeout(
     sessionId: string,
     input: string,
     options: { timeout?: number } = {},

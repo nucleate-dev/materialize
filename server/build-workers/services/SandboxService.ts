@@ -234,13 +234,14 @@ export class SandboxService {
       });
 
       // Use asyncSendInput which handles command completion detection
-      const result = await this.terminalService.asyncSendInput(
-        sessionId,
-        fullCommand,
-        {
-          timeout: timeoutMs,
-        },
-      );
+      const result =
+        await this.terminalService.asyncSendInputWithCompletionDetectionOrTimeout(
+          sessionId,
+          fullCommand,
+          {
+            timeout: timeoutMs,
+          },
+        );
 
       let cleanOutput = result.output;
 
@@ -328,7 +329,11 @@ export class SandboxService {
     input: string,
     timeout?: number,
   ): Promise<{ output: string; exitCode: number }> {
-    return this.terminalService.asyncSendInput(sessionId, input, { timeout });
+    return this.terminalService.asyncSendInputWithCompletionDetectionOrTimeout(
+      sessionId,
+      input,
+      { timeout },
+    );
   }
 
   private async runCommandRoute(
