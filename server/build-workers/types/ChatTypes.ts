@@ -134,6 +134,7 @@ export interface QueryCompleteMessage {
 export interface UsageUpdateMessage {
   type: ChatEvent.USAGE_UPDATE;
   data: {
+    creditsUsed: number;
     creditsRemaining: number;
   };
 }

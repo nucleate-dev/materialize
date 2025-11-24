@@ -1799,6 +1799,7 @@ export class CodeService {
           this.sendMessage(socket, {
             type: ChatEvent.USAGE_UPDATE,
             data: {
+              creditsUsed: creditsUsed,
               creditsRemaining: totalRemainingCredits,
             },
           });

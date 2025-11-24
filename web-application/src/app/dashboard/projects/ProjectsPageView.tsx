@@ -7,7 +7,7 @@ import PrototypeThumbnail from "@/components/dashboard/PrototypeThumbnail";
 import PrototypeThumbnailSkeleton from "@/components/dashboard/PrototypeThumbnailSkeleton";
 import { Button } from "@/components/ui/button";
 import { User } from "@supabase/supabase-js";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Prototype } from "./types";
 
 // --- Visual Background (Consistent across pages) ---
@@ -90,12 +90,12 @@ export default function ProjectsPageView({
 
           <div className="flex items-center gap-3 shrink-0">
             {/* Optional Visual Search (Non-functional in this view but good for UI consistency) */}
-            <div className="hidden md:flex relative group">
+            {/* <div className="hidden md:flex relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
               <div className="h-9 w-48 bg-accent/50 border border-border rounded-full text-sm flex items-center pl-9 text-muted-foreground/50 cursor-not-allowed">
                 Search projects...
               </div>
-            </div>
+            </div> */}
 
             <Button
               onClick={onOpenModal}
